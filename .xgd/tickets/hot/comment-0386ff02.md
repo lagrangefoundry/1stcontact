@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:41:59.822318+00:00'
+updated_at: '2026-08-31T20:43:00.353590+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2060,5 +2060,29 @@ Remaining unticketed: capture→ticket, `site_assets` migration, reference lifet
 <!-- xgd-chat role="user" ts="2026-08-31T20:41:59.682195+00:00" -->
 #### You
 Do we need a ticket for a blob store too, for that attachments?
+
+<!-- xgd-turn id="197e325a-8c65-4592-8cac-8c10b4f9d700-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:43:00.164941+00:00" -->
+#### Claude
+Partly — the port and its R2/fs/memory implementations landed with REQ-104, but nothing in 1stcontact *constructs* one. Let me check one thing that decides where it belongs:
+
+Confirmed the thing that decides it: **`public-site` — the publicly reachable Worker — binds the same `1stcontact-sites` bucket** that control-app uses.
+
+So no new ticket, but a real decision, and it belongs in REQ-162 rather than REQ-163: REQ-104's design has the store reject attachment ops at construction when no `BlobStore` is injected, so a store built without one is incomplete. Building it in REQ-162 and revisiting in REQ-163 would mean changing the construction twice.
+
+REQ-162 amended — it now has four deliverables rather than three, with the blob store as #3.
+
+The substance of the addition is a decision I'd have made wrongly by default: **attachment blobs get their own bucket, not a prefix inside `1stcontact-sites`.**
+
+The tempting design is one bucket keyed by prefix — DOC-12 §7 already does that for deployed output and draft assets, and it works. But `1stcontact-sites` is bound by `apps/public-site`, whose entire job is serving bytes to the public internet by path. Attachment blobs are the client's private material: brand guidelines, positioning papers, competitor captures. Put them in that bucket and only routing code stands between a confidential document and a public URL.
+
+It's the same shape as BUG-31, where a `--sandbox` deploy shared a keyspace with a real site and could overwrite its published bytes. The fix there was a prefix. Here a prefix isn't enough — the failure mode is disclosure rather than overwrite, and a prefix is a convention while a bucket boundary isn't.
+
+Keys stay `t/<tenant>/blob/<sha256>` inside it, per DOC-38 §7.2.
+
+Acceptance gained two lines: the bucket declared in both wrangler blocks with a UAT pinning the pair — matching how every other binding in that file is protected, since a named environment inherits neither vars nor bindings — and a store constructed without a `BlobStore` failing at construction rather than at first use.
+
+So: no new ticket, one decision recorded, and REQ-162 stays the root of the tree.
 
 <!-- xgd-chat-end -->
