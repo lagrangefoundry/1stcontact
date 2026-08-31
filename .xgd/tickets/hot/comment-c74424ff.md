@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:30:44.961306+00:00'
+updated_at: '2026-08-31T23:34:31.924863+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -243,5 +243,139 @@ For this application I will need to create a list of "entitled" email addresses.
 We will build an entitlement feature later connected to billing, but in the short term we should create the basic data model and give me access to edit it.
 
 Can you add this to what we are discussing and then walk me through the outstanding decisions needed to make this work
+
+<!-- xgd-turn id="e15be8d8-5dee-4822-9620-c74518e78b4e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T23:34:31.258447+00:00" -->
+#### Claude
+I'll re-check the current state of the repo before answering — a couple of weeks have passed since the last exchange.
+
+I've re-grounded on the code — a fair bit has landed since we last spoke, and it changes the answer materially.
+
+## What's true now that wasn't in August
+
+| | State |
+|---|---|
+| D1 | Live. `1stcontact` database, bound to both Workers, migrations at `db/migrations/` (3 applied) |
+| Ticket store | Landed (REQ-162) — `tickets`, `tenants`, `counters`, tenant-bound handles, R2 blobs |
+| **Access gate** | **Live.** `app.1stcontact.io` is behind Cloudflare Access, JWT re-verified inside the Worker (`access.ts`), fails closed |
+| webui | `fields`, `list-detail`, `split` all exist in lagrange-framework and are generic (fields explicitly "never calls XGD") |
+| Email delivery | Still nothing. CHAT-13's α/β/γ still unfiled |
+| Auth component | Doesn't exist |
+
+## The reframe: you already have login
+
+`access.ts` verifies a Cloudflare Access JWT and hands you a **verified email address**. Cloudflare Access includes a One-Time PIN identity provider out of the box — user types their email, gets a code, is in. That is functionally the magic link you were going to build, already deployed, already fail-closed, and it needs no email infrastructure of yours.
+
+So for onboarding in days, **do not build magic-link auth.** Build the *account model* on top of the identity Access already gives you, and swap the credential layer later. The schema below doesn't change when you do.
+
+Two honest caveats: the OTP email comes from Cloudflare, not from you (branding is theirs), and the Zero Trust free tier covers 50 seats. Both are fine for a pilot cohort, neither is fine for a consumer launch.
+
+## What you actually need
+
+Five pieces. Only one of them is login, and it isn't the hard one.
+
+**1. A user record.** Access proves identity per-request but stores nothing. You need a row: created, last seen, T&C acceptance. Provisioned just-in-time on first authenticated request from the verified claim.
+
+**2. An entitlement list.** The allowlist that decides who gets in. Recommendation: set the Access policy to *One-Time PIN, any email* (identity proof only) and make **your** `entitlements` table the authorisation decision. That puts the list in your admin UI where you asked for it, rather than in the Cloudflare dashboard, and it's the exact table billing hangs off later. A valid-token-but-not-entitled request gets a polite "you're not on the list yet" page.
+
+**3. T&C acceptance.** An interstitial after authentication, before the builder loads. Stamped with a terms *version*, not just a timestamp — otherwise you can never prove what they agreed to. This needs actual terms text, which is a content dependency, not a code one.
+
+**4. The admin console.** `webui/split` + `list-detail` + `fields`, over a small REST API. Cheap — the components are generic and already in the asset build (except `list-detail`, which needs adding to `1c assets`).
+
+**5. Per-user tenant resolution — and this is the big one.**
+
+Right now `TENANT_ID = "1stcontact"` is a *deployment-level var*. One Worker, one tenant. Onboard ten people and they all land in tenant `1stcontact` and see each other's sites. `store.ts` says this out loud in its own header comment: *"Deriving the tenant from the verified Access claims is where this ends up… Cross-tenant admin arrives with the ticket that needs it."*
+
+That ticket is now. It's the actual prerequisite for onboarding — not login. The good news on sizing: `env.TENANT_ID` is read in exactly four places (`store.ts`, `router.ts`, `knowledge.ts`, `ai.ts`) and everything downstream already takes a `tenantId` parameter. It's a `resolveTenant(env, identity)` function replacing four env reads, plus creating an account tenant at first login. Call it a day, not a week — but it's on the critical path and it's the thing most likely to bite.
+
+## The data model
+
+Migration `0004_identity.sql`, control-plane, beside `tenants`:
+
+```sql
+-- Who exists. Builder users live in tenant '1stcontact'; site visitors
+-- (later) live in the site owner's tenant. Same table, tenant-scoped —
+-- per the model you corrected me on in August.
+CREATE TABLE users (
+  id            TEXT PRIMARY KEY,
+  tenant_id     TEXT NOT NULL,
+  email         TEXT NOT NULL,          -- normalised: trimmed, lowercased
+  status        TEXT NOT NULL DEFAULT 'active',   -- active | suspended
+  display_name  TEXT,
+  tos_version   TEXT,                   -- null = not yet accepted
+  tos_accepted_at TEXT,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  last_seen_at  TEXT,
+  fields        TEXT NOT NULL DEFAULT '{}'
+);
+CREATE UNIQUE INDEX idx_users_tenant_email ON users (tenant_id, email);
+
+-- Who may get in, and on what terms. Billing hangs off this later.
+CREATE TABLE entitlements (
+  id          TEXT PRIMARY KEY,
+  tenant_id   TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  plan        TEXT NOT NULL DEFAULT 'preview',
+  note        TEXT,
+  granted_by  TEXT,
+  granted_at  TEXT NOT NULL,
+  expires_at  TEXT,
+  revoked_at  TEXT
+);
+CREATE UNIQUE INDEX idx_entitlements_tenant_email ON entitlements (tenant_id, email);
+
+-- Which account tenant(s) a builder user may administer. Cross-tenant by
+-- construction — a user in '1stcontact' operating tenant 'acct-xyz'.
+CREATE TABLE memberships (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL,
+  account_id  TEXT NOT NULL,            -- a tenants.id
+  role        TEXT NOT NULL,            -- owner | admin | support
+  granted_by  TEXT,
+  granted_at  TEXT NOT NULL,
+  expires_at  TEXT                      -- time-boxed support access
+);
+CREATE UNIQUE INDEX idx_memberships_user_account ON memberships (user_id, account_id);
+```
+
+Entitlement keyed on **email**, not `user_id`, deliberately — you need to entitle someone before they've ever logged in. That's the whole point of an invite list.
+
+Nothing here changes when you build your own magic link. You add `auth_tokens` and `sessions`; `users` is untouched. That's the property worth paying for now.
+
+## Candidate tickets, in dependency order
+
+| | Scope | Size |
+|---|---|---|
+| **A** | Migration 0004 + JIT user provisioning from the Access claim + entitlement gate + "not on the list" page | M |
+| **B** | Per-user tenant resolution: account tenant created at first login, membership row, `resolveTenant()` replacing the four `env.TENANT_ID` reads | M — **critical path** |
+| **C** | T&C interstitial: terms version constant, acceptance stamp, block builder until accepted | S |
+| **D** | Admin console: `/admin` route, users + entitlements 2-pane, REST API, admin gate, `list-detail` into the asset build | M |
+| **E** | *(later)* Own magic-link auth: email provider seam, sending domain, tokens, sessions — CHAT-13's β | L |
+
+A and B are the ones that must land before a stranger touches the builder. C is a legal requirement you'd rather not skip. D is for you, and could technically slip a week — though without it you're editing entitlements with `wrangler d1 execute`, which is survivable for three users and not for thirty.
+
+---
+
+## Outstanding decisions
+
+**1. Access policy: gate or identity-only?** My recommendation is identity-only (OTP, any email) with your `entitlements` table making the call — one list, editable by you. The trade: anyone worldwide can pass OTP and reach your Worker's entitlement check. Server-side denial is sound; you just lose the edge as a cost/DoS boundary. Alternative is belt-and-braces — keep a listed-emails Access policy *and* the table — at the cost of maintaining two lists during the pilot. Which?
+
+**2. Does each user get their own tenant?** I'm assuming yes: first login creates `acct-<id>`, a membership row makes them owner, and their sites live there. Confirm — because the alternative (everyone shares `1stcontact`) means pilot users can see each other's work, and I don't think you want that with external people.
+
+**3. Where do *you* live?** You're a user in tenant `1stcontact` who needs to reach every account tenant. Time-boxed `support` membership rows (auditable, expiring), or a `platform_admin` flag on your user row (one day less work, ambient)? I'd take the membership rows — you'll be opening customer accounts to debug within a fortnight of onboarding, and an ambient flag makes that invisible.
+
+**4. Who can reach `/admin`?** A `PLATFORM_ADMINS` env var listing emails is simplest and has no bootstrapping problem. A DB column needs a first row set by hand anyway. Env var?
+
+**5. Does the pilot need site *creation*?** Login gets someone through the door into an empty tenant. Is there a path from "new user, no sites" to "a site to edit"? If not, that's a sixth ticket and possibly bigger than any of the above. What's your assumption — do you hand-create their first site, or do they?
+
+**6. T&C text.** Does it exist? If not it's a blocker on C and it's not something I can generate for you. Version string can be a date (`2026-09-01`).
+
+**7. Contacts ≡ users — still agreed?** Nothing here forces it yet, but it decides whether CRM-lite's contacts are more rows in this table (tenant-scoped, auth fields null) or a separate one. My August recommendation stands: same table. Worth confirming while the schema is unwritten rather than after.
+
+**8. File CHAT-13's α/β/γ now, or when you need them?** β (email delivery) is no longer on the critical path given Access does the OTP. But you'll want it for anything transactional — invites, notifications, and eventually your own magic link. I'd file it as a known-next rather than build it.
+
+Give me calls on 1–7 and I'll write the tickets.
 
 <!-- xgd-chat-end -->
