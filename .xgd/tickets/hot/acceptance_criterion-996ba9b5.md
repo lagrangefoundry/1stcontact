@@ -6,10 +6,10 @@ title: The automation identity is provisioned by a documented command that persi
   no secret
 created_by: xgd
 created_at: '2026-08-31T17:03:19.759168+00:00'
-updated_at: '2026-08-31T17:03:19.759168+00:00'
+updated_at: '2026-08-31T17:13:35.421329+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
