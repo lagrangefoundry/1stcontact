@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:37:41.715551+00:00'
+updated_at: '2026-08-31T21:39:08.991016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2314,5 +2314,27 @@ Want me to file projected reference and capture → ticket now, and leave the re
 ok
 
 is everything captured in docs?
+
+<!-- xgd-turn id="04e5fd63-1142-4e1c-b56e-65b7abcd1968-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T21:39:08.378541+00:00" -->
+#### Claude
+**REQ-165** (projected reference, 8pts) and **REQ-166** (capture → ticket, 8pts, depends on 162/163) filed.
+
+## On the docs — mostly, but four gaps
+
+Everything *decided* about the KMS and the content model is in DOC-38 and DOC-39, and DOC-10 §6.3 is corrected. But four things settled in this conversation live only in tickets:
+
+**1. DOC-8's open item #4 is answered and still reads as open.** It asks *"asset upload flow — drag-into-chat, dedicated asset panel, AI-prompted upload step?"* We decided: both routes, one overlay, role-based zones. That answer is in REQ-161 only, and DOC-8 is in the corpus, so the AI would read a question we've resolved.
+
+**2. The blob bucket separation.** DOC-38 §7 covers the blob store but not the decision that attachments get `1stcontact-material` rather than a prefix inside `1stcontact-sites` — and specifically not *why*: the sites bucket is bound by the publicly-reachable Worker, so a prefix would leave only routing code between a client's confidential PDF and a public URL. That reasoning is in REQ-162 and nowhere else.
+
+**3. The shared `tenants` registry.** One registry serving both the site store and the ticket store, with the argument that two could disagree about whether an account is active — a security property. Also REQ-162 only.
+
+**4. System documents don't go through ingestion.** I offered this a few turns back and we moved on. DOC-39 §3 describes how system docs come into being but never says they never touch DOC-38 §10 — which is exactly what you asked about, so it's evidently not obvious from the text.
+
+The first is the one I'd fix regardless of the others: an answered question sitting in the corpus phrased as open is worse than an absent section, because the AI will treat it as live.
+
+Want me to close all four? They're short — a rewritten open item in DOC-8, two paragraphs in DOC-38 §7, and a sentence in DOC-39 §3.
 
 <!-- xgd-chat-end -->
