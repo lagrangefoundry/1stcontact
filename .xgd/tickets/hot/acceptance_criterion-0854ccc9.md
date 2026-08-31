@@ -2,13 +2,13 @@
 uid: acceptance_criterion-0854ccc9
 id: AC-892
 type: acceptance_criterion
-title: A draft deploy ships the complete artifact under a content-addressed preview
-  location and returns its shareable URL when the tree is servable
+title: 'A published revision stores both halves of the artifact: the rendered output
+  and the frozen definition it was rendered from'
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-16T07:23:11.006315+00:00'
+updated_at: '2026-08-31T11:33:12.857855+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5349d01f
@@ -19,26 +19,31 @@ fields:
 
 ## Criterion
 
-Deploying a site with no channel given (the draft default) places, in shared
-storage under a location named by the snapshot's content id, both halves of the
-artifact: the rendered output (at minimum the site's entry page document and its
-stylesheet) and the site definition it was rendered from (at minimum the site
+Publishing stores, under the revision's own location, both halves of the
+artifact: the rendered output (at minimum the entry page document and its
+stylesheet) and the frozen definition it was rendered from (at minimum the site
 record and each page record). The stored bytes are the real rendered bytes, not
-placeholders. The site's deploy index records the snapshot as a **preview**,
-carrying its content id, the time it was deployed, and which published revision
-the draft descended from (or an explicit "none").
+placeholders, and the asset bytes are present in both halves, so a published page
+does not decay when the draft's assets are later replaced.
 
-The returned shareable URL is qualified by the store tree the definition came
-from: a draft deploy from the servable tree returns a single shareable URL that
-addresses the preview by its content id. What a deploy from the non-servable tree
-returns instead — the same shipping and indexing, no URL, and a report that says
-why — is AC-925's criterion and is not restated here.
+The frozen definition is what makes the artifact complete, and it is load-bearing
+for a different reason than it once was: the mutable draft lives in the store, so
+this is the only copy of what the site looked like at that revision — which is
+what makes a checkout of it possible at all. Reading a revision back yields the
+definition it froze; a revision the record does not vouch for reads as absent
+rather than as whatever bytes happen to be lying under its location.
+
+Publishing against the operator's own filesystem store additionally refreshes the
+local published output directory that the local serve, screenshot and fidelity
+loops read, and the publish command's report names that location.
 
 ## Verification
 
-Run the deploy command for a freshly created site in the servable tree against
-shared storage. Assert that both the rendered-output and definition halves are
-present under the content-addressed preview location, that reading back the entry
-page yields real rendered markup, that the deploy index lists exactly one preview
-entry with the returned content id and a "based on" value, and that the returned
-URL contains the slug and that same content id.
+Publish a freshly imported site. Assert that both halves are present under the
+revision's location — the entry page carrying real rendered markup that
+references its stylesheet, and the frozen site record and page records — and that
+reading the revision back through the store yields the same definition the draft
+held. Assert an asset the draft holds is readable under both halves. Assert that
+a revision id the record does not carry reads back as absent. Run the publish
+command against a filesystem-backed site and assert its report names the
+refreshed published output directory.
