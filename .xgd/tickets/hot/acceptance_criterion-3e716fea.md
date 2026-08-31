@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Slugs that merely resemble or extend a language code still validate
 created_by: xgd
 created_at: '2026-08-31T12:28:45.983189+00:00'
-updated_at: '2026-08-31T12:28:45.983189+00:00'
+updated_at: '2026-08-31T12:33:34.362616+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
