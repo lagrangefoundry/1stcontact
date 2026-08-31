@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:21:29.374145+00:00'
+updated_at: '2026-08-31T19:26:23.610259+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1486,5 +1486,13 @@ Also corrected two things that had gone stale: DOC-38 §7 no longer calls attach
 **Open questions now down to four in DOC-39 §10** (cursor semantics across sessions, delta cap size, which system-KB documents get written, and the `system_kb: true` → `doc_kind` migration) and **three in DOC-38 §13** (whether `reference` earns its own type, co-ranking measurement, upload transport). None block starting work.
 
 The unticketed gaps from the last summary stand unchanged — ingestion is still the big one, and the `doc_kind` migration is now a fifth item, since REQ-158's export filter still reads the boolean and the two have to change together or the corpus empties.
+
+<!-- xgd-turn id="b38cecd3-3682-42c4-b6d3-ba72b0c39561-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:26:21.810651+00:00" -->
+#### You
+On your aside — the reason docs have a sub-kind at all is just that `type` is already spent saying "this is a document" rather than a request or a bug, so `doc_kind` carries the finer distinction. It wasn't invented for this; it's been there holding `architecture`, `security_policy` and four others. We're adding a seventh value, not a mechanism. <-- that was not my comment, myu comment is why can't docs use fields.kind like other types? Why do they need to have fields.doc_kind? Its ugly and inconsistent IMO (but this is an xgd question not a 1c one).
+
+Can you turn the open questions into questions and explain them clearly please
 
 <!-- xgd-chat-end -->
