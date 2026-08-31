@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T00:51:08.537921+00:00'
+updated_at: '2026-08-31T00:51:24.789005+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,7 +72,7 @@ Per [[DOC-38]] §8. They differ in everything that governs mechanism:
 
 | | `system` | `project` |
 |---|---|---|
-| Corpus | the shipped design documents | `chat`, `material`, `reference`, `brief`, + the site adapter |
+| Corpus | the shipped `system_kb` documents (§3.1) | `chat`, `material`, `reference`, `brief`, + the site adapter |
 | Source | `shipped` — a directory of markdown | the tenant's ticket store |
 | Tenancy | **above** the barrier; identical for everyone | tenant data |
 | Written | at development time | continuously |
@@ -80,10 +80,11 @@ Per [[DOC-38]] §8. They differ in everything that governs mechanism:
 | Index rebuilt | at release | incrementally, on write |
 | Map rebuilt | at release | on material arriving (§5) |
 
-**The system KB is not tickets at runtime.** Its corpus is exported *from* doc
+**The system KB is not tickets at runtime.** Its corpus is exported *from*
 tickets at build time and read through `DocDirStore` / `bundleDocReader`. No
 tickets are created in any tenant, which is exactly what puts it above the
-tenancy barrier and makes it byte-identical for every client.
+tenancy barrier and makes it byte-identical for every client. What gets exported
+is §3.1's business.
 
 ### 3.1 Three kinds of document, and only one of them is in the KB
 
