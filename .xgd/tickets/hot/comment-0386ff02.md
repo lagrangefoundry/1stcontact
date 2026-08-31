@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:46:21.994246+00:00'
+updated_at: '2026-08-31T21:48:05.251323+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2344,5 +2344,59 @@ Want me to close all four? They're short — a rewritten open item in DOC-8, two
 yes please update the docs to reflecxt where we are
 
 Before you do that, can you summarize the ticket dependencies - 162 has completed - who is next? what can run in parallel
+
+<!-- xgd-turn id="7fa5303e-6b4b-4c15-b6b6-5bb8806550b7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T21:48:04.408130+00:00" -->
+#### Claude
+REQ-162 is `free_coded`. Here's where that leaves everything.
+
+```
+              REQ-162 ✅  store · types · blob bucket
+              ├────────────────┬─────────────────────┐
+              ▼                ▼                     │
+          REQ-163          REQ-159                   │
+         ingestion        project KB                 │
+           │   │               │                     │
+      ┌────┘   └────┐          │                     │
+      ▼             ▼          │                     │
+  REQ-161        REQ-166       │                     │
+  Library      capture→ticket  │                     │
+                               │                     │
+ REQ-827 ✅ ─► REQ-164 ─► REQ-158 ─────────┐         │
+            corpus export   system KB      ▼         ▼
+                                        REQ-160  ◄───┘
+      REQ-165 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄► (soft)   seeding + delta
+   projected reference
+```
+
+**Four can start right now, in parallel:**
+
+| | | Why now |
+|---|---|---|
+| **REQ-163** ingestion | 13 | Highest value — the first thing a user could notice existing. 162 gave it everything it needs. |
+| **REQ-159** project KB | 13 | The types exist now; can be tested against hand-made tickets. |
+| **REQ-164** corpus export | 3 | REQ-827 is free-coded, so unblocked. Small, and it's the head of the longest chain. |
+| **REQ-165** projected reference | 8 | Independent of everything. |
+
+**Critical path is `164 → 158 → 160`** — three links, and 164 is only 3 points. So if one thing goes first, it's 164: cheapest ticket, longest chain behind it.
+
+**REQ-165's dependency on nothing is misleading.** It's a soft prerequisite for REQ-158 *being worth shipping* — without it the system corpus is four consultation documents and no product facts, so the AI discusses design well and can't say what a module is. Land it before 158, not after.
+
+**Second wave:** REQ-158 (once 164), REQ-161 and REQ-166 (once 163).
+**Last:** REQ-160, which joins the two branches.
+
+Now the docs:
+
+All four doc gaps closed:
+
+- **DOC-8 item #4** — now marked *answered*, with the two routes, the Library tab, and the reason the drop areas are roles rather than file types (the same JPEG being either a hero photo or a competitor screenshot).
+- **DOC-38 §7.1** — the separate `1stcontact-material` bucket and its disclosure rationale, framed against BUG-31: a prefix was the remedy there, but here the failure mode is disclosure rather than overwrite, and a prefix is a convention while a bucket boundary isn't.
+- **DOC-38 §7.1** — one shared `tenants` registry, because two could disagree about whether an account is active.
+- **DOC-39 §3.3** — system documents never go through ingestion, with the distinction that makes it obvious: for client material the body is a *shadow* of something else; for a system document the body **is** the document.
+
+So the docs now match where we are, and the ticket set covers everything except four backlog items — site source adapter, reference lifetime, `site_assets` migration, quarantine write gate — plus DOC-7 reconstruction in lagrange-framework and the deferred authoring exercise.
+
+Where I'd point the next agent: **REQ-164**. Three points, and the whole `164 → 158 → 160` chain sits behind it.
 
 <!-- xgd-chat-end -->
