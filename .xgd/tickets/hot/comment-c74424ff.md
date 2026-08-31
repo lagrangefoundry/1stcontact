@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:53:18.074383+00:00'
+updated_at: '2026-08-31T23:55:44.241761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -403,5 +403,148 @@ Can we build and use 4 with 1-3 in mind for later? (Note I do not want 1 today)
 7 same table
 
 One other thought on tenancy. Admin-invoked chat sessions need the same access as the admin.
+
+<!-- xgd-turn id="631290d4-97ab-45e6-872c-b417710126aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T23:55:44.201986+00:00" -->
+#### Claude
+## What a membership row is
+
+A membership is one row saying **"this person may operate that account"**:
+
+```
+user_id: usr_martin    account_id: acct_kate    role: support    expires_at: 2026-09-07
+```
+
+Here's the thing I under-explained last time: **you need this table regardless.** You just said each user gets their own tenant — so something has to record *which* tenant. That's a membership row (`role: owner`, no expiry). It's not an alternative to the admin flag; it's the substrate that answers "whose builder am I in?" on every request.
+
+So the real question was narrower than I made it: given the table exists anyway, is *your* cross-account reach an extra row, or a flag?
+
+**Take the flag.** You were right. Reasons I undersold: it's one column, it can't lock you out, and it works before any membership row exists — which matters because you're the one creating them. The membership table being there means time-boxed `support` rows cost you nothing later when you want the audit trail. Ship both, check `isOwner(user, account) || user.platform_admin`.
+
+## Your answer to Q5 simplifies things a lot
+
+If the admin UI creates their site at invite time, then **invite provisions everything** and login is pure lookup:
+
+| At invite (you, in `/admin`) | At first login (them) |
+|---|---|
+| `users` row (email, `invited_at`, no login yet) | match verified email → user row |
+| `tenants` row — their account | check membership → resolve tenant |
+| `memberships` row (owner) | check entitlement → active? |
+| `entitlements` row (plan, dates) | T&C accepted? → else interstitial |
+| a starter site in their tenant | serve builder scoped to their tenant |
+
+No just-in-time provisioning anywhere. JIT arrives with (1) self-signup, as a second entry point into the same tables. And it means contacts ≡ users holds cleanly from day one — an invited-but-never-logged-in person *is* a contact.
+
+## The schema
+
+Designed for (1)–(4). You're building (4); the rest are branches, not migrations.
+
+```sql
+-- 0004_identity.sql
+
+CREATE TABLE IF NOT EXISTS users (
+  id             TEXT PRIMARY KEY,
+  tenant_id      TEXT NOT NULL,   -- '1stcontact' for builder users; a customer's
+                                  -- tenant for their own site's contacts
+  email          TEXT NOT NULL,   -- normalised: trimmed, lowercased
+  status         TEXT NOT NULL DEFAULT 'active',
+  display_name   TEXT,
+  platform_admin INTEGER NOT NULL DEFAULT 0,
+  tos_version    TEXT,            -- null = not accepted
+  tos_accepted_at TEXT,
+  invited_at     TEXT,
+  first_seen_at  TEXT,
+  last_seen_at   TEXT,
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL,
+  fields         TEXT NOT NULL DEFAULT '{}'
+);
+CREATE UNIQUE INDEX idx_users_tenant_email ON users (tenant_id, email);
+
+CREATE TABLE IF NOT EXISTS memberships (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL,
+  account_id TEXT NOT NULL,       -- tenants.id
+  role       TEXT NOT NULL,       -- owner | admin | member | support
+  status     TEXT NOT NULL DEFAULT 'active',
+  granted_by TEXT,
+  granted_at TEXT NOT NULL,
+  expires_at TEXT,                -- null = open-ended; set for support access
+  revoked_at TEXT
+);
+CREATE UNIQUE INDEX idx_memberships_user_account ON memberships (user_id, account_id);
+CREATE INDEX idx_memberships_account ON memberships (account_id);
+
+-- A GRANT OF ACCESS, AND WHY. Not one row per account — an account
+-- accumulates grants over its life (comp, then trial, then subscription).
+-- Effective plan = highest-ranked active grant covering now.
+CREATE TABLE IF NOT EXISTS entitlements (
+  id           TEXT PRIMARY KEY,
+  account_id   TEXT,              -- tenants.id; null = claimable by email alone
+  email        TEXT,              -- the claim key before an account exists
+  plan         TEXT NOT NULL,     -- 'trial' | 'pro' | …
+  source       TEXT NOT NULL,     -- 'admin_grant' | 'signup' | 'subscription'
+  status       TEXT NOT NULL,     -- 'active' | 'warning' | 'expired' | 'revoked'
+  starts_at    TEXT NOT NULL,
+  ends_at      TEXT,              -- null = open-ended
+  subscription_ref TEXT,          -- opaque billing id; null for grants
+  granted_by   TEXT,
+  note         TEXT,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
+);
+CREATE INDEX idx_entitlements_account ON entitlements (account_id, status);
+CREATE INDEX idx_entitlements_email ON entitlements (email);
+```
+
+**Two deliberate choices that buy you the no-migration property:**
+
+*`plan` and `status` are plain TEXT, no CHECK constraints.* Adding `'warning'` or `'pro_annual'` later is a code change, not a schema change. A CHECK constraint here would be exactly the migration you want to avoid.
+
+*Access and money are separate concepts.* `entitlements` answers "what can you use". Nothing in it answers "what do you pay". When billing lands you add a `subscriptions` table (new table, no backfill) and it *writes rows into* `entitlements`. This is why I'd resist putting `discount_pct` here, even though you mentioned discounts: a free comp grant is an entitlement with no subscription; a *discounted* one is a subscription with a coupon that also produces an entitlement. Merging them means the access check has to understand pricing, and that's the thing you'd end up migrating.
+
+**How (1)–(3) land on this, unchanged:**
+
+| | Change |
+|---|---|
+| (1) anyone can sign up | login's "no entitlement → deny" branch becomes "→ create account + `source='signup'` trial row". One branch. |
+| (2) trial tier | a `plan` value + a `PLANS` constant in code mapping plan → capabilities |
+| (3) paid + warning period | new `subscriptions` table; webhook writes `source='subscription'` rows and flips `status` between `active`/`warning`/`expired` |
+| (4) **today** | `source='admin_grant'`, `plan='pro'`, `starts_at`/`ends_at` set by you |
+
+The access check is one query against `entitlements` in all four cases. That's the whole point.
+
+## Admin-invoked chat sessions
+
+Good catch, and it's a rule worth writing down rather than discovering:
+
+**The chat host takes the *resolved* tenant, never `env.TENANT_ID`.** When you open a session while operating `acct_kate`, the AI's store handle, its knowledge base, and its transcript archive are all scoped to `acct_kate`. `ai.ts` already takes `tenantId` as a parameter — it's the four env reads in ticket B that need replacing, and this is one of them.
+
+The non-obvious part: **authorisation is re-checked on resume, not captured at open.** Sessions are resumable by id (`chat/${tenantId}/${sessionId}.md`). If a session bound the tenant at open time, then a support grant that expired on Sunday would still be live inside a session opened on Friday. So the session stores *which account it operates on* and the resume path re-runs the same membership/admin check. Cheap to do now, near-impossible to retrofit safely.
+
+## Revised tickets
+
+| | Scope | Notes |
+|---|---|---|
+| **A** | Migration 0004 + invite-time provisioning + login binding + entitlement gate + deny page | Bigger than before (absorbs provisioning), simpler internally (no JIT) |
+| **B** | Tenant resolution from identity: `resolveTenant()` replacing the four `env.TENANT_ID` reads, incl. the AI host; re-check on session resume | **Critical path** |
+| **C** | T&C interstitial, lorem ipsum, version `2026-09-01` | Small |
+| **D** | Admin console: users + entitlements 2-pane, invite action (provisions account + starter site), `PLATFORM_ADMINS` env var gate, `list-detail` into the asset build | Your onboarding tool — effectively required |
+| **E** | *(later)* own magic link — CHAT-13's β | Not on critical path |
+
+D moved from "could slip" to "required", since the invite flow *is* the provisioning flow.
+
+## Four things left before I write these
+
+**1. Tenant ids are permanent.** They're in R2 keys (`t/<tenant>/blob/…`, `chat/<tenant>/…`, `kb/<tenant>/…`) forever. `acct_<random>` — opaque, no rename problem, ugly in logs? Or a slug from their company name — readable, but you'll want to rename one within a month and you can't. I'd take opaque, with `tenants.name` carrying the human label.
+
+**2. What plan string do today's grants carry?** `'pro'` (and trial appears later), or `'preview'` (and the pilot cohort gets migrated to a real plan when billing lands)? I'd use `'pro'` — a pilot user who's promised the full tool *has* the full tool, and inventing a pilot-only tier is a value you'll have to reason about forever.
+
+**3. What's the starter site?** A blank single-page site, a copy of a template, or the import flow pointed at their existing website? This is the one that could blow up ticket D's size — the first two are small, the third is a different project.
+
+**4. When a grant expires, what do they see?** Locked out at login, or read-only access to their own site? Data model handles both; it's a product call and it changes the deny page. I'd say read-only — a customer who can't see their site can't be persuaded to renew.
+
+Answer those and I'll cut the branch and write A–D as proper request tickets.
 
 <!-- xgd-chat-end -->
