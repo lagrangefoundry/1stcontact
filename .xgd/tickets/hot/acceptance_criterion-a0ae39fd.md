@@ -6,10 +6,10 @@ title: An unknown or inactive account is refused when the handle is asked for, n
   handed a store that reads nothing
 created_by: xgd
 created_at: '2026-08-31T09:47:25.602956+00:00'
-updated_at: '2026-08-31T09:47:25.602956+00:00'
+updated_at: '2026-08-31T10:04:14.217858+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
