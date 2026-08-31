@@ -12,6 +12,11 @@ import { defineConfig } from 'vitest/config'
  * Bindings mirror the deployed shape rather than inventing names:
  *   SITES — the R2 bucket `1c deploy` publishes rendered snapshots to
  *           (apps/public-site/wrangler.toml).
+ *   BLOBS — the ticket store's attachment bucket (REQ-162). A SECOND bucket,
+ *           not a prefix in SITES, because its contents are the client's
+ *           private material and SITES is bound by the Worker that serves the
+ *           public internet. Declaring it separately here is what lets the
+ *           attachment UATs prove isolation against real R2 rather than a map.
  *   DB    — the D1 database the store port will use. No Worker declares it yet;
  *           this is where it gets declared first, which is the point of the
  *           ticket.
@@ -34,7 +39,7 @@ export default defineConfig({
         compatibilityDate: '2025-07-01',
         compatibilityFlags: ['nodejs_compat'],
         d1Databases: ['DB'],
-        r2Buckets: ['SITES'],
+        r2Buckets: ['SITES', 'BLOBS'],
       },
     }),
   ],

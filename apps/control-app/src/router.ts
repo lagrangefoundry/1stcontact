@@ -26,6 +26,10 @@ import { workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
+// REQ-162 — the ticket store's bindings are part of this Worker's env even
+// though no route reaches them yet: a binding declared in wrangler.toml and
+// absent from the type program is one nothing checks.
+import type { TicketStoreEnv } from './tickets'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -152,7 +156,7 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown>> 
   return JSON.parse(body) as Record<string, unknown>
 }
 
-export interface RouterEnv extends StoreEnv {
+export interface RouterEnv extends StoreEnv, TicketStoreEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**

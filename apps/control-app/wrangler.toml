@@ -134,6 +134,37 @@ migrations_dir = "../../db/migrations"
 binding = "SITES"
 bucket_name = "1stcontact-sites"
 
+# The client's private material (REQ-162), and it is DELIBERATELY NOT `SITES`.
+#
+# WHY A SECOND BUCKET RATHER THAN A PREFIX IN THE FIRST. `1stcontact-sites` is
+# bound by `apps/public-site` — the Worker whose entire job is serving bytes to
+# the public internet by path. What goes in here is the opposite: brand
+# guidelines, positioning papers, competitor captures, everything a client hands
+# over in confidence. Sharing the bucket would leave only routing code between a
+# confidential document and a public URL.
+#
+# This is BUG-31's mistake ([[DOC-12]] §7) with a worse failure mode. There, a
+# `--sandbox` deploy shared a keyspace with a real site and could overwrite its
+# published bytes; the remedy was a key prefix. That is not enough here, because
+# the failure is not overwrite but DISCLOSURE — and a prefix is a convention
+# enforced by whoever remembers it, while a bucket boundary is enforced by the
+# absence of a binding. public-site cannot read what it is not handed.
+#
+# Keys are `t/<tenant>/blob/<sha256>` ([[DOC-38]] §7.2), composed by the
+# component's own `R2BlobStore` — content-addressed so one file attached twice
+# is one blob, tenant-prefixed because a GLOBAL content address would be both an
+# existence oracle across the tenant barrier and a contradiction of [[DOC-37]]
+# erasure.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule every other binding in this file records. Missing
+# the repeat is not a degradation: `ticketStoreFor` throws at construction, which
+# is the loud failure REQ-162 chose over an upload that 500s months later. A UAT
+# pins the two sides together.
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "1stcontact-material"
+
 # Browser Rendering — the assistant's eyes in the cloud (REQ-154, [[DOC-13]] §6).
 #
 # A headless Chromium the Worker drives through `@cloudflare/puppeteer`, so the
@@ -194,6 +225,11 @@ migrations_dir = "../../db/migrations"
 [[env.production.r2_buckets]]
 binding = "SITES"
 bucket_name = "1stcontact-sites"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-162).
+[[env.production.r2_buckets]]
+binding = "BLOBS"
+bucket_name = "1stcontact-material"
 
 # See the top-level block: restated rather than inherited, on purpose (REQ-154).
 [env.production.browser]
