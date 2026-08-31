@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-20 free-coded commits (REQ-143/145/146/147/148/149/150/151/152/153)'
 created_by: xgd
 created_at: '2026-08-31T09:26:11.418440+00:00'
-updated_at: '2026-08-31T10:13:58.436559+00:00'
+updated_at: '2026-08-31T10:41:13.557231+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -169,7 +169,7 @@ fields:
     dependencies:
     - 2
     - 3
-    story_uid: null
+    story_uid: story-a58a0974
     target_story_ids:
     - story-a58a0974
     - story-93905de4
