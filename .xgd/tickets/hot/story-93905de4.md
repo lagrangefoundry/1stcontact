@@ -6,10 +6,10 @@ title: See everything an assistant can do to my site declared in one place, gran
   narrowly, checked before it runs, and written down call by call
 created_by: xgd
 created_at: '2026-08-10T09:04:59.829319+00:00'
-updated_at: '2026-08-31T10:39:55.967854+00:00'
+updated_at: '2026-08-31T10:41:13.289433+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-00e77e55
