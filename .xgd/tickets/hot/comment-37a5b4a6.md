@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-39
 created_by: xgd
 created_at: '2026-08-31T00:25:50.205105+00:00'
-updated_at: '2026-08-31T00:54:03.009901+00:00'
+updated_at: '2026-08-31T01:13:30.280339+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -76,5 +76,53 @@ Want me to note this in DOC-39 §2 (the field is a description; the docstring's 
 <!-- xgd-chat role="user" ts="2026-08-31T00:54:01.696906+00:00" -->
 #### You
 description is the right term can you update the document and the code on this please?
+
+<!-- xgd-turn id="f5b75a07-c59c-4e35-9a25-31d682f45e03-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T01:13:27.930650+00:00" -->
+#### Claude
+Now the JS peer.
+
+Now the Python peer.
+
+Now the tests in both peers.
+
+Component is clean. Running both test suites.
+
+All remaining hits are the AI session `prompt()` method — unrelated. Running the full framework suites.
+
+Framework done. Now the xgd side: its config, and the vendored copy.
+
+Now re-vendor the framework copy into xgd.
+
+Now 1stcontact: its KB config, test fixtures, and the DOC-39 body.
+
+Scoped to exactly the one component I changed. Installing.
+
+Done — the rename landed across all three repos, and DOC-39 now records why.
+
+**DOC-39** — `§2`'s example is now `"description"`, with a fifth bullet naming it the prose twin of `corpus`, and a new **§2.1** recording that the old name was wrong: `prompt` reaches a model exactly once (build-time, as domain context in `describePrompt()`), is otherwise the awareness map's italic subtitle, and the docstring's *"injects `prompt` as the retrieval-time domain context"* was a false clause paired with a true one about `weight`, citing a spec (`DOC-7 §4.1`) that §11 already records as unreachable.
+
+**The code**, three repos, three tickets:
+
+| Repo | Ticket | Commit | Version |
+|---|---|---|---|
+| lagrange-framework | REQ-109 | `ecf0585a9af` | 0.0.170 |
+| xgd | REQ-826 | `b8061aed6fc` | 0.15.413 |
+| 1stcontact | DOC-39 | `020ec406100`, `d4eff1a9677` | 0.2.18 |
+
+Framework covers both language peers, the `--prompt` → `--description` CLI flag, the shared conformance fixtures, `ai_knowledge`'s `kb_config_mapping` round-trip, the showcase, READMEs and tests — knowledge 45 JS / 203 py and ai_knowledge 32 JS / 36 py all green. xgd covers `kb_config.yaml`, `knowledge_bridge/build.py`, `bin/build_system_kb`, plus a re-vendor (6 UATs green). 1stcontact covers the KB declaration, `kb.ts` and four suites; `tsc` clean.
+
+`describePrompt` / `describe_prompt` / `mechanicalDescribe(prompt)` are untouched — that one genuinely is a prompt.
+
+**One step left, and it's yours to run.** The shared JS artifact store only refreshes on a deliberate install, so 1stcontact is currently red — `1c kb` fails with `unknown key(s) description (valid keys: prompt, …)`:
+
+```
+lagrange-framework/bin/install --lang js --component knowledge --no-deps
+```
+
+`--no-deps` matters: without it the install also re-packs `ticketing`, dragging in three unrelated commits (REQ-104 attachments/BlobStore, REQ-107 port scoping). The sandbox here denies writes to the store's parent directory, so I couldn't run it — I committed the 1stcontact half anyway rather than leave the rename half-applied, and the failure names its own fix.
+
+Two things worth your judgment: **DOC-39 now carries code commits** in `fields.commits`, which is unusual for a doc ticket — I did it because the session is scoped to it and told me not to create 1stcontact tickets, but say the word and I'll move those two SHAs onto a REQ. And separately, **your xgd venv is damaged** — `site-packages/lagrangefoundry/` is full of `~`-prefixed orphans from a crashed pip install, the `xgd` console script is gone, and `lagrangefoundry.ticketing_refs` is missing. I worked around it with `PYTHONPATH` pointing at the vendored tree; a reinstall is on you.
 
 <!-- xgd-chat-end -->
