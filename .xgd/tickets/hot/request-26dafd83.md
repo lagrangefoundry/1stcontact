@@ -14,6 +14,7 @@ fields:
   story_points: 8
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-cb7fa49c
 ---
 
 # Projected reference: the product's own facts, generated rather than authored
