@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T23:19:30.637377+00:00'
+updated_at: '2026-08-31T00:30:57.687627+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -992,5 +992,18 @@ Each carries a behavioural acceptance test as the criterion that matters: for RE
 Not ticketed, because it isn't code: applying §3.1's rule is a `fields.system_kb` sweep across the ~35 doc tickets. Worth doing before the next `1c kb build` so the first real index is built over the intended corpus.
 
 On the missing docs — if the indexing bug is dropping tickets from queries, then REQ-158's corpus export is downstream of it, and a build run now could bake an incomplete corpus into the release artifact. Worth resolving your bug before that build rather than after.
+
+<!-- xgd-turn id="4367d71f-66b3-4d91-b44b-9e43ab2e462f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:30:56.792319+00:00" -->
+#### You
+DOC-39 the section "What's in the kb" that's just wrong.
+
+Lets back up here is what I want - this requirement has been misunderstood:
+1.  A document kind, system_kb (fields.kind = "system_kb")
+2. What goes in the kb - EXACTLY the set of docs for which fields.kind = "system_kb" No more, no less
+3. Un answered question for later discussion -> which docs do we switch to fields.kind = "system_kb" 
+
+Does this make sense? It seems inconsistent with DOC-39 and by implication DOC -38 and maybe lagrange-framework
 
 <!-- xgd-chat-end -->
