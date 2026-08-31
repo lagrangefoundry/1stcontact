@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:12:03.256098+00:00'
+updated_at: '2026-08-31T21:13:10.211127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2158,5 +2158,25 @@ Want me to update REQ-162 with the Q3 acceptance correction and the bucket-creat
 <!-- xgd-chat role="user" ts="2026-08-31T21:12:03.226232+00:00" -->
 #### You
 Yes please update the ticket with the clarifications
+
+<!-- xgd-turn id="f87379d8-b6be-469f-a936-694c2d120268-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T21:13:10.036618+00:00" -->
+#### Claude
+REQ-162 updated. All six answers are now in the body rather than living only in the transcript.
+
+**New "Prerequisite" section** carries the Q1 finding with the evidence — the three-branch table, the commit SHA, and the reason `bin/install` from the plain checkout would be a no-op (`COMPONENTS = REPO / "components"`). It states the real prerequisite as landing REQ-104/107/108 on `xgd-working` first, and notes BUG-1303 as the reason to finish the resync deliberately rather than installing out of a scratch branch.
+
+**Deliverable 1** now carries the `tenants` collision and the `ALTER TABLE ... ADD COLUMN config`, with the argument for one registry: the site store already refuses a non-`active` tenant at handle construction, so two registries could disagree about whether an account is active — a security property, not bookkeeping.
+
+**Deliverable 3** names `1stcontact-material`, records `wrangler r2 bucket create` with the reason it's easy to lose (miniflare conjures it, Cloudflare doesn't, so absence is invisible in every test), and reframes the enforcement: the component's call-time refusal is *correct* — the same optional-capability shape that keeps the Python store conforming — and what we add is `ticketStoreFor(env)` throwing on a missing binding.
+
+**Acceptance** corrected accordingly, and the "readable back" line now specifies the workers test explicitly with **no HTTP routes**, noting that a real-env test is the stronger assertion.
+
+**Both open questions closed** — `reference` keeps its type (N records per member is what makes re-extraction work without pulling 23MB), `brief` keeps its type with `fields.site_slug` (sites are rows, not tickets).
+
+Plus an implementation-notes section for the two things the agent had right and shouldn't have to rediscover: the `generated/ticketing.js` shim, and adding the migration to `d1-site-factory.ts`'s `MIGRATIONS` list.
+
+The agent's next move is blocked on something only you can decide: whether to complete the lagrange-framework resync or replay `a60537ee3c` and its siblings onto `xgd-working` directly. Everything else in the ticket is now answered.
 
 <!-- xgd-chat-end -->
