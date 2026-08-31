@@ -6,10 +6,10 @@ title: A retained assembled draft never outlives nor is misattributed to its sit
   and never crosses the account barrier
 created_by: xgd
 created_at: '2026-08-31T16:37:50.343343+00:00'
-updated_at: '2026-08-31T16:37:50.343343+00:00'
+updated_at: '2026-08-31T16:46:33.471266+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
