@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Renaming a palette entry to its own current name succeeds as a no-op
 created_by: xgd
 created_at: '2026-08-31T21:29:18.849547+00:00'
-updated_at: '2026-08-31T21:29:18.849547+00:00'
+updated_at: '2026-08-31T21:31:29.605876+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-ee073693
@@ -15,6 +15,7 @@ fields:
     reports the entrys current reference count, and leaves the draft byte-unchanged.'
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
