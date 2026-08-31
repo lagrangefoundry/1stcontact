@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-21 (BUG-36 + BUG-37 + BUG-38) — free-coded commits'
 created_by: xgd
 created_at: '2026-08-31T16:34:45.744832+00:00'
-updated_at: '2026-08-31T16:34:45.744832+00:00'
+updated_at: '2026-08-31T16:39:41.651473+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-78f4e2fe
@@ -39,7 +39,7 @@ fields:
       legitimately resolve ''unknown'' and may never resolve ''inactive''. Documenting
       only the message would leave the safety argument for item 2''s bootstrap unstated
       in the matrix.'
-    story_uid: null
+    story_uid: story-fde7370b
     target_story_ids:
     - story-fde7370b
     intent_delta_summary: STORY-121 gains a criterion that repeated reads of an unchanged
