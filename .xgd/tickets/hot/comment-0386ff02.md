@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:51:16.431451+00:00'
+updated_at: '2026-08-31T20:05:53.834720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1843,5 +1843,11 @@ That's small — a schema definition with §9's fields — but it's a real prere
 (2) is the one a user would notice. (3) can follow. (1) is a prerequisite for both and for REQ-159.
 
 Want me to file those three?
+
+<!-- xgd-turn id="b714c847-fb53-449a-8c4d-8a2f027a3a66-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T20:05:52.848114+00:00" -->
+#### You
+Do we currently have a plan for an asset/materials UI tab?
 
 <!-- xgd-chat-end -->
