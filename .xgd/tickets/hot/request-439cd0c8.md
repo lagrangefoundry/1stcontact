@@ -5,9 +5,9 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-08-31T23:13:20.099222+00:00'
+updated_at: '2026-08-31T23:36:19.641639+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -114,6 +114,9 @@ material that cannot be found.
 - A fetch of a private, loopback, link-local or non-HTTPS address is refused, and
   each redirect hop is re-validated.
 - Promotion of a non-`republishable` source is refused.
+- Every route the origin declares carries the no-store directive — the two new
+  ones included. Adding a route without a probe is a failure of the existing
+  origin-wide criterion, not a new rule.
 
 ## Decisions from implementation review
 
@@ -178,10 +181,130 @@ wires a surface to something already safe. It writes a `site_assets` row pointin
 at the existing blob; that table exists today and this does not wait on the
 `site_assets` migration.
 
+## What was built, and where it departs from the decisions above
+
+Five departures, each because the decision met something in the code it had not
+seen. The decisions above are left as written; these are the corrections.
+
+**1. [[REQ-159]] had landed, so step 5 is wired to a real indexer.** The seam
+survives exactly as decided — `deps.index?(uid)`, proved by a UAT that counts
+calls without needing an embedder — but the router's default resolves it to the
+project KB's `onMaterialWritten()`, which refreshes the vector index inline and
+defers the awareness-map rebuild behind it ([[DOC-39]] §5.2). The loud log is
+therefore reached only when the `AI` binding is absent, which is what it should
+have meant all along. A UAT now proves searchability by *actually searching*: it
+uploads into a KB that already holds a document, retrieves the new one, and
+asserts the old one's vector was not recomputed — which is what "without a full
+reindex" means mechanically.
+
+**2. Promotion copies the bytes; it cannot point at them.** The decision above
+says the `site_assets` row points at the existing blob. It cannot: `readAsset`
+resolves `site_assets.r2_key` against `SITES`, and the material blob is in
+`BLOBS` — a second bucket precisely because `SITES` is bound by the Worker that
+serves the public internet ([[REQ-162]]). A row pointing into `BLOBS` would 404,
+and making it resolve would mean handing the public Worker a binding on the
+private bucket, which is the disclosure the bucket boundary exists to prevent.
+So promotion copies across that boundary, through the site store's ordinary
+`write`. That is also what promotion *means*: taking something private and making
+it publishable is a real act, and the byte copy is that act made honest. Nothing
+waits on a migration either way.
+
+**3. `description_status` has six values, not four.** The three degraded cases
+named above are all present (`no_describer`, `no_text`, `unsupported`), plus `ok`
+and two the implementation found:
+
+- `too_large` — an image above the Messages API's own per-image ceiling, which is
+  far below [[DOC-38]] §14's 25MB blob ceiling. The file is stored **whole** and
+  simply not looked at: the client's photograph is not at fault, and losing it in
+  order to describe it would be the wrong trade.
+- `failed` — the describer was reached and threw. Kept distinct from
+  `no_describer` because the two want different retries: one waits for a key,
+  the other for the next attempt.
+
+The describer never throws. An extraction failure costs findability and nothing
+else — letting it reach the route would turn *"we could not read your PDF"* into
+*"your upload failed"*, which is untrue and unrecoverable.
+
+**4. Fonts are parsed, not described by a model, and WOFF/WOFF2 degrade.** A font
+already carries the answer in its own `name` table — family, style, designer, and
+often a sentence about what it is for, written by whoever drew it — so asking a
+model to guess from the bytes would cost a call to produce something worse. SFNT
+(`.ttf`/`.otf`/`.ttc`) is read directly. WOFF compresses each table with zlib and
+WOFF2 with brotli, and workerd's `DecompressionStream` has no brotli at all, so
+both are recorded `unsupported` rather than half-supported. The font registry
+([[REQ-101]]) remains where a family's provenance lives; this only makes the
+*file* retrievable.
+
+**5. Two fields were added to the `material`/`reference` schema, plus one more.**
+`description_status` and `description_model` are declared rather than left
+undeclared — the engine tolerates undeclared fields, but the whole value of the
+status is that a later re-describe pass is a *query* rather than a migration, and
+a predicate over an undeclared field is a predicate over a convention.
+`filename` joins them: the Library lists materials, and reading a name off the
+attachment record would cost an `attachments` call per row. All three are
+optional, because a `reference` created by a capture has no description when its
+bundle lands.
+
+### The bundle measurement, for [[REQ-158]]
+
+Measured with `wrangler deploy --env production --dry-run`, gzip, four builds:
+
+| build | gzip | delta |
+|---|---|---|
+| baseline (before this ticket) | 322 KiB | — |
+| `@anthropic-ai/sdk` only | 460 KiB | **+138 KiB** |
+| `unpdf` only | 939 KiB | **+617 KiB** |
+| both (what ships) | **1032 KiB** | **+710 KiB** |
+
+Both licences are MIT. The Cloudflare ceiling is 10 MiB gzip on the paid plan
+(3 MiB free), so the Worker sits at roughly **10% of the paid limit** — but it
+has tripled, and `unpdf` is four fifths of the increase. [[REQ-158]] plans to
+bundle the KB vector index into the same Worker and should budget against 1032
+KiB, not against 322.
+
+The SDK's 138 KiB is smaller than it looks because the AI component already
+brings `@anthropic-ai/sdk` in transitively; that number is the second copy
+esbuild resolves from `apps/control-app/node_modules`. Consolidating the vision
+call onto the AI component's own surface (departure 3's named point, [[REQ-157]])
+would recover most of it.
+
+### Evidence
+
+Two UAT files, split by the repository's own runtime convention:
+
+- `tests/test_UAT_FC_REQ-163_material_pipeline.test.ts` (node, 17 tests) — the
+  steps that are pure functions of bytes: classification, every describer against
+  a real PDF and a real SFNT font, and the fetch guard driven by a stub `fetch`.
+  The guard's load-bearing test is not *"a loopback address is refused"* but *"a
+  **public** address that redirects to a loopback address is refused, and the
+  redirect target was never fetched"*.
+- `tests/test_UAT_FC_REQ-163_ingestion.workers.test.ts` (workerd, 13 tests) — the
+  whole pipeline through `route()` against real D1 and two real R2 buckets:
+  blob residency in `BLOBS` and not `SITES`, dedup counted in R2, the ceiling
+  refusal in a client's words with no material left behind, the crash-ordering
+  property, the index seam called exactly once, the loud log, the tenant barrier
+  over both rows and vectors, and both sides of the promotion gate.
+
+Two doubles, both at model boundaries — the vision describer and the embedder —
+for the reason `tests/support/stub-embedder.ts` already argues: no claim here is
+about the quality of a description or an embedding, and miniflare has no local
+Workers AI to reach.
+
+One existing UAT was extended rather than worked around:
+`reconciliation-builder-workspace-origin`'s AC-977 requires every route the
+origin declares to carry the no-store directive, and it failed on the two new
+routes exactly as designed. Both now have probes, in their rejection shape.
+
 ## Open questions
 
 - **Whether `describeImage` should eventually move into the AI component** rather
   than being consolidated via [[REQ-157]]. Both routes close the duplication; they
-  differ in who owns vision.
+  differ in who owns vision. The bundle measurement above adds a reason to
+  prefer whichever lands sooner.
 - **Whether a re-describe pass is operator-triggered or automatic** once a better
   model exists. The fields make either possible; nothing chooses yet.
+- **DNS is not resolved before a fetch**, so a hostname that resolves to a
+  private address defeats the literal-host check. workerd cannot resolve a name
+  before fetching it, so the guard cannot be made complete from inside a Worker.
+  Recorded rather than implied — closing it needs a resolver the platform does
+  not offer.
