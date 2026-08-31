@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:36:22.897385+00:00'
+updated_at: '2026-08-31T19:38:25.622810+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1605,5 +1605,71 @@ This one has a trap I should have flagged earlier. The two must change together 
 First just remove ** **`system_kb: true `from everything. 
 
 What would be your candidates for ** **`doc_kind: system_kb` ?
+
+<!-- xgd-turn id="792a92d1-f397-4355-826c-c51ea20eda4c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:38:25.041070+00:00" -->
+#### Claude
+Q1 — you're right, and my answer was muddled. The map covers what exists; the delta covers what arrives. Setting the cursor at session start to point past existing content is obviously correct, and "duplicate mention" was me defending a gap that shouldn't exist.
+
+One refinement, because there *is* a real edge: the map is rebuilt asynchronously, so a document uploaded 10 seconds before session B opens may not be in B's map yet. If the cursor starts at *session start*, that document is in neither the map nor the delta — it falls through.
+
+So: **initialise the cursor to the awareness map's build timestamp, not the session's start time.** The cursor's job is precisely to cover what the landscape doesn't. Below the enumerate floor, where the listing is generated fresh at session start, that reduces to session start anyway. One rule: *the cursor starts where the landscape's coverage ends.*
+
+Q2 — clear: true count always, titles until the character budget stops. Better than my floor-of-one, since the count carries the magnitude regardless.
+
+Let me check the four docs I can't classify from their titles before answering Q4:
+
+Read the seven candidates. Here's my answer.
+
+## Candidates for `doc_kind: system_kb`
+
+**Confident — written about how the AI converses:**
+
+- **DOC-33** Consultation Playbook — *"the conversation the 1st Contact builder AI has with a client"*. Entirely actionable in a session.
+- **DOC-35** Personas, Modes & Registers — *"who arrives, what they actually need, and how the AI should adapt to them"*. The frame above DOC-33.
+
+**Strong:**
+
+- **DOC-31** Differentiation Audit — its central finding is exactly what an AI advising a client needs: the gap that matters is taste, not technical ceiling, and the highest-leverage moves are restrained palettes, editorial typography and real photography over stock. That changes what the AI says next.
+- **DOC-17** Design Lessons Log — and this one is interesting. It describes itself as *"the raw material that gets distilled into the prompt layer ([[DOC-16]])"*. That distillation step exists because there was no retrieval. With a KB there is, so the log can be **retrieved directly instead of distilled** — which is DOC-10 §6.1's argument arriving in a second place. Worth flagging to whoever owns DOC-16.
+
+**Split or exclude:**
+
+- **DOC-32** Why People Pay For Design — genuinely two documents. The client-facing value argument is system-KB material; *"no human labour appears in any cost line"* and our margin structure is not. Split, or leave out for now.
+- **DOC-16** The Prompt Layer — about how *we* build the prompt layer. Architecture.
+- **DOC-24** Framework Positioning — states what the framework is for, after the pivot. For us. No.
+
+**The caveat that matters:** all of these were written *for us*, as specifications and audits. Reclassifying makes them retrievable; it does not make them system-KB documents by §3.5's criteria — none is addressed to the AI as reader, and DOC-31/32 are in dense analyst register, which §3.5 specifically warns teaches the AI to speak that way. So I'd treat DOC-33/35/31/17 as a **starting corpus flagged for rewriting**, not as the finished set.
+
+That gives four documents — enough to prove retrieval end to end, which is all REQ-158 needs.
+
+## On removing `system_kb: true`
+
+Agreed as the first step, and it's clean because nothing consumes it yet. One check before I run it: that's 41 ticket mutations, one commit each by default. Do you want me to (a) run them individually, (b) check whether `xgd ticket update` can clear a field in bulk, or (c) leave it as a task for the migration ticket alongside the export-filter change? They have to land together or the export selects nothing — which argues for (c).
+
+Let me record the two decisions you've made:
+
+DOC-39 updated with both decisions.
+
+**§6.3** now states the division of labour explicitly — the landscape covers what exists, the delta covers what arrives during the session — and there's no "while you were away" report. The cursor anchors to **the awareness map's build timestamp**, which is what closes the gap I described: a document uploaded after the last map rebuild but before the session opens would otherwise be in neither. One rule: *the cursor starts where the landscape's coverage ends.*
+
+**§6.4** — count always exact, titles truncated by the character budget. The reasoning I recorded: truncating the count would hide the magnitude, which is the one thing that can't be recovered by searching.
+
+**§10** — the authoring question is now marked deferred deliberately rather than merely unanswered, and the two settled questions are gone. Four open items remain, one of which is just "pick the number of characters."
+
+## On sequencing the migration
+
+Thinking about it while writing: I'd argue for **(c)** — leave the `system_kb: true` removal to the migration ticket rather than doing it now.
+
+Not because it's hard, but because the removal on its own leaves the system in a strictly broken state: the export filter still reads the boolean, so the corpus goes to zero and stays there until `doc_kind` is set *and* the filter is changed. Three changes that only make sense together:
+
+1. remove `system_kb: true` from all 41
+2. set `doc_kind: system_kb` on DOC-33 / 35 / 31 / 17
+3. change the export filter to read `doc_kind`, and set the shipped KB's corpus to `{}`
+
+Done separately, any ordering leaves a window where `1c kb build` produces something wrong — and #3 is code, so it needs the free-coding path anyway.
+
+That migration is currently unticketed and it blocks REQ-158, which can't have a correct corpus without it. Want me to file it? It'd be small — the three changes above plus the `readDocTickets` pagination fix, which is the other thing standing between REQ-158 and a trustworthy export.
 
 <!-- xgd-chat-end -->
