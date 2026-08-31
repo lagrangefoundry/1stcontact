@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:48:54.607809+00:00'
+updated_at: '2026-08-31T00:51:38.779713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1159,5 +1159,44 @@ That last one is the piece that turns this from a classification scheme into som
 <!-- xgd-chat role="user" ts="2026-08-31T00:48:54.252799+00:00" -->
 #### You
 yes please fix all the misconceptions this is absolutely NOT a policy its a short term dev decisions to let us test easily
+
+<!-- xgd-turn id="cb24c033-6b1a-4157-92ef-409b01e60136-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T00:51:38.382250+00:00" -->
+#### Claude
+Found concrete evidence of your missing-docs bug — worth a moment before I edit anything:
+
+Two findings on your bug, then the doc pass.
+
+**The working copy's ticket store is partial.** `/Users/martin/lagrangefoundry/1stcontact/.xgd/tickets/hot` has **4** `doc-*.md` files; the canonical store at `~/.xgd/worktrees/…/main/.xgd/tickets/hot` has **36**. `.xgd/tickets` is outside the sparse-checkout cone here, so anything reading those files directly sees a fraction of the corpus. `1c kb export` is safe — it shells out to `xgd ticket list --json` rather than reading files.
+
+**But `readDocTickets` doesn't paginate**, and that's a live landmine:
+
+```js
+const raw = execFileSync('xgd', ['ticket', 'list', '--type', 'doc', '--view', '--json'], …)
+return parsed.items ?? []      // no next_cursor loop
+```
+
+`xgd ticket list` pages at 50 and reports `More results available (cursor: …)`. There are **38** doc tickets now, and DOC-38/DOC-39 just added two. At 50 the export starts silently dropping documents from the KB corpus — no error, just a smaller corpus. Worth fixing before the first real `1c kb build`, and it may well be the bug you have open.
+
+Now DOC-39 — the three kinds, the single build-time mechanism, and what a system-KB document actually is:
+
+All three documents corrected.
+
+**DOC-10 §6.3** now opens *"Seed material, not a policy"* and says plainly what was meant: point the machinery at the documents that already existed so the indexing, awareness and retrieval path could be exercised at all. It names why the two readings diverge — as policy it says the AI should read documents we wrote for ourselves, which is the category error — and it records the sequencing: the seed set stays until the machinery is proven, because it's what REQ-158's acceptance test runs against.
+
+**DOC-39 §3.1–3.5** rewritten around your model:
+
+- **§3.1** — three kinds, exclusive. The line that carries it: a boolean invites *"this architecture document is **also** a system document"*, and that sentence is the category error in grammatical form.
+- **§3.2** — the escape for facts both readers need: project, don't restate. The precedent was already here twice (the tool manual generated from the declared surface, capture mapping against the live registry), so machine-readable facts get generated and can't drift.
+- **§3.3** — at runtime there is no membership mechanism; the distribution *is* the corpus, so the shipped KB's predicate should be empty. One filter, at build time.
+- **§3.4** — why tickets: editing, review, history, `[[DOC-N]]` resolution. Cost is one export step that already exists.
+- **§3.5** — what a system-KB document actually is, as five testable properties rather than a slogan. The one I'd draw your eye to: *written in the register it is meant to produce* — these are read by something that imitates, so internal shorthand teaches the AI to speak in internal shorthand.
+
+**DOC-38 §8** — the system KB row now reads *"shipped `system_kb` docs — authored for the AI, not our design docs"* with a pointer to DOC-39 §3.1.
+
+Two open questions remain in DOC-39 §10, both genuinely open: which system-KB documents get written, and the `fields.kind` namespace overlap with the component's awareness-report marker.
+
+The pagination bug is the one thing here I'd treat as urgent — `readDocTickets` takes the first page and stops, and at 38 doc tickets you're twelve away from the export silently shrinking the corpus with no error. It's unticketed; say the word and I'll file it.
 
 <!-- xgd-chat-end -->
