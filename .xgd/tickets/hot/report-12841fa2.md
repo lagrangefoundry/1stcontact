@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-20 free-coded commits (REQ-143/145/146/147/148/149/150/151/152/153)'
 created_by: xgd
 created_at: '2026-08-31T09:26:11.418440+00:00'
-updated_at: '2026-08-31T11:07:02.467801+00:00'
+updated_at: '2026-08-31T11:19:42.910125+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -293,7 +293,7 @@ fields:
     story_points: 2
     dependencies:
     - 5
-    story_uid: null
+    story_uid: story-e15a19ef
     target_story_ids:
     - story-e15a19ef
     intent_delta_summary: The story's fourth guarantee - 'the render path is Astro-free
