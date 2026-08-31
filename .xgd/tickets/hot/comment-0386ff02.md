@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:33:07.866095+00:00'
+updated_at: '2026-08-31T21:37:41.715551+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2306,5 +2306,13 @@ So the sequence has a gap: after REQ-164, the AI will be able to talk about desi
 Capture → ticket is next after REQ-163 — otherwise uploads become knowledge and captures silently don't, which is an asymmetry nobody would predict from the outside. The other four are genuine backlog.
 
 Want me to file projected reference and capture → ticket now, and leave the remaining four?
+
+<!-- xgd-turn id="04e5fd63-1142-4e1c-b56e-65b7abcd1968-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T21:37:41.320381+00:00" -->
+#### You
+ok
+
+is everything captured in docs?
 
 <!-- xgd-chat-end -->
