@@ -5,10 +5,10 @@ type: request
 title: Site locale identity, and rendered lang/dir
 created_by: xgd
 created_at: '2026-08-20T21:59:13.430458+00:00'
-updated_at: '2026-08-22T21:55:22.806967+00:00'
+updated_at: '2026-08-24T02:10:41.772546+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -22,6 +22,8 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.3
+  chat_comment: comment-eff816c4
+  bundled_in: bundle-b3b7c399
 ---
 
 # Site locale identity, and rendered `lang` / `dir`
