@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:47:17.893014+00:00'
+updated_at: '2026-08-31T19:48:13.060522+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1775,5 +1775,22 @@ Want me to file 1, 2, 3 and 8? Those four are what stand between us and REQ-158 
 <!-- xgd-chat role="user" ts="2026-08-31T19:47:17.552182+00:00" -->
 #### You
 Please create a ticket in xgd to add to the enum
+
+<!-- xgd-turn id="3cdd208a-16b9-4100-bd05-de63fba4cbaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:48:12.743492+00:00" -->
+#### Claude
+**xgd REQ-827** created — *Add `system_kb` to the `doc_kind` enum*. High priority, 1 point.
+
+It's a one-line additive change at `ticket_types.yaml:567`. The body carries:
+
+- **The change itself**, with the exact file and line, and the note that it's purely additive — no existing value changes meaning, nothing migrates.
+- **Why a kind rather than a flag** — the argument that a boolean invites *"this architecture document is also a knowledge-base document"*, which is the category error stated in grammatical form.
+- **What it explicitly does *not* need**: an entry in the doc-kind projection map in `api/tickets.py` (~line 338). I checked — that map surfaces the kinds XGD's own methodology consumes, and `architecture` isn't in it either. `system_kb` is a consumer concept and should stay out, which is worth saying so nobody adds it there out of symmetry.
+- **Your two observations, recorded not proposed**: that a closed enum in xgd source puts a cross-repo round trip in front of every downstream schema change, and the `fields.kind` vs `fields.<type>_kind` split — with the numbers, and the detail that the knowledge component already writes `fields.kind` onto docs and reports, so both conventions coexist on the same types from different producers.
+
+That unblocks item **8**, which unblocks **2** (the marker migration), which is the critical path to REQ-158 having a correct corpus.
+
+Still unticketed: ingestion (1), the marker migration (2), the `readDocTickets` pagination fix (3), projected reference (4), site adapter (5), quarantine gate (6), DOC-7 (7).
 
 <!-- xgd-chat-end -->
