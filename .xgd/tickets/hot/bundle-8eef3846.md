@@ -48,6 +48,8 @@ fields:
     new_sha: 86d64aaa8de6c59b1c42dc1a18642db202e85f77
   - old_sha: 4cc5a2bbfbb77dad865532eea6d106b0ada1834a
     new_sha: 0c88457b2c6498760499fb3ed9be5758cd772175
+  - old_sha: d7300126cca73d2416fc5b8bc7b5101596c3c732
+    new_sha: 50b93769a16c549701e73c276f138e2b25477a22
 ---
 
 # Bundle
