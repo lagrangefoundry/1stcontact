@@ -14,6 +14,7 @@ fields:
   story_points: 13
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-aa271bc5
 ---
 
 # The product ticket store: D1 schema, the TypePack, and the material types
