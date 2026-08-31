@@ -6,9 +6,9 @@ title: The automation identity is provisioned by a documented command that persi
   no secret
 created_by: xgd
 created_at: '2026-08-31T17:03:19.759168+00:00'
-updated_at: '2026-08-31T17:13:35.421329+00:00'
+updated_at: '2026-08-31T18:02:49.795320+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-182e8cb9
@@ -55,8 +55,55 @@ public half of the pair is not a secret; the secret half appears nowhere.
 Observe the provisioning command is executable and refuses to run without the
 management API credential, naming the permissions it needs.
 
-Read its source and the policy record beside the control application, and
-observe: it creates a Service Auth policy rather than an identity one; it never
-mentions the forwarded assertion header; it writes to no file; and the policy
-record carries the service identity as a granted row with a reason, describes
-what an automation caller presents, and contains no secret value.
+Then **run it**, against a stub standing where the provider's management
+interface stands, and assert on the requests it makes. Every clause above is a
+property of a request, and none of them can be observed by reading the command's
+source: a string present in a file says nothing about whether the branch
+carrying it runs, and the same request built a different way would fail a
+reading while satisfying the criterion. Provisioning against the live interface
+is not the alternative — that mints a real credential. Assert, across separate
+runs:
+
+- given several accounts and no explicit one, it refuses, names the setting that
+  disambiguates and the accounts it saw, and creates nothing;
+- given no application guarding the domain, it refuses, names the domain and
+  reports the applications that are present, and creates nothing;
+- given one account, and an application whose display name is misleading beside
+  a decoy whose display name is the recognisable one, it mints the token and
+  attaches the policy to the application matched on the **domain** — never the
+  decoy — and every request after the account lookup is scoped to the inferred
+  account;
+- the policy it posts is a Service Auth rule including the token just minted,
+  posted as a **new** policy: the operator's own rule is neither edited nor
+  removed, and the only mutations made are creations;
+- given the token and an including policy already present, it creates nothing at
+  all, says the token was not recreated and the inclusion was left alone, and
+  says plainly that the secret is no longer obtainable while naming the one
+  command that produces a fresh one;
+- asked to rotate, it rotates the token that exists rather than minting a second
+  one, and prints the fresh secret;
+- given a refusal reported inside a successful transport envelope, it fails
+  rather than reporting a successful no-op, and repeats the refusal it was
+  given.
+
+Run the minting case with a writable working directory and a writable home
+directory, and assert both are still empty afterwards: the pair reached the
+terminal and no file.
+
+Read the policy record beside the control application and observe it carries the
+service identity as a granted row with a reason, describes what an automation
+caller presents, says the secret belongs in a secret store, and contains no
+secret value. The record *is* the artifact that clause is about, so reading it
+is the observation rather than a substitute for one.
+
+## Reconciliation note
+
+The stub is reached through a base-URL override on the command, which is the one
+concession it makes to being driven. It is not a credential and grants nothing —
+setting it needs the same environment access as setting the management API token
+itself, which is the thing actually worth having — and unset, which is every
+operator invocation, the command talks to the provider.
+
+Left as a stated non-guarantee: that the minted pair is in fact admitted by a
+live Access edge. That needs a deploy and was confirmed by the operator against
+production, not from this repository.
