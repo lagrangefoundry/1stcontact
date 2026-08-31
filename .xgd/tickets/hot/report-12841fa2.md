@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-20 free-coded commits (REQ-143/145/146/147/148/149/150/151/152/153)'
 created_by: xgd
 created_at: '2026-08-31T09:26:11.418440+00:00'
-updated_at: '2026-08-31T09:33:35.994849+00:00'
+updated_at: '2026-08-31T09:48:49.884106+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -48,7 +48,7 @@ fields:
     item_type: feature
     story_points: 3
     dependencies: []
-    story_uid: null
+    story_uid: story-fde7370b
     description: 'A second implementation of the site storage port that runs with
       no filesystem: site definitions, pages and the change journal in D1, asset bytes
       in R2. Tenancy is the hard barrier and is bound into the handle at construction
