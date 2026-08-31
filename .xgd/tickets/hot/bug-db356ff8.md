@@ -6,10 +6,10 @@ title: 'control-app: fresh deployment 503s until bin/publish runs, so the builde
   never boots'
 created_by: xgd
 created_at: '2026-08-23T22:07:49.856675+00:00'
-updated_at: '2026-08-26T17:36:27.054996+00:00'
-completed_at: null
+updated_at: '2026-08-31T19:19:38.358283+00:00'
+completed_at: '2026-08-31T19:19:38.358283+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
