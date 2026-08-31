@@ -5,10 +5,10 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-24T02:10:41.151671+00:00'
-completed_at: null
+updated_at: '2026-08-31T14:22:44.216414+00:00'
+completed_at: '2026-08-31T14:22:44.216414+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 5
