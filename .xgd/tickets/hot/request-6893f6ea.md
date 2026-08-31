@@ -15,6 +15,7 @@ fields:
   story_points: 8
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-48c75d2e
 ---
 
 # The system KB in the Worker: bundle-resident index, AI binding, knowledge surface on the builder toolbox
