@@ -219,17 +219,51 @@ describe('story-e674c60a — the deployed workspace, with nothing running locall
 
     // A refusal is legible: a gated target with no credential says what an
     // unattended caller needs in order to be admitted, not merely a status.
+    //
+    // Asserted on the CREDENTIAL the refusal names, not on one flag's spelling.
+    // This previously pinned `--token`, which BUG-36's second finding replaced:
+    // `bin/publish --production` was sending the header the gateway SETS on the
+    // forwarded request rather than the credential the edge accepts, so the
+    // guidance now names a service token. The criterion's subject is that the
+    // message says what an unattended caller needs — which it does, in more
+    // detail than before — so the assertion follows the subject rather than the
+    // wording that happened to carry it.
     const gated = pushThrough({
       ACCESS_DEV_OPEN: '',
       ACCESS_TEAM_DOMAIN: 'example.cloudflareaccess.com',
       ACCESS_AUD: 'aud-tag',
     })
     await expect(pushSite(source, slug, { origin: ORIGIN, fetch: gated })).rejects.toThrow(
-      /--token/,
-    )
-    await expect(pushSite(source, slug, { origin: ORIGIN, fetch: gated })).rejects.toThrow(
       /Cloudflare Access/,
     )
+    for (const needed of [
+      /CF_ACCESS_CLIENT_ID/, // what to set, unattended…
+      /CF_ACCESS_CLIENT_SECRET/,
+      /--client-id/, // …or to pass, by hand
+      /--client-secret/,
+      /bin\/access-token/, // …and how to obtain one
+    ]) {
+      await expect(pushSite(source, slug, { origin: ORIGIN, fetch: gated })).rejects.toThrow(
+        needed,
+      )
+    }
+
+    // It holds NO PRIVILEGE the other routes lack (BUG-36). A copy lands on a
+    // deployment whose store holds only the schema — and, the half that was
+    // missing, a plain READ of an equally fresh deployment lands too. While the
+    // import route had its own opener, this copy was the only way an account
+    // ever came to exist, so a workspace nobody had copied to could not be read.
+    const virginPush = `virgin-push-${Date.now().toString(36)}`
+    const pushed = await pushSite(source, slug, {
+      origin: ORIGIN,
+      fetch: pushThrough({ TENANT_ID: virginPush }),
+    })
+    expect(pushed.landed.siteJson).toBe(true)
+
+    const virginRead = `virgin-read-${Date.now().toString(36)}`
+    const read = await call('/api/sites', undefined, { TENANT_ID: virginRead })
+    expect(read.status).toBe(200)
+    expect(await read.json()).toEqual([])
 
     // An asset the local store lists but cannot read is a CORRUPT local store,
     // and the copy fails rather than landing it as an empty file that looks
