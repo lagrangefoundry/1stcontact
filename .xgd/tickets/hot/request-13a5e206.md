@@ -5,7 +5,7 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-08-31T21:18:30.309311+00:00'
+updated_at: '2026-08-31T21:18:42.322070+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -34,33 +34,26 @@ So `material`, `reference` and `brief` have nowhere to be defined, and
 [[REQ-159]]'s corpus predicate names types that cannot exist. This ticket stands
 the store up and defines the types in it.
 
-## Prerequisite: the installed component predates REQ-104
+## Prerequisite: refresh the installed component
 
 Deliverable 3 cannot be built against the component currently in the shared
-artifact store — it has no `attachments.js` and no `blob_store.js`.
+artifact store at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing`
+— it predates lagrange-framework REQ-104 and has no `attachments.js`,
+`blob_store.js` or `blob_store_node.js`.
 
-**Reinstalling from the plain checkout will not fix it.** `bin/install` resolves
-`COMPONENTS = REPO / "components"`, so it copies from whichever checkout it runs
-in, and the code is not in either obvious one:
+The source has them. `lagrange-framework` on `xgd-working` carries
+`fad535e8a4 [FREE-CODED] REQ-104: ticket attachments — a BlobStore port with
+typed records`, and the files are present in the checkout. So the fix is one
+deliberate operator action:
 
 ```
-main                  attachments.js absent
-xgd-working           attachments.js absent      <- the plain checkout
-resync-577be0d7       attachments.js present     <- only here
+bin/install --lang js --component ticketing --env /Users/martin/lagrangefoundry
 ```
 
-The commit is `a60537ee3c [FREE-CODED] REQ-104: ticket attachments — a BlobStore
-port with typed records` (2026-08-26), stranded on an **in-flight resync scratch
-branch** whose most recent activity is its own resync report.
-
-So the real prerequisite is: **land REQ-104/107/108 on `xgd-working`** — by
-completing the resync or by replaying the three commits directly — verify
-`components/ticketing/js/src/attachments.js` exists in the plain checkout, and
-only then run `bin/install --lang js --component ticketing`.
-
-Worth doing deliberately rather than quickly: BUG-1303 in the `xgd` repo was a
-resync strip commit leaking onto `main` and deleting 26,017 ticket files, so an
-unfinished resync is not a neutral thing to install out of.
+Narrow by design — one package, no siblings, no third-party dependencies. The
+install route exists precisely so that shared-store updates happen when an
+operator asks rather than implicitly, so it is a step in this ticket rather than
+an assumption of it.
 
 ## What it delivers
 
