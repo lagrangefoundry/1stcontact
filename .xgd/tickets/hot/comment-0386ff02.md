@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T18:51:53.803546+00:00'
+updated_at: '2026-08-31T18:53:02.753307+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1316,5 +1316,65 @@ I also tightened §7 while I was in there — the enumerate floor was budgeting 
 <!-- xgd-chat role="user" ts="2026-08-31T18:51:52.761543+00:00" -->
 #### You
 Can you sumarize where we are with the KMS design and documentation - what doc tickets do we have? what REQ tickets do we have? Are all the open design questions answered? Do our REQ tickets cover all the work?
+
+<!-- xgd-turn id="7ef1d53c-ac2b-4e2c-bfc9-93e6c6fde3c8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T18:53:02.611672+00:00" -->
+#### Claude
+Pulled the facts rather than relying on memory. Summary below; the short answers are **no** and **no**.
+
+## Documents
+
+| Doc | What it settles | State |
+|---|---|---|
+| **DOC-38** Content Model, Rights & the Project Corpus | what material exists, rights, storage, attachments, the two-KB decision | 14 sections, current |
+| **DOC-39** The Knowledge Management System | document kinds, the two clocks, the three surfaces, context budgets, the floor | 11 sections, current |
+| **DOC-10** §6.3 | amended — corpus is seed material, not policy | corrected |
+
+DOC-12, DOC-13, DOC-30, DOC-36, DOC-37 are referenced and unchanged.
+
+## Tickets
+
+| Repo | Ticket | Pts | Status |
+|---|---|---|---|
+| 1stcontact | **REQ-158** system KB in the Worker | 8 | draft |
+| 1stcontact | **REQ-159** the project KB | 13 | draft |
+| 1stcontact | **REQ-160** seeding + turn reminders | 8 | draft |
+| lagrange-framework | **REQ-104** ticket attachments / BlobStore | 13 | draft |
+| lagrange-framework | REQ-107 tenant identity for ports | — | not mine |
+| lagrange-framework | REQ-108 attachment soft-delete + sweep | — | not mine |
+| xgd | **REQ-825** `--json` silent truncation | 5 | draft |
+
+## Open design questions — 9, mostly deferred on purpose
+
+**Two want answers before code:**
+
+- **`fields.kind` collides with the component's own namespace** (DOC-39 §10). It writes `fields.kind = AWARENESS_REPORT_KIND` on awareness reports. Nothing breaks, but REQ-158's export filter depends on this choice.
+- **Where the rights bits get set** (DOC-38 §13) — capture/upload time is the only honest point, but it puts a legal question in front of a novice. This has been open since our second exchange.
+
+**Deferred by design, correctly:** which system-KB documents get written; whether site copy pollutes co-ranking (measurement); upload transport (until the 25MB ceiling binds); cursor semantics across sessions; delta cap size; enumerate/cluster per-KB or global; whether `reference` earns its own type.
+
+**Plus DOC-39 §11:** DOC-7 — the knowledge component's stated specification, cited 100+ times, resolving nowhere.
+
+## Coverage gaps — the honest list
+
+I verified none of REQ-158/159/160 mention `corpus: {}`, `fields.kind`, or pagination. Those decisions all postdate the tickets.
+
+**Unticketed work:**
+
+1. **The ingestion pipeline** — DOC-38 §10's upload → classify → shadow → create ticket → index. **This is the largest gap.** REQ-159 indexes what exists; *nothing creates `material` tickets*. The entire user-facing half of DOC-38 has no ticket.
+2. **`readDocTickets` pagination** — I flagged it, you filed the xgd side, the 1stcontact consumer fix was never filed.
+3. **`corpus: {}` + the `system_kb` → `kind` migration** — decided after REQ-158 was written; in no ticket.
+4. **Projected reference** (DOC-39 §3.2) — the module catalogue / control-surface projection. Named as the answer to the hard case, never scoped.
+5. **The site source adapter** (DOC-38 §8.3) — explicitly out of scope in REQ-159, not ticketed anywhere.
+6. **The quarantine write-path gate** (DOC-38 §11) — flagged as a follow-up, never filed.
+7. **Writing the system-KB documents** — authoring rather than code, but real work, and REQ-158's corpus is seed material until it happens.
+8. **DOC-7 reconstruction** — offered, not filed.
+
+## What I'd do
+
+Three things, in order: file **ingestion** (it's a genuine feature-sized hole), fold **#2 and #3 into REQ-158** since it can't complete correctly without either, and answer the **`fields.kind`** question since #3 depends on it.
+
+Want me to file the ingestion REQ and amend REQ-158?
 
 <!-- xgd-chat-end -->
