@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:12:01.304226+00:00'
+updated_at: '2026-08-31T22:12:55.142482+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2467,5 +2467,50 @@ Two questions remain genuinely open in the ticket — where vision eventually li
 <!-- xgd-chat role="user" ts="2026-08-31T22:12:00.954322+00:00" -->
 #### You
 Can you ask those questions here so we can resolve?
+
+<!-- xgd-turn id="9ba99906-880b-4cf2-acf2-348abcb3ab2c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:12:54.160548+00:00" -->
+#### Claude
+Both, with what I'd argue for.
+
+---
+
+## Q1 — Where does vision live?
+
+**The situation.** `@lagrangefoundry/ai`'s backend surface is text-only: `promptStream(ref, text)`, no image content blocks anywhere. REQ-163 needs to describe an uploaded photo, so it will call the Anthropic SDK directly from control-app behind a seam. That's a second path to a model sitting beside the AI host — accepted as temporary, but temporary needs a destination.
+
+**Two candidates:**
+
+**A. The AI component grows image content blocks.** Vision becomes a capability of "talk to a model", available to any consumer.
+
+**B. REQ-157 owns it** — the fidelity/looking surface, the AI's eyes on its own rendered output (DOC-13 §6's screenshot loop).
+
+**I'd argue A, and that B is a *consumer* of A.** Vision is a model capability, not a domain concept; the component's job is to talk to the model, and refusing image blocks is an arbitrary limitation of the Messages API rather than a design position. Meanwhile REQ-157 and `describeImage` are two different *uses* — evaluating a screenshot of our own output against a design bar, versus describing a client's photograph so it can be retrieved. Making one of those uses the owner of the capability would over-couple them, and the next consumer duplicates again.
+
+There's also a practical argument: one path to the model is one place for auth, retries, rate limits and the audit trail.
+
+**So the question is really about sequencing:** do we file the lagrange-framework ticket now and let REQ-163 wait for it, or take the temporary direct-SDK path and migrate when it lands?
+
+*Recommendation: take the temporary path.* REQ-163 is the first user-visible capability and shouldn't block on a cross-repo change. But file the framework ticket now so the destination is A rather than drifting into B by default.
+
+---
+
+## Q2 — Re-shadowing: automatic or operator-triggered?
+
+**The situation.** Materials record `shadow_model` and `shadow_status`. Later, some could be described better — a stronger model arrives, an API key that was missing is restored, OCR gets added.
+
+**The tension.** Automatic re-shadowing incurs unbounded LLM cost across a tenant's whole library, unpredictably. It also *changes what the AI knows* about a client's material mid-relationship, silently. But leaving a known-degraded shadow forever because nobody clicked a button is its own failure.
+
+**I'd split it by why the shadow is degraded — and the two fields already encode the split:**
+
+- **`shadow_status` is degraded** — no API key at the time, a transient error, an unsupported type that later becomes supported. This isn't a quality judgement, it's an **incomplete operation**, and the right semantic is *retry*. Automatic, bounded (only the failures), and it converges.
+- **`shadow_model` is old** — the shadow succeeded, and a better model now exists. Cost is unbounded, benefit is speculative, and it silently changes retrieval for an existing client. **Operator-triggered.**
+
+*Recommendation: automatic retry for failures, operator-triggered for upgrades.* No new fields needed — the distinction is already the difference between the two the agent proposed.
+
+---
+
+Neither blocks REQ-163. Q1 needs an answer only when someone files the framework ticket; Q2 only when the first re-shadow is wanted. But both are cheaper to settle now than to discover.
 
 <!-- xgd-chat-end -->
