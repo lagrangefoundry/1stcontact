@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:05:53.834720+00:00'
+updated_at: '2026-08-31T20:07:04.927635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1849,5 +1849,48 @@ Want me to file those three?
 <!-- xgd-chat role="user" ts="2026-08-31T20:05:52.848114+00:00" -->
 #### You
 Do we currently have a plan for an asset/materials UI tab?
+
+<!-- xgd-turn id="b714c847-fb53-449a-8c4d-8a2f027a3a66-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:07:04.041877+00:00" -->
+#### Claude
+No — and it's a recorded open question rather than an oversight. DOC-8's open item #4:
+
+> **Asset upload flow** — drag-into-chat, dedicated asset panel, AI-prompted upload step? Affects when in the chat flow uploads happen.
+
+## What exists
+
+- **One tab: `site`** (REQ-115, `free_and_reconciled`).
+- **An image picker** (REQ-118/128/132, DOC-28 §9.2) — thumbnails with filenames, deliberately not paths. But it's a *field editor*: you reach it by clicking an image segment, and it lists what's already in the site's assets. Not a library, and no way to add to it.
+- **No upload affordance anywhere.** Nothing in the builder can put a byte into the system.
+
+## What's changed since DOC-8 asked the question
+
+DOC-8 framed it as "asset upload," when assets were the only thing there was. DOC-38 split that in two, and the halves want different UI:
+
+| | **Assets** (4a) | **Materials** (3c, 4b) |
+|---|---|---|
+| Photos, logos, fonts | Positioning papers, reports, brand guidelines |
+| **Go on the site** | **The AI reads them; never rendered** |
+| Consumer: the image picker | Consumer: the project KB |
+| Thumbnail grid, "use this" | List with the AI's summary of each |
+
+Both are `material` tickets differing by `kind` — one store, two views. But a tab called "Assets" that also holds a 40-page brand PDF nobody will ever place on a page is a confusing tab.
+
+**And the scoping differs.** DOC-38 §7.7 has one blob backing two sites, and DOC-10 §4.1 says sites in a tenant *should* share accumulated knowledge. So the library is tenant-scoped while the bindings are site-scoped — the tab shows the tenant's material, with "used on this site" as a badge rather than a boundary. That's a real UI consequence nobody has designed for.
+
+## What I'd argue for
+
+**Upload via chat as the primary path, with a tab for browsing.**
+
+The consultation model in DOC-33 is conversational — the AI *asks* ("do you have a logo? any brand guidelines?"), so the natural reply is to drop the file into the conversation. That also lands the arrival exactly where DOC-39 §5 wants it: in-session, in context, with the delta firing on the next turn.
+
+But chat-only means material is findable only by scrolling the transcript, which is why the tab still earns its place — for browsing what's there, seeing what the AI made of each item, replacing a bad photo, and removing something.
+
+So the tab is a **library view over the material tickets**, not an upload mechanism. Which makes it mostly a read view over work item (1) rather than a separate feature — the ingestion pipeline is what fills it.
+
+That reorders the dependencies slightly: types → ingestion → the tab. The tab is cheap once the tickets exist and expensive before.
+
+Want me to fold this into the ingestion tickets as a third piece, or scope the UI separately once uploads work?
 
 <!-- xgd-chat-end -->
