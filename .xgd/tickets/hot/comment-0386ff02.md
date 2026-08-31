@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:32:54.938232+00:00'
+updated_at: '2026-08-31T00:41:13.277798+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1046,5 +1046,15 @@ One caveat on the single-valued forms: a document can belong to several KBs — 
 My recommendation: **leave it as `fields.system_kb: true`.** It already delivers point 2 exactly, and a rename is a sweep over ~35 tickets plus the KB config for no functional gain. If you want the kind-shaped form for extensibility, take `fields.kb: "system"` rather than `fields.kind`.
 
 Both the open questions — which documents carry the marker, and the field name — are now recorded in §10 rather than answered.
+
+<!-- xgd-turn id="be31216c-0b34-4c49-ab8f-0b67aa71e7f0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:41:12.821765+00:00" -->
+#### You
+So we have three mechanisms and we probably don't need any this is way too complicated let's take a step back and work through it.
+
+In the final system the system documents do not exist in the ticket store. They are manifested in the distribution install as md docs. There is a special read only ticket implementation that makes them available through the ticketing interface. So, at some level no mechanism is needed the system documents are the documents that are included in the distribution. Nothing more nothing less.
+
+So, the next question is how do we build those documents and maintain them. Our document editing interface works on tickets, so it is desirable for the sake of the user interaction to that content as tickets that are copied into the distribution at build time. (lets discuss this) if we do this then we need to recognize which tickets in this store get copied into the distribution as .md files. Now, let's be clear I believe these are not architecture documents or design documents or other kinds of system documents I believe these are a specific document kind which is system knowledge base that is why I think Fields.kind is the right way to represent this concept. If we introduce another or functional representation we open the opportunity for architecture documents to be also included as system documents that is a category error. A document should be a system document designed for this purpose or an architecture document for system construction.
 
 <!-- xgd-chat-end -->
