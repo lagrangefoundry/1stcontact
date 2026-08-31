@@ -5,13 +5,12 @@ type: doc
 title: Behavior-Module Authoring & Vetting Process
 created_by: xgd
 created_at: '2026-07-21T20:10:50.239883+00:00'
-updated_at: '2026-08-16T01:20:25.302354+00:00'
+updated_at: '2026-08-31T19:43:12.898958+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
-  system_kb: true
 ---
 
 # Behavior-Module Authoring & Vetting Process
