@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Unobtainable signing keys deny rather than admit
 created_by: xgd
 created_at: '2026-08-31T09:32:18.472372+00:00'
-updated_at: '2026-08-31T09:32:18.472372+00:00'
+updated_at: '2026-08-31T09:41:07.984581+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
