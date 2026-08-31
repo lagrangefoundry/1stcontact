@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:39:08.991016+00:00'
+updated_at: '2026-08-31T21:46:21.994246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2336,5 +2336,13 @@ Everything *decided* about the KMS and the content model is in DOC-38 and DOC-39
 The first is the one I'd fix regardless of the others: an answered question sitting in the corpus phrased as open is worse than an absent section, because the AI will treat it as live.
 
 Want me to close all four? They're short — a rewritten open item in DOC-8, two paragraphs in DOC-38 §7, and a sentence in DOC-39 §3.
+
+<!-- xgd-turn id="7fa5303e-6b4b-4c15-b6b6-5bb8806550b7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T21:46:21.963214+00:00" -->
+#### You
+yes please update the docs to reflecxt where we are
+
+Before you do that, can you summarize the ticket dependencies - 162 has completed - who is next? what can run in parallel
 
 <!-- xgd-chat-end -->
