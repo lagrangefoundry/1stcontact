@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-21 (BUG-36 + BUG-37 + BUG-38) — free-coded commits'
 created_by: xgd
 created_at: '2026-08-31T16:34:45.744832+00:00'
-updated_at: '2026-08-31T17:18:39.182808+00:00'
+updated_at: '2026-08-31T17:34:10.548812+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -227,7 +227,7 @@ fields:
       to protect survives and is strengthened, so this is a modification of an existing
       criterion, not a new bucket. No parallel resolution path: the per-process registry
       is deleted rather than kept as a fast path.'
-    story_uid: null
+    story_uid: story-a58a0974
     target_story_ids:
     - story-a58a0974
     intent_delta_summary: 'AC-1055''s authority test changes from ''this process issued
