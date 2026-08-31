@@ -6,10 +6,10 @@ title: Locale decides placement and separators; currency decides symbol and deci
   count
 created_by: xgd
 created_at: '2026-08-31T12:39:10.642696+00:00'
-updated_at: '2026-08-31T12:39:10.642696+00:00'
+updated_at: '2026-08-31T12:47:21.135320+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0598c150
   kind: behavior
