@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-31T10:30:55.445465+00:00'
+updated_at: '2026-08-31T16:50:26.991708+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -47,7 +47,12 @@ the surface where an operator *sees* the site instead.
   draft and edit channels itself at request time. There is no separate origin
   process behind it and nothing in front of it reinterpreting what it says: with
   no local process running anywhere, the deployed workspace serves its document,
-  lists the sites the store actually holds, and renders.
+  lists the sites the store actually holds, and renders. That holds from the very
+  first request. A deployment whose store has been migrated and never written to
+  — schema present, no account registered — serves: the first read that needs the
+  store registers the one account the deployment's own configuration names, and
+  the listing answers successfully and empty. It is not dead until somebody
+  copies a site up from a laptop.
 - **Only an admitted caller reaches any of it.** The workspace is not public. A
   caller the builder's access gate has not verified is refused before a path is
   examined, before a store handle exists, and before a build artifact is
@@ -146,9 +151,13 @@ the surface where an operator *sees* the site instead.
 - **A local site can be copied up.** A site's draft — its definition, its pages
   and its asset bytes — can be copied from a local store into the shared one, and
   it crosses through the same store the origin serves from rather than through a
-  second writer: an import lands by exactly the path an edit lands by. It is
-  idempotent, so re-running it after an edit is the ordinary way to use it, and
-  it lands whole or not at all.
+  second writer: an import lands by exactly the path an edit lands by, opening
+  the store through the one opener every route shares rather than through a
+  private one of its own. It is idempotent, so re-running it after an edit is the
+  ordinary way to use it, and it lands whole or not at all. It carries no
+  privilege the other routes lack: bringing the deployment's account into
+  existence is something opening the store does, not something only a copy can
+  do.
 - **A split, and it remembers.** The display panel sits beside a secondary pane
   (the assistant panel) with a draggable divider that collapses to a rail and
   reopens to its previous width. The divider
@@ -268,6 +277,23 @@ the surface where an operator *sees* the site instead.
   failure and keeps its own status — the router rethrows it rather than letting
   its own catch-all downgrade "this deployment is misconfigured" to "the server
   broke on your request".
+
+  **What counts as unopenable narrowed, and that was the second half of the same
+  bug.** Deferring the store stopped an artifact request depending on an account;
+  it did not stop a *read* depending on one that nothing had ever created. The
+  schema is applied by the deploy and seeds no rows, so every fresh deployment
+  named an account the store did not hold, and the refusal — correct at the
+  library boundary — took the whole workspace down, because the chrome awaits the
+  site listing at the top level. There were two openers, and only the one the
+  copy-up route used registered the account, so a deployment could not be read
+  until someone had written to it from a laptop. There is one opener now and the
+  registration is the read path's too. This is not a widening of what the origin
+  may create: the name comes from the deployment's own configuration, so it can
+  reach exactly the account that configuration already names and no other. The
+  cold path only — an ordinary request finds the row on the first lookup and
+  writes nothing. And it resolves *not yet*, never *no*: a deactivated account is
+  a decision somebody made, and is refused explicitly rather than being left to
+  fail again by accident of how the registration insert happens to behave.
 - **The boot guard is inline, and that is the point.** Serving it as a file would
   make the diagnostic depend on the asset layer, which is the thing most likely
   to be broken when it is needed. It is carried in the document as a classic
@@ -451,6 +477,48 @@ the surface where an operator *sees* the site instead.
   it. Only the moment moved, from per request to per build. Adding parallel
   build-time criteria beside the request-time ones would state one guarantee
   twice.
+
+*Recorded 2026-08-31, reconciling BUNDLE-21 (bundle-78f4e2fe), item 2.*
+
+- **A criterion of this story asserted the behaviour the fix deliberately
+  reversed, and it is narrowed rather than left standing.** The
+  configuration-failure criterion covered three cases: no account named, an
+  account named that the store does not hold, and an account named that is
+  deactivated. The middle case now succeeds — it is the state every new
+  deployment and every new database is in, and reporting it was the outage the
+  operator opened the ticket for. Left as written, the criterion would hold the
+  matrix against the fix and regression would pin the bug. The two cases that are
+  still distinct failures stay, and both load-bearing properties the criterion
+  exists for — the failure keeps its own status, and is never confused with a
+  refused caller — are unchanged and are asserted on those two.
+  *Rationale:* the criterion's subject is *a workspace that cannot serve says
+  which piece of configuration is missing*. A deployment that can register the
+  account its own configuration names can serve, so it was never a member of that
+  set; it was only treated as one because nothing created the row.
+- **The cold start is stated as a criterion of its own rather than folded into
+  the narrowed one.** They are opposite outcomes with different evidence — one
+  asserts a successful empty listing and a registered account, the other asserts
+  two refusals — and combining them would make a single criterion whose two
+  halves cannot both be read as its subject.
+- **The single opener is stated on the copy-up criterion rather than left as an
+  accident.** That criterion already said the copy crosses through *the same
+  store the workspace serves from*. That was true by coincidence of two openers
+  that happened to reach the same account once one of them had registered it; it
+  is now true by construction. The consequence worth asserting is the one the
+  outage was: the copy holds no privilege the other routes lack, so a deployment
+  nobody has copied to still serves.
+  *Rationale:* recording the property only in prose would leave the matrix unable
+  to tell a restored guarantee from a surviving coincidence.
+- **The intent's scope boundary is honoured: no criterion asserts a deploy-time
+  seed.** The operator was offered a `bin/deploy.d/` hook that seeds the account
+  row as an alternative or complement (COMMENT-1435) and did not take it; the
+  bootstrap is in the origin's own request path and nowhere else. Nothing here
+  claims the deploy creates anything.
+- **The interim production `INSERT` is not matrix subject matter.** A row was
+  written by hand into the live database to unblock the operator before the fix
+  existed. It is a one-off patch of production state, is no longer load-bearing,
+  and asserting it would document an operator action rather than a behaviour of
+  the system.
 
 ## Dependencies
 
