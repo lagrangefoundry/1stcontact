@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:26:23.610259+00:00'
+updated_at: '2026-08-31T19:27:37.313960+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1494,5 +1494,80 @@ The unticketed gaps from the last summary stand unchanged — ingestion is still
 On your aside — the reason docs have a sub-kind at all is just that `type` is already spent saying "this is a document" rather than a request or a bug, so `doc_kind` carries the finer distinction. It wasn't invented for this; it's been there holding `architecture`, `security_policy` and four others. We're adding a seventh value, not a mechanism. <-- that was not my comment, myu comment is why can't docs use fields.kind like other types? Why do they need to have fields.doc_kind? Its ugly and inconsistent IMO (but this is an xgd question not a 1c one).
 
 Can you turn the open questions into questions and explain them clearly please
+
+<!-- xgd-turn id="b38cecd3-3682-42c4-b6d3-ba72b0c39561-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:27:36.908690+00:00" -->
+#### Claude
+Let me check that, because if other types use `fields.kind` your point is a concrete inconsistency rather than a matter of taste:
+
+Your point is a real inconsistency, not taste — the store has **two competing conventions**:
+
+| Type | `fields.kind` | `fields.<type>_kind` |
+|---|---|---|
+| comment | **905 / 905** | 0 |
+| report | 1 | **1605** |
+| doc | 1 | **36** |
+| request / bug / goal / bundle | 0 | 0 |
+
+Comments use `kind`; docs and reports use `<type>_kind`. And the stray `fields.kind = 1` on both report and doc is the knowledge component writing awareness reports with *its* convention into a store using the other one. So the two conventions already coexist on the same types, written by different producers. That's an xgd schema question and worth a ticket there if you want one — our `doc_kind` choice is right *given* today's schema, and would follow automatically if xgd ever unified on `kind`.
+
+---
+
+# The open questions, as questions
+
+## DOC-39 — the KMS
+
+**Q1. When a client uploads a document in session A and later opens session B, should B's delta announce that document as new?**
+
+The cursor is per-session. B has no memory of A, so from B's point of view the document *is* new — but the client knows they uploaded it and may find the announcement odd. The alternative is a per-client cursor, where only the first session to see a document ever mentions it.
+
+*Recommendation: per-session.* The cost is a duplicate mention; the cost of the alternative is an AI that never learns about material because a different session consumed the notification.
+
+**Q2. How much of the delta is listed before it truncates to a count — and is the limit measured in entries or characters?**
+
+§6.1 budgets the delta at ≤400 characters. Titles vary in length, so a fixed entry count can blow that budget; a character budget always holds but yields a variable number of entries.
+
+*Recommendation: character budget, with a floor of at least one entry* — so a single long title still gets named rather than collapsing to "1 document added", which would be strictly less useful than saying nothing.
+
+**Q3. What is the first set of system-KB documents, and who writes them?**
+
+Under §3.1 these are authored *for the AI*, and essentially none exist yet. This is a writing project rather than a coding one, and §3.5 gives the criteria and a candidate list (consultation knowledge — opening a conversation, talking about colour and type without jargon, what to do when a client asks for something that will look bad).
+
+*Recommendation: don't start until REQ-158 is green*, so the machinery is proven against the seed set first.
+
+**Q4. When do the 41 tickets move from `system_kb: true` to `doc_kind: system_kb` — and doesn't doing it correctly empty the corpus?**
+
+This one has a trap I should have flagged earlier. The two must change together or the export selects nothing. But under §3.1, **almost none of the current 41 documents are actually system-KB documents** — they're architecture. So a *correct* migration yields a near-empty corpus, which is exactly what REQ-158's acceptance test needs to run against.
+
+*Recommendation: set `doc_kind: system_kb` on the handful that genuinely qualify* — DOC-33 (Consultation Playbook), DOC-35 (Personas & Registers), probably DOC-31/32 — and accept a four-document corpus for testing. Four is enough to prove retrieval end to end, and it starts the real corpus rather than perpetuating the seed one.
+
+## DOC-38 — the content model
+
+**Q5. Is a capture bundle its own `reference` type, or a `material` ticket with `kind: capture`?**
+
+Decided in favour of a separate type, because the attachment shape differs (a multi-member bundle, not one blob) and it has its own re-extraction lifecycle. It was a close call and is cheap to reverse before either type ships.
+
+*Recommendation: revisit when ingestion is built* — writing the code will settle it faster than more argument.
+
+**Q6. Does the site's own copy crowd out the client's source material in search results?**
+
+The site's text is a condensed restatement of the positioning material, which is the profile that wins cosine similarity. If it does pollute, the fix is a separate `site` KB at reduced weight — and that requires **disjoint** corpora, because weight is taken as a maximum across the KBs a document belongs to.
+
+*Recommendation: measure once REQ-159/160 are running.* It's unanswerable in advance.
+
+**Q7. Do large uploads go through the Worker, or direct to R2 on a presigned PUT?**
+
+Only binds above the 25MB ceiling in §14. The catch: on a direct PUT the server never sees the bytes, so it cannot hash them — the content address becomes client-asserted and verified afterwards. That's tolerable only because the tenant prefix means a bad assertion poisons the client's own namespace and nobody else's.
+
+*Recommendation: through the Worker until the ceiling actually binds.*
+
+## Not a question — an action
+
+**DOC-7**, the knowledge component's stated specification, is cited 100+ times across both language peers and resolves in no store. Either find it or reconstruct it; it's a `lagrange-framework` ticket, still unfiled.
+
+---
+
+Want me to write these back into DOC-38 §13 and DOC-39 §10 in this form — question, stake, recommendation — replacing the current declarative bullets?
 
 <!-- xgd-chat-end -->
