@@ -14,6 +14,7 @@ fields:
   story_points: 13
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-0fb97f84
 ---
 
 # Ingestion: from a dropped file to an indexed `material` ticket
