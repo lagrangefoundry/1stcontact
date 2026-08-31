@@ -5,13 +5,12 @@ type: doc
 title: Site Storage, Versioning & Rendering Model
 created_by: xgd
 created_at: '2026-06-30T20:21:05.234795+00:00'
-updated_at: '2026-08-16T01:20:12.247358+00:00'
+updated_at: '2026-08-31T19:42:54.453682+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
-  system_kb: true
 ---
 
 # Site Storage, Versioning & Rendering Model
