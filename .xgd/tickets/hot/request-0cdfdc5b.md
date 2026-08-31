@@ -5,10 +5,10 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-20T02:59:27.927030+00:00'
+updated_at: '2026-08-24T02:10:41.416716+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 9
@@ -47,6 +47,8 @@ fields:
     - 5932f17ff2e03166f656606f96c4c3622319f3fe
     - 4586874257362760b94c58319c7409be43e1ecb6
   version: 0.1.61
+  chat_comment: comment-419ac5a2
+  bundled_in: bundle-b3b7c399
 ---
 
 # The AI host moves into workerd
