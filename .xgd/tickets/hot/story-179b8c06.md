@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-16T08:45:10.295333+00:00'
+updated_at: '2026-08-31T11:04:21.277523+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -25,8 +25,8 @@ modules** that I configure with behavioural settings and dress entirely with
 L1-authored presentation — including the form's own controls — **so that** I get
 safe, tested, shipping behaviour (scroll-snap, autoplay, form submission, spam
 protection) without ever writing module code or raw markup, my design is honoured
-exactly rather than fought by a module stylesheet, and a misbehaving feature can
-never break the rest of my page.
+exactly rather than fought by a module stylesheet, my site renders wherever the
+platform serves it, and a misbehaving feature can never break the rest of my page.
 
 ## Description
 Since the framework pivot, a "module" is a **behavior**, not a bundle of
@@ -45,6 +45,39 @@ code the author/AI never writes) that exposes exactly four surfaces:
 - **conformance** — the universal ACs (safety / security / cross-browser /
   responsive) plus **isolation**: a misbehaving behavior must degrade inertly,
   never breaking page-level robustness.
+
+### What a behavior module *is*, as an artifact
+A behavior is a **plain typed function from props to markup**. It takes the
+instance's config, its slot subtrees, its instance id and the channel flag, and
+returns the HTML string it contributes to the page. It is not a template, and
+nothing has to compile it before it can run.
+
+That is the whole reason the module layer is portable. A module that ships a
+template can only render where the template's build transform runs — which is a
+filesystem-bound toolchain, so a page mounting a behavior module could be
+rendered by the operator's own machine and by nothing else. As a function it has
+no such precondition: **the catalog resolves anywhere, the render path names the
+module lookup directly, and one render entry point serves both hosts** — no
+container to create, no module resolver to inject, no "this page needs the
+transform" branch, and no second, thinner render for the runtime that could not
+run the first. A site mounting a behavior module therefore renders in the edge
+runtime, and the bytes it serves are the component's own output.
+
+Parity between the two hosts is **structural rather than compared**: both call
+the same function, so there is no second implementation that could disagree. The
+parity that matters is host-to-host; it is deliberately *not* parity with the
+previous template compiler's output, whose inter-element whitespace differs and
+is semantically inert.
+
+One thing the template compiler did implicitly the function must now do
+explicitly: **escape every value it interpolates**. A module is the sanitization
+boundary for its own config, so each of its two string sinks — element text and
+attribute value — is a named escape with the same rules as the L1 emitter, and
+there is deliberately no raw-passthrough helper to blur which sink a value went
+through. Values a module emits raw (an already-emitted L1 fragment, its own
+serialized CSS) are visible as such at the call site. The refusal path is
+unchanged and still loud: an unsafe endpoint scheme is *rejected*, not escaped
+into harmlessness.
 
 ### Two composition directions, chosen by whether the element holds children
 A slot is the module rendering its chrome *around* an L1 subtree. That works when
@@ -86,6 +119,14 @@ behavioural state no static L1 subtree can express. An invariant element is
 declared as such, is never bound to an L1 node, and is marked in the emitted DOM
 so downstream consumers can tell repro-only chrome from reference content.
 
+That invariant presentation is a **real stylesheet beside the component** — an
+ordinary CSS file, not a block embedded in a template. It is read once at build
+time into the committed artifact the render composes the page stylesheet from,
+and pinned against staleness by re-extracting from the sources and comparing. The
+move was verbatim: byte-equivalent to what the template's block held, modulo the
+dedent from leaving it. The conversion adds no rule and entrenches none that is
+being removed elsewhere.
+
 The line is not "L1 owns everything"; it is **"L1 owns everything the reference
 can legitimately vary."**
 
@@ -113,7 +154,10 @@ reason — a carve-out with no stated limit is not a carve-out but a hole:
 So the contract's line holds in the edit channel too: L1 still owns everything the
 reference can legitimately vary, and the module owns only what an obligation
 fixes — here, the obligation that every editable region be reachable in the
-channel built for editing it.
+channel built for editing it. The edit channel keeps switching the behaviour off
+in the portable render as it did in the filesystem one: a module-mounting page
+served from the edge emits its markup with the endpoint and the submission verb
+dropped, so a submit cannot leave the page the editor is working on.
 
 ### The two survivors on this contract
 - **carousel** (v3) — a pure-CSS `scroll-snap` track (swipeable with no JS);
@@ -134,6 +178,12 @@ channel built for editing it.
   authored presentation has no visible controls at all, and failing that loudly at
   validation beats rendering an empty box.
 
+**Both survivors convert through the one mechanism, with no per-module
+machinery.** `contact-form` is the module three real sites actually mount;
+`carousel` is in the catalog and in no site — and it converts by exactly the same
+route, which is what proves nothing was special-cased for the module that
+happened to be in use.
+
 ### The deleted look is relocated, not lost
 Deleting a module stylesheet has a real cost: a form authored **without** a
 capture to transcribe would have no look at all. The default is therefore
@@ -151,7 +201,8 @@ HTML/CSS/JS past the L1 envelope); and every control binding is checked in both
 directions.
 
 The contract is published under the `Behavior*` names: a behavior's contract type,
-its config-field, slot and control specs, its slot values, its instance shape, its
+its **component type** (the props-to-markup function), its props, its
+config-field, slot and control specs, its slot values, its instance shape, its
 catalog entry, and its conformance declaration all resolve from the framework
 package root, alongside the validators that check config, slots, controls, and a
 whole instance. Every catalog module declares the discriminant `kind: 'behavior'`.
@@ -166,11 +217,13 @@ actually ship (closing a dev-path pipeline gap that had silently 404'd the
 island scripts).
 
 **In scope**: the behavior contract (config / slots / controls / conformance) and
-its published `Behavior*` naming, instance validation incl. the slot-as-L1
-security line and the two-directional control check, the zero-CSS obligation and
-its two declared carve-outs (invariant elements, and the edit-channel settled
-state), the two reframed survivor behavior modules and
-their observable behaviour, the L2 default-look preset, the shipped-client-JS
+its published `Behavior*` naming, the plain-function component artifact and the
+portable catalog that follows from it, the module's own escaping boundary,
+instance validation incl. the slot-as-L1 security line and the two-directional
+control check, the zero-CSS obligation and its two declared carve-outs (invariant
+elements as a real stylesheet, and the edit-channel settled state), the two
+reframed survivor behavior modules and their observable behaviour in both the
+filesystem and the edge runtime, the L2 default-look preset, the shipped-client-JS
 asset, and the isolation conformance dimension — including its client-side half,
 that an enhancement never cancels a baseline it cannot itself complete.
 
@@ -178,12 +231,17 @@ that an enhancement never cancels a baseline it cannot itself complete.
 `control` node kind, its emitter and the emitter's own safety properties, and the
 L1 slot leaf's renamed field, all of which STORY-83 owns; the capture→L1 fold
 (STORY-84 / CAP-71), including folding a captured control into a `control` node
-and excluding invariant elements from the reproduction value gate; future behavior
+and excluding invariant elements from the reproduction value gate; the CLI
+launcher's own server and the removal of the build framework from the repository
+(STORY-e15a19ef — a separate failure surface: this story is the module contract,
+that one is the launcher and the dependency); the builder origin, the store it
+reads and the routes that serve these channels (STORY-e674c60a); future behavior
 modules (payments, auth, email-capture); the deleted pre-pivot layout modules and
 their dials (superseded — tracked as upgrades to STORY-80/81/82).
 
 ## Technical Context
 - The contract lives in the framework module layer (`BehaviorMeta`,
+  `BehaviorComponent`, `BehaviorProps`,
   `validateBehaviorConfig/Slots/Controls/Instance`, in `modules/behavior.ts`);
   slot validation delegates each subtree to the L1 node schema (CAP-70), which is
   the load-bearing security boundary (DOC-2: structured-only, validated by
@@ -193,31 +251,44 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   Module versions bumped by the pivot: carousel v1→v2, contact-form v2→v3; REQ-96
   bumped both again (carousel v3, contact-form v4) because deleting `config.view`
   and replacing the `intro`/`submit` slots with a required `form` slot are
-  breaking contract changes. (REQ-87's rename was mechanical and bumped no version.)
-- **Supersession (deliberate, recorded).** REQ-96 knowingly changed what an
-  earlier intent established: `config.view` was documented as behavioural config
-  driving slides-per-view (AC-699) and is now deleted as the aesthetic dial it
-  was; `contact-form`'s `intro`/`submit` presentation slots (AC-701) are replaced
-  by one required `form` slot carrying control leaves. Nothing was added in
-  parallel — the old surfaces are gone, per CLAUDE.md's no-legacy-modes rule.
-- **Security stays construction-time.** The inversion moves *presentation* to L1
-  and nothing else: the module still authors the `action` through `assertSafeUrl`,
-  the `name` / `type` / `required` attributes, and the label pairing; the sole
-  emitter escapes every attribute value and refuses `class`, `style` and `on*`
-  attribute names outright, so a module cannot hand presentation back to itself
-  and there is no freeform key that routes to raw CSS. The safety envelope must
-  not degrade from "guaranteed by construction" to "hopefully validated" — that
-  is the framework's value proposition (DOC-24).
-- **A pre-existing defect fixed here because it made the criterion uncheckable.**
-  The module-CSS fold scanned each component's whole source for `<style>`-shaped
-  text. Two such things are not style elements: a doc comment that merely
-  *mentions* `<style>`, and the self-closing per-instance `<style set:html={…} />`
-  in the body. Both opened a match that ran on to the next real `</style>`, so
-  `carousel` was folding its own imports, props interface, script body and markup
-  into every generated `theme.css`. The scan now skips the frontmatter and strips
-  self-closing tags first. Predates REQ-96; fixed inside it because "the module
-  ships no CSS" cannot be asserted against a stylesheet containing the component's
-  source. Recorded as an in-scope excursion in the reconciliation plan.
+  breaking contract changes. (REQ-87's rename was mechanical and bumped no version.
+  REQ-148's conversion bumped no version either: it changes the artifact a module
+  *ships*, not the contract an instance is written against.)
+- **The mechanism is removal, not precompilation (REQ-148).** The ticket opened
+  framed as "precompile the templates and bundle the compiled render function";
+  investigation settled the opposite. Neither survivor used a single feature of
+  the template framework — no island, no hydration, no request/URL access, no
+  layout, no child slot — only its props object, plain TypeScript, a call into the
+  L1 fragment renderer (already portable) and two raw-HTML interpolations.
+  Precompiling would still have dragged the framework's *runtime* into the edge
+  bundle (the markdown/Shiki/Prism graph and a `virtual:` specifier no Worker
+  bundle resolves) and added a build artifact that can go stale. Becoming plain
+  functions **deleted** the container factory, the injected container option, the
+  "needs the transform" render branch, the unresolvable-module resolver seam, the
+  node-only render wrapper, the template ambient declarations and the CSS
+  scanner — and left one render entry point, which is what makes host parity true
+  by construction rather than by comparison.
+- **A pre-existing defect is now structurally impossible rather than fixed.** The
+  module-CSS fold used to scan each component's whole source for `<style>`-shaped
+  text, and two such things are not style elements: a doc comment that merely
+  *mentions* `<style>`, and the self-closing per-instance style tag in the body.
+  Both opened a match that ran on to the next real closing tag, folding a
+  component's imports, props interface, script body and markup into every
+  generated stylesheet. REQ-96 repaired the scanner; REQ-148 deleted it. Module
+  chrome is a real `styles.css` read whole, so there is no scan to mis-anchor and
+  no component source anywhere near the stylesheet composition.
+- **Security stays construction-time, and the module now owns an explicit half.**
+  The inversion moves *presentation* to L1 and nothing else: the module still
+  authors the `action` through `assertSafeUrl`, the `name` / `type` / `required`
+  attributes, and the label pairing; the L1 emitter escapes every attribute value
+  and refuses `class`, `style` and `on*` attribute names outright, so a module
+  cannot hand presentation back to itself and there is no freeform key that routes
+  to raw CSS. What changed with the conversion is that the module's *own* chrome
+  is no longer escaped by a compiler on its behalf — the two sinks are named and
+  the rules are the L1 emitter's, deliberately identical because the two emit into
+  one document. The safety envelope must not degrade from "guaranteed by
+  construction" to "hopefully validated" — that is the framework's value
+  proposition (DOC-24).
 - **The invariant declaration has a second consumer.** Invariant elements are
   repro-only chrome — they exist on our side and have no counterpart in a captured
   reference — so the reproduction value gate must exclude them, or the control
@@ -232,9 +303,19 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   default), and the submit button inline-vs-stacked — which "ceased to be a
   concept" once each control carries its own geometry. Cross-gate perceptual mean
   fell 2.61 → 0.69/255 and values-diff deltas 26 → 2.
-- The shipped client asset mirrors the existing module-CSS folding
-  (`getModuleCss` → `theme.css`; `getModuleClientJs` → `capabilities.js`),
-  referenced once per page as `<script type="module">`.
+- **Rendered-output equivalence across the conversion was measured, not assumed.**
+  Both real sites (4 live `contact-form` instances between them) were rendered on a
+  clean pre-conversion checkout and again after: the pages are identical once
+  inter-element whitespace and the compiler's inert per-component scope attribute
+  are normalised; the page stylesheet is identical ignoring the dedent; the client
+  bundle is byte-identical. The one non-whitespace difference is an empty `action`
+  emitted as `action=""` rather than omitted — the same thing in HTML.
+- The shipped client asset mirrors the module-chrome fold (`getModuleCss` →
+  `theme.css`; `getModuleClientJs` → `capabilities.js`), referenced once per page
+  as `<script type="module">`. Both read the committed build artifact rather than
+  the sources, so the composition runs in a runtime with no filesystem; a UAT
+  re-extracts from the sources and compares, because a generated file that goes
+  stale silently would serve last week's chrome with nothing to signal it.
 - **Deliberate non-change (do not "complete" this rename):** the emitted asset
   filename is still `capabilities.js` and pages still reference
   `./capabilities.js`. It is a plural bundle-output filename, not a type or a
@@ -259,7 +340,11 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
 - Isolation is a render-level conformance dimension: degenerate-but-schema-valid
   input must render without throwing and still emit a structurally-intact page
   band; it always runs (needs no browser). The other four dimensions
-  (safety/security/x-browser/responsive) are the DOC-20 universal ACs.
+  (safety/security/x-browser/responsive) are the DOC-20 universal ACs. The
+  harness's negative fixtures — the deliberately-broken modules that prove the
+  dimensions discriminate — are plain behavior components too, mounted through the
+  *same* render path via the injected test-only resolver, so a fixture needs no
+  build step and cannot drag a transform back in through the test suite.
 - **The settled-state carve-out was added by the edit-render work, and is
   recorded here deliberately.** The edit render is owned by another story, but the
   *obligation it places on a behavior module* is a change to this contract, so it
@@ -277,6 +362,34 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   end that collision. The operator confirmed the slot-attachment seam as Option A
   (a module *instance* carries L1 subtrees on named slots; the module wraps L1);
   REQ-96 adds the inverse seam for leaves rather than replacing it.
+
+### Reconciliation Decisions
+
+**2026-08-31 — the module's own escaping boundary is formalised as a criterion.**
+REQ-148's stated ACs cover the runtime, the mechanism, the two survivors, the
+conformance harness and the byte-equivalence of the chrome. They are silent on
+escaping: the ticket notes only that each component "emits HTML with a couple of
+`set:html` fragments". The conversion nevertheless moved a real obligation from
+the compiler to the module — a template compiler escaped every interpolation
+implicitly, and a function returning a template literal escapes nothing unless it
+is written to. The code implements this deliberately (one named sink per
+destination, matching the L1 emitter's rules, with no raw-passthrough helper), and
+it is the single thing the conversion could silently have lost while every other
+criterion still passed. Reconciliation formalises it now as an acceptance
+criterion of this story rather than leaving the matrix with a security property
+that only a comment asserts. Rationale: DOC-2 makes the structured-only boundary
+load-bearing, and a module is the sanitization boundary for its own config
+(DOC-25 §10.4) — an unstated obligation there is exactly the kind of gap
+reconciliation exists to close.
+
+**2026-08-31 — the conformance-fixture criterion states the fixture shape, not
+the skip count.** REQ-148's implementation record notes conformance moving from
+"5 passed, 15 skipped" to 20/20. That improvement was environmental (the matching
+headless-browser build was installed), not a consequence of this story's code, so
+the criterion asserts what the code delivers — the negative fixtures are plain
+behavior components resolved through the same path as a catalog module, and they
+still discriminate — and does not claim credit for the browser becoming
+available.
 
 ### Reconciliation UAT file
 This story's reconciliation UATs (AC-697…AC-704) live in
