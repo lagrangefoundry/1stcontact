@@ -5,10 +5,10 @@ type: request
 title: Money and time representation, and the render-determinism resolution
 created_by: xgd
 created_at: '2026-08-20T21:59:25.587137+00:00'
-updated_at: '2026-08-22T22:07:40.115127+00:00'
+updated_at: '2026-08-24T02:10:41.865021+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: medium
   story_points: 2
@@ -21,6 +21,8 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.4
+  chat_comment: comment-869ded75
+  bundled_in: bundle-b3b7c399
 ---
 
 # Money and time representation: the constraints, and the render-determinism resolution
