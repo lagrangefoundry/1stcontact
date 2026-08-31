@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:27:37.313960+00:00'
+updated_at: '2026-08-31T19:36:22.897385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1569,5 +1569,41 @@ Only binds above the 25MB ceiling in §14. The catch: on a direct PUT the server
 ---
 
 Want me to write these back into DOC-38 §13 and DOC-39 §10 in this form — question, stake, recommendation — replacing the current declarative bullets?
+
+<!-- xgd-turn id="792a92d1-f397-4355-826c-c51ea20eda4c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:36:22.049452+00:00" -->
+#### You
+**Q1. When a client uploads a document in session A and later opens session B, should B's delta announce that document as new?**
+
+The cursor is per-session. B has no memory of A, so from B's point of view the document *is* new — but the client knows they uploaded it and may find the announcement odd. The alternative is a per-client cursor, where only the first session to see a document ever mentions it.
+
+*Recommendation: per-session.* The cost is a duplicate mention; the cost of the alternative is an AI that never learns about material because a different session consumed the notification. 
+
+OK, let's talk about this it feels wrong. It is the job of the awareness map to make the session aware of content that already exists. It is the job of the Delta to update the session when new content arrives. Your proposal feels duplicative and confusing. Why is it so difficult to set the cursor at the start of the session, to point after the existing content?
+
+**Q2. How much of the delta is listed before it truncates to a count — and is the limit measured in entries or characters?**
+
+§6.1 budgets the delta at ≤400 characters. Titles vary in length, so a fixed entry count can blow that budget; a character budget always holds but yields a variable number of entries.
+
+*Recommendation: character budget, with a floor of at least one entry* — so a single long title still gets named rather than collapsing to "1 document added", which would be strictly less useful than saying nothing. 
+
+Character budget hard content stop. And doc count always.
+
+**Q3. What is the first set of system-KB documents, and who writes them?**
+
+Under §3.1 these are authored *for the AI*, and essentially none exist yet. This is a writing project rather than a coding one, and §3.5 gives the criteria and a candidate list (consultation knowledge — opening a conversation, talking about colour and type without jargon, what to do when a client asks for something that will look bad).
+
+This is an exercise you and I will intake once we have the structure in place. (DEFER)
+
+**Q4. When do the 41 tickets move from **`system_kb: true`** to **`doc_kind: system_kb`** — and doesn't doing it correctly empty the corpus?**
+
+This one has a trap I should have flagged earlier. The two must change together or the export selects nothing. But under §3.1, **almost none of the current 41 documents are actually system-KB documents** — they're architecture. So a *correct* migration yields a near-empty corpus, which is exactly what REQ-158's acceptance test needs to run against.
+
+*Recommendation: set *`doc_kind: system_kb`* on the handful that genuinely qualify* — DOC-33 (Consultation Playbook), DOC-35 (Personas & Registers), probably DOC-31/32 — and accept a four-document corpus for testing. Four is enough to prove retrieval end to end, and it starts the real corpus rather than perpetuating the seed one.
+
+First just remove ** **`system_kb: true `from everything. 
+
+What would be your candidates for ** **`doc_kind: system_kb` ?
 
 <!-- xgd-chat-end -->
