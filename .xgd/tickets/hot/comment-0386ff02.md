@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:18:49.624315+00:00'
+updated_at: '2026-08-31T21:32:05.771880+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2251,5 +2251,11 @@ So the answer to the agent's six questions is now clean:
 6. **Both settled** — `reference` keeps its type, `brief` keeps its type with `fields.site_slug`.
 
 All of it is in the ticket body now rather than only in the transcript, so the agent can proceed from the ticket alone.
+
+<!-- xgd-turn id="afb95e41-2e95-4795-bd5a-034075eda9dd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T21:32:04.678175+00:00" -->
+#### You
+on REQ-162 is free coding - do we have ticket coverage for everything yet?
 
 <!-- xgd-chat-end -->
