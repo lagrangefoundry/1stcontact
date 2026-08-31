@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:56:16.930042+00:00'
+updated_at: '2026-08-31T00:58:25.813910+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1224,5 +1224,11 @@ The ticket proposes three fixes in value order: an explicit exhaustive mode, mak
 I framed the argument as *the next consumer shouldn't have to discover this the same way*, using `readDocTickets` as the worked example: the symptom would surface as "the assistant doesn't seem to know about that document" — a retrieval-quality complaint several artifacts downstream of the cause, with nothing pointing back at pagination.
 
 **The 1stcontact-side fix is explicitly out of scope** in that ticket and isn't filed anywhere yet. It's a cursor loop in `readDocTickets`, small, and it shouldn't wait on xgd. Want me to file it in 1stcontact, or fold it into REQ-158 since that ticket already can't complete without a correct corpus export?
+
+<!-- xgd-turn id="1b1440b8-2549-499d-8b1f-36c3a7260de3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:58:24.927014+00:00" -->
+#### You
+Note xgd BUG-1303 - there are a lot of tickets missing - could that be the problem?
 
 <!-- xgd-chat-end -->
