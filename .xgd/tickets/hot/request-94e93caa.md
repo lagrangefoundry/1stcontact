@@ -5,10 +5,10 @@ type: request
 title: Reserve locale-shaped page slugs
 created_by: xgd
 created_at: '2026-08-20T21:59:29.784434+00:00'
-updated_at: '2026-08-22T22:09:57.159414+00:00'
+updated_at: '2026-08-24T02:10:41.955524+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: low
   story_points: 1
@@ -22,6 +22,8 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.5
+  chat_comment: comment-18e5a285
+  bundled_in: bundle-b3b7c399
 ---
 
 # Reserve locale-shaped page slugs
