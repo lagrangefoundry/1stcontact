@@ -5,13 +5,11 @@
 #
 # XGD_GITATTRIBUTES_MARKER
 #
-# Ticket files: on merge/rebase conflict keep the side whose YAML frontmatter
-# has the more recent ``updated_at`` timestamp. This is critical during
-# caretaker_resync when the same ticket is edited on both main (via reconcile
-# merge-back) and xgd-working (via local edit).
-#
-# The driver is registered in .git/config by ``xgd init`` / ``xgd setup``.
-.xgd/tickets/**/*.md merge=xgd-ticket-recent
+# The xgd-ticket-recent driver (most-recent-updated_at-wins for ticket file
+# conflicts) was removed by xgd's REQ-816: it silently discarded legitimate
+# concurrent edits. Ticket files now merge via plain git 3-way merge; real
+# content conflicts surface as ordinary conflict markers. See xgd's
+# xgd_source/system_docs/FRAGILE-INTENT-LIFECYCLE.md §5.2 / DOC-986.
 
 # Self-rule: if .gitattributes itself conflicts, keep the rebase-target
 # (main) version — it is always the superset of registered drivers.
