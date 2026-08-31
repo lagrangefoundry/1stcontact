@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-31T17:34:10.444405+00:00'
+updated_at: '2026-08-31T17:40:56.028131+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -16,9 +16,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
-  updated_by:
-  - bundle-b3b7c399
-  - bundle-78f4e2fe
+  updated_by: bundle-78f4e2fe
 ---
 
 ## Story
