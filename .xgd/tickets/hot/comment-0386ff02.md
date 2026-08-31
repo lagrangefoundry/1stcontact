@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:01:32.719846+00:00'
+updated_at: '2026-08-31T22:02:54.011432+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2404,5 +2404,39 @@ Where I'd point the next agent: **REQ-164**. Three points, and the whole `164 �
 <!-- xgd-chat role="user" ts="2026-08-31T22:01:31.755118+00:00" -->
 #### You
 Can you help me with the questions in the REQ-163 chat transcript please
+
+<!-- xgd-turn id="688f2233-aa1a-4185-ac02-3b1238fe3614-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:02:53.257203+00:00" -->
+#### Claude
+Read it. The recommendations are sound — I'd take all eight. Four need a refinement, and there's one cross-ticket concern the agent couldn't see.
+
+## Approve as recommended: 2, 5, 6, 8
+
+**2 (two routes)** — right split. `POST /api/material` and `/api/material/fetch` are pipeline entry points; `/api/tickets/*` and the overlay are Library surfaces. Worth noting REQ-161's overlay will POST to these, so treat the contract as public from the start.
+
+**5 (never reject a scan)** — agreed, and for the reason given: rejecting a client's scanned brand book is the worse failure. Honest shadow, no OCR in v1.
+
+**6 (record `shadow_model`/`shadow_status`, no auto-regen)** — agreed.
+
+**8 (build the promotion gate now, unrouted)** — agreed, and I'd push slightly harder than the agent did. DOC-38 §5 calls it the most damaging single action in the system; building the surface first and the gate afterwards is precisely how it reaches production ungated. It's a function plus a refusal. Note it writes a `site_assets` row pointing at the existing blob — that table exists today, so it doesn't wait on the (unticketed) `site_assets` migration.
+
+## Refinements
+
+**1 (index seam)** — right call, one addition. An optional `deps.index?()` that nobody wires means material is silently never indexed, and DOC-39 §4 is explicit that a stale index makes a document *invisible* rather than merely stale. So: optional in tests, but the Worker should **log loudly when no indexer is wired**, and REQ-159 makes it required at `ticketStoreFor`-style construction. Add that to REQ-159's acceptance so the temporary hole has an owner.
+
+**3 (vision call)** — approve, with the duplication named rather than absorbed. A second LLM path beside the AI host is real cost; take it, but record the consolidation point explicitly (REQ-157, or an image block on the AI component's surface) so it doesn't become permanent by default.
+
+And the missing-API-key behaviour combines with Q6 better than the agent noticed: **`shadow_status` is one field doing three jobs** — no API key, scanned PDF, unsupported type. All three produce a material that exists, is visible in the Library, and is findable by predicate for a later re-shadow pass. That's the whole degraded-shadow story in one mechanism, so make sure it's designed as one rather than three special cases.
+
+**4 (`unpdf`)** — take the dependency; the fallback does gut step 3, and class 4b *is* PDFs. Two conditions: check the licence, and **measure the bundle**. That's the cross-ticket concern — REQ-158 is also planning to put the KB vector index in the Worker bundle. pdf.js is not small. Neither ticket can see the other's contribution, and the ceiling is a hard Cloudflare limit. Whoever lands second will discover it. Worth measuring now and telling REQ-158's implementer the number.
+
+**7 (plain fetch + SSRF guard)** — right, and the guard is more important than the network framing suggests. Fetched content becomes **corpus material the AI reads**, so this isn't only an SSRF surface — it's a prompt-injection path into the assistant's context. Two consequences: keep the guard as specified, *and* make fetched material carry the untrusted marking DOC-10 §5.2 already requires for retrieved content. A successful fetch of attacker-chosen content is still a risk even when the address is entirely legitimate.
+
+## Answer to send
+
+All eight recommendations approved. Additions: log loudly when no indexer is wired (1); name the vision-path consolidation point (3); design `shadow_status` once for all three degraded cases (3+5+6); check `unpdf`'s licence and measure its bundle contribution, then report it to REQ-158 (4); mark fetched content untrusted as well as guarding the fetch (7).
+
+Want me to write that into REQ-163's body so it survives the transcript?
 
 <!-- xgd-chat-end -->
