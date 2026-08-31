@@ -5,9 +5,9 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T01:11:56.077972+00:00'
+updated_at: '2026-08-31T01:13:00.951326+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   doc_kind: architecture
@@ -49,7 +49,7 @@ The organizing unit. A KB is declared, not built:
 
 ```jsonc
 "system": {
-  "description": "…what this KB is, in one paragraph…",
+  "prompt":    "…what this KB is, in one paragraph…",
   "corpus":    { },                 // the distribution IS the corpus — §3.3
   "landscape": "authored",
   "source":    "shipped",
@@ -57,7 +57,7 @@ The organizing unit. A KB is declared, not built:
 }
 ```
 
-Five things follow from that shape, and each of them is a decision this document
+Four things follow from that shape, and each of them is a decision this document
 depends on:
 
 - **The corpus is a predicate, not a collection.** `corpusPredicates()` renders
@@ -74,41 +74,6 @@ depends on:
   publish a map and appear in priming; `none` publishes no map but remains
   searchable and is named in the mechanism section, so an agent can still reach
   it deliberately.
-- **`description` is prose, and it is the twin of `corpus`.** `corpus` says which
-  rows belong, machine-readably; `description` says what they are, in English.
-  Neither is an instruction to a model. See §2.1 — the field was called `prompt`
-  until this document's own reading of the code showed it was not one.
-
-### 2.1 It was called `prompt`, and that was wrong
-
-Recorded because the old name was load-bearing on how people read the field, and
-because the docstring that carried it asserted something the code did not do.
-
-`prompt` is never injected at retrieval time. `search.js` and `ranking.js` never
-read it. It reaches a model **exactly once**, inside the awareness build, where
-`describePrompt()` prepends it as *"Domain context for this knowledge base"* — it
-is context supplied *to* a prompt, not a prompt. Its only other consumer is
-`assembleLandscape()`, which renders it as the italic subtitle under
-`# Awareness map: <name>`: a caption for a human reader.
-
-The docstring said otherwise, and pairing the false half with a true one is what
-made it read as verified:
-
-> *"ranked search multiplies its score by `weight` and injects `prompt` as the
-> retrieval-time domain context"*
-
-`weight` **is** read at retrieval. `prompt` is not. The sentence cited DOC-7
-§4.1 as its authority — the specification §11 records as resolving in no
-reachable store — so the claim could not be checked against its stated source.
-
-Every value ever written in the field was a noun phrase describing a corpus
-("xgd system knowledge: how the tool thinks and is used — …"). Nobody had ever
-written a prompt in it, because it was not one. The rename to `description` is
-lagrange-framework REQ-109, with xgd REQ-826 and this repo following.
-
-There is no compatibility alias: `KB_KEYS` rejects unknown keys rather than
-ignoring them, so a stale config fails with `unknown key(s) prompt (valid keys:
-description, …)`, which names its own fix.
 
 ## 3. The two knowledge bases
 
@@ -378,66 +343,105 @@ Priming's own section ordering is fixed by the component and is load-bearing:
 landscape (what exists) → role purpose (what to do) → mechanism and trigger (how
 to search; go). The last thing the agent reads is the first thing it does.
 
-### 6.1 Seeding a session
+### 6.1 The budget, and the principle that sets it
 
-At session start the AI is handed a map and a mechanism, never a pile of
-documents. Concretely, `primeSession` assembles:
+**A map exists to make a good first query possible. It does not exist to convey
+knowledge.** Anything in the forced context beyond what is needed to *formulate a
+query* is waste twice over: it costs tokens the work needs, and it dilutes the
+region it sits in, training the model to skim exactly where the occasional
+important line will appear.
 
-1. **The landscape** — the awareness map of *every* default-visible KB, in one
-   section. Both KBs, together.
+So the test for every item below is not *"is this useful?"* — almost anything is
+occasionally useful. It is **"does this change what the AI does next, often
+enough to justify carrying it every turn?"**
+
+Two structural facts make the budget affordable:
+
+- **The landscape is O(territories), not O(documents).** A map of eight
+  territories is the same size over forty documents or four thousand. This is the
+  entire reason a map is the right artifact; a summary that grew with the corpus
+  would just be the pile again, delayed.
+- **Stable content is paid once.** The landscape, role and mechanism do not change
+  during a session, so they sit in the prompt prefix and are cached. Re-priming
+  "every turn" means the same tokens are present, not that new ones accumulate.
+
+| Moment | What KM contributes | Budget | Paid |
+|---|---|---|---|
+| **Initiation** | landscape + role purpose + mechanism | ~2–3KB | once; cached thereafter |
+| **Resumption** | the same, plus what arrived while away | + ≤400 chars | once per resume |
+| **Per turn — nothing changed** | **nothing at all** | **0** | — |
+| **Per turn — something changed** | titles of what arrived, capped | ≤400 chars | only on turns that changed |
+
+**KM's marginal cost on a typical turn is zero.** That is the target, and any
+design that does not hit it has gone wrong.
+
+### 6.2 Session initiation
+
+`primeSession` assembles three sections, in this order, and the order is the
+component's:
+
+1. **The landscape** — the maps of every default-visible KB, in one section.
 2. **The role purpose** — what this agent is here to do.
-3. **The mechanism and the trigger** — how to search, then *"prime yourself
-   now"*.
+3. **The mechanism and trigger** — how to search, then *"prime yourself now"*.
 
-**Both maps, not one.** Presenting them separately would recreate the failure
+**Both maps in one section, not two.** Splitting them recreates the failure
 [[DOC-10]] §5.2 removed when it merged the transcript tools into the knowledge
-surface: the AI had to know *which kind of thing* it was looking for before it
-could look. A question half-answered by a design document and half by the
-client's own positioning paper should return both, ranked together.
+surface: the AI having to know which *kind* of thing it was looking for before it
+could look. A question half-answered by a system document and half by the
+client's own paper should return both, ranked together.
 
-**Project map first, then system.** Both are visible; the ordering is the config
-order and is a genuine choice. The client's own material is what the session is
-about, and the system KB is standing capability that the role purpose already
-frames. Cheap to flip if it reads wrong.
+**Project map first, then system** — the client's material is what the session is
+about, and the role purpose already frames standing capability. Cheap to flip.
 
-**A small project KB is enumerated, not mapped** (§7). For a new client the
-landscape section *is* the whole corpus, which is exactly right: the AI should
-know everything about a client who has told it very little.
+Below the floor the project side is enumerated rather than mapped (§7), and that
+is the one place the O(territories) property is deliberately given up — which is
+why §7 caps it hard.
 
-**A resumed session seeds identically**, plus the tail ([[DOC-10]] §2.1) and plus
-whatever arrived while the client was away — which falls out of the cursor in
-§5.1 rather than needing its own mechanism. The first turn back naturally opens
-with *"while you were gone, these arrived."*
+What initiation must never do is inline document bodies. That is the whole of
+[[DOC-10]] §5.1's argument.
 
-What seeding must never do is inline document bodies. That is the whole of
-[[DOC-10]] §5.1's argument and the reason the prompt stays bounded as the corpus
-grows.
+### 6.3 Session resumption
 
-### 6.2 The turn reminder
+Identical to initiation, plus **one** addition from KM: what entered the corpus
+while the client was away, from the session's stored cursor (§5.1). Titles only,
+under the same ≤400-character cap as any other delta, so a fortnight's absence
+costs the same as an hour's.
 
-Each subsequent turn carries a **reminder**, not a re-seed:
+**The transcript tail is not KM's contribution and is not counted here.** The
+~5k-character tail belongs to [[DOC-10]] §5.1 and is the conversation itself, not
+knowledge about it. It is named only so the two are not confused: KM adds a
+handful of titles to a resumed session, nothing more.
 
-- **the delta** — what entered the corpus since this session's cursor (§5.1);
-- **the mechanism**, restated compactly — generated from the declared surface,
-  never hand-written, so the instructions cannot drift from the tools;
-- **the tail** — the last ~5k characters of transcript ([[DOC-10]] §5.1).
+### 6.4 The per-turn reminder
 
-**Ordering is a cost decision, not only a legibility one.** The maps are stable
-across turns and the delta and tail are not, so the stable material must sit
-*before* the volatile material in the prompt. Put the delta early and every turn
-invalidates the prompt cache from that point on; put it late and the entire
-seeded prefix stays cached for the life of the session. Stable first, volatile
-last, trigger last of all.
+**On a turn where nothing entered the corpus, KM contributes nothing.** Not a
+heading, not *"no changes"*, not a restated mechanism — the landscape and the
+mechanism are already in the cached prefix, and repeating them buys nothing while
+pushing the prefix out of cache.
 
-**An empty delta emits nothing.** Not *"nothing new"* — a line that appears every
-turn and is almost always empty is noise that trains the model to skip the region
-it appears in, which is the same region the non-empty case needs to be noticed
-in.
+On a turn where something did arrive: **titles, capped, and nothing else.**
 
-**The delta needs a ceiling.** A bulk import or a capture run can put hundreds of
-entries into one turn. Cap the inline list and summarise the remainder — *"…and
-34 more"* — with the change-feed operation (§6) available to read the rest. An
-unbounded delta would reintroduce exactly the pile that priming exists to avoid.
+```
+2 documents added: "Brand guidelines 2024", "Q3 positioning note"
+```
+
+No excerpts, no summaries, no rights annotations. The AI now knows the material
+exists and can search it — which is the entire job, and it is done in one line.
+Anything more is answering a question that has not been asked yet.
+
+**The cap holds regardless of volume.** A bulk import or a capture run can land
+hundreds of items; the line becomes *"41 documents added, including … — use the
+change feed for the rest"* and stays under budget. The change-feed operation (§6)
+is what makes truncation safe: nothing is hidden, it is merely not forced.
+
+**An empty delta emits literally nothing.** A line that appears every turn and is
+almost always empty is worse than absent — it teaches the model that this region
+carries no information, which is precisely the region the non-empty case needs to
+be noticed in.
+
+**Volatile content goes last.** The delta must sit after the cached prefix, or
+every turn that changes something invalidates the prompt cache from that point
+on. Stable first, volatile last, trigger last of all.
 
 ## 7. Enumerate, then cluster
 
@@ -454,9 +458,16 @@ So the threshold is not *"too few documents to cluster"* — it is **"few enough
 enumerate in full"**, which makes the real rule a **character budget** rather
 than a document count:
 
-- **Enumerate** while title + ~200 characters per document fits in roughly 2–4KB
-  (about a dozen documents, which is the useful proxy).
+- **Enumerate** while the listing fits in **~1KB** — roughly a dozen entries.
 - **Cluster** above that.
+
+**Titles, not excerpts.** An earlier draft budgeted ~200 characters of body per
+document; that is conveying content, which §6.1 says is not the listing's job.
+Titles are enough to formulate a first query, and they are unusually good here
+because [[DOC-38]] §6 gives every project-KB entry an AI-written body *and* an
+AI-written title — a `material` ticket is not called `Notes.pdf`. Where a title
+genuinely is uninformative, a short excerpt is a fallback for that entry, not a
+default for all of them.
 
 Two details that matter more than they look:
 
@@ -464,10 +475,10 @@ Two details that matter more than they look:
   list in full"* makes a short list read as *"you know everything there is"*
   rather than *"knowledge here is thin"* — very different behaviour in front of a
   new client.
-- **The 200-character excerpt works because of [[DOC-38]] §6.** Every body in the
-  project KB is already a written summary — the text shadow for `material`, the
-  AI-maintained summary for `chat`. Over raw documents this heuristic would be
-  much worse.
+- **This works because of [[DOC-38]] §6.** Every entry in the project KB has an
+  AI-written title over an AI-written body — the text shadow for `material`, the
+  maintained summary for `chat`. Over raw uploaded filenames it would be far
+  weaker, and the excerpt fallback would carry more of the load.
 
 ## 8. What this costs
 
