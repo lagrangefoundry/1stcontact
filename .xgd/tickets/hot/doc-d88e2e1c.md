@@ -5,9 +5,9 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T19:42:19.831685+00:00'
+updated_at: '2026-08-31T21:47:56.029868+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: free_coded
 fields:
   doc_kind: architecture
@@ -170,6 +170,13 @@ right home rather than a new field:
 
 The `system_kb: true` boolean it replaces is retired: it expressed membership as
 a flag, which is precisely the shape §3.1 argues against.
+
+**System documents never go through ingestion.** [[DOC-38]] §10's pipeline —
+store the blob, classify, shadow, create the ticket, index — is entirely for
+*client* material arriving from outside. A system document has no blob to store,
+no content type to classify, and nothing to shadow: for client material the
+ticket body is a *shadow* of something else, while here the body **is** the
+document. The two paths share the knowledge component and nothing else.
 
 ### 3.4 Why author them as tickets at all
 
