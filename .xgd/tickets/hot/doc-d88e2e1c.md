@@ -5,10 +5,10 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T00:51:24.789005+00:00'
+updated_at: '2026-08-31T01:07:58.834127+00:00'
 completed_at: null
-last_field_updated: body
-status: null
+last_field_updated: status
+status: free_coding
 fields:
   doc_kind: architecture
   system_kb: true
