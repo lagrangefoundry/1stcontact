@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:41:57.487537+00:00'
+updated_at: '2026-08-31T19:44:48.474900+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1686,5 +1686,88 @@ So: **initialise the cursor to the awareness map's build timestamp, not the sess
 **There's no one using this yet - please just make the changes and don't fuss**
 
 **Lets go back to REQs, what do we have, what is missing, what are the dependencies?**
+
+<!-- xgd-turn id="a6225b70-95a1-4ef0-8789-554ada539d69-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:44:48.010489+00:00" -->
+#### Claude
+`null` clears it cleanly. Running the batch:
+
+zsh doesn't word-split unquoted expansions — the loop ran once with the whole list. Redoing with `while read`:
+
+`doc_kind` is a **closed enum** in xgd's schema — that's the thing I didn't check:
+
+Both batches done — and one blocked.
+
+**`system_kb: true` removed from all 38.** Verified through the API (the file grep was reading stale worktree copies).
+
+**`doc_kind: system_kb` rejected — the enum is closed:**
+
+```
+expected: ['architecture', 'security', 'interface_design', 'project_context',
+           'project_context_summary', 'architecture_policy', 'security_policy',
+           'interface_design_policy', 'test_asset_catalogue', 'api_asset_catalogue']
+got: system_kb
+```
+
+It's validated in `xgd_source/core/ticketing/ticket_types.yaml` — xgd source, not project config, so 1stcontact can't extend it locally. Adding one enum value is a one-line xgd change. It also sharpens your earlier objection: a closed enum owned by xgd means every new document kind needs an xgd release. Worth a moment's thought, but I'd still take it — the closedness is what buys the exclusivity we wanted.
+
+Net state: the marker is currently *nothing*, which is harmless since nothing consumes it.
+
+---
+
+# REQ status
+
+## What we have
+
+| Repo | Ticket | Status |
+|---|---|---|
+| lagrange-framework | REQ-104 attachments / BlobStore | **done** |
+| lagrange-framework | REQ-107 tenant identity for ports | **done** |
+| lagrange-framework | REQ-108 soft-delete + sweep | **done** |
+| xgd | REQ-825 `--json` truncation | **done** |
+| 1stcontact | REQ-158 system KB in the Worker | draft |
+| 1stcontact | REQ-159 the project KB | draft |
+| 1stcontact | REQ-160 seeding + turn reminders | draft |
+
+The whole substrate layer is built. Everything outstanding is 1stcontact.
+
+## What's missing — 8 unticketed items
+
+| # | Work | Size | Why it exists |
+|---|---|---|---|
+| 1 | **Ingestion pipeline** (DOC-38 §10) | large | Nothing creates `material` tickets. The entire user-facing half of DOC-38. |
+| 2 | **Corpus marker migration** | small | export filter → `doc_kind`, shipped corpus → `{}`, + the xgd enum value |
+| 3 | **`readDocTickets` pagination** | tiny | REQ-825 landed; the consumer still takes page one |
+| 4 | **Projected reference** (DOC-39 §3.2) | medium | module catalogue / control surface, generated not authored |
+| 5 | **Site source adapter** (DOC-38 §8.3) | medium | out of scope in REQ-159, homeless |
+| 6 | **Quarantine write gate** (DOC-38 §11) | medium | n-gram check on the control surface |
+| 7 | **DOC-7 reconstruction** (lagrange-framework) | small | the component's spec, cited 100+ times, resolves nowhere |
+| 8 | **xgd `doc_kind` enum value** | trivial | blocks #2, blocks REQ-158's corpus |
+
+## Dependencies
+
+```
+  8 ─→ 2 ─┐
+  3 ──────┼─→ REQ-158 ─┐
+                       ├─→ REQ-160
+          REQ-159 ─────┘
+              │
+              └─→ 5 (site adapter)
+
+  1 (ingestion) ─→ 6 (quarantine gate)
+  4 (projected reference)     [independent]
+  7 (DOC-7)                   [independent]
+```
+
+**Critical path: 8 → 2 → REQ-158.** Two of those three are trivial, and REQ-158 cannot produce a correct corpus without them — it would build an index over whatever the truncated, unmarked export happens to return.
+
+**REQ-159 is fully unblocked** and can proceed in parallel; it can be tested against hand-created `material` tickets without waiting for ingestion.
+
+**REQ-160 is the join** and needs both.
+
+**Ingestion (#1) is the largest hole and is also unblocked** — REQ-104 landing means the blob path exists. It's the only item on this list that a user would notice the absence of.
+
+Want me to file 1, 2, 3 and 8? Those four are what stand between us and REQ-158 being buildable plus the first user-visible capability.
 
 <!-- xgd-chat-end -->
