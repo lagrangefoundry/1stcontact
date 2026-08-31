@@ -102,6 +102,8 @@ fields:
     new_sha: e1700aa27107968744f1ca4e2c2b463ad69d4d1c
   - old_sha: 1d0d2bf9db945f97bc70ac9e2e1228115ae50f8b
     new_sha: 386478fb2d120c4861bf6f03b6562103824293ea
+  - old_sha: 602c03b8abdb680e83b0a3ddde98dbbb52201470
+    new_sha: 6dbcf81894f1cf289af4667ae5a6bd643db6486f
 ---
 
 # Bundle
