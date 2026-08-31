@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-21 (BUG-36 + BUG-37 + BUG-38) — free-coded commits'
 created_by: xgd
 created_at: '2026-08-31T16:34:45.744832+00:00'
-updated_at: '2026-08-31T16:39:41.651473+00:00'
+updated_at: '2026-08-31T16:52:01.442137+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -87,7 +87,7 @@ fields:
       openers, and is worth restating rather than leaving as an accident. No new screen,
       route or command is introduced: the import route lost its private opener and
       joined the one that already existed.'
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     intent_delta_summary: AC-965 is narrowed to the two cases that are still failures
