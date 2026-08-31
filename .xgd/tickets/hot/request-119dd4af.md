@@ -6,10 +6,10 @@ title: 'The project knowledge base: tenant-scoped corpus, incremental index, and
   map''s two triggers'
 created_by: xgd
 created_at: '2026-08-30T23:18:38.731734+00:00'
-updated_at: '2026-08-30T23:19:15.023866+00:00'
+updated_at: '2026-08-31T21:56:04.916439+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 13
