@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T01:00:03.640210+00:00'
+updated_at: '2026-08-31T01:11:18.125800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1265,5 +1265,13 @@ If it *was* `ticket list` output, that's a different matter and worth chasing se
 One anomaly I noticed while doing this, possibly relevant: **the `xgd` entry point vanished from `.venv-working/bin` mid-session.** It was there at 16:08 — the CLI's own argv logged `/Users/martin/lagrangefoundry/xgd/.venv-working/bin/xgd` — and is gone now. `.venv-main/bin/xgd` exists but fails with `ModuleNotFoundError: No module named 'xgd_source'`. I've been running from source since. A half-installed CLI is the kind of thing that produces inexplicable results, so it may be worth reinstalling before trusting any further diagnosis.
 
 Two offers: I can add a line to REQ-825 explicitly distinguishing it from BUG-1303 so nobody closes it as a duplicate; and the definitive independent check for silent loss in 1stcontact is BUG-1303's own tell — ID counters far ahead of file counts. Say the word and I'll run it.
+
+<!-- xgd-turn id="6eadc722-3ba6-4488-8d0b-f71ede1d6008-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T01:11:17.866298+00:00" -->
+#### You
+DOC-39 says that the reminder should contain 5k of doc changes!! The goal here is to reduce the context window size not STUFF IT with nonsense.
+
+Why would we do that? We need to review really carefully the specifics for (1) session initiation (2) session resumption (3) per-turn reminders <- the goal is awareness and retrieval power and minimal forced content
 
 <!-- xgd-chat-end -->
