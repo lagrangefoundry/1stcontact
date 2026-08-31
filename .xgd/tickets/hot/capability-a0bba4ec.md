@@ -5,12 +5,13 @@ type: capability
 title: 'Palette Management: The Site''s Named Colours, Read, Edited & Guarded'
 created_by: xgd
 created_at: '2026-08-20T01:18:27.980373+00:00'
-updated_at: '2026-08-20T01:18:27.980373+00:00'
+updated_at: '2026-08-31T21:32:35.657637+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: palette-management
+  uat_coverage: pass
 ---
 
 # Capability: Palette Management
