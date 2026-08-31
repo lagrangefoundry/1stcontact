@@ -5,10 +5,10 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-21T02:31:53.301099+00:00'
+updated_at: '2026-08-24T02:10:41.591464+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: bundled
 fields:
   priority: medium
   story_points: 13
@@ -25,7 +25,24 @@ fields:
   - working_sha: 0e390334e49f33f94bc2c948a62a532c03ea84eb
     reconcile_sha: null
     main_sha: null
-  version: 0.2.1
+    working_sha_history: []
+  - working_sha: 932f362e4f60b8797557ba8f4cdd1fddeb1c9068
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 92fc26e7bcc2a941999ba0e55292cda6b092bd26
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: ec144c856ed1840d23e4f1443dfddf4fb0ef2d67
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 02bd443784f6a1202cd5b1807a12dc52d012628f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.9
+  bundled_in: bundle-b3b7c399
+  chat_comment: comment-98e86f10
 ---
 
 # Publish in the cloud: revisions, history and rendered output without a filesystem
@@ -382,3 +399,137 @@ await, so any API failure rejects the module and nothing mounts.
     not depend on one.
 11. A builder that cannot start says so IN THE PAGE, naming the cause, for a
     missing tenant and for a missing asset alike.
+
+
+
+## Follow-up: `bin/build` failed on a type-only reach into node
+
+Found while getting the operator to a Cloudflare deploy: `bin/build` failed at
+`apps/control-app`'s typecheck with five errors it had been emitting all along —
+
+```
+tools/generate/src/store/fsutil.ts(10,8):  Cannot find name 'node:fs'
+tools/generate/src/store/fsutil.ts(11,18): Cannot find name 'node:path'
+tools/generate/src/store/fsutil.ts(93,14): Parameter 'name' implicitly has an 'any' type
+tools/generate/src/store/loadSite.ts(1,18): Cannot find name 'node:path'
+tools/generate/src/store/paths.ts(1,18):   Cannot find name 'node:path'
+```
+
+`apps/control-app` is a Worker package: `types: ["@cloudflare/workers-types"]`,
+no node types. Nothing in it should reach a node-only module.
+
+### Cause
+
+`render.ts` imported the TYPE `LoadedSite` from `../store/loadSite`, which only
+RE-EXPORTS it while itself importing `node:path` and the filesystem helpers. The
+type is declared in `assemble.ts`, which reaches nothing. One specifier.
+
+### Why no test caught it
+
+REQ-146's import guard walks RUNTIME imports and deliberately skips type-only
+ones, because a bundler erases them — it is right about the bundle and silent
+about this. But `tsc` does NOT erase a type-only import before resolving it, so a
+type-only reach into a node-only module puts `node:fs` in a Worker's type
+program. The bundle was always fine; the build was not, and the suite stayed
+green while `bin/build` failed.
+
+A UAT now walks type-only imports too, from the Worker entrypoints outward, and
+fails on any that reach a node-only module. It was confirmed to fail against the
+pre-fix specifier, naming the chain.
+
+### Acceptance criterion
+
+12. No module reachable from a Worker entrypoint imports a node-only module,
+    including through a type-only import.
+
+### Version bookkeeping
+
+A fourth commit carries a version bump alone. `move-to-free-coded` refuses a
+version already present at the tip of `xgd-working` on a commit not reachable
+from the ticket's own SHAs — here the ticket auto-commits that landed on top of
+the fix. The bump moves the claim onto a commit this ticket owns; no behaviour
+changes. Ticket version is now 0.2.7.
+
+
+## Follow-up: the deploy secret guard asked the wrong question
+
+`bin/deploy.d/secrets/10-anthropic-api-key` refused any deploy run from a shell
+without `ANTHROPIC_API_KEY`, including deploys whose secret had been in
+Cloudflare since the previous run. The operator was asked to re-supply a value
+the store already held, in order to overwrite it with itself. In practice this
+made `bin/deploy` unusable from a fresh shell and pushed the operator toward
+calling `wrangler deploy` directly, which skips the migrate hook as well — the
+guard's own failure mode, arrived at by a different route.
+
+### Cause
+
+The guard's rule is "never deploy a control app that cannot take a turn". That
+is a statement about the **store**, not about the operator's shell, and the hook
+tested the shell. `: "${ANTHROPIC_API_KEY:?...}"` cannot distinguish "this
+credential does not exist" from "this credential exists and is not in front of
+me right now".
+
+### The decision table
+
+| The value is | The Worker | Outcome |
+|---|---|---|
+| in the environment | either way | **push** — supplying a value is how a rotation is expressed |
+| absent | already holds the name | **keep** — reported, nothing overwritten |
+| absent | does not hold it | **fail** before anything is uploaded |
+| absent | could not be read at all | **fail**, naming the unread store |
+
+Only a *positive* read satisfies the guard: the store answered, and the name was
+in the answer. A `secret list` that fails for any reason — no such Worker on a
+first deploy, no network, a token without Workers Scripts read — counts as
+absent, because the failure mode being guarded against is a confident skip based
+on an answer nobody actually got. The names are the only half of a secret that
+is safe to read, and reading them mutates nothing, so the probe runs unchanged
+on a rehearsal.
+
+The probe is not called at all when the environment has the value, so the common
+path adds no network round-trip and no new token permission. CI is untouched:
+`.github/workflows/deploy.yml` calls `wrangler deploy` directly and never runs
+these hooks.
+
+`--dry-run` now reaches the same decision by the same route, *including the
+failure*. A rehearsal that passed while the real deploy would abort was not a
+rehearsal.
+
+### Acceptance criteria
+
+13. A deploy from a shell with no `ANTHROPIC_API_KEY` succeeds when the Worker
+    already holds the secret, reports that it left it alone, and does not
+    overwrite it.
+14. A deploy from a shell that supplies a value pushes it, even when the name is
+    already stored — rotation stays possible.
+15. A deploy still fails, before any upload, when the value is in neither place,
+    or when the store could not be read to check.
+16. `--dry-run` reports the decision it would have acted on and fails where the
+    real deploy would fail.
+
+### Test changes
+
+`tests/test_UAT_FC_REQ-149_deploy_secret_hook.test.ts` drives the hook as a
+subprocess with a stubbed `npx` first on `PATH`. That stub is what makes the
+branch this ticket fixes testable at all: the absent-locally / present-remotely
+case cannot be reached by a test that holds a real credential, and must not
+require one. Seven UATs cover the four outcomes, both rehearsal outcomes plus the
+rehearsed failure, the standing "never print the value" rule, and `public-site`
+exiting before it looks at the store — a model credential must never be pushed
+to the Worker that serves rendered bytes.
+
+Confirmed end to end against the real store: `bin/deploy --dry-run control-app`
+with `ANTHROPIC_API_KEY` unset now reports
+`ANTHROPIC_API_KEY already on 1stcontact-control-app — would leave it`.
+
+### Version bookkeeping
+
+The fix, its UATs and the `bin/deploy.d/secrets/README.md` contract update are
+one commit, which bumped to 0.2.8. A second commit carries a further bump alone.
+
+`move-to-free-coded` refuses a version present at the tip of `xgd-working` on a
+commit not reachable from the ticket's own SHAs, and the ticket auto-commit for
+this very section landed on top of the fix — so the tip held 0.2.8 without
+belonging to the ticket. This is the same bookkeeping the previous increment
+hit, and the same remedy: the bump moves the claim onto a commit this ticket
+owns. No behaviour changes. Ticket version is now 0.2.9.
