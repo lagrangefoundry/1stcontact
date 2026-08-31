@@ -6,10 +6,10 @@ title: A behavior module escapes every value it interpolates, and refuses an uns
   endpoint outright
 created_by: xgd
 created_at: '2026-08-31T11:06:04.869542+00:00'
-updated_at: '2026-08-31T11:06:04.869542+00:00'
+updated_at: '2026-08-31T11:12:57.060468+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
