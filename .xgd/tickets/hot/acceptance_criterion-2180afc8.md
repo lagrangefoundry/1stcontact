@@ -6,10 +6,10 @@ title: A workspace deployed against a store holding only the schema serves, regi
   the one account its own configuration names and no other
 created_by: xgd
 created_at: '2026-08-31T16:51:21.306585+00:00'
-updated_at: '2026-08-31T16:51:21.306585+00:00'
+updated_at: '2026-08-31T17:00:43.975400+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
