@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:15:46.776344+00:00'
+updated_at: '2026-08-31T21:17:24.429263+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2209,5 +2209,11 @@ That's the whole blockage. The code exists; it's just not on the branch that fee
 I'd lean toward (1) but want to know why it stalled first — a resync that stopped partway may have stopped for a reason, and that reason might also explain why the framework's tickets say the work is done while the branch says otherwise.
 
 **What I can do now:** dig into the resync's state to work out whether it stalled or was simply never finished, so option 1 is a decision rather than a gamble. Or, if you'd rather park it, tell the REQ-162 agent it's blocked on framework work so it stops waiting on an answer.
+
+<!-- xgd-turn id="95d4a14b-34c6-404c-a1b6-9010bc945767-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T21:17:24.150823+00:00" -->
+#### You
+The attachment/BlobStore code from REQ-104 was written on 26 August. It's real and it's committed. But it lives on a branch called `resync-577be0d7`, and your lagrange-framework checkout sits on `xgd-working`, which doesn't have it. <-- that makes no sense it had to start life on working it will still be there
 
 <!-- xgd-chat-end -->
