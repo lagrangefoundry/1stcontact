@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-21 (BUG-36 + BUG-37 + BUG-38) — free-coded commits'
 created_by: xgd
 created_at: '2026-08-31T16:34:45.744832+00:00'
-updated_at: '2026-08-31T16:52:01.442137+00:00'
+updated_at: '2026-08-31T17:04:50.300968+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -134,7 +134,7 @@ fields:
       not collide with the story''s out-of-scope boundary. No parallel credential
       path is introduced: the header that never worked against a deployed target is
       deleted rather than kept as a fallback, and there is one credential shape.'
-    story_uid: null
+    story_uid: story-182e8cb9
     target_story_ids:
     - story-182e8cb9
     intent_delta_summary: STORY-120 gains the automation caller's side of admission
