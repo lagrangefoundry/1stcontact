@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-39
 created_by: xgd
 created_at: '2026-08-31T00:25:50.205105+00:00'
-updated_at: '2026-08-31T00:27:55.437395+00:00'
+updated_at: '2026-08-31T00:54:03.009901+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,11 @@ Rename to **`description`**. `scope` also works; `prompt` is the only one that i
 Scope is cross-repo and belongs in `lagrange-framework`, not here: `components/knowledge/js/src/config.js` (`KB_KEYS`, `KnowledgeBase`, both `landscape.js` sites), the Python peer at `components/knowledge/py/src/lagrangefoundry/knowledge/config.py`, `conformance/fixtures.json`, plus the two live configs (`xgd/.../kb_config.yaml`, `1stcontact/kb/knowledge_bases.json`). `KB_KEYS` rejects unknown keys rather than ignoring them, so it's a breaking config change unless both names are accepted for a transition — which is cheap and probably worth it given the configs live in different repos.
 
 Want me to note this in DOC-39 §2 (the field is a description; the docstring's retrieval-time claim is false) and file the rename against `lagrange-framework`?
+
+<!-- xgd-turn id="f5b75a07-c59c-4e35-9a25-31d682f45e03-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:54:01.696906+00:00" -->
+#### You
+description is the right term can you update the document and the code on this please?
 
 <!-- xgd-chat-end -->
