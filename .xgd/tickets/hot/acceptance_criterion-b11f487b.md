@@ -6,10 +6,10 @@ title: Locale, currency and timezone each override independently; the rest still
   from the country
 created_by: xgd
 created_at: '2026-08-31T12:28:32.588926+00:00'
-updated_at: '2026-08-31T12:28:32.588926+00:00'
+updated_at: '2026-08-31T12:33:35.271502+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
