@@ -446,6 +446,29 @@ describe('story-ee073693 palette management', () => {
     expect(actual).toBe(shown)
   })
 
+  // ── AC-1458: rename onto your own current name is a no-op ──────────────────
+
+  it('test_UAT_AC1458_renaming_an_entry_to_its_own_current_name_succeeds_as_a_no_op', async () => {
+    const slug = 'rename-self'
+    await seedSite(cwd, slug)
+    const before = draftBytes(cwd, slug)
+    const shown = countOf(entriesOf(await cli(cwd, 'palette', 'get', slug)), 'primary')
+
+    // Not a collision: `to === from` names the same entry, not a merge of two
+    // distinct ones — the guard's own stated reason for refusing ("a new name
+    // that already exists would merge two entries") does not apply here.
+    const renamed = await cli(cwd, 'palette', 'rename', slug, 'primary', 'primary')
+    expect(renamed.ok).toBe(true)
+
+    // Reports the entry's current reference count, same shape as any other
+    // successful rename — not a distinct "nothing happened" response.
+    expect(renamed.data!.count as number).toBe(shown)
+
+    // The draft — document, palette and every page — is byte-unchanged.
+    expect(draftBytes(cwd, slug)).toEqual(before)
+    expect(Object.keys(readSite(cwd, slug).palette as object)).toContain('primary')
+  })
+
   /**
    * The criteria whose subject is the ORIGIN — the guards posted at with no
    * client in the way, and the channels served after a write.
