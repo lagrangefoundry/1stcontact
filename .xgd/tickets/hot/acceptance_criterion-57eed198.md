@@ -6,10 +6,10 @@ title: A screenshot request returns PNG bytes at the named viewport preset, from
   the deployed runtime
 created_by: xgd
 created_at: '2026-08-31T22:53:27.440766+00:00'
-updated_at: '2026-08-31T22:53:27.440766+00:00'
+updated_at: '2026-08-31T23:04:43.047576+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-080c6036
   kind: behavior
