@@ -5,13 +5,12 @@ type: doc
 title: Personas, Modes & Registers — who we are talking to, and how
 created_by: xgd
 created_at: '2026-08-21T00:36:49.913725+00:00'
-updated_at: '2026-08-21T00:36:49.913725+00:00'
+updated_at: '2026-08-31T19:43:25.548931+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
-  system_kb: true
 ---
 
 # Personas, Modes & Registers — who we are talking to, and how
