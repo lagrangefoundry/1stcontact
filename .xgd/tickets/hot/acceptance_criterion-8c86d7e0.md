@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: An unrecognised viewport preset is refused by name rather than silently defaulted
 created_by: xgd
 created_at: '2026-08-31T22:53:28.663394+00:00'
-updated_at: '2026-08-31T22:53:28.663394+00:00'
+updated_at: '2026-08-31T23:04:42.939203+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-080c6036
   kind: behavior
