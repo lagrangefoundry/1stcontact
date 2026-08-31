@@ -5,14 +5,22 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T01:10:46.429968+00:00'
+updated_at: '2026-08-31T01:11:52.226980+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   doc_kind: architecture
   system_kb: true
   chat_comment: comment-37a5b4a6
+  commits:
+  - working_sha: 020ec406100d143a1c6a51181231500f2cb208a2
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d4eff1a96779c560021294043e4982b83ffca0d6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.18
 ---
 
 # The Knowledge Management System
