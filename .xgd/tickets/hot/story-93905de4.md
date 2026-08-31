@@ -6,9 +6,9 @@ title: See everything an assistant can do to my site declared in one place, gran
   narrowly, checked before it runs, and written down call by call
 created_by: xgd
 created_at: '2026-08-10T09:04:59.829319+00:00'
-updated_at: '2026-08-31T10:41:13.289433+00:00'
+updated_at: '2026-08-31T10:41:13.415389+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -16,6 +16,8 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
+  updated_by:
+  - bundle-b3b7c399
 ---
 
 ## Story
