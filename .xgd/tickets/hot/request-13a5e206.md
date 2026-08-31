@@ -5,7 +5,7 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-08-31T20:42:52.483388+00:00'
+updated_at: '2026-08-31T21:12:57.512705+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -34,12 +34,53 @@ So `material`, `reference` and `brief` have nowhere to be defined, and
 [[REQ-159]]'s corpus predicate names types that cannot exist. This ticket stands
 the store up and defines the types in it.
 
+## Prerequisite: the installed component predates REQ-104
+
+Deliverable 3 cannot be built against the component currently in the shared
+artifact store — it has no `attachments.js` and no `blob_store.js`.
+
+**Reinstalling from the plain checkout will not fix it.** `bin/install` resolves
+`COMPONENTS = REPO / "components"`, so it copies from whichever checkout it runs
+in, and the code is not in either obvious one:
+
+```
+main                  attachments.js absent
+xgd-working           attachments.js absent      <- the plain checkout
+resync-577be0d7       attachments.js present     <- only here
+```
+
+The commit is `a60537ee3c [FREE-CODED] REQ-104: ticket attachments — a BlobStore
+port with typed records` (2026-08-26), stranded on an **in-flight resync scratch
+branch** whose most recent activity is its own resync report.
+
+So the real prerequisite is: **land REQ-104/107/108 on `xgd-working`** — by
+completing the resync or by replaying the three commits directly — verify
+`components/ticketing/js/src/attachments.js` exists in the plain checkout, and
+only then run `bin/install --lang js --component ticketing`.
+
+Worth doing deliberately rather than quickly: BUG-1303 in the `xgd` repo was a
+resync strip commit leaking onto `main` and deleting 26,017 ticket files, so an
+unfinished resync is not a neutral thing to install out of.
+
 ## What it delivers
 
-**1. The schema.** `SCHEMA_STATEMENTS` from the ticketing component, as a
-migration beside the existing two. The `DB` binding is already declared in
-`apps/control-app/wrangler.toml` (top level and under `[env.production]`), so no
-new binding is needed.
+**1. The schema.** `SCHEMA_STATEMENTS` from the ticketing component, as
+`0003_ticket_store.sql` beside the existing two. The `DB` binding is already
+declared in `apps/control-app/wrangler.toml` (top level and under
+`[env.production]`), so no new binding is needed.
+
+**One shared `tenants` registry, and it needs an ALTER.** `0001_site_store.sql`
+already creates `tenants (id, name, status, created_at)`. Ticketing's
+`SCHEMA_STATEMENTS` creates the same table *plus* `config TEXT NOT NULL DEFAULT
+'{}'`, and its `IF NOT EXISTS` means that definition silently no-ops — leaving
+`accessor.putTenant()` to fail on a missing column. So the migration runs
+`SCHEMA_STATEMENTS` **and** `ALTER TABLE tenants ADD COLUMN config`.
+
+One registry rather than two, deliberately. [[DOC-10]] §4.1 makes the tenant the
+hard information barrier and the site store already refuses a non-`active` tenant
+at handle construction; a second registry would be two places for one fact that
+could disagree about whether an account is active. That is a security property,
+not bookkeeping.
 
 **2. The store, tenant-scoped at construction.** `MultiTenantTicketStore`, with
 `forTenant()` supplying the scoped accessor. Per [[DOC-10]] §4.1 the tenant is
@@ -66,11 +107,29 @@ bytes. The remedy there was namespacing by prefix; here it has to be a separate
 bucket, because the failure mode is not overwrite but **disclosure**, and a
 prefix is a convention while a bucket boundary is not.
 
-Keys stay `t/<tenant>/blob/<sha256>` per [[DOC-38]] §7.2 — content-addressed for
-dedup and cacheability, tenant-prefixed because a global content address would be
-both an existence oracle across the tenant barrier and a contradiction of
-[[DOC-37]] erasure. Declared in **both** wrangler blocks, since a named
-environment inherits neither vars nor bindings.
+**The bucket is `1stcontact-material`.** Keys stay `t/<tenant>/blob/<sha256>`
+per [[DOC-38]] §7.2 — content-addressed for dedup and cacheability,
+tenant-prefixed because a global content address would be both an existence
+oracle across the tenant barrier and a contradiction of [[DOC-37]] erasure.
+Declared in **both** wrangler blocks, since a named environment inherits neither
+vars nor bindings, and added to `vitest.workers.config.mts` so the UAT runs
+against a real R2.
+
+**It must be created before the next production deploy:**
+`wrangler r2 bucket create 1stcontact-material`. Recorded here rather than left
+to the implementer's memory because miniflare conjures the bucket locally and
+Cloudflare does not — so its absence is invisible in every test and appears only
+in production.
+
+**Enforcement lives at our wiring layer, not the component's.** The component
+refuses `attach`/`attachments` at *call* time when no blob store is injected, and
+is otherwise fully conforming — attachments are a capability, not an obligation,
+which is the same optional-capability shape that keeps the Python file-backed
+store conforming. That is correct upstream behaviour and should not be changed.
+What we add is `ticketStoreFor(env)` throwing when `env.BLOBS` is absent, exactly
+as `storeFor` throws on a missing `TENANT_ID`: a control-app deployment with no
+blob bucket is misconfigured and should say so at construction rather than 500
+inside an upload months later.
 
 **4. The TypePack**, carrying:
 
@@ -118,19 +177,38 @@ the cases.
 - A blob bucket distinct from `1stcontact-sites`, declared top-level and under
   `[env.production]`, with a UAT pinning both — matching how every other binding
   in that file is protected.
-- Attachment ops work through the wired store; a store constructed without a
-  `BlobStore` fails at construction rather than at first use.
+- Attachment ops work through the wired store, and `ticketStoreFor(env)` throws
+  when the blob binding is absent. (The *component's* call-time refusal is
+  correct and stays as upstream wrote it.)
 - A handle constructed for tenant A cannot read or write tenant B's rows —
   asserted, not assumed.
 - `material`, `reference` and `brief` validate with [[DOC-38]] §9's fields, and
   reject a bad `rights` or `kind` value.
 - Chat schemas are merged into the same pack, so one store serves both.
-- A ticket created through the Worker is readable back through it.
+- A ticket created through the Worker is readable back through it — asserted by a
+  `.workers.test.ts` that boots the real env and goes through the same
+  `ticketStoreFor(env)` the Worker uses, against real D1 and real R2 inside
+  workerd. **No HTTP routes**: `/api/tickets/*` belongs to [[REQ-161]], and a
+  workers test against the real env is a stronger assertion than an HTTP
+  round-trip, not a weaker one.
 
-## Open questions
+## Both open questions are now settled
 
-- **Whether `reference` earns its own type** or is `material` with
-  `kind: capture` ([[DOC-38]] §13). Decided in favour of separation; this is the
-  last cheap moment to reverse it.
-- Whether the `brief` is a type or a well-known ticket of another type, given
-  there is exactly one per site.
+- **`reference` keeps its own type.** A capture is N attachment records, one per
+  bundle member, which is what makes [[DOC-13]] §9's "capture once, re-map
+  forever" workable: re-extraction reads `capture.json` without pulling the whole
+  bundle, and the largest real bundle measured is 23MB. It also has a lifecycle
+  `material` does not.
+- **`brief` keeps its own type, with `fields.site_slug`.** "One per site" is not
+  "one per tenant" and a tenant may own several sites, so a well-known ticket of
+  another type would need the same field plus a lookup convention. Sites are rows
+  in the `sites` table rather than tickets, so a slug is the right shape.
+
+## Implementation notes carried from review
+
+- `src/generated/ticketing.js`, written by `1c assets` exactly as `ai-workers.js`
+  is: bare `@lagrangefoundry/*` specifiers do not resolve from a linked worktree.
+  This is a known trap in this repo, not a novel problem — it has already bitten
+  the builder/webui path.
+- The new migration's line belongs in `tests/support/d1-site-factory.ts`'s
+  explicit `MIGRATIONS` list.
