@@ -6,10 +6,10 @@ title: The build refuses a Worker whose type program reaches a filesystem-bound 
   naming the import chain that got there
 created_by: xgd
 created_at: '2026-08-31T12:12:29.978850+00:00'
-updated_at: '2026-08-31T12:12:29.978850+00:00'
+updated_at: '2026-08-31T12:24:33.405240+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
