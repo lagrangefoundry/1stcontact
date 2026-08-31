@@ -6,10 +6,10 @@ title: An unverifiable caller is refused, told which check failed, and never rea
   anything behind the gate
 created_by: xgd
 created_at: '2026-08-31T09:32:14.546124+00:00'
-updated_at: '2026-08-31T09:32:14.546124+00:00'
+updated_at: '2026-08-31T09:41:08.233937+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
