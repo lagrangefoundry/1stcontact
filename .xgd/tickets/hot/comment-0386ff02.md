@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:43:02.038344+00:00'
+updated_at: '2026-08-31T00:46:37.176839+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1110,5 +1110,11 @@ Under this model, **the current 33-document corpus is almost entirely the wrong 
 So this isn't a relabelling exercise — it's a writing project. The system KB starts close to empty and gets authored deliberately, which is a better outcome and a larger one. It also changes REQ-158's character: the wiring still matters, but the first real index will be built over a thin corpus, and that's correct rather than a problem.
 
 Want me to rewrite DOC-39 §3.1 and DOC-38 §8 around this — the three kinds, the build-time export as the single mechanism, and the unrestricted shipped corpus? And I'd add a section on what a system-KB document *is*, since "authored for the AI" needs to be more than a sentence if people are going to write them.
+
+<!-- xgd-turn id="5d3ed94f-69e4-48ad-b536-7241923c1e5f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:46:36.258953+00:00" -->
+#### You
+*"every design document, in full" <-- that is where you misunderstood my intent I just wanted to see the initial system with some documents so we could see if it worked *
 
 <!-- xgd-chat-end -->
