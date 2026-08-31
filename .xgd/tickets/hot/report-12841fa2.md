@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-20 free-coded commits (REQ-143/145/146/147/148/149/150/151/152/153)'
 created_by: xgd
 created_at: '2026-08-31T09:26:11.418440+00:00'
-updated_at: '2026-08-31T10:41:13.557231+00:00'
+updated_at: '2026-08-31T11:07:02.467801+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -246,7 +246,7 @@ fields:
     item_type: upgrade
     story_points: 2
     dependencies: []
-    story_uid: null
+    story_uid: story-179b8c06
     target_story_ids:
     - story-179b8c06
     intent_delta_summary: A behavior component stops being a template that only a
