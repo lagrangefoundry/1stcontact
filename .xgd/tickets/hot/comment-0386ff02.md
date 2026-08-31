@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:26:16.642101+00:00'
+updated_at: '2026-08-31T20:26:55.525505+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1949,5 +1949,46 @@ Dependencies are both unfiled: **the material types** and **the ingestion pipeli
 <!-- xgd-chat role="user" ts="2026-08-31T20:26:16.203828+00:00" -->
 #### You
 ok good - so what has not yet been planned then?
+
+<!-- xgd-turn id="099a8d4e-7ec2-4ca5-a744-72284750c8a8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:26:55.013830+00:00" -->
+#### Claude
+Ten items. Four of them block something that's already ticketed; the rest are standalone.
+
+## Blocking the critical path
+
+| | Work | Blocks |
+|---|---|---|
+| **1** | **The material types** — `material`, `reference`, `brief` in a TypePack, with §9's fields. No TypePack exists in the repo at all. | REQ-159, REQ-161 |
+| **2** | **Ingestion pipeline** — DOC-38 §10: store → classify → shadow → ticket → index. The shadow step is four sub-pipelines (PDF text, image description, font identification, capture summary). | REQ-161 |
+| **3** | **Marker migration** — export filter reads `doc_kind`, shipped corpus becomes `{}`, four docs reclassified. | REQ-158 |
+| **4** | **`readDocTickets` pagination** — REQ-825 landed; the consumer still takes page one. | REQ-158's corpus correctness |
+
+3 and 4 are both small. 3 is blocked on xgd REQ-827 shipping.
+
+## Standalone
+
+| | Work | Note |
+|---|---|---|
+| **5** | **Capture → ticket** — bundles land in the ReferenceStore and never become corpus members. N attachment records per DOC-38 §9. | the third slice of ingestion |
+| **6** | **`site_assets` migration** — DOC-38 §7.7: `r2_key` becomes a pointer into the content-addressed blob store, gaining dedup. The serving path keeps the name binding. | existing data |
+| **7** | **Reference lifetime** — DOC-38 §12: the retention detach timer, and the export into the system tenant that feeds DOC-15's coverage corpus. | needs the system tenant from DOC-38 §7.6 |
+| **8** | **Projected reference** — DOC-39 §3.2: module catalogue / control surface generated rather than authored. | the answer to "facts both readers need" |
+| **9** | **Site source adapter** — DOC-38 §8.3: pages projected into the project KB without becoming tickets. | out of scope in REQ-159 |
+| **10** | **Quarantine write gate** — DOC-38 §11: n-gram check on control-surface text against non-republishable material. | the expensive one; prompt-level is v1 |
+
+## Deliberately deferred, not missing
+
+- **Writing the system-KB documents** — your call, once the structure is in place.
+- **DOC-7 reconstruction** in lagrange-framework — I keep offering; still worth a ticket, since the component's specification for ranking and awareness currently exists only as source comments.
+
+## What I'd file next
+
+**1 and 2**, in that order. They're the only things standing between the current state and a user being able to put a file into the system — which is also what makes REQ-161 buildable and gives REQ-159 something real to index.
+
+Then **3 and 4** as one small ticket, since neither is meaningful alone and both are prerequisites for REQ-158 producing a corpus anyone should trust.
+
+That would leave 5–10 as genuine backlog rather than blockers. Want me to file them?
 
 <!-- xgd-chat-end -->
