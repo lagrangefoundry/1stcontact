@@ -197,3 +197,88 @@ describe('story-e674c60a — a deployment with only the schema serves', () => {
     expect(warmSql.filter((s) => LOOKS_UP.test(s))).toHaveLength(1)
   })
 })
+
+// ── what is left genuinely unserveable, and how the two are told apart ───────
+
+/**
+ * story-e674c60a / AC-965 — **a workspace that cannot serve says which piece of
+ * configuration is missing, and says it distinctly.**
+ *
+ * WHY THE COMPANION CASE LIVES HERE rather than beside the other half of AC-965
+ * in `reconciliation-builder-workspace-origin.test.ts`. That file drives a real
+ * `unstable_dev` Worker and owns the unnamed-account case, which needs nothing
+ * of the store. This case needs the opposite: an account that EXISTS in a real
+ * database and has been deactivated. `unstable_dev` gets a fresh local D1 with
+ * no schema and no way to write a row into it, so asserting it there would mean
+ * asserting against a stub's opinion of a deactivated row — which is the class of
+ * assumption BUG-36 was.
+ *
+ * WHAT THIS CRITERION ASKS THAT AC-1449 DOES NOT. AC-1449 asserts the two
+ * refusals SURVIVE the bootstrap — that self-healing did not swallow them. This
+ * one asserts they are told apart FROM EACH OTHER without reading a log, which is
+ * the whole point of reporting them differently: an operator who must set a var
+ * and an operator who must reactivate an account have nothing in common to do
+ * next. Neither claim implies the other, so each is asserted where it belongs.
+ */
+describe('story-e674c60a — the two unserveable deployments are reported distinguishably', () => {
+  it('test_UAT_AC965_an_unnamed_and_a_deactivated_account_are_reported_distinguishably', async () => {
+    // ── the deployment that names no account ─────────────────────────────────
+    const beforeUnnamed = await root().listTenants()
+    const unnamed = await call('/api/sites', undefined)
+    const unnamedBody = await unnamed.text()
+
+    expect(unnamed.status).toBe(503)
+    // Names the setting AND where it has to be declared: a refusal that says only
+    // "misconfigured" sends the operator hunting through three files.
+    expect(unnamedBody).toContain('TENANT_ID')
+    expect(unnamedBody).toContain('wrangler.toml')
+    // Nothing is created — there is no name to register, and inventing one would
+    // let a misconfigured deployment read and write into whichever account
+    // happened to carry it.
+    expect((await root().listTenants()).length).toBe(beforeUnnamed.length)
+
+    // ── the deployment that names an account somebody deactivated ────────────
+    const closed = freshTenant()
+    await root().createTenant({ id: closed, name: closed, status: 'suspended' })
+
+    const deactivated = await call('/api/sites', closed)
+    const deactivatedBody = await deactivated.text()
+
+    expect(deactivated.status).toBe(503)
+    expect(deactivatedBody).toMatch(/not active/)
+    // It says WHICH account, so the operator can act without a log.
+    expect(deactivatedBody).toContain(closed)
+    // Still deactivated afterwards: a deactivation a caller could retry past
+    // would be a suggestion rather than a decision.
+    expect(await tenantRow(closed)).toMatchObject({ id: closed, status: 'suspended' })
+
+    // ── THE COMPARISON THIS CRITERION IS ABOUT ───────────────────────────────
+    // Neither is a success, neither is blank, and the two are attributable
+    // without reading a log — they are different answers, not one generic one.
+    expect(unnamed.ok).toBe(false)
+    expect(deactivated.ok).toBe(false)
+    expect(unnamedBody.trim().length).toBeGreaterThan(0)
+    expect(deactivatedBody.trim().length).toBeGreaterThan(0)
+    expect(unnamedBody).not.toBe(deactivatedBody)
+    // …and specifically: neither answer carries the other's subject.
+    expect(deactivatedBody).not.toContain('TENANT_ID is not configured')
+    expect(unnamedBody).not.toMatch(/not active/)
+
+    // ── and from a route that opens the store DEEP inside its handling ───────
+    // `/api/sites` is the first route the table tries, so it would fail almost
+    // immediately either way. The rendered preview channel is matched last, after
+    // every API route, and opens the store there — REQ-149 deferred the store's
+    // construction to the first moment something needs it, and the point of this
+    // clause is that moving WHEN it opens did not change WHAT the failure is
+    // called. Without it, a deferred store could silently downgrade "this
+    // deployment is misconfigured" to the handler's generic 500.
+    const deepUnnamed = await call(`/preview/${closed}/draft/`, undefined)
+    expect(deepUnnamed.status).toBe(503)
+    expect(await deepUnnamed.text()).toBe(unnamedBody)
+
+    const deepDeactivated = await call(`/preview/${closed}/draft/`, closed)
+    expect(deepDeactivated.status).toBe(503)
+    expect(await deepDeactivated.text()).toBe(deactivatedBody)
+    expect(await tenantRow(closed)).toMatchObject({ id: closed, status: 'suspended' })
+  })
+})

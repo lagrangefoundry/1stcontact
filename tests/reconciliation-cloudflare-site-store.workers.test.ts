@@ -235,12 +235,56 @@ describe('story-fde7370b — the cloud site store, inside the Workers runtime', 
     expect(inactive).toMatchObject({ tenantId: 'ac1387-suspended' })
     expect((inactive as Error).message).toMatch(/not active/)
 
-    // The two reasons are distinguishable from the message alone.
+    // The two are distinguishable in prose, for whoever reads the log.
     expect((inactive as Error).message).not.toBe((unknown as Error).message)
+
+    // …AND THE REASON IS A VALUE, not only prose. The two cases license opposite
+    // responses — a caller that owns the deployment's configuration may resolve
+    // "not registered" by registering the one account it names, and may never
+    // resolve "not active" — so telling them apart may not require parsing a
+    // sentence somebody will reword.
+    expect((unknown as UnknownTenantError).reason).toBe('unknown')
+    expect((inactive as UnknownTenantError).reason).toBe('inactive')
+    expect((unknown as UnknownTenantError).reason).not.toBe(
+      (inactive as UnknownTenantError).reason,
+    )
 
     // NO HANDLE IS PRODUCED in either case — the refusal is the value.
     await expect(root.forTenant('ac1387-nobody')).rejects.toBeInstanceOf(UnknownTenantError)
     await expect(root.forTenant('ac1387-suspended')).rejects.toBeInstanceOf(UnknownTenantError)
+
+    // ── the discriminant, exercised as a caller actually branches on it ───────
+    // Written the way `apps/control-app/src/store.ts` writes it: register on
+    // `unknown`, rethrow anything else. Driving the branch rather than reading
+    // the field is what makes the value load-bearing — with the reason deleted,
+    // or with both cases collapsed back into one, this stops compiling or stops
+    // refusing, instead of staying green while the guarantee is gone.
+    const bootstrap = async (id: string) => {
+      try {
+        return await root.forTenant(id)
+      } catch (err) {
+        if (!(err instanceof UnknownTenantError) || err.reason !== 'unknown') throw err
+        await root.createTenant({ id, name: id })
+        return root.forTenant(id)
+      }
+    }
+
+    // `unknown` is the one that licenses registration: the account is created
+    // and the handle opens.
+    const bootstrapped = await bootstrap('ac1387-nobody')
+    expect(bootstrapped.tenantId).toBe('ac1387-nobody')
+    expect((await root.listTenants()).find((t) => t.id === 'ac1387-nobody')).toMatchObject({
+      id: 'ac1387-nobody',
+      status: 'active',
+    })
+
+    // `inactive` is not. A deactivation a caller could retry past would be a
+    // suggestion rather than a decision — and it is still deactivated after.
+    await expect(bootstrap('ac1387-suspended')).rejects.toBeInstanceOf(UnknownTenantError)
+    expect((await root.listTenants()).find((t) => t.id === 'ac1387-suspended')).toMatchObject({
+      id: 'ac1387-suspended',
+      status: 'suspended',
+    })
 
     // An account that exists and is active yields a handle that names it, and
     // the failure above was discovered at construction: no read was needed.

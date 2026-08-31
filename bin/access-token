@@ -35,6 +35,8 @@ Environment:
   CLOUDFLARE_API_TOKEN     required — needs Access: Service Tokens and
                            Access: Apps and Policies, both Edit
   CLOUDFLARE_ACCOUNT_ID    optional — inferred when the token sees one account
+  CLOUDFLARE_API_BASE      optional — the management API's base URL; unset, it
+                           is Cloudflare's. See the note beside `API` below.
 
 Exit codes: 0 success; 1 anything else.
 """
@@ -48,7 +50,22 @@ import sys
 import urllib.error
 import urllib.request
 
-API = "https://api.cloudflare.com/client/v4"
+CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
+
+# WHY THIS IS OVERRIDABLE. The properties that matter about this script are which
+# account it resolves, which application it matches, the SHAPE of the policy it
+# posts, and whether it reads a refusal reported inside a 200 as a refusal. All
+# four are properties of the requests it MAKES, and none of them can be observed
+# by reading this file — a test that greps for `"decision": "non_identity"` proves
+# a string is present in a source file, not that the branch containing it runs.
+# Provisioning against the real API from a test is not the alternative: that mints
+# a live credential. So the base is a seam, and a stub standing where Cloudflare
+# stands makes those requests observable.
+#
+# It is not a credential and it grants nothing: anyone who can set it can already
+# set `CLOUDFLARE_API_TOKEN`, which is the thing worth having. Unset — which is
+# every operator invocation — this is Cloudflare.
+API = (os.environ.get("CLOUDFLARE_API_BASE") or CLOUDFLARE_API).rstrip("/")
 
 DEFAULT_TOKEN_NAME = "1stcontact-publish"
 DEFAULT_APP_DOMAIN = "app.1stcontact.io"

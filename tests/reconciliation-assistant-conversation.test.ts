@@ -341,59 +341,134 @@ describe('a turn is addressed to a conversation, never to a site', () => {
     expect(events.at(-1)?.kind).toBe('done')
   })
 
-  it('test_UAT_AC1055_an_identifier_the_origin_never_issued_is_refused_before_anything_is_streamed', async () => {
+  /**
+   * AC-1055 — **an identifier is answered only when it names a site this account
+   * holds**, and the lookup is against storage rather than against anything a
+   * process remembers.
+   *
+   * WHAT THIS USED TO ASSERT, AND WHY IT IS THE OPPOSITE NOW (BUG-38). The
+   * origin used to answer only for identifiers a `minted` map in the serving
+   * process had recorded issuing. That map was the only thing standing between an
+   * arbitrary client string and the session store, so it read as a security
+   * property — but the process that mints (`/api/ai/session`) and the process
+   * that resolves (`/api/ai/prompt`) are two requests, and in workerd they are
+   * not the same isolate. Deployed, EVERY turn met an empty map and was told the
+   * conversation was no longer open. The authority check survives, made against
+   * storage instead of memory: the id is resolved to a slug and answered only if
+   * this account's store actually holds that site. So the derivable form now
+   * RESOLVES — it is the only thing a client carries between opening a
+   * conversation and speaking in it, and refusing it refused every turn — while
+   * every identifier that names no site here is still refused, and refused for a
+   * reason no isolate's memory can change.
+   *
+   * THE REFUSALS COME FIRST. They are the cases that must leave nothing behind,
+   * and the one case that resolves really does write a transcript and a draft.
+   */
+  it('test_UAT_AC1055_an_identifier_is_answered_only_when_it_names_a_site_this_account_holds', async () => {
     const client = scriptedClient(renames('Should not happen.'))
     setModelClient(client)
 
-    const invented = [
-      // Exactly what the origin derives for an existing site: being derivable is
-      // not the same as having been issued.
-      `site-${SLUG}`,
-      // A fabricated id carrying path traversal — a miss is a miss, and there is
-      // no separate sanitising step to get wrong.
-      '../../etc/passwd',
-    ]
+    // A SECOND ACCOUNT: its own workspace, holding its own site and not this
+    // one. It is what makes "scoped to the account" checkable rather than
+    // "scoped to the name" — the same identifier goes to both below.
+    const otherCwd = mkdtempSync(path.join(tmpdir(), 'story-a58a0974-elsewhere-'))
+    cmdNew(OTHER, { cwd: otherCwd })
+    const elsewhere = await startBuilder({ cwd: otherCwd })
 
-    for (const sessionId of invented) {
-      const res = await post(base, 'prompt', { sessionId, text: 'Change the headline' })
-      expect(res.status).toBe(404)
-      // A plain refusal, not an event stream: a protocol error must not arrive
-      // dressed as the assistant having tried and failed.
-      expect(res.headers.get('content-type')).toContain('application/json')
-      expect(res.headers.get('content-type')).not.toContain('event-stream')
-      expect(((await res.json()) as { error: string }).error).toBeTruthy()
+    try {
+      const refused: Array<{ id: string; why: string }> = [
+        // Fabricated: nothing about it resembles an identifier this origin makes.
+        { id: 'conversation-42', why: 'a fabricated identifier' },
+        // Well-formed, and names a site that has never existed.
+        { id: 'site-ghost', why: 'names a site that does not exist' },
+        // No derivable site name at all — the bare site name, unprefixed…
+        { id: SLUG, why: 'unprefixed, so no site name is derivable' },
+        // …and the prefix with nothing after it, which would otherwise derive the
+        // empty slug and ask the store about it.
+        { id: 'site-', why: 'the prefix with nothing after it' },
+        // Path traversal, bare and behind the prefix. There is no separate
+        // sanitising step to get wrong: the identifier is looked up, and a miss
+        // is a miss.
+        { id: '../../etc/passwd', why: 'path traversal, unprefixed' },
+        { id: 'site-../../etc/passwd', why: 'path traversal behind the prefix' },
+      ]
+
+      for (const { id, why } of refused) {
+        const res = await post(base, 'prompt', { sessionId: id, text: 'Change the headline' })
+        expect(res.status, why).toBe(404)
+        // A plain refusal, not an event stream: a protocol error must not arrive
+        // dressed as the assistant having tried and failed.
+        expect(res.headers.get('content-type'), why).toContain('application/json')
+        expect(res.headers.get('content-type'), why).not.toContain('event-stream')
+        expect(((await res.json()) as { error: string }).error, why).toBeTruthy()
+      }
+
+      // ── THE ACCOUNT-SCOPED REFUSAL ─────────────────────────────────────────
+      // The identifier the origin derives for a site THIS workspace holds,
+      // submitted to a workspace that does not hold it. Same string, different
+      // account: refused there. Resolution is against the account's own storage,
+      // not against a name that happens to look right anywhere it is presented.
+      const foreign = await post(elsewhere.url, 'prompt', {
+        sessionId: `site-${SLUG}`,
+        text: 'Change the headline',
+      })
+      expect(foreign.status).toBe(404)
+      expect(foreign.headers.get('content-type')).toContain('application/json')
+      expect(foreign.headers.get('content-type')).not.toContain('event-stream')
+      expect(((await foreign.json()) as { error: string }).error).toBeTruthy()
+
+      // After every refusal above: no conversation was created on either account,
+      // nothing was sent to the model, no transcript storage appeared, and no
+      // site was written.
+      expect(client.seen).toHaveLength(0)
+      expect(existsSync(sessionsDir({ cwd }))).toBe(false)
+      expect(existsSync(sessionsDir({ cwd: otherCwd }))).toBe(false)
+      expect(headline(cwd, SLUG)).toBe(HEADLINE)
+      expect(headline(cwd, OTHER)).toBe(HEADLINE)
+
+      // ── AND THE ONE THAT RESOLVES ──────────────────────────────────────────
+      // The same identifier, on the account that holds the site, submitted
+      // WITHOUT opening a conversation first — which is exactly what a client
+      // holding an id across a reload, or across a replaced process, does. It
+      // resolves and the turn is answered.
+      const answering = scriptedClient(renames('A new headline.'))
+      setModelClient(answering)
+
+      const answered = await post(base, 'prompt', {
+        sessionId: `site-${SLUG}`,
+        text: 'Change the headline to "A new headline."',
+      })
+
+      // A stream, not the plain not-found answer every case above got: this is
+      // the one observation that separates "resolved" from "refused".
+      expect(answered.status).toBe(200)
+      expect(answered.headers.get('content-type')).toContain('text/event-stream')
+      expect(answered.headers.get('content-type')).not.toContain('application/json')
+      const events = frames(await answered.text())
+      expect(events.filter((e) => e.kind === 'done')).toHaveLength(1)
+
+      // …and the turn really RAN: the identifier was resolved to this site and
+      // the assistant was asked about it. Asserted on what the model was SENT
+      // rather than on what it replied — the reply, and the change it leaves in
+      // the draft, are AC-1054's subject. Making this criterion depend on them
+      // would make a resolution failure and a model failure indistinguishable,
+      // which is the one thing it exists to tell apart.
+      expect(answering.seen.length).toBeGreaterThan(0)
+      expect(JSON.stringify(answering.seen[0])).toContain(SLUG)
+
+      // …and it is the SAME identifier the origin hands out when asked, so the
+      // case above is the one a real client is in and not a lucky string.
+      expect((await open(base, SLUG)).sessionId).toBe(`site-${SLUG}`)
+
+      // Answering it reached only this account: the other's site is untouched
+      // and it still has no conversation.
+      expect(headline(cwd, OTHER)).toBe(HEADLINE)
+      expect(existsSync(sessionsDir({ cwd: otherCwd }))).toBe(false)
+    } finally {
+      await elsewhere.close()
+      rmSync(otherCwd, { recursive: true, force: true })
     }
-
-    // No conversation was created, nothing was sent to the model, no transcript
-    // storage appeared, and no site was written.
-    expect(client.seen).toHaveLength(0)
-    expect(existsSync(sessionsDir({ cwd }))).toBe(false)
-    expect(headline(cwd, SLUG)).toBe(HEADLINE)
-    expect(headline(cwd, OTHER)).toBe(HEADLINE)
-
-    // The third kind of unissued id, and the one a real browser produces: one
-    // held over from before a restart. It is the same STRING as the derivable
-    // case above but arrived at the other way — the origin really did issue it,
-    // and then restarted. Kept last because it opens a conversation, which the
-    // assertions above require not to exist.
-    const issued = (await open(base, SLUG)).sessionId
-    expect(issued).toBe(`site-${SLUG}`)
-    resetAiHost()
-
-    // Lookup is the in-memory `minted` map (`host.ts:389`), cleared by the
-    // restart, and there is no fallback that would resurrect the id from the
-    // transcript on disk — so the browser must re-open by site name to have it
-    // re-issued rather than carrying the stale one forward.
-    const heldOver = await post(base, 'prompt', { sessionId: issued, text: 'Change the headline' })
-    expect(heldOver.status).toBe(404)
-    expect(heldOver.headers.get('content-type')).toContain('application/json')
-    expect(heldOver.headers.get('content-type')).not.toContain('event-stream')
-    expect(((await heldOver.json()) as { error: string }).error).toBeTruthy()
-
-    // Still nothing reached the model, and the site is untouched.
-    expect(client.seen).toHaveLength(0)
-    expect(headline(cwd, SLUG)).toBe(HEADLINE)
-  })
+  }, 180000)
 })
 
 // ── two sites are two conversations ──────────────────────────────────────────

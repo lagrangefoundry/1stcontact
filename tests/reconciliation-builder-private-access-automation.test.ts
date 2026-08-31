@@ -27,8 +27,9 @@
  * Access edge — that needs a deploy and was confirmed empirically by the
  * operator, not from this repository.
  */
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -423,13 +424,152 @@ it('test_UAT_AC1452_a_bounce_to_the_sign_in_page_reads_as_an_authentication_refu
  * AC-1453 — the automation identity is minted by a documented, operator-run
  * command, and that command persists no secret.
  *
- * The command is driven as the process it is (so the shebang and the executable
- * bit are part of the claim), and its properties that need a Cloudflare account
- * to exercise are read out of its source — which is where the criterion itself
- * puts them, because provisioning against the real API from a test would create
- * a live credential.
+ * DRIVEN, NOT READ. The command is run as the process it is — shebang, executable
+ * bit, argv and environment — against a STUB standing where Cloudflare's
+ * management API stands. Every provisioning claim in the criterion is a claim
+ * about the requests it makes: which account it resolves, which application it
+ * matches, the shape of the policy it posts, whether it reads a refusal reported
+ * inside a 200 as a refusal, and whether it edits the operator's own rule. None
+ * of those can be observed by reading the file — a check that the string
+ * `"decision": "non_identity"` appears somewhere in the source passes just as
+ * happily when it sits on a branch that never runs, and fails when the same
+ * request is built a different way. So the requests are recorded and asserted on.
+ *
+ * WHY A STUB AND NOT CLOUDFLARE. Provisioning against the real API mints a live
+ * credential — the one thing a test may not do. The stub is reached through
+ * `CLOUDFLARE_API_BASE`, which is the script's only concession to being tested
+ * and grants nothing: setting it requires the same environment access as setting
+ * `CLOUDFLARE_API_TOKEN`, which is the thing actually worth having.
+ *
+ * The policy record beside the control application is read as the file an
+ * operator opens, because the record IS the artifact that claim is about.
  */
-it('test_UAT_AC1453_the_automation_identity_is_provisioned_by_a_command_that_persists_no_secret', () => {
+
+/** What the stub hands back, and what it saw. */
+interface Api {
+  base: string
+  seen: { method: string; path: string; body: unknown }[]
+  close: () => Promise<void>
+}
+
+interface ApiState {
+  accounts: { id: string; name: string }[]
+  apps: { id: string; name: string; domain: string }[]
+  tokens: { id: string; name: string; client_id: string }[]
+  /** Policies already on an application, by application id. */
+  policies: Record<string, { id: string; name: string; include: unknown[] }[]>
+  /** A path fragment answered `200 {success:false}` — Cloudflare's own shape. */
+  refuse?: string
+}
+
+const CREATED_SECRET = 'stub-created-secret'
+const ROTATED_SECRET = 'stub-rotated-secret'
+
+/**
+ * Cloudflare's management API, reduced to the endpoints this script calls.
+ *
+ * A real HTTP server rather than a monkey-patched `fetch`: the script is a
+ * separate PROCESS, so the only seam between it and the network is the socket.
+ */
+async function stubApi(state: ApiState): Promise<Api> {
+  const seen: Api['seen'] = []
+  const ok = (result: unknown) => ({ success: true, errors: [], result })
+
+  const server = http.createServer((req, res) => {
+    const chunks: Buffer[] = []
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8')
+      const url = req.url ?? ''
+      const body = raw ? (JSON.parse(raw) as unknown) : undefined
+      seen.push({ method: req.method ?? 'GET', path: url, body })
+
+      const answer = (payload: unknown, status = 200): void => {
+        res.writeHead(status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(payload))
+      }
+
+      if (state.refuse && url.includes(state.refuse) && req.method === 'POST') {
+        // 200 with `success: false` — "you may not do that", reported inside a
+        // successful transport envelope.
+        answer({ success: false, errors: [{ message: 'insufficient permissions' }] })
+        return
+      }
+
+      const app = /\/access\/apps\/([^/]+)\/policies$/.exec(url)
+      if (url === '/accounts') return answer(ok(state.accounts))
+      if (/\/access\/apps$/.test(url)) return answer(ok(state.apps))
+      if (/\/access\/service_tokens$/.test(url) && req.method === 'GET') {
+        return answer(ok(state.tokens))
+      }
+      if (/\/access\/service_tokens$/.test(url) && req.method === 'POST') {
+        const name = (body as { name: string }).name
+        return answer(
+          ok({ id: 'tok-created', name, client_id: 'created.access', client_secret: CREATED_SECRET }),
+        )
+      }
+      const rotate = /\/access\/service_tokens\/([^/]+)\/rotate$/.exec(url)
+      if (rotate) {
+        return answer(
+          ok({ id: rotate[1], client_id: 'rotated.access', client_secret: ROTATED_SECRET }),
+        )
+      }
+      if (app && req.method === 'GET') return answer(ok(state.policies[app[1]] ?? []))
+      if (app && req.method === 'POST') return answer(ok({ id: 'pol-created', ...(body as object) }))
+      answer({ success: false, errors: [{ message: `no stub route for ${url}` }] }, 404)
+    })
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address() as { port: number }
+  return {
+    base: `http://127.0.0.1:${address.port}`,
+    seen,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  }
+}
+
+/** Run an operator script as the process it is, without blocking the loop. */
+function scriptAsync(
+  file: string,
+  args: string[],
+  options: { env?: Record<string, string>; cwd?: string } = {},
+): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(path.join(REPO, 'bin', file), args, {
+      cwd: options.cwd ?? REPO,
+      env: shellEnv(options.env) as NodeJS.ProcessEnv,
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (d: string) => (stdout += d))
+    child.stderr.on('data', (d: string) => (stderr += d))
+    child.on('close', (status) => resolve({ status, stdout, stderr }))
+  })
+}
+
+/** Every file under a directory, recursively — used to prove nothing was written. */
+function filesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? filesUnder(path.join(dir, entry.name))
+      : [path.join(dir, entry.name)],
+  )
+}
+
+const DOMAIN = 'app.1stcontact.io'
+const TOKEN_NAME = '1stcontact-publish'
+/** The account the script must pick, and one it must not guess between. */
+const ONE_ACCOUNT = [{ id: 'acct-only', name: 'Lagrange Foundry' }]
+/** The application it must find BY DOMAIN — its display name says otherwise. */
+const APPS = [
+  { id: 'app-decoy', name: '1stcontact builder', domain: 'staging.1stcontact.io' },
+  { id: 'app-real', name: 'renamed by somebody in the dashboard', domain: DOMAIN },
+]
+
+it('test_UAT_AC1453_the_automation_identity_is_provisioned_by_a_command_that_persists_no_secret', async () => {
   const provisioner = path.join(REPO, 'bin', 'access-token')
 
   // Executable — an operator runs it, they do not hunt for the interpreter.
@@ -445,64 +585,242 @@ it('test_UAT_AC1453_the_automation_identity_is_provisioned_by_a_command_that_per
   expect(refused.stderr).toMatch(/Access: Apps and Policies/)
   expect(refused.stderr).toMatch(/Edit/)
 
+  // ── several accounts get a refusal naming them, never a coin flip ──────────
+  {
+    const api = await stubApi({
+      accounts: [
+        { id: 'acct-one', name: 'Foundry' },
+        { id: 'acct-two', name: 'Something Else' },
+      ],
+      apps: APPS,
+      tokens: [],
+      policies: {},
+    })
+    try {
+      const run = await scriptAsync('access-token', [], {
+        env: { CLOUDFLARE_API_TOKEN: 'stub-management-token', CLOUDFLARE_API_BASE: api.base },
+      })
+      expect(run.status, 'an ambiguous account was resolved anyway').toBe(1)
+      expect(run.stderr, 'the refusal does not name the setting to disambiguate with').toContain(
+        'CLOUDFLARE_ACCOUNT_ID',
+      )
+      expect(run.stderr, 'the refusal does not name the accounts it saw').toContain('acct-one')
+      expect(run.stderr).toContain('acct-two')
+      // And it stopped there: nothing was created against either account.
+      expect(api.seen.filter((c) => c.method !== 'GET')).toEqual([])
+    } finally {
+      await api.close()
+    }
+  }
+
+  // ── no application for the domain is a refusal that names it ───────────────
+  {
+    const api = await stubApi({
+      accounts: ONE_ACCOUNT,
+      apps: [APPS[0]],
+      tokens: [],
+      policies: {},
+    })
+    try {
+      const run = await scriptAsync('access-token', [], {
+        env: { CLOUDFLARE_API_TOKEN: 'stub-management-token', CLOUDFLARE_API_BASE: api.base },
+      })
+      expect(run.status).toBe(1)
+      expect(run.stderr, 'the missing application is not named').toContain(DOMAIN)
+      expect(run.stderr, 'the applications actually present are not reported').toContain(
+        'staging.1stcontact.io',
+      )
+      expect(api.seen.filter((c) => c.method !== 'GET')).toEqual([])
+    } finally {
+      await api.close()
+    }
+  }
+
+  // ── the mint: one account inferred, the app matched by domain, a Service ────
+  //    Auth policy added separately, the pair printed, and nothing written.
+  const workdir = mkdtempSync(path.join(tmpdir(), 'ac1453-'))
+  {
+    const api = await stubApi({
+      accounts: ONE_ACCOUNT,
+      apps: APPS,
+      tokens: [],
+      // The operator's own rule, already on the application. It must survive.
+      policies: {
+        'app-real': [{ id: 'pol-operator', name: 'operator', include: [{ email: {} }] }],
+      },
+    })
+    try {
+      // Run it somewhere it COULD write, with that directory as `HOME` too, so
+      // "no secret is written to any file" is an observation of the filesystem
+      // rather than of the source: a dotfile would land here.
+      const run = await scriptAsync('access-token', [], {
+        cwd: workdir,
+        env: {
+          HOME: workdir,
+          CLOUDFLARE_API_TOKEN: 'stub-management-token',
+          CLOUDFLARE_API_BASE: api.base,
+        },
+      })
+      expect(run.status, run.stderr).toBe(0)
+
+      // It says WHICH of the three things happened, and prints the pair once.
+      expect(run.stdout, 'the mint is not reported as a creation').toMatch(/Token\s+created/)
+      expect(run.stdout).toContain("export CF_ACCESS_CLIENT_ID='created.access'")
+      expect(run.stdout).toContain(`export CF_ACCESS_CLIENT_SECRET='${CREATED_SECRET}'`)
+      expect(run.stdout, 'the policy it made is not reported').toMatch(/created policy/)
+
+      // The account was inferred because there was exactly one — every request
+      // after `/accounts` is scoped to it.
+      const scoped = api.seen.filter((c) => c.path !== '/accounts')
+      expect(scoped.length).toBeGreaterThan(0)
+      for (const call of scoped) expect(call.path.startsWith('/accounts/acct-only/')).toBe(true)
+
+      // THE APPLICATION WAS MATCHED BY DOMAIN, not by display name: every write
+      // went to `app-real`, whose name is wrong and whose domain is right, and
+      // none to `app-decoy`, whose name is the one an operator would recognise.
+      const posts = api.seen.filter((c) => c.method === 'POST')
+      expect(posts.some((c) => c.path.includes('app-decoy'))).toBe(false)
+
+      const policyPost = posts.find((c) => /\/apps\/[^/]+\/policies$/.test(c.path))
+      expect(policyPost, 'no policy was created').toBeDefined()
+      expect(policyPost?.path).toContain('/apps/app-real/policies')
+
+      // A SERVICE AUTH rule — `non_identity` is what makes it one; an `allow`
+      // rule with a service-token include asks Access to check a human identity
+      // the token does not carry.
+      const tokenPost = posts.find((c) => /\/access\/service_tokens$/.test(c.path))
+      expect(tokenPost?.body).toMatchObject({ name: TOKEN_NAME })
+      expect(policyPost?.body).toMatchObject({
+        decision: 'non_identity',
+        include: [{ service_token: { token_id: 'tok-created' } }],
+      })
+      expect((policyPost?.body as { name: string }).name).toContain(TOKEN_NAME)
+
+      // A SEPARATE policy, never a widening of the operator's own — so revoking
+      // the automation cannot touch the rule that keeps the operator signed in.
+      // Nothing was edited or removed: the only mutations are creations.
+      expect(api.seen.every((c) => c.method === 'GET' || c.method === 'POST')).toBe(true)
+      expect(posts.some((c) => c.path.includes('pol-operator'))).toBe(false)
+
+      // NOTHING WAS WRITTEN. The process had a writable working directory and a
+      // writable `HOME`, and left both empty — the secret exists only on stdout.
+      expect(filesUnder(workdir)).toEqual([])
+    } finally {
+      await api.close()
+      rmSync(workdir, { recursive: true, force: true })
+    }
+  }
+
+  // ── an existing token is reused, and an existing inclusion left alone ──────
+  {
+    const api = await stubApi({
+      accounts: ONE_ACCOUNT,
+      apps: APPS,
+      tokens: [{ id: 'tok-existing', name: TOKEN_NAME, client_id: 'existing.access' }],
+      policies: {
+        'app-real': [
+          { id: 'pol-operator', name: 'operator', include: [{ email: {} }] },
+          {
+            id: 'pol-service',
+            name: `service token — ${TOKEN_NAME}`,
+            include: [{ service_token: { token_id: 'tok-existing' } }],
+          },
+        ],
+      },
+    })
+    try {
+      const run = await scriptAsync('access-token', [], {
+        env: { CLOUDFLARE_API_TOKEN: 'stub-management-token', CLOUDFLARE_API_BASE: api.base },
+      })
+      expect(run.status, run.stderr).toBe(0)
+      expect(run.stdout, 'an existing token was recreated').toMatch(/already exists — not recreated/)
+      expect(run.stdout, 'an existing inclusion was not left alone').toMatch(
+        /already included by policy/,
+      )
+      // Idempotent in the only way that counts: it wrote nothing at all.
+      expect(api.seen.filter((c) => c.method !== 'GET')).toEqual([])
+
+      // The secret is not obtainable for a token it did not mint, and it says so
+      // plainly rather than leaving an operator hunting a dashboard field that
+      // does not exist — naming the one command that produces a fresh one.
+      expect(run.stdout).toContain("export CF_ACCESS_CLIENT_ID='existing.access'")
+      expect(run.stdout, 'a lost secret is not explained').toMatch(
+        /shown only when the token is created or rotated/,
+      )
+      expect(run.stdout, 'a lost secret names no way to replace it').toMatch(
+        /bin\/access-token --rotate/,
+      )
+      expect(run.stdout).not.toContain(CREATED_SECRET)
+    } finally {
+      await api.close()
+    }
+  }
+
+  // ── --rotate issues a fresh secret for the token that already exists ───────
+  {
+    const api = await stubApi({
+      accounts: ONE_ACCOUNT,
+      apps: APPS,
+      tokens: [{ id: 'tok-existing', name: TOKEN_NAME, client_id: 'existing.access' }],
+      policies: {
+        'app-real': [
+          {
+            id: 'pol-service',
+            name: `service token — ${TOKEN_NAME}`,
+            include: [{ service_token: { token_id: 'tok-existing' } }],
+          },
+        ],
+      },
+    })
+    try {
+      const run = await scriptAsync('access-token', ['--rotate'], {
+        env: { CLOUDFLARE_API_TOKEN: 'stub-management-token', CLOUDFLARE_API_BASE: api.base },
+      })
+      expect(run.status, run.stderr).toBe(0)
+      expect(run.stdout, 'a rotation is not reported as one').toMatch(/rotated/)
+      // Rotated in place, on the token that exists — not by minting a second one.
+      expect(
+        api.seen.filter((c) => c.method === 'POST').map((c) => c.path),
+      ).toContain('/accounts/acct-only/access/service_tokens/tok-existing/rotate')
+      expect(
+        api.seen.some((c) => c.method === 'POST' && /\/access\/service_tokens$/.test(c.path)),
+      ).toBe(false)
+      expect(run.stdout).toContain(`export CF_ACCESS_CLIENT_SECRET='${ROTATED_SECRET}'`)
+    } finally {
+      await api.close()
+    }
+  }
+
+  // ── a refusal reported inside a 200 envelope is a refusal ──────────────────
+  // Cloudflare answers `200 {success: false}` for "you may not do that" as
+  // readily as it answers 4xx. A caller reading only the transport status would
+  // report a successful no-op and send the operator away with a policy that was
+  // never created.
+  {
+    const api = await stubApi({
+      accounts: ONE_ACCOUNT,
+      apps: APPS,
+      tokens: [],
+      policies: {},
+      refuse: '/policies',
+    })
+    try {
+      const run = await scriptAsync('access-token', [], {
+        env: { CLOUDFLARE_API_TOKEN: 'stub-management-token', CLOUDFLARE_API_BASE: api.base },
+      })
+      expect(run.status, 'a refusal inside a 200 was read as success').toBe(1)
+      expect(run.stderr, 'the refusal it was given is not reported').toContain(
+        'insufficient permissions',
+      )
+    } finally {
+      await api.close()
+    }
+  }
+
+  // The assertion header is the far side's and is never this script's business —
+  // a source-level claim, and stated as one.
   const source = readFileSync(provisioner, 'utf8')
-
-  // The account is resolved explicitly, and inferred only when unambiguous;
-  // several accounts get a refusal naming them rather than a coin flip.
-  expect(source).toContain('CLOUDFLARE_ACCOUNT_ID')
-  expect(source, 'the account is inferred without checking there is exactly one').toMatch(
-    /len\(accounts\) == 1/,
-  )
-  expect(source, 'several accounts are not refused by name').toMatch(
-    /set CLOUDFLARE_ACCOUNT_ID[\s\S]{0,40}Saw:/,
-  )
-
-  // The application is located by the DOMAIN it guards, not by its display name,
-  // which is a label an operator can change without meaning to change anything.
-  expect(source, 'the application is not matched on its domain').toMatch(
-    /app\.get\("domain"\)[\s\S]{0,40}== domain/,
-  )
-  expect(source, 'no Access application for the domain is not a named refusal').toMatch(
-    /no Access application for/,
-  )
-
-  // Minted, reused, or freshly rotated — and it says which of the three happened.
-  expect(source).toMatch(/Token\s+created/)
-  expect(source).toMatch(/already exists — not recreated/)
-  expect(source).toMatch(/rotated/)
-
-  // A SERVICE AUTH policy, added SEPARATELY rather than by widening the
-  // operator's own rule, so the automation revokes without touching the rule
-  // that keeps the operator signed in. An existing inclusion is left alone.
-  expect(source, 'the policy is not a Service Auth rule').toMatch(/"decision": "non_identity"/)
-  expect(source, 'the policy does not include the service token').toMatch(
-    /"include": \[\{"service_token": \{"token_id": token_id\}\}\]/,
-  )
-  expect(source, 'an existing inclusion is not left alone').toMatch(/already included by policy/)
-
-  // A refusal inside a successful transport envelope is a refusal — Cloudflare
-  // answers 200 with `success: false` as readily as it answers 4xx.
-  expect(source, 'a refusal reported inside a 200 is read as a successful no-op').toMatch(
-    /if not payload\.get\("success"\)/,
-  )
-
-  // The pair is printed once, and no secret is written anywhere: not into this
-  // repository, not into a dotfile, not into a log.
-  expect(source).toMatch(/export CF_ACCESS_CLIENT_ID/)
-  expect(source).toMatch(/export CF_ACCESS_CLIENT_SECRET/)
-  expect(source, 'the provisioner opens a file for writing').not.toMatch(/open\([^)]*["']w["']/)
-  expect(source, 'the provisioner writes a file').not.toMatch(/write_text|writeFileSync|\.write\(/)
-  // The assertion header is the far side's and is never this script's business.
   expect(source).not.toMatch(/cf-access-jwt-assertion/i)
-
-  // When the secret is no longer obtainable it says so plainly, and names the one
-  // command that produces a fresh one.
-  expect(source, 'a lost secret is not explained').toMatch(
-    /shown only when the token is created or rotated/,
-  )
-  expect(source, 'a lost secret names no way to replace it').toMatch(
-    /bin\/access-token --rotate/,
-  )
 
   // ── The policy record carries the granted service identity, with its reason. ──
   const doc = readFileSync(path.join(CONTROL_APP, 'ACCESS.md'), 'utf8')
