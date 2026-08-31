@@ -6,10 +6,10 @@ title: The browser client, the shared components and the framework bridges are b
   artifacts, served behind the gate and never resolved per request
 created_by: xgd
 created_at: '2026-08-31T10:12:48.861144+00:00'
-updated_at: '2026-08-31T10:12:48.861144+00:00'
+updated_at: '2026-08-31T10:30:56.905491+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
