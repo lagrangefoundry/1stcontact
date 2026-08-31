@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-31T10:10:37.977052+00:00'
+updated_at: '2026-08-31T10:13:33.264002+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -433,6 +433,17 @@ the surface where an operator *sees* the site instead.
   property the code still has; leaving it as written would assert a variable that
   no longer exists.
   *Rationale:* the criterion's subject was the arrangement, not the guarantee.
+- **Two planned removals turned out to have no matrix subject, and nothing was
+  archived for them.** The proxy and the variable naming its forwarding target
+  are gone from the code, but no criterion asserted them: the two that came
+  closest were written about *one host and what an operator observes* precisely
+  so they would survive the arrangement changing, and they were re-pointed rather
+  than removed. Separately, the assertion that a page mounting a behaviour module
+  fails to render in the edge runtime existed only as a free-coded test, never as
+  a criterion here; that boundary is removed rather than worked around, and the
+  positive belongs to the behaviour-module capability.
+  *Rationale:* archiving a criterion that was never written would be a fiction in
+  the history; recording the absence here is the honest form.
 - **The build-time relocation of component resolution is folded into the existing
   component criteria rather than duplicated.** Components are still consumed from
   the out-of-band install, still referenced through their own declared entry
