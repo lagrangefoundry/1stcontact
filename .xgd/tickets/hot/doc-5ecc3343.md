@@ -6,13 +6,12 @@ title: Why People Pay For Design — Independent-Designer Economics & AI-Website
   Pricing Benchmarks
 created_by: xgd
 created_at: '2026-08-10T17:52:15.012178+00:00'
-updated_at: '2026-08-16T01:19:37.724358+00:00'
+updated_at: '2026-08-31T19:43:21.400065+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
-  system_kb: true
   chat_comment: comment-32293ac9
 ---
 
