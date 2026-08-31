@@ -5,9 +5,9 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T01:07:58.834127+00:00'
+updated_at: '2026-08-31T01:10:46.429968+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   doc_kind: architecture
@@ -40,7 +40,7 @@ The organizing unit. A KB is declared, not built:
 
 ```jsonc
 "system": {
-  "prompt":    "…what this KB is, in one paragraph…",
+  "description": "…what this KB is, in one paragraph…",
   "corpus":    { },                 // the distribution IS the corpus — §3.3
   "landscape": "authored",
   "source":    "shipped",
@@ -48,7 +48,7 @@ The organizing unit. A KB is declared, not built:
 }
 ```
 
-Four things follow from that shape, and each of them is a decision this document
+Five things follow from that shape, and each of them is a decision this document
 depends on:
 
 - **The corpus is a predicate, not a collection.** `corpusPredicates()` renders
@@ -65,6 +65,41 @@ depends on:
   publish a map and appear in priming; `none` publishes no map but remains
   searchable and is named in the mechanism section, so an agent can still reach
   it deliberately.
+- **`description` is prose, and it is the twin of `corpus`.** `corpus` says which
+  rows belong, machine-readably; `description` says what they are, in English.
+  Neither is an instruction to a model. See §2.1 — the field was called `prompt`
+  until this document's own reading of the code showed it was not one.
+
+### 2.1 It was called `prompt`, and that was wrong
+
+Recorded because the old name was load-bearing on how people read the field, and
+because the docstring that carried it asserted something the code did not do.
+
+`prompt` is never injected at retrieval time. `search.js` and `ranking.js` never
+read it. It reaches a model **exactly once**, inside the awareness build, where
+`describePrompt()` prepends it as *"Domain context for this knowledge base"* — it
+is context supplied *to* a prompt, not a prompt. Its only other consumer is
+`assembleLandscape()`, which renders it as the italic subtitle under
+`# Awareness map: <name>`: a caption for a human reader.
+
+The docstring said otherwise, and pairing the false half with a true one is what
+made it read as verified:
+
+> *"ranked search multiplies its score by `weight` and injects `prompt` as the
+> retrieval-time domain context"*
+
+`weight` **is** read at retrieval. `prompt` is not. The sentence cited DOC-7
+§4.1 as its authority — the specification §11 records as resolving in no
+reachable store — so the claim could not be checked against its stated source.
+
+Every value ever written in the field was a noun phrase describing a corpus
+("xgd system knowledge: how the tool thinks and is used — …"). Nobody had ever
+written a prompt in it, because it was not one. The rename to `description` is
+lagrange-framework REQ-109, with xgd REQ-826 and this repo following.
+
+There is no compatibility alias: `KB_KEYS` rejects unknown keys rather than
+ignoring them, so a stale config fails with `unknown key(s) prompt (valid keys:
+description, …)`, which names its own fix.
 
 ## 3. The two knowledge bases
 
