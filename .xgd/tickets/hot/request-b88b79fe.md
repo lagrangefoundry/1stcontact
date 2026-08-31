@@ -6,10 +6,10 @@ title: 'The headless browser in the cloud: a Browser Rendering driver behind the
   seam'
 created_by: xgd
 created_at: '2026-08-20T23:16:00.449069+00:00'
-updated_at: '2026-08-31T00:52:48.576006+00:00'
+updated_at: '2026-08-31T05:05:09.416379+00:00'
 completed_at: null
-last_field_updated: body
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 8
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.16
+  bundled_in: bundle-8eef3846
 ---
 
 # The headless browser in the cloud: a Browser Rendering driver behind the existing seam
