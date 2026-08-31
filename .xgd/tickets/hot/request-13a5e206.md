@@ -5,9 +5,9 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-08-31T20:32:40.203324+00:00'
+updated_at: '2026-08-31T20:42:52.483388+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -46,7 +46,32 @@ the hard information barrier and is bound into the handle — never passed per
 call, so no call site is trusted to remember it. `TENANT_ID` is already a var in
 the Worker's config.
 
-**3. The TypePack**, carrying:
+**3. The blob store, in its own bucket.** `lagrange-framework` REQ-104 shipped
+the `BlobStore` port with R2, filesystem and in-memory implementations, and has
+the ticket store **reject attachment ops at construction** when none is injected.
+So the store is not fully built until one is wired in, which is why this lives
+here rather than in ingestion.
+
+**It must not share `1stcontact-sites`.** That bucket is bound by
+`apps/public-site` — the Worker whose entire job is serving bytes to the public
+internet by path. Attachment blobs are the client's private material: brand
+guidelines, positioning papers, competitor captures. Putting them in a bucket a
+public Worker can read leaves only routing code between a client's confidential
+document and a public URL.
+
+This is the same class of mistake as BUG-31 ([[DOC-12]] §7), where a `--sandbox`
+deploy shared a keyspace with a real site and could overwrite its published
+bytes. The remedy there was namespacing by prefix; here it has to be a separate
+bucket, because the failure mode is not overwrite but **disclosure**, and a
+prefix is a convention while a bucket boundary is not.
+
+Keys stay `t/<tenant>/blob/<sha256>` per [[DOC-38]] §7.2 — content-addressed for
+dedup and cacheability, tenant-prefixed because a global content address would be
+both an existence oracle across the tenant barrier and a contradiction of
+[[DOC-37]] erasure. Declared in **both** wrangler blocks, since a named
+environment inherits neither vars nor bindings.
+
+**4. The TypePack**, carrying:
 
 - `material` — client uploads and fetched background (4a, 4b, 3c)
 - `reference` — capture bundles (3a, 3b)
@@ -89,6 +114,11 @@ the cases.
 
 - The ticketing schema applies as a migration; `wrangler d1 migrations apply`
   finds it beside the existing two.
+- A blob bucket distinct from `1stcontact-sites`, declared top-level and under
+  `[env.production]`, with a UAT pinning both — matching how every other binding
+  in that file is protected.
+- Attachment ops work through the wired store; a store constructed without a
+  `BlobStore` fails at construction rather than at first use.
 - A handle constructed for tenant A cannot read or write tenant B's rows —
   asserted, not assumed.
 - `material`, `reference` and `brief` validate with [[DOC-38]] §9's fields, and
