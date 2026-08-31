@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:50:24.294070+00:00'
+updated_at: '2026-08-31T19:51:16.431451+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1798,5 +1798,50 @@ Still unticketed: ingestion (1), the marker migration (2), the `readDocTickets` 
 <!-- xgd-chat role="user" ts="2026-08-31T19:50:23.981929+00:00" -->
 #### You
 Is 1 referring to uploading content?
+
+<!-- xgd-turn id="e2be444b-b145-4fef-9f3a-3c2e8ff4d894-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:51:16.178674+00:00" -->
+#### Claude
+Yes — upload is the main door, but it's broader, and checking turned up something that corrects what I told you last turn.
+
+## What "ingestion" covers
+
+Three entry points, one pipeline:
+
+- **Upload** — the client adds photos, fonts, positioning papers, brand guidelines (4a, 4b)
+- **Fetch** — we pull material on their behalf: industry reports, news articles (3c)
+- **Capture** — the DOC-13 pipeline producing bundles (3a, 3b)
+
+All three converge on DOC-38 §10's five steps: store the blob → classify (`kind` from content type, rights inferred from source) → **shadow** → create the ticket → index incrementally.
+
+**Step 3 is why it's large rather than plumbing.** The shadow is what makes material findable, and it's a different job per modality: text extraction for a PDF (and OCR for a scanned one), a VLM description for an image, family/weight identification for a font, a summary of what a site looks like for a capture bundle. Four pipelines with four failure modes, and per DOC-38 §7.4 none of it is the ticketing component's job.
+
+## What exists
+
+| | State |
+|---|---|
+| Blob storage | REQ-104 — **done** |
+| Capture → bundle | REQ-154 `free_coding`, REQ-155 draft |
+| Capture → *ticket* | nothing — bundles land in the ReferenceStore and never become corpus members |
+| Upload path | nothing |
+| Shadow pipeline | nothing |
+| **The types** | **nothing** |
+
+## The correction
+
+I said last turn that REQ-159 is fully unblocked. It isn't. **`material`, `reference` and `brief` don't exist as ticket types** — there's no product TypePack defining them anywhere in the repo. REQ-159's corpus predicate names types that aren't defined, so it needs them first.
+
+That's small — a schema definition with §9's fields — but it's a real prerequisite and it sits in front of both REQ-159 and ingestion.
+
+## So item 1 should be three tickets, not one
+
+1. **The types** — `material`, `reference`, `brief` in the product TypePack with the §9 fields (`rights`, `republishable`, `exportable`, `origin`, `kind`, `source_url`). Blocks REQ-159 and everything below.
+2. **Upload → ticket** — endpoint, storage, rights inference, ticket creation, plus the shadow pipeline for documents and images. The user-visible capability.
+3. **Capture → ticket** — hooking the existing bundle output into the same path, as N attachment records per DOC-38 §9.
+
+(2) is the one a user would notice. (3) can follow. (1) is a prerequisite for both and for REQ-159.
+
+Want me to file those three?
 
 <!-- xgd-chat-end -->
