@@ -5,10 +5,10 @@ type: request
 title: Site locale identity, and rendered lang/dir
 created_by: xgd
 created_at: '2026-08-20T21:59:13.430458+00:00'
-updated_at: '2026-08-24T02:10:41.772546+00:00'
-completed_at: null
+updated_at: '2026-08-31T14:22:31.114008+00:00'
+completed_at: '2026-08-31T14:22:31.114008+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
