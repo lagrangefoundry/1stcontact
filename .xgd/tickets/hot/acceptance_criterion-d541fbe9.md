@@ -6,10 +6,10 @@ title: A local site's draft definition and assets copy into the shared store ide
   through the same store the workspace serves from
 created_by: xgd
 created_at: '2026-08-31T10:12:59.657430+00:00'
-updated_at: '2026-08-31T10:12:59.657430+00:00'
+updated_at: '2026-08-31T10:30:56.664778+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
