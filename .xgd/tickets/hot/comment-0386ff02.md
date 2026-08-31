@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:07:04.927635+00:00'
+updated_at: '2026-08-31T20:13:52.881203+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1892,5 +1892,14 @@ So the tab is a **library view over the material tickets**, not an upload mechan
 That reorders the dependencies slightly: types → ingestion → the tab. The tab is cheap once the tickets exist and expensive before.
 
 Want me to fold this into the ingestion tickets as a third piece, or scope the UI separately once uploads work?
+
+<!-- xgd-turn id="d636c065-3230-4529-8584-5ca977107fab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T20:13:52.849663+00:00" -->
+#### You
+Yes we need a REQ for a Library tab. It would use the standard split pane component, the left side would be a standard list with a "type" filter at the top. Clicking on content opens the content in a detail pane/editor to the right. We would reuse exactly the editors we already have for intereactive editing.
+
+Upload:
+2 routes - (1) drag and drop into chat on the Site tab (site builder) (2) drag and drop into the Library. In both cases I think we have the same UX: full screen translucent overlay with the screen split into areas, one for each type they are labeled, with icons, Top level instruction: Drop the file into the area corresponding to its type... (better language needed).
 
 <!-- xgd-chat-end -->
