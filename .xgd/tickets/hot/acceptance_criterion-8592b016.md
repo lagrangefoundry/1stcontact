@@ -6,10 +6,10 @@ title: A write carrying a stale version is refused with both versions, and exact
   one of two racing writers survives
 created_by: xgd
 created_at: '2026-08-31T09:47:34.193388+00:00'
-updated_at: '2026-08-31T09:47:34.193388+00:00'
+updated_at: '2026-08-31T10:04:13.951396+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
