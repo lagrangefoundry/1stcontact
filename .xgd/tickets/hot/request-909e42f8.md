@@ -17,6 +17,7 @@ fields:
   - REQ-827
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6fb39b2a
 ---
 
 # Corpus export correctness: the `doc_kind` filter, an unrestricted shipped corpus, and exhaustive listing
