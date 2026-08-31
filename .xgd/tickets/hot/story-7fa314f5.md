@@ -6,10 +6,10 @@ title: 'Self-origin fulfilment: a picture of my own draft is the draft, not a si
   challenge'
 created_by: xgd
 created_at: '2026-08-31T23:20:40.311983+00:00'
-updated_at: '2026-08-31T23:23:08.687789+00:00'
+updated_at: '2026-08-31T23:30:56.310929+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-8eef3846
   capability_uid: capability-aa030c83
