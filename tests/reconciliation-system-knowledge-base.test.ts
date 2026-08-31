@@ -653,7 +653,11 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       const binding = await bindKb(root)
-      expect(binding.kb.prompt).toBe('Declared prompt, not a hard-coded one.')
+      // `description`, not `prompt`: the declaration's prose field is
+      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
+      // assertion compared `undefined` against a string appearing nowhere in the
+      // declaration this test writes.
+      expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')
 
@@ -733,7 +737,16 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
     // three artefacts is built or missing.
     await withRoot((root) => {
       // Nothing built at all — reports zeros rather than failing.
-      expect(kbStatus(root)).toEqual({ corpus: 0, index: false, chunks: false, map: false })
+      expect(kbStatus(root)).toEqual({
+        corpus: 0,
+        // How many of the corpus are projected rather than exported (REQ-165) —
+        // reported beside the total, because a corpus whose projections are
+        // missing has the same shape as one that is merely small.
+        projected: 0,
+        index: false,
+        chunks: false,
+        map: false,
+      })
     })
 
     await withRoot(async (root) => {
@@ -743,6 +756,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         await withStore(CORPUS, () => exportCorpus(root))
         expect(kbStatus(root)).toEqual({
           corpus: CORPUS.length,
+          projected: 0,
           index: false,
           chunks: false,
           map: false,
@@ -754,6 +768,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         expect(readdirSync(corpusDir(root))).toContain('awareness.md')
         expect(kbStatus(root)).toEqual({
           corpus: CORPUS.length,
+          projected: 0,
           index: true,
           chunks: true,
           map: true,
