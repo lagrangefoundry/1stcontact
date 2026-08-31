@@ -6,10 +6,10 @@ title: Both deployment halves declare the same database and bucket, and the sche
   is applied before upload with a rehearsal that changes nothing
 created_by: xgd
 created_at: '2026-08-31T09:48:12.827758+00:00'
-updated_at: '2026-08-31T09:48:12.827758+00:00'
+updated_at: '2026-08-31T10:04:12.715904+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
