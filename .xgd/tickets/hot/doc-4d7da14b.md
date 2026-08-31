@@ -5,7 +5,7 @@ type: doc
 title: Architecture Policy
 created_by: xgd
 created_at: '2026-06-30T00:54:42.824137+00:00'
-updated_at: '2026-08-16T01:21:50.814648+00:00'
+updated_at: '2026-08-31T19:42:51.203191+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
@@ -14,7 +14,6 @@ fields:
   references:
   - id: DOC-5
     title: Gendev Website Caretaker Architecture
-  system_kb: true
 ---
 
 ## Overview
