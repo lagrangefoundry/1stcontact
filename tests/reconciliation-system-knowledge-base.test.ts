@@ -653,6 +653,10 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       const binding = await bindKb(root)
+      // `description`, not `prompt`: the declaration's prose field is
+      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
+      // assertion compared `undefined` against a string appearing nowhere in the
+      // declaration this test writes.
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.doc_kind')
@@ -739,6 +743,10 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         expect(kbStatus(root)).toEqual({
           corpus: 0,
           tickets: 0,
+          // How many of the corpus are projected rather than exported (REQ-165) —
+          // reported beside the total, because a corpus whose projections are
+          // missing has the same shape as one that is merely small.
+          projected: 0,
           index: false,
           chunks: false,
           map: false,
@@ -755,6 +763,9 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
           expect(kbStatus(root)).toEqual({
             corpus: CORPUS.length,
             tickets: CORPUS.length,
+            // Nothing projected: this tree's corpus came from the export alone
+            // (REQ-165), and an exhaustive assertion has to say so.
+            projected: 0,
             index: false,
             chunks: false,
             map: false,
@@ -762,6 +773,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         })
         expect(kbStatus(root)).toMatchObject({
           corpus: CORPUS.length,
+          projected: 0,
           index: false,
           chunks: false,
           map: false,
@@ -773,6 +785,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         expect(readdirSync(corpusDir(root))).toContain('awareness.md')
         expect(kbStatus(root)).toMatchObject({
           corpus: CORPUS.length,
+          projected: 0,
           index: true,
           chunks: true,
           map: true,
