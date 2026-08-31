@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:55:44.241761+00:00'
+updated_at: '2026-08-31T23:58:12.255894+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -546,5 +546,11 @@ D moved from "could slip" to "required", since the invite flow *is* the provisio
 **4. When a grant expires, what do they see?** Locked out at login, or read-only access to their own site? Data model handles both; it's a product call and it changes the deny page. I'd say read-only — a customer who can't see their site can't be persuaded to renew.
 
 Answer those and I'll cut the branch and write A–D as proper request tickets.
+
+<!-- xgd-turn id="f6399c20-819d-4648-bec2-fa2eb1927b5b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T23:58:12.232709+00:00" -->
+#### You
+**The chat host takes the *****resolved***** tenant, never **`env.TENANT_ID`**.** When you open a session while operating `acct_kate`, the AI's store handle, its knowledge base, and its transcript archive are all scoped to `acct_kate`. `ai.ts` already takes `tenantId` as a parameter — it's the four env reads in ticket B that need replacing, and this is one of them. <-- actually that wasn't what I meant. That might be sufficient but what I really want is a super-chat that can see everything. I want to ask "Is that bug we are seeing in tenant X the cause to that complaint form tenant Y" etc?
 
 <!-- xgd-chat-end -->
