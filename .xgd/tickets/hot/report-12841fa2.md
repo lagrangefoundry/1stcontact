@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-20 free-coded commits (REQ-143/145/146/147/148/149/150/151/152/153)'
 created_by: xgd
 created_at: '2026-08-31T09:26:11.418440+00:00'
-updated_at: '2026-08-31T12:29:45.489623+00:00'
+updated_at: '2026-08-31T12:39:48.709565+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -536,7 +536,7 @@ fields:
     story_points: 2
     dependencies:
     - 10
-    story_uid: null
+    story_uid: story-0598c150
     description: 'One formatting seam, exported from the framework, that a module
       reads instead of inventing an answer - added before the capabilities that need
       it so neither has to. Money is minor units plus a currency code, and the divisor
