@@ -15,6 +15,7 @@ fields:
   story_points: 13
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-733e844c
 ---
 
 # The project knowledge base: tenant-scoped corpus, incremental index, and the map's two triggers
