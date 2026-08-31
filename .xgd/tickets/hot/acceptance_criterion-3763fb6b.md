@@ -6,10 +6,10 @@ title: Half a service token is refused before any request is sent, and before th
   first site moves
 created_by: xgd
 created_at: '2026-08-31T17:03:10.438447+00:00'
-updated_at: '2026-08-31T17:03:10.438447+00:00'
+updated_at: '2026-08-31T17:13:35.614350+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
