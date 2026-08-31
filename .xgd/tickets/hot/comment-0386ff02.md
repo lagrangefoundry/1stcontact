@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:26:55.525505+00:00'
+updated_at: '2026-08-31T20:30:43.775837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1990,5 +1990,11 @@ Ten items. Four of them block something that's already ticketed; the rest are st
 Then **3 and 4** as one small ticket, since neither is meaningful alone and both are prerequisites for REQ-158 producing a corpus anyone should trust.
 
 That would leave 5–10 as genuine backlog rather than blockers. Want me to file them?
+
+<!-- xgd-turn id="090bcd12-5d6b-4cfc-8e33-6c644981bc92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T20:30:43.328586+00:00" -->
+#### You
+Is the ingestion pipeline just for system docs?
 
 <!-- xgd-chat-end -->
