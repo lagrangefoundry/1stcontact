@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:18:42.702921+00:00'
+updated_at: '2026-08-31T22:20:00.195319+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2519,5 +2519,44 @@ Neither blocks REQ-163. Q1 needs an answer only when someone files the framework
 #### You
 Q1 A - please create a ticket in lf
 Q2 -- lets back up what is shadowing. what's it even for?
+
+<!-- xgd-turn id="db0f1006-c50b-4ef7-a3e9-5c978c83cde2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:19:58.262235+00:00" -->
+#### Claude
+**lagrange-framework REQ-111** created — *Image content on the backend surface: the AI component grows eyes*. 5 points. It takes content blocks where `text` is taken today, keeps the string form unchanged, treats vision as a **capability not an obligation** (a backend without it refuses clearly and stays conforming — the same shape attachments used), and names itself as REQ-163's consolidation point so the temporary SDK path gets deleted rather than left beside it.
+
+---
+
+## What shadowing is
+
+Backing all the way up: **a knowledge base can only search text.** It embeds text into vectors and compares them. That's the whole mechanism.
+
+A JPEG has no text. A font has none. A PDF has text, but locked inside a binary container. So if the client uploads a photo of their kitchen and later asks *"do we have a picture of the kitchen?"*, there is nothing in the corpus for that question to match against — the bytes are there, but they're invisible to retrieval.
+
+The shadow is the fix: **for every blob, we write prose about it into the ticket body, and index that instead.** A photo gets a written description; a PDF gets its extracted text; a font gets what it is and when to reach for it.
+
+It's called a shadow because it isn't the thing — it's a projection of the thing into the one medium where retrieval works. Cast by the blob, indexed in its place.
+
+**What it buys** is the reason DOC-38 §6 is built on it: the knowledge base **never learns that images exist**. One corpus, one index, one search, one ranked result set. The alternative — multimodal embeddings — means a second index, a second embedding model, a second retrieval path, and results that can't be co-ranked with text without calibration. The shadow makes all of that unnecessary.
+
+**What it costs** is that the shadow is lossy and written once. If the description is poor, the blob is fine and the material is invisible. That's the entire reason `shadow_status` exists.
+
+## Which settles Q2 from first principles
+
+The shadow's only job is retrieval. So:
+
+- **A failed shadow means the material cannot be found.** That's a defect, and the right response is *retry* — automatic, bounded to the failures, converges.
+- **A merely older shadow means the material can be found, perhaps not optimally.** Not a defect. Operator-triggered.
+
+Same split I proposed, but now for a reason rather than by intuition.
+
+## One thing worth adding to DOC-38
+
+Going back to first principles surfaced a gap. DOC-38 §6 says an image gets "a written description" — but it doesn't say the description is a **retrieval surrogate rather than a summary**, and that changes how it should be written.
+
+A good shadow front-loads the words someone would actually search by: what it depicts, what it concerns, whose business it belongs to. A description that reads elegantly but never uses the word "kitchen" fails at the only job it has. Whoever writes the `describeImage` prompt will otherwise ask the model for a nice description — which is a different thing.
+
+Want me to add that to DOC-38 §6?
 
 <!-- xgd-chat-end -->
