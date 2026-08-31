@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-15T01:48:32.886999+00:00'
+updated_at: '2026-08-31T23:30:44.961306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -223,5 +223,25 @@ Revised from my list:
 4. **Auth core as a `lagrange-framework` component** — still think yes, on the ticketing precedent.
 5. **T&C acceptance after verification** rather than on the request form.
 6. **File CHAT-13's α/β/γ?** β is still on the critical path — no email delivery, no magic link.
+
+<!-- xgd-turn id="e15be8d8-5dee-4822-9620-c74518e78b4e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T23:30:44.938306+00:00" -->
+#### You
+OK I'm returning to this conversation after a couple of weeks. I would like to start working towards creating specific tasks for implementing this feature – these features.
+
+I am working towards hopefully being able to start on boarding people to use the first contact site builder. In a few days. In order to do that they have to be able to login.
+
+What do I need for this?
+
+These users will be users of the first contact website. Logging in to the first contact website will give them access to the first contact application.
+
+As the owner and administrator of the First contact website, I expect to have a simple 2-pane interface that will list all the users on the left. And present a detail page for each user on the right. Initially the detail page will simply show, created, modified, email address and when the accepted the have TNC. Using the standard field editing component.
+
+For this application I will need to create a list of "entitled" email addresses.
+
+We will build an entitlement feature later connected to billing, but in the short term we should create the basic data model and give me access to edit it.
+
+Can you add this to what we are discussing and then walk me through the outstanding decisions needed to make this work
 
 <!-- xgd-chat-end -->
