@@ -6,10 +6,10 @@ title: There is no way to format the current moment, and the determinism resolut
   is recorded as a contract a module author will find
 created_by: xgd
 created_at: '2026-08-31T12:39:18.145085+00:00'
-updated_at: '2026-08-31T12:39:18.145085+00:00'
+updated_at: '2026-08-31T12:47:20.142568+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0598c150
   kind: behavior
