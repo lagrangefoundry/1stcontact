@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:47:11.511166+00:00'
+updated_at: '2026-08-31T00:47:51.803397+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1122,5 +1122,36 @@ Want me to rewrite DOC-39 §3.1 and DOC-38 §8 around this — the three kinds, 
 <!-- xgd-chat role="user" ts="2026-08-31T00:47:10.546884+00:00" -->
 #### You
 "every design document, in full" <-- that is where you misunderstood my intent I just wanted to seed the initial system with some documents so we could see if it worked - this was never the final doc set
+
+<!-- xgd-turn id="99f2e1aa-1a30-478d-aca6-78a05a63df6c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T00:47:51.582772+00:00" -->
+#### Claude
+That changes the shape of the argument — there's no prior decision to overturn, just a question being asked for the first time.
+
+But it points at a real defect: **§6.3 is written as doctrine, not as scaffolding.** The actual text is *"deliberately no curation pass… the scaling answer is chunk search plus an awareness map, not a hand-picked subset, and choosing the subset before there is retrieval evidence would be guessing."* That reads as a settled principle with a rationale attached, not as "seed it and see."
+
+It misled me twice in this conversation — I built DOC-39 §3.1 on it, then spent a turn arguing that your position was a legitimate reversal of it. And DOC-10 is itself in the corpus, so the next reader to be misled is the builder AI.
+
+Worth fixing while we're here, and it's a one-paragraph amendment: mark the current corpus as seed material chosen to exercise the machinery, and note that what belongs in the final KB is open.
+
+Two things that follow:
+
+**An open question disappears.** DOC-39 §10 currently carries "whether excluding development-process documents helps retrieval" as an experiment to run. You don't run an experiment to decide whether scaffolding stays. It goes, and the question is only what replaces it.
+
+**But don't clear the seed corpus yet.** It's the only corpus that exists, and REQ-158's whole acceptance test is *the AI answers from a design document and names it*. Delete it before the wiring is proven and there's nothing to prove the wiring against. Sequence: build the index over the seed set → verify the machinery end to end → then replace it with authored system-KB documents. Not both at once.
+
+That also means the thin-corpus consequence I flagged last turn is deferred rather than immediate — REQ-158 proceeds against what's there today, unchanged.
+
+---
+
+Shall I do the whole pass now? It'd be:
+
+- **DOC-10 §6.3** — amend to record the corpus as seed, not policy.
+- **DOC-39** — the three kinds (architecture / system_kb / projected reference), build-time export as the single mechanism, the unrestricted shipped corpus (`corpus: {}`), drop the now-moot §6.3 reconciliation and the retired open question.
+- **DOC-38 §8** — align its system-KB row.
+- **A new section** on what a system-KB document actually *is*, since "authored for the AI" needs to be substantial enough that someone can sit down and write one.
+
+That last one is the piece that turns this from a classification scheme into something actionable, and it's the part I'd most want your eyes on before it hardens.
 
 <!-- xgd-chat-end -->
