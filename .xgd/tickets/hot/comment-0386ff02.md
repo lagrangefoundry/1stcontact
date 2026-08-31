@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:47:51.803397+00:00'
+updated_at: '2026-08-31T00:48:54.607809+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1153,5 +1153,11 @@ Shall I do the whole pass now? It'd be:
 - **A new section** on what a system-KB document actually *is*, since "authored for the AI" needs to be substantial enough that someone can sit down and write one.
 
 That last one is the piece that turns this from a classification scheme into something actionable, and it's the part I'd most want your eyes on before it hardens.
+
+<!-- xgd-turn id="cb24c033-6b1a-4157-92ef-409b01e60136-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:48:54.252799+00:00" -->
+#### You
+yes please fix all the misconceptions this is absolutely NOT a policy its a short term dev decisions to let us test easily
 
 <!-- xgd-chat-end -->
