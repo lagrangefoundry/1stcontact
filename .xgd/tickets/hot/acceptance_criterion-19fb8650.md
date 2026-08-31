@@ -6,10 +6,10 @@ title: Every row of the country derivation table is itself valid site configurat
   and resolves back to itself
 created_by: xgd
 created_at: '2026-08-31T12:28:44.010502+00:00'
-updated_at: '2026-08-31T12:28:44.010502+00:00'
+updated_at: '2026-08-31T12:33:34.625651+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
