@@ -68,6 +68,21 @@ export const SYSTEM_KB = 'system'
  */
 export const SHIPPED_SOURCE = 'shipped'
 
+/**
+ * The other knowledge base declared in the same file — the client's own
+ * (REQ-159, [[DOC-38]] §8).
+ *
+ * NAMED HERE ONLY SO THE SCAFFOLD CAN WRITE IT. This command never serves it:
+ * its corpus is the tenant's D1 ticket store, which a release build does not
+ * have and `apps/control-app/src/knowledge.ts` does. What lives here is the
+ * starting-point declaration, for the same reason the system KB's does — so a
+ * fresh checkout has a complete file rather than half of one.
+ */
+export const PROJECT_KB = 'project'
+
+/** Its corpus: everything a site is made from ([[DOC-38]] §9). */
+export const PROJECT_CORPUS_TYPES = ['chat', 'material', 'reference', 'brief'] as const
+
 /** The ticket type the corpus selects. Everything we write as a document. */
 export const CORPUS_TYPE = 'doc'
 
@@ -417,6 +432,27 @@ export function ensureConfig(root: string = kbRoot()): string {
         source: SHIPPED_SOURCE,
         weight: 1.0,
       },
+      // The other half (REQ-159). Scaffolded here even though this command never
+      // serves it: the file is the ONE declaration of what a knowledge base is,
+      // and a fresh checkout that wrote only the half this command uses would
+      // leave the Worker with no project KB and no error saying why. Which of the
+      // two a host serves is that host's decision (see `bindKb`); what each one
+      // IS belongs in one file.
+      //
+      // NO `source` KEY, which is what makes it read the tenant's own ticket
+      // store, and no site term, because the tenant is a hard barrier while the
+      // site is only a predicate — two sites belonging to one client share what
+      // has been learned about that client.
+      [PROJECT_KB]: {
+        description:
+          "This client's own knowledge: the conversations held with them, the material " +
+          'they uploaded, the reference sites captured on their behalf, and the brief ' +
+          'recording what was decided. Everything a site is made FROM, as against how ' +
+          'the system that builds it works.',
+        corpus: { type: [...PROJECT_CORPUS_TYPES] },
+        landscape: 'derived',
+        weight: 1.0,
+      },
     },
   }
   writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
@@ -490,7 +526,17 @@ export async function bindKb(root: string = kbRoot()): Promise<KbBinding> {
         `(declared: ${[...kbs.keys()].sort().join(', ') || 'none'}).`,
     )
   }
-  return { store, kb, kbs, sources: { [SHIPPED_SOURCE]: store } }
+  // ONE KB, NOT THE WHOLE DECLARATION FILE. `kb/knowledge_bases.json` now declares
+  // two knowledge bases and each host serves the ones it can actually resolve:
+  // this build has the shipped corpus and serves `system`, while the Worker has
+  // the tenant's D1 store and serves `project` (REQ-159, `apps/control-app/src/
+  // knowledge.ts`). Handing the whole map to `buildIndex` and `primeSession`
+  // would resolve `project` against the DocDirStore — a read-only directory of
+  // design documents that holds no `chat`, `material`, `reference` or `brief`
+  // — and the result would not be an error. It would be a knowledge base
+  // reported as searchable and empty, and a priming section apologising for a
+  // map nobody will ever build here.
+  return { store, kb, kbs: new Map([[SYSTEM_KB, kb]]), sources: { [SHIPPED_SOURCE]: store } }
 }
 
 /**

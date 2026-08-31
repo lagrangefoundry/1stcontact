@@ -7,6 +7,11 @@ import {
   TypePack,
 } from './generated/ticketing'
 import { chatSchemas } from './generated/ai-workers'
+import {
+  AWARENESS_REPORT_KIND,
+  AWARENESS_REPORT_TYPE,
+  KB_FIELD,
+} from './generated/knowledge'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -184,8 +189,40 @@ export function productTypePack(): ProductTypePack {
      * here.
      */
     [ATTACHMENT_TYPE]: ATTACHMENT_SCHEMA,
+
+    /**
+     * The knowledge system's own awareness map — [[REQ-159]], [[DOC-39]] §4.2.
+     *
+     * MACHINE-OWNED, AND NOT A DOCUMENT. The knowledge component publishes one
+     * `system`/`awareness_report` ticket per knowledge base and recycles it in
+     * place, so the map keeps a stable uid across rebuilds and its body is
+     * replaced wholesale. Without this type declared the very first rebuild
+     * fails validation — the store refuses an undeclared type, as it must — so
+     * a host that wants a derived landscape has to say so here.
+     *
+     * SPELLED FROM THE COMPONENT'S OWN CONSTANTS, never from literals. The three
+     * of them are exactly the `(type, kind, kb)` triple `findAwarenessReport`
+     * queries on and `resolveCorpus` excludes as its recursion guard — cluster
+     * the map into its own corpus and the next rebuild clusters the map into
+     * itself. A local approximation of any one of them would break the lookup,
+     * the guard, or both, and would do it silently.
+     *
+     * `kb` names which knowledge base the map describes. Required, because a map
+     * that does not say what it maps cannot be recycled in place: the lookup is
+     * by KB name, and a report missing it is a second untraceable report.
+     */
+    [AWARENESS_REPORT_TYPE]: {
+      fields: {
+        kind: { type: 'string', required: true },
+        [KB_FIELD]: { type: 'string', required: true },
+      },
+      body: { required: true, non_empty: true },
+    },
   })
 }
+
+/** The `fields.kind` value marking a `system` ticket as an awareness map. */
+export const AWARENESS_KIND = AWARENESS_REPORT_KIND
 
 /**
  * The pack, as far as this repository types it.
