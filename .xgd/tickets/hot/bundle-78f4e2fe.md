@@ -5,32 +5,15 @@ type: bundle
 title: BUG-36 + BUG-37 + BUG-38
 created_by: xgd
 created_at: '2026-08-26T17:36:26.915596+00:00'
-updated_at: '2026-08-31T14:23:56.450244+00:00'
-completed_at: null
+updated_at: '2026-08-31T19:19:32.487153+00:00'
+completed_at: '2026-08-31T19:19:32.487153+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   commits:
-  - working_sha: ea48502d0d90bb607ac528e34099e71eaab6df40
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 2058a16449a8e783bdd655d22bade58fd6b8d0fc
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 0fe586d1f67c678efd5a1ff02f5978948a41bb11
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 999579b3fbef0757cf5e715691c9aaa9ecdf329e
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 63df97c93542321a3d57d21e2e31a763ed3e4411
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 96a76934e010d272feb2d2bfc2b5d9645db10fe8
   auto_merge_back: true
   priority: medium
   orphan_commits:
@@ -76,6 +59,7 @@ fields:
     new_sha: e704298e921c6adf702cb026dbb9202a8d23adef
   - old_sha: 4cf9622fb205802232c48c0cb79d398246971305
     new_sha: 342e1f0177287e58c565af10ee9c64f367b03f52
+  merged_at_commit: 96a76934e010d272feb2d2bfc2b5d9645db10fe8
 ---
 
 # Bundle
