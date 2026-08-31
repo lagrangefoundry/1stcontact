@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T23:12:04.344589+00:00'
+updated_at: '2026-08-31T23:14:26.143475+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2644,5 +2644,39 @@ One consequence for **REQ-111** in lagrange-framework: I wrote it before this re
 <!-- xgd-chat role="user" ts="2026-08-31T23:12:03.778837+00:00" -->
 #### You
 PLease check REQ-111 including the transcript to make sure it is still on track
+
+<!-- xgd-turn id="2f79d4a1-4aed-4628-9b94-0a42c5de1e3b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T23:14:26.070732+00:00" -->
+#### Claude
+Checked the ticket, the transcript comment (COMMENT-1013), and the in-flight worktree. **REQ-111 is on track** — but four things need attention, one of them time-sensitive.
+
+## The ticket faithfully records the session
+
+The Decisions section matches your five answers exactly: manager in scope with a redacted durable record, JS now with a language-neutral shape for the Python peer, neutral blocks translated per wire, `chatgpt` gets vision, one shared gate plus a `vision` capability. It also correctly records the correction the agent found — `/core` conformance can't make a real vision call, so the split is deterministic ops in the corpus and an injected-client UAT per language.
+
+The implementation in `free-REQ-111` (uncommitted, ~220 lines across 11 files plus a new `content.js`) tracks those decisions closely. The string path is genuinely untouched, the refusal is one gate with a pinned message, both wire translations exist, and the redaction rationale is written into the code.
+
+## Three drifts between body and implementation
+
+Free-coding says the body must describe the implementation as it stands, and these are contract-level, not cosmetic:
+
+1. **The placeholder format changed.** The ticket specifies `[image: image/png, 48231 bytes, sha256:1a2b3c4d]`; the code emits `fp:1a2b3c4d` from FNV-1a. The reason is sound — `redactContent` is called from `applyRecords`, a pure synchronous fold, and both runtimes' digest APIs are async — but this string is a cross-language contract that conformance pins, so the ticket must state the real one.
+
+2. **The CLI backends aren't pure refusers.** The ticket says `claude_code`/`claude_code_interactive` refuse; the code refuses *image* blocks and flattens text-only block content via `contentToText`. That's better than the ticket, and worth saying so.
+
+3. **`IMAGE_MEDIA_TYPES` is an intersection, not a union** — the four types every vision backend accepts, so a caller past the gate can't be refused downstream by whichever provider it's pointed at. A real design decision, absent from the body.
+
+## A commit hazard, now
+
+`node_modules` in the REQ-111 worktree is a **symlink** back to the main checkout, and `.gitignore` line 115 is `node_modules/` — trailing slash, directories only. So both symlinks show as untracked, and a `git add -A` commits absolute paths under `/Users/martin/` into the repo. Same exposure in `free-REQ-108`.
+
+## The first consumer no longer points here
+
+This is the time-sensitive one. **REQ-163 is at `free_coding` too** — someone is implementing it right now — and its body still says the consolidation point is "REQ-157, or an image block on the AI component's surface", with *"whether `describeImage` should eventually move into the AI component"* and *"whether a re-describe pass is operator-triggered or automatic"* both still listed as open. You settled both an hour ago: Q1 is A with lf REQ-111 as the destination, and Q2 splits by field — automatic retry on `description_status`, operator-triggered on `description_model`.
+
+Nothing from the attachment-description rename touches REQ-111 itself; it never used "shadow" and its "describing uploaded images so they can be retrieved" reads correctly.
+
+Want me to apply the three body corrections to REQ-111 and close out REQ-163's two open questions before its session reads them?
 
 <!-- xgd-chat-end -->
