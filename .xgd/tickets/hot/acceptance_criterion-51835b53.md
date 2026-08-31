@@ -6,10 +6,10 @@ title: A second account cannot publish over a slug another account has claimed, 
   the live site is untouched
 created_by: xgd
 created_at: '2026-08-31T11:34:16.349163+00:00'
-updated_at: '2026-08-31T11:34:16.349163+00:00'
+updated_at: '2026-08-31T11:46:20.401890+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
