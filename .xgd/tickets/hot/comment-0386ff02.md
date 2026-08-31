@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:20:12.245432+00:00'
+updated_at: '2026-08-31T19:21:29.374145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1458,5 +1458,33 @@ Both are one-line changes to the docs if you agree — `doc_kind: system_kb` int
 Yes use doc_kind (I don't understand why docs need a special kind but if that's what we have use it).
 
 On 2 - I agree we infer republishability from the source
+
+<!-- xgd-turn id="2cc37378-f7cc-405e-8dc3-1c02ad80de75-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T19:21:28.216481+00:00" -->
+#### Claude
+Two follow-on corrections while the facts are fresh — §3.1 still said "a `kind` rather than a flag", and DOC-38 §7 still described attachments as unbuilt:
+
+Both decisions are in the docs.
+
+**`doc_kind: system_kb`** — DOC-39 §3.3 now names it as the single build-time filter, with the three reasons: it's single-valued so §3.1's exclusivity is structural rather than disciplinary, it already means "what kind of document is this", and it stays out of the knowledge component's namespace. `system_kb: true` is retired as redundant.
+
+On your aside — the reason docs have a sub-kind at all is just that `type` is already spent saying "this is a document" rather than a request or a bug, so `doc_kind` carries the finer distinction. It wasn't invented for this; it's been there holding `architecture`, `security_policy` and four others. We're adding a seventh value, not a mechanism.
+
+**Rights inferred from provenance** — new DOC-38 §10.1, with the table:
+
+| Source | `republishable` | `exportable` |
+|---|---|---|
+| Capture matching the client's declared domain | yes | no |
+| Capture of any other domain | **no** | yes |
+| Client upload | yes | no |
+
+The only question ever put to a client is on a domain mismatch — *"is this your site?"* — which is a question of fact rather than of law. The accepted residual risk is written down explicitly: a client can upload material they don't hold rights to and we won't detect it.
+
+Also corrected two things that had gone stale: DOC-38 §7 no longer calls attachments "the one genuine gap in the substrate" — it now records REQ-104/107/108 as landed and keeps the section as the design record — and §3.1's wording now points at §3.3 for the field rather than saying "a `kind`".
+
+**Open questions now down to four in DOC-39 §10** (cursor semantics across sessions, delta cap size, which system-KB documents get written, and the `system_kb: true` → `doc_kind` migration) and **three in DOC-38 §13** (whether `reference` earns its own type, co-ranking measurement, upload transport). None block starting work.
+
+The unticketed gaps from the last summary stand unchanged — ingestion is still the big one, and the `doc_kind` migration is now a fifth item, since REQ-158's export filter still reads the boolean and the two have to change together or the corpus empties.
 
 <!-- xgd-chat-end -->
