@@ -5,9 +5,9 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T01:11:52.226980+00:00'
+updated_at: '2026-08-31T01:11:56.077972+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   doc_kind: architecture
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.18
+  story_points: 3
 ---
 
 # The Knowledge Management System
