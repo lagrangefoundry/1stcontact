@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-31T16:50:26.991708+00:00'
+updated_at: '2026-08-31T16:52:01.230210+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
