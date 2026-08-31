@@ -6,9 +6,9 @@ title: 'Self-origin fulfilment: a picture of my own draft is the draft, not a si
   challenge'
 created_by: xgd
 created_at: '2026-08-31T23:20:40.311983+00:00'
-updated_at: '2026-08-31T23:20:40.311983+00:00'
+updated_at: '2026-08-31T23:23:08.687789+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-8eef3846
@@ -44,27 +44,28 @@ serves. A request that is never made cannot be challenged.
 
 - A capture of the operator's own draft (or edit) channel returns the authored
   page — byte-for-byte what the preview surface serves for that site, channel
-  and path — and never a sign-in challenge document.
+  and path — and never a sign-in challenge document. (AC-1469)
 - **The rule is per-host, not per-path**, and that is the whole guarantee. A host
   is *owned* outright: every request to it is either fulfilled in-process or
   answered not-found in-process. A path nobody authored — a favicon, a build
   asset, a stray absolute link — is answered not-found rather than escaping to
   the gated origin. Nothing addressed to that host is ever handed to the network.
+  (AC-1470)
 - Naming a site that does not exist is answered not-found in-process, not
-  fetched.
+  fetched. (AC-1472)
 - A failure while producing the page is answered with a server error, never let
   through to the network. A silent fall-through is the one outcome the mechanism
   exists to make impossible, because a fall-through lands on the gate and comes
-  back as a challenge document the capture would faithfully record.
+  back as a challenge document the capture would faithfully record. (AC-1473)
 - Requests to **any other host** are untouched and go to the network. A page
   legitimately loads third-party fonts and images, and a capture that silently
-  dropped them would be a different kind of wrong picture.
+  dropped them would be a different kind of wrong picture. (AC-1471)
 - The capture shows the draft as it stands *now*: the same rendering the preview
   surface would serve at that moment, not a second, independently produced one
-  that could answer from an older state of the site.
+  that could answer from an older state of the site. (AC-1474)
 - Published output is deliberately **not** served this way. Published bytes live
   on a public host that no gate covers, so a capture of a published address is
-  fetched over the network like any other page.
+  fetched over the network like any other page. (AC-1475)
 
 **Out of scope**
 
@@ -132,18 +133,19 @@ next person does not re-litigate it. Recorded here and in DOC-13 §6.1–§6.3, 
   reconciliation, 2026-08-31): the intent ticket states each of them explicitly,
   with reasons, in its own implementation record — which is part of the
   operator's ticket and therefore intent, not merely code. Formalised as
-  **AC (per-host)**, **AC (unknown site)**, **AC (third-party)** and **AC
-  (resolver failure)** on that authority.
+  **AC-1470** (per-host ownership), **AC-1472** (unknown site), **AC-1471**
+  (third-party passthrough) and **AC-1473** (failure answered, never passed
+  through) on that authority.
 
 - **"The same rendering the preview surface serves" is formalised as a
   behavioural criterion** (decided at reconciliation, 2026-08-31): the intent
   states the requirement only as an implementation note — that the capture must
   use the same memoised renderer as the preview route, because a second instance
   "could answer from a different stamp than the one the operator is looking at".
-  Intent states no criterion for it. Formalised anyway, restated as the
-  observable consequence rather than the mechanism: a capture taken after an edit
-  shows the edited draft, and matches what the preview surface serves at that
-  moment. A capture that silently showed a stale draft is the same
+  Intent states no criterion for it. Formalised anyway as **AC-1474**, restated
+  as the observable consequence rather than the mechanism: a capture taken after
+  an edit shows the edited draft, and matches what the preview surface serves at
+  that moment. A capture that silently showed a stale draft is the same
   wrong-picture-with-no-error failure this entire story exists to close, so it
   belongs in the criteria rather than in a comment.
 
@@ -157,9 +159,10 @@ next person does not re-litigate it. Recorded here and in DOC-13 §6.1–§6.3, 
 
 - **The published channel is stated positively** (decided at reconciliation,
   2026-08-31): the intent frames it as an exclusion ("published output is
-  deliberately not served this way"). Restated as the positive behaviour it
-  implies — a capture of a public address is fetched over the network — so the
-  criterion is durable rather than a guard against a removed thing.
+  deliberately not served this way"). Restated as **AC-1475**, the positive
+  behaviour it implies — a capture of a public address is fetched over the
+  network — so the criterion is durable rather than a guard against a removed
+  thing.
 
 No contradiction between intent and code was found for this plan item.
 
