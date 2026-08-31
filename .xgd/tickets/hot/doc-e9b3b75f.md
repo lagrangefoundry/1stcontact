@@ -5,13 +5,12 @@ type: doc
 title: Website Framework Architecture Principles
 created_by: xgd
 created_at: '2026-06-30T01:01:58.435922+00:00'
-updated_at: '2026-08-16T01:21:24.908239+00:00'
+updated_at: '2026-08-31T19:43:34.606450+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
-  system_kb: true
 ---
 
 # 1st Contact Website Framework — Architecture Principles
