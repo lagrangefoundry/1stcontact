@@ -5,13 +5,12 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T19:38:13.330127+00:00'
+updated_at: '2026-08-31T19:42:19.831685+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: system_kb
 status: free_coded
 fields:
   doc_kind: architecture
-  system_kb: true
   chat_comment: comment-37a5b4a6
   commits:
   - working_sha: 020ec406100d143a1c6a51181231500f2cb208a2
