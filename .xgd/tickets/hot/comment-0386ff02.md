@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:32:05.771880+00:00'
+updated_at: '2026-08-31T21:33:07.866095+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2257,5 +2257,54 @@ All of it is in the ticket body now rather than only in the transcript, so the a
 <!-- xgd-chat role="user" ts="2026-08-31T21:32:04.678175+00:00" -->
 #### You
 on REQ-162 is free coding - do we have ticket coverage for everything yet?
+
+<!-- xgd-turn id="afb95e41-2e95-4795-bd5a-034075eda9dd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T21:33:07.436919+00:00" -->
+#### Claude
+No — seven tickets cover the spine, six items are still uncovered, and one of those is a hole we created ourselves.
+
+## Covered
+
+| Ticket | Status |
+|---|---|
+| REQ-162 product ticket store, TypePack, blob store | **free_coding** |
+| REQ-163 ingestion | draft |
+| REQ-164 corpus export correctness | draft |
+| REQ-158 system KB in the Worker | draft |
+| REQ-159 project KB | draft |
+| REQ-160 seeding + turn reminders | draft |
+| REQ-161 Library tab | draft |
+| xgd REQ-825 pagination · REQ-827 `doc_kind` enum | done · **ready_to_reconcile** |
+| lf REQ-104 / 107 / 108 | done, on `xgd-working` |
+
+REQ-827 landing means REQ-164's blocker is clear.
+
+## Not covered
+
+| | Work | When it bites |
+|---|---|---|
+| **Projected reference** (DOC-39 §3.2) | **now — see below** |
+| Capture → ticket | as soon as REQ-163 lands |
+| Site source adapter (DOC-38 §8.3) | once REQ-159 works |
+| Reference lifetime (DOC-38 §12) | once captures accumulate |
+| `site_assets` migration (DOC-38 §7.7) | when dedup matters |
+| Quarantine write gate (DOC-38 §11) | v1 is prompt-level; later |
+
+Plus **DOC-7 reconstruction** in lagrange-framework, and **writing the system-KB documents**, which you deferred deliberately.
+
+## The one worth filing now
+
+**Projected reference is a hole this conversation dug.** DOC-39 §3.1 says architecture documents are *not* in the KB — they're written for us, not for the AI. That's right, and I still think so. But it means that once REQ-164 flips the export filter, the AI's system corpus is four consultation documents and **nothing that says what the product does**. No module catalogue, no L1 vocabulary, no control-surface reference.
+
+§3.2's answer is that those facts get *projected* from the live registry and the declared surface rather than authored — which is correct and already precedented twice (the tool manual, capture mapping). But nobody owns building it.
+
+So the sequence has a gap: after REQ-164, the AI will be able to talk about design beautifully and won't know what a module is. Worth filing before REQ-158 ships rather than discovering it in the first real conversation.
+
+## Ordering the rest
+
+Capture → ticket is next after REQ-163 — otherwise uploads become knowledge and captures silently don't, which is an asymmetry nobody would predict from the outside. The other four are genuine backlog.
+
+Want me to file projected reference and capture → ticket now, and leave the remaining four?
 
 <!-- xgd-chat-end -->
