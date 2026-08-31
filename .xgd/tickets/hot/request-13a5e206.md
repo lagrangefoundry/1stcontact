@@ -539,7 +539,6 @@ fields:
 result: pass
 ---
 
-
 # The product ticket store: D1 schema, the TypePack, and the material types
 
 ## The gap is larger than "add three types"
