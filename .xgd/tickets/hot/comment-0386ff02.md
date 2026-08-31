@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T21:17:24.429263+00:00'
+updated_at: '2026-08-31T21:18:49.624315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2215,5 +2215,41 @@ I'd lean toward (1) but want to know why it stalled first — a resync that stop
 <!-- xgd-chat role="user" ts="2026-08-31T21:17:24.150823+00:00" -->
 #### You
 The attachment/BlobStore code from REQ-104 was written on 26 August. It's real and it's committed. But it lives on a branch called `resync-577be0d7`, and your lagrange-framework checkout sits on `xgd-working`, which doesn't have it. <-- that makes no sense it had to start life on working it will still be there
+
+<!-- xgd-turn id="95d4a14b-34c6-404c-a1b6-9010bc945767-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T21:18:49.437417+00:00" -->
+#### Claude
+You're right to push — I checked the working tree with `ls`, not the branch with git. Those differ under sparse checkout. Let me test it properly:
+
+You were right and I was wrong. The files are on `xgd-working` and on disk:
+
+```
+HEAD: xgd-working @ 56c8cdc5b1  (= tip)
+components/ticketing/js/src/attachments.js   2808 bytes  Aug 26 17:29
+components/ticketing/js/src/blob_store.js   11824 bytes  Aug 27 20:58
+working tree clean
+```
+
+My error: I ran the worktree loop over `~/.xgd/worktrees/…lagrange-framework.git/*` — which covers `main`, `reconcile-…`, `regression-…` and `resync-…` but **not** the plain checkout — then wrote `xgd-working attachments.js=0` into the table from the `main` result rather than measuring it. The resync branch having the files isn't significant; it inherited them like everything else.
+
+So the situation is exactly what the agent said, no more: **the shared artifact store copy is stale, and the source checkout has the code.** The answer to their Q1 is simply **yes, run the install** — `bin/install --lang js --component ticketing --env /Users/martin/lagrangefoundry`, from the lagrange-framework checkout as it stands.
+
+Fixing the ticket, which currently sends someone on a resync hunt that isn't needed:
+
+Wrong cwd — the edit didn't apply and the update re-committed the unchanged body. Redoing:
+
+REQ-162 corrected. The prerequisite section now says what's actually true: the shared artifact store is stale, the source on `xgd-working` has the code (`fad535e8a4`), and `bin/install --lang js --component ticketing --env /Users/martin/lagrangefoundry` is the entire fix. The resync narrative is gone.
+
+So the answer to the agent's six questions is now clean:
+
+1. **Yes, run the install.** Your reasoning was the right check — free-coded work merges back to working, so it should be there, and it is.
+2. **Yes** — one shared `tenants` registry, `SCHEMA_STATEMENTS` plus `ALTER TABLE tenants ADD COLUMN config`.
+3. **Yes** — enforce at `ticketStoreFor(env)`; the component's call-time refusal is correct and stays.
+4. **Yes** — `1stcontact-material`, with `wrangler r2 bucket create` recorded in the ticket.
+5. **Confirmed** — no HTTP routes; the workers test against real D1/R2 is the acceptance.
+6. **Both settled** — `reference` keeps its type, `brief` keeps its type with `fields.site_slug`.
+
+All of it is in the ticket body now rather than only in the transcript, so the agent can proceed from the ticket alone.
 
 <!-- xgd-chat-end -->
