@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:53:14.344528+00:00'
+updated_at: '2026-08-31T22:53:58.546234+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2568,5 +2568,44 @@ Shadow is a very confusing name - this is blob metadata.
 So on uploadwe inspect pictures and PDFs and create descriptions that live in the body of the ticket they are attached to. Fair enough.
 
 What is meant by status?
+
+<!-- xgd-turn id="91b7482d-8d16-40d9-a4e0-1c82c239bcff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:53:58.047870+00:00" -->
+#### Claude
+You're right about the name — "shadow" is jargon I invented in DOC-38 §6, and jargon someone has to decode is a cost with no return. Happy to strip it.
+
+One distinction worth keeping though: **"blob metadata" already means something else here.** REQ-104's `AttachmentRecord` carries the actual metadata — `sha256`, `size`, `content_type`, `filename`. Calling the description "metadata" too would conflate two different things that sit side by side on the same ticket. The description isn't a fact *about* the file, it's generated *content*.
+
+The simplest honest framing is the one you just used: **it's the ticket body, and on upload we produce it by reading the file.** No special noun needed. Extracted for PDFs, generated for images, and for a system document it's just written by hand. Same field, three ways of filling it.
+
+## What `status` records
+
+How the body came to be, because that isn't recoverable from the body itself. Three outcomes:
+
+| | What happened | Body says |
+|---|---|---|
+| **ok** | PDF text extracted, or image described | the real content |
+| **degraded** | scanned PDF, no extractable text | *"Scanned document, 14 pages, no extractable text"* |
+| **failed** | no API key at the time — nothing generated | filename and size only |
+
+It earns its place by doing three jobs:
+
+1. **The Library can show it.** The client sees *"we couldn't read this one"* rather than quietly wondering why the assistant never mentions their brand book.
+2. **Retry becomes a query.** When the key is restored, you select the failures rather than reprocessing the entire library at cost.
+3. **It explains a retrieval miss.** If the AI can't find something, the status distinguishes "bad query" from "there was never anything to match against."
+
+Without it, a failed description is indistinguishable from a file that genuinely has little to say — and the failure is silent, which is the mode that doesn't get noticed.
+
+The companion field records *which model* wrote a description, and that's the one that supports the operator-triggered upgrade case rather than the automatic retry.
+
+## Renaming
+
+If we drop "shadow", the fields go with it:
+
+- `shadow_status` → **`body_status`** (`ok` | `degraded` | `failed`)
+- `shadow_model` → **`body_model`** (the model id, null when the body was extracted rather than generated)
+
+Want me to strip "shadow" from DOC-38 §6, DOC-39, and REQ-163 — replacing it with plain "the body, produced by reading the file" — and rename the two fields while REQ-163 is still in draft? It's the cheapest moment; once it's implemented the rename costs a migration.
 
 <!-- xgd-chat-end -->
