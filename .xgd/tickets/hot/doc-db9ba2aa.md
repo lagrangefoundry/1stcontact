@@ -5,13 +5,12 @@ type: doc
 title: Security Policy
 created_by: xgd
 created_at: '2026-06-30T00:54:42.938102+00:00'
-updated_at: '2026-08-16T01:20:56.366235+00:00'
+updated_at: '2026-08-31T19:43:03.306481+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: null
 fields:
   doc_kind: security_policy
-  system_kb: true
 ---
 
 # Security Policy — Structured-Only, Validated by Construction
