@@ -6,9 +6,9 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-08-31T09:31:03.958986+00:00'
+updated_at: '2026-08-31T09:33:09.588722+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-b3b7c399
@@ -86,12 +86,14 @@ reaches the origin; the property each is about is unchanged for an **admitted**
 caller, and their qualification by this gate is carried by the Builder Workspace
 Origin item, not here.
 
-**REQ-147 AC2 is not assertable in this repository.** "An identity not on the
+**REQ-147 AC2 is not assertable in this repository, and no criterion below
+tries.** "An identity not on the
 policy is refused after authenticating" is enforced by the identity gateway
 before the request reaches the application — the application never sees it.
 There is therefore no acceptance criterion for it below and no test can exist
-for it; it is recorded in the repository policy record instead, which AC "the
-policy record is in the repository" covers.
+for it; it is recorded in the repository policy record instead, and AC-1384
+states that exclusion explicitly so the story cycle does not write a UAT that
+cannot exist.
 
 **Nothing here is deployed.** At reconciliation time the account has no control
 app Worker and the hostname does not resolve. The gate's behaviour is provable
@@ -109,7 +111,7 @@ production.
   cache predates. The landed code refreshes the cache once when a token names an
   unknown key, because the alternative is that every valid token is refused for
   the cache lifetime, and "valid identity, refused" is an outage that reads as a
-  break-in. Formalized as an AC; this is reconciliation filling a gap in the
+  break-in. Formalized as AC-1380; this is reconciliation filling a gap in the
   original spec, not an operator request.
 
 - **Refusals are neither cached nor indexed** (decided at reconciliation,
@@ -117,7 +119,7 @@ production.
   The landed code marks every refusal uncacheable and non-indexable, because a
   cached refusal is as wrong as a cached admission — an intermediary that stores
   one 401 serves it to the admitted identity too — and an indexed one advertises
-  the private surface it is protecting. Formalized as an AC.
+  the private surface it is protecting. Formalized as AC-1381.
 
 - **The identity is read from the cookie as well as the header, header first**
   (decided at reconciliation, 2026-08-31): REQ-147 notes the preview iframe is
@@ -125,7 +127,7 @@ production.
   reads the cookie or which source wins when both are present. The landed code
   reads the header first and falls back to the cookie, because the header is
   what the gateway attaches to the request it forwards and the cookie is the
-  copy the client controls. Formalized as an AC.
+  copy the client controls. Formalized as AC-1376.
 
 - **The one exception path, and why no criterion below forbids it** (decided at
   reconciliation, 2026-08-31): REQ-147's implementation record states "no
