@@ -6,9 +6,9 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-08-31T17:13:35.135223+00:00'
+updated_at: '2026-08-31T18:03:18.408552+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -230,6 +230,20 @@ real push against the real Access gate landed a site into production storage).
   property of one caller's network, not of publishing — and no criterion asserts
   it. Nor does any criterion assert the live-gate admission itself, which is
   CAP-102's live-origin territory and cannot be proved from this repository.
+
+- **The provisioning command gained a management-API base-URL seam** (decided
+  at reconciliation, 2026-08-31): AC-1453's claims are all properties of the
+  requests `bin/access-token` makes — which account it resolves, which
+  application it matches by domain, the shape of the policy it posts, whether it
+  reads a refusal reported inside a 200 as a refusal, and whether it leaves the
+  operator's own rule alone. None of those can be observed by reading the script,
+  and provisioning against the live interface would mint a real credential, so
+  the criterion was originally verified by pattern-matching the script's source.
+  That proves a string is present, not that the branch carrying it runs. The base
+  URL is now overridable, the command is driven against a stub, and the criterion
+  asserts the requests. The override is not a credential and grants nothing —
+  anyone who can set it can already set the management API token — and unset,
+  which is every operator invocation, the command talks to Cloudflare.
 
 ## Dependencies
 
