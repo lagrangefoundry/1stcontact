@@ -5,10 +5,10 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-20T00:47:43.119865+00:00'
+updated_at: '2026-08-24T02:10:41.503955+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: low
   story_points: 8
@@ -27,12 +27,11 @@ fields:
     main_sha: null
     working_sha_history:
     - ade64575a4706348dc54df0ed2d2b3f384fe3eb2
+    - 055378794f49f1dc39b20fdcf54aa7fa0b1190e3
     - a6e92ca2603cba91fb5b905c826566ac208737ac
-  - working_sha: 055378794f49f1dc39b20fdcf54aa7fa0b1190e3
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
   version: 0.1.60
+  chat_comment: comment-a4605dbc
+  bundled_in: bundle-b3b7c399
 ---
 
 # Behavior modules render in workerd: Astro leaves the render path
