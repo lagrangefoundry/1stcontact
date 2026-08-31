@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-31T10:59:25.805314+00:00'
+updated_at: '2026-08-31T17:33:17.833607+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -74,13 +74,18 @@ In scope:
   something the conversation contract knows: what a turn is, what it may reach,
   where the transcript lives and how a failure is reported are the same either
   way, and the stored transcript is the same bytes, so a conversation begun in
-  one can be read by the other.
+  one can be read by the other. Nor does it know *which instance* of a host is
+  answering: a conversation identifier is resolved against durable, account-scoped storage
+  rather than against anything the process that issued it happens to remember,
+  so a turn runs on a process that never opened the session, and successive
+  turns spread across processes stay one conversation.
 - **Honest failure** — a refused operation the assistant corrects within the same
   turn with the site untouched; a missing prerequisite explained to the operator
   alongside their history rather than instead of it; a conversation identifier
-  the host never issued refused outright before anything is streamed; a failure
-  after streaming has begun delivered inside the stream so nothing is left
-  hanging. A knowledge base that was never built is not a failure at all — it is
+  that names no site this account holds refused outright before anything of the
+  assistant's is streamed, and never dressed as the assistant having tried; a
+  failure after streaming has begun delivered inside the stream so nothing is
+  left hanging. A knowledge base that was never built is not a failure at all — it is
   an ordinary state, and the conversation runs on its site operations alone —
   while one that *was* built and cannot be opened is reported rather than
   silently dropped. Nothing the assistant says back, on any of those paths,
@@ -179,6 +184,14 @@ Out of scope:
   conversation per request. The tenant is still checked once, when the host is
   built; what is given up is re-checking a mid-isolate deactivation, on the
   conversation routes alone. Recorded as the intent's own stated deviation.
+- **That cache is a cache of hosts, not of conversations.** The binding from a
+  conversation identifier to its site is not held there, and is not held
+  anywhere in a process: the identifier names its site by construction, and is
+  admitted only when that site is one the account's own store holds — a fact any
+  process can establish for itself, and one a process-local record could not
+  establish at all. Losing the cache costs the host, never the conversation.
+  This is what lets "the same session model on either host" hold in a runtime
+  where two requests are not promised the same process.
 - **The system knowledge base sits above tenancy, and this repo has no tenancy
   yet.** REQ-123 records the design a later store ticket inherits — the corpus is
   a release artefact that takes the scope parameters and does not vary by them,
@@ -243,6 +256,37 @@ this reconciliation's decision, made now.
   it, and the workspace-origin capability (CAP-85 / story-e674c60a) owns the
   one-route-table property that would decide whether it is a defect. Flagged
   there, neither claimed nor denied here.
+
+Decisions taken on **2026-08-31** while reconciling BUNDLE-21 (BUG-38).
+
+- **The authority test moves from "this process issued it" to "it names a site
+  this account holds."** BUG-38 states the change directly: the per-process
+  registry that bound an identifier to its site is deleted, and resolution is
+  made against the account's own storage instead — because opening a
+  conversation and speaking in it are two requests with no promise of the same
+  process, and in the deployed runtime that made *every* turn refused. AC-1055's
+  earlier verification required an identifier of the form the origin derives for
+  an **existing** site to be refused; that case is now the accepted one,
+  deliberately, since it is the only thing a client holds between the two
+  requests. The property that criterion existed to protect is preserved and
+  strengthened rather than dropped: an arbitrary client string still cannot
+  become a free-form key into the session store, and the check is now made
+  against storage and scoped to the account — something a process-local registry
+  could not check at all.
+- **The cross-process turn is claimed as its own criterion, not folded into
+  AC-1055.** The story already claimed one session model across both hosts; what
+  was missing was the observable that makes the claim true where it was false.
+  The two fail independently: resolution could admit an identifier and still
+  start a fresh conversation on each process, which is a different defect and
+  would leave the operator's history behind rather than their turn.
+- **The shape of a refusal is stated per origin rather than as one shape.** The
+  intent is silent on it and the two origins have always differed — the one that
+  answers a turn with a status code refuses as a plain not-found answer, the one
+  that answers every turn as a stream delivers the refusal as its own message
+  ahead of the completion. Formalised now, as this reconciliation's decision,
+  because the property the intent *does* state — a refusal is never dressed as
+  the assistant having tried and failed — holds in both, while the criterion was
+  previously written as though only the first origin existed.
 
 ## Dependencies
 
