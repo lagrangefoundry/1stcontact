@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:08:12.510908+00:00'
+updated_at: '2026-08-31T22:12:01.304226+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2461,5 +2461,11 @@ The agent can proceed on its recommendations. Four things changed from what it p
 And the fetch guard is now justified by the right risk: fetched content becomes corpus material the AI reads, so it's a prompt-injection path, not only SSRF. Hence guard *and* untrusted marking, per DOC-10 §5.2.
 
 Two questions remain genuinely open in the ticket — where vision eventually lives, and whether re-shadowing is operator-triggered. Neither blocks implementation.
+
+<!-- xgd-turn id="9ba99906-880b-4cf2-acf2-348abcb3ab2c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T22:12:00.954322+00:00" -->
+#### You
+Can you ask those questions here so we can resolve?
 
 <!-- xgd-chat-end -->
