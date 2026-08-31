@@ -6,10 +6,10 @@ title: The edit channel switches the behaviour off for a module-mounting page in
   hosts
 created_by: xgd
 created_at: '2026-08-31T11:06:00.059273+00:00'
-updated_at: '2026-08-31T11:06:00.059273+00:00'
+updated_at: '2026-08-31T11:12:57.207222+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
