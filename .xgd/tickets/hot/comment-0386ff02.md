@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:33:44.348519+00:00'
+updated_at: '2026-08-31T20:41:59.822318+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2054,5 +2054,11 @@ Two things worth flagging from writing them:
 - **REQ-164's margin is thinner than it reads.** 38 doc tickets against a page size of 50 — twelve documents from silent truncation, and this line of work keeps adding documents.
 
 Remaining unticketed: capture→ticket, `site_assets` migration, reference lifetime, projected reference, site source adapter, quarantine write gate, DOC-7 reconstruction.
+
+<!-- xgd-turn id="197e325a-8c65-4592-8cac-8c10b4f9d700-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T20:41:59.682195+00:00" -->
+#### You
+Do we need a ticket for a blob store too, for that attachments?
 
 <!-- xgd-chat-end -->
