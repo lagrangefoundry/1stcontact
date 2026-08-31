@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:07:21.387262+00:00'
+updated_at: '2026-08-31T22:08:12.510908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2444,5 +2444,22 @@ Want me to write that into REQ-163's body so it survives the transcript?
 <!-- xgd-chat role="user" ts="2026-08-31T22:07:21.183381+00:00" -->
 #### You
 Yes
+
+<!-- xgd-turn id="08cd3887-aa94-4f21-9f68-40f7407c41be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:08:12.291181+00:00" -->
+#### Claude
+REQ-163 updated. All eight decisions are in the body now, plus five new acceptance lines (index seam called once, degraded shadow still visible and selectable, fetch guard including per-hop redirect re-validation, promotion refusal).
+
+The agent can proceed on its recommendations. Four things changed from what it proposed:
+
+- **The index seam gets a loud log**, and REQ-159 owns promoting it to a construction-time requirement. An unwired optional hook means material that is *invisible* rather than stale — DOC-39 §4's distinction — which is too quiet a failure to leave unmarked.
+- **The vision-path duplication is accepted with its consolidation point named** (REQ-157, or an image block on the AI component). Duplication you've written down is temporary; duplication you haven't is permanent.
+- **`shadow_status` is specified as one mechanism for three cases** — no API key, scanned PDF, unsupported type — rather than three special cases that happen to share a field.
+- **`unpdf` comes with a bundle measurement** to report to REQ-158, which is independently planning to bundle the KB vector index. Neither ticket can see the other's footprint and the Cloudflare limit is hard.
+
+And the fetch guard is now justified by the right risk: fetched content becomes corpus material the AI reads, so it's a prompt-injection path, not only SSRF. Hence guard *and* untrusted marking, per DOC-10 §5.2.
+
+Two questions remain genuinely open in the ticket — where vision eventually lives, and whether re-shadowing is operator-triggered. Neither blocks implementation.
 
 <!-- xgd-chat-end -->
