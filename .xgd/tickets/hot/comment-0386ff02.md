@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:46:37.176839+00:00'
+updated_at: '2026-08-31T00:47:11.511166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1116,5 +1116,11 @@ Want me to rewrite DOC-39 §3.1 and DOC-38 §8 around this — the three kinds, 
 <!-- xgd-chat role="user" ts="2026-08-31T00:46:36.258953+00:00" -->
 #### You
 *"every design document, in full" <-- that is where you misunderstood my intent I just wanted to see the initial system with some documents so we could see if it worked *
+
+<!-- xgd-turn id="99f2e1aa-1a30-478d-aca6-78a05a63df6c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T00:47:10.546884+00:00" -->
+#### You
+"every design document, in full" <-- that is where you misunderstood my intent I just wanted to seed the initial system with some documents so we could see if it worked - this was never the final doc set
 
 <!-- xgd-chat-end -->
