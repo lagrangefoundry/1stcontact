@@ -5,7 +5,7 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-08-31T22:08:03.025281+00:00'
+updated_at: '2026-08-31T22:57:11.632203+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -40,10 +40,10 @@ Five steps, per [[DOC-38]] §10:
    default: a per-file *"do you own this?"* is a legal question put to a café
    owner, is clicked through unread, and most importantly asks for information
    the client frequently does not have.
-3. **Shadow.** The step that makes the material findable, and the reason this
+3. **Describe.** The step that makes the material findable, and the reason this
    ticket is not plumbing. Four sub-pipelines with four failure modes:
 
-   | Input | Shadow |
+   | Input | Description |
    |---|---|
    | PDF / document | extracted text (and a decision on scanned pages — OCR or refuse) |
    | Image | a written description, from a VLM |
@@ -52,7 +52,7 @@ Five steps, per [[DOC-38]] §10:
 
    Per [[DOC-38]] §7.4 this is ours, not the ticketing component's. The component
    stores bytes and metadata.
-4. **Create the ticket** with the shadow as body and §9's fields.
+4. **Create the ticket** with that description as its body, plus §9's fields.
 5. **Index incrementally** — the `since` cursor picks it up ([[DOC-39]] §4.1).
    No rebuild. This is what makes the material searchable *immediately*, which is
    what lets the map rebuild run asynchronously behind it ([[DOC-39]] §5.2).
@@ -67,10 +67,10 @@ Both converge after step 1.
 
 ## Why the body matters more than it looks
 
-The shadow is what the knowledge base indexes. [[DOC-38]] §6's whole
+The description is what the knowledge base indexes. [[DOC-38]] §6's whole
 simplification rests on it: because a photo carries a written description, the KB
 indexes bodies uniformly and never learns that images exist, and there is no
-second retrieval path for media. A weak shadow is not a cosmetic problem — it is
+second retrieval path for media. A weak description is not a cosmetic problem — it is
 material that cannot be found.
 
 ## Constraints
@@ -99,7 +99,7 @@ material that cannot be found.
 ## Acceptance
 
 - A file arriving through the Worker becomes a blob, then a `material` ticket
-  whose body is a usable shadow, and is searchable without a full reindex.
+  whose body is a usable description, and is searchable without a full reindex.
 - Rights are set from provenance and never from a question.
 - The same file uploaded twice yields one blob and two records.
 - A blob above the ceiling is rejected with a message a non-technical client can
@@ -109,8 +109,8 @@ material that cannot be found.
   *"the kitchen at dusk"* — not merely by filename.
 - The pipeline calls the index seam exactly once per created material, and the
   Worker logs when no indexer is wired.
-- A degraded shadow (no key, scanned, unsupported) still yields a material that
-  is visible, honestly described, and selectable by `shadow_status`.
+- A degraded description (no key, scanned, unsupported) still yields a material that
+  is visible, honestly described, and selectable by `description_status`.
 - A fetch of a private, loopback, link-local or non-HTTPS address is refused, and
   each redirect hop is re-validated.
 - Promotion of a non-`republishable` source is refused.
@@ -131,23 +131,23 @@ But an unwired optional hook is a silent failure of the worst kind: [[DOC-39]]
 the Worker **logs loudly when no indexer is wired**, and [[REQ-159]] promotes it
 to a construction-time requirement in the manner of `ticketStoreFor(env)`.
 
-**The image shadow takes a second LLM path, deliberately.** The AI component's
+**The image description takes a second LLM path, deliberately.** The AI component's
 backend surface is text-only (`promptStream(ref, text)`) with no image content
 block anywhere, so `describeImage` calls the SDK directly behind an injectable
 seam. This is duplication and is accepted as temporary — **the consolidation
 point is named now** ([[REQ-157]], or an image block on the AI component's
 surface) so it does not become permanent by default.
 
-**`shadow_status` is one mechanism for three degraded cases**, not three special
+**`description_status` is one mechanism for three degraded cases**, not three special
 cases: no API key, a scanned PDF with no extractable text, and an unsupported
 content type. In each the material is still created, is visible in the Library
 with an honest description of what is missing, and is findable **by predicate**
-for a later re-shadow pass. `shadow_model` is recorded alongside it.
+for a later re-describe pass. `description_model` is recorded alongside it.
 
 - **Scanned PDFs are never rejected.** Store the blob, write *"Scanned document,
   14 pages, no extractable text"*, set the status. Refusing a client's scanned
   brand book is the worse failure. No OCR in v1.
-- **Regeneration is out of scope but enabled** — no automatic re-shadow, and the
+- **Regeneration is out of scope but enabled** — no automatic re-describe, and the
   two fields make a later pass a query rather than a migration.
 
 **PDF text extraction takes a dependency** — `unpdf` (pdf.js packaged for
@@ -183,5 +183,5 @@ at the existing blob; that table exists today and this does not wait on the
 - **Whether `describeImage` should eventually move into the AI component** rather
   than being consolidated via [[REQ-157]]. Both routes close the duplication; they
   differ in who owns vision.
-- **Whether a re-shadow pass is operator-triggered or automatic** once a better
+- **Whether a re-describe pass is operator-triggered or automatic** once a better
   model exists. The fields make either possible; nothing chooses yet.
