@@ -12,6 +12,7 @@ status: null
 fields:
   doc_kind: architecture
   system_kb: true
+  chat_comment: comment-37a5b4a6
 ---
 
 # The Knowledge Management System
