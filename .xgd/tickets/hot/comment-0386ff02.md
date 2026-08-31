@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:15:36.056423+00:00'
+updated_at: '2026-08-31T20:26:16.642101+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1943,5 +1943,11 @@ That second sub-line is doing real work rather than decorating: a client uploadi
 A third area for fonts (published, but not really "for visitors to see"); a click-to-browse path for accessibility; and what an ambiguous drop does — prompt, or default to "just for you to read" as the safe side.
 
 Dependencies are both unfiled: **the material types** and **the ingestion pipeline**. This tab is a read view over what ingestion creates — cheap after it, impossible before. Those are still the next two to file, plus the marker migration and the pagination fix.
+
+<!-- xgd-turn id="099a8d4e-7ec2-4ca5-a744-72284750c8a8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T20:26:16.203828+00:00" -->
+#### You
+ok good - so what has not yet been planned then?
 
 <!-- xgd-chat-end -->
