@@ -511,6 +511,8 @@ fields:
     new_sha: 6d4f0f4cec97d59584139345dabc9db95a0311e1
   - old_sha: 422b7ccefc11d91a7f92ef8be20f741224ded48c
     new_sha: 3be000ae980f961d445905944d6df6757100ed40
+  - old_sha: 3dc855fab04f8198887e346459f54bd642f40058
+    new_sha: 18357933a226878939ce8b59e85e85fb64c58c63
 ---
 
 # The product ticket store: D1 schema, the TypePack, and the material types
