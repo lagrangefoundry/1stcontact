@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-09-01T22:07:04.182946+00:00'
+updated_at: '2026-09-01T22:07:25.581267+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -195,5 +195,11 @@ Now the workerd suite for AC3 and AC4.
 All UATs green in both runtimes. Adding the ticket-body language for behaviours the UATs assert that the body doesn't yet name.
 
 These preflight suites pin facts REQ-156 legitimately changes. Updating them.
+
+<!-- xgd-turn id="3266e66d-8bca-47b1-a96e-66f8ef226942-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:07:25.467221+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
