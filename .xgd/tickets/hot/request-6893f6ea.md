@@ -6,7 +6,7 @@ title: 'The system KB in the Worker: bundle-resident index, AI binding, knowledg
   surface on the builder toolbox'
 created_by: xgd
 created_at: '2026-08-28T21:12:01.399464+00:00'
-updated_at: '2026-09-01T01:16:45.609695+00:00'
+updated_at: '2026-09-01T01:21:47.009068+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -220,5 +220,7 @@ actually used is worse than no declaration.
   above:** generated, always written, `null` when absent.
 
 - Whether `SYSTEM_KB` scoping stays hard-coded in the toolbox construction or becomes configuration once a second KB exists.
+
+-
 
 -
