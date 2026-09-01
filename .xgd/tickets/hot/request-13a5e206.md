@@ -26,6 +26,9 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.20
+  orphan_commits:
+  - old_sha: fe97d3bc344f6b637416ce69b5e6043fe3759e10
+    new_sha: 28b2974007f6b7024b576dcee4f80a5c1fd039bc
 ---
 
 # The product ticket store: D1 schema, the TypePack, and the material types
