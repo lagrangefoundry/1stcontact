@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-09-01T22:07:25.581267+00:00'
+updated_at: '2026-09-01T22:11:20.411987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -201,5 +201,45 @@ These preflight suites pin facts REQ-156 legitimately changes. Updating them.
 <!-- xgd-chat role="user" ts="2026-09-01T22:07:25.467221+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="3266e66d-8bca-47b1-a96e-66f8ef226942-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:11:20.124863+00:00" -->
+#### Claude
+Finishing the promotion — version bump, then `move-to-free-coded`.
+
+The main checkout's `node_modules` was built against a different pnpm store than the one now resolved, so a plain install wants to purge all 500 packages. Trying the non-destructive route first.
+
+The validator sees my bump commit displaced by two `xgd` ticket auto-commits that landed on top. Re-bumping as it instructs.
+
+REQ-156 is free-coded and merged.
+
+## What landed
+
+**`tools/generate/src/cli/png.ts`** — the PNG codec, ~570 lines, no dependency. `DecompressionStream('deflate')` / `CompressionStream('deflate')` are platform globals in both Node and workerd, and `'deflate'` is exactly the zlib wrapping IDAT uses, so the work was the container: chunk walking, the five row filters, adaptive filter selection on encode, CRC32.
+
+**The load-bearing discovery:** `sharp` doesn't return the source's channel count. It converts to sRGB on decode, so greyscale comes back as 3-channel RGB and greyscale+alpha as 4-channel RGBA. `computeDiff` strides its reads by `Raster.channels`, so a decoder that honestly returned 1 channel would read across pixel boundaries and silently move every number the gate depends on. I captured that from `sharp` before removing it — `tests/fixtures/png/` holds 11 hand-authored fixtures plus the sha256 of what `sharp` decoded each to. **Both runtimes assert byte-for-byte against those hashes.**
+
+**`perceptual-core.ts`** splits the arithmetic out of `perceptual.ts` so workerd can import the diff without dragging `node:fs` into the isolate. Moved verbatim — rewriting on the way past would have made AC2 unverifiable.
+
+Also: `1c crop` is PNG-only and refuses anything else *by name* (JPEG/GIF/WebP/HEIC/AVIF/BMP/TIFF/SVG, sniffed from magic bytes); greyscale heatmaps now write as colour type 0 instead of the RGB `sharp` was producing at 3× the size; `crop` leaves the preflight map entirely.
+
+**AC6, measured:** 10.2 ms/MP → ~62ms for a 1280×4744 full page. Comfortably inside a Worker's budget, so the dependency question stays closed.
+
+## Status against the ACs
+
+AC1–AC4 and AC6 delivered. **AC5 is not** — `1c gate` end-to-end in workerd needs REQ-155's `ReferenceStore` port, which is `ready_to_reconcile` and not on this branch; `cmdGate` still resolves its reference with `fsReferenceBundle(opts.ref)` and passes a path down. The ticket's own sequencing note anticipated this, and I recorded it in the body rather than leaving it implied.
+
+AC4 turned up one finding worth knowing: the l1-gate arithmetic is clean, but the `l1` **barrel** re-exports `roundtrip.ts`, which imports `node:http` — so a Worker must import `l1/fold` and `l1/probes` directly. An import path, not a port. `values-diff` needed nothing at all.
+
+## Two things to know
+
+**I updated two other tickets' suites.** `req44-install-preflight` and `reconciliation-1c-install-preflight` pinned `crop` in the gated set and `sharp` as a gated dependency. Those facts changed, so I updated the assertions and their explanatory comments with the REQ-156 reasoning rather than working around them.
+
+**Your main checkout needs a `pnpm install`, and I couldn't run it.** I removed `sharp` from the lockfile and synced it in the worktree, but here pnpm wants to purge all ~500 packages first — this checkout's `node_modules` was built against `~/Library/pnpm/store/v11` while the resolved store is now the in-repo `.pnpm-store/` (a sandbox artifact predating this work). Pointing it back at the original store fails because the sandbox denies writes there. I stopped rather than risk an unrecoverable purge, so `test_UAT_FC_REQ-44_this_repos_own_install_is_healthy` reports lockfile-drift here until you run it with a TTY. Nothing was modified by the attempts.
+
+Full suite: **2219 passed, 1 failed** — `bug32-webui-scope-rebrand`, which I confirmed fails identically on the base commit (it flags `test_UAT_FC_BUG-42_markdown_rendering.test.ts` restating the webui scope; unrelated to this work).
+
+Promotion needed two version bumps: 0.2.38 was displaced at the tip by `xgd(ticket)` auto-commits landing between merge-back and promotion, which the validator reads as someone else publishing it. Final version 0.2.39, three commits recorded, branch cleaned and lock released.
 
 <!-- xgd-chat-end -->
