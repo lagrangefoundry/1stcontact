@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:02:30.161620+00:00'
+updated_at: '2026-09-01T22:13:06.313091+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -102,5 +102,29 @@ DOC-33 §7 lists rules for how the consultant conducts a conversation — offer 
 Preamble means they're present on every turn whether or not the model thinks to look. But the preamble is hand-written, so when you revise the playbook the preamble silently goes stale — which is the exact failure REQ-126 was about.
 
 System KB means one source of truth that stays current. But corpus knowledge only reaches the model when it searches for it, and a model drifting into bad habits by turn thirty has no reason to search.
+
+<!-- xgd-turn id="467c011f-bdcc-4172-bd3c-a01d1691dc8e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:13:06.288445+00:00" -->
+#### You
+Let's get the philosophy of this exercise straight.
+
+Key goal: Do not fill the context with things that are duplicative or irrelevant.
+
+The priming, IIRC is:
+
+1) Generic orientation including KB tool use information
+2) Role description with required and suggested reading
+3) ...is there a third part
+
+And then
+4) Reminder every turn for anything that needs reminding
+
+2 Should be short (it points to the docs needed)
+4 should be very short a handful of lines
+
+Lets use the term "reminder" not preamble please.
+
+I think your 7 rules are too big for the reminder, but the reminder could include "Don't forget the 7 rules of interaction in DOC-33" for example
 
 <!-- xgd-chat-end -->
