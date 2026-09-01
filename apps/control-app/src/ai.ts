@@ -11,7 +11,7 @@
  *   | Node                        | Here                                    |
  *   |-----------------------------|-----------------------------------------|
  *   | `sharedModuleUrl('ai')`     | the bundled `/workers` rung             |
- *   | `FileArchive(dir)`          | {@link R2TranscriptArchive}             |
+ *   | `FileArchive(dir)`          | `TicketSessionArchive` over the D1 store |
  *   | file junction under the cwd | `memoryJunctions()`                     |
  *   | `fileAuditSink` (appends)   | {@link bufferedAuditSink} + a flush     |
  *
@@ -23,15 +23,40 @@
  * drawing the junction port, and it is why the guard on this file is a static
  * import-graph assertion rather than a passing turn.
  *
- * WHERE THE KEYS LIVE, and why they cannot be reached from a URL. Transcripts go
- * to `chat/<tenant>/<session>.md`, audit to `audit/<tenant>/<session>/<n>.json`.
- * Both sit OUTSIDE `draft/`, which is the only prefix the site store composes,
- * and nothing in the router derives an R2 root from a request — DOC-12 §7. A
- * transcript is not a site and must never be servable as one.
+ * THE TRANSCRIPT IS A TICKET, NOT AN OBJECT (REQ-160). It was an R2 object at
+ * `chat/<tenant>/<session>.md`, and the reason that was safe was stated rather
+ * than enforced: the key sits outside `draft/`, and nothing in the router
+ * derives an R2 root from a request. `TicketSessionArchive` is what DOC-10 §8
+ * specifies instead — the session homed in a `chat` ticket found or created by
+ * `fields.session_id`, the whole session file in one `chat_transcript` comment,
+ * the ticket body left alone because it is the AI-maintained summary's home
+ * (REQ-171), and writes compare-and-set so a concurrent fold conflicts loudly
+ * rather than losing the later increment silently.
+ *
+ * Everything is a ticket, and the transcript is not the exception. Three things
+ * come with that. The conversation becomes a member of the project knowledge
+ * base, which is what REQ-159's `onTranscriptGrew` was written for and had no
+ * caller for. Tenancy stops being a convention and becomes the same information
+ * barrier every other read crosses, bound into the handle by `forTenant`. And
+ * the session file is unchanged — `Session.toFile()` still produces the
+ * language-neutral form, so a conversation archived here still loads in the Node
+ * host and in the Python peer.
+ *
+ * The costs are DOC-10 §8.1's and are accepted there: the whole session file is
+ * rewritten per turn, and a D1 row is bounded where an R2 object was not. The
+ * fix for the day either hurts is a message-granular archive behind the same
+ * port, not a bespoke schema here.
+ *
+ * THE AUDIT STAYS IN R2, at `audit/<tenant>/<session>/<n>.json` — outside
+ * `draft/`, per DOC-12 §7. That is not an inconsistency with the paragraph
+ * above: one object per record is what makes the trail append-only by
+ * construction, because distinct keys cannot collide, and a ticket per record
+ * would be a different trade this ticket is not making.
  */
 
 import * as aiLib from './generated/ai-workers.js'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import type { TicketStore } from './tickets'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { CARETAKER_PURPOSE } from '../../../tools/generate/src/cli/ai/host-core'
 import {
@@ -39,7 +64,12 @@ import {
   type AuditLine,
   type BufferedAuditSink,
 } from '../../../tools/generate/src/cli/ai/toolbox-core'
-import { knowledgePriming, knowledgeSurfaceFor } from './system-knowledge'
+import {
+  sessionKnowledgeSurface,
+  sessionPriming,
+  type SessionKnowledge,
+} from './session-knowledge'
+import { turnDelta } from './session-delta'
 
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -47,80 +77,26 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 const lib = aiLib as unknown as Untyped
 
 /**
- * A `TranscriptArchive` over R2 (REQ-146), the port `FileArchive` also
- * implements.
+ * The session archive, over the ticket store (REQ-160).
  *
- * THE STORED FORM IS UNCHANGED, deliberately. `FileArchive` writes the
- * language-neutral session file — a JSON header plus the `xgd-chat` transcript —
- * and so does this, byte for byte, because `Session.toFile()` produces it and
- * `Session.fromFile()` round-trips it. A session archived by the Worker loads in
- * the Node host and in the Python peer. Inventing a Cloudflare-shaped row format
- * would have made the two runtimes stop being the same product.
+ * A FUNCTION AND NOT A CLASS, because there is nothing left to implement. The
+ * component's `TicketSessionArchive` already satisfies the `TranscriptArchive`
+ * port against any client of the duck-typed `TicketClient` shape, and
+ * {@link TicketStore} is one — `create`, `get`, `update`, `query`, `comment`
+ * and `comments`, same object-arg calls, same `{ticket}` / `{tickets}` /
+ * `{comment}` / `{comments}` envelopes. The R2 archive this replaced existed
+ * because R2 has no append and the read-modify-write had to be written
+ * somewhere; a ticket store folds compare-and-set for us, so the adapter
+ * disappears rather than moving.
  *
- * `apply` FOLDS RATHER THAN APPENDS: read the current file, apply the increment,
- * write it back. That is what the port asks for and what `FileArchive` does; R2
- * has no append, so the read-modify-write is explicit here rather than hidden in
- * an `O_APPEND`. The junction — not this — is the tier that needs cheap appends,
- * and `ArchiveSyncer` drains into this one off the critical path.
- *
- * A LOST RACE COSTS THE LATER WRITE, and cannot corrupt the file: R2 puts are
- * atomic per key, so a concurrent fold either wins or is overwritten whole.
- * Two writers to ONE session means two tabs driving one conversation, which the
- * junction already serialises upstream of here.
+ * NO TENANT ARGUMENT, and its absence is the point. The R2 archive took one and
+ * composed it into every key, so tenancy was a string this file got right. The
+ * store handed in here is already bound to one account by `forTenant`, so there
+ * is no argument anywhere on this path that could name another — the same rule
+ * `tickets.ts` states and `knowledge.ts` inherits.
  */
-export class R2TranscriptArchive {
-  constructor(
-    private readonly bucket: R2Bucket,
-    private readonly tenantId: string,
-  ) {}
-
-  /** Outside `draft/`, so no site path can ever name it. */
-  private key(sessionId: string): string {
-    return `chat/${this.tenantId}/${sessionId}.md`
-  }
-
-  private get prefix(): string {
-    return `chat/${this.tenantId}/`
-  }
-
-  async apply(sessionId: string, records: Untyped[]): Promise<void> {
-    if (!records || records.length === 0) return
-    const existing = await this.bucket.get(this.key(sessionId))
-    const current = existing ? lib.Session.fromFile(await existing.text()) : null
-    const session = lib.applyRecords(current, records)
-    await this.bucket.put(this.key(sessionId), session.toFile(), {
-      httpMetadata: { contentType: 'text/markdown; charset=utf-8' },
-    })
-  }
-
-  async load(sessionId: string): Promise<Untyped> {
-    const object = await this.bucket.get(this.key(sessionId))
-    if (!object) {
-      throw new Error(`No session file for ${JSON.stringify(sessionId)}`)
-    }
-    return lib.Session.fromFile(await object.text())
-  }
-
-  async list(): Promise<string[]> {
-    const out: string[] = []
-    let cursor: string | undefined
-    // Paged, because a truncated listing would silently make old conversations
-    // look absent — and `attach` reads this to decide whether a session exists,
-    // so "absent" there means "start a new one over the top of it".
-    for (;;) {
-      const page = await this.bucket.list({ prefix: this.prefix, cursor })
-      for (const o of page.objects) {
-        if (o.key.endsWith('.md')) out.push(o.key.slice(this.prefix.length, -3))
-      }
-      if (!page.truncated) break
-      cursor = page.cursor
-    }
-    return out.sort()
-  }
-
-  async homeRef(sessionId: string): Promise<string> {
-    return this.key(sessionId)
-  }
+export function sessionArchive(tickets: TicketStore): Untyped {
+  return new lib.TicketSessionArchive(tickets)
 }
 
 /**
@@ -189,7 +165,8 @@ export function workerHost(
   env: WorkerAiEnv,
   store: TenantSiteStore,
   tenantId: string,
-  knowledge: Untyped | null = null,
+  tickets: TicketStore,
+  knowledge: SessionKnowledge | null = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -206,19 +183,31 @@ export function workerHost(
     deps: {
       lib,
       store,
-      archive: new R2TranscriptArchive(env.SITES, tenantId),
+      archive: sessionArchive(tickets),
       // The in-memory junction, per REQ-103's Cloudflare packaging. Its cost is
       // stated rather than hidden: an eviction mid-turn loses the turn in
       // flight, because `ArchiveSyncer` drains continuously and everything
-      // before it is already in R2.
+      // before it is already durable.
       junctions: lib.memoryJunctions(),
       audit: audit.sink,
       // Absent is fine and must stay fine: the backend's factory is lazy, so a
       // deployment with no key still opens the session, still replays the
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
-      knowledgeSurface: knowing ? knowledgeSurfaceFor(knowledge) : null,
-      priming: knowing ? knowledgePriming(knowledge, CARETAKER_PURPOSE) : null,
+      knowledgeSurface: knowing ? sessionKnowledgeSurface(knowledge) : null,
+      priming: knowing ? sessionPriming(knowledge, CARETAKER_PURPOSE) : null,
+      // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
+      // a landscape and granted the corpus still cannot be TOLD that the corpus
+      // grew — a map is a description, not a notification — so the delta is
+      // wired wherever the other two are and never on its own. Without knowledge
+      // there is no corpus to have a delta about.
+      //
+      // The clock is read here, per turn, rather than passed down: the host is
+      // runtime-agnostic and `Date` is one of the things a runtime supplies.
+      delta: knowing
+        ? (sessionId: string) =>
+            turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
+        : null,
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

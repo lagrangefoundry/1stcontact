@@ -43,6 +43,9 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB,
     SITES: env.SITES,
+    // REQ-160 — a session's transcript is a `chat` ticket, so opening one
+    // reaches the ticket store, which refuses to build without a blob home.
+    BLOBS: env.BLOBS as R2Bucket,
     TENANT_ID: TENANT,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',

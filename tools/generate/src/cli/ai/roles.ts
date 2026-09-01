@@ -102,10 +102,16 @@ to publish.`
  *   many changes have landed since — omitted entirely when none have, because a
  *   reminder that says "nothing happened" every turn is a reminder that gets
  *   skimmed on the turn something did.
+ * @param delta What entered the client's knowledge base since this session was
+ *   last told (REQ-160), already rendered and already capped, or `null` on the
+ *   turns — most of them — when nothing did. Rendered elsewhere because what
+ *   counts as a corpus and how its titles are budgeted are knowledge concerns,
+ *   and this file is the role's vocabulary.
  */
 export function caretakerReminder(
   slug: string,
   since?: { at: number; changes: number },
+  delta?: string | null,
 ): string {
   const lines = [
     `You are working on the site "${slug}". Every tool you have acts on that site and no other.`,
@@ -119,6 +125,21 @@ export function caretakerReminder(
         'to see what moved BEFORE you touch anything, and never write over a change you have not read.',
     )
   }
+  // REQ-160 — the corpus delta, LAST and only when there is one.
+  //
+  // A MAP IS A DESCRIPTION, NOT A NOTIFICATION ([[DOC-39]] §5). Priming already
+  // carries a current landscape every turn, and a new document lands inside an
+  // existing territory without changing the map's prose at all — correct,
+  // current, freshly read, and silent. This is the channel that is not silent,
+  // and it is here for the same reason the change signal above is: it answers
+  // the one question the model has no reason to ask.
+  //
+  // LAST because it is the most volatile thing in the string, and volatile
+  // content goes after stable content so the cached prefix survives ([[DOC-39]]
+  // §6.4). ABSENT when nothing arrived, because a line that appears every turn
+  // and is almost always empty trains the model to skim exactly the region the
+  // non-empty case needs to be noticed in.
+  if (delta) lines.push(delta)
   return lines.join(' ')
 }
 

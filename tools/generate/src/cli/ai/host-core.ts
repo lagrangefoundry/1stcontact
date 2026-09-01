@@ -184,6 +184,21 @@ export interface HostDeps {
    * what a host with no knowledge corpus supplies.
    */
   priming?: ((box: Untyped) => Promise<Untyped>) | null
+  /**
+   * What entered the knowledge corpus since this session was last told (REQ-160).
+   *
+   * A SEAM RATHER THAN A CALL, because this file is runtime-agnostic and the
+   * change feed is not: it is a query against the tenant's ticket store, over a
+   * knowledge base only the Worker has, with a cursor that lives on a ticket type
+   * this host knows nothing about. What the host owns is the DELIVERY — the turn
+   * boundary, and the fact that `SessionManager` re-reads `role.reminder` at the
+   * top of every turn — which is exactly what REQ-131 already built for the draft
+   * change signal and what this rides in on rather than duplicating.
+   *
+   * Returning `null` must mean "nothing arrived" and must cost nothing: an empty
+   * delta contributes no tokens (DOC-39 §6.4).
+   */
+  delta?: ((sessionId: string) => Promise<string | null>) | null
 
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
@@ -612,11 +627,18 @@ export async function* streamPrompt(
   const role = roles.get(key)
   const before = baselines.get(key)
   const at = await store.counter(slug)
+  // REQ-160 — the corpus delta rides the same channel. Two independent signals
+  // about two different things: the site moved under the assistant (a counter
+  // comparison), and the client's knowledge grew (a change feed). Both are
+  // questions the model has no reason to ask, both are absent when the answer is
+  // "nothing", and both are delivered by refreshing the reminder the manager is
+  // about to read — so there is one delivery mechanism to keep in step, not two.
+  const delta = deps.delta ? await deps.delta(sessionId) : null
   if (role) {
     role.reminder =
       before === undefined
-        ? caretakerReminder(slug)
-        : caretakerReminder(slug, { at: before, changes: at - before })
+        ? caretakerReminder(slug, undefined, delta)
+        : caretakerReminder(slug, { at: before, changes: at - before }, delta)
   }
 
   try {

@@ -3,7 +3,8 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
-import { R2TranscriptArchive, flushAudit } from '../apps/control-app/src/ai'
+import { flushAudit, sessionArchive } from '../apps/control-app/src/ai'
+import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
@@ -46,6 +47,12 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB,
     SITES: env.SITES,
+    // REQ-160 — the transcript is a `chat` ticket now, so opening a session
+    // reaches the ticket store, and `ticketStoreFor` refuses to build without a
+    // blob home for attachments. Nothing here attaches anything; the binding is
+    // required because a control-app deployment whose material has nowhere to go
+    // is misconfigured, and that refusal is deliberate (`tickets.ts`).
+    BLOBS: env.BLOBS as R2Bucket,
     TENANT_ID: TENANT,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
@@ -196,10 +203,17 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     expect(JSON.stringify(again.turns)).toContain('The first thing I said.')
   })
 
-  it('test_UAT_FC_REQ-146_the_transcript_is_in_r2_and_no_url_can_reach_it', async () => {
-    // AC2 and DOC-12 §7. The transcript is durable, and it is durable OUTSIDE
-    // any prefix a request can name — a conversation is not a site and must
-    // never be servable as one.
+  it('test_UAT_FC_REQ-146_no_url_can_reach_the_conversation', async () => {
+    // AC2 and DOC-12 §7 — a conversation is not a site and must never be
+    // servable as one.
+    //
+    // REQ-160 STRENGTHENED THIS RATHER THAN INVALIDATING IT, which is why the
+    // case survives its ticket's mechanism changing underneath it. The
+    // transcript used to be an R2 object whose safety was an argument about its
+    // key: it sat outside `draft/`, and nothing in the router derived an R2 root
+    // from a request. It is now a `chat` ticket, so there is no key to reason
+    // about at all — the R2 prefix that used to hold it is empty, and the only
+    // R2 the AI writes is the audit trail, still outside `draft/`.
     const slug = nextSlug('keys')
     await seedSite(slug)
     const opened = (await (await post('/api/ai/session', { slug })).json()) as {
@@ -208,14 +222,18 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     setModelClient(scriptedClient([says('Stored.')]))
     await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi.' }))
 
-    const listed = await env.SITES.list({ prefix: `chat/${TENANT}/` })
-    expect(listed.objects.length).toBeGreaterThan(0)
-    for (const object of listed.objects) {
+    // The old home is gone, not merely unreferenced.
+    const transcripts = await env.SITES.list({ prefix: `chat/${TENANT}/` })
+    expect(transcripts.objects).toEqual([])
+
+    // What the AI does still put in R2 is the audit, and it is outside `draft/`.
+    const audit = await env.SITES.list({ prefix: `audit/${TENANT}/` })
+    expect(audit.objects.length).toBeGreaterThan(0)
+    for (const object of audit.objects) {
       expect(object.key.startsWith('draft/')).toBe(false)
     }
 
-    // The one prefix a URL can reach is the site store's, and the transcript is
-    // not under it.
+    // The one prefix a URL can reach is the site store's, and neither is under it.
     const preview = await call(`/preview/${slug}/draft/`)
     expect(preview.status).not.toBe(500)
     const asSite = await call(`/preview/chat%2F${TENANT}/draft/`)
@@ -352,14 +370,14 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     expect(Object.keys(operations)).not.toContain('add_asset')
   })
 
-  it('test_UAT_FC_REQ-146_the_r2_archive_round_trips_the_neutral_session_file', async () => {
-    // The stored form is the language-neutral session file, unchanged from what
-    // `FileArchive` writes — so a conversation archived by the Worker loads in
-    // the Node host and in the Python peer. A Cloudflare-shaped row format would
-    // have made the two runtimes stop being the same product.
-    const archive = new R2TranscriptArchive(env.SITES, TENANT)
+  it('test_UAT_FC_REQ-146_the_archive_reports_an_absent_session_rather_than_inventing_one', async () => {
+    // The archive's contract at its edges, unchanged by REQ-160 swapping what is
+    // behind it: a session that was never archived is absent from `list` and
+    // raises on `load` — it does not come back as an empty conversation, which
+    // is the failure that would let `attach` start a new one over the top of a
+    // real transcript it merely failed to find.
+    const archive = sessionArchive(await ticketStoreFor(workerEnv()))
     expect(await archive.list()).not.toContain('site-absent')
     await expect(archive.load('site-absent')).rejects.toThrow()
-    expect(await archive.homeRef('site-x')).toBe(`chat/${TENANT}/site-x.md`)
   })
 })
