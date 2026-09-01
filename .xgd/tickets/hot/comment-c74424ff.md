@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T00:04:38.578908+00:00'
+updated_at: '2026-09-01T00:47:24.446331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -695,5 +695,13 @@ All decisions are in. Here's what I'd file — reviewing before creating four ti
 **Deliberately deferred, recorded so they don't get lost:** the platform super-chat (parked; content moderation is the use case that reopens it, and it's what widens the surface past ops data); self-signup; trial tier; subscriptions and the warning period; discounts; own magic-link auth; read-only-on-expiry and the payments funnel.
 
 Say the word and I'll create these four and cut the branch for A.
+
+<!-- xgd-turn id="8cf37b4b-998a-4704-9d96-dadff3325ede-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:47:23.938089+00:00" -->
+#### You
+Don't go cutting branches, please create detailed REQ tickets - I will implement these in those tickets (this is a design chat)
+
+Can you tell me the dependency relationship between the tickets (which can run in parallel) - how do they depend on the KMS work that is underway, are they orthogonal?
 
 <!-- xgd-chat-end -->
