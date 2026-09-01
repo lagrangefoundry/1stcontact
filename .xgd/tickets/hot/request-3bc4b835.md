@@ -5,16 +5,24 @@ type: request
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: xgd
 created_at: '2026-09-01T00:50:39.990490+00:00'
-updated_at: '2026-09-01T01:30:30.141195+00:00'
+updated_at: '2026-09-01T01:31:19.917604+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6477139e
+  commits:
+  - working_sha: 61a0becc6122ee61948352cac03237307b292b31
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: deaf3f98c482ba39a2bf1107ecc1d1c1602a77f9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.29
 ---
 
 # Identity: the invite provisions the account, login binds it
