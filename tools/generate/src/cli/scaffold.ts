@@ -47,7 +47,15 @@ export function starterSiteJson(slug: string): Record<string, unknown> {
 const STARTER_BACKGROUND = '#ffffff'
 const STARTER_TEXT = '#111827'
 
-export function starterHomePage(slug: string): Record<string, unknown> {
+/**
+ * @param heading What the page says. Defaults to the slug, which is what `1c new`
+ *   wants — an authored site is named by its author, so the slug IS the first
+ *   true thing on the page. REQ-167's invite passes its own, because an account
+ *   provisioned for someone else is named by an opaque account id ([[DOC-40]] §2)
+ *   and a starter page reading `acct_9f3a…` would be a worse welcome than a blank
+ *   one.
+ */
+export function starterHomePage(slug: string, heading: string = slug): Record<string, unknown> {
   return {
     id: 'home',
     slug: 'home',
@@ -77,7 +85,7 @@ export function starterHomePage(slug: string): Record<string, unknown> {
           {
             kind: 'text',
             id: 'placeholder',
-            text: slug,
+            text: heading,
             axes: {
               color: STARTER_TEXT,
               fontSizePx: 48,

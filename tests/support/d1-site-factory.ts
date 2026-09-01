@@ -46,6 +46,9 @@ const MIGRATIONS = [
   // for the same reason 0002's is: 0001 creates `tenants` without the `config`
   // column the ticket store's accessor writes, and 0003 is what adds it.
   () => import('../../db/migrations/0003_ticket_store.sql?raw'),
+  // REQ-167 — users, memberships and entitlements. After 0001 because the
+  // account an invite provisions is a `tenants` row, and that table is 0001's.
+  () => import('../../db/migrations/0004_identity.sql?raw'),
 ]
 
 export async function applySchema(): Promise<void> {
