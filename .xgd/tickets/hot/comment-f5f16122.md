@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-160
 created_by: xgd
 created_at: '2026-09-01T18:30:41.623877+00:00'
-updated_at: '2026-09-01T18:53:52.132914+00:00'
+updated_at: '2026-09-01T19:09:42.495196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -89,5 +89,13 @@ Its three asks, in short:
 I recorded explicitly that the 1stcontact half — cursor, per-turn delta, both landscapes in one section — needs no component change and isn't being asked for.
 
 **Still blocking me on the 1stcontact side:** whether REQ-160 switches the Worker from `R2TranscriptArchive` to `TicketSessionArchive`. That decides where the cursor lives, and it's the difference between "the session is a ticket with plenty of places for metadata" being true and being aspirational. Everything else I can scope and start.
+
+<!-- xgd-turn id="6f54eb74-5c78-4f0a-8992-151b47544274-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:09:42.410389+00:00" -->
+#### You
+I am expecting the system to use the ticket store to back it - I don't know what `R2TranscriptArchive` is but its not what I am expecting we use for this - everything is a ticket. What are the implications of this BTW
+
+5 - I think so
 
 <!-- xgd-chat-end -->
