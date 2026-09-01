@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T18:22:57.740802+00:00'
+updated_at: '2026-09-01T18:25:38.361760+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -840,5 +840,62 @@ Two things still open on the parked assistant, neither blocking:
 lets not change anything for this super-chat role - please. this is just a discussion.
 
 Can you take a look at what has been implemented and where we are. Please describe what we have built at this point?
+
+<!-- xgd-turn id="9d626d00-a73a-4a80-bd6d-e58109797ae0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:25:38.076279+00:00" -->
+#### Claude
+No changes made — read-only survey. Here's where things stand.
+
+## The product as it exists today
+
+**The site substrate is done and deployed-shaped.** Definitions in D1, bytes in R2 (REQ-143), revisions and publish minted in the cloud with D1 as the only record (REQ-149), the public site served by `apps/public-site`, and rendering moved fully into workerd — Astro is gone from both the render path and the CLI (REQ-148, REQ-150). `packages/site-schema` carries L1 (schema, validate, palette, shade, locale) and `packages/framework` carries the renderer plus L2 behavior modules (contact-form precompiled). Locale identity, money/time determinism and reserved locale-shaped slugs all landed (REQ-151–153).
+
+**The builder is a real editing surface.** `apps/control-app/src/builder/` is ~3,000 lines of browser code: chat panel with a declared AI tool surface (REQ-122), page editor with text properties, colour from the palette, image picker with non-destructive framing, palette popup, copy modal, and a toolbar. Request-time draft/edit renders happen inside the Worker (REQ-119). The draft change journal (REQ-131) is in, so the AI can tell what moved without re-reading.
+
+**It's private but single-tenant.** Cloudflare Access gates `app.1stcontact.io` and the Worker re-verifies the JWT (REQ-147).
+
+## The knowledge strand — mostly landed, not yet wired into the conversation
+
+| | State |
+|---|---|
+| Product ticket store: D1 schema, TypePack, `material` type (REQ-162) | `reconciling` |
+| Corpus export by `doc_kind`, unrestricted shipped corpus (REQ-164) | landed |
+| System KB in the Worker — bundle-resident index (REQ-158) | landed |
+| Project KB — tenant-scoped corpus, R2 index, two triggers (REQ-159) | landed |
+| Ingestion: dropped file → described, indexed `material` ticket (REQ-163) | landed |
+| Library tab + drop-to-upload overlay (REQ-161) | landed |
+| **Session seeding, two-KB priming, change cursor, turn reminders (REQ-160)** | **draft** |
+| Projected reference (REQ-165) | `free_coding` |
+| Capture → ticket (REQ-166) | draft |
+
+The mechanism is built — `material.ts` (721 lines) runs the five-step pipeline, `describe.ts` (502) does the four sub-pipelines that turn bytes into a findable body, `knowledge.ts` (656) does corpus/index/awareness, `system-knowledge.ts` serves the bundled corpus (`kb/system/` currently holds four seed docs: DOC-17, 31, 33, 35).
+
+**What's missing is the last mile: REQ-160.** Everything is indexed and searchable, but the assistant isn't yet primed with the two maps, doesn't get the per-turn delta, and has no change cursor. So the corpus exists and the conversation doesn't know about it.
+
+## Identity — one of four landed
+
+**REQ-167 is implemented and sitting at `ready_to_reconcile`** (commits `61a0becc`, `deaf3f98`, v0.2.29). What's actually there:
+
+- `db/migrations/0004_identity.sql` — `users`, `memberships`, `entitlements`, with the design constraints pinned by UAT: no CHECK on `plan`/`status`, no unique index on `entitlements.account_id`, tenant-scoped unique on `(tenant_id, email)`.
+- `identity.ts` (391 lines) — `provisionInvite` creates person + `acct_<random>` tenant + membership + grant + a starter site reading "Your 1stcontact site"; `admit` is pure lookup and creates nothing. `bestActiveGrant` selects the longest-covering active grant, and expiry genuinely denies (driven from both sides in the UATs).
+- `access.ts` — `guardAccess` now returns the verified identity rather than a yes/no, so the email isn't recovered by verifying the token twice.
+- `index.ts` — admission runs where the Access gate runs, before any store handle exists. One 403 message for every reason; the distinction goes to the log, not the wire.
+- `tests/test_UAT_FC_REQ-167_identity.workers.test.ts` — 539 lines against real D1 in workerd.
+
+**The other three are still `draft` and none of them has code:**
+
+- **REQ-168** (tenant from identity) — this is the critical path and it hasn't moved. `TENANT_ID` is still read in `store.ts:86`, `router.ts:120`, `knowledge.ts:632`, `tickets.ts:374`, `ai.ts:158`. So the identity tables exist, the gate works, but *everyone admitted still lands in the same tenant*. Until this lands, inviting a second person hands them the first person's sites.
+- **REQ-169** (T&C interstitial) — `tos_version`/`tos_accepted_at` columns exist and nothing reads them.
+- **REQ-170** (admin console) — `provisionInvite` has no caller outside its own test file. There is no route, no CLI, no UI. Onboarding today means calling it by hand.
+
+## The honest summary
+
+You have a working single-tenant builder with a real editing surface, a complete knowledge pipeline that nothing is yet primed against, and identity tables that are correct but not yet load-bearing. Two gaps stand between here and letting an external person log in:
+
+1. **REQ-168** — without it, admission is a gate onto a shared room.
+2. **REQ-170** — without it, there's no way to invite anyone except by hand-calling a function.
+
+REQ-160 is the third, and it's the one that makes the assistant actually *use* the corpus you've spent five tickets building.
 
 <!-- xgd-chat-end -->
