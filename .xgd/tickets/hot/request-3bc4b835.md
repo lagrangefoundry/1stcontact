@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6477139e
 ---
 
 # Identity: the invite provisions the account, login binds it
