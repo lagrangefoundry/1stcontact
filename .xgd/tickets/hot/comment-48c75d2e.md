@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T18:56:10.509921+00:00'
+updated_at: '2026-09-01T19:36:42.280698+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,13 @@ Two things to flag:
 **The status moved on its own.** At 11:21 it read `ready_to_reconcile`; it now reads `free_coded`, and that demotion is in HEAD, not in my working tree. Something moved it backward between my two reads. That's the safer state for a body edit, so the concern I raised last turn no longer applies — but you may want to know why it was returned.
 
 **The edit is uncommitted.** I wrote the file directly rather than going through `xgd`, so there's no `xgd(ticket): update` commit like the ones in your recent history. Want me to commit it, or would you rather round-trip it through `xgd ticket update` so the tooling records it the usual way?
+
+<!-- xgd-turn id="7c5f9d69-f04a-4fcb-b1b9-6a72799c52e5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:36:41.171738+00:00" -->
+#### You
+I made the ticket state change - it looks like it has been changed back??? Promotion to  ready_to_reconcile is my call - I have changed it back AGAIN!
+
+NEVER edit ticket files directly. you have done it now so please commit it
 
 <!-- xgd-chat-end -->
