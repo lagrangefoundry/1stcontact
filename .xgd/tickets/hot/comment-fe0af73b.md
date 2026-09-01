@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:24:48.656879+00:00'
+updated_at: '2026-09-01T22:27:20.860367+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -209,5 +209,27 @@ No don't rename caretaker - lets retire it and create a new role please.
    on 3 - a full tool manual could be huge -  what goes in the primer should make it clear: What tools are available. What they are intended for. Summary guide. How to get more info.
    
    Your purpose - it depends on what your purpose is but I fully expect it to be short with role-specific references. That is the intention.
+
+<!-- xgd-turn id="f0f57a23-2b96-4be2-80ca-2f6c74ebac37-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:27:20.240838+00:00" -->
+#### Claude
+Good facts came out of that. Let me record the decisions in the ticket.
+
+Recorded in the ticket: retire rather than rename, "priming" for the assembled document, purpose short with role-specific references, mechanism as a summary. I've dropped "preamble" entirely and call the fourth text "the system prompt", which is its actual field name on the `Role` — no clash with either of your terms.
+
+**Your instinct on the manual is right, and it's worse than "could be huge".** The declaration carries 27 operations across 9 groups. For every granted operation the renderer emits the summary, the long description (20 of 27 have one), every parameter with its type, necessity and description, the return shape's fields, and every error code with its message — on top of a 2,107-character overview. That whole reference work is what currently goes into `# How to search`, every session.
+
+The good news is that the summary level you describe is already authored, just never rendered on its own. Groups have client-facing titles and descriptions — "Looking at the site", "Changing what is on a page", "Changing the site's colors" — and every operation has a one-line summary. So: group title, group description, one line per operation, drop params and returns and errors, fetch the full entry on demand. Two of the nine groups have no description, so those need writing.
+
+**The catch: that's an upstream change.** The renderer is `toolbox/manual.js` in `@lagrangefoundry/ai`, outside this repo, and it holds two properties a new level mustn't break — the manual is a pure projection ("a usable manual generates with no prose written in any configuration"), and every string is byte-for-byte identical to the Python peer, so a summary level lands in both languages or neither. The tempting shortcut is to hand-write a short `mechanism` string here instead. I've written that into the ticket as rejected: it's exactly the drift REQ-126 exists to prevent — a hand-written inventory still describing last month's surface six weeks later, believed by the model precisely because it's in the priming.
+
+**The question I still need answered**, and I think it keeps slipping because it's about the text that isn't in your four-part model. There is a ~40-line hand-written string that sits on the role object, separate from the priming document, that the model sees before any of it. Today it opens "You are the caretaker of a website your user owns."
+
+Does the consultant have one at all?
+
+If yes, it needs writing and cutting hard. If no, it dissolves — what the role *is* goes in the priming's purpose section, what must not decay goes in the reminder, the method goes in the corpus, the surface stays projected. One hand-written text per part, nothing restating anything, which is your governing constraint applied literally.
+
+I lean toward dissolving it, with one reservation: a rule that lives only in the corpus fires only when the model thinks to search for it, and the habits DOC-33 §7 describes are exactly the ones a drifting model stops searching for. The reminder pointer covers that — but only once DOC-33 is actually in the corpus, and right now zero documents are.
 
 <!-- xgd-chat-end -->
