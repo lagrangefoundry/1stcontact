@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T00:48:08.028096+00:00'
+updated_at: '2026-09-01T00:52:12.069647+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -713,5 +713,65 @@ Do we have a DOC ticket for this, if not please create one - if we do please upd
 Don't go cutting branches, please create detailed REQ tickets - I will implement these in those tickets (this is a design chat)
 
 Can you tell me the dependency relationship between the tickets (which can run in parallel) - how do they depend on the KMS work that is underway, are they orthogonal?
+
+<!-- xgd-turn id="bf2f02d9-003b-49e2-997e-bf74c2c40277-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T00:52:11.957517+00:00" -->
+#### Claude
+DOC-39 is the KMS — and no, there's nothing covering identity or accounts. I'll create DOC-40 and the four REQs. Let me check one thing about the KMS overlap first.
+
+Now writing them.
+
+DOC-40 created. Now the four REQs.
+
+Created. No branches cut — these are design artefacts for you to implement in.
+
+| | Ticket |
+|---|---|
+| **DOC-40** | Identity, Accounts & Entitlement — the model, the rationale, the parked items |
+| **REQ-167** | Identity: the invite provisions the account, login binds it |
+| **REQ-168** | The tenant comes from the identity, not from the configuration |
+| **REQ-169** | Terms of service: accepted before the builder loads |
+| **REQ-170** | The admin console: users, entitlements, and the invite that provisions an account |
+
+(The `git push` failures in the output are the sandbox's proxy — the tickets are written locally and will push when you next have network.)
+
+## Dependencies
+
+```
+        REQ-167  (schema + provisioning + login gate)
+        ╱      ╲
+  REQ-168        REQ-170
+ (tenant         (admin console,
+  from identity)  invite UI)
+        ╲      ╱
+         └─ both needed before an external person logs in
+
+  REQ-169  (T&C)  ── needs only 167's two columns
+```
+
+**REQ-167 is the trunk.** It owns migration 0004 and the provisioning function. Nothing else starts without it.
+
+**REQ-168 and REQ-170 are parallel** once 167 lands. They touch disjoint code — 168 is four `env.TENANT_ID` reads in the Worker's plumbing, 170 is a route, an API and browser assets. They meet only at 167's provisioning function, which they both call rather than modify.
+
+**REQ-169 is parallel to everything** after 167. It needs `tos_version` and `tos_accepted_at` and nothing else. It could even go first if you want a small warm-up ticket.
+
+**REQ-168 is the critical path.** Not the biggest, but the only one that's load-bearing for isolation — without it, invites hand several people the same tenant. REQ-170 can technically slip (you'd invite by hand), REQ-169 can slip (a legal risk, not a functional one). REQ-168 cannot.
+
+Realistic serialisation if you're working alone: 167 → 168 → 170, with 169 dropped in wherever. If you can run two, 168 and 170 after 167 is the split.
+
+## Relationship to the KMS work
+
+**Orthogonal in design, coupled in three concrete places.** The KMS cluster (DOC-39, REQ-158–166) is about *what the assistant knows*; this is about *whose data it is*. No shared concepts, no shared decisions.
+
+The couplings, in descending order of how much they matter:
+
+**1. REQ-161 and REQ-170 want the same components.** The Library tab is `webui/split` + `webui/list-detail` + `mountFields` over material tickets; the admin console is the same three over user records. REQ-161 is `free_coding` right now and will add `webui-list-detail` to the `1c assets` build — it's currently absent from `dist-assets`. Whichever lands first owns that. I wrote the dependency into REQ-170 so neither ordering leaves it out. If REQ-161 finishes first, REQ-170 gets it free.
+
+**2. REQ-168 edits `knowledge.ts:632`, which REQ-158/159/160 are also editing.** Textual conflict, not conceptual. Sequence REQ-168 after the in-flight KMS tickets reconcile and it costs nothing; run them concurrently and it's a small merge in one file.
+
+**3. Per-user tenants meet the project KB — and this one is already solved.** REQ-159 made the project KB tenant-scoped by R2 prefix (`kb/<tenant>/…`). So when REQ-168 makes tenants per-user, each new account automatically gets its own project KB namespace, with the bundle-resident *system* KB (REQ-158) shared across all of them. That's exactly right, and it needs no work — worth knowing because it would otherwise look like a gap.
+
+The one thing that isn't orthogonal in the longer run is the parked super-chat: cross-tenant knowledge queries are a KMS question wearing an identity mask. DOC-40 §7 records the constraints so that whenever it comes back, it doesn't get built as a widening of `forTenant`. Content moderation is the trigger you named, and it's noted there as the case to design against.
 
 <!-- xgd-chat-end -->
