@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:06:49.049455+00:00'
+updated_at: '2026-09-01T20:08:15.337933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2971,5 +2971,51 @@ My last command failed on sandbox restrictions (couldn't write to `/tmp`, couldn
 <!-- xgd-chat role="user" ts="2026-09-01T20:06:48.323774+00:00" -->
 #### You
 Not cool I do not want that API key in git please remove it immediately and lets discuss how to do this correctlyu
+
+<!-- xgd-turn id="9cb44c93-07e0-4f7b-8a2e-ae22742f24cb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T20:08:15.276850+00:00" -->
+#### Claude
+Checking git status of that file right now.
+
+Good news first: **the key is not in git and never was.** `.dev.vars` is untracked and matched by `.gitignore:66` — `git log --all -- '*.dev.vars'` is empty. Nothing to scrub from history.
+
+Removing it from the file now, and scanning the repo for any other copy:
+
+No copies anywhere — `.wrangler` state is clean, the wrangler log never captured it, and the only `sk-ant-api` string in the repo is a fake fixture in a test. The sole remaining copy is your own `~/Documents/secrets/ANTH_KEY`.
+
+I should have asked before writing a live secret to disk, gitignored or not. That was your call to make.
+
+Let me check what wrangler 4.106 actually offers so we pick from real options:
+
+Both mechanisms exist in 4.106. Here's the landscape and what I'd recommend.
+
+**Why it broke in the first place:** `.dev.vars` has the highest precedence in `wrangler dev`. The line `ANTHROPIC_API_KEY = ""` doesn't mean "unset" — it means "bind this to empty string", which beats `[vars]` and (as far as I'd want to trust) anything else. So that line is a trap regardless of which option we pick. **It should be deleted, not filled in.** Once it's gone there's no shadowing question at all.
+
+**Option A — `--var`, key never touches disk**
+```
+npx wrangler dev --port 8788 --var ANTHROPIC_API_KEY:"$ANTHROPIC_API_KEY"
+```
+Works with what you already export. Downside: the key appears in `ps` output for the life of the process — any local process can read it. On a single-user Mac that's minor, but it's a real widening compared to a 0600 file.
+
+**Option B — `--env-file` pointing outside the repo** ← my recommendation
+```
+npx wrangler dev --port 8788 --env-file ~/Documents/secrets/1c.dev.env
+```
+where that file is dotenv format (`ANTHROPIC_API_KEY=sk-ant-...`). The key lives in the secrets directory you already use, never in the repo, never in `ps`, and never one `git add -f` away from a commit. It also survives shell restarts without re-exporting. This is the closest fit to how you're already managing secrets.
+
+**Option C — Keychain + wrapper script.** Strongest, but it's a wrapper script and a `security find-generic-password` call to maintain. Worth it only if you want the key encrypted at rest.
+
+I'd go with **B**, and fold it into `package.json` so `pnpm dev` just works rather than depending on you remembering the flag:
+```json
+"dev": "wrangler dev --port 8788 --env-file ~/Documents/secrets/1c.dev.env"
+```
+
+Two things I want your call on before touching anything:
+
+1. **Does the `~` expand?** wrangler may not tilde-expand an `--env-file` path itself. If not, the script needs `$HOME`, which npm scripts do expand via the shell — that's fine, just worth confirming on first run.
+2. **The `.dev.vars` comment block.** It currently documents `ANTHROPIC_API_KEY` as living there. If I delete the line, I'd rewrite that comment to say where the key comes from instead — otherwise the next person hits the same confusion from the other direction.
+
+Want me to make those two changes (delete the line, rewrite the comment, update the `dev` script)? You'd create `~/Documents/secrets/1c.dev.env` yourself — I'd rather not write your key anywhere again.
 
 <!-- xgd-chat-end -->
