@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:17:01.536144+00:00'
+updated_at: '2026-09-01T22:17:20.290837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,31 @@ The second would be the stronger position given "don't fill the context with dup
 <!-- xgd-chat role="user" ts="2026-09-01T22:17:01.261871+00:00" -->
 #### You
 Remember that we are abandoning the caretaker role this new role is "consultant"
+
+<!-- xgd-turn id="0bbb93cc-2a9b-4af5-93e2-d55b49677ba5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:17:19.766822+00:00" -->
+#### Claude
+Understood — consultant throughout. The ticket body already says so; I was quoting the current identifiers, which all get renamed.
+
+So the four parts, in the new vocabulary:
+
+- **A** — the consultant's system prompt (`CARETAKER_SYSTEM` → renamed). ~40 hand-written lines. Currently opens "You are the caretaker of a website your user owns."
+- **B1** `# What exists` — the landscape maps
+- **B2** `# Your purpose` — the consultant's purpose, and per your point, its reading list
+- **B3** `# How to search` — the projected tool manual and the closing trigger
+- **C** — the consultant's per-turn reminder
+
+My question is still open, and it's about **A**:
+
+**Does the consultant have a hand-written system prompt at all, or does A dissolve into B2 and C?**
+
+A is the largest hand-written text in the session and the least reviewed. Some of it is genuinely irreducible — tools-only, a malformed change refused whole, never name framework concepts to the client. Some of it duplicates the projected manual. Some of it is the caretaker's job description and is simply wrong now.
+
+Given "don't fill the context with duplicative things," the aggressive answer is: no A. What the consultant *is* goes in B2 with its reading list, what must not decay goes in C, everything else is corpus. That leaves one hand-written text per part and nothing restating anything.
+
+The conservative answer is: keep A, cut it hard, because the system prompt is the only text with real weight in the model's attention.
+
+Which one do you want?
 
 <!-- xgd-chat-end -->
