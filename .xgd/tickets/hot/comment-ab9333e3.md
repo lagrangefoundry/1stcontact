@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-43
 created_by: xgd
 created_at: '2026-09-01T21:54:36.482890+00:00'
-updated_at: '2026-09-01T22:36:32.037757+00:00'
+updated_at: '2026-09-01T23:58:19.272465+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,15 @@ Also worth knowing: a turn that changes nothing signals nothing, so asking a que
 - **panel/app** (`test_UAT_FC_BUG-43_preview_follows_the_assistant.test.ts`) — the signal fires once per write, leaves no trace in the transcript, survives a throwing callback, and reloads the preview frame twice for two writes and zero times for a question.
 
 The full workers project (197 tests) and the neighbouring chat/AI suites pass. One unrelated pre-existing type error in `session-knowledge.ts` (`SHIPPED_SOURCE` not exported) is present on the base checkout too — I left it alone.
+
+<!-- xgd-turn id="d7b02e70-9446-439e-b7e3-106519249f68-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T23:58:18.817546+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-43` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-43`
+- branch HEAD: `84cc117aa1ee0525b9b615088051db8170e2ed87`
 
 <!-- xgd-chat-end -->
