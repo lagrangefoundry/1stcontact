@@ -19,6 +19,7 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { readMultiState, selectProjectionAtWidth, type ValueElement, type ValueManifest } from './capture'
+import { fsReferenceBundle } from '../store/fs-reference-store'
 import { VIEWPORTS, type ViewportName } from './shot'
 
 /** A named viewport column: the size label and the width it was measured at. */
@@ -170,8 +171,10 @@ export interface ResponsiveDiffOptions {
  * re-capture guidance); a ladder that never reached a requested width fails loudly
  * with the widths it does carry — never silently drop a column.
  */
-export function cmdResponsiveDiff(opts: ResponsiveDiffOptions): ResponsiveTable {
-  const reference = readMultiState(opts.refBundleDir)
+export async function cmdResponsiveDiff(opts: ResponsiveDiffOptions): Promise<ResponsiveTable> {
+  // REQ-155 — `--ref` is a directory the operator typed, so the handle is the
+  // filesystem one. What moved is the *read*, not the argument (AC6).
+  const reference = await readMultiState(fsReferenceBundle(opts.refBundleDir))
   if (!reference || reference.projections.length === 0) {
     throw new Error(
       `responsive-diff needs a multi-viewport reference, but '${opts.refBundleDir}' has no multistate.json ` +

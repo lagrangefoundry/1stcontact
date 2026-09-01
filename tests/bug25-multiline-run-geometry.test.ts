@@ -42,6 +42,7 @@ import {
 } from '../tools/generate/src/cli/capture'
 import { foldToL1 } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 
@@ -86,7 +87,7 @@ async function captureFixture(): Promise<Capture> {
   const server = await serveDir(FIXTURES)
   const cwd = mkdtempSync(path.join(tmpdir(), 'bug25-'))
   try {
-    const { capture } = await cmdCapturePage(`${server.origin}/bug25-multiline.html`, { cwd })
+    const { capture } = await cmdCapturePage(`${server.origin}/bug25-multiline.html`, fsReferenceStore(cwd))
     return capture
   } finally {
     await server.close()

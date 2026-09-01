@@ -47,6 +47,7 @@ import {
   type Capture,
   type ContentRun,
 } from '../tools/generate/src/cli/capture'
+import { fsReferenceBundle, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 const XORIGIN_BUNDLE = path.join(FIXTURES, 'bundle-xorigin-font')
@@ -98,7 +99,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
     // `fontLoaded:false` (measured against the serif fallback).
     const cwd = mkdtempSync(path.join(tmpdir(), 'bug16-re-'))
     try {
-      const res = await reextractFromBundle(XORIGIN_BUNDLE, { cwd })
+      const res = await reextractFromBundle(fsReferenceBundle(XORIGIN_BUNDLE), { cwd })
       const hero = runByText(res.capture, 'Gigabyte Alchemy')
       expect(hero, 'hero heading run re-extracted').toBeDefined()
       // BUG-16 — the run carries the FULL declared stack, not just its first
@@ -143,7 +144,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
     const server = await serveDir(FIXTURES)
     const cwd = mkdtempSync(path.join(tmpdir(), 'bug16-live-'))
     try {
-      const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, { cwd })
+      const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, fsReferenceStore(cwd))
       const hero = runByText(capture, 'Gigabyte Alchemy')
       const deep = runByText(capture, 'Deep Below Fold Heading')
       expect(hero?.fontFamily).toBe('Alchemy, serif')
@@ -177,7 +178,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
     const server = await serveDir(FIXTURES)
     const cwd = mkdtempSync(path.join(tmpdir(), 'bug16-stack-'))
     try {
-      const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, { cwd })
+      const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, fsReferenceStore(cwd))
       const hero = runByText(capture, 'Gigabyte Alchemy')
       expect(hero?.fontFamily).toBe('Alchemy, serif')
       // The primary token is still recoverable — @font-face matching keys on it.

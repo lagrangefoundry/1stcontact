@@ -22,6 +22,7 @@ import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/
 import { writeMultiState } from '../tools/generate/src/cli/capture/bundle'
 import { cmdL1Gate } from '../tools/generate/src/cli/repro'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -91,10 +92,10 @@ afterEach(() => {
 })
 
 /** Write a fixture capture bundle carrying a multistate oracle; return its dir. */
-function bundleWith(multistate: MultiStateCapture): string {
+async function bundleWith(multistate: MultiStateCapture): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(dir, { recursive: true })
-  writeMultiState(dir, multistate)
+  await writeMultiState(fsReferenceBundle(dir), multistate)
   return dir
 }
 
@@ -152,12 +153,12 @@ describe('BUG-6 — foldToL1 signals unexpressed elements instead of dropping th
     }
   })
 
-  it('test_UAT_FC_BUG-6_gate_surfaces_fold_residuals_separate_from_mispairing', () => {
+  it('test_UAT_FC_BUG-6_gate_surfaces_fold_residuals_separate_from_mispairing', async () => {
     // Acceptance clause: the gate report SEPARATES folder-power residuals from the
     // probes' mispairing/fidelity residuals. Drive the gate end-to-end over a bundle
     // whose oracle carries a text-free image beside faithful text.
-    const ref = bundleWith(multiFromLadder((w) => [textEl(w, { text: 'Front door heading' }), imageEl(w)]))
-    const report = cmdL1Gate({ cwd, ref })
+    const ref = await bundleWith(multiFromLadder((w) => [textEl(w, { text: 'Front door heading' }), imageEl(w)]))
+    const report = await cmdL1Gate(fsReferenceBundle(ref))
 
     // The image gap lands in `foldResiduals` — a typed, named framework-gap…
     const imageGap = report.foldResiduals.find((r) => r.kind === 'image')
@@ -177,11 +178,11 @@ describe('BUG-6 — foldToL1 signals unexpressed elements instead of dropping th
     expect(report.sampleFidelity.residuals.some((r) => r.text === '')).toBe(false)
   })
 
-  it('test_UAT_FC_BUG-6_gate_clean_bundle_emits_no_fold_residuals', () => {
+  it('test_UAT_FC_BUG-6_gate_clean_bundle_emits_no_fold_residuals', async () => {
     // The gap signal must be zero when everything is expressible: a pure-text oracle
     // yields an empty `foldResiduals` list — no false framework-gap noise.
-    const ref = bundleWith(multiFromLadder((w) => [textEl(w, { text: 'Only Heading' })]))
-    const report = cmdL1Gate({ cwd, ref })
+    const ref = await bundleWith(multiFromLadder((w) => [textEl(w, { text: 'Only Heading' })]))
+    const report = await cmdL1Gate(fsReferenceBundle(ref))
     expect(report.foldResiduals).toEqual([])
   })
 })

@@ -14,6 +14,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-61 — `1c responsive-diff`, the N-way per-node table.
@@ -104,7 +105,7 @@ describe('REQ-61 — cmdResponsiveDiff reads the persisted ladder', () => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
   })
 
-  it('test_UAT_FC_REQ-61_responsive_diff_reads_multistate_bundle', () => {
+  it('test_UAT_FC_REQ-61_responsive_diff_reads_multistate_bundle', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'req61-rd-'))
     dirs.push(dir)
     const projections: StateProjection[] = [375, 768, 1280].map((w) => ({
@@ -114,9 +115,9 @@ describe('REQ-61 — cmdResponsiveDiff reads the persisted ladder', () => {
       manifest: manifest([el('Hero', { role: 'heading', fontSizePx: w === 375 ? 28 : 48 })], w),
     }))
     const matrix: MultiStateCapture = { url: 'ref', projections, notes: [] }
-    writeMultiState(dir, matrix)
+    await writeMultiState(fsReferenceBundle(dir), matrix)
 
-    const table = cmdResponsiveDiff({ refBundleDir: dir })
+    const table = await cmdResponsiveDiff({ refBundleDir: dir })
     // Three columns, default mobile/tablet/desktop, in order.
     expect(table.sizes.map((s) => s.name)).toEqual(['mobile', 'tablet', 'desktop'])
     const hero = table.rows.find((r) => r.label === 'Hero')!
@@ -124,13 +125,13 @@ describe('REQ-61 — cmdResponsiveDiff reads the persisted ladder', () => {
     expect(hero.changed).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-61_responsive_diff_terminal_fails_on_stale_reference', () => {
+  it('test_UAT_FC_REQ-61_responsive_diff_terminal_fails_on_stale_reference', async () => {
     const empty = mkdtempSync(path.join(tmpdir(), 'req61-rd-stale-'))
     dirs.push(empty)
-    expect(() => cmdResponsiveDiff({ refBundleDir: empty })).toThrow(/multistate\.json/)
+    await expect(cmdResponsiveDiff({ refBundleDir: empty })).rejects.toThrow(/multistate\.json/)
   })
 
-  it('test_UAT_FC_REQ-61_responsive_diff_fails_when_width_absent', () => {
+  it('test_UAT_FC_REQ-61_responsive_diff_fails_when_width_absent', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'req61-rd-partial-'))
     dirs.push(dir)
     // Ladder only has mobile — the default desktop column cannot be built.
@@ -139,7 +140,7 @@ describe('REQ-61 — cmdResponsiveDiff reads the persisted ladder', () => {
       projections: [{ engine: 'chromium', viewport: VIEWPORTS.mobile, state: 'rest', manifest: manifest([el('x')], 375) }],
       notes: [],
     }
-    writeMultiState(dir, matrix)
-    expect(() => cmdResponsiveDiff({ refBundleDir: dir })).toThrow(new RegExp(`no projection at width ${VIEWPORTS.tablet.width}px`))
+    await writeMultiState(fsReferenceBundle(dir), matrix)
+    await expect(cmdResponsiveDiff({ refBundleDir: dir })).rejects.toThrow(new RegExp(`no projection at width ${VIEWPORTS.tablet.width}px`))
   })
 })

@@ -21,7 +21,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { GlobalOptions } from './commands'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
-import { readLadderScreenshotPath, type BrowserDriverFactory } from './capture'
+import type { BrowserDriverFactory } from './capture'
+import { ladderScreenshotPath } from '../store/fs-reference-store'
 import type { RenderChannel } from '../store'
 
 // ── geometry ─────────────────────────────────────────────────────────────────
@@ -451,8 +452,15 @@ function resolveRefImage(ref: string, size?: ViewportName): string {
   if (existsSync(ref) && statSync(ref).isDirectory()) {
     if (size) {
       const width = VIEWPORTS[size].width
-      const shot = readLadderScreenshotPath(ref, width)
-      if (!shot) {
+      // REQ-155 — the ladder shot is resolved as a PATH here, deliberately, and
+      // from the filesystem adapter rather than the port. `--ref` is polymorphic
+      // (a bundle directory OR a loose PNG, told apart two lines below by
+      // `statSync`), which is a command-line argument resolution the CLI performs
+      // above the port; and what this feeds is the image layer, which still takes
+      // a path until [[REQ-156]]. The port's byte-returning `readLadderScreenshot`
+      // is what a non-filesystem caller uses.
+      const shot = ladderScreenshotPath(ref, width)
+      if (!existsSync(shot)) {
         throw new Error(
           `diff --size ${size}: bundle '${ref}' has no screenshot-${width}.png. Re-capture with ` +
             `'1c capture page <url>' to persist per-viewport reference screenshots, then re-run.`,

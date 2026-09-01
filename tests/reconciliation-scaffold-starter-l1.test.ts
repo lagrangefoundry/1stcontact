@@ -38,6 +38,7 @@ import { RESPONSIVE_VIEWPORTS } from '../tools/generate/src/cli/capture/values-d
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -84,10 +85,10 @@ function draftDirOf(cwd: string, slug: string): string {
 }
 
 /** A minimal capture bundle carrying a folded `l1.json`, for the repro UAT. */
-function bundle(cwd: string): string {
+async function bundle(cwd: string): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  writeL1(dir, {
+  await writeL1(fsReferenceBundle(dir), {
     widths: [320, 1280],
     background: '#101010',
     root: {
@@ -335,16 +336,16 @@ describe('story-86c7c21b — creation offers no starter-mode selection', () => {
 // ── AC-876 — a reproduction import replaces the page document wholesale ──────
 
 describe('story-86c7c21b — a reproduction import is uncontaminated by the skeleton', () => {
-  it('test_UAT_AC876_repro_over_a_created_slug_matches_repro_over_a_virgin_slug', () => {
+  it('test_UAT_AC876_repro_over_a_created_slug_matches_repro_over_a_virgin_slug', async () => {
     const cwd = freshCwd()
-    const ref = bundle(cwd)
+    const ref = await bundle(cwd)
 
     // The same reference bundle imported into a slug that never existed…
-    const virgin = cmdRepro('virgin', { cwd, ref })
+    const virgin = await cmdRepro('virgin', { cwd, ref })
     // …and into a slug created immediately beforehand, so it carries the
     // starting skeleton.
     cmdNew('seeded', { cwd })
-    const seeded = cmdRepro('seeded', { cwd, ref })
+    const seeded = await cmdRepro('seeded', { cwd, ref })
 
     const normalize = (dir: string, slug: string): string =>
       readFileSync(path.join(dir, 'pages', 'home.json'), 'utf8').split(slug).join('<slug>')

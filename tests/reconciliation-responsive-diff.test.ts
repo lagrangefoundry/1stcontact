@@ -12,6 +12,7 @@ import {
   type ValueManifest,
   type ViewportName,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * Reconciliation UATs for story-2c7069fe — `1c responsive-diff`, the cross-size
@@ -53,7 +54,7 @@ function manifest(elements: ValueElement[], width: number): ValueManifest {
 }
 
 /** Persist a viewport ladder bundle from per-size element lists and return its dir. */
-function ladderBundle(rungs: Array<{ name: ViewportName; elements: ValueElement[] }>): string {
+async function ladderBundle(rungs: Array<{ name: ViewportName; elements: ValueElement[] }>): Promise<string> {
   const dir = tmp()
   const projections: StateProjection[] = rungs.map(({ name, elements }) => ({
     engine: 'chromium',
@@ -62,7 +63,7 @@ function ladderBundle(rungs: Array<{ name: ViewportName; elements: ValueElement[
     manifest: manifest(elements, VIEWPORTS[name].width),
   }))
   const matrix: MultiStateCapture = { url: 'ref', projections, notes: [] }
-  writeMultiState(dir, matrix)
+  await writeMultiState(fsReferenceBundle(dir), matrix)
   return dir
 }
 
@@ -94,7 +95,7 @@ async function runCli(argv: string[]): Promise<{ code: number; out: string; err:
 describe('story-2c7069fe — responsive-diff produces the N-way table (default sizes)', () => {
   it('test_UAT_AC648_produces_nway_table_with_default_size_columns', async () => {
     // A ladder carrying all three default widths; a Hero node present at each.
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [el('Hero', { role: 'heading', fontSizePx: 28 })] },
       { name: 'tablet', elements: [el('Hero', { role: 'heading', fontSizePx: 40 })] },
       { name: 'desktop', elements: [el('Hero', { role: 'heading', fontSizePx: 48 })] },
@@ -124,7 +125,7 @@ describe('story-2c7069fe — responsive-diff produces the N-way table (default s
 
 describe('story-2c7069fe — --sizes selects and orders the table columns', () => {
   it('test_UAT_AC649_sizes_flag_selects_and_orders_columns_and_rejects_unknown', async () => {
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [el('Hero', { fontSizePx: 28 })] },
       { name: 'tablet', elements: [el('Hero', { fontSizePx: 40 })] },
       { name: 'desktop', elements: [el('Hero', { fontSizePx: 48 })] },
@@ -165,7 +166,7 @@ describe('story-2c7069fe — responsive-diff partitions changed vs steady nodes'
     const promo = () => el('Limited offer', { role: 'promo' })
     const jitter = (x: number) => el('Jitter', { box: { x, y: 0, width: 100, height: 20 } })
 
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [stepper(32), steady(), jitter(10.1)] },
       { name: 'tablet', elements: [stepper(40), steady(), promo(), jitter(10.3)] },
       { name: 'desktop', elements: [stepper(48), steady(), promo(), jitter(10.4)] },
@@ -198,7 +199,7 @@ describe('story-2c7069fe — repeated identical text aligns occurrence-by-occurr
     // command scrambled or collapsed occurrences, the per-row weights would mix.
     const first = () => el('Read more', { fontWeight: 700 })
     const second = () => el('Read more', { fontWeight: 400 })
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [first(), second()] },
       { name: 'tablet', elements: [first(), second()] },
       { name: 'desktop', elements: [first(), second()] },
@@ -231,7 +232,7 @@ describe('story-2c7069fe — --classify labels moves and groups structural first
     const title = (fs: number) => el('Title', { role: 'heading', fontSizePx: fs })
     const nav = (arr: 'row' | 'stack') => el('Nav', { arrangement: arr })
     const promo = () => el('Promo', { role: 'promo' })
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [title(32), nav('stack')] },
       { name: 'tablet', elements: [title(40), nav('row'), promo()] },
       { name: 'desktop', elements: [title(48), nav('row'), promo()] },
@@ -266,7 +267,7 @@ describe('story-2c7069fe — --classify labels moves and groups structural first
 
     // A site with no cross-size change reports a single "holds steady" confirmation,
     // with no per-node rows.
-    const steadyDir = ladderBundle([
+    const steadyDir = await ladderBundle([
       { name: 'mobile', elements: [el('© 2026')] },
       { name: 'tablet', elements: [el('© 2026')] },
       { name: 'desktop', elements: [el('© 2026')] },
@@ -306,7 +307,7 @@ describe('story-2c7069fe — responsive-diff fails on an un-captured requested w
     // The ladder only ever reached mobile; the default tablet/desktop columns
     // cannot be built. The command must not drop a column — it fails naming the
     // missing width and enumerating the widths the ladder does carry.
-    const dir = ladderBundle([{ name: 'mobile', elements: [el('Solo')] }])
+    const dir = await ladderBundle([{ name: 'mobile', elements: [el('Solo')] }])
 
     const printed: string[] = []
     const logSpy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void printed.push(a.join(' ')))
@@ -327,7 +328,7 @@ describe('story-2c7069fe — responsive-diff fails on an un-captured requested w
 
 describe('story-2c7069fe — --json emits machine-readable output; --ref is required', () => {
   it('test_UAT_AC655_json_is_parseable_and_ref_is_required', async () => {
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [el('Hero', { fontSizePx: 28 })] },
       { name: 'tablet', elements: [el('Hero', { fontSizePx: 40 })] },
       { name: 'desktop', elements: [el('Hero', { fontSizePx: 48 })] },
@@ -366,7 +367,7 @@ describe('story-2c7069fe — --out persists the raw N-way table to a named file'
     // A ladder whose Hero steps across sizes, so the table carries a changed node
     // with a per-size value in every column — enough to recognise the raw table
     // (size columns + node rows) as distinct from a classification (labelled moves).
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { name: 'mobile', elements: [el('Hero', { role: 'heading', fontSizePx: 28 })] },
       { name: 'tablet', elements: [el('Hero', { role: 'heading', fontSizePx: 40 })] },
       { name: 'desktop', elements: [el('Hero', { role: 'heading', fontSizePx: 48 })] },

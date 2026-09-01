@@ -50,6 +50,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -180,7 +181,7 @@ async function writeCaptureBundle(spec: BundleSpec): Promise<string> {
       })
     }
   }
-  writeMultiState(dir, oracle)
+  await writeMultiState(fsReferenceBundle(dir), oracle)
   await writeRasterPng(flat(64, 64, 0), path.join(dir, 'screenshot.full.png'))
   return dir
 }
@@ -548,8 +549,8 @@ describe('story-24098299 — cross-gate reconciliation', () => {
         elements: [{ ...el('', { x: 0, y: 200, width: 100, height: 100 }), src: imageAsset(2).src }],
       },
     })
-    writeMultiState(oneAsk, oracle)
-    const asked = referenceCoverage(oneAsk)
+    await writeMultiState(fsReferenceBundle(oneAsk), oracle)
+    const asked = await referenceCoverage(fsReferenceBundle(oneAsk))
     expect(asked.referencedImages).toBe(1)
     expect(asked.unreferencedImages).toEqual(['assets/1.jpg', 'assets/2.jpg'])
   })
@@ -716,7 +717,7 @@ describe('story-24098299 — cross-gate reconciliation', () => {
     await expect(
       cmdGate({ ref: predates, actualImagePath: shot, actualManifestPath: manifest, out: freshDir('out') }),
     ).rejects.toThrow(/re-capture with `1c capture page/)
-    expect(() => referenceCoverage(predates)).toThrow(/multistate\.json/)
+    await expect(referenceCoverage(fsReferenceBundle(predates))).rejects.toThrow(/multistate\.json/)
 
     // (c) …and one whose retained manifest is EMPTY is likewise a hard error
     //     naming the bundle, rather than coverage against nothing reporting clean.
@@ -732,10 +733,10 @@ describe('story-24098299 — cross-gate reconciliation', () => {
       sections: [section([])],
       assets: [],
     } satisfies Capture))
-    writeMultiState(empty, { url: 'http://fixture.test/', notes: [], projections: [] })
+    await writeMultiState(fsReferenceBundle(empty), { url: 'http://fixture.test/', notes: [], projections: [] })
     await writeRasterPng(flat(64, 64, 0), path.join(empty, 'screenshot.full.png'))
-    expect(() => referenceCoverage(empty)).toThrow(new RegExp(empty.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-    expect(() => referenceCoverage(empty)).toThrow(/empty multistate\.json/)
+    await expect(referenceCoverage(fsReferenceBundle(empty))).rejects.toThrow(new RegExp(empty.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    await expect(referenceCoverage(fsReferenceBundle(empty))).rejects.toThrow(/empty multistate\.json/)
 
     // …and neither refusal is reachable through the verb as a report at all: the
     // run rejects with a re-capture instruction rather than returning a clean

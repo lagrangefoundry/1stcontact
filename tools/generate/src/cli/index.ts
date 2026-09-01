@@ -13,7 +13,7 @@ import {
 import { spawn } from 'node:child_process'
 import { cmdAssets, formatAssetReport } from './assets'
 import { pushSite } from './push'
-import { fsSiteStore } from '../store'
+import { bundleDir, fsReferenceBundle, fsReferenceStore, fsSiteStore } from '../store'
 import {
   editAssetAdd,
   editAssetGet,
@@ -840,10 +840,15 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       const url = requireSlug(rest[1])
-      const { bundleDir, capture, l1, hints } = await cmdCapturePage(url, global)
+      // REQ-155 — the CLI is the thing that knows it is on a laptop, so it is the
+      // thing that constructs the filesystem adapter. `cmdCapturePage` takes the
+      // store and has no default, which is what keeps `node:fs` out of the
+      // capture pipeline's import graph.
+      const cwd = global.cwd ?? process.cwd()
+      const { name, capture, l1, hints } = await cmdCapturePage(url, fsReferenceStore(cwd))
       const l1Nodes = (l1.root.kind === 'box' || l1.root.kind === 'container' ? l1.root.children?.length : 0) ?? 0
       console.log(
-        `Captured ${url} → ${bundleDir}\n` +
+        `Captured ${url} → ${bundleDir(cwd, name)}\n` +
           `  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)\n` +
           `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); ` +
           `hints.json: ${hints.nodes.length} node(s), ${hints.mediaBreakpoints.length} @media breakpoint(s)`,
@@ -860,7 +865,7 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets, forms } =
-        cmdRepro(slug, { ...global, ref })
+        await cmdRepro(slug, { ...global, ref })
       // BUG-23 — an unreferenced mirrored asset is a fold gap (the bundle has the
       // bytes; no leaf points at them), so it is reported, not silently dropped.
       const gap = unreferencedAssets.length
@@ -898,7 +903,7 @@ export async function run(argv: string[]): Promise<void> {
         process.exitCode = 1
         return
       }
-      const { nodeCount, forms, residuals } = cmdRefold({ ...global, ref })
+      const { nodeCount, forms, residuals } = await cmdRefold(fsReferenceBundle(ref))
       console.log(
         `Refolded ${ref} from its retained oracle\n` +
           `  l1.json: ${nodeCount} node(s)\n` +
@@ -918,7 +923,7 @@ export async function run(argv: string[]): Promise<void> {
         process.exitCode = 1
         return
       }
-      const report = cmdL1Gate({ ...global, ref })
+      const report = await cmdL1Gate(fsReferenceBundle(ref))
       if (flags.json === true) {
         console.log(JSON.stringify(report, null, 2))
       } else {
@@ -1183,7 +1188,7 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       const sizes = parseSizes(flags.sizes)
-      const table = cmdResponsiveDiff({
+      const table = await cmdResponsiveDiff({
         refBundleDir: ref,
         sizes,
         out: typeof flags.out === 'string' ? flags.out : undefined,

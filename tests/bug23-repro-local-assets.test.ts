@@ -24,6 +24,7 @@ import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { cmdRender } from '../tools/generate/src/cli/commands'
 import type { L1Document } from '../packages/site-schema/src/index'
 import type { Capture, CaptureAsset } from '../tools/generate/src/cli/capture'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const ORIGIN = 'https://gigabytealchemy.ai'
 const HERO = `${ORIGIN}/images/AlchemistLabWithTech.png`
@@ -74,10 +75,10 @@ afterEach(() => {
 })
 
 /** Write a capture bundle: folded l1.json, the asset map, and the mirrored bytes. */
-function bundle(doc: L1Document, assets: CaptureAsset[]): string {
+async function bundle(doc: L1Document, assets: CaptureAsset[]): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  writeL1(dir, doc)
+  await writeL1(fsReferenceBundle(dir), doc)
   const capture = { url: `${ORIGIN}/`, host: 'gigabytealchemy.ai', assets } as unknown as Capture
   writeFileSync(path.join(dir, 'capture.json'), JSON.stringify(capture, null, 2))
   for (const a of assets) writeFileSync(path.join(dir, a.localPath), `bytes:${a.id}`)
@@ -85,9 +86,9 @@ function bundle(doc: L1Document, assets: CaptureAsset[]): string {
 }
 
 describe('BUG-23 — reproduction serves its own mirrored assets', () => {
-  it('test_UAT_FC_BUG-23_media_handles_resolve_to_local_mirror', () => {
-    const ref = bundle(docWithRemoteHandles(), assetMap())
-    const result = cmdRepro('gigabyte', { cwd, ref })
+  it('test_UAT_FC_BUG-23_media_handles_resolve_to_local_mirror', async () => {
+    const ref = await bundle(docWithRemoteHandles(), assetMap())
+    const result = await cmdRepro('gigabyte', { cwd, ref })
 
     // AC-1: every asset-bearing axis — background image, image leaf src, and the
     // font face — now names the site's own mirror, not the captured origin.
@@ -104,8 +105,8 @@ describe('BUG-23 — reproduction serves its own mirrored assets', () => {
   })
 
   it('test_UAT_FC_BUG-23_rendered_output_is_free_of_captured_origin', async () => {
-    const ref = bundle(docWithRemoteHandles(), assetMap())
-    cmdRepro('gigabyte', { cwd, ref })
+    const ref = await bundle(docWithRemoteHandles(), assetMap())
+    await cmdRepro('gigabyte', { cwd, ref })
     const { outDir } = await cmdRender('gigabyte', { cwd })
 
     // AC-2: no absolute URL pointing at the captured origin survives into any
@@ -125,8 +126,8 @@ describe('BUG-23 — reproduction serves its own mirrored assets', () => {
   })
 
   it('test_UAT_FC_BUG-23_reproduction_renders_without_reaching_the_target_host', async () => {
-    const ref = bundle(docWithRemoteHandles(), assetMap())
-    cmdRepro('gigabyte', { cwd, ref })
+    const ref = await bundle(docWithRemoteHandles(), assetMap())
+    await cmdRepro('gigabyte', { cwd, ref })
     const { outDir } = await cmdRender('gigabyte', { cwd })
 
     // AC-3: the render is self-contained — every handle it emits resolves to a
@@ -146,22 +147,22 @@ describe('BUG-23 — reproduction serves its own mirrored assets', () => {
     expect(/https?:\/\//.test(body.replace(/https?:\/\/www\.w3\.org[^"']*/g, ''))).toBe(false)
   })
 
-  it('test_UAT_FC_BUG-23_unreferenced_mirrored_assets_are_reported_as_a_fold_gap', () => {
-    const ref = bundle(docWithRemoteHandles(), assetMap())
-    const result = cmdRepro('gigabyte', { cwd, ref })
+  it('test_UAT_FC_BUG-23_unreferenced_mirrored_assets_are_reported_as_a_fold_gap', async () => {
+    const ref = await bundle(docWithRemoteHandles(), assetMap())
+    const result = await cmdRepro('gigabyte', { cwd, ref })
 
     // AC-4: the orphan image (bytes mirrored, no node references it) is reported.
     // The stylesheet is a page subresource, never L1-referenceable, so it is not.
     expect(result.unreferencedAssets).toEqual(['assets/unused.png'])
   })
 
-  it('test_UAT_FC_BUG-23_unmirrored_handle_fails_the_import_rather_than_hotlinking', () => {
+  it('test_UAT_FC_BUG-23_unmirrored_handle_fails_the_import_rather_than_hotlinking', async () => {
     // Drop the hero from the asset map: the bundle no longer mirrors it. Falling
     // back to the origin is exactly the defect, so the import must fail loudly.
     const partial = assetMap().filter((a) => a.src !== HERO)
-    const ref = bundle(docWithRemoteHandles(), partial)
-    expect(() => cmdRepro('gigabyte', { cwd, ref })).toThrow(/hotlink the captured origin/)
-    expect(() => cmdRepro('gigabyte', { cwd, ref })).toThrow(/AlchemistLabWithTech\.png/)
+    const ref = await bundle(docWithRemoteHandles(), partial)
+    await expect(cmdRepro('gigabyte', { cwd, ref })).rejects.toThrow(/hotlink the captured origin/)
+    await expect(cmdRepro('gigabyte', { cwd, ref })).rejects.toThrow(/AlchemistLabWithTech\.png/)
   })
 
   it('test_UAT_FC_BUG-23_localize_is_pure_and_normalizes_already_local_handles', () => {

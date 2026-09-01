@@ -5,10 +5,10 @@ import path from 'node:path'
 import {
   cmdDiff,
   writeRasterPng,
-  ladderScreenshotPath,
   VIEWPORTS,
   type Raster,
 } from '../tools/generate/src/cli'
+import { ladderScreenshotPath } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-61 — `1c diff --size mobile|tablet|desktop`.

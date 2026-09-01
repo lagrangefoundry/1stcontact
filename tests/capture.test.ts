@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  bundleDirFor,
   chromiumAvailable,
   cmdCapturePage,
   reextractFromBundle,
@@ -17,6 +16,7 @@ import {
   type ContentRun,
   type RawSignals,
 } from '../tools/generate/src/cli/capture'
+import { bundleDirFor, fsReferenceBundle, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-12 — rendered-only reference capture ([[DOC-13]]). The fidelity
@@ -75,9 +75,9 @@ beforeAll(async () => {
   server = await serveDir(FIXTURES)
   if (browserOk) {
     cwd = mkdtempSync(path.join(tmpdir(), 'req12-'))
-    const res = await cmdCapturePage(`${server.origin}/rich.html`, { cwd })
+    const res = await cmdCapturePage(`${server.origin}/rich.html`, fsReferenceStore(cwd))
     rich = res.capture
-    richBundleDir = res.bundleDir
+    richBundleDir = bundleDirFor(cwd, res.capture)
   }
 }, 120000)
 
@@ -187,9 +187,9 @@ describe('1c capture page — rendered-only reference capture (REQ-12)', () => {
     const local = await serveDir(FIXTURES)
     const reCwd = mkdtempSync(path.join(tmpdir(), 'req12r-'))
     try {
-      const { bundleDir } = await cmdCapturePage(`${local.origin}/rich.html`, { cwd: reCwd })
+      const reCapture = await cmdCapturePage(`${local.origin}/rich.html`, fsReferenceStore(reCwd))
       await local.close() // original site is now gone
-      const result = await reextractFromBundle(bundleDir)
+      const result = await reextractFromBundle(fsReferenceBundle(bundleDirFor(reCwd, reCapture.capture)))
       // Same essence re-derived offline: brand color and the hero image survive.
       expect(result.capture.theme.colors.map((c) => c.hex)).toContain('#1a73e8')
       expect(result.capture.sections[0].background.kind).toBe('image')

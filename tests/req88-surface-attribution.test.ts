@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { chromiumAvailable, cmdCapturePage, flattenCapture, type Capture } from '../tools/generate/src/cli'
 import { foldToL1 } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-88 — the SURFACE a run sits on is resolved geometrically, not by
@@ -61,7 +62,7 @@ describe('REQ-88 surface attribution — geometric, not ancestor-only (real Chro
     if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req88-surf-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/req88-sibling-surface.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/req88-sibling-surface.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

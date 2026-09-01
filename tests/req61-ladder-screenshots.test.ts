@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
   captureLadderScreenshots,
+  readLadderScreenshot,
   writeLadderScreenshots,
-  readLadderScreenshotPath,
-  ladderScreenshotPath,
   type BrowserDriver,
   type CapturedResponse,
   type Viewport,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle, ladderScreenshotPath } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-61 — per-viewport reference screenshots.
@@ -88,14 +88,19 @@ describe('REQ-61 — ladder screenshots round-trip through the bundle', () => {
       viewports: LADDER,
       driverFactory: async () => driver,
     })
-    const written = writeLadderScreenshots(bundle, shots)
-    // A file per width, named screenshot-<width>.png.
-    expect(written).toContain(ladderScreenshotPath(bundle, 768))
+    const handle = fsReferenceBundle(bundle)
+    await writeLadderScreenshots(handle, shots)
+    // A file per width, named screenshot-<width>.png — and the filesystem
+    // adapter still puts it exactly where `1c diff --ref <dir>` looks (REQ-155
+    // AC6: the port moved the read, not the layout).
     expect(existsSync(ladderScreenshotPath(bundle, 768))).toBe(true)
-    // The resolver returns the path for a width present in the bundle…
-    expect(readLadderScreenshotPath(bundle, 1280)).toBe(ladderScreenshotPath(bundle, 1280))
+    // The resolver returns BYTES for a width present in the bundle (REQ-155 —
+    // it used to return a path, which was the filesystem leaking through)…
+    const shot1280 = await readLadderScreenshot(handle, 1280)
+    expect(shot1280).not.toBeNull()
+    expect([...shot1280!.slice(0, 4)]).toEqual(PNG_SIG)
     // …and null for a width the ladder never shot (so the pixel diff fails loudly).
-    expect(readLadderScreenshotPath(bundle, 999)).toBeNull()
+    expect(await readLadderScreenshot(handle, 999)).toBeNull()
     // The persisted bytes match what was shot (width encoded in the PNG stand-in).
     const bytes = readFileSync(ladderScreenshotPath(bundle, 375))
     expect((bytes[4] << 8) | bytes[5]).toBe(375)

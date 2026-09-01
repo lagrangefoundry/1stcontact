@@ -38,6 +38,7 @@
 import path from 'node:path'
 import { writeFileSync } from 'node:fs'
 import { readCapture, readMultiState } from './capture'
+import type { ReferenceBundle } from '../store/reference-store'
 import type {
   BrowserDriverFactory,
   MultiStateCapture,
@@ -51,7 +52,7 @@ import { cmdValuesDiff } from './fidelity'
 import { cmdL1Gate } from './repro'
 import type { L1GateResult } from './repro'
 import type { GlobalOptions } from './commands'
-import { ensureDir } from '../store'
+import { ensureDir, fsReferenceBundle } from '../store'
 import type { RenderChannel } from '../store'
 import type { ViewportName } from './shot'
 
@@ -205,20 +206,20 @@ function manifestHeight(manifest: ValueManifest): number {
  * Throws when the bundle predates multi-state capture: coverage measured against
  * a manifest that does not exist would be a fabricated clean bill.
  */
-export function referenceCoverage(bundleDir: string): ReferenceCoverage {
-  const oracle = readMultiState(bundleDir)
+export async function referenceCoverage(bundle: ReferenceBundle): Promise<ReferenceCoverage> {
+  const oracle = await readMultiState(bundle)
   if (!oracle) {
     throw new Error(
-      `No multistate.json in bundle '${bundleDir}'. Reference coverage is measured against the ` +
+      `No multistate.json in bundle '${bundle.name}'. Reference coverage is measured against the ` +
         `reference manifest — re-capture with \`1c capture page <url>\` before gating.`,
     )
   }
   const projection = widestRestProjection(oracle)
   if (!projection) {
-    throw new Error(`Bundle '${bundleDir}' has an empty multistate.json — nothing to measure coverage against.`)
+    throw new Error(`Bundle '${bundle.name}' has an empty multistate.json — nothing to measure coverage against.`)
   }
   const manifest = projection.manifest
-  const images = readCapture(bundleDir).assets.filter((a) => a.kind === 'image')
+  const images = (await readCapture(bundle)).assets.filter((a) => a.kind === 'image')
   const referenced = new Set(
     manifest.elements.map((el) => el.src).filter((src): src is string => typeof src === 'string' && src.length > 0),
   )
@@ -429,8 +430,9 @@ export interface GateOptions extends GlobalOptions {
  * terminal scrollbacks.
  */
 export async function cmdGate(opts: GateOptions): Promise<GateReport> {
-  const l1Gate = cmdL1Gate({ ...opts, ref: opts.ref })
-  const coverage = referenceCoverage(opts.ref)
+  const refBundle = fsReferenceBundle(opts.ref)
+  const l1Gate = await cmdL1Gate(refBundle)
+  const coverage = await referenceCoverage(refBundle)
 
   const out = opts.out ? path.resolve(opts.out) : undefined
   if (out) ensureDir(out)

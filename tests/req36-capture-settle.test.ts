@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromiumAvailable, cmdCapturePage, flattenCapture, type Capture } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-36 (round 6) — the capture pipeline settles below-fold
@@ -82,7 +83,7 @@ describe('REQ-36 capture reveals below-fold lazy/animated content (real Chromium
     if (await chromiumAvailable()) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req36-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/req36-lazy.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/req36-lazy.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

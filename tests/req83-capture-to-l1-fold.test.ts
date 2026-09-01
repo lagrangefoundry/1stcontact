@@ -40,130 +40,13 @@ import {
   type ValueElement,
   type Viewport,
 } from '../tools/generate/src/cli/capture'
+import { bundleDirFor, fsReferenceBundle, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
+import { CANNED_HINTS, FakeCaptureDriver, run, signalsFor } from './support/fake-capture-driver'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
 // A complete RawRun with sensible defaults — the fold needs `box`, the rest are
 // the required geometry/typography fields the extractor always emits.
-function run(overrides: Partial<RawRun> & Pick<RawRun, 'text' | 'box'>): RawRun {
-  return {
-    role: 'heading',
-    color: '#111827',
-    fontFamily: 'Inter',
-    fontSizePx: 40,
-    fontWeight: 700,
-    fontStyle: null,
-    textDecoration: null,
-    textTransform: null,
-    fontVariant: null,
-    listMarker: null,
-    lineHeightPx: 48,
-    letterSpacingPx: 0,
-    gradientCss: null,
-    borderLeftWidthPx: 0,
-    borderLeftColor: null,
-    paddingLeftPx: 0,
-    paddingTopPx: 0,
-    paddingRightPx: 0,
-    paddingBottomPx: 0,
-    textAlign: 'left',
-    borderRadiusPx: 0,
-    boxShadow: null,
-    backdropFilter: null,
-    blendMode: null,
-    opacity: 1,
-    outline: null,
-    pseudo: null,
-    a11yRole: 'heading',
-    arrangement: null,
-    zIndex: 0,
-    filter: null,
-    textShadow: null,
-    maskEdge: null,
-    transformRotateDeg: 0,
-    transformScale: 1,
-    motion: null,
-    ...overrides,
-  }
-}
-
-function signalsFor(width: number): RawSignals {
-  return {
-    viewport: { width, height: 900 },
-    bands: [
-      {
-        box: { x: 0, y: 0, width, height: 400 },
-        backgroundColor: '#ffffff',
-        backgroundImage: 'none',
-        colorScheme: 'light',
-        fontFamily: 'Inter',
-        textAlign: 'left',
-        paddingTopPx: 40,
-        paddingBottomPx: 40,
-        overlay: null,
-        contentAnchorRatio: 0.5,
-        content: [
-          // A fluid heading: left edge fixed, width tracks the viewport.
-          run({ text: 'Fluid Headline', box: { x: 20, y: 120, width: width - 40, height: 60 } }),
-        ],
-        items: [],
-        fields: [],
-      },
-    ],
-    colorUsage: [{ hex: '#111827', usage: 'text', freq: 1 }],
-    fontFaces: [],
-    typeScale: [40],
-    spacingScalePx: [40],
-    containerMaxWidthPx: null,
-    images: [],
-  }
-}
-
-const CANNED_HINTS: StructuralHints = {
-  viewport: { width: 1280, height: 900 },
-  mediaBreakpoints: [640, 1024],
-  nodes: [
-    {
-      id: 0,
-      parentId: null,
-      tag: 'section',
-      a11yRole: 'generic',
-      position: 'relative',
-      display: 'flex',
-      parentLayout: null,
-      widthUnit: 'percent',
-      heightUnit: null,
-      repeatCount: 1,
-      box: { x: 0, y: 0, width: 1280, height: 400 },
-    },
-  ],
-}
-
-/** A fake CF-shaped driver: width-varying value signals, canned structural hints. */
-class FakeDriver implements BrowserDriver {
-  private width = 1280
-  async navigate(_url: string, viewport?: Viewport): Promise<void> {
-    if (viewport) this.width = viewport.width
-  }
-  async screenshot(): Promise<Uint8Array> {
-    return new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
-  }
-  async query<T>(script: string): Promise<T> {
-    if (script === HINTS_SCRIPT) return CANNED_HINTS as T
-    return signalsFor(this.width) as T
-  }
-  responses(): CapturedResponse[] {
-    return []
-  }
-  diagnostics() {
-    return { consoleErrors: [], pageErrors: [], failedRequests: [], requestedUrls: [] }
-  }
-  async content(): Promise<string> {
-    return '<html><body>Fluid Headline</body></html>'
-  }
-  async close(): Promise<void> {}
-}
-
 describe('REQ-83 — capture to L1 fold + structural hints', () => {
   const tmpDirs: string[] = []
   const servers: Server[] = []
@@ -176,16 +59,15 @@ describe('REQ-83 — capture to L1 fold + structural hints', () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'req83-'))
     tmpDirs.push(cwd)
 
-    const result = await cmdCapturePage('http://fixture.test/', {
-      cwd,
-      driverFactory: async () => new FakeDriver(),
+    const result = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
+      driverFactory: async () => new FakeCaptureDriver(),
       isEngineAvailable: async () => true,
     })
 
     // The fold is written and is a VALID L1 document.
-    const l1Path = path.join(result.bundleDir, 'l1.json')
+    const l1Path = path.join(bundleDirFor(cwd, result.capture), 'l1.json')
     expect(existsSync(l1Path)).toBe(true)
-    const l1 = readL1(result.bundleDir)!
+    const l1 = (await readL1(fsReferenceBundle(bundleDirFor(cwd, result.capture))))!
     expect(validateL1(l1).ok).toBe(true)
 
     // Its ladder is the 6 sampled widths, and the folded text node carries a
@@ -200,13 +82,13 @@ describe('REQ-83 — capture to L1 fold + structural hints', () => {
     }
 
     // The raw 6-sample ladder is RETAINED as the acceptance oracle.
-    const oracle = readMultiState(result.bundleDir)
+    const oracle = await readMultiState(fsReferenceBundle(bundleDirFor(cwd, result.capture)))
     expect(oracle).not.toBeNull()
     expect(new Set(oracle!.projections.map((p) => p.viewport.width))).toEqual(new Set(LADDER))
 
     // The advisory structural-hint sidecar is written.
-    expect(existsSync(path.join(result.bundleDir, 'hints.json'))).toBe(true)
-    const hints = readHints(result.bundleDir)!
+    expect(existsSync(path.join(bundleDirFor(cwd, result.capture), 'hints.json'))).toBe(true)
+    const hints = (await readHints(fsReferenceBundle(bundleDirFor(cwd, result.capture))))!
     expect(hints.mediaBreakpoints).toEqual([640, 1024])
     expect(hints.nodes.length).toBeGreaterThan(0)
   })

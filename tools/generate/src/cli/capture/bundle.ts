@@ -1,62 +1,101 @@
 /**
- * Bundle I/O (DOC-13 §4). A capture is written to a gitignored, fully
- * self-contained directory:
+ * Bundle I/O ([[DOC-13]] §4) — the codec that turns a capture's artifacts into
+ * bundle members and back.
  *
- *   storage/references/<host>/<path>/
+ *   <bundle>/
  *     capture.json         structured essence — the AI's primary input
  *     screenshot.full.png  the AI's eyes
+ *     screenshot-<w>.png   the persisted viewport ladder (REQ-61)
  *     rendered.html        post-JS DOM — the AI's escape hatch
  *     raw.html             original server response
  *     assets/              every mirrored subresource
+ *     multistate.json      the viewport ladder — the acceptance oracle (REQ-48)
+ *     l1.json              the ladder folded into one document (REQ-83)
+ *     forms.json           the behaviours the fold recovered (REQ-93)
+ *     hints.json           the advisory structural sidecar (REQ-83)
  *
- * Self-containment is what makes offline re-extraction possible (DOC-13 §9).
+ * Self-containment is what makes offline re-extraction possible ([[DOC-13]] §9).
+ *
+ * NO `node:` IMPORT REMAINS IN THIS FILE, and that is REQ-155's whole point.
+ * Every function below takes a {@link ReferenceBundle} where it used to take a
+ * `bundleDir` string, so the same codec serves the operator's disk and the
+ * Worker's R2 bucket without knowing which it got. `mkdirSync` has no counterpart
+ * here because a store has no directories to make: writing `assets/hero.jpg`
+ * creates whatever the adapter needs, or nothing, and neither is this module's
+ * business.
+ *
+ * THE SCHEMAS ARE HERE AND THE BYTES ARE THERE. The port is deliberately
+ * byte-level, so JSON encoding, the two-space formatting the bundle has always
+ * used, and the tolerant "absent member → null/[]" reads all live in this one
+ * module. Pushing them into the adapters would give three places for one shape to
+ * be, and a bundle written by the laptop and read by the cloud is exactly the
+ * case that would break when they drifted.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 import type { L1Document } from '@1stcontact/site-schema'
+import {
+  ASSETS_PREFIX,
+  CAPTURE_MEMBER,
+  FORMS_MEMBER,
+  HINTS_MEMBER,
+  L1_MEMBER,
+  MULTISTATE_MEMBER,
+  RAW_MEMBER,
+  RENDERED_MEMBER,
+  SCREENSHOT_MEMBER,
+  ladderMember,
+  type ReferenceBundle,
+} from '../../store/reference-store'
 import type { MultiStateCapture } from './values-diff'
 import type { LadderScreenshot } from './pipeline'
 import type { StructuralHints } from './hints'
 import type { FoldedForm } from '../../l1/forms'
 import type { Capture, CaptureAsset, CaptureResult } from './types'
 
+const encoder = new TextEncoder()
+const decoder = new TextDecoder()
+
+/** The bundle's JSON encoding — two-space, as every member on disk already is. */
+function encodeJson(value: unknown): Uint8Array {
+  return encoder.encode(JSON.stringify(value, null, 2))
+}
+
+/** Read one member and parse it, or `null` when the bundle holds no such member. */
+async function readJson<T>(bundle: ReferenceBundle, member: string): Promise<T | null> {
+  const bytes = await bundle.read(member)
+  if (!bytes) return null
+  return JSON.parse(decoder.decode(bytes)) as T
+}
+
+/** Where a capture landed. A name in the store — never a filesystem path. */
 export interface BundleLocation {
-  bundleDir: string
-  capturePath: string
+  /** What the bundle is called in the store it was written to. */
+  name: string
 }
 
-/** Turn a URL path into a single safe directory segment. */
-function pathSlug(urlPath: string): string {
-  const trimmed = urlPath.replace(/^\/+|\/+$/g, '')
-  if (!trimmed) return 'index'
-  return trimmed.replace(/[^a-zA-Z0-9._-]+/g, '_')
-}
-
-/** `storage/references/<host>/<path>/` under the working directory (DOC-13 §4). */
-export function bundleDirFor(cwd: string, capture: Pick<Capture, 'host' | 'path'>): string {
-  return path.join(cwd, 'storage', 'references', capture.host, pathSlug(capture.path))
-}
-
-export function writeBundle(result: CaptureResult, cwd: string): BundleLocation {
-  const bundleDir = bundleDirFor(cwd, result.capture)
-  mkdirSync(path.join(bundleDir, 'assets'), { recursive: true })
-
-  const capturePath = path.join(bundleDir, 'capture.json')
-  writeFileSync(capturePath, JSON.stringify(result.capture, null, 2))
-  writeFileSync(path.join(bundleDir, 'screenshot.full.png'), result.screenshot)
-  writeFileSync(path.join(bundleDir, 'rendered.html'), result.renderedHtml)
-  writeFileSync(path.join(bundleDir, 'raw.html'), result.rawHtml)
-  for (const [rel, bytes] of result.assetBytes) {
-    const dest = path.join(bundleDir, rel)
-    mkdirSync(path.dirname(dest), { recursive: true })
-    writeFileSync(dest, bytes)
-  }
-  return { bundleDir, capturePath }
+/**
+ * Write a capture's core members: the record, the shot, both DOMs, and every
+ * mirrored asset.
+ *
+ * `result.assetBytes` is already keyed by bundle-relative path (`assets/x.png`),
+ * which is exactly a member key, so the mirror moves across unchanged.
+ */
+export async function writeBundle(
+  bundle: ReferenceBundle,
+  result: CaptureResult,
+): Promise<BundleLocation> {
+  await bundle.write(CAPTURE_MEMBER, encodeJson(result.capture))
+  await bundle.write(SCREENSHOT_MEMBER, result.screenshot)
+  await bundle.write(RENDERED_MEMBER, encoder.encode(result.renderedHtml))
+  await bundle.write(RAW_MEMBER, encoder.encode(result.rawHtml))
+  for (const [member, bytes] of result.assetBytes) await bundle.write(member, bytes)
+  return { name: bundle.name }
 }
 
 /** Read a bundle's `capture.json` back into a {@link Capture}. */
-export function readCapture(bundleDir: string): Capture {
-  return JSON.parse(readFileSync(path.join(bundleDir, 'capture.json'), 'utf8')) as Capture
+export async function readCapture(bundle: ReferenceBundle): Promise<Capture> {
+  const capture = await readJson<Capture>(bundle, CAPTURE_MEMBER)
+  if (!capture) throw new Error(`Bundle '${bundle.name}' has no ${CAPTURE_MEMBER}.`)
+  return capture
 }
 
 /**
@@ -65,63 +104,49 @@ export function readCapture(bundleDir: string): Capture {
  * actually references remote media: a bundle without it and without remote
  * handles reproduces fine, and one with remote handles fails loudly downstream.
  */
-export function readCaptureAssets(bundleDir: string): CaptureAsset[] {
-  const src = path.join(bundleDir, 'capture.json')
-  if (!existsSync(src)) return []
-  return (JSON.parse(readFileSync(src, 'utf8')) as Capture).assets ?? []
+export async function readCaptureAssets(bundle: ReferenceBundle): Promise<CaptureAsset[]> {
+  const capture = await readJson<Capture>(bundle, CAPTURE_MEMBER)
+  return capture?.assets ?? []
 }
 
-/** The multi-state projection matrix filename within a bundle (REQ-48). */
-const MULTISTATE_FILE = 'multistate.json'
+/** The mirrored subresource member keys a bundle holds, sorted (REQ-155). */
+export async function listAssets(bundle: ReferenceBundle): Promise<string[]> {
+  return bundle.list(ASSETS_PREFIX)
+}
 
 /**
  * REQ-48 (items 1, 5, 6, 10) — persist the multi-state projection matrix
  * (`engine × viewport × interaction-state`) alongside `capture.json`. This is the
- * artifact {@link diffMultiState} pairs against; writing it into the bundle keeps
- * the re-capture discipline (item 10) — when the schema grows, re-capturing
- * refreshes every cell rather than leaving new fields comparing null↔null.
+ * artifact `diffMultiState` pairs against; writing it into the bundle keeps the
+ * re-capture discipline (item 10) — when the schema grows, re-capturing refreshes
+ * every cell rather than leaving new fields comparing null↔null.
  */
-export function writeMultiState(bundleDir: string, matrix: MultiStateCapture): string {
-  mkdirSync(bundleDir, { recursive: true })
-  const dest = path.join(bundleDir, MULTISTATE_FILE)
-  writeFileSync(dest, JSON.stringify(matrix, null, 2))
-  return dest
+export async function writeMultiState(
+  bundle: ReferenceBundle,
+  matrix: MultiStateCapture,
+): Promise<void> {
+  await bundle.write(MULTISTATE_MEMBER, encodeJson(matrix))
 }
 
 /** Read a bundle's `multistate.json`, or null when the bundle predates multi-state capture. */
-export function readMultiState(bundleDir: string): MultiStateCapture | null {
-  const src = path.join(bundleDir, MULTISTATE_FILE)
-  if (!existsSync(src)) return null
-  return JSON.parse(readFileSync(src, 'utf8')) as MultiStateCapture
+export function readMultiState(bundle: ReferenceBundle): Promise<MultiStateCapture | null> {
+  return readJson<MultiStateCapture>(bundle, MULTISTATE_MEMBER)
 }
-
-/** REQ-83 — the folded L1 document filename within a bundle. */
-const L1_FILE = 'l1.json'
-/** REQ-83 — the advisory structural-hint sidecar filename within a bundle. */
-const HINTS_FILE = 'hints.json'
 
 /**
  * REQ-83 — persist the folded L1 document alongside `capture.json`. The
  * multi-viewport capture (`multistate.json`) is retained as the acceptance
  * oracle; this is the single-document fold the reproduction flow renders and
- * gates against it.
+ * gates against.
  */
-export function writeL1(bundleDir: string, doc: L1Document): string {
-  mkdirSync(bundleDir, { recursive: true })
-  const dest = path.join(bundleDir, L1_FILE)
-  writeFileSync(dest, JSON.stringify(doc, null, 2))
-  return dest
+export async function writeL1(bundle: ReferenceBundle, doc: L1Document): Promise<void> {
+  await bundle.write(L1_MEMBER, encodeJson(doc))
 }
 
 /** Read a bundle's `l1.json`, or null when the bundle predates the fold. */
-export function readL1(bundleDir: string): L1Document | null {
-  const src = path.join(bundleDir, L1_FILE)
-  if (!existsSync(src)) return null
-  return JSON.parse(readFileSync(src, 'utf8')) as L1Document
+export function readL1(bundle: ReferenceBundle): Promise<L1Document | null> {
+  return readJson<L1Document>(bundle, L1_MEMBER)
 }
-
-/** REQ-93 — the recovered behavior-module bindings filename within a bundle. */
-const FORMS_FILE = 'forms.json'
 
 /**
  * REQ-93 — persist the behavior-module bindings the fold recovered, beside the
@@ -133,11 +158,8 @@ const FORMS_FILE = 'forms.json'
  * merely reserves seams for. They are written by the same `foldToL1` call that
  * emits those seams, so the two can never disagree about which slots exist.
  */
-export function writeForms(bundleDir: string, forms: FoldedForm[]): string {
-  mkdirSync(bundleDir, { recursive: true })
-  const dest = path.join(bundleDir, FORMS_FILE)
-  writeFileSync(dest, JSON.stringify(forms, null, 2))
-  return dest
+export async function writeForms(bundle: ReferenceBundle, forms: FoldedForm[]): Promise<void> {
+  await bundle.write(FORMS_MEMBER, encodeJson(forms))
 }
 
 /**
@@ -145,54 +167,48 @@ export function writeForms(bundleDir: string, forms: FoldedForm[]): string {
  * page simply has no behaviours). Empty is the honest answer for both: the L1
  * document then carries no slot to mount into either.
  */
-export function readForms(bundleDir: string): FoldedForm[] {
-  const src = path.join(bundleDir, FORMS_FILE)
-  if (!existsSync(src)) return []
-  return JSON.parse(readFileSync(src, 'utf8')) as FoldedForm[]
+export async function readForms(bundle: ReferenceBundle): Promise<FoldedForm[]> {
+  return (await readJson<FoldedForm[]>(bundle, FORMS_MEMBER)) ?? []
 }
 
 /** REQ-83 — persist the advisory structural-hint sidecar alongside `capture.json`. */
-export function writeHints(bundleDir: string, hints: StructuralHints): string {
-  mkdirSync(bundleDir, { recursive: true })
-  const dest = path.join(bundleDir, HINTS_FILE)
-  writeFileSync(dest, JSON.stringify(hints, null, 2))
-  return dest
+export async function writeHints(bundle: ReferenceBundle, hints: StructuralHints): Promise<void> {
+  await bundle.write(HINTS_MEMBER, encodeJson(hints))
 }
 
 /** Read a bundle's `hints.json`, or null when the bundle predates the hint pass. */
-export function readHints(bundleDir: string): StructuralHints | null {
-  const src = path.join(bundleDir, HINTS_FILE)
-  if (!existsSync(src)) return null
-  return JSON.parse(readFileSync(src, 'utf8')) as StructuralHints
-}
-
-/** REQ-61 — the per-width reference screenshot filename (`screenshot-<width>.png`). */
-export function ladderScreenshotPath(bundleDir: string, width: number): string {
-  return path.join(bundleDir, `screenshot-${width}.png`)
+export function readHints(bundle: ReferenceBundle): Promise<StructuralHints | null> {
+  return readJson<StructuralHints>(bundle, HINTS_MEMBER)
 }
 
 /**
  * REQ-61 — persist one full-page reference screenshot per viewport width, so
- * `1c diff --size` has a same-width reference to compare our reproduction against.
- * These sit beside `screenshot.full.png` (the default desktop shot) as sibling
- * PNGs; the JSON matrix stays byte-free.
+ * `1c diff --size` has a same-width reference to compare our reproduction
+ * against. These sit beside `screenshot.full.png` (the default desktop shot) as
+ * sibling PNGs; the JSON matrix stays byte-free.
  */
-export function writeLadderScreenshots(bundleDir: string, shots: readonly LadderScreenshot[]): string[] {
-  mkdirSync(bundleDir, { recursive: true })
-  return shots.map((shot) => {
-    const dest = ladderScreenshotPath(bundleDir, shot.viewport.width)
-    writeFileSync(dest, shot.bytes)
-    return dest
-  })
+export async function writeLadderScreenshots(
+  bundle: ReferenceBundle,
+  shots: readonly LadderScreenshot[],
+): Promise<void> {
+  for (const shot of shots) await bundle.write(ladderMember(shot.viewport.width), shot.bytes)
 }
 
 /**
- * REQ-61 — resolve the reference screenshot for a viewport width: the per-width
+ * REQ-61 — the reference screenshot for a viewport width: the per-width
  * `screenshot-<width>.png` when the bundle carries one, else null. The caller
  * decides how to handle a miss (a size-aware pixel diff must fail loudly rather
  * than silently compare against the desktop shot).
+ *
+ * BYTES, NOT A PATH (REQ-155). This used to hand back a filesystem location and
+ * feed it straight to the image layer — the "NO PATHS" leak `reference-store.ts`
+ * argues against, and the one place this ticket and [[REQ-156]] touch. The path
+ * helper still exists where a path is a legitimate thing to have, in the
+ * filesystem adapter, and `1c diff` takes it from there.
  */
-export function readLadderScreenshotPath(bundleDir: string, width: number): string | null {
-  const src = ladderScreenshotPath(bundleDir, width)
-  return existsSync(src) ? src : null
+export function readLadderScreenshot(
+  bundle: ReferenceBundle,
+  width: number,
+): Promise<Uint8Array | null> {
+  return bundle.read(ladderMember(width))
 }

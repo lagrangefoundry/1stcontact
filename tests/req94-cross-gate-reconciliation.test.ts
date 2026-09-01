@@ -18,6 +18,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-94 — cross-gate reconciliation (`1c gate`).
@@ -137,7 +138,7 @@ async function writeBundle(spec: BundleSpec): Promise<string> {
     assets: Array.from({ length: spec.images }, (_, i) => imageAsset(i)),
   }
   writeFileSync(path.join(dir, 'capture.json'), JSON.stringify(capture, null, 2))
-  writeMultiState(dir, cleanOracle(spec.sections, spec.pageBottomPx ?? 148))
+  await writeMultiState(fsReferenceBundle(dir), cleanOracle(spec.sections, spec.pageBottomPx ?? 148))
   await writeRasterPng(flat(64, 64, 0), path.join(dir, 'screenshot.full.png'))
   return dir
 }
@@ -292,9 +293,9 @@ describe('REQ-94 — reference coverage reports numbers the pipeline already had
         { ...el('', { x: 0, y: 120, width: 100, height: 100 }), src: imageAsset(1).src },
       )
     }
-    writeMultiState(dir, oracle)
+    await writeMultiState(fsReferenceBundle(dir), oracle)
 
-    const coverage = referenceCoverage(dir)
+    const coverage = await referenceCoverage(fsReferenceBundle(dir))
     expect(coverage.mirroredImages).toBe(3)
     expect(coverage.referencedImages).toBe(2)
     expect(coverage.unreferencedImages).toEqual(['assets/2.jpg'])
@@ -310,7 +311,7 @@ describe('REQ-94 — reference coverage reports numbers the pipeline already had
       sections: [{ scrim: null, contentAnchorRatio: null }, { scrim: null, contentAnchorRatio: null }],
       pageBottomPx: 4900,
     })
-    const sparseCoverage = referenceCoverage(sparse)
+    const sparseCoverage = await referenceCoverage(fsReferenceBundle(sparse))
     expect(sparseCoverage.sections).toBe(2)
     expect(sparseCoverage.pageHeightPx).toBe(4900)
     expect(sparseCoverage.pxPerSection).toBe(2450)
@@ -322,14 +323,14 @@ describe('REQ-94 — reference coverage reports numbers the pipeline already had
       sections: [{ scrim: null, contentAnchorRatio: null }, { scrim: null, contentAnchorRatio: null }],
       pageBottomPx: 1200,
     })
-    expect(referenceCoverage(dense).findings).toHaveLength(0)
+    expect((await referenceCoverage(fsReferenceBundle(dense))).findings).toHaveLength(0)
   })
 
   it('test_UAT_FC_REQ-94_coverage_refuses_a_bundle_with_no_reference_manifest', async () => {
     // Coverage measured against a manifest that does not exist would be a
     // fabricated clean bill — the one outcome this ticket exists to prevent.
     const dir = freshDir('stale')
-    expect(() => referenceCoverage(dir)).toThrow(/multistate\.json/)
+    await expect(referenceCoverage(fsReferenceBundle(dir))).rejects.toThrow(/multistate\.json/)
   })
 })
 

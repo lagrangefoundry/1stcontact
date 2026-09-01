@@ -11,6 +11,7 @@ import {
   flattenCapture,
   type Capture,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-52 — capture must resolve modern CSS colour formats.
@@ -55,7 +56,7 @@ describe('REQ-52 capture resolves oklch colours (real Chromium)', () => {
     if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req52-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/req52-oklch.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/req52-oklch.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

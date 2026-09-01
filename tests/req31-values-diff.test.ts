@@ -18,6 +18,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-31 — the fidelity verification loop's mechanical half
@@ -380,7 +381,7 @@ describe('REQ-31 capture records per-element values (real Chromium)', () => {
     if (browserOk) {
       cwd = mkdtempSync(path.join(tmpdir(), 'req31-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/values.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/values.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

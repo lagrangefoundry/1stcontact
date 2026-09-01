@@ -26,6 +26,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const GSTATIC_CINZEL = 'https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2'
 const GOOGLE_CSS = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@600&display=swap'
@@ -164,11 +165,10 @@ describe('BUG-12 — cross-origin @font-face reaches the fold', () => {
     // asserts the whole handle→substance chain end-to-end, not just the theme wire.
     const cwd = mkdtempSync(path.join(tmpdir(), 'bug12-'))
     try {
-      const res = await cmdCapturePage('http://example.test/', {
-        cwd,
-        driverFactory: fakeDriver(signalsPainting('Cinzel'), googleFontResponses()),
-        isEngineAvailable: async () => true,
-      })
+      const res = await cmdCapturePage('http://example.test/', fsReferenceStore(cwd), {
+      driverFactory: fakeDriver(signalsPainting('Cinzel'), googleFontResponses()),
+      isEngineAvailable: async () => true,
+    })
       const fonts = res.l1.resources?.fonts ?? []
       expect(fonts.map((f) => f.family)).toContain('Cinzel')
       const cinzel = fonts.find((f) => f.family === 'Cinzel')!

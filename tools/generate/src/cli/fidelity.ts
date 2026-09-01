@@ -28,6 +28,7 @@ import {
   type RawSignals,
 } from './capture'
 import { VIEWPORTS, type ViewportName } from './shot'
+import { fsReferenceBundle } from '../store/fs-reference-store'
 import {
   DERIVED_PROPERTIES,
   diffManifests,
@@ -110,7 +111,7 @@ async function extractDraftManifest(
 export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiffReport> {
   if (opts.size) return valuesDiffAtSize(opts, opts.size)
 
-  const expected = flattenCapture(readCapture(opts.refBundleDir))
+  const expected = flattenCapture(await readCapture(fsReferenceBundle(opts.refBundleDir)))
 
   let actual: ValueManifest
   if (opts.actualManifestPath) {
@@ -138,7 +139,7 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
  */
 async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Promise<ValuesDiffReport> {
   const viewport = VIEWPORTS[size]
-  const reference = readMultiState(opts.refBundleDir)
+  const reference = await readMultiState(fsReferenceBundle(opts.refBundleDir))
   if (!reference || reference.projections.length === 0) {
     throw new Error(
       `values-diff --size needs a multi-viewport reference, but '${opts.refBundleDir}' has no multistate.json ` +
@@ -197,7 +198,7 @@ function referenceViewports(projections: StateProjection[]): Viewport[] {
  * comparison it cannot make.
  */
 export async function cmdValuesDiffMultiViewport(opts: ValuesDiffOptions): Promise<StateDiff[]> {
-  const reference = readMultiState(opts.refBundleDir)
+  const reference = await readMultiState(fsReferenceBundle(opts.refBundleDir))
   if (!reference || reference.projections.length === 0) {
     throw new Error(
       `values-diff --multi-viewport needs a multi-viewport reference, but '${opts.refBundleDir}' has no ` +
