@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T01:14:37.770537+00:00'
+updated_at: '2026-09-01T18:22:57.740802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -832,5 +832,13 @@ Two things still open on the parked assistant, neither blocking:
 
 - **Read-only forever, or eventually write?** I've written it as read-only and the argument above is why. If you want write, it should be specific verbs with explicit targets rather than the assistant holding a general write handle post-switch.
 - **The index primitive can wait.** At alpha scale pure switching is fine — visiting thirty accounts in turn is tolerable. It only becomes necessary at the scale where enumeration hurts, so it's not part of a first build.
+
+<!-- xgd-turn id="9d626d00-a73a-4a80-bd6d-e58109797ae0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:22:57.670568+00:00" -->
+#### You
+lets not change anything for this super-chat role - please. this is just a discussion.
+
+Can you take a look at what has been implemented and where we are. Please describe what we have built at this point?
 
 <!-- xgd-chat-end -->
