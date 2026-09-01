@@ -14,7 +14,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
-import { applyLocalD1Schema } from './support/local-d1'
+import { applyLocalD1Schema, seedIdentity } from './support/local-d1'
 // REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
 // JWT before it proxies. What this AC pins — one host, same origin, verbatim —
 // is what an ADMITTED caller receives, so the caller here is admitted.
@@ -188,6 +188,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     // The Worker reads its own D1 now, and miniflare's local database
     // starts with no schema (REQ-145).
     applyLocalD1Schema(REPO)
+    // REQ-167 — a verified Access identity is no longer admission. The token
+    // this suite mints belongs to `uat@westhead.me`; without an invited user,
+    // a membership and a live grant behind that address, every request below
+    // would be refused 403 by `index.ts` before a route ran.
+    seedIdentity(REPO, 'uat@westhead.me')
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {

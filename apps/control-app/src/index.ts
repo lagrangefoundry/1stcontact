@@ -1,4 +1,5 @@
 import { guardAccess, type AccessEnv } from './access'
+import { admit, DENIED_MESSAGE, type Admission, type IdentityEnv } from './identity'
 import { route, type RouterEnv } from './router'
 
 /**
@@ -22,9 +23,16 @@ import { route, type RouterEnv } from './router'
  * a new one, not a mistyped one — that can be reached without a verified
  * identity. See `access.ts` for why the Worker verifies at all when Access
  * already enforces at the edge.
+ *
+ * AND A VERIFIED IDENTITY IS NO LONGER ADMISSION (REQ-167). The Access policy is
+ * identity-only ([[DOC-40]] §3) — one-time PIN, any email — so passing the gate
+ * proves who someone is and says nothing about whether they may be here. The
+ * second check is `admit`, and it sits in exactly the same place and for exactly
+ * the same reason: before a store handle exists, before a path is examined, so no
+ * route can be reached by someone who was merely able to receive an email.
  */
 
-export interface Env extends AccessEnv, RouterEnv {
+export interface Env extends AccessEnv, RouterEnv, IdentityEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
@@ -74,20 +82,55 @@ function uncacheable(response: Response): Response {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
+/**
+ * The refusal a caller who is not entitled receives.
+ *
+ * ONE MESSAGE FOR EVERY REASON. "No such user" and "expired grant" need
+ * different fixes and would be genuinely more helpful stated separately — and
+ * separating them turns this endpoint into an account-existence oracle for
+ * anyone who can pass a one-time PIN, which is anyone with an email address. So
+ * the difference goes to the log, where the operator is, and not to the wire,
+ * where the visitor is ([[DOC-40]] §5).
+ *
+ * 403 RATHER THAN 401. A 401 says "authenticate", and the caller already did —
+ * Access verified them. Sending them back round the login loop would produce the
+ * same token and the same refusal, forever.
+ */
+function denied(admission: Extract<Admission, { ok: false }>): Response {
+  // The distinction, stated where an operator can find it. Structured rather
+  // than prose so it can be queried out of the invocation logs `wrangler.toml`
+  // keeps every one of.
+  console.warn(
+    JSON.stringify({ event: 'admission_denied', reason: admission.reason, email: admission.email }),
+  )
+  return new Response(DENIED_MESSAGE, {
+    status: 403,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex',
+    },
+  })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!isUnconfiguredLocalDev(env)) {
-      const refused = await guardAccess(request, env)
-      if (refused) return refused
-    }
-
     try {
+      if (!isUnconfiguredLocalDev(env)) {
+        const gate = await guardAccess(request, env)
+        if (!gate.ok) return gate.response
+
+        const admission = await admit(env, gate.email)
+        if (!admission.ok) return denied(admission)
+      }
+
       return await route(request, env)
     } catch (err) {
-      // Anything reaching here escaped the router's own handler — a store that
-      // could not be constructed, most likely a missing binding or an unknown
-      // tenant. It is a configuration failure rather than a bad request, and it
-      // says so in prose an operator can act on.
+      // Anything reaching here escaped the router's own handler, or the
+      // admission check ahead of it — a store that could not be constructed, an
+      // identity table that is not migrated, most likely a missing binding or an
+      // unknown tenant. It is a configuration failure rather than a bad request,
+      // and it says so in prose an operator can act on.
       const message = err instanceof Error ? err.message : String(err)
       return uncacheable(
         new Response(message, {

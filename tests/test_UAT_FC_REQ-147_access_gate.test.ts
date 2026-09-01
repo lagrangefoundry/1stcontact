@@ -214,14 +214,22 @@ describe('REQ-147 — the builder is private', () => {
 
     const response = await worker.fetch(GET({ 'cf-access-jwt-assertion': token }), ENV)
 
-    // What lies BEHIND the gate changed with REQ-145 — there is no origin to
-    // forward to any more, so an admitted caller now gets the Worker's own
-    // chrome document instead of a proxied body. The claim under test is
-    // unchanged and is the one this ticket owns: a valid identity is let
-    // through, and the gate is not what stops the builder working.
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('text/html')
-    expect(await response.text()).toContain('1st Contact builder')
+    // WHAT LIES BEHIND THE GATE HAS CHANGED TWICE, and the claim under test has
+    // not. REQ-145 removed the origin, so an admitted caller stopped getting a
+    // proxied body and started getting the Worker's own chrome. REQ-167 put a
+    // SECOND check behind the first: passing Access proves who someone is, and
+    // `identity.ts` decides whether they may be here — so a verified token is no
+    // longer, by itself, a 200.
+    //
+    // So the assertion is the ticket's own claim stated exactly: the ACCESS gate
+    // let this caller through. It is not a 401, and the body is not an Access
+    // refusal — whatever answers next is somebody else's business. The
+    // end-to-end admitted path (real D1, real grant, chrome served) is proved in
+    // `test_UAT_FC_REQ-167_identity.workers.test.ts`, where there is a database
+    // to be entitled in; this node suite has bindings for none of it, which is
+    // why the evidence lives there rather than being approximated here.
+    expect(response.status).not.toBe(401)
+    expect(await response.text()).not.toMatch(/Cloudflare Access rejected/)
   })
 
   /** A browser holds the same JWT in a cookie; the gate must read either. */
@@ -234,7 +242,9 @@ describe('REQ-147 — the builder is private', () => {
       ENV,
     )
 
-    expect(response.status).toBe(200)
+    // Not a 401: the cookie was read and the token in it verified. See the test
+    // above for why "verified" and "served" stopped being the same thing.
+    expect(response.status).not.toBe(401)
     expect(accessTokenFrom(GET({ cookie: `CF_Authorization=${token}` }))).toBe(token)
     // The header wins when both are present — it is what Access sets on the
     // request it forwards, and the cookie is the copy the client controls.
@@ -252,7 +262,11 @@ describe('REQ-147 — the builder is private', () => {
 
     expect(result.ok).toBe(true)
     expect(result.ok && result.identity).toBe('service-token:deploy-bot.access')
-    expect((await worker.fetch(GET({ 'cf-access-jwt-assertion': token }), ENV)).status).toBe(200)
+    // Accepted BY THE GATE, which is this ticket's claim. It is refused further
+    // in by REQ-167 — a service token authenticates as a `common_name` and
+    // carries no email, and the email is what an account is bound to — so what
+    // is asserted here is the gate's verdict rather than the Worker's.
+    expect((await worker.fetch(GET({ 'cf-access-jwt-assertion': token }), ENV)).status).not.toBe(401)
   })
 
   /**
@@ -304,15 +318,23 @@ describe('REQ-147 — the builder is private', () => {
    */
   it('test_UAT_FC_REQ-147_a_rotated_signing_key_is_picked_up_without_a_restart', async () => {
     stubNetwork()
-    // Warm the cache with the current key set.
-    expect((await worker.fetch(GET({ 'cf-access-jwt-assertion': await mint({}) }), ENV)).status).toBe(200)
+    // Warm the cache with the current key set. NOT ASSERTED AS A 200: since
+    // REQ-167 a verified token is only the first of two checks, and what this
+    // test needs from the warm-up is the JWKS fetch it causes, not the verdict.
+    expect((await worker.fetch(GET({ 'cf-access-jwt-assertion': await mint({}) }), ENV)).status).not.toBe(401)
 
     // The team rotates: a new key appears in the JWKS, tokens are signed by it.
     const rotatedJwk = await crypto.subtle.exportKey('jwk', attacker.publicKey)
     jwks = { keys: [...jwks.keys, { ...rotatedJwk, kid: 'uat-key-2', alg: 'RS256', use: 'sig' }] }
     const rotated = await mint({}, { key: attacker, kid: 'uat-key-2' })
 
-    expect((await worker.fetch(GET({ 'cf-access-jwt-assertion': rotated }), ENV)).status).toBe(200)
+    // The claim, stated where it still has teeth: a token signed by a key minted
+    // AFTER the cache was warmed is not refused as unsigned. Without the refresh
+    // this would be a 401 naming the unknown `kid` — "valid token, refused",
+    // which is an outage that looks like a break-in.
+    const response = await worker.fetch(GET({ 'cf-access-jwt-assertion': rotated }), ENV)
+    expect(response.status).not.toBe(401)
+    expect(await response.text()).not.toMatch(/no Access signing key matches/)
   })
 
   /**
