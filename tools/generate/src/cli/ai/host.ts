@@ -39,6 +39,7 @@ import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
 import {
+  CARETAKER_PURPOSE,
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
   resetAiHost as resetAiHostCore,
@@ -76,20 +77,6 @@ function ai(): Promise<Untyped> {
 export function sessionsDir(opts: GlobalOptions): string {
   return path.join(ctxOf(opts).cwd, 'storage', 'chat')
 }
-
-/**
- * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
- *
- * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
- * priming answers "what should I go looking for in this corpus", and an agent
- * told only "you are a caretaker" has no basis for choosing between a document
- * about storage and one about typography.
- */
-const CARETAKER_PURPOSE =
-  'You look after a website for someone who is not technical. You will need to ' +
-  'know how this system builds and describes sites — its layout vocabulary, its ' +
-  'components, how pages are stored and published, and the reasoning behind those ' +
-  'designs — so you can act correctly and explain plainly.'
 
 /**
  * The system knowledge runtime, or `null` when the KB has not been built.
