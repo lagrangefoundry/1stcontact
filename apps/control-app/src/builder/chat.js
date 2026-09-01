@@ -29,11 +29,23 @@
  * the conversation across reloads; if the panel did not, the assistant would
  * answer using context the operator cannot see, which reads as spooky rather than
  * clever.
+ *
+ * AND IT IS REPLAYED EXACTLY ONCE, which is why the markdown engines are waited
+ * for BEFORE a session reaches this pane rather than inside it (BUG-42).
+ * `mountChat` renders each message as it is appended and offers no way to redraw
+ * one, so a turn painted while the renderer is still loading stays escaped source
+ * for the life of the page. The wait therefore belongs where the async already
+ * is — `app.js`'s `showSite`, which is opening the session anyway and already
+ * carries the generation guard — and this pane keeps the synchronous shape the
+ * paragraphs above are about.
  */
 
-import { loadSanitizer, mountChat } from '@lagrangefoundry/webui-chat'
-import { loadMarked } from '@lagrangefoundry/webui-markdown'
+import { mountChat } from '@lagrangefoundry/webui-chat'
 import { streamChatPrompt } from './api.js'
+// FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
+// (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
+// `app.js`'s job, not this file's — see the header on why this pane is synchronous.
+import './markdown.js'
 
 /** Per-session instance id — also the key the composer's draft persists under. */
 export const CHAT_ID_PREFIX = 'builder-chat:'
@@ -50,13 +62,6 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  */
 export function createChatPanel(options = {}) {
   const { storage, transport = { streamPrompt: streamChatPrompt } } = options
-
-  // Both engines load from a CDN behind their components' seams, and both are
-  // designed to degrade: without them the panel renders escaped markdown rather
-  // than nothing. So a rejection here is swallowed — offline is a worse-looking
-  // panel, not a broken one.
-  loadMarked().catch(() => {})
-  loadSanitizer().catch(() => {})
 
   const element = document.createElement('div')
   element.className = 'builder-chat'

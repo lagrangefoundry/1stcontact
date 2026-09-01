@@ -4,6 +4,7 @@ import { createChatPanel } from './chat.js'
 import { APP_FONT, APP_ID, LIBRARY_TAB, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
 import { createLibraryPanel } from './library.js'
+import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createDisplayPanel } from './panel.js'
 import { openPalettePopup } from './palette-popup.js'
 import { createUploadOverlay } from './upload.js'
@@ -57,6 +58,14 @@ export function mountBuilder(root, options = {}) {
      * whole surface without an origin.
      */
     libraryTransport = null,
+    /**
+     * When the markdown engines have settled (BUG-42). Awaited before a
+     * conversation is handed to the pane, because the pane paints each turn once.
+     * A test injects a promise it controls so the cold-load ordering — engines
+     * still loading while a session arrives — is something it can hold open and
+     * observe, rather than a race it has to hope loses.
+     */
+    markdownReady = defaultMarkdownReady,
   } = options
 
   const shell = mountShell(root, {
@@ -232,6 +241,7 @@ export function mountBuilder(root, options = {}) {
   const library = createLibraryPanel({
     storage: shell.storage(STORAGE_KEYS.library),
     getSite: () => panel.getSite(),
+    markdownReady,
     ...(libraryTransport ? { transport: libraryTransport } : {}),
   })
   shell.getPanel(LIBRARY_TAB.id).append(library.element)
@@ -323,10 +333,18 @@ export function mountBuilder(root, options = {}) {
       return
     }
     try {
-      const session = await openSession(slug)
+      // BOTH WAITS, IN PARALLEL (BUG-42). The pane renders each turn as it is
+      // appended and cannot redraw one, so a transcript handed over before the
+      // markdown engines have settled is escaped source for the life of the page.
+      // `markdownReady` never rejects, so this adds a failure mode to neither
+      // branch — and running it alongside the open costs no latency beyond the
+      // slower of the two.
+      const [session] = await Promise.all([openSession(slug), markdownReady])
       if (mine !== generation) return
       chat.setSession(session)
     } catch (err) {
+      // The note this writes is markdown too, so the failure path waits as well.
+      await markdownReady
       if (mine !== generation) return
       // A session that cannot be opened at all is reported the way an unusable
       // one is — in the pane, with the transcript it does not have. `ready:false`

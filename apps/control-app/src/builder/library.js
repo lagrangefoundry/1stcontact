@@ -23,6 +23,15 @@
  * the §9 rights block read-only, and the description as one editable field. A
  * second editing vocabulary for material would be a second set of controls to
  * keep in step with the first, for no behaviour the first does not already have.
+ *
+ * THE DESCRIPTION IS MARKDOWN, AND IS SHOWN AS SUCH (BUG-42). It is the ticket
+ * body an AI wrote about the file (DOC-38 §6), so it arrives with headings, bold
+ * and lists in it — and `mountFields` reads a scalar, which means its read cell
+ * is a plain-text span by design. So the cell is REPAINTED rather than replaced:
+ * see `paintDescription`. Keeping the component's own element is what keeps this
+ * from becoming the second editing vocabulary the paragraph above rules out —
+ * click-to-edit still opens the component's textarea, over the markdown SOURCE,
+ * and commits through the component's own path.
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
@@ -34,6 +43,11 @@ import {
   saveMaterialDescription,
 } from './api.js'
 import { UPLOAD_AREAS } from './config.js'
+import {
+  markdownEngineReady,
+  markdownReady as defaultMarkdownReady,
+  renderSafe,
+} from './markdown.js'
 
 /** Shown in the detail pane before a row is chosen. */
 const EMPTY_DETAIL = 'Pick something on the left, or drop a file here to add one.'
@@ -60,6 +74,43 @@ const RIGHTS_FIELDS = [
 /** The role labels, taken from the overlay so the two surfaces cannot disagree. */
 const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
 
+/** The one field the description form carries — `mountFields` keys its row on it. */
+const DESCRIPTION_FIELD = 'body'
+
+/**
+ * Show the description's read cell as rendered markdown instead of its source.
+ *
+ * THE COMPONENT'S ELEMENT IS KEPT AND ONLY ITS CHILDREN REPLACED, which is the
+ * whole reason this is safe: `makeEditable` puts the click-to-edit affordance,
+ * the `role`/`tabindex` and both listeners on the CELL, so rewriting what is
+ * inside it leaves every one of them attached. Replacing the cell would take
+ * them with it, and this would have quietly become a second editing vocabulary.
+ *
+ * IDEMPOTENT, AND UPGRADEABLE. The mark records which engine painted it, so a
+ * cell painted while the CDN was still loading — escaped source, the honest
+ * fallback — is repainted once the engine lands, and a cell already painted by
+ * the same engine is left alone. That second property is what stops the
+ * observer below from re-triggering on its own write.
+ *
+ * An empty description is left to the component: its placeholder is the answer
+ * there, not an empty render.
+ */
+function paintDescription(host) {
+  const cell = host.querySelector(
+    `.fields-row[data-field="${DESCRIPTION_FIELD}"] > .fields-value`,
+  )
+  if (!cell || cell.classList.contains('fields-value-empty')) return
+  const engine = markdownEngineReady() ? 'rendered' : 'escaped'
+  if (cell.dataset.markdownPaint === engine) return
+  // Read the source back off the cell the FIRST time only; after that the cell
+  // holds HTML and its text is the rendered prose, not the markdown.
+  const markdown = cell.dataset.markdownSource ?? cell.textContent ?? ''
+  cell.dataset.markdownSource = markdown
+  cell.dataset.markdownPaint = engine
+  cell.classList.add('md-body')
+  cell.innerHTML = renderSafe(markdown)
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -74,6 +125,8 @@ function el(tag, className, text) {
  * @param {Storage} [options.storage]  the shell's namespaced handle
  * @param {object}  [options.transport] `{list, item, save, fileUrl}` — injected by tests
  * @param {() => string|null} [options.getSite] the site the "used here" badge is about
+ * @param {Promise<void>} [options.markdownReady] when the markdown engines have
+ *   settled (BUG-42); injected by tests so the cold-load repaint is observable.
  */
 export function createLibraryPanel(options = {}) {
   const {
@@ -85,6 +138,7 @@ export function createLibraryPanel(options = {}) {
       fileUrl: materialFileUrl,
     },
     getSite = () => null,
+    markdownReady = defaultMarkdownReady,
   } = options
 
   const element = el('div', 'builder-library')
@@ -199,6 +253,7 @@ export function createLibraryPanel(options = {}) {
     const view = el('div', 'builder-library__detail')
     let fields = null
     let description = null
+    let repaint = null
 
     view.append(preview(row))
 
@@ -268,11 +323,24 @@ export function createLibraryPanel(options = {}) {
           apply()
         },
       })
+
+      // WATCHED RATHER THAN HOOKED, because the component rebuilds the read cell
+      // on more occasions than it announces: a commit, a rollback after a failed
+      // write, and a cancelled edit all call its `refreshRow`, and only the first
+      // two emit anything. Watching the host catches all three with one rule, and
+      // `paintDescription` is idempotent so its own write does not re-trigger it.
+      paintDescription(host)
+      repaint = new MutationObserver(() => paintDescription(host))
+      repaint.observe(host, { childList: true, subtree: true })
+      // And once more when the engines land, for a detail opened during a cold
+      // load: the paint above will have escaped the source, honestly and wrongly.
+      void markdownReady.then(() => paintDescription(host))
     })()
 
     return {
       element: view,
       destroy() {
+        repaint?.disconnect()
         fields?.destroy()
         description?.destroy()
       },
