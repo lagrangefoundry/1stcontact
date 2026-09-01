@@ -5,10 +5,10 @@ type: request
 title: 'Library detail: render documents inline, with an expand-to-modal reader'
 created_by: xgd
 created_at: '2026-09-01T21:04:04.214569+00:00'
-updated_at: '2026-09-01T21:34:31.200640+00:00'
+updated_at: '2026-09-01T21:43:09.066003+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
