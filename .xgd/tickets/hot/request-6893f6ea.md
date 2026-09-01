@@ -6,16 +6,21 @@ title: 'The system KB in the Worker: bundle-resident index, AI binding, knowledg
   surface on the builder toolbox'
 created_by: xgd
 created_at: '2026-08-28T21:12:01.399464+00:00'
-updated_at: '2026-09-01T01:21:47.009068+00:00'
+updated_at: '2026-09-01T01:22:19.097788+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-48c75d2e
+  commits:
+  - working_sha: 27450010586c65b293b2ad5cc6243815133a17be
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.27
 ---
 
 # The system KB in the Worker: bundle-resident index, AI binding, knowledge surface on the builder toolbox
