@@ -6,7 +6,7 @@ title: 'Session seeding and turn reminders: two-KB priming, the change cursor, a
   the delta channel'
 created_by: xgd
 created_at: '2026-08-30T23:19:07.355942+00:00'
-updated_at: '2026-09-01T19:12:34.349256+00:00'
+updated_at: '2026-09-01T19:34:20.868825+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -168,6 +168,8 @@ single-index.
   ticket enters the corpus carrying its session id and nothing else until
   something writes that summary. Named here because [[DOC-39]] §7 leans on chat
   entries having an AI-written body, and after this ticket they still will not.
+  [[REQ-171]] owns it, together with the session prompts and turn reminders it
+  has to be written into.
 - **The audit trail.** `flushAudit` keeps writing one R2 object per record —
   distinct keys cannot collide, which is a different trade from a ticket per
   record and not one this ticket is making.
