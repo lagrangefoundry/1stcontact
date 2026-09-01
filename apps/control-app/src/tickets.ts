@@ -231,6 +231,34 @@ export function productTypePack(): ProductTypePack {
     ...chatSchemas(),
 
     /**
+     * The session's change-feed cursor, added to the imported chat type ([[REQ-160]]).
+     *
+     * MERGED ONTO THE COMPONENT'S SHAPE, NOT A RESTATEMENT OF IT. The note above
+     * is that a local copy of the chat schema would be free to drift from the
+     * archive that reads it back; this adds one field and leaves every field the
+     * component declared exactly as it ships, so there is nothing to drift.
+     *
+     * WHY IT LIVES HERE AND NOT BESIDE THE INDEX. [[REQ-159]] keeps its transcript
+     * cursors beside the index, correctly: those are a property of an index pass
+     * — derived data, exactly like the assignment map the component tells its
+     * callers to persist there. This one is a property of a CONVERSATION. It
+     * answers "what has this session already been told about", it lives and dies
+     * with the session, and the session is a ticket ([[DOC-10]] §8), so it is a
+     * field on that ticket.
+     *
+     * A STRING HOLDING JSON rather than two fields, because the timestamp and the
+     * uids that sit exactly on it are one fact — a boundary in an inclusive feed
+     * — and splitting them would let a store update move one without the other.
+     */
+    chat: {
+      ...chatSchemas().chat,
+      fields: {
+        ...chatSchemas().chat.fields,
+        kb_cursor: { type: 'string' },
+      },
+    },
+
+    /**
      * The attachment record — the component's own, merged as it ships.
      *
      * The bytes live in the blob store; this is the record that names them

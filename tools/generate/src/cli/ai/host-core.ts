@@ -207,6 +207,22 @@ export interface HostDeps {
     register(providers: Untyped, box: Untyped): void
   } | null
 
+  /**
+   * What entered the knowledge corpus since this session was last told (REQ-160).
+   *
+   * A SEAM RATHER THAN A CALL, because this file is runtime-agnostic and the
+   * change feed is not: it is a query against the tenant's ticket store, over a
+   * knowledge base only the Worker has, with a cursor that lives on a ticket type
+   * this host knows nothing about. What the host owns is the DELIVERY — the
+   * reminder provider this host registers, which the session manager resolves at
+   * the top of every turn — which is exactly what REQ-131 already built for the
+   * draft change signal and what this rides in on rather than duplicating.
+   *
+   * Returning `null` must mean "nothing arrived" and must cost nothing: an empty
+   * delta contributes no tokens (DOC-39 §6.4).
+   */
+  delta?: ((sessionId: string) => Promise<string | null>) | null
+
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
 }
@@ -544,8 +560,12 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   //
   // The callback closes over the site and its store, so the reminder is resolved
   // against the CURRENT baseline every turn rather than against the one that held
-  // when the manager was built.
-  manager.providers.register(REMINDER_PROVIDER, () => reminderFor(slug, deps))
+  // when the manager was built. What it does NOT close over is the session: a
+  // provider is handed the resolving turn's context, and REQ-160's delta is about
+  // one conversation's cursor rather than about the site.
+  manager.providers.register(REMINDER_PROVIDER, (ctx: Untyped) =>
+    reminderFor(slug, ctx.sessionId, deps),
+  )
 
   // The knowledge pair, on the same registry and for the same reason: the two
   // names the role's priming entries above carry have to resolve to something,
@@ -566,13 +586,25 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
  * not off the filesystem — the same number, through the port a Worker also has.
  *
  * No baseline yet means the session has not taken a turn, so there is nothing it
- * could have missed: the plain reminder, with no signal.
+ * could have missed: no draft signal. It can still carry a corpus delta, which is
+ * about what the CLIENT did and not about what this conversation has seen.
+ *
+ * REQ-160 — THE CORPUS DELTA RIDES THE SAME CHANNEL. Two independent signals
+ * about two different things: the site moved under the assistant (a counter
+ * comparison), and the client's knowledge grew (a change feed). Both are
+ * questions the model has no reason to ask, both are absent when the answer is
+ * "nothing", and both are delivered in the reminder this provider renders — so
+ * there is one delivery mechanism to keep in step, not two.
+ *
+ * The session id is the resolving turn's, read off the provider context rather
+ * than derived, because the delta's cursor is a property of THAT conversation.
  */
-async function reminderFor(slug: string, deps: HostDeps): Promise<string> {
+async function reminderFor(slug: string, sessionId: string, deps: HostDeps): Promise<string> {
+  const delta = deps.delta ? await deps.delta(sessionId) : null
   const before = baselines.get(managerKey(slug, deps))
-  if (before === undefined) return caretakerReminder(slug)
+  if (before === undefined) return caretakerReminder(slug, undefined, delta)
   const at = await deps.store.counter(slug)
-  return caretakerReminder(slug, { at: before, changes: at - before })
+  return caretakerReminder(slug, { at: before, changes: at - before }, delta)
 }
 
 /** The stored transcript, or nothing. A site with no conversation yet is normal. */
