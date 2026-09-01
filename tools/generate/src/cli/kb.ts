@@ -56,7 +56,6 @@ import { pathToFileURL } from 'node:url'
 import { repoRoot, sharedModuleUrl } from './webui'
 import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
 import { isProjected, projections, type ProjectedDoc } from './kb-projection'
-import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
 
 /**
  * The library is untyped JavaScript loaded from the shared store, so it enters
