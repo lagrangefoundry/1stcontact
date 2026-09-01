@@ -9,8 +9,12 @@
  * THE FIVE STEPS, AND WHERE EACH ONE ACTUALLY RUNS:
  *
  *   1. **Store the blob** — the ticketing component's `attach`, which puts the
- *      bytes and then writes the record. Content-addressed inside the tenant
- *      prefix, so one file uploaded twice is one blob and two records.
+ *      bytes and then writes the record. Addressed by the ATTACHMENT RECORD'S
+ *      OWN UID inside the tenant prefix, so one record owns exactly one blob.
+ *      (It was content-addressed and deduplicating; the component withdrew that,
+ *      because a blob shared between two records cannot be moved to the trash
+ *      without breaking whichever sibling still names it — and moving it is what
+ *      makes deletion actually revoke reach. See {@link readBlob}.)
  *   2. **Classify** — {@link classify} below. `kind` from the content type;
  *      **`rights` from PROVENANCE, never from a question**.
  *   3. **Describe** — `describe.ts`. The step that makes the material findable.
@@ -22,7 +26,7 @@
  * [[DOC-38]] §7.3 asks for blob-first-then-record so that a crash leaves an
  * orphan blob a sweep collects rather than a dangling pointer nothing can heal.
  * `attach` needs a subject ticket to hang off, so the material record is created
- * first — but the material record HOLDS NO POINTER. The sha256 lives on the
+ * first — but the material record HOLDS NO POINTER. The address lives on the
  * attachment record, and `attach` writes the blob before it. So the two things a
  * crash can leave are a material with no bytes (visible, honest, sweepable) and a
  * blob with no record (collected). Neither is a record naming absent bytes, which
