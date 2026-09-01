@@ -5,10 +5,10 @@ type: request
 title: 'Capture in workerd: a ReferenceStore port, with the filesystem behind it'
 created_by: xgd
 created_at: '2026-08-20T23:16:33.604977+00:00'
-updated_at: '2026-09-01T18:57:59.966602+00:00'
+updated_at: '2026-09-01T19:02:00.229457+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 13
