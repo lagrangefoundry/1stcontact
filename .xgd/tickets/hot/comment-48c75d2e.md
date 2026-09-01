@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T18:53:45.110426+00:00'
+updated_at: '2026-09-01T18:56:10.509921+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -214,5 +214,27 @@ Say the word and I'll correct that paragraph to the measured numbers — but tel
 <!-- xgd-chat role="user" ts="2026-09-01T18:53:44.749810+00:00" -->
 #### You
 PLease fix the ticket
+
+<!-- xgd-turn id="ac1a4642-6e8d-4ccc-9ef4-86c620413fe4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:56:09.652065+00:00" -->
+#### Claude
+Two corrections to make: the size section (§3) and a proxy note in Q1. Let me write them as anchored replacements.
+
+The marker count checks out (4 frontmatter fields; the other grep hits are prose mentions). The `doc_kind` census also sharpens the ceiling argument — let me make that concrete.
+
+Ticket body updated — three edits, prose only, frontmatter untouched (`git diff` shows 63 insertions / 12 deletions with no `status`/`version`/`commits` lines).
+
+**§3, the size argument** — replaced the 1.9 MiB projection with measurements: 1052 KiB gzip at `KB = null`, 1341 KiB with the corpus, and the `kb.js` module measured directly at 520,730 raw / 294,767 gzip against 107,305 bytes of markdown. Added the explanation that was missing the first time — 228,864 bytes of float32 (`145 chunks × 384 × 4` plus `4 docs × 384 × 4`) base64s to 305 KB of near-random text that gzip can only shrink back to ~223 KiB, so ~78% of the compressed payload is incompressible vectors and size tracks chunk count rather than text volume. The extrapolation is corrected to **~2.7 MiB, 3.6× headroom**, and the section now states plainly that the earlier 1.9 MiB figure was optimistic by ~40%. My "one order of magnitude rather than two" line is gone; it was wrong in both halves and isn't in the ticket.
+
+**The corpus paragraph** — the old "37 documents, 640 KB" was stale in a way that mattered. There are 39 doc tickets, but a `doc_kind` census shows only **4** carry `system_kb` and **29** are `architecture`, which DOC-39 §3.1 excludes. So the ~2.7 MiB figure is a pessimistic ceiling, not a forecast, and the paragraph now says so. It also records that `1c kb build` has run — `index/`, `chunks/` and `awareness.md` exist — so item 1 is satisfied for the marked subset.
+
+**Q1** — added the proxy blocker: undici ignores proxy env vars and reports every transport failure as the same opaque `fetch failed` with the errno only on `err.cause`, so `curl` succeeding proved nothing about the token. `NODE_USE_ENV_PROXY=1` (Node 24+) fixes it. I marked the embedder's error-path defect **explicitly out of scope** so reconcile doesn't expect code for it — that phrasing is deliberate; left unqualified it would read as a requirement and get treated as drift.
+
+Two things to flag:
+
+**The status moved on its own.** At 11:21 it read `ready_to_reconcile`; it now reads `free_coded`, and that demotion is in HEAD, not in my working tree. Something moved it backward between my two reads. That's the safer state for a body edit, so the concern I raised last turn no longer applies — but you may want to know why it was returned.
+
+**The edit is uncommitted.** I wrote the file directly rather than going through `xgd`, so there's no `xgd(ticket): update` commit like the ones in your recent history. Want me to commit it, or would you rather round-trip it through `xgd ticket update` so the tooling records it the usual way?
 
 <!-- xgd-chat-end -->
