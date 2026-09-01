@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-160
 created_by: xgd
 created_at: '2026-09-01T18:30:41.623877+00:00'
-updated_at: '2026-09-01T19:13:02.128859+00:00'
+updated_at: '2026-09-01T19:33:35.321966+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,13 @@ Implementation order from here: archive switch → project KB into the chat host
 Two things still open, neither blocking — I'll proceed on my stated assumptions unless you say otherwise:
 - **Existing R2 transcripts** at `chat/<tenant>/<session>.md` — I'm assuming nothing in production is worth migrating and I'll let them orphan.
 - **The chat-summary writer** — I'm assuming a separate ticket, which I'll file when you confirm (you've told me not to create 1stcontact tickets unasked).
+
+<!-- xgd-turn id="621bf585-8b9e-444b-a241-afafa617495d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:33:35.203829+00:00" -->
+#### You
+Please create a ticket for reviewing the session creation prompts and turn reminders - this is where the summary will be generated.
+
+Please proceed with the implementation we are aligned
 
 <!-- xgd-chat-end -->
