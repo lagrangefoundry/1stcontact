@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T00:19:26.014590+00:00'
+updated_at: '2026-09-01T00:35:10.202934+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -49,5 +49,21 @@ Nothing is written yet; I'll cut `free-REQ-158` and start once you've answered 1
 <!-- xgd-chat role="user" ts="2026-09-01T00:19:25.695410+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="98901093-b2ee-47ef-ace4-dd52de62931d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:35:09.777908+00:00" -->
+#### You
+**Q1 — creds: yes, and here's exactly what's needed.** `CLOUDFLARE_ACCOUNT_ID` plus a `CLOUDFLARE_API_TOKEN` with **Account → Workers AI → Read** — that's the permission that authorises `/accounts/{id}/ai/run/@cf/baai/bge-small-en-v1.5`. No Anthropic key needed; the map's paragraphs go through the Claude Code CLI when `ANTHROPIC_API_KEY` is unset. I verified `api.cloudflare.com` is reachable from here.
+
+One thing blocks the build regardless of the key: **the **`1c`** CLI doesn't boot in this checkout.** `1c kb status` dies on `Cannot find module 'unpdf'` — REQ-163 added the dependency and this tree never installed it. `pnpm install --frozen-lockfile` refuses non-interactively because it wants to purge `node_modules` first. It needs `CI=true pnpm install --frozen-lockfile`, which removes and rebuilds the tree — your call, so I didn't run it.
+
+**Q2 — generated, not committed; the catch dissolves.** GitHub Actions is not a live deploy path: `deploy.yml` has run **once, on 2026-08-02, and failed after 7 seconds**, and has never successfully deployed anything. `bin/deploy` is the real path, and `bin/build` runs `1c assets` before the typecheck for exactly this reason. Committing would fight two stated rules — both `generated/` and `kb/system/` are gitignored, and `bin/build` says outright that a checked-in generator output is a second definition site BUG-32's scan fails on. So `generated/kb.js`, always written, `export const KB = null` when absent. I flagged two follow-ups: a missing KB must be loud at deploy time, and `deploy.yml` should be fixed or deleted rather than left as a trap.
+
+**Q3 — take the proposal.** It already has precedent: `tests/support/stub-embedder.ts` plus REQ-159's and REQ-163's workerd tests do exactly this. Don't gate a real-corpus variant behind an env var — a test that never runs in CI isn't one. I added that the fixture UAT must assert all three parts: answer from the planted document, names it, and priming put the map in the session.
+
+**Q4 — neither hard-code nor invent config.** REQ-159 already added `kb/knowledge_bases.json`, and it already declares `system` beside `project`. Mirror `projectKb()` with a `systemKb()` parsing the same file — following the rule that function records, *parsed, not paraphrased*.
+
+There's an API key in the env, it has permissions to get the account id
 
 <!-- xgd-chat-end -->
