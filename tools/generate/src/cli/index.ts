@@ -174,9 +174,18 @@ export {
   decodeImage,
   decodeImageBytes,
   cropRaster,
+  extractRect,
   writeRasterPng,
   formatDiffReport,
 } from './perceptual'
+/**
+ * The codec, exported in its own right (REQ-156).
+ *
+ * `decodeImage` and friends are the *filesystem* spelling of these, and a caller
+ * that already holds bytes — a Worker reading a screenshot out of R2, most of
+ * all — should not have to reach through a file-shaped seam to decode them.
+ */
+export { decodePng, encodePng, pngDimensions, sniffImageFormat, UnsupportedImageError, PngFeatureError, PngCorruptError } from './png'
 export type {
   DiffOptions,
   DiffTuning,

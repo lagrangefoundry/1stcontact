@@ -374,14 +374,19 @@ describe('story-e15a19ef — both install faults arrive in a single refusal', ()
     const bullets = err.message.split('\n').filter((l) => l.trim().startsWith('- '))
     expect(bullets).toHaveLength(2)
     expect(err.message).toContain('playwright')
-    expect(err.message).toContain('sharp')
     expect(err.message).toContain(LOCKFILE_REL)
     expect(err.message).toContain('does not match the snapshot pnpm wrote at last install')
 
-    const report = checkInstall({ repoRoot: both, required: ['playwright', 'sharp'], resolve: resolves() })
+    // `1c diff` is gated on one package since REQ-156 removed `sharp`, so the
+    // two bullets above are one missing dep and the drift. That a *set* of
+    // missing packages still arrives as one bullet list is the separable claim,
+    // and `checkInstall` takes its `required` list directly — so it is asserted
+    // here against two genuinely declared packages rather than by wishing a
+    // second dependency back onto the command.
+    const report = checkInstall({ repoRoot: both, required: ['playwright', 'vite'], resolve: resolves() })
     expect(report.ok).toBe(false)
     expect(report.findings.map((f) => f.kind).sort()).toEqual(['lockfile-drift', 'missing-dep'])
-    expect(report.findings.find((f) => f.kind === 'missing-dep')?.packages).toEqual(['playwright', 'sharp'])
+    expect(report.findings.find((f) => f.kind === 'missing-dep')?.packages).toEqual(['playwright', 'vite'])
 
     // Both facts also survive into the machine-readable envelope, so a scripted
     // caller learns the whole state of the tree from one run too.
@@ -440,9 +445,13 @@ describe('story-e15a19ef — the refusal travels the CLI failure contract', () =
       // The envelope is a promise to a *caller of the binary*, and the fault it
       // most has to survive is the one where the missing package is missing for
       // real. In-process, the CLI module is already loaded and cannot express
-      // that; through the binary it can. `sharp` here rather than `playwright`
-      // so both gated dependencies are covered across the two entry-point UATs.
-      const res = runBinWithout(['sharp'], ['crop', '--input', 'nope.png', '--box', '0,0,1,1', '--json'])
+      // that; through the binary it can.
+      //
+      // This drove `1c crop` without `sharp` until REQ-156, which replaced the
+      // native codec and left `crop` ungated — there is no longer a package it
+      // can be missing. `playwright` is now the only gated dependency there is,
+      // so the binary is driven at `diff`, which loads it.
+      const res = runBinWithout(['playwright'], ['diff', '--ref', 'nope', '--actual', 'nope.png', '--json'])
 
       expect(res.code).toBe(EXIT_CODES.ENVIRONMENT)
       // Exactly one document on stdout, and it is the standard failure envelope.
@@ -452,8 +461,8 @@ describe('story-e15a19ef — the refusal travels the CLI failure contract', () =
       }
       expect(envelope.ok).toBe(false)
       expect(envelope.error.code).toBe('ENVIRONMENT')
-      expect(envelope.error.message).toContain("'1c crop' cannot run")
-      expect(envelope.error.message).toContain('sharp')
+      expect(envelope.error.message).toContain("'1c diff' cannot run")
+      expect(envelope.error.message).toContain('playwright')
       expect(envelope.error.hint).toContain(INSTALL_COMMAND)
     },
     240_000,
@@ -469,28 +478,30 @@ describe('story-e15a19ef — the gate is scoped to what each command loads', () 
     lockfiles(installed, LOCK, LOCK)
 
     const onlyBrowser = { repoRoot: installed, resolve: resolves('playwright') }
-    const onlyImaging = { repoRoot: installed, resolve: resolves('sharp') }
+    // A tree with NEITHER gated package — REQ-156 removed `sharp`, so what used
+    // to be "the imaging half is present" is now simply "nothing is".
+    const nothing = { repoRoot: installed, resolve: resolves() }
 
-    // The browser-driving verbs are gated on the browser dependency only: they
-    // run on a tree with no `sharp`, and refuse naming `playwright` without it.
+    // The browser-driving verbs are gated on the browser dependency, and on it
+    // alone: they run wherever `playwright` resolves and refuse naming it where
+    // it does not.
     for (const command of ['capture', 'shot', 'values-diff', 'adopt-gaps']) {
       expect(() => assertInstall(command, onlyBrowser), command).not.toThrow()
-      expect(refusalOf(command, onlyImaging).message, command).toContain('playwright')
-      expect(refusalOf(command, onlyImaging).message, command).not.toContain("'sharp'")
+      expect(refusalOf(command, nothing).message, command).toContain('playwright')
     }
 
-    // `1c crop` decodes an image and never opens a browser: the imaging
-    // dependency only, so a tree without playwright does not block it.
-    expect(() => assertInstall('crop', onlyImaging)).not.toThrow()
-    expect(refusalOf('crop', onlyBrowser).message).toContain('sharp')
-    expect(refusalOf('crop', onlyBrowser).message).not.toContain("'playwright'")
+    // `1c crop` decodes an image and never opens a browser, and since REQ-156 it
+    // decodes with this repo's own codec — so there is no package left for it to
+    // be missing and it is not gated at all, even on a tree with nothing
+    // installed. Gating it could now only produce a refusal with no remedy.
+    expect(() => assertInstall('crop', nothing)).not.toThrow()
+    expect(() => assertInstall('crop', onlyBrowser)).not.toThrow()
 
-    // The verbs that need both eyes refuse when *either* is absent, naming the
-    // one that is missing.
+    // The pixel-comparing verbs used to need both eyes. They need the browser.
     for (const command of ['diff', 'gate', 'aligned-crops']) {
-      expect(() => assertInstall(command, { repoRoot: installed, resolve: resolves('playwright', 'sharp') }), command).not.toThrow()
-      expect(refusalOf(command, onlyBrowser).message, command).toContain('sharp')
-      expect(refusalOf(command, onlyImaging).message, command).toContain('playwright')
+      expect(() => assertInstall(command, onlyBrowser), command).not.toThrow()
+      expect(refusalOf(command, nothing).message, command).toContain('playwright')
+      expect(refusalOf(command, nothing).message, command).not.toContain("'sharp'")
     }
 
     // The offline verbs read and write files only. On a tree with neither
@@ -523,12 +534,12 @@ describe('story-e15a19ef — the gate is scoped to what each command loads', () 
 
     // The gated set is pinned as a whole: adding a command that launches a
     // browser without gating it is a visible failure here, rather than a silent
-    // reopening of the gap this guarantee closed.
+    // reopening of the gap this guarantee closed. `crop` left the set under
+    // REQ-156, which removed `sharp` — the one gated dependency it had.
     expect(Object.keys(COMMAND_DEPS).sort()).toEqual([
       'adopt-gaps',
       'aligned-crops',
       'capture',
-      'crop',
       'diff',
       'gate',
       'shot',

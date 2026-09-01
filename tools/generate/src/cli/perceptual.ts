@@ -24,290 +24,55 @@ import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import type { BrowserDriverFactory } from './capture'
 import { ladderScreenshotPath } from '../store/fs-reference-store'
 import type { RenderChannel } from '../store'
-
-// ── geometry ─────────────────────────────────────────────────────────────────
-
-/** A region bounding box in cropped-image pixel coords (contract shape: w/h). */
-export interface RegionBox {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-/** A decoded raster: max-channel diffing needs only RGB; alpha is ignored. */
-export interface Raster {
-  data: Uint8Array
-  width: number
-  height: number
-  channels: number
-}
-
-// ── tuning ───────────────────────────────────────────────────────────────────
-
-export interface DiffTuning {
-  /** Grid cell size for block-averaging + region derivation (px, default 16). */
-  blockPx?: number
-  /** Per-pixel max-channel diff (0..255) above which a pixel is "over threshold". */
-  pixelThreshold?: number
-  /** Block-average (0..255) above which a cell seeds a region (default 24). */
-  blockThreshold?: number
-  /** Horizontal bands in the profile (default 16). */
-  bands?: number
-  /** Keep the top-N regions by score (default 12). */
-  topN?: number
-  /** Pixels of pad applied around each region bbox, clamped to image (default 0). */
-  padPx?: number
-}
-
-const DEFAULTS: Required<DiffTuning> = {
-  blockPx: 16,
-  pixelThreshold: 32,
-  blockThreshold: 24,
-  bands: 16,
-  topN: 12,
-  padPx: 0,
-}
-
-// ── report shapes ─────────────────────────────────────────────────────────────
-
-export interface DiffRegion {
-  id: number
-  bbox: RegionBox
-  /** Sum of block-average diffs across the cluster — ranks large-faint ≈ small-intense. */
-  score: number
-  /** score / cellCount — the region's average intensity (0..255). */
-  meanDiff: number
-  /** bbox area in px². */
-  area: number
-}
-
-export interface CoreDiffResult {
-  dims: { w: number; h: number }
-  blockPx: number
-  /** Mean per-pixel max-channel diff on a 0..255 scale (contract's `meanDiff`). */
-  meanDiff: number
-  /** Percentage (0..100) of pixels whose diff exceeds `pixelThreshold`. */
-  pctOverThreshold: number
-  /** Per-band mean diff (0..255), top→bottom. */
-  bands: number[]
-  /** Percentage (0..100) of *blocks* whose average exceeds `pixelThreshold`. */
-  blockPctOverThreshold: number
-  /** Ranked regions of interest (no crop paths — the command layer writes those). */
-  regions: DiffRegion[]
-  /** Internal: per-pixel diff raster (0..255), row-major, for heatmap + crops. */
-  diffData: Uint8Array
-  /** Internal: block grid averages (0..255), row-major over gridW×gridH. */
-  blocks: Float64Array
-  gridW: number
-  gridH: number
-}
-
-// ── core diff (pure — no I/O, no browser) ──────────────────────────────────────
+import { decodePng, encodePng } from './png'
+import {
+  computeDiff,
+  cropRaster,
+  deriveRegions,
+  extractRect,
+  round,
+  type CoreDiffResult,
+  type DiffRegion,
+  type DiffTuning,
+  type Raster,
+  type RegionBox,
+} from './perceptual-core'
 
 /**
- * Diff two equal-dimension rasters. Per-pixel signal is the **max absolute
- * channel difference** (max-channel); block-averaging de-noises sub-pixel
- * registration jitter before regions are derived.
+ * The core is re-exported from here so REQ-156's split is invisible to callers.
+ * `cli/index.ts` and the suites import these names from `perceptual`, and the
+ * point of moving the arithmetic was to let workerd reach it — not to make every
+ * existing importer chase it.
  */
-export function computeDiff(ref: Raster, actual: Raster, tuning: DiffTuning = {}): CoreDiffResult {
-  const t = { ...DEFAULTS, ...stripUndefined(tuning) }
-  if (ref.width !== actual.width || ref.height !== actual.height) {
-    throw new Error(
-      `computeDiff needs equal dimensions; got ${ref.width}×${ref.height} vs ${actual.width}×${actual.height}. Crop first.`,
-    )
-  }
-  const width = ref.width
-  const height = ref.height
-  const n = width * height
-  const diffData = new Uint8Array(n)
-
-  let sum = 0
-  let over = 0
-  const rc = ref.channels
-  const ac = actual.channels
-  for (let i = 0; i < n; i++) {
-    const rr = ref.data[i * rc]
-    const rg = ref.data[i * rc + 1]
-    const rb = ref.data[i * rc + 2]
-    const ar = actual.data[i * ac]
-    const ag = actual.data[i * ac + 1]
-    const ab = actual.data[i * ac + 2]
-    const d = Math.max(Math.abs(rr - ar), Math.abs(rg - ag), Math.abs(rb - ab))
-    diffData[i] = d
-    sum += d
-    if (d > t.pixelThreshold) over++
-  }
-  const meanDiff = sum / n
-  const pctOverThreshold = (over / n) * 100
-
-  // Horizontal-band profile (top→bottom): mean diff within each band's rows.
-  const bandCount = Math.max(1, t.bands)
-  const bands: number[] = new Array(bandCount).fill(0)
-  for (let b = 0; b < bandCount; b++) {
-    const y0 = Math.floor((b * height) / bandCount)
-    const y1 = Math.floor(((b + 1) * height) / bandCount)
-    let bs = 0
-    const rows = Math.max(1, y1 - y0)
-    for (let y = y0; y < y1; y++) {
-      const base = y * width
-      for (let x = 0; x < width; x++) bs += diffData[base + x]
-    }
-    bands[b] = bs / (rows * width)
-  }
-
-  // Block-average the diff into a gridW×gridH grid (de-noise + region seeds).
-  const block = Math.max(1, t.blockPx)
-  const gridW = Math.ceil(width / block)
-  const gridH = Math.ceil(height / block)
-  const blocks = new Float64Array(gridW * gridH)
-  let blocksOver = 0
-  for (let gy = 0; gy < gridH; gy++) {
-    const y0 = gy * block
-    const y1 = Math.min(height, y0 + block)
-    for (let gx = 0; gx < gridW; gx++) {
-      const x0 = gx * block
-      const x1 = Math.min(width, x0 + block)
-      let s = 0
-      let cnt = 0
-      for (let y = y0; y < y1; y++) {
-        const base = y * width
-        for (let x = x0; x < x1; x++) {
-          s += diffData[base + x]
-          cnt++
-        }
-      }
-      const avg = cnt > 0 ? s / cnt : 0
-      blocks[gy * gridW + gx] = avg
-      if (avg > t.pixelThreshold) blocksOver++
-    }
-  }
-  const blockPctOverThreshold = (blocksOver / (gridW * gridH)) * 100
-
-  const regions = deriveRegions(blocks, gridW, gridH, block, width, height, t)
-
-  return {
-    dims: { w: width, h: height },
-    blockPx: block,
-    meanDiff,
-    pctOverThreshold,
-    bands,
-    blockPctOverThreshold,
-    regions,
-    diffData,
-    blocks,
-    gridW,
-    gridH,
-  }
+export {
+  computeDiff,
+  cropRaster,
+  deriveRegions,
+  extractRect,
+  type CoreDiffResult,
+  type DiffRegion,
+  type DiffTuning,
+  type Raster,
+  type RegionBox,
 }
 
-/**
- * Derive regions of interest, "the simple definition": threshold the block grid,
- * flood-fill surviving cells (4-connectivity) into connected components, and
- * turn each component into a padded bbox + a score = Σ block-average over its
- * cells. Ranked by score descending, capped at `topN`.
- */
-export function deriveRegions(
-  blocks: Float64Array,
-  gridW: number,
-  gridH: number,
-  block: number,
-  width: number,
-  height: number,
-  tuning: DiffTuning = {},
-): DiffRegion[] {
-  const t = { ...DEFAULTS, ...stripUndefined(tuning) }
-  const seen = new Uint8Array(gridW * gridH)
-  const clusters: { cells: number[]; minC: number; maxC: number; minR: number; maxR: number; score: number }[] = []
-
-  for (let start = 0; start < blocks.length; start++) {
-    if (seen[start] || blocks[start] <= t.blockThreshold) continue
-    // BFS flood-fill this component (4-connected).
-    const cells: number[] = []
-    let minC = gridW
-    let maxC = 0
-    let minR = gridH
-    let maxR = 0
-    let score = 0
-    const queue = [start]
-    seen[start] = 1
-    while (queue.length) {
-      const idx = queue.pop() as number
-      const c = idx % gridW
-      const r = (idx - c) / gridW
-      cells.push(idx)
-      score += blocks[idx]
-      if (c < minC) minC = c
-      if (c > maxC) maxC = c
-      if (r < minR) minR = r
-      if (r > maxR) maxR = r
-      const neigh = [
-        r > 0 ? idx - gridW : -1,
-        r < gridH - 1 ? idx + gridW : -1,
-        c > 0 ? idx - 1 : -1,
-        c < gridW - 1 ? idx + 1 : -1,
-      ]
-      for (const ni of neigh) {
-        if (ni >= 0 && !seen[ni] && blocks[ni] > t.blockThreshold) {
-          seen[ni] = 1
-          queue.push(ni)
-        }
-      }
-    }
-    clusters.push({ cells, minC, maxC, minR, maxR, score })
-  }
-
-  clusters.sort((a, b) => b.score - a.score)
-  const kept = clusters.slice(0, t.topN)
-
-  return kept.map((cl, i) => {
-    const rawX = cl.minC * block
-    const rawY = cl.minR * block
-    const rawW = (cl.maxC - cl.minC + 1) * block
-    const rawH = (cl.maxR - cl.minR + 1) * block
-    const x = Math.max(0, rawX - t.padPx)
-    const y = Math.max(0, rawY - t.padPx)
-    const w = Math.min(width - x, rawW + t.padPx * 2 + (rawX - x))
-    const h = Math.min(height - y, rawH + t.padPx * 2 + (rawY - y))
-    return {
-      id: i + 1,
-      bbox: { x, y, w, h },
-      score: round(cl.score),
-      meanDiff: round(cl.score / cl.cells.length),
-      area: w * h,
-    }
-  })
-}
-
-// ── image codec (sharp) ────────────────────────────────────────────────────────
+// ── image I/O (the shell around the codec) ────────────────────────────────────
 
 /**
- * `sharp` is loaded on first use, never at module scope (REQ-44).
+ * These four wrap {@link decodePng} / {@link encodePng} with the filesystem, and
+ * that is the ONLY thing they add.
  *
- * This module is reachable from the CLI's own module graph, so a static
- * `import sharp from 'sharp'` makes *every* `1c` verb — including the offline
- * ones the preflight deliberately leaves ungated — fail at load time when the
- * package is not installed. That load happens strictly before dispatch, so it
- * also pre-empts {@link assertInstall}: the operator gets a raw
- * `Cannot find module 'sharp'` at exit 1 instead of the `ENVIRONMENT` refusal
- * naming `pnpm install`, which is precisely the failure REQ-44 exists to
- * replace. Deferring the load to the first call keeps the check reachable.
- *
- * The same pattern as `capture/playwright-driver.ts`. Cached, so the repeated
- * calls a diff makes pay the resolution cost once.
+ * Before REQ-156 they wrapped `sharp`, and they carried a deferred `await
+ * import('sharp')` apiece so that a missing native module could not crash `1c`
+ * at load time and pre-empt the REQ-44 preflight refusal. The codec is now part
+ * of this repo, so there is no install to be missing, no load to defer, and no
+ * refusal to protect — the lazy loader and its explanation are gone with the
+ * dependency that needed them.
  */
-type SharpFactory = typeof import('sharp').default
-let sharpModule: SharpFactory | undefined
-async function loadSharp(): Promise<SharpFactory> {
-  sharpModule ??= (await import('sharp')).default
-  return sharpModule
-}
 
-/** Decode a PNG (or any sharp-readable image) file into a {@link Raster}. */
+/** Decode a PNG file into a {@link Raster}. */
 export async function decodeImage(file: string): Promise<Raster> {
-  const sharp = await loadSharp()
-  const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true })
-  return { data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength), width: info.width, height: info.height, channels: info.channels }
+  return decodePng(new Uint8Array(readFileSync(file)), file)
 }
 
 /**
@@ -316,53 +81,20 @@ export async function decodeImage(file: string): Promise<Raster> {
  * perceptual backstop, which diffs engine screenshots it never writes to disk.
  */
 export async function decodeImageBytes(bytes: Uint8Array): Promise<Raster> {
-  const sharp = await loadSharp()
-  const { data, info } = await sharp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-  return {
-    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
-    width: info.width,
-    height: info.height,
-    channels: info.channels,
-  }
+  return decodePng(bytes, 'screenshot')
 }
 
 /** Encode an RGB/RGBA raster to a PNG file (fixture + diagnostic helper). */
 export async function writeRasterPng(src: Raster, outFile: string): Promise<string> {
-  const sharp = await loadSharp()
-  const channels = src.channels as 1 | 2 | 3 | 4
-  const png = await sharp(Buffer.from(src.data.buffer, src.data.byteOffset, src.data.byteLength), {
-    raw: { width: src.width, height: src.height, channels },
-  })
-    .png()
-    .toBuffer()
+  const png = await encodePng(src)
   mkdirSync(path.dirname(outFile), { recursive: true })
   writeFileSync(outFile, png)
   return outFile
 }
 
-/** Top-left-anchored crop of a decoded raster to (w×h) — returns a new Raster. */
-export function cropRaster(src: Raster, w: number, h: number): Raster {
-  if (w === src.width && h === src.height) return src
-  const c = src.channels
-  const out = new Uint8Array(w * h * c)
-  for (let y = 0; y < h; y++) {
-    const srcBase = y * src.width * c
-    const dstBase = y * w * c
-    out.set(src.data.subarray(srcBase, srcBase + w * c), dstBase)
-  }
-  return { data: out, width: w, height: h, channels: c }
-}
-
 /** Encode a 0..255 grayscale raster (row-major, `width`×`height`) to a PNG file. */
 async function writeGrayPng(values: Uint8Array, width: number, height: number, outFile: string): Promise<void> {
-  const sharp = await loadSharp()
-  const png = await sharp(Buffer.from(values.buffer, values.byteOffset, values.byteLength), {
-    raw: { width, height, channels: 1 },
-  })
-    .png()
-    .toBuffer()
+  const png = await encodePng({ data: values, width, height, channels: 1 })
   writeFileSync(outFile, png)
 }
 
@@ -381,20 +113,15 @@ export interface CropOptions {
 export async function cmdCrop(opts: CropOptions): Promise<{ outFile: string; box: RegionBox }> {
   const { input, box } = opts
   if (!existsSync(input)) throw new Error(`crop: input image not found: ${input}`)
-  const sharp = await loadSharp()
-  const meta = await sharp(input).metadata()
-  const iw = meta.width ?? 0
-  const ih = meta.height ?? 0
-  // Clamp the box to the image so an over-reaching bbox never throws.
-  const left = clamp(box.x, 0, Math.max(0, iw - 1))
-  const top = clamp(box.y, 0, Math.max(0, ih - 1))
-  const width = clamp(box.w, 1, iw - left)
-  const height = clamp(box.h, 1, ih - top)
-  const outFile = path.resolve(opts.out ?? defaultCropName(input, { x: left, y: top, w: width, h: height }))
-  const png = await sharp(input).extract({ left, top, width, height }).png().toBuffer()
+  // Decoded whole rather than windowed: `sharp` could seek to the box, but PNG
+  // filters each row against the one above it, so there is no row to reconstruct
+  // without reconstructing every row before it. The window is taken afterwards.
+  const src = await decodePng(new Uint8Array(readFileSync(input)), `crop: ${input}`)
+  const { raster, box: clamped } = extractRect(src, box)
+  const outFile = path.resolve(opts.out ?? defaultCropName(input, clamped))
   mkdirSync(path.dirname(outFile), { recursive: true })
-  writeFileSync(outFile, png)
-  return { outFile, box: { x: left, y: top, w: width, h: height } }
+  writeFileSync(outFile, await encodePng(raster))
+  return { outFile, box: clamped }
 }
 
 // ── the diff command ───────────────────────────────────────────────────────────
@@ -582,20 +309,6 @@ export function formatDiffReport(report: PerceptualDiffReport): string {
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
-
-function stripUndefined<T extends object>(o: T): Partial<T> {
-  const out: Partial<T> = {}
-  for (const k of Object.keys(o) as (keyof T)[]) if (o[k] !== undefined) out[k] = o[k]
-  return out
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v))
-}
-
-function round(v: number): number {
-  return Math.round(v * 100) / 100
-}
 
 function defaultCropName(input: string, box: RegionBox): string {
   const ext = path.extname(input)

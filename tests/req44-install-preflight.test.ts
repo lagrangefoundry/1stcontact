@@ -187,28 +187,35 @@ describe('REQ-44 — the gate on commands', () => {
   })
 
   it('test_UAT_FC_REQ-44_each_command_requires_only_what_it_loads', () => {
-    // `1c crop` decodes an image and never opens a browser; the diff verbs need
-    // both eyes. Each gate is the command's actual load set.
+    // Each gate is the command's actual load set — which REQ-156 shrank to one
+    // package. `sharp` was the imaging half and is gone; the codec is ordinary
+    // source now, so `1c crop` loads nothing that can be absent and is not gated
+    // at all, while the diff verbs are gated on the browser alone.
     lockfiles(LOCK, LOCK)
-    expect(() => assertInstall('crop', { repoRoot: root, resolve: resolves('sharp') })).not.toThrow()
+    expect(() => assertInstall('crop', { repoRoot: root, resolve: resolves() })).not.toThrow()
     expect(() => assertInstall('shot', { repoRoot: root, resolve: resolves('playwright') })).not.toThrow()
-    expect(() => assertInstall('diff', { repoRoot: root, resolve: resolves('sharp') })).toThrow(/playwright/)
-    expect(() => assertInstall('diff', { repoRoot: root, resolve: resolves('playwright') })).toThrow(/sharp/)
+    expect(() => assertInstall('diff', { repoRoot: root, resolve: resolves('playwright') })).not.toThrow()
+    expect(() => assertInstall('diff', { repoRoot: root, resolve: resolves() })).toThrow(/playwright/)
   })
 
   it('test_UAT_FC_REQ-44_gated_set_is_exactly_the_browser_and_imaging_verbs', () => {
     // Pinned as a set: adding a command that launches a browser without adding it
     // here silently reopens the hole this ticket closed.
+    //
+    // `crop` LEFT THE SET under REQ-156, which replaced `sharp` with a PNG codec
+    // written into this repo. It opens no browser, so `sharp` was its only entry;
+    // with nothing left that can be absent, a gate on it could only ever produce
+    // a false refusal. Every remaining member is here for `playwright`.
     expect(Object.keys(COMMAND_DEPS).sort()).toEqual([
       'adopt-gaps',
       'aligned-crops',
       'capture',
-      'crop',
       'diff',
       'gate',
       'shot',
       'values-diff',
     ])
+    expect([...new Set(Object.values(COMMAND_DEPS).flat())]).toEqual(['playwright'])
   })
 
   it('test_UAT_FC_REQ-44_this_repos_own_install_is_healthy', () => {
@@ -216,7 +223,7 @@ describe('REQ-44 — the gate on commands', () => {
     // would have failed on the day the bug was found. It is also the guard that
     // keeps the synthetic seams above honest: they can only test the logic, not
     // that the logic is pointed at the right files.
-    const report = checkInstall({ repoRoot: process.cwd(), required: ['playwright', 'sharp'] })
+    const report = checkInstall({ repoRoot: process.cwd(), required: ['playwright'] })
     expect(report.findings).toEqual([])
   })
 })

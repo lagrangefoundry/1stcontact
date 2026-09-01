@@ -13,13 +13,15 @@
  * + the value-diff deltas in that window) for the AI to view and rule perceptible /
  * not, per the good-enough criteria (structural gate + per-aligned-element perceptual
  * gate). The pure logic (anchor pick, pairing, crop windows) is unit-testable; the
- * browser + sharp IO is the orchestrator.
+ * browser + image IO is the orchestrator.
  */
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { cmdRender } from './commands'
 import { startServe } from './serve'
 import type { GlobalOptions } from './commands'
+import { decodePng, encodePng, pngDimensions } from './png'
+import { extractRect } from './perceptual-core'
 
 /** `{x,y,width,height}` in document (CSS) pixels at the target viewport. */
 export interface Box {
@@ -131,36 +133,49 @@ function refScreenshot(bundleDir: string, viewportWidth: number): string {
 }
 
 /**
- * `playwright` and `sharp` are loaded on first use, never at module scope
- * (REQ-44).
+ * `playwright` is loaded on first use, never at module scope (REQ-44).
  *
  * `cli/index.ts` imports this module to dispatch `1c aligned-crops`, so a static
  * import here is a load-time dependency for *every* verb — and it resolves
  * before dispatch, so it fires ahead of {@link assertInstall} and replaces the
  * `ENVIRONMENT` refusal that names `pnpm install` with a raw
  * `Cannot find module` crash at exit 1. That is the failure REQ-44 was filed to
- * remove, so the gate must be reachable first: the packages load only once the
- * command that needs them actually runs. Same pattern as
+ * remove, so the gate must be reachable first: the package loads only once the
+ * command that needs it actually runs. Same pattern as
  * `capture/playwright-driver.ts`.
+ *
+ * `sharp` used to be loaded beside it for the same reason. REQ-156 replaced it
+ * with this repo's own PNG codec, which is ordinary source and therefore just an
+ * ordinary static import — there is no install left to be missing.
  */
 async function loadPlaywright(): Promise<typeof import('playwright')> {
   return await import('playwright')
 }
-async function loadSharp(): Promise<typeof import('sharp').default> {
-  return (await import('sharp')).default
-}
 
-/** Clamp a crop rect to the image so a bottom-edge window never overruns. */
-async function cropTo(srcPng: string | Buffer, left: number, top: number, width: number, height: number, out: string): Promise<void> {
-  const sharp = await loadSharp()
-  const img = sharp(srcPng)
-  const meta = await img.metadata()
-  const iw = meta.width ?? width
-  const ih = meta.height ?? top + height
-  const w = Math.min(width, iw - left)
-  const h = Math.min(height, ih - top)
-  if (w <= 0 || h <= 0 || top >= ih) return
-  await sharp(srcPng).extract({ left, top, width: w, height: h }).toFile(out)
+/**
+ * Clamp a crop rect to the image so a bottom-edge window never overruns.
+ *
+ * The rect is clamped by {@link extractRect} against the decoded dimensions, and
+ * a window that starts past the bottom of the image writes NOTHING rather than a
+ * one-pixel sliver — an anchor matched near the end of a short render produces
+ * exactly that, and an empty file is a clearer signal than a stripe.
+ */
+async function cropTo(
+  srcPng: string | Uint8Array,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  out: string,
+): Promise<void> {
+  const bytes = typeof srcPng === 'string' ? new Uint8Array(readFileSync(srcPng)) : srcPng
+  const label = typeof srcPng === 'string' ? `aligned-crops: ${srcPng}` : 'aligned-crops: screenshot'
+  const dims = pngDimensions(bytes, label)
+  if (top >= dims.height || left >= dims.width) return
+  const src = await decodePng(bytes, label)
+  const { raster } = extractRect(src, { x: left, y: top, w: width, h: height })
+  mkdirSync(path.dirname(out), { recursive: true })
+  writeFileSync(out, await encodePng(raster))
 }
 
 export interface AlignedCropsOptions extends GlobalOptions {
