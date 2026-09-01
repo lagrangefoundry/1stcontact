@@ -1036,6 +1036,28 @@ body {
 }
 
 /*
+ * The description reads as prose, because it IS prose (BUG-42).
+ *
+ * `mountFields` builds a scalar read cell as a `<span>`, and the markdown it now
+ * holds is block content — paragraphs, headings, lists. So the cell is made a
+ * block; without that the first paragraph would sit on the label's line and the
+ * rest would spill out of it. The margin rules stop `markdown.css` opening a gap
+ * above the first block and below the last, which would read as the pane having
+ * lost its rhythm rather than as the description having structure.
+ */
+.builder-library__description .fields-value.md-body {
+  display: block;
+}
+
+.builder-library__description .fields-value.md-body > :first-child {
+  margin-top: 0;
+}
+
+.builder-library__description .fields-value.md-body > :last-child {
+  margin-bottom: 0;
+}
+
+/*
  * The upload overlay (REQ-161).
  *
  * FULL-SCREEN AND TRANSLUCENT, over the whole shell rather than over one pane,
