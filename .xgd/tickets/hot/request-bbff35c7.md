@@ -6,9 +6,9 @@ title: 'Session seeding and turn reminders: two-KB priming, the change cursor, a
   the delta channel'
 created_by: xgd
 created_at: '2026-08-30T23:19:07.355942+00:00'
-updated_at: '2026-08-30T23:19:07.355942+00:00'
+updated_at: '2026-09-01T19:12:34.349256+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -69,6 +69,42 @@ it, inlines the new titles, and advances it.
 consumes for indexing; this is that query with a different cursor, and the
 session is a ticket, so it already has somewhere to keep one.
 
+**Except that in the Worker it is not one yet, and that is part of this ticket.**
+`apps/control-app/src/ai.ts` wires an `R2TranscriptArchive` — the transcript is
+an object at `chat/<tenant>/<session>.md` and no `chat` ticket is ever created.
+The component's `TicketSessionArchive` is what [[DOC-10]] §8 specifies: the
+session homed in a `chat` ticket found or created by `fields.session_id`, the
+whole session file in a `chat_transcript` comment on it, the body left for the
+AI-maintained summary, writes compare-and-set. Everything is a ticket, and the
+transcript is not the exception.
+
+The switch is a drop-in and not a port. `TicketStore` already exposes the six
+operations the component's duck-typed `TicketClient` names, with the same
+envelopes, and `productTypePack` already merges `chatSchemas()` — so this is a
+line in `workerHost` and the deletion of a class, not an adapter.
+
+Three things follow, and each is a reason rather than a side effect:
+
+- **The cursor has a home with a lifetime that matches it.** It is per session,
+  and the session is now a ticket, so it is a field on that ticket. It is not
+  derived data beside the index — which is where [[REQ-159]] correctly put the
+  *transcript* cursors, because those are a property of an index pass and not of
+  a conversation.
+- **[[REQ-159]]'s `onTranscriptGrew` gets its caller.** It has none today, for
+  exactly this reason: there is no chat ticket for a transcript to grow on.
+- **Tenancy stops being a convention.** The R2 transcript's isolation is that its
+  key sits outside `draft/` and nothing derives an R2 root from a request. Under
+  the ticket store it is the same information barrier as everything else, bound
+  into the handle by `forTenant`.
+
+The costs are named rather than discovered. The whole session file is rewritten
+per turn — [[DOC-10]] §8.1 accepts this and records the message-granular archive
+as the fix for the day it hurts. A D1 row is bounded where an R2 object is not,
+so a long enough conversation meets a ceiling the R2 archive did not have. And a
+concurrent write now fails loudly on the compare-and-set instead of silently
+losing the later fold, which is the better failure and still one the junction
+serialises upstream.
+
 A change-log *ticket* was considered and rejected ([[DOC-39]] §5.1): rewritten on
 every upload, a compare-and-set contention point, unbounded growth in one body,
 and either polluting the corpus or requiring a predicate everyone remembers. The
@@ -107,9 +143,36 @@ time.
 that changes). The delta is inert without a second KB, which is why this is not
 folded into either.
 
+And on the `knowledge` component, through lagrange-framework REQ-112, for the two
+things the host cannot supply for itself:
+
+- **Co-ranked search over independent per-KB indexes.** The knowledge bases stay
+  independent — separate corpora, separate indexes, separate build cadences — and
+  meet only when results are presented. `search` takes a single `IndexSource`
+  today, so a session declaring two KBs can only search one of them. Merging the
+  two indexes into one artifact would make "independent" false at the layer that
+  matters; re-ranking in the host would be a second answer to how hits are
+  ordered.
+- **The change-feed operation of piece 3**, which has to be declared on the
+  surface to get what declaring buys.
+
+Until they land, seeding and the delta channel are deliverable and search remains
+single-index.
+
 ## Out of scope
 
 - The project KB's corpus, indexing and map triggers — [[REQ-159]].
+- **The chat ticket's AI-maintained summary.** Making the session a ticket does
+  not make the conversation knowledge: the component indexes title and body, the
+  transcript is a comment, and the body is deliberately left alone. So a chat
+  ticket enters the corpus carrying its session id and nothing else until
+  something writes that summary. Named here because [[DOC-39]] §7 leans on chat
+  entries having an AI-written body, and after this ticket they still will not.
+- **The audit trail.** `flushAudit` keeps writing one R2 object per record —
+  distinct keys cannot collide, which is a different trade from a ticket per
+  record and not one this ticket is making.
+- **Node's host.** `1c builder` keeps `FileArchive`; there is no writable ticket
+  store under the CLI to home a session in.
 - Removals. The feed is reliably additive and unreliably subtractive; an archive
   or detach may not surface in an `updated_at >=` sweep. Recorded, not solved.
 
@@ -127,10 +190,27 @@ folded into either.
 - The change-feed operation appears in the projected manual without anyone
   writing prose for it.
 - A resumed session's first turn reports what arrived while the client was away.
+- A turn taken in the Worker leaves a `chat` ticket carrying `session_id`, with
+  the session file in a `chat_transcript` comment on it and the body untouched;
+  the next turn folds onto it rather than minting a second.
+- The session's cursor is a field on that ticket, and it advances by the turn.
 
-## Open questions
+## Decided
 
-- **Cursor semantics across sessions.** Upload in session A, open session B — B
-  sees it as new. Probably right, since B genuinely has not seen it, but it
-  should be decided rather than fall out.
-- The cap's size, and whether it counts entries or characters.
+Both open questions are settled by [[DOC-39]] rather than left to fall out.
+
+- **The cursor starts where the landscape's coverage ends** (§6.3) — concretely,
+  the awareness map's build timestamp, and session start below the enumerate
+  floor where the listing is generated fresh. Not "now": a document uploaded
+  after the last rebuild and before the session opens belongs to neither the map
+  nor a start-of-session cursor, and anchoring on the build time makes the two
+  exactly complementary. This also answers the cross-session case — B has a
+  cursor of its own, so material A saw is new to B only if it postdates B's map.
+- **The cap is characters, ~400, and the count is always exact** (§6.4). A
+  character budget is a hard stop on content, but the number is one integer and
+  is never truncated — so a bulk import reads *"41 documents added, including
+  …"* and the AI has both the magnitude and a sample. Truncating the count would
+  hide the one thing searching cannot recover.
+- **Resumption needs no separate report.** It is identical to initiation (§6.3);
+  the cursor rule above is what makes the first turn after a resume carry what
+  arrived while the client was away.
