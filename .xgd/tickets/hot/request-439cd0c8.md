@@ -5,9 +5,9 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-08-31T23:39:06.860275+00:00'
+updated_at: '2026-09-01T00:11:19.038502+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.2.24
 ---
+
 
 # Ingestion: from a dropped file to an indexed `material` ticket
 
@@ -300,14 +301,53 @@ One existing UAT was extended rather than worked around:
 origin declares to carry the no-store directive, and it failed on the two new
 routes exactly as designed. Both now have probes, in their rejection shape.
 
+## Resolved after implementation (2026-08-31)
+
+Two of the questions left open at hand-off have since been answered. Recorded
+here rather than by deleting them, so what made them questions stays legible.
+
+**Vision moves into the AI component, and the consolidation point is
+lagrange-framework REQ-111 — not [[REQ-157]].** *"Image content on the backend
+surface: the AI component grows eyes"* widens `promptStream`/`prompt` to accept
+content blocks (`{type:'image', mediaType, data}`) behind a declared `vision`
+capability, and it names this ticket as its first consumer with the direct-SDK
+path here as the thing it deletes. So "who owns vision" resolves to the
+component, on exactly the grounds this ticket used to justify the temporary
+duplication: credentials, retry, rate limiting, the audit trail and the current
+model id all live on one path or get copied onto a second.
+
+What changes here when it lands: `anthropicImageDescriber` goes, and the
+`@anthropic-ai/sdk` dependency with it — which also reclaims the +138 KiB the
+measurement above attributes to the SDK. The `DescribeImage` seam itself stays
+exactly as it is; it exists so the UATs do not reach the network, which remains
+true either way. Only the implementation behind it changes.
+
+One follow-up this leaves: the doc comment on `VISION_MODEL`
+(`apps/control-app/src/describe.ts`) still names [[REQ-157]] as the consolidation
+point, and REQ-111 should correct it as part of deleting the function.
+
+**Re-describe splits by field: automatic where there is no description,
+operator-triggered where there is one that could be better.** The two fields
+answer different questions, so a single policy over both would be wrong in one
+direction or the other:
+
+- `description_status` of `no_describer` or `failed` means the material has **no
+  real description** — it is not findable by its contents at all. That is a
+  defect, and repairing it should not wait for someone to notice: a pass over
+  those two predicates re-describes automatically once a key is configured or a
+  transient failure has passed. `no_text`, `unsupported` and `too_large` are not
+  defects — they are honest accounts of what the material is, and re-running them
+  changes nothing.
+- `description_model` naming an older describer means the description is **fine
+  and could be better**. Re-describing a corpus against a new model costs a call
+  per material and rewrites bodies that are not wrong, so it is an operator's
+  decision rather than a background sweep.
+
+Both remain out of scope here, as decided, and both remain a query rather than a
+migration — which was the point of declaring the fields.
+
 ## Open questions
 
-- **Whether `describeImage` should eventually move into the AI component** rather
-  than being consolidated via [[REQ-157]]. Both routes close the duplication; they
-  differ in who owns vision. The bundle measurement above adds a reason to
-  prefer whichever lands sooner.
-- **Whether a re-describe pass is operator-triggered or automatic** once a better
-  model exists. The fields make either possible; nothing chooses yet.
 - **DNS is not resolved before a fetch**, so a hostname that resolves to a
   private address defeats the literal-host check. workerd cannot resolve a name
   before fetching it, so the guard cannot be made complete from inside a Worker.
