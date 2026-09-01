@@ -48,6 +48,7 @@ import {
   markdownReady as defaultMarkdownReady,
   renderSafe,
 } from './markdown.js'
+import { mountReader, readerKind } from './reader.js'
 
 /** Shown in the detail pane before a row is chosen. */
 const EMPTY_DETAIL = 'Pick something on the left, or drop a file here to add one.'
@@ -127,6 +128,11 @@ function el(tag, className, text) {
  * @param {() => string|null} [options.getSite] the site the "used here" badge is about
  * @param {Promise<void>} [options.markdownReady] when the markdown engines have
  *   settled (BUG-42); injected by tests so the cold-load repaint is observable.
+ * @param {() => Element|null} [options.getModalHost] where an expanded reader
+ *   window is appended (REQ-172). A FUNCTION rather than an element, because the
+ *   Library is constructed before the shell hands out its root — the same reason
+ *   `getSite` is one. Defaults to `document.body`, which is what a suite driving
+ *   the tab against a bare document has.
  */
 export function createLibraryPanel(options = {}) {
   const {
@@ -139,6 +145,7 @@ export function createLibraryPanel(options = {}) {
     },
     getSite = () => null,
     markdownReady = defaultMarkdownReady,
+    getModalHost = () => null,
   } = options
 
   const element = el('div', 'builder-library')
@@ -255,7 +262,12 @@ export function createLibraryPanel(options = {}) {
     let description = null
     let repaint = null
 
-    view.append(preview(row))
+    // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
+    // an open dialog. `list-detail` swaps details as the client browses, and a
+    // reader left behind would repaint an element that is no longer on screen —
+    // and, worse, leave its expanded window over the pane that replaced it.
+    const shown = preview(row)
+    view.append(shown.element)
 
     const rights = el('div', 'builder-library__rights')
     view.append(rights)
@@ -341,6 +353,7 @@ export function createLibraryPanel(options = {}) {
       element: view,
       destroy() {
         repaint?.disconnect()
+        shown.destroy()
         fields?.destroy()
         description?.destroy()
       },
@@ -350,13 +363,32 @@ export function createLibraryPanel(options = {}) {
   /**
    * The blob, shown rather than named.
    *
-   * An image is rendered; everything else is offered as a download beside its
-   * kind. A Library that could only list filenames would be asking the client to
-   * recognise a picture by its path — the thing REQ-132 removed from the picker.
+   * AN IMAGE IS RENDERED, AND SO NOW IS A DOCUMENT (REQ-172). This pane could
+   * show a client their photograph and not their brand guidelines, which left
+   * the download link doing the same *"recognise it by its path"* work REQ-132
+   * removed from the picker. Markdown, plain text and PDFs get the reader window
+   * above the metadata; `reader.js` owns which is which and how each is drawn.
+   *
+   * THE DOWNLOAD LINK SURVIVES EVERY CASE, including the ones that now render.
+   * Being able to read a file on screen is not the same as having it, and the
+   * kinds nothing can render — a font, an unrecognised binary — reach exactly
+   * the pane they reached before.
    */
   function preview(row) {
     const wrap = el('div', 'builder-library__preview')
     const href = transport.fileUrl(row.uid)
+    let reader = null
+    const kind = row.kind === 'image' ? null : readerKind(row.content_type)
+    if (kind) {
+      reader = mountReader({
+        kind,
+        href,
+        filename: row.filename,
+        host: getModalHost(),
+        markdownReady,
+      })
+      wrap.append(reader.element)
+    }
     if (row.kind === 'image') {
       const img = document.createElement('img')
       img.className = 'builder-library__image'
@@ -376,7 +408,7 @@ export function createLibraryPanel(options = {}) {
     link.download = row.filename
     link.textContent = row.filename
     wrap.append(link)
-    return wrap
+    return { element: wrap, destroy: () => reader?.destroy() }
   }
 
   // --- the component ------------------------------------------------------------
