@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:17:20.290837+00:00'
+updated_at: '2026-09-01T22:24:48.656879+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,23 @@ Given "don't fill the context with duplicative things," the aggressive answer is
 The conservative answer is: keep A, cut it hard, because the system prompt is the only text with real weight in the model's attention.
 
 Which one do you want?
+
+<!-- xgd-turn id="f0f57a23-2b96-4be2-80ca-2f6c74ebac37-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:24:47.959567+00:00" -->
+#### You
+No don't rename caretaker - lets retire it and create a new role please.
+
+**B. The priming document** — one document KM assembles (`assemblePriming` in `@lagrangefoundry/knowledge`), three fixed sections in this order:
+
+1. `# What exists` — the landscape maps, one per KB, plus honest gaps
+2. `# Your purpose` — `CARETAKER_PURPOSE` verbatim
+3. `# How to search` — the projected tool manual, the list of searchable KBs, then a closing trigger: *"Prime yourself now: pick the territories above that bear on your purpose, search them, and read what you find before starting work."*
+   
+   *Lets talk about this we can call this "priming" it is your "preamble". I want to adjust your statements a little:*
+   
+   on 3 - a full tool manual could be huge -  what goes in the primer should make it clear: What tools are available. What they are intended for. Summary guide. How to get more info.
+   
+   Your purpose - it depends on what your purpose is but I fully expect it to be short with role-specific references. That is the intention.
 
 <!-- xgd-chat-end -->
