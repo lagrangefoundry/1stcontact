@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T00:03:28.818220+00:00'
+updated_at: '2026-09-01T00:04:38.578908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -647,5 +647,53 @@ Your earlier questions:
 2 pro
 3. A very simple black page saying something like "Your 1stcontact site"
 4. We need to design a whole flow around this that drives them to the payments funnel - do we really need to decide for this free alpha testing exercise?
+
+<!-- xgd-turn id="b002fe52-dcb0-4935-abda-df5ea4086f10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T00:04:38.556376+00:00" -->
+#### Claude
+All four answered. On (4) — you're right that the funnel is out of scope, but the code still has to do *something* when `ends_at` passes, and "undecided" means it silently does nothing. That's the actual hazard: you promise a date-bounded grant and then discover expiry never fired. So the alpha answer is the trivial one — deny at login with "your access has ended, get in touch" — plus a test that expiry genuinely denies. No funnel, no migration risk, and the read-only alternative stays available.
+
+Parking the super-chat, with the note that **content moderation widens the surface past ops data** — that's the thing that reopens it, and it's the reason the read-only constraint matters more, not less.
+
+Let me check the ticket CLI before I write these.
+
+All decisions are in. Here's what I'd file — reviewing before creating four tickets, since the bodies are what the UATs have to trace back to.
+
+## REQ-A — Identity: the invite provisions the account, login binds it
+
+**Gap:** Access proves an email address and nothing persists. There is no user, no account, no notion of who may enter.
+
+**Scope:** Migration `0004_identity.sql` (`users`, `memberships`, `entitlements` as specified). One invite action provisions the lot — user row, account tenant with an opaque `acct_<random>` id, `memberships` row as `owner`, `entitlements` row (`plan='pro'`, `source='admin_grant'`, `ends_at` set). Login is pure lookup: verified email → user → membership → active entitlement → in. No entitlement, expired, or revoked → deny page saying access has ended and to get in touch.
+
+**Constraints the tests pin:** `plan`/`status` are unconstrained TEXT (adding `'warning'` later must not be a schema change). An account holds *many* entitlement rows over time; effective access is the best active grant covering now — not a single-row lookup. Expiry actually denies (the failure mode is a date-bounded grant that silently never ends).
+
+**Not in scope:** self-signup, trials, billing, discounts.
+
+## REQ-B — The tenant comes from the identity, not the configuration
+
+**Gap:** `TENANT_ID` is a deployment var read in four places (`store.ts:86`, `router.ts:105`, `knowledge.ts:632`, `ai.ts`). Every logged-in user would land in the same tenant and see each other's sites. `store.ts`'s own header already names this as the ticket that must come.
+
+**Scope:** `resolveScope(env, identity)` returning `{kind:'tenant', id}`, replacing all four reads — including the AI host, so a chat session's store, knowledge base and transcript archive are all scoped to the account being operated. `platform_admin` bypasses the membership check. `TENANT_ID` narrows to naming the platform's own tenant.
+
+**Constraints:** the scope is a *value* with room for `{kind:'platform'}` (which throws today) — so the parked super-chat doesn't rework every call site. Session resume re-runs authorisation rather than trusting what was captured at open; a support grant that expires must not stay live inside an open session.
+
+## REQ-C — Terms of service: accepted before the builder loads
+
+**Scope:** version constant `2026-09-01`, lorem ipsum body, interstitial between login and builder, stamps `tos_version` + `tos_accepted_at`. Bumping the version re-prompts.
+
+## REQ-D — The admin console
+
+**Scope:** `/admin` behind a `PLATFORM_ADMINS` env var. Two panes over `webui/split` + `list-detail` + `fields` — users left, detail right showing created, modified, email, T&C acceptance. Entitlements editable: grant with plan and dates, revoke. The invite action is REQ-A's provisioning, and it creates the starter site — one blank page reading "Your 1stcontact site".
+
+**Also:** `webui-list-detail` isn't in `dist-assets` yet; it needs adding to the `1c assets` build.
+
+---
+
+**Order:** A → B → D, with C parallel. B is the critical path — it's the one that must land before an external person touches the builder.
+
+**Deliberately deferred, recorded so they don't get lost:** the platform super-chat (parked; content moderation is the use case that reopens it, and it's what widens the surface past ops data); self-signup; trial tier; subscriptions and the warning period; discounts; own magic-link auth; read-only-on-expiry and the payments funnel.
+
+Say the word and I'll create these four and cut the branch for A.
 
 <!-- xgd-chat-end -->
