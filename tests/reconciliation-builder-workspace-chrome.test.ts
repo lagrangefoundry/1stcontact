@@ -108,14 +108,18 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a workspace chrome', () => {
   it('test_UAT_AC959_opens_exactly_one_tab_addressed_by_a_stable_id', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
 
-    // AC-959 — the COUNT, not merely the presence of one: a second tab
-    // appearing is the failure this guards. The shell renders one panel per
-    // declared tab, so both counts must be exactly one.
-    expect(TABS).toHaveLength(1)
-    expect(root.querySelectorAll('.shell-panel')).toHaveLength(1)
+    // AC-959 — the COUNT, not merely the presence of one: an UNDECLARED panel
+    // appearing is the failure this guards. It was written against a one-tab
+    // builder and read `toHaveLength(1)` twice; [[REQ-161]] adds the Library
+    // beside the site, so the criterion is restated against the DECLARATION —
+    // one panel per declared tab, no more — which is the claim it was always
+    // making and is now the only way to make it.
+    expect(root.querySelectorAll('.shell-panel')).toHaveLength(TABS.length)
 
     // Addressed by a stable identifier that never changes when the name does.
+    // The site tab is FIRST and is therefore the one that opens.
     expect(SITE_TAB.id).toBe('site')
+    expect(TABS[0]).toBe(SITE_TAB)
     expect(app.shell.getActiveTab()).toBe(SITE_TAB.id)
 
     // The display panel is hosted INSIDE that tab's content area, not beside or
@@ -139,22 +143,32 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a workspace chrome', () => {
      * until someone states what it should do, which is exactly the silent drop
      * the criterion is about.
      */
-    const delivered: Record<string, (value: unknown) => void> = {
-      id: (value) => {
+    const delivered: Record<string, (value: unknown, tab: Record<string, unknown>) => void> = {
+      id: (value, tab) => {
         expect(app.shell.getPanel(value as string)).toBeTruthy()
-        expect(app.shell.getActiveTab()).toBe(value)
+        // ACTIVE ONLY FOR THE FIRST DECLARED TAB ([[REQ-161]]). This used to
+        // assert it for every tab, which was indistinguishable from the claim
+        // being made while there was exactly one — the shell opens the first,
+        // and a second tab is what makes the two readings come apart.
+        if (tab === TABS[0]) expect(app.shell.getActiveTab()).toBe(value)
       },
       label: (value) => {
         expect(root.textContent).toContain(value as string)
       },
-      fill: (value) => {
+      fill: (value, tab) => {
         // The shell's viewport-height rules are all scoped to
         // `.shell-panel.is-fill`; without the class the chain below is
         // content-height and the frame collapses to its intrinsic 150px.
         expect(value).toBe(true)
-        const filled = root.querySelector('.shell-panel.is-fill.is-active')
-        expect(filled, 'the live site panel opts into the fill chain').toBeTruthy()
-        expect(filled!.contains(app.panel.element)).toBe(true)
+        const panels = [...root.querySelectorAll('.shell-panel.is-fill')]
+        expect(panels.length, 'every tab declaring `fill` opts into the chain').toBe(
+          TABS.filter((t) => (t as Record<string, unknown>).fill === true).length,
+        )
+        if (tab === SITE_TAB) {
+          const filled = root.querySelector('.shell-panel.is-fill.is-active')
+          expect(filled, 'the live site panel opts into the fill chain').toBeTruthy()
+          expect(filled!.contains(app.panel.element)).toBe(true)
+        }
       },
     }
 
@@ -164,7 +178,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a workspace chrome', () => {
           delivered[key],
           `tab option "${key}" is declared but nothing here proves it is delivered`,
         ).toBeTypeOf('function')
-        delivered[key](tab[key])
+        delivered[key]((tab as Record<string, unknown>)[key], tab as Record<string, unknown>)
       }
     }
 

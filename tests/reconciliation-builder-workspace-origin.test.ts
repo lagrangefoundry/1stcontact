@@ -422,6 +422,30 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // The Library's read surface ([[REQ-161]]), probed in the same REJECTION
+      // shape and for a sharper version of the same reason. These are the routes
+      // that answer *what the client has given us*, and the builder rewrites that
+      // set underneath the browser — an upload lands, a description is corrected —
+      // so a cached list is a Library that silently stops showing the file the
+      // client just dropped into it. Each refuses on its own arguments, before it
+      // opens a store, which is what lets a header claim be made without one.
+      {
+        route: '/api/material/item',
+        url: '/api/material/item',
+        ok: false,
+      },
+      {
+        route: '/api/material/file',
+        url: '/api/material/file',
+        ok: false,
+      },
+      {
+        route: '/api/material/description',
+        url: '/api/material/description',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // A rendered page in EACH channel, plus the two ways a preview request
       // fails. `published` REDIRECTS since REQ-149 (D4) — a 302 is still a
       // response this origin returns, and the directive must be on it too: a
