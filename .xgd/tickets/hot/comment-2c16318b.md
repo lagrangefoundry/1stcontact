@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:20:17.516437+00:00'
+updated_at: '2026-09-01T18:41:14.858832+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1908,5 +1908,11 @@ Shall I write it now? I'd cover:
 - **REQ-80's relationship** — unabandon or supersede, and why its original assessment was right at the time
 
 That last one needs your call: REQ-80 is abandoned with sound reasoning. I'd supersede rather than revive, so the record shows the priority changed because the purpose did.
+
+<!-- xgd-turn id="9d65d2ca-422e-45a4-8fb5-a2b93219f3bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:41:14.647459+00:00" -->
+#### You
+ok can you summarize what the document would look like?
 
 <!-- xgd-chat-end -->
