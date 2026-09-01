@@ -50,26 +50,30 @@ export const INSTALLED_LOCKFILE_REL = path.join('node_modules', '.pnpm', 'lock.y
 /**
  * Which declared dependencies each command actually loads.
  *
- * Deliberately per-command rather than one blanket "browser deps" set: `1c crop`
- * decodes an image and never opens a browser, and the offline seams of `diff` /
- * `values-diff` (`--actual`, `--actual-manifest`) exist so the pipeline is
- * drivable without one. Blocking a verb on a package it does not load would make
- * the preflight the very thing it was written to prevent — a failure with no
- * bearing on the work.
+ * Deliberately per-command rather than one blanket "browser deps" set: the
+ * offline seams of `diff` / `values-diff` (`--actual`, `--actual-manifest`) exist
+ * so the pipeline is drivable without a browser. Blocking a verb on a package it
+ * does not load would make the preflight the very thing it was written to
+ * prevent — a failure with no bearing on the work.
  *
  * Commands absent from this map are ungated: `render`, `serve`, `builder`,
  * `repro`, `refold`, `l1-gate`, `responsive-diff` and the structured-edit verbs
  * read and write files only.
+ *
+ * `crop` LEFT THIS MAP ENTIRELY under REQ-156. It decodes an image and never
+ * opens a browser, so `sharp` was its only declared dependency; with the codec
+ * written into this repo it loads nothing that can be absent, and a gate on an
+ * empty requirement is a gate that can only produce false refusals. `diff`,
+ * `gate` and `aligned-crops` keep their entries, now naming `playwright` alone.
  */
 export const COMMAND_DEPS: Readonly<Record<string, readonly string[]>> = {
   capture: ['playwright'],
   shot: ['playwright'],
   'values-diff': ['playwright'],
   'adopt-gaps': ['playwright'],
-  crop: ['sharp'],
-  diff: ['playwright', 'sharp'],
-  gate: ['playwright', 'sharp'],
-  'aligned-crops': ['playwright', 'sharp'],
+  diff: ['playwright'],
+  gate: ['playwright'],
+  'aligned-crops': ['playwright'],
 }
 
 /** A single reason the installed tree is not usable as-is. */
