@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:14:10.827881+00:00'
+updated_at: '2026-09-01T20:15:14.282231+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3107,5 +3107,46 @@ File created, starting with:
 
 But I get:
 Cloudflare Access rejected this request: no Access token was presented.
+
+<!-- xgd-turn id="6f3b8157-eaa5-4d73-8cbf-853ac51987ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T20:15:13.811413+00:00" -->
+#### Claude
+That's the `--env-file` displacing `.dev.vars`. Let me confirm:
+
+Confirmed — this is a direct consequence of the `--env-file` switch, not a new problem.
+
+`isUnconfiguredLocalDev` (`src/index.ts:64`) needs **both** halves: `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` blank, **and** `ACCESS_DEV_OPEN === "1"`. Your `.dev.vars` supplied the blanks; `wrangler.toml [vars]` has the real values. Passing `--env-file` makes wrangler load *that* file instead of `.dev.vars`, so the blanks vanished, `[vars]` won, and Access engaged.
+
+The flag is repeatable and later files win — so layer them rather than choosing. Let me verify that actually works:
+
+Verified working. Use this:
+
+```
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ~/Documents/secrets/1c.dev.env
+```
+
+I tested it with a throwaway key file (since deleted) and got both halves:
+
+- `GET /` → **200** with the builder HTML, not the Access rejection — the blanks in `.dev.vars` are back in play, so `isUnconfiguredLocalDev` returns true.
+- `POST /api/ai/session` → `{"sessionId":"site-xgd","turns":[],"ready":true}` — the second file's key overrode the empty one in the first, confirming later-file-wins.
+
+(`ready: true` there only proves the binding is non-empty — my test key was fake, so a real turn would have failed at the API. Your real key makes that part live.)
+
+The layering is the right shape for a reason beyond convenience: it keeps the two kinds of value where they belong. The Access blanks are **local dev config** — not secret, and something any teammate cloning the repo needs. The API key is **a secret** and personal. Folding the Access vars into your secrets file would have worked, but it would hide shared config in a private directory where nobody else could find it.
+
+Worth knowing about that `--env-file` behaviour: it *replaces* the default `.dev.vars` resolution rather than adding to it. That's the whole cause of the Access error, and it'll bite the same way on any other var `.dev.vars` currently supplies.
+
+Two follow-ups I'd still suggest, both config-only:
+
+1. **Update the `dev` script** so the flags aren't yours-to-remember:
+   ```json
+   "dev": "wrangler dev --port 8788 --env-file .dev.vars --env-file $HOME/Documents/secrets/1c.dev.env"
+   ```
+   `$HOME` rather than `~` since npm runs this through a shell — sidesteps the tilde-expansion question entirely. The downside is it hardcodes your path for anyone else; if that matters, a `${ONECONTACT_SECRETS:-...}` default would let others point elsewhere.
+
+2. **Delete the `ANTHROPIC_API_KEY = ""` line from `.dev.vars`** and rewrite that comment block to say the key arrives via the second `--env-file`. With the layering it's now harmless — the later file overrides it — but it's the line that caused the original silent failure, and leaving it means a plain `wrangler dev` still fails confusingly instead of cleanly.
+
+Want me to make those two changes?
 
 <!-- xgd-chat-end -->
