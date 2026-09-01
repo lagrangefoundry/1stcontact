@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:27:20.860367+00:00'
+updated_at: '2026-09-01T23:57:15.713698+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,14 @@ Does the consultant have one at all?
 If yes, it needs writing and cutting hard. If no, it dissolves — what the role *is* goes in the priming's purpose section, what must not decay goes in the reminder, the method goes in the corpus, the surface stays projected. One hand-written text per part, nothing restating anything, which is your governing constraint applied literally.
 
 I lean toward dissolving it, with one reservation: a rule that lives only in the corpus fires only when the model thinks to search for it, and the habits DOC-33 §7 describes are exactly the ones a drifting model stops searching for. The reminder pointer covers that — but only once DOC-33 is actually in the corpus, and right now zero documents are.
+
+<!-- xgd-turn id="3061a67a-63cd-4c73-b630-779eef663a25-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T23:57:15.561741+00:00" -->
+#### You
+So in the short terms I would like this:
+
+(1) Can you create a ticket for an operation, built into the API or as a separate build-script that will construct the tool summary - I actually like that it would be part of the API - it should be available on all our tool APIs - please create a lagrange framework ticket for that.
+(2) Its very hard to have this abstract conversation about the session proming I need to see the ACTUAL TEXT and how it is specificed. I assume there is a configu document can you point me to it?
 
 <!-- xgd-chat-end -->
