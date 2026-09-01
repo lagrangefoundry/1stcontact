@@ -61,6 +61,44 @@ import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-co
  */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/**
+ * The library's own event kind for a tool call, matched rather than restated.
+ *
+ * It is a string on the wire either way; naming it here is what stops the one
+ * comparison this file makes against upstream's vocabulary from being a literal
+ * buried mid-function.
+ */
+const TOOL_ACTIVITY = 'tool_activity'
+
+/**
+ * THE SITE MOVED, and the operator is looking at it (BUG-43).
+ *
+ * WHY THE HOST EMITS THIS AND THE MODEL DOES NOT. `draft` and `edit` render at
+ * request time (REQ-119), so nothing about a write reaches the iframe on its
+ * own — the reload IS the update, and every other producer of structured edits
+ * already performs it (the palette popup and the segment editor both reload the
+ * frame after their writes). The assistant was the one writer that did not, so
+ * its changes were invisible until the operator reloaded by hand, and the system
+ * preamble told it they were visible.
+ *
+ * It could have been a declared operation — "tell the page to refresh" — and
+ * that is exactly the shape to avoid. A tool is a capability the model may skip,
+ * and the turns it would skip it on are the long ones, which are the turns where
+ * seeing the page unfold matters most. Derived from the change counter, the
+ * signal cannot be forgotten, cannot be duplicated, and cannot describe a write
+ * that did not happen. It is the same argument REQ-131 makes for pushing the
+ * change reminder rather than leaving the model to ask.
+ *
+ * PER WRITE, NOT PER TURN. A request answered by four edits produces four
+ * signals, in among the tool activity that caused them, so the page arrives the
+ * way the assistant built it rather than in one jump when it stops talking.
+ *
+ * `meta.at` is the change count after the write; `meta.changes` is how many
+ * landed since the previous signal — normally one, more if a single operation
+ * journalled several.
+ */
+export const SITE_CHANGED = 'site_changed'
+
 /** One turn of a conversation, as the panel renders it. */
 export interface ChatTurn {
   role: 'user' | 'assistant'
@@ -599,8 +637,9 @@ export async function openSession(
  * doing it wrong is caught rather than silently starting a conversation about
  * somewhere else.
  *
- * Yields the library's stream events verbatim (`text` / `tool_activity` /
- * `done`), which is the shape the chat panel consumes.
+ * Yields the library's stream events (`text` / `tool_activity` / `done`), which
+ * is the shape the chat panel consumes, INTERLEAVED WITH THIS HOST'S OWN
+ * {@link SITE_CHANGED} — see below.
  */
 export async function* streamPrompt(
   sessionId: string,
@@ -641,8 +680,23 @@ export async function* streamPrompt(
         : caretakerReminder(slug, { at: before, changes: at - before }, delta)
   }
 
+  // BUG-43 — the counter as it stands right now, carried down the loop below so
+  // each write is compared against the one before it rather than against the
+  // start of the turn. `at` itself must survive for the baseline arithmetic.
+  let seen = at
   try {
-    yield* manager.promptStream(sessionId, text)
+    for await (const event of manager.promptStream(sessionId, text)) {
+      yield event
+      // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
+      // write. A turn that answers a question makes no extra read at all, and a
+      // turn that writes makes one primary-key lookup per call it made.
+      if (event.kind !== TOOL_ACTIVITY) continue
+      const now = await store.counter(slug)
+      if (now <= seen) continue
+      const changes = now - seen
+      seen = now
+      yield { kind: SITE_CHANGED, content: '', meta: { at: now, changes } }
+    }
   } finally {
     // AFTER the turn, and in a `finally` so an abandoned turn does not leave the
     // baseline behind: the assistant's own writes have landed by now, so they
