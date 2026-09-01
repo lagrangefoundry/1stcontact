@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T19:39:46.100503+00:00'
+updated_at: '2026-09-01T19:43:45.471599+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2874,5 +2874,13 @@ cat /tmp/aiprobe/log
 ```
 
 `{"dims":384}` means the AI binding is fine on your machine and the failure I hit is my sandbox's proxy — you're clear to run the real thing. An `InferenceUpstreamError` means it's a genuine wrangler bug and we work the KB against a deployed Worker instead.
+
+<!-- xgd-turn id="41fda7c7-1f29-4bee-b435-4c869cc13fa5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:43:44.874119+00:00" -->
+#### You
+I get `{"dims":384}`
+
+`How do I start the server?`
 
 <!-- xgd-chat-end -->
