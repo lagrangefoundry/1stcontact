@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-160
 created_by: xgd
 created_at: '2026-09-01T18:30:41.623877+00:00'
-updated_at: '2026-09-01T19:33:35.321966+00:00'
+updated_at: '2026-09-01T19:57:18.547522+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,54 @@ Two things still open, neither blocking — I'll proceed on my stated assumption
 Please create a ticket for reviewing the session creation prompts and turn reminders - this is where the summary will be generated.
 
 Please proceed with the implementation we are aligned
+
+<!-- xgd-turn id="621bf585-8b9e-444b-a241-afafa617495d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:57:18.487515+00:00" -->
+#### Claude
+REQ-171 created and linked from REQ-160's out-of-scope. Now implementing.
+
+Now the archive switch. First the export shim and `ai.ts`:
+
+Now replace the `R2TranscriptArchive` class:
+
+Pre-existing worktree artifact, not my change (fails on the clean branch too). Fixing BUG-38's missing binding:
+
+Archive switch is done and green. Now the two-KB priming and co-ranked search:
+
+Now wire it into `ai.ts` and `router.ts`:
+
+Now the cursor and the per-turn delta:
+
+Now the reminder channel in `host-core.ts` and `roles.ts`:
+
+Now the UATs. Let me check the REQ-159 workers test for reusable setup:
+
+Now the end-to-end workers UAT:
+
+17/17. Now a broad regression check:
+
+Zero regressions — 13 identical pre-existing failures with and without my changes (worktree asset-resolution artifacts). Now closing the ticket-body gap so every UAT traces to it:
+
+REQ-160 is implemented, merged into `xgd-working`, and at `status: free_coded` (`version: 0.2.34`, commits `e9bd703b` + `751b0706`). 46/46 green on the merged checkout.
+
+**What landed**
+
+*The transcript is a ticket.* `R2TranscriptArchive` is deleted; the Worker homes each session in a `chat` ticket via the component's own `TicketSessionArchive` — session file in a `chat_transcript` comment, body left for REQ-171's summary, writes compare-and-set. As predicted it was a drop-in: the ticket store already satisfied `TicketClient` and the type pack already merged `chatSchemas()`. REQ-159's `onTranscriptGrew` now has a reason to exist.
+
+*Both landscapes, one section, project first.* New `session-knowledge.ts` composes the two KBs into one runtime for priming — tenant store as the base, shipped corpus through `sources` — so `primeSession` reads both maps unchanged.
+
+*Co-ranked search, delivered — not deferred.* I reversed the position I took earlier. `CoRankedKnowledge` fans a search out to each KB's own runtime, so the component's full ranking runs *within* each index, then merges on the component's own scores. That is your "independent indexes co-ranked for final presentation" exactly, and it doesn't re-rank or re-score. REQ-112 moves the merge inside the ranking and this class deletes. I updated the ticket body — it no longer claims search waits on the framework.
+
+*Cursor and delta.* Cursor is a field on the chat ticket, carrying the uids sitting on its boundary (because `updated_at >= cursor` is inclusive and would otherwise re-report the newest document forever). The delta rides `role.reminder` — REQ-131's existing channel, so one delivery mechanism, not two. Empty emits nothing; over the cap the titles truncate and the count never does.
+
+17 new UATs, and every one traces to ticket-body language — I added the missing clauses (inclusive-boundary semantics, corrupt-cursor degradation, conversations excluded from their own delta, the oversized-title case) before committing.
+
+**Things you should know**
+
+- **Two REQ-146 UATs were retargeted, not deleted.** Their claims survive the mechanism changing under them — no URL reaches the conversation (now stronger: the R2 prefix is empty), and the archive reports an absent session rather than inventing one.
+- **Old R2 transcripts are orphaned**, per your earlier steer. Nothing migrates them.
+- **13 test failures exist on this branch that are not mine** — webui/framework asset resolution in a linked worktree, plus `reconciliation-assistant-conversation` / `REQ-127` expecting a 404 where BUG-38 made the id derivable. Identical count with and without my changes; I verified by stashing.
+- **REQ-112 (lagrange-framework) and REQ-171 could not be pushed** — `This proxy requires authentication`. Both are committed locally only.
 
 <!-- xgd-chat-end -->
