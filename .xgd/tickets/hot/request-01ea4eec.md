@@ -5,10 +5,10 @@ type: request
 title: 'Capture in workerd: a ReferenceStore port, with the filesystem behind it'
 created_by: xgd
 created_at: '2026-08-20T23:16:33.604977+00:00'
-updated_at: '2026-09-01T18:36:24.596183+00:00'
+updated_at: '2026-09-01T18:57:55.118840+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -18,6 +18,11 @@ fields:
   auto_merge_back: true
   needs_review: true
   chat_comment: comment-2b271313
+  commits:
+  - working_sha: ab467d6ce36618c333604d6b1587cfb6d19557ff
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.32
 ---
 
 # Capture in workerd: a ReferenceStore port, with the filesystem behind it
