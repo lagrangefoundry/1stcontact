@@ -314,26 +314,42 @@ describe('a turn is addressed to a conversation, never to a site', () => {
     expect(events.at(-1)?.kind).toBe('done')
   })
 
-  it('test_UAT_AC1055_an_identifier_the_origin_never_issued_is_refused_before_anything_is_streamed', async () => {
+  it('test_UAT_AC1055_an_identifier_that_names_no_site_is_refused_before_anything_is_streamed', async () => {
     const client = scriptedClient(renames('Should not happen.'))
     setModelClient(client)
 
-    const invented = [
-      // Exactly what the origin derives for an existing site: being derivable is
-      // not the same as having been issued.
-      `site-${SLUG}`,
+    // WHAT AN IDENTIFIER IS, since BUG-38. It was a token the origin minted and
+    // remembered in a per-isolate map; in workerd `/api/ai/session` and
+    // `/api/ai/prompt` are not promised the same isolate, so every turn arriving
+    // at a cold one was told its conversation had closed. The map is gone and an
+    // id is now RESOLVED AGAINST THE STORE: it names a site, and it opens a
+    // conversation exactly when that site is one this tenant actually holds.
+    //
+    // The refusal this criterion is about therefore has a sharper subject than
+    // "not issued by this process" — which was never a property of the caller's
+    // request — and it is the one that matters for isolation: an identifier that
+    // names NOTHING THIS TENANT HOLDS is refused, whatever shape it arrives in.
+    const nameNoSite = [
+      // Well-formed and resolvable in shape, naming a site that does not exist.
+      'site-no-such-site',
+      // The prefix with nothing after it: an empty slug is not a site.
+      'site-',
       // A fabricated id carrying path traversal — a miss is a miss, and there is
-      // no separate sanitising step to get wrong.
+      // no separate sanitising step to get wrong, because the id is never used
+      // to name a path. It is looked up.
       '../../etc/passwd',
+      // …including one that would traverse to a real site if it were ever joined
+      // onto a path rather than resolved.
+      `site-../${SLUG}`,
     ]
 
-    for (const sessionId of invented) {
+    for (const sessionId of nameNoSite) {
       const res = await post(base, 'prompt', { sessionId, text: 'Change the headline' })
-      expect(res.status).toBe(404)
+      expect(res.status, sessionId).toBe(404)
       // A plain refusal, not an event stream: a protocol error must not arrive
       // dressed as the assistant having tried and failed.
-      expect(res.headers.get('content-type')).toContain('application/json')
-      expect(res.headers.get('content-type')).not.toContain('event-stream')
+      expect(res.headers.get('content-type'), sessionId).toContain('application/json')
+      expect(res.headers.get('content-type'), sessionId).not.toContain('event-stream')
       expect(((await res.json()) as { error: string }).error).toBeTruthy()
     }
 
@@ -344,28 +360,21 @@ describe('a turn is addressed to a conversation, never to a site', () => {
     expect(headline(cwd, SLUG)).toBe(HEADLINE)
     expect(headline(cwd, OTHER)).toBe(HEADLINE)
 
-    // The third kind of unissued id, and the one a real browser produces: one
-    // held over from before a restart. It is the same STRING as the derivable
-    // case above but arrived at the other way — the origin really did issue it,
-    // and then restarted. Kept last because it opens a conversation, which the
-    // assertions above require not to exist.
+    // THE CASE THAT INVERTED, kept last because it opens a conversation and the
+    // assertions above require none to exist. An id held over a restart is the
+    // one a real browser produces, and it now WORKS: the binding is a store
+    // read, so it survives the process that answered the first turn. That is
+    // BUG-38's fix rather than a hole in this criterion — the id still had to
+    // name a site this tenant holds to resolve at all.
     const issued = (await open(base, SLUG)).sessionId
     expect(issued).toBe(`site-${SLUG}`)
     resetAiHost()
 
-    // Lookup is the in-memory `minted` map (`host.ts:389`), cleared by the
-    // restart, and there is no fallback that would resurrect the id from the
-    // transcript on disk — so the browser must re-open by site name to have it
-    // re-issued rather than carrying the stale one forward.
     const heldOver = await post(base, 'prompt', { sessionId: issued, text: 'Change the headline' })
-    expect(heldOver.status).toBe(404)
-    expect(heldOver.headers.get('content-type')).toContain('application/json')
-    expect(heldOver.headers.get('content-type')).not.toContain('event-stream')
-    expect(((await heldOver.json()) as { error: string }).error).toBeTruthy()
-
-    // Still nothing reached the model, and the site is untouched.
-    expect(client.seen).toHaveLength(0)
-    expect(headline(cwd, SLUG)).toBe(HEADLINE)
+    expect(heldOver.status).toBe(200)
+    expect(heldOver.headers.get('content-type')).toContain('event-stream')
+    await heldOver.text()
+    expect(client.seen.length).toBeGreaterThan(0)
   })
 })
 

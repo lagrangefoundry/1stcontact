@@ -24,8 +24,8 @@ import { calls, says, scriptedClient } from './support/scripted-model-client'
  *
  * What is asserted here is the ORIGIN half of that, over real HTTP against a real
  * `startBuilder`: that a turn identifies a conversation and not a site, that the
- * conversation is what carries the site, and that a session id the origin never
- * issued is refused rather than treated as a key into the store. The browser half
+ * conversation is what carries the site, and that a session id naming no site this
+ * tenant holds is refused rather than treated as a key into the store. The browser half
  * is `test_UAT_FC_REQ-127_session_panel`.
  *
  * One thing is a double — the Anthropic client — for the reason the REQ-122 host
@@ -163,24 +163,37 @@ describe('REQ-127 — a turn identifies a session', () => {
   })
 })
 
-// ── an id the origin never issued ────────────────────────────────────────────
+// ── an id that names no site ─────────────────────────────────────────────────
 
 describe('REQ-127 — a session id is resolved, not trusted', () => {
-  it('test_UAT_FC_REQ-127_an_unissued_session_id_is_refused_rather_than_opened', async () => {
+  it('test_UAT_FC_REQ-127_a_session_id_naming_no_site_is_refused_rather_than_opened', async () => {
     setModelClient(scriptedClient(renames('Should not happen.')))
 
-    // The id a client would GUESS: it is exactly what `sessionIdFor` derives, and
-    // under the old design it was recomputed from the slug on every turn. The
-    // point of the registry is that being derivable is not the same as being
-    // issued.
-    const res = await post(base, 'prompt', { sessionId: `site-${SLUG}`, text: 'Change it' })
+    // WHAT "RESOLVED, NOT TRUSTED" MEANS SINCE BUG-38. This clause used to be
+    // held by a per-process registry of ids the origin had minted, and the
+    // property asserted here was that being DERIVABLE is not the same as having
+    // been issued. That registry could not survive workerd — `/api/ai/session`
+    // and `/api/ai/prompt` are not promised the same isolate, so a turn arriving
+    // at a cold one found an empty map and was told its conversation had closed.
+    //
+    // It is now a STORE READ, and the property it holds is strictly stronger
+    // than the one it replaced: an id resolves only if it names a site THIS
+    // TENANT ACTUALLY HOLDS. A per-process map could not have checked that at
+    // all. So what must be refused is an id that names nothing — which is what
+    // an arbitrary client string becoming a free-form key into the session store
+    // would have been.
+    const res = await post(base, 'prompt', { sessionId: 'site-no-such-site', text: 'Change it' })
 
     expect(res.status).toBe(404)
-    expect(((await res.json()) as { error: string }).error).toContain(`site-${SLUG}`)
+    expect(((await res.json()) as { error: string }).error).toContain('site-no-such-site')
 
-    // Nothing was created and nothing was written: an unissued id is not a key
-    // into the session store.
+    // Nothing was created and nothing was written: an id that resolves to no
+    // site is not a key into the session store.
     expect(headline(cwd, SLUG)).toBe(HEADLINE)
+    expect(existsSync(sessionsDir({ cwd }))).toBe(false)
+
+    // The prefix alone names no site either — an empty slug is not one.
+    expect((await post(base, 'prompt', { sessionId: 'site-', text: 'Change it' })).status).toBe(404)
     expect(existsSync(sessionsDir({ cwd }))).toBe(false)
   })
 

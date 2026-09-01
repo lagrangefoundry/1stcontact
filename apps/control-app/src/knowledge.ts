@@ -215,7 +215,7 @@ export class DescriberNotConfiguredError extends Error {
       `The project corpus has grown to ${documents} documents — past the ` +
         `${ENUMERATE_BUDGET_CHARS}-character listing budget — so its landscape has to be ` +
         'clustered and described, and no `describe` seam was supplied. The knowledge ' +
-        "component's own describer lives behind `@lagrangefoundry/ai-knowledge/describe`, " +
+        "component's own describer lives behind its `ai-knowledge/describe` entry point, " +
         'which is Node-only because it needs the provider backends; a Worker has to hand ' +
         'one in. Until then the map is not rebuilt and the previous one stands.',
     )

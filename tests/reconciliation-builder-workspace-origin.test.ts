@@ -789,11 +789,21 @@ describe('story-e674c60a control-app front', () => {
     }
     expect(previewUrl('alpha', 'draft').startsWith('/')).toBe(true)
     expect(previewUrl('alpha', 'draft')).not.toMatch(/^https?:/)
-    // …and that path is served by the very host serving the chrome.
-    expect((await worker.fetch(previewUrl('alpha', 'draft'), { headers: admitted })).status).toBe(200)
 
-    // …and it is the GATE that stands between the two, not routing: the same
-    // route, unauthenticated, never reaches the origin at all (REQ-147 AC4).
+    // …and it is the GATE that stands between the caller and that path, not
+    // routing: admitted, the request REACHES the origin — whatever the origin
+    // then has to say about a site its store may or may not hold; refused, it
+    // never reaches it at all (REQ-147 AC4).
+    //
+    // Stated as "not 401" rather than "200" deliberately. The Worker reads its
+    // own D1, which `beforeAll` gives a schema and no sites, so a 200 here would
+    // be asserting that some earlier run left a site behind in the local
+    // miniflare state — which is how this line passed on a checkout that had one
+    // and failed on a fresh one. What the criterion is about is which of the two
+    // answers the gate produces, and that is what is checked.
+    const admittedPreview = await worker.fetch(previewUrl('alpha', 'draft'), { headers: admitted })
+    expect(admittedPreview.status).not.toBe(401)
+    expect(admittedPreview.headers.get('cache-control')).toBe('no-store, must-revalidate')
     expect((await worker.fetch(previewUrl('alpha', 'draft'))).status).toBe(401)
   })
 })

@@ -23,7 +23,7 @@ import { stubEmbedder } from './support/stub-embedder'
  *
  * WHAT MAKES THIS EVIDENCE. Every assertion runs inside workerd against a real
  * D1 database and a real R2 bucket, through the same `projectKnowledgeFor` the
- * Worker itself would call, over the real `@lagrangefoundry/knowledge` component
+ * Worker itself would call, over the real shared knowledge component
  * — the corpus is resolved by its `resolveCorpus`, the index built by its
  * `buildIndex`, the map assembled by its `buildAwareness`. Nothing here
  * reimplements any of that in order to assert it.
