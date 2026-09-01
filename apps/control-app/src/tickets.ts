@@ -137,6 +137,26 @@ const MATERIAL_FIELDS = {
    * only handle a client recognises when the description is degraded.
    */
   filename: { type: 'string' },
+
+  /**
+   * What the bytes are, as `resolveContentType` settled it at ingest.
+   *
+   * KEPT HERE FOR EXACTLY THE REASON `filename` IS, and the two are written
+   * together. [[REQ-172]]'s detail pane decides how to SHOW a file from its
+   * content type — markdown rendered, plain text as itself, a PDF in the
+   * browser's own viewer — and `kind` cannot answer that question: [[DOC-38]]
+   * §9's vocabulary files all three as `document`. Reading it off the attachment
+   * instead would cost an `attachments` call per row to draw a list.
+   *
+   * THE RESOLVED TYPE, NOT THE BROWSER'S. It is the same value the attachment
+   * record carries, written from the same variable in `ingest`, so the repair
+   * BUG-41 made durable there cannot come apart from the one the Library reads.
+   *
+   * NOT REQUIRED, because material created before this field existed does not
+   * have it; `rowOf` falls back to resolving the type from `filename`, which is
+   * the mapping this field is a cache of.
+   */
+  content_type: { type: 'string' },
 }
 
 /**

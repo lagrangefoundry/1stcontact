@@ -242,6 +242,11 @@ export function mountBuilder(root, options = {}) {
     storage: shell.storage(STORAGE_KEYS.library),
     getSite: () => panel.getSite(),
     markdownReady,
+    // Where an expanded reader window goes (REQ-172) — inside the shell root,
+    // for the reason the segment editor's host above states: the `--shell-*`
+    // tokens and the app font are both declared on `.shell`, and a dialog
+    // appended beside it resolves neither.
+    getModalHost: () => shell.element,
     ...(libraryTransport ? { transport: libraryTransport } : {}),
   })
   shell.getPanel(LIBRARY_TAB.id).append(library.element)
