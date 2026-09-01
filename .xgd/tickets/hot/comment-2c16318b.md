@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-09-01T18:41:14.858832+00:00'
+updated_at: '2026-09-01T18:42:04.024625+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1914,5 +1914,75 @@ That last one needs your call: REQ-80 is abandoned with sound reasoning. I'd sup
 <!-- xgd-chat role="user" ts="2026-09-01T18:41:14.647459+00:00" -->
 #### You
 ok can you summarize what the document would look like?
+
+<!-- xgd-turn id="9d65d2ca-422e-45a4-8fb5-a2b93219f3bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:42:03.573627+00:00" -->
+#### Claude
+Here's the shape I'd write. Call it **DOC-40 — The Site Importer: migration as consent** (distinct from [[DOC-21]], deliberately).
+
+## §1 Purpose & scope
+
+Two paragraphs establishing that this is a *second* reproduction program, not a revision of the first. In scope: page-builder-specific importers, the coverage metric, the qualification signal. Out of scope: perceptual fidelity, L1 capability discovery, the attribution ladder — all DOC-21's.
+
+## §2 The two programs
+
+The load-bearing section, and the reason the doc exists. A table:
+
+| | DOC-21 flywheel | The importer |
+|---|---|---|
+| Corpus | sites we admire | sites our customers have |
+| Output | L1 capability | customers |
+| Success metric | perceptual similarity | % of widget vocabulary handled |
+| Failure mode | a gap in the language | a customer we can't serve |
+| Transcription | hand, with a human judge | automated, unattended |
+
+Then the point that motivated writing it at all: **REQ-80 was correctly deprioritised against the wrong program.** Same finding — Elementor's element-id-scoped rules invisible to the extractor — assessed in July as a diagnostic-completeness gap because the perceptual gate sees rendered backgrounds anyway and a human was transcribing. Under this program nobody is transcribing and the fold has to stand alone for someone paying. Without a separate doc with its own success measure, that misjudgement repeats.
+
+## §3 Reproduction's job is consent, not fidelity
+
+The reframe from [[DOC-35]] §4.3's migration question. We reproduce so we can show someone a *fix to their own site* before they've agreed to move — an instrumental ask, not an aspirational one. That sets the bar at **recognisable and improvable**, which is a much lower and much more achievable target than DOC-21's, and it's why the two programs can't share a threshold.
+
+Corollary worth stating explicitly: a reproduction that drops the hero image fails this bar completely, even at 100% copy coverage — because the client's first reaction is "that's not my site." Content-completeness is necessary and nowhere near sufficient.
+
+## §4 Why Elementor is a transform, not an inference
+
+The technical core.
+
+- Elementor's per-page stylesheet is keyed by element ID (`.elementor-4401 .elementor-element.elementor-element-8d3c33b`), and every one of those IDs appears in the markup as `data-id`. **The style-to-element mapping is handed to us, not deduced.** 53 distinct element-keyed selectors on the sample page.
+- The widget vocabulary is closed and documented. Sarah's whole page is eleven types: heading ×14, text-editor ×6, icon-box ×6, image ×4, button ×3, testimonial-carousel ×2, icon-list ×2, plus site-logo, testimonial, social-icons, nav-menu, divider.
+- So it's ~15–20 deterministic per-widget mappings plus a section/column geometry rule — categorically different from "reproduce arbitrary CSS."
+
+## §5 Current state, measured
+
+Honest baseline from the July capture of joyfulculinarycreations.com (WordPress 7.0.2 + Elementor 4.2.0):
+
+- **Copy complete** — 865 words in `l1.json` against 859 captured. Nothing dropped.
+- **Hero and logo absent.** The hero lives only in `assets/post-4401.css` as a `background-image` on `elementor-background-overlay`; the logo comes through the `theme-site-logo` widget. Neither reaches `l1.json`.
+- Caveat recorded: content and asset coverage verified, fold not rendered, so nothing claimed about visual fidelity.
+
+The two most important visuals on the page are the two that are missing — which is §3's corollary in one sentence.
+
+## §6 Coverage as a countable metric
+
+% of widget types handled, enumerable from Elementor's own docs rather than discovered by crawling. Contrast with DOC-21's corpus-coverage KPI, which requires the corpus to exist first. This one can be planned against on day one and reported as a number.
+
+Plus the honest limit: type coverage ≠ instance coverage, since a handled widget can still be configured in an unhandled way. Probably a two-axis metric.
+
+## §7 Detection as free qualification
+
+`<meta name="generator" content="Elementor">`. Two uses: a session input (the diagnostic can tell a client in the free consultation whether we can bring their site across cheaply) and a **deliberate market boundary** — "we're excellent at WordPress sites" is a fine thing to be for now. Notes the concentration argument: WordPress ~40% of the web, Elementor one of its two dominant builders; add Divi, WPBakery, Beaver Builder and you have most of the SMB long tail. We're reproducing about six page builders, not the web.
+
+## §8 Build order
+
+The three tickets visible from the evidence, in dependency order: the per-page-CSS element-ID join (unlocks the rest), CSS-background images attached to their owning box, `theme-site-logo`. Then the widget-mapping table as bulk work.
+
+## §9 Relationship to REQ-80 and open questions
+
+Supersede rather than revive — the record should show the priority changed because the purpose did, not that the original call was wrong. Open: where the importer runs (capture-time or a separate pass), whether the preview-before-consent flow needs its own storage lifecycle, and what happens to a site that's *partly* Elementor with hand-written theme templates around it.
+
+---
+
+Two things I'd want your call on before writing: whether §9 should propose the REQ-80 supersession as a ticket action (I'd file nothing without you saying so), and whether the doc should carry the funnel-diagnostic connection from [[DOC-35]] §4.3 or just cross-reference it. My instinct is cross-reference — the diagnostic is a persona concern, and this doc stays a reproduction doc.
 
 <!-- xgd-chat-end -->
