@@ -55,6 +55,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { repoRoot, sharedModuleUrl } from './webui'
 import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
+import { isProjected, projections, type ProjectedDoc } from './kb-projection'
 
 /**
  * The library is untyped JavaScript loaded from the shared store, so it enters
@@ -379,7 +380,18 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
   // withdrawn from the KB must stop being searchable, not merely stop being
   // refreshed.
   const removed = readdirSync(dir)
-    .filter((name) => name.endsWith('.md') && name !== AWARENESS_FILE && !written.has(name))
+    .filter(
+      (name) =>
+        name.endsWith('.md') &&
+        name !== AWARENESS_FILE &&
+        // The projected namespace belongs to {@link writeProjections}, which
+        // sweeps it itself (REQ-165). TWO PRODUCERS, TWO NAMESPACES, ONE SWEEP
+        // EACH: neither can delete the other's output, so a build cannot lose a
+        // projection by ordering and a fixture that stubs the ticket store gets
+        // exactly the corpus it supplied.
+        !isProjected(name) &&
+        !written.has(name),
+    )
     .map((name) => {
       rmSync(path.join(dir, name))
       return name
@@ -388,6 +400,146 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
   docs.sort((a, b) => a.id.localeCompare(b.id))
   skipped.sort()
   return { docs, removed, skipped, dir }
+}
+
+/**
+ * Write the PROJECTED REFERENCE into the corpus, and sweep its own namespace.
+ *
+ * The second corpus producer (REQ-165). {@link exportCorpus} derives documents
+ * from the ticket store; this derives them from the code — the behavior
+ * catalogue, the L1 schemas, the declared control surface — so that the facts
+ * about what the product does are generated rather than authored and cannot go
+ * stale (DOC-39 §3.2).
+ *
+ * A SEPARATE STEP RATHER THAN PART OF THE EXPORT, and the reason is what each
+ * one is a function OF. The export is a function of the ticket store, and a
+ * caller that supplies its own store — every fixture in the KB suites — is
+ * entitled to get back exactly the corpus it supplied. Folding the projections
+ * into it would mean a stubbed store still produced three documents nobody
+ * asked for, which is both surprising and, for a suite that tunes a corpus to
+ * make a clustering assertion, destructive.
+ *
+ * Its sweep is its own, over `REF-` only, and the export's sweep spares that
+ * namespace. So a projection that stops being produced is deleted, a document
+ * whose ticket is gone is deleted, and neither producer can delete the other's
+ * output whatever order they run in.
+ *
+ * AN UNCHANGED PROJECTION IS NOT REWRITTEN, for the reason {@link exportCorpus}
+ * gives: the index keys its incremental manifest on the file stamp, and a
+ * rewrite that changed nothing would re-embed the whole reference every build.
+ */
+export function writeProjections(root: string = kbRoot()): { projected: string[]; removed: string[] } {
+  const dir = corpusDir(root)
+  mkdirSync(dir, { recursive: true })
+
+  const membership = corpusMembership(root)
+  const written = new Set<string>()
+  const projected: string[] = []
+  for (const doc of projections()) {
+    const file = `${doc.id}.md`
+    const target = path.join(dir, file)
+    const next = projectedDocument(doc, membership)
+    const current = existsSync(target) ? readFileSync(target, 'utf8') : null
+    if (current !== next) writeFileSync(target, next, 'utf8')
+    written.add(file)
+    projected.push(doc.id)
+  }
+
+  const removed = readdirSync(dir)
+    .filter((name) => isProjected(name) && !written.has(name))
+    .map((name) => {
+      rmSync(path.join(dir, name))
+      return name
+    })
+
+  projected.sort()
+  removed.sort()
+  return { projected, removed }
+}
+
+/**
+ * What a corpus document must SAY about itself to belong to this KB.
+ *
+ * Read from the declaration rather than restated, because the declaration is
+ * where membership is decided and an exported ticket satisfies the predicate by
+ * carrying the ticket's own fields. A projection has no ticket, so it has to
+ * assert membership itself — and hardcoding whatever the predicate happens to be
+ * today would make the projections silently fall out of the KB the day it
+ * changed, which is the one failure a generated document is supposed to be
+ * incapable of. That day has already come once: the predicate was
+ * `fields.system_kb: true` until REQ-164 made it a `doc_kind`, and the shipped
+ * corpus is now unrestricted (`corpus: {}`) because the distribution IS the
+ * boundary. Deriving means a projection is a member under any of those,
+ * including none at all.
+ *
+ * Only `fields.x` predicates are read: `type` is the document's kind and is
+ * handled separately, and a predicate on anything else is not something a
+ * frontmatter field can satisfy.
+ */
+export function corpusMembership(root: string = kbRoot()): {
+  type: string
+  fields: Record<string, unknown>
+} {
+  const fields: Record<string, unknown> = {}
+  let type = CORPUS_TYPE
+  try {
+    const config = JSON.parse(readFileSync(configPath(root), 'utf8')) as {
+      knowledge_bases?: Record<string, { corpus?: Record<string, unknown> }>
+    }
+    const corpus = config.knowledge_bases?.[SYSTEM_KB]?.corpus ?? {}
+    for (const [key, value] of Object.entries(corpus)) {
+      if (key === 'type') {
+        const declared = Array.isArray(value) ? value[0] : value
+        if (typeof declared === 'string') type = declared
+      } else if (key.startsWith('fields.')) {
+        fields[key.slice('fields.'.length)] = value
+      }
+    }
+  } catch {
+    // No declaration yet, or an unreadable one. The defaults are the scaffolded
+    // declaration's own values, so a projection written before `ensureConfig`
+    // has run is still a member of the KB that run is about to declare.
+  }
+  return { type, fields }
+}
+
+/**
+ * Render a projection as a corpus file.
+ *
+ * The frontmatter is the same shape {@link corpusDocument} writes, and for the
+ * same reason: `DocDirStore` reads it, so a projection that formatted its own
+ * would be a second frontmatter dialect in one directory. What differs is what it
+ * carries — `doc_kind: system_kb` (DOC-39 §3.3: a document authored for the AI,
+ * never an architecture record), `projected: true`, and the source it came from,
+ * so a reader who wants to change one of these facts is told where to go.
+ *
+ * The source is named IN THE BODY as well as in the frontmatter. Retrieval
+ * returns passages, and a passage carries no frontmatter — an assistant reading
+ * a chunk of this document mid-conversation should still be able to say where
+ * the fact came from.
+ */
+export function projectedDocument(
+  doc: ProjectedDoc,
+  membership: { type: string; fields: Record<string, unknown> } = corpusMembership(),
+): string {
+  const fields: Record<string, unknown> = {
+    ...membership.fields,
+    [DOC_KIND_FIELD]: MEMBER_KIND,
+    projected: true,
+    source: doc.source,
+  }
+  const front = [
+    '---',
+    `id: ${scalar(doc.id)}`,
+    `type: ${membership.type}`,
+    `title: ${scalar(doc.title)}`,
+    'fields:',
+    ...Object.entries(fields).map(([key, value]) => `  ${key}: ${scalar(String(value))}`),
+    '---',
+    '',
+  ].join('\n')
+  const provenance = `> Generated from ${doc.source}. Do not edit: this document is rebuilt from its\n> source on every build, and an edit here is lost without warning.\n`
+  return `${front}# ${doc.title}\n\n${provenance}\n${doc.body.trimStart()}`
 }
 
 // ── the declaration ──────────────────────────────────────────────────────────
@@ -914,9 +1066,13 @@ export async function kbBundle(root: string = kbRoot()): Promise<KbBundle | null
 
 export const KB_USAGE = `usage: 1c kb <build|export|status>
 
-  build     export the corpus, build both indexes, and generate the map
-  export    export the corpus only (no embedding, no credentials needed)
+  build     write the corpus, build both indexes, and generate the map
+  export    write the corpus only (no embedding, no credentials needed)
   status    what is built, and how current it is
+
+The corpus has two producers: the doc tickets that opted in, and the projected
+reference (REF-*) generated from the behavior catalogue, the L1 schemas and the
+declared control surface. Both run on every build; neither is edited by hand.
 
 The index is built with Workers AI and needs CLOUDFLARE_ACCOUNT_ID and
 CLOUDFLARE_API_TOKEN. The map's paragraphs are written by the Claude Code CLI
@@ -926,6 +1082,17 @@ when no ANTHROPIC_API_KEY is set, so it needs no credentials of its own.`
 export interface KbStatus {
   /** Documents on disk in the corpus directory. */
   corpus: number
+  /**
+   * How many of `corpus` are projected rather than exported (REQ-165).
+   *
+   * Reported beside the total rather than instead of it, and load-bearing for
+   * the check below: with two producers writing into one directory, `corpus` is
+   * no longer comparable to `tickets` on its own — the healthy state is
+   * `corpus === tickets + projected`, and without this split a build with a
+   * perfectly current corpus would report itself stale by exactly the number of
+   * projections.
+   */
+  projected: number
   /**
    * `doc` tickets carrying the membership kind — what the corpus SHOULD hold.
    *
@@ -961,6 +1128,7 @@ export function kbStatus(root: string = kbRoot()): KbStatus {
   const files = existsSync(dir) ? readdirSync(dir) : []
   return {
     corpus: files.filter((f) => f.endsWith('.md') && f !== AWARENESS_FILE).length,
+    projected: files.filter((f) => isProjected(f)).length,
     tickets: countMemberTickets(),
     index: existsSync(path.join(dir, INDEX_DIR)),
     chunks: existsSync(path.join(dir, CHUNKS_DIR)),

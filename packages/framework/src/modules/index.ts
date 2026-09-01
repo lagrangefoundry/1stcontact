@@ -1,4 +1,8 @@
 export { registry, getModule, latestModuleVersion } from './registry'
+// REQ-165 — the contracts WITHOUT the render binding, for a caller that wants to
+// read the catalogue rather than render from it. `registry` above pulls every
+// component into the import graph; the projected reference needs none of them.
+export { CATALOG, catalog, getModuleMeta } from './catalog'
 export { getModuleCss, getModuleClientJs } from './styles'
 export { contactFormMeta } from './contact-form/meta'
 export { carouselMeta } from './carousel/meta'

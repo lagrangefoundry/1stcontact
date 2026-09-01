@@ -69,6 +69,7 @@ import {
   ensureConfig,
   exportCorpus,
   kbStatus,
+  writeProjections,
   DOC_KIND_FIELD,
   MEMBER_KIND,
   KB_USAGE,
@@ -257,11 +258,14 @@ Usage:
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
-    Export every doc ticket to kb/system/, index it, chunk it, and generate the
+    Write kb/system/ — every opted-in doc ticket, plus the generated REF-*
+    reference — then index it, chunk it, and generate the
     awareness map. Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN for the
     embedding model; the map's paragraphs come from the Claude Code CLI when no
     ANTHROPIC_API_KEY is set.
   1c kb export     the corpus only — no embedding, no credentials
+                   (both producers: opted-in doc tickets, and the generated
+                    REF-* reference projected from the code)
   1c kb status     what is built
 
 Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
@@ -748,8 +752,16 @@ export async function run(argv: string[]): Promise<void> {
         // than documents with nothing declaring what they belong to. Idempotent:
         // an existing declaration is never overwritten.
         ensureConfig()
+        // The generator runs BEFORE the export, so its output is in the corpus
+        // the export's own report describes and the index's incremental manifest
+        // sees one settled tree rather than two passes over the same directory.
+        const { projected } = writeProjections()
         const { docs, removed, skipped, dir } = exportCorpus()
         console.log(`corpus: ${docs.length} document(s) -> ${dir}`)
+        // Named rather than counted, for the reason the skip list is: a
+        // projection has no ticket, so an operator who cannot find `REF-l1` in
+        // the ticket store needs to be told it was generated, not looked for.
+        if (projected.length) console.log(`projected: ${projected.join(', ')}`)
         if (removed.length) console.log(`removed: ${removed.join(', ')}`)
         // Named, never a bare count: "3 skipped" tells an operator that
         // something is missing without telling them what, which is the version
@@ -762,6 +774,16 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       if (sub === 'build') {
+        // Before the build, so the projections are indexed, chunked and mapped
+        // like any other corpus member — the assistant is not meant to know
+        // which of its knowledge was written and which was generated.
+        //
+        // The declaration is scaffolded FIRST because a projection asserts its
+        // own membership from it: written against no declaration on a fresh
+        // checkout, it would carry no membership fields and then be excluded by
+        // the declaration the build was about to write.
+        ensureConfig()
+        writeProjections()
         const r = await buildKb()
         console.log(
           `index:  ${r.documents} document(s), ${r.embedded} embedded\n` +
@@ -783,15 +805,22 @@ export async function run(argv: string[]): Promise<void> {
         // number beside it: a corpus is not "37 documents", it is "37 of the 38
         // there should be", and a truncated export is a thing an operator sees
         // rather than a thing they later infer from an assistant's silence.
+        //
+        // The comparison is against the EXPORTED half, not the whole directory
+        // (REQ-165). Two producers write here now, and the projections have no
+        // ticket to be counted by — measuring the total against the ticket count
+        // would report a perfectly current corpus as stale by exactly the number
+        // of projections, every single build.
+        const exported = s.corpus - s.projected
         const expected =
           s.tickets === null
             ? ' (ticket store unreadable — cannot check)'
-            : s.tickets === s.corpus
+            : s.tickets === exported
               ? ` (of ${s.tickets} ticket(s) carrying ${DOC_KIND_FIELD}: ${MEMBER_KIND})`
               : ` ⚠ ${s.tickets} ticket(s) carry ${DOC_KIND_FIELD}: ${MEMBER_KIND} —` +
                 ` the corpus is stale; run \`1c kb export\``
         console.log(
-          `corpus: ${s.corpus} document(s)${expected}\n` +
+          `corpus: ${exported} exported + ${s.projected} projected${expected}\n` +
             `index:  ${s.index ? 'built' : 'missing'}\n` +
             `chunks: ${s.chunks ? 'built' : 'missing'}\n` +
             `map:    ${s.map ? 'built' : 'missing'}`,
