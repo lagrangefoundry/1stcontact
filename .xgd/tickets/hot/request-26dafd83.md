@@ -5,16 +5,27 @@ type: request
 title: 'Projected reference: the products own facts, generated rather than authored'
 created_by: xgd
 created_at: '2026-08-31T21:38:31.838491+00:00'
-updated_at: '2026-09-01T18:31:05.976259+00:00'
+updated_at: '2026-09-01T18:35:52.597053+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-cb7fa49c
+  commits:
+  - working_sha: 52fd6302cc92deaebf47a2c8230a225c4c65b616
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9ae7338430d66054b42173f57f20ef83a22ac670
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c2f6c582ad88ff1bf872907a8297bfe2c4a4b91e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.31
 ---
 
 # Projected reference: the product's own facts, generated rather than authored
