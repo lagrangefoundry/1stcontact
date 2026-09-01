@@ -6,9 +6,9 @@ title: 'Test suite: 23 failures — a half-finished install, a stale asset build
   ten UATs superseded by later work'
 created_by: xgd
 created_at: '2026-09-01T19:01:30.821719+00:00'
-updated_at: '2026-09-01T19:28:24.364606+00:00'
+updated_at: '2026-09-01T19:28:25.148071+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
