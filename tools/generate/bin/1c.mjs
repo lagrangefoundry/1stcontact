@@ -77,7 +77,12 @@ try {
   const argv = process.argv.slice(2)
   if (argv[0] === 'assets') {
     const assets = await server.ssrLoadModule('/tools/generate/src/cli/assets.ts')
-    const report = assets.cmdAssets({ cwd: process.cwd() })
+    // AWAITED (REQ-158). `cmdAssets` became async when the system KB joined the
+    // build: inlining it reads an index off disk. Without the await this line
+    // hands a Promise to `formatAssetReport`, which reports `undefined` fields
+    // for every artifact and exits 0 — a build that says it succeeded and wrote
+    // nothing.
+    const report = await assets.cmdAssets({ cwd: process.cwd() })
     console.log(
       argv.includes('--json') ? JSON.stringify(report, null, 2) : assets.formatAssetReport(report),
     )
