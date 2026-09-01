@@ -6,7 +6,6 @@ import {
   cmdCapturePage,
   cmdDiff,
   cmdValuesDiff,
-  ladderScreenshotPath,
   RESPONSIVE_VIEWPORTS,
   run,
   VIEWPORTS,
@@ -22,6 +21,7 @@ import {
   type ValueManifest,
   type Viewport,
 } from '../tools/generate/src/cli'
+import { bundleDirFor, fsReferenceBundle, fsReferenceStore, ladderScreenshotPath } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * Reconciliation UATs for story-16f2793c — size-aware diffing.
@@ -84,7 +84,7 @@ function refManifestAtWidth(width: number, wordmarkWidth: number): ValueManifest
 }
 
 /** A ladder bundle carrying one rest/chromium projection per (width → wordmark-width). */
-function ladderBundle(rungs: Array<{ viewport: Viewport; wordmarkWidth: number }>): string {
+async function ladderBundle(rungs: Array<{ viewport: Viewport; wordmarkWidth: number }>): Promise<string> {
   const dir = tmp('ac-ladder-')
   const projections: StateProjection[] = rungs.map(({ viewport, wordmarkWidth }) => ({
     engine: 'chromium',
@@ -93,7 +93,7 @@ function ladderBundle(rungs: Array<{ viewport: Viewport; wordmarkWidth: number }
     manifest: refManifestAtWidth(viewport.width, wordmarkWidth),
   }))
   const matrix: MultiStateCapture = { url: 'ref', projections, notes: [] }
-  writeMultiState(dir, matrix)
+  await writeMultiState(fsReferenceBundle(dir), matrix)
   return dir
 }
 
@@ -111,7 +111,7 @@ describe('story-16f2793c — values-diff --size compares at the selected width',
     // the desktop rung (256px) but the reference reflows to 75px on mobile. The
     // mobile diff must read the reference's mobile-width value and flag the delta;
     // the desktop diff must read the desktop-width value and report it clean.
-    const dir = ladderBundle([
+    const dir = await ladderBundle([
       { viewport: VIEWPORTS.mobile, wordmarkWidth: 75 },
       { viewport: VIEWPORTS.desktop, wordmarkWidth: 256 },
     ])
@@ -196,7 +196,7 @@ describe('story-16f2793c — values-diff --size names the widths the ladder carr
   it('test_UAT_AC642_values_diff_size_fails_loudly_and_names_available_widths', async () => {
     // A ladder that only ever reached mobile cannot answer a desktop diff. The error
     // must name both the requested width and the widths the ladder does carry.
-    const dir = ladderBundle([{ viewport: VIEWPORTS.mobile, wordmarkWidth: 75 }])
+    const dir = await ladderBundle([{ viewport: VIEWPORTS.mobile, wordmarkWidth: 75 }])
     const actual = writeManifest({ source: 'draft:x', elements: [], sections: [] })
     await expect(
       cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actual, size: 'desktop' }),
@@ -332,12 +332,11 @@ class MarkerScreenshotDriver implements BrowserDriver {
 describe('story-16f2793c — capture persists per-width reference screenshots', () => {
   it('test_UAT_AC647_capture_persists_per_width_screenshot_and_matrix_has_no_image_bytes', async () => {
     const cwd = tmp('ac-capture-')
-    const res = await cmdCapturePage('http://fixture.test/', {
-      cwd,
+    const res = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
       driverFactory: async () => new MarkerScreenshotDriver(),
       isEngineAvailable: async () => true,
     })
-    const bundleDir = res.bundleDir
+    const bundleDir = bundleDirFor(cwd, res.capture)
 
     // The default desktop shot is present…
     expect(existsSync(path.join(bundleDir, 'screenshot.full.png'))).toBe(true)

@@ -43,6 +43,7 @@ import {
   type L1Geometry,
   type L1Node,
 } from '../packages/site-schema/src/index'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -561,10 +562,10 @@ afterEach(() => {
 })
 
 /** Write a fixture capture bundle carrying a multistate oracle; return its dir. */
-function bundleWith(multistate: MultiStateCapture): string {
+async function bundleWith(multistate: MultiStateCapture): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(dir, { recursive: true })
-  writeMultiState(dir, multistate)
+  await writeMultiState(fsReferenceBundle(dir), multistate)
   return dir
 }
 
@@ -589,8 +590,8 @@ async function runCli(argv: string[]): Promise<{ code: number; out: string; err:
 
 describe('story-24098299 — gate fold-residual channel', () => {
   it('test_UAT_AC737_gate_reports_fold_residuals_as_their_own_channel', async () => {
-    const ref = bundleWith(gapCapture())
-    const report = cmdL1Gate({ cwd, ref })
+    const ref = await bundleWith(gapCapture())
+    const report = await cmdL1Gate(fsReferenceBundle(ref))
 
     // The gate returns the three probe reports AND the promoted regions AND a
     // distinct fold-residual list.

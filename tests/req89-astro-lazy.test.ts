@@ -33,6 +33,7 @@ import type {
   ValueElement,
 } from '../tools/generate/src/cli/capture'
 import { expectNoAstroContainerToConstruct } from './support/astro-absent'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const HEADLINE = 'Front door heading'
@@ -101,8 +102,8 @@ describe('REQ-148 — Astro is absent from the render path', () => {
   it('test_UAT_FC_REQ-148_l1_site_renders_without_astro_container', async () => {
     // Import a folded L1 bundle as a raw-L1 home page site.
     const ref = path.join(cwd, 'bundle')
-    writeL1(ref, foldToL1(l1Oracle()))
-    cmdRepro('gigabyte', { cwd, ref })
+    await writeL1(fsReferenceBundle(ref), foldToL1(l1Oracle()))
+    await cmdRepro('gigabyte', { cwd, ref })
 
     const { outDir } = await cmdRender('gigabyte', { cwd })
 

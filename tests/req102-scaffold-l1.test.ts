@@ -34,6 +34,7 @@ import { RESPONSIVE_VIEWPORTS } from '../tools/generate/src/cli/capture/values-d
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { STARTER_WIDTHS, starterHomePage } from '../tools/generate/src/cli/scaffold'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
@@ -56,10 +57,10 @@ function readHome(draftDir: string): { l1?: L1Document } {
 }
 
 /** A minimal capture bundle carrying a folded `l1.json` for the repro UAT. */
-function bundle(cwd: string): string {
+async function bundle(cwd: string): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  writeL1(dir, {
+  await writeL1(fsReferenceBundle(dir), {
     widths: [320, 1280],
     background: '#101010',
     root: {
@@ -144,15 +145,15 @@ describe('REQ-102 — `1c new` seeds a renderable L1 document', () => {
     expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
   }, 60_000)
 
-  it('test_UAT_FC_REQ-102_repro_over_a_scaffolded_slug_is_uncontaminated', () => {
+  it('test_UAT_FC_REQ-102_repro_over_a_scaffolded_slug_is_uncontaminated', async () => {
     const cwd = freshCwd()
-    const ref = bundle(cwd)
+    const ref = await bundle(cwd)
 
     // AC-3: import over a slug that never existed…
-    const virgin = cmdRepro('virgin', { cwd, ref })
+    const virgin = await cmdRepro('virgin', { cwd, ref })
     // …and over one `1c new` already seeded with a skeleton.
     cmdNew('seeded', { cwd })
-    const seeded = cmdRepro('seeded', { cwd, ref })
+    const seeded = await cmdRepro('seeded', { cwd, ref })
 
     const normalize = (dir: string, slug: string): string =>
       readFileSync(path.join(dir, 'pages', 'home.json'), 'utf8').split(slug).join('<slug>')

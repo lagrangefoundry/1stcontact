@@ -35,6 +35,7 @@ import { cmdRender } from '../tools/generate/src/cli/commands'
 import { writeForms, writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { serveOneModulePage } from '../tools/generate/src/conformance'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const GIGABYTE = path.join(process.cwd(), 'storage', 'references', 'gigabytealchemy.ai', 'index', 'multistate.json')
@@ -369,10 +370,10 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     const forms: FoldedForm[] = []
     const doc = foldToL1(twoFormCapture(), { forms })
     const ref = path.join(cwd, 'bundle')
-    writeL1(ref, doc)
-    writeForms(ref, forms)
+    await writeL1(fsReferenceBundle(ref), doc)
+    await writeForms(fsReferenceBundle(ref), forms)
 
-    const result = cmdRepro('gigabyte', { cwd, ref })
+    const result = await cmdRepro('gigabyte', { cwd, ref })
     expect(result.forms.map((f) => f.slot)).toEqual(['form-0', 'form-1'])
 
     const { outDir } = await cmdRender('gigabyte', { cwd })
@@ -393,21 +394,21 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     expect(html).toContain('data-fc-module="form-1"')
   })
 
-  it('test_UAT_FC_REQ-93_part_stale_bundle_fails_rather_than_stranding_the_behaviour', () => {
+  it('test_UAT_FC_REQ-93_part_stale_bundle_fails_rather_than_stranding_the_behaviour', async () => {
     // `l1.json` and `forms.json` are written by ONE fold, so disagreeing seams
     // mean the bundle is part-stale. Importing it anyway would render the
     // behaviours as inert placeholders — the exact stranding this change ends —
     // so it fails loudly, naming the mismatch and the fix.
     const doc = foldToL1(twoFormCapture(), { forms: [] })
     const ref = path.join(cwd, 'bundle')
-    writeL1(ref, doc) // seams present…
+    await writeL1(fsReferenceBundle(ref), doc) // seams present…
     // …no forms.json at all (a bundle folded before this change).
-    expect(() => cmdRepro('gigabyte', { cwd, ref })).toThrow(/slot 'form-0' has no binding/)
-    expect(() => cmdRepro('gigabyte', { cwd, ref })).toThrow(/Re-capture with/)
+    await expect(cmdRepro('gigabyte', { cwd, ref })).rejects.toThrow(/slot 'form-0' has no binding/)
+    await expect(cmdRepro('gigabyte', { cwd, ref })).rejects.toThrow(/Re-capture with/)
 
     // …and the mirror image: a binding for a seam the document does not carry.
-    writeForms(ref, [{ slot: 'ghost', behavior: 'contact-form', fields: [], residuals: [] }])
-    expect(() => cmdRepro('gigabyte', { cwd, ref })).toThrow(/binds slot 'ghost', absent from l1\.json/)
+    await writeForms(fsReferenceBundle(ref), [{ slot: 'ghost', behavior: 'contact-form', fields: [], residuals: [] }])
+    await expect(cmdRepro('gigabyte', { cwd, ref })).rejects.toThrow(/binds slot 'ghost', absent from l1\.json/)
   })
 
   // ── 5. conformance ─────────────────────────────────────────────────────────

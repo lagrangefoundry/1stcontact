@@ -4,8 +4,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { siteDir, distDir } from '../tools/generate/src/store/paths'
-import { bundleDirFor } from '../tools/generate/src/cli/capture/bundle'
+
 import { cmdNew, cmdList } from '../tools/generate/src/cli/commands'
+import { bundleDirFor } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-22 — all four site-data trees consolidated under `storage/`

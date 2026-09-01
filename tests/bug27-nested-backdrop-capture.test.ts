@@ -52,6 +52,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli/capture'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 
@@ -67,7 +68,7 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
     if (await chromiumAvailable()) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'bug27-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/bug27-nested-backdrop.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/bug27-nested-backdrop.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 180000)

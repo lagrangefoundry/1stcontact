@@ -18,6 +18,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for the REQ-35 behaviours that SURVIVE the REQ-53 exact-by-default flip.
@@ -159,7 +160,7 @@ describe('REQ-35 capture flags inferred colours (real Chromium)', () => {
     if (browserOk) {
       cwd = mkdtempSync(path.join(tmpdir(), 'req35-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/req35-inferred.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/req35-inferred.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)
