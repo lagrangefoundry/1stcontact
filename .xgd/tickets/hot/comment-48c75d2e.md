@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T00:35:10.202934+00:00'
+updated_at: '2026-09-01T01:05:39.445077+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,17 @@ One thing blocks the build regardless of the key: **the **`1c`** CLI doesn't boo
 **Q4 — neither hard-code nor invent config.** REQ-159 already added `kb/knowledge_bases.json`, and it already declares `system` beside `project`. Mirror `projectKb()` with a `systemKb()` parsing the same file — following the rule that function records, *parsed, not paraphrased*.
 
 There's an API key in the env, it has permissions to get the account id
+
+<!-- xgd-turn id="98901093-b2ee-47ef-ace4-dd52de62931d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T01:05:39.424314+00:00" -->
+#### Claude
+Now let me write the code. Starting with the bundle payload builder in `kb.ts`:
+
+Now wire the new emitters into the build and make it async:
+
+Now the Worker-side runtime opener:
+
+Now wire it into `ai.ts` and `router.ts`:
 
 <!-- xgd-chat-end -->
