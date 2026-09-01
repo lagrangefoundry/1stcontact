@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T19:39:26.228146+00:00'
+updated_at: '2026-09-01T19:39:46.100503+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2847,5 +2847,32 @@ env.AI         AI            remote
 ```
 
 The curl is hanging?
+
+<!-- xgd-turn id="08f0ccbb-ed3c-4dd5-9a6a-7812c539dc0a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:39:45.349782+00:00" -->
+#### Claude
+That's not the AI binding — it's zsh. `[1] + suspended (tty output)` means the backgrounded job tried to write to the terminal and got stopped by `SIGTTOU` before it finished booting. Nothing is listening on 8803, so curl hangs.
+
+Redirect its output so it never touches the tty:
+
+```bash
+kill %1
+npx wrangler dev --port 8803 > /tmp/aiprobe/log 2>&1 &
+sleep 15
+curl localhost:8803
+```
+
+One thing worth correcting before you read the result: that's **wrangler 4.38.0**, and the repo pins **4.106.0**. If 4.38 behaves differently the test tells us about the wrong version. Run the probe with the repo's copy instead:
+
+```bash
+kill %1
+/Users/martin/lagrangefoundry/1stcontact/node_modules/.bin/wrangler dev --port 8803 > /tmp/aiprobe/log 2>&1 &
+sleep 15
+curl localhost:8803
+cat /tmp/aiprobe/log
+```
+
+`{"dims":384}` means the AI binding is fine on your machine and the failure I hit is my sandbox's proxy — you're clear to run the real thing. An `InferenceUpstreamError` means it's a genuine wrangler bug and we work the KB against a deployed Worker instead.
 
 <!-- xgd-chat-end -->
