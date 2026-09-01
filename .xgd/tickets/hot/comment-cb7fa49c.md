@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-165
 created_by: xgd
 created_at: '2026-08-31T21:51:22.915848+00:00'
-updated_at: '2026-09-01T18:59:22.681113+00:00'
+updated_at: '2026-09-01T18:59:36.034393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -225,5 +225,17 @@ One correction to what I said earlier — I've now checked `generated/kb.js` and
 <!-- xgd-chat role="user" ts="2026-09-01T18:59:22.526950+00:00" -->
 #### You
 I think you are splitting hairs there - "tools" in this context includes the framwork for building websites IMO
+
+<!-- xgd-turn id="d2f219f0-3790-480d-bde1-d3faabebb8ef-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:59:35.917414+00:00" -->
+#### Claude
+You're right — under that reading all three are tooling docs: the components, the layout vocabulary, and the control surface are the toolkit for building sites.
+
+So yes, plainly: **auto-generated documentation of the website-building tooling, produced at build time, shipped to the production AI.** That's what REQ-165 built.
+
+The one thing I'd keep from that table is the delivery mechanism, since it's operational rather than semantic: this goes in by *search*, not priming. The AI retrieves it when a question needs it, so it costs nothing per session and can be large — 53KB across the three, versus a manual that has to be small enough to sit in every prompt. That's why a projected reference could cover the whole surface where the manual only covers what the session was granted.
+
+Outstanding: the three files are on disk but `generated/kb.js` still holds yesterday's build, so they aren't searchable yet. Want me to run `1c kb build`?
 
 <!-- xgd-chat-end -->
