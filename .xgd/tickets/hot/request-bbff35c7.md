@@ -18,6 +18,7 @@ fields:
   - REQ-159
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f5f16122
 ---
 
 # Session seeding and turn reminders: two-KB priming, the change cursor, and the delta channel
