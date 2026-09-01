@@ -6,7 +6,7 @@ title: 'Session seeding and turn reminders: two-KB priming, the change cursor, a
   the delta channel'
 created_by: xgd
 created_at: '2026-08-30T23:19:07.355942+00:00'
-updated_at: '2026-09-01T19:34:20.868825+00:00'
+updated_at: '2026-09-01T19:54:48.501188+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -118,6 +118,27 @@ Three behaviours that are requirements, not polish:
 - **The delta is capped** with an *"…and N more"* summary. A bulk import or a
   capture run can put hundreds of entries in one turn, and an unbounded delta
   reintroduces the pile priming exists to avoid.
+- **The cursor must not re-report the document it stopped on.** The change feed's
+  predicate is `updated_at >= cursor`, inclusive at the boundary — the component
+  chose that so an indexer cannot miss a document written in the same instant its
+  cursor was taken. Inclusivity means a cursor set to the newest timestamp sweeps
+  that document up again next turn, and every turn after it. So the boundary
+  travels with the uids that sat exactly on it, and those are dropped from the
+  next sweep. A bulk import writes many documents in one instant, so it is a list
+  and not a single uid — bounded by one timestamp's worth of ties, never by the
+  corpus.
+- **A corrupt cursor costs a sweep and never a turn.** It is a bookkeeping field;
+  one that will not parse is worth one over-wide sweep, which re-announces a
+  document at worst. Failing the conversation over it would be the more expensive
+  answer, and it is the same judgement [[REQ-159]] made for its transcript
+  cursors.
+- **A conversation is never reported to itself.** Chat tickets are corpus members
+  and are not delta entries. The session's own chat ticket is where the cursor
+  lives, so a sweep that included it would announce the conversation to itself
+  every turn, forever — and until [[REQ-171]] writes the summary its body is
+  reserved for, a chat ticket carries no content to search for anyway. The
+  exclusion is the delta's alone: chat tickets stay in the corpus, stay indexed,
+  and stay in the landscape.
 - **Ordering is a cost decision.** The maps are stable across turns; the delta
   and the transcript tail are not. Stable material sits *before* volatile
   material, so the seeded prefix stays prompt-cached for the life of the session
@@ -156,8 +177,23 @@ things the host cannot supply for itself:
 - **The change-feed operation of piece 3**, which has to be declared on the
   surface to get what declaring buys.
 
-Until they land, seeding and the delta channel are deliverable and search remains
-single-index.
+The second is genuinely blocked and waits. The first is not, and is delivered
+here in the only place available today: the session's knowledge surface fans a
+search out to each knowledge base's own runtime — its own index, its own store,
+its own declared weight, so the component's full ranking runs within each — and
+then merges the results on the component's own scores, sorting by them and
+cutting the union to the requested `k`. It does not re-rank, re-weight or
+re-score; a second answer to how hits are ordered is what the component refuses
+to have, and this does not become one. **Two independent indexes, co-ranked for
+presentation** — which is the requirement, not a stand-in for it. A tie breaks
+project-first, by the stability of the sort over the same order the landscape
+uses.
+
+The scores are comparable by construction, and that is what makes the merge sound
+rather than merely plausible: one embedding model across both indexes, which the
+component's search already requires, and one set of ranking dials on both sides.
+REQ-112 moves the merge inside the ranking, at which point the fan-out here
+deletes.
 
 ## Out of scope
 
@@ -196,6 +232,8 @@ single-index.
   the session file in a `chat_transcript` comment on it and the body untouched;
   the next turn folds onto it rather than minting a second.
 - The session's cursor is a field on that ticket, and it advances by the turn.
+- A search reaching both knowledge bases returns one list ordered by the
+  component's own scores, with each index read through its own runtime.
 
 ## Decided
 
@@ -208,6 +246,10 @@ Both open questions are settled by [[DOC-39]] rather than left to fall out.
   nor a start-of-session cursor, and anchoring on the build time makes the two
   exactly complementary. This also answers the cross-session case — B has a
   cursor of its own, so material A saw is new to B only if it postdates B's map.
+- **A single oversized title is clipped, not dropped.** The degenerate case of
+  the cap: one title longer than the whole budget. A delta reporting that a
+  document arrived while naming none would announce that something happened and
+  withhold the only part that is actionable.
 - **The cap is characters, ~400, and the count is always exact** (§6.4). A
   character budget is a hard stop on content, but the number is one integer and
   is never truncated — so a bulk import reads *"41 documents added, including
