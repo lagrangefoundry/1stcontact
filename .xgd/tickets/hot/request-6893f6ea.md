@@ -6,10 +6,10 @@ title: 'The system KB in the Worker: bundle-resident index, AI binding, knowledg
   surface on the builder toolbox'
 created_by: xgd
 created_at: '2026-08-28T21:12:01.399464+00:00'
-updated_at: '2026-09-01T18:53:35.532141+00:00'
+updated_at: '2026-09-01T19:34:09.077635+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
@@ -120,23 +120,54 @@ Two further pieces of item 4 exist already: `r2IndexSource` and
 `apps/control-app/src/knowledge.ts`, and `projectKnowledgeFor` shows the whole
 opener shape end to end. This is more of a wiring ticket than it was.
 
-**3. The size argument needs restating against a new baseline.** "Roughly 50KB
-of document vectors and well under 1MB with chunks" was measured against a
-322 KiB Worker. [[REQ-163]] shipped `unpdf` and `@anthropic-ai/sdk` and the
-bundle is now **1032 KiB gzip**. Against a realistic KB payload of ~0.9 MB gzip
-(doc vectors ~68 KB b64, chunks at `MAX_CHUNK_CHARS=2000` ~800 KB b64, plus the
-inlined documents) the Worker lands near **1.9 MiB against the 10 MiB paid
-ceiling**.
+**3. The size argument needs restating against a new baseline — and it is now
+measured, not projected.** "Roughly 50KB of document vectors and well under 1MB
+with chunks" was measured against a 322 KiB Worker. [[REQ-163]] shipped `unpdf`
+and `@anthropic-ai/sdk`, and a dry-run deploy now puts the bundle at **1052 KiB
+gzip with `KB = null`** — that is the Worker before any KB exists at all.
+
+Building the corpus and measuring `apps/control-app/src/generated/kb.js`
+directly:
+
+| | bytes |
+|---|---|
+| Source markdown, 4 documents | 107,305 (105 KiB) |
+| `kb.js`, raw | 520,730 (509 KiB) |
+| `kb.js`, **gzip** | 294,767 (**288 KiB**) |
+
+A dry run of the full bundle with that corpus measures **1341 KiB gzip**, which
+matches the 288 KiB module delta.
+
+**The compressed module is 2.75× the markdown it was built from, and that is the
+load-bearing fact.** The vectors account for 228,864 bytes of float32 — exactly
+`145 chunks × 384 × 4` plus `4 docs × 384 × 4`. Base64-encoded that is 305 KB of
+near-random text, and gzip can undo base64's 4/3 expansion and nothing more, so
+it floors at ~223 KiB. The 105 KiB of markdown and 94 KiB of chunk metadata
+compress ~3× into the remaining ~65 KiB. So **~78% of the compressed payload is
+vectors, and vectors do not compress.** Bundle size tracks *chunk count*, not
+text volume; the inlined documents are nearly free.
+
+Extrapolating on chunk count: all 39 `doc` tickets total 642,230 bytes, ~6× the
+present corpus, which puts ~1.7 MiB of KB on top of the 1052 KiB baseline —
+**~2.7 MiB gzip against the 10 MiB paid ceiling**, or 3.6× headroom. That is a
+pessimistic ceiling rather than a forecast: **29 of the 39 are
+`doc_kind: architecture`**, which [[DOC-39]] §3.1 excludes from the KB, so all
+39 migrating is the case that will not happen.
 
 The decision does not change — bundle-resident is still right at this scale, and
-R2 would buy a cold-start fetch for nothing. What changes is the reason: it is
-19% of the ceiling rather than a rounding error, and **chunks are four fifths of
+R2 would buy a cold-start fetch for nothing. What changes is the margin. An
+earlier revision of this section projected **1.9 MiB**; that was optimistic by
+about 40%, and the real headroom is 3.6× rather than the ~5× it implied. It is
+27% of the ceiling rather than a rounding error, and **chunks are four fifths of
 the payload**. If it ever tightens, chunks are what moves to R2 through the
 `IndexSource` seam, and `r2IndexSource` already exists to receive them.
 
-**And the corpus has grown.** `kb/system/` now holds **37 documents, 640 KB**
-(the ticket says 33). Still no `index/`, no `chunks/`, no map — `1c kb build` has
-still never run, so item 1 stands exactly as written.
+**And the corpus is scoped, not merely grown.** There are **39 `doc` tickets,
+642,230 bytes** in total (the ticket says 33), but only **4 carry
+`doc_kind: system_kb`**, so `kb/system/` holds those 4 and `1c kb build` has now
+run against them — `index/`, `chunks/` and `awareness.md` all exist. Item 1 is
+therefore satisfied for the marked subset; the remaining 35 depend on
+[[DOC-39]] §10's pending marker migration, which is not this ticket's work.
 
 ## Answers to the open questions (2026-08-31)
 
@@ -159,6 +190,26 @@ added the dependency and this working tree has not installed it. `pnpm install
 (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`) because it wants to purge
 `node_modules` first, so it needs `CI=true` and an operator who accepts the
 purge.
+
+**A second blocker, and a misleading one: Node's `fetch` ignores `HTTPS_PROXY`.**
+`1c kb build` dies with a bare `TypeError: fetch failed` while `curl` against the
+same `/accounts/{id}/ai/run/@cf/baai/bge-small-en-v1.5` endpoint succeeds with
+the same token — so the credential looks fine and the corpus looks unbuildable.
+
+The cause is proxy handling, not Cloudflare. Where the only network egress is a
+proxy advertised through `HTTPS_PROXY`, `curl` reads that variable and Node's
+global `fetch` does not: undici ignores proxy environment variables entirely and
+dials the target host directly, the sandbox refuses the connect with `EPERM`, and
+undici surfaces every transport failure as the same opaque `fetch failed` with
+the real errno only on `err.cause`. Setting **`NODE_USE_ENV_PROXY=1`** (Node 24+)
+makes the global fetch honour the proxy, and the build proceeds.
+
+This is an environment artefact: an unsandboxed operator machine needs no flag,
+and nothing in the build is wrong. It does expose a diagnosability defect in the
+embedder's error path — a bare `fetch failed` is indistinguishable from a bad API
+token, which is the wrong thing to hand someone who is debugging. Unwrapping
+`err.cause` there is worth doing, but it is **not in scope for this ticket** and
+no code under REQ-158 addresses it.
 
 **Q2 — generated, not committed.** The catch that made this a real question
 dissolves on inspection: **GitHub Actions is not a live deploy path.**
