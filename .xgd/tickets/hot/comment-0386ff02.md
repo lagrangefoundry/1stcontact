@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T18:34:30.634033+00:00'
+updated_at: '2026-09-01T18:46:10.708016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2744,5 +2744,82 @@ Can you take a look at what has been implemented and where we are. Please descri
 3. REQ-155, 156, 157 are tools to give the AI visibility <-- working through these too
 
 Lets try to run everything locally before we push it to the Cloud
+
+<!-- xgd-turn id="a89f8d36-5b0d-49ad-8240-054220a536a0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:46:10.635615+00:00" -->
+#### Claude
+I ran the system locally and probed it end-to-end. Here's where things actually stand.
+
+## What's built
+
+**The Worker is the product now.** `apps/control-app` is a single Cloudflare Worker holding the whole builder: ~30 API routes, the L1 renderer running in workerd, D1 for definitions and tickets, two R2 buckets (`SITES` for site bytes, `BLOBS` for the client's private material), Browser Rendering, and the Workers AI binding. Access + entitlement gate every request. `apps/public-site` serves published output. There is no Node server left on the path.
+
+Five layers, in dependency order:
+
+| Layer | State |
+|---|---|
+| **Site model** — L1 typed tree, framework renderer, `edit*` structured-edit surface, draft/edit preview channels, publish + revisions | working |
+| **Builder UI** — chat panel, page editor, palette popup, image picker, copy modal, Library tab, drop-to-upload overlay | working |
+| **Ticket store + material types** — D1 schema, TypePack, `material`/`reference`/`brief`, content-addressed blobs behind `BlobStore` | working (REQ-162 reconciling) |
+| **Ingestion** — dropped file → blob → attachment record → material ticket with an AI-written *attachment description* as its body → index | working, minus the index |
+| **Knowledge** — system KB bundle-resident in the Worker (509KB inlined), project KB tenant-scoped with incremental index + awareness map | built; **only the system KB is wired into the chat session** |
+
+**Not built yet:** capture/fidelity in the cloud. `capture/bundle.ts` is `mkdirSync`/`writeFileSync`, and `sharp` is a native module that cannot run in workerd. That's REQ-155/156/157, all still `draft`.
+
+## What I verified running, just now
+
+`wrangler dev` boots with every binding resolved. `GET /` serves the builder chrome; `/api/sites` returns your two local sites (`alpha`, `xgd`). I uploaded a text file describing a business and the full ingestion pipeline ran: blob stored, attachment record created, material ticket written with an extracted title and `description_status: "ok"`. `POST /api/ai/session` opens and reports precisely what it's missing.
+
+`1c kb status` says the system KB is built — index, chunks and map all present over 4 documents.
+
+## The one blocker: the AI binding fails in local dev
+
+Every knowledge path — indexing an upload, *and* searching either KB, since query embedding uses the same binding — dies with:
+
+```
+InferenceUpstreamError: internal error; reference = <id>
+```
+
+I isolated it to the binding itself with a throwaway 10-line Worker that does nothing but `env.AI.run('@cf/baai/bge-small-en-v1.5', …)`. Same error. Meanwhile the **identical model over REST works fine** on your account — I got a 384-dim vector back. So: the model, the entitlement and your credentials are all good; it's wrangler's local-dev remote-AI proxy that's broken.
+
+**It may well be my sandbox, not your machine.** This session runs behind a forced HTTP proxy (wrangler logs "Proxy environment variables detected"), and the AI proxy session connects somewhere my sandbox may not allow. Two minutes to settle it in your own terminal:
+
+```bash
+mkdir -p /tmp/aiprobe && cd /tmp/aiprobe
+printf 'name="ai-probe"\nmain="index.js"\ncompatibility_date="2025-07-01"\n[ai]\nbinding="AI"\n' > wrangler.toml
+printf 'export default{async fetch(r,e){const o=await e.AI.run("@cf/baai/bge-small-en-v1.5",{text:["hi"]});return Response.json({dims:o.data[0].length})}}\n' > index.js
+npx wrangler dev --port 8803 &
+curl localhost:8803
+```
+
+`{"dims":384}` means it's my sandbox and you're clear to go. The error means it's a real wrangler bug, and the fallback is to deploy and exercise the KB on Cloudflare, where the binding is native.
+
+## Against your three goals
+
+**1. System KB seeding — REQ-160 is genuinely required, and it's still `draft`.**
+
+Today `workerHost` primes the session with the system KB *only*. `projectKnowledgeFor` exists and indexes on upload, but nothing hands it to the session — so the AI can't see the client's own material, and nothing tells it when a file arrives mid-conversation. That's exactly the gap REQ-160 closes (two-KB priming, the session cursor, the per-turn delta, the change-feed operation). Its dependencies — REQ-158 and REQ-159 — are both landed and `ready_to_reconcile`, so it's unblocked.
+
+Separately, the corpus is **4 documents** (DOC-17, DOC-31, DOC-33, DOC-35). That's the `doc_kind: system_kb` filter REQ-164 landed working correctly — the migration of the other 40-odd docs off the old `system_kb: true` boolean hasn't happened, and per DOC-39 §3.1 most of them shouldn't move anyway: they're *architecture* documents written for us, not *system_kb* documents written for the AI. That's the authoring exercise your new chat is for. REQ-165 (projected reference) is `free_coding` right now and covers the machine-readable facts that should be generated rather than written.
+
+**2. Firing it up and working with the AI.** Two things to set, then it should run:
+
+```bash
+# apps/control-app/.dev.vars
+ANTHROPIC_API_KEY = "sk-ant-…"
+```
+
+and local dev needs Access off, which the config doesn't currently arrange — `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` are filled in under top-level `[vars]`, and `ACCESS_DEV_OPEN=1` only applies when both are *empty*. I ran with `--var ACCESS_TEAM_DOMAIN: --var ACCESS_AUD:` to override. Putting empty values in `.dev.vars` is the tidier permanent answer.
+
+I've added `.dev.vars` to `.gitignore` — it wasn't there, which meant the obvious place to put your Anthropic key was a tracked file. Uncommitted; say the word.
+
+**3. REQ-155/156/157.** All three `draft`. Worth noting the sequencing REQ-156 records: only its AC5 depends on REQ-155, so the `sharp` removal can start immediately and in parallel. And REQ-157 has one genuinely unsettled design question — whether a Toolbox operation may *declare* an image return — which should be answered before its operations are built, not during.
+
+## Housekeeping
+
+I left several detached `wrangler dev` processes on ports 8788, 8799, 8801, 8802, 8803. Kill them with `lsof -ti:8788,8799,8801,8802,8803 | xargs kill`. One on 8788 predates this session and my sandbox couldn't kill it.
+
+`pnpm install` fails in this sandbox — `iconv-lite@0.6.3` ships a `.idea/` directory and the sandbox refuses to create it. There's a `.local-vendor/iconv-lite` workaround already on disk from a prior session, but it's referenced only by the installed lockfile, not the committed one, so a fresh install reverts to the registry copy and hits the wall again. `node_modules` is functionally fine — only `1c preflight`'s drift check complains — but it's worth deciding whether that override belongs in `package.json` permanently.
 
 <!-- xgd-chat-end -->
