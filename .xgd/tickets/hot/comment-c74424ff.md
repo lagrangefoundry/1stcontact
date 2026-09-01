@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:59:32.658811+00:00'
+updated_at: '2026-09-01T00:03:28.818220+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -635,5 +635,17 @@ Still open from last round, and I need these to write A–D:
 4. **Expired grant** — locked out, or read-only?
 
 And one new: does the super-chat need to be **read-only forever**, or are you expecting to eventually say "fix that for tenant X" and have it act? I've designed for read-only; if you want write, it should be specific verbs with explicit targets rather than a general handle, and that's a different ticket shape.
+
+<!-- xgd-turn id="b002fe52-dcb0-4935-abda-df5ea4086f10-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:03:28.693257+00:00" -->
+#### You
+**3. Narrow the surface to ops data.** Your example questions — "is that bug in tenant X the cause of that complaint from tenant Y" — are about **tickets and logs**, not about site content. <-- but content moderation is an important use case. Do you know what - lets park this for now and return to it. Its too much of a rabbit hole to take on.
+
+Your earlier questions:
+1 Opaque
+2 pro
+3. A very simple black page saying something like "Your 1stcontact site"
+4. We need to design a whole flow around this that drives them to the payments funnel - do we really need to decide for this free alpha testing exercise?
 
 <!-- xgd-chat-end -->
