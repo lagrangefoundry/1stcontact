@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:02:18.397984+00:00'
+updated_at: '2026-09-01T22:02:30.161620+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,19 @@ The two decisions I'd like from you before coding:
 <!-- xgd-chat role="user" ts="2026-09-01T22:02:18.118425+00:00" -->
 #### You
 Can you ask your question as a question - I don't know what you are trying to ask?
+
+<!-- xgd-turn id="f64871e8-a77a-47e7-a7e4-47f300797342-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:02:29.585471+00:00" -->
+#### Claude
+Fair — I buried it. Here it is plainly.
+
+DOC-33 §7 lists rules for how the consultant conducts a conversation — offer options rather than iterating on one, show rather than ask, ask for facts not diagnoses, push back once then execute, never say "we'll get back to you".
+
+**My question: should those rules be written into the preamble, or left in the playbook for the AI to retrieve from the system KB?**
+
+Preamble means they're present on every turn whether or not the model thinks to look. But the preamble is hand-written, so when you revise the playbook the preamble silently goes stale — which is the exact failure REQ-126 was about.
+
+System KB means one source of truth that stays current. But corpus knowledge only reaches the model when it searches for it, and a model drifting into bad habits by turn thirty has no reason to search.
 
 <!-- xgd-chat-end -->
