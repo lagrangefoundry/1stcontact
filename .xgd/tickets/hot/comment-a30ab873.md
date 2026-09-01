@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-32
 created_by: xgd
 created_at: '2026-09-01T18:40:16.058476+00:00'
-updated_at: '2026-09-01T19:51:24.214873+00:00'
+updated_at: '2026-09-01T19:53:35.671320+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,78 @@ Want me to file this as a ticket — or split it, since the role question (§ ab
 ok let not make point fixes here, we need to take a step back. I think we (1) keep the ref docs, they are doing a good job (2) remove all 4 system_bk docs - they should go back to being arch or product docs  (3) lets figure out what is need and write N docs to clearly meet those needs.
 
 So assuming we start from scratch, what do we need?
+
+<!-- xgd-turn id="a9e84671-b755-466b-9856-54eb412829a7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:53:35.648638+00:00" -->
+#### Claude
+Starting from scratch means starting from the delivery channel, not the topic list. There are four ways a fact reaches a production session, and most of what feels like "we should document this" belongs in one of the other three:
+
+| Channel | Carries | Written by |
+|---|---|---|
+| Preamble / role purpose | what is true on every turn | hand, once |
+| Per-turn reminder | the two or three things that decay | hand, tiny |
+| Projections | anything with a machine-readable source | generated |
+| **System KB** | **everything else the AI needs *sometimes*** | **hand, for the AI** |
+
+So a document earns a place only if it passes four tests: the AI needs it *sometimes* (else it's preamble), no source of truth can generate it (else it's a projection), it changes what the AI says next (§3.5), and it's written in the register we want back out.
+
+That filter is what keeps the set small. Applying it, here's what is explicitly **not** a document:
+
+- **The staged process itself** — acts, gates, what must be established before what. Nobody searches for "what stage am I in." That's role purpose, in priming. DOC-33 conflating the process spine with the consultation craft is most of why it reads as a spec rather than knowledge.
+- **Tool inventory, module dials, L1 vocabulary, the absences** — projected, and working.
+- **Our architecture, our economics research, our lab notebook** — stay where they are.
+
+## The eight
+
+**Cluster 1 — what we are** *(1 doc)*
+
+**1. The offer.** What the client bought, what happens after this conversation, and what they own. That there is no human behind you and none coming. That their site has a private draft and a public version, and publishing is their decision. What the ongoing tier is and what it costs. What they can change themselves afterwards and what to ask you for.
+
+*Trigger:* "so if I want to change my prices next month, do I email someone?" — which can come at any point, and today has no answer at all. This is the single largest hole and the least optional doc in the set.
+
+**Cluster 2 — running the conversation** *(3 docs)*
+
+**2. Who you're talking to.** Personas as *observable signals*, not taxonomy — what it means when someone opens by sending a competitor's URL, or answers every question with "whatever you think." Registers and when to shift. What "non-technical" actually looks like in practice. How to handle the client who wants to be the designer.
+
+**3. Consultation craft.** How to open with someone who has never commissioned design. How to get a brief out of someone who doesn't have one. How to present two or three options so the choice is real. How to close a decision with someone who won't make one. How to say no well. Everything DOC-33 knows that isn't the state machine.
+
+**4. Talking about design without our words.** How to describe colour, type, spacing and hierarchy to someone who has none of the vocabulary. What "professional", "modern", "clean", "make it pop", "not too corporate" actually mean, and what to ask to find out. The preamble already forbids naming framework concepts to the user — it gives no alternative words. This doc is that alternative, and it's the most frequently hit thing in the set.
+
+**Cluster 3 — doing the work well** *(2 docs)*
+
+**5. What makes a site look considered.** The operative successor to DOC-31 and DOC-17: the tells that read expensive versus template, the failure modes (too many typefaces, everything centred, the stock-photo hero, the gradient), and what to do instead. Not the research and not the notebook — the version you can act on mid-turn. DOC-31 and DOC-17 stay ours and feed it.
+
+**6. Getting the words and the pictures.** The hardest practical problem in a real session and currently uncovered anywhere. The client has no copy — how to interview a business owner into having some, and how to write it. The client has no photographs, and `absences` says you cannot take a file from the conversation — so what you actually do: what's already registered, what you can draw, and how to ask for the rest without making it sound like homework.
+
+**Cluster 4 — the limits** *(2 docs)*
+
+**7. What we can and can't do for a business.** Not the module list — the product-level answer to "can you do an online shop / a booking system / a newsletter." What each capability requires of a page, what it obliges, and where the edge is ("payment for a few fixed-price things, yes; a stocked shop with variants and inventory, no"). Plus the limb map and the pattern for parking something honestly instead of pre-building a surface for it. This is DOC-33 §13's unresolved dependency.
+
+*The drift risk is real and manageable:* this states what business problems we solve, and points at `REF-behaviors` for the dials. Product scope and module configuration move at different rates and shouldn't share a source.
+
+**8. What may go on a published page.** DOC-38 §11's rule addressed to the AI — what the client's own material is, what a reference is, what "form, never content" means when a client says "just copy that one" — plus locale obligations: Impressum, VAT-inclusive display, cookie consent, privacy policy, and the single Act I question they all hang off. Split this into two if the legal half grows; the trigger is the same shape either way (rarely, per client, never always), which is why it's retrieval and not preamble.
+
+Four clusters is roughly four territories, which is a healthy map at this corpus size.
+
+## What happens to the four
+
+DOC-33 and DOC-35 become product documents — the process specification and the persona model, which is what they are. DOC-31 goes back to research, DOC-17 stays our lab notebook. None of them is deleted or diminished; they stop being handed to the AI and start feeding the docs above.
+
+Removing them also disposes of the DOC-35 §5 problem without a scrub: real client names in an internal product doc are fine, and it was only the shipped corpus that made them a defect.
+
+## Two rules to hold the set honest
+
+**For each document, name the question a session asks and the sentence the AI says differently because of it.** If you can't, don't write it. That's §3.5's "actionable" test made checkable, and it's what stops this growing back into a shelf.
+
+**No document states a fact a projection states.** REQ-165's acceptance already asserts this by review; with eight authored docs it needs asserting in both directions.
+
+And an authoring constraint that will feel unnatural: these get written in the voice we want the AI to use with a client — plain, warm, concrete, second person. Not spec voice, no "out of scope" sections, no ticket references. Write each section so it stands alone with its trigger in the first sentence, because chunk retrieval will hand it over without its neighbours.
+
+## The one thing that changes this shape
+
+Docs 2, 3 and 4 assume the consultation role exists. Today `roles.ts` has only `caretaker`, primed to make the smallest change — the opposite instinct. If it stays one role at two register settings, doc 2 absorbs the switch and the set is eight. If it becomes two roles, the process spine forks in priming and the corpus is still eight, but docs 1 and 8 are shared while 2–6 are consultant-only, which the grant should reflect.
+
+Want me to file this — one ticket for the corpus with the eight as acceptance items, or split into "retire the four / reclassify" and "author the set"?
 
 <!-- xgd-chat-end -->
