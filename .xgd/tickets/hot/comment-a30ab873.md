@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-32
 created_by: xgd
 created_at: '2026-09-01T18:40:16.058476+00:00'
-updated_at: '2026-09-01T18:44:06.393883+00:00'
+updated_at: '2026-09-01T19:51:24.214873+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,13 @@ Proposed corpus, if this shape looks right to you:
 | DOC-35 §5 | — | remove regardless |
 
 Want me to file this as a ticket — or split it, since the role question (§ above) genuinely blocks the authored half but not the projected half?
+
+<!-- xgd-turn id="a9e84671-b755-466b-9856-54eb412829a7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:51:24.109950+00:00" -->
+#### You
+ok let not make point fixes here, we need to take a step back. I think we (1) keep the ref docs, they are doing a good job (2) remove all 4 system_bk docs - they should go back to being arch or product docs  (3) lets figure out what is need and write N docs to clearly meet those needs.
+
+So assuming we start from scratch, what do we need?
 
 <!-- xgd-chat-end -->
