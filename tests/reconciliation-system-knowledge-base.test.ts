@@ -929,10 +929,14 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
     // Four facts, over three trees: how many documents, and whether each of the
     // three artefacts is built or missing.
     await withRoot(async (root) => {
-      // Nothing built at all — reports zeros rather than failing.
+      // Nothing built at all — reports zeros rather than failing. `projected`
+      // is the corpus's second producer (REQ-165), reported beside the total
+      // because a corpus whose projections are missing has the same shape as
+      // one that is merely small.
       await withStore(paging([]), () => {
         expect(kbStatus(root)).toMatchObject({
           corpus: 0,
+          projected: 0,
           tickets: 0,
           index: false,
           chunks: false,
@@ -949,6 +953,10 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
           exportCorpus(root)
           expect(kbStatus(root)).toMatchObject({
             corpus: CORPUS.length,
+            // Nothing projected: this tree's corpus came from `exportCorpus`
+            // alone, and the two producers write into disjoint namespaces
+            // (REQ-165), so the export cannot have manufactured one.
+            projected: 0,
             tickets: CORPUS.length,
             index: false,
             chunks: false,
@@ -963,6 +971,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         await withStore(paging(CORPUS), () => {
           expect(kbStatus(root)).toMatchObject({
             corpus: CORPUS.length,
+            projected: 0,
             tickets: CORPUS.length,
             index: true,
             chunks: true,
@@ -1025,7 +1034,11 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
     const named = await withStore(paging([]), () => cli(['kb', 'status']))
     expect(bare.code).toBeUndefined()
     expect(bare.out).toBe(named.out)
-    expect(bare.out).toMatch(/^corpus: /m)
+    // The corpus line names both producers separately (REQ-165), because the
+    // total on its own is no longer comparable to the ticket count beside it.
+    // The exact wording is asserted by AC-1635 in the projected-reference
+    // suite; here it is the SHAPE that matters, against a controlled store.
+    expect(bare.out).toMatch(/^corpus: \d+ exported \+ \d+ projected/m)
     expect(bare.out).toMatch(/^index: {2}(built|missing)$/m)
     expect(bare.out).toMatch(/^chunks: (built|missing)$/m)
     expect(bare.out).toMatch(/^map: {4}(built|missing)$/m)
