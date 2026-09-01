@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-165
 created_by: xgd
 created_at: '2026-08-31T21:51:22.915848+00:00'
-updated_at: '2026-09-01T18:52:49.147829+00:00'
+updated_at: '2026-09-01T18:53:35.114596+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,70 @@ One wrinkle worth flagging: the first `move-to-free-coded` was rejected because 
 <!-- xgd-chat role="user" ts="2026-09-01T18:52:48.707280+00:00" -->
 #### You
 I'm looking at this ticket again and I am confused, what did you build here?
+
+<!-- xgd-turn id="a404c3a4-3b0e-49f6-b897-9d17de4639bd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:53:35.028582+00:00" -->
+#### Claude
+Fair — let me show you the actual thing rather than restating the ticket.
+
+Short answer: **three markdown files that the AI searches, written by the build instead of by a person.**
+
+Here's the concrete artifact. I just re-ran the export in your checkout:
+
+```
+corpus: 4 document(s) -> kb/system
+projected: REF-behaviors, REF-l1, REF-surface
+```
+
+`kb/system/` now holds the four authored consultation docs (`DOC-17/31/33/35`) *plus* three generated ones. `REF-behaviors.md` in full is 2.3KB and reads like this:
+
+```markdown
+## contact-form
+The `contact-form` component, version 4.
+
+Settings `contact-form` takes:
+- `fields` — list; 1–8 item(s); required. Each item:
+  - `labelMode` — enum; one of `visible`, `placeholder`; default `visible`; optional
+- `submitLabel` — string; default `Send`; optional
+
+Elements `contact-form` supplies for the page to style:
+- `honeypot` — an HTML `input` element; painted by the component itself, never by the page
+```
+
+Nobody wrote those sentences. Every fact in them comes from `packages/framework/src/modules/contact-form/meta.ts`:
+
+```ts
+maxItems: 8,
+labelMode: { type: 'enum', required: false, values: ['visible','placeholder'], default: 'visible' },
+submitLabel: { type: 'string', required: false, default: 'Send' },
+honeypot:    { element: 'input', required: false, invariant: true },
+```
+
+Change `maxItems: 8` to `12` and the next build says "1–12 item(s)". That's the whole idea.
+
+## Why it exists
+
+REQ-164 filtered architecture documents out of the AI's corpus. Correct, but it left the AI with four documents about design philosophy and **zero** about what the product actually is — it could discuss restraint and hierarchy and couldn't tell you what a component is or what `carousel` accepts.
+
+You can't fix that by writing a catalogue by hand, because then `meta.ts` and the catalogue are two sources for one fact and they drift. So the catalogue is generated.
+
+## The three
+
+| File | Generated from |
+|---|---|
+| `REF-behaviors` | the framework behavior catalogue (`CATALOG`) — 2.3KB |
+| `REF-l1` | the L1 schemas + envelope — 20KB |
+| `REF-surface` | `ai/l1-surface.json`, the declared control surface — 31KB |
+
+New code: `tools/generate/src/cli/kb-projection.ts` (the renderers) and `writeProjections` in `kb.ts` (writes them into the corpus and sweeps the `REF-*` namespace). It runs inside `1c kb export` and the assets build, before `1c kb build` indexes everything.
+
+## The bit that's easy to miss
+
+There are now **two** things writing into `kb/system/`: the ticket export (`DOC-*`) and the projector (`REF-*`). Each deletes only its own prefix. That's not fussiness — without it, whichever ran second would delete the other's files, and every KB test that supplies a stubbed ticket store would silently get three documents it never asked for.
+
+---
+
+Two things to flag: running the export just now added the three `REF-*` files to `kb/system/` but the index in `kb/system/index/` is still from yesterday, so those three aren't searchable until `1c kb build` runs. `kb/` is gitignored so your tree is otherwise unchanged. Want me to rebuild the index so you can actually query it?
 
 <!-- xgd-chat-end -->
