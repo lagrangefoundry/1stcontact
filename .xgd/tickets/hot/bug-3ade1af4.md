@@ -6,10 +6,10 @@ title: 'Test suite: 23 failures — a half-finished install, a stale asset build
   ten UATs superseded by later work'
 created_by: xgd
 created_at: '2026-09-01T19:01:30.821719+00:00'
-updated_at: '2026-09-01T19:27:33.249450+00:00'
+updated_at: '2026-09-01T19:28:24.364606+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,11 @@ fields:
   chat_comment: comment-94979ef7
   severity: medium
   story_points: 5
+  commits:
+  - working_sha: e5d762332d1ae0c00f387b0822f19f41b8c934d1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.33
 ---
 
 ## Symptom
