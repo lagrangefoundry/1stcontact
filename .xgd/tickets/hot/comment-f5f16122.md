@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-160
 created_by: xgd
 created_at: '2026-09-01T18:30:41.623877+00:00'
-updated_at: '2026-09-01T19:09:42.495196+00:00'
+updated_at: '2026-09-01T19:13:02.128859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,50 @@ I recorded explicitly that the 1stcontact half — cursor, per-turn delta, both 
 I am expecting the system to use the ticket store to back it - I don't know what `R2TranscriptArchive` is but its not what I am expecting we use for this - everything is a ticket. What are the implications of this BTW
 
 5 - I think so
+
+<!-- xgd-turn id="6f54eb74-5c78-4f0a-8992-151b47544274-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:13:01.776920+00:00" -->
+#### Claude
+Let me establish the facts before answering.
+
+Facts checked. Here are the implications.
+
+**It drops in.** `TicketStore` (`apps/control-app/src/tickets.ts:399`) already exposes exactly the six methods `TicketClient` needs — `create/get/update/query/comment/comments` — with the same envelopes, and `chatSchemas()` is already merged into the type pack at `tickets.ts:231`. DOC-10 §8's mapping table *is* this change. So it's a line in `workerHost` and the deletion of `R2TranscriptArchive`.
+
+**1. The conversation becomes corpus — but nominally, until something writes the summary.** `project.corpus.type` includes `chat`, so chat tickets enter the KB. But the component indexes `title + body` (`ticketText`, `doc_index.js:51`), the transcript lives in a **comment**, and `apply` deliberately never touches the body — DOC-10 §8 and REQ-35 §5 reserve it for the AI-maintained summary. Nothing writes that summary today. So a chat ticket indexes as its title alone, and `_findOrCreateChat` sets the title to the session id: `site-acme`. Below the cluster floor — i.e. every new client — the enumerated landscape would list `- site-acme (chat, chat-…)`, which is noise, and DOC-39 §7's claim that chat entries carry "the maintained summary" as an AI-written body would be false.
+
+**2. Cost per turn.** Steady state is one `get` plus one CAS `update`. The first sync per isolate also runs `query type=chat limit:'all'` — a full scan of the tenant's chat tickets — cached thereafter (BUG-29 finding 2). The whole session file is re-serialised and rewritten every turn. DOC-10 §8.1 already accepts this and records the escape hatch (a message-granular archive behind the same port).
+
+**3. A D1 row limit becomes a new ceiling.** The transcript is one monotonically growing comment body. R2 objects are effectively unbounded; a D1 row is not, so a long conversation eventually hits a wall the R2 archive did not have. Worth confirming the current number against Cloudflare's limits before relying on it — but the shape of the risk is new, and it belongs in DOC-10 §8.1's paragraph.
+
+**4. Tenancy gets stronger.** Today the transcript's isolation is "the key sits outside `draft/` and nothing derives an R2 root from a request" — a convention held by a comment. Under the ticket store it's the same information barrier as everything else, bound into the handle by `forTenant`. Strict improvement.
+
+**5. Concurrency changes character, for the better.** The R2 fold silently loses the later write. The CAS `update` fails loudly instead. The junction serialises upstream, so this should stay theoretical — but I'll check the conflict isn't swallowed by `ArchiveSyncer` draining off the critical path.
+
+**6. Existing R2 transcripts are orphaned.** Anything at `chat/<tenant>/<session>.md` stops being read. Migrate or drop — tell me if there's production history worth keeping, otherwise I'll drop it.
+
+**7. Two things I am *not* pulling in.** Node's host keeps `FileArchive` (there's no writable ticket store under the CLI), and `flushAudit` keeps writing `audit/…` to R2 — one object per record specifically because R2 keys can't collide, which is a different trade from a ticket per record. Say if you want either.
+
+**One question:** the chat-summary gap in point 1 is real but it's neither REQ-159's nor REQ-160's. **File it separately?** I'll assume yes and proceed — REQ-160 will wire the archive and let chat entries land as-is meanwhile.
+
+Now scoping.
+
+Ticket scoped and branch cut.
+
+**REQ-160 body updated** (existing content preserved; five additions):
+- §2 now says the archive switch is part of this ticket — `TicketSessionArchive` per DOC-10 §8, with the three reasons (the cursor gets a home whose lifetime matches it, `onTranscriptGrew` gets its caller, tenancy stops being a convention) and the three costs named up front (per-turn rewrite, the D1 row ceiling, loud CAS conflicts).
+- **Depends on** now carries lagrange-framework REQ-112, and records that seeding and the delta are deliverable without it while search stays single-index.
+- **Out of scope** gains the chat summary, the audit trail, and Node's host.
+- **Acceptance** gains the two archive criteria.
+- **Open questions** → **Decided**, resolved against DOC-39 §6.3/§6.4 (cursor anchored on the map's build timestamp; cap is ~400 chars with the count never truncated; resumption needs no separate report).
+
+Branch `free-REQ-160` at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-160`.
+
+Implementation order from here: archive switch → project KB into the chat host → both landscapes in one priming section → cursor on the chat ticket → per-turn delta through `role.reminder`. The change-feed operation waits on REQ-112.
+
+Two things still open, neither blocking — I'll proceed on my stated assumptions unless you say otherwise:
+- **Existing R2 transcripts** at `chat/<tenant>/<session>.md` — I'm assuming nothing in production is worth migrating and I'll let them orphan.
+- **The chat-summary writer** — I'm assuming a separate ticket, which I'll file when you confirm (you've told me not to create 1stcontact tickets unasked).
 
 <!-- xgd-chat-end -->
