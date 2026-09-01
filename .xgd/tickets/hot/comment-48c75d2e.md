@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T03:33:17.689679+00:00'
+updated_at: '2026-09-01T18:19:42.810220+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,11 @@ The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yo
 **Node's **`fetch`** ignores **`HTTPS_PROXY`**.** `1c kb build` died with a bare `fetch failed` (an `EPERM` connect underneath) while `curl` to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. `NODE_USE_ENV_PROXY=1` fixes it. Also noted on the ticket.
 
 Please explain this it does nott make sense to me
+
+<!-- xgd-turn id="26051ddb-50d2-410b-bb4a-75585eefb107-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:19:42.369447+00:00" -->
+#### You
+Two things worth your attention The size headroom is smaller than the ticket estimated. Measured by dry-run: 1052 KiB gzip with KB = null, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket. Node's fetch ignores HTTPS_PROXY. 1c kb build died with a bare fetch failed (an EPERM connect underneath) while curl to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. NODE_USE_ENV_PROXY=1 fixes it. Also noted on the ticket. Please explain this it does nott make sense to me
 
 <!-- xgd-chat-end -->
