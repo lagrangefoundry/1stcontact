@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-165
 created_by: xgd
 created_at: '2026-08-31T21:51:22.915848+00:00'
-updated_at: '2026-09-01T18:36:21.204336+00:00'
+updated_at: '2026-09-01T18:52:49.147829+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,11 @@ Each reads exactly one source and reads no document — every sentence is either
 `REQ-165` → `free_coded`, `story_points: 8`, `version: 0.2.31`, commits `52fd6302cc`, `9ae7338430`, `c2f6c582ad`. Branch merged and cleaned; lock released.
 
 One wrinkle worth flagging: the first `move-to-free-coded` was rejected because the 0.2.30 bump reached xgd-working *through the merge commit*, which the gate cannot attribute to a claimed SHA. I bumped again directly on xgd-working (`c2f6c582ad`) as the error instructs. That leaves a redundant bump commit in history — harmless, but it means the branch-per-ticket flow needs the version bump landed after the merge-back, not before.
+
+<!-- xgd-turn id="a404c3a4-3b0e-49f6-b897-9d17de4639bd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:52:48.707280+00:00" -->
+#### You
+I'm looking at this ticket again and I am confused, what did you build here?
 
 <!-- xgd-chat-end -->
