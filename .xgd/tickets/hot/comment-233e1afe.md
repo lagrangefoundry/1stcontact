@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-09-01T21:19:04.571720+00:00'
+updated_at: '2026-09-01T21:21:20.812723+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,66 @@ PNG only is too narrow - we need at least jpeg, giff and WebP too. Can we do the
 Whether streaming row-lockstep decode+diff is in scope now, or a follow-up once a page actually OOMs. <-- what??
 
 On AC4 and AC2 whatever makes most sense to you
+
+<!-- xgd-turn id="ba4918ea-d4aa-4211-9cd0-186f0252d378-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T21:21:20.331861+00:00" -->
+#### Claude
+No code changed. Answering the "what??" first, since that was my jargon rather than your question.
+
+## Streaming row-lockstep — what I meant
+
+Right now `decodeImage` hands back the *whole* pixel buffer. A diff of a 1280×4744 screenshot therefore holds two 18 MB rasters plus a 6 MB diff buffer at once — ~60 MB peak. A Cloudflare Worker isolate gets 128 MB total, so around 2000×8000 the diff simply dies, and the mobile ladder shots are exactly the tall ones.
+
+PNG stores pixels row by row, and the diff compares pixel *(x,y)* against pixel *(x,y)*. So instead of "decode both fully, then compare", you could decode row 1 of each, compare it, write the diff row, discard, move to row 2. Peak drops from ~60 MB to ~7 MB. `sharp` can't do this — it only hands you a finished buffer — so owning the codec is what puts it on the table.
+
+My question was just: build that now, or build the simple version now and add it when a page actually OOMs? **Recommendation: simple now.** The decoder unfilters row-by-row internally regardless, so folding rows straight into the diff later is a change to one function, not a rewrite. Not worth complicating the first version for a ceiling we haven't hit.
+
+## Dependency-free: agreed, and here is what that actually buys
+
+For **PNG** it's genuinely free — `DecompressionStream('deflate')` is native in both Node and workerd, so the codec is ~200 lines and I've already measured it bit-identical to `sharp` on all 15 reference screenshots. **GIF** is a similar shape: LZW plus palette plus interlace, ~250 lines, fully specified, exact.
+
+Past that the cost curve breaks:
+
+| Format | Hand-rolled cost | Bit-exact? |
+|---|---|---|
+| PNG | ~200 lines | yes, measured |
+| GIF | ~250 lines | yes |
+| JPEG baseline | ~1200 lines | **no** — the IDCT is only specified to a precision *bound* (T.83), so two conforming decoders legitimately differ by ±1 |
+| JPEG progressive | +~600 lines | no |
+| WebP lossless (VP8L) | ~800 lines | yes |
+| WebP lossy (VP8) | ~3000 lines — bool-arithmetic coder, intra prediction, loop filter | yes, but any loop-filter error drifts silently |
+| HEIC | an HEVC intra decoder — CABAC, 35 prediction modes, transform trees, SAO | not realistically |
+
+HEIC is the one to say plainly: **no.** Nobody hand-rolls HEVC; `libheif` itself delegates to `libde265`, and it's patent-pool encumbered. "Dependency-free" and "HEIC" cannot both be true.
+
+## But the formats you named mostly already work — without any codec
+
+This is the part worth knowing before we spend anything. I checked what actually decodes images in this repo, and `sharp` is confined to `tools/generate/src/cli/` — the repro/diff pipeline, whose only inputs are Playwright screenshots, which are always 8-bit truecolour PNG.
+
+The client-material path never decodes at all:
+
+- `apps/control-app/src/material.ts` already accepts `jpeg, gif, webp, avif, svg` — it stores the bytes whole and records the content type.
+- `apps/control-app/src/describe.ts` hands those bytes straight to the vision model (`VISION_MEDIA_TYPES` = jpeg/png/gif/webp) to produce the searchable body.
+- `apps/public-site/src/content-type.ts` serves them by content type; the browser decodes.
+
+So JPEG, GIF and WebP are supported today, end to end, because nothing in the product needs their *pixels* — only their bytes. Replacing `sharp` with a PNG-only codec doesn't narrow that by one file.
+
+## HEIC is a real gap, and it isn't this ticket
+
+An iPhone photo genuinely fails today, in three places, none of them `sharp`: it isn't in `MATERIAL_CONTENT_TYPES`, the Messages API won't take it so it can't be described, and no browser will display it so it can't be published. That's an ingestion-boundary problem whose fix is **transcode on upload**, and the honest options are a WASM `libheif` (a portable dependency, no native build, workerd-safe), Cloudflare Images if it accepts HEIC on input (I'd want to verify — I'm not confident it does), or an explicit refusal with a message telling the client to export as JPEG. Worth a separate ticket; I haven't created one.
+
+Mitigating factor: iOS Safari commonly transcodes HEIC to JPEG when uploading through a web form, so the failure is narrower than it sounds — but it's behaviour-dependent and I wouldn't rely on it.
+
+## What I propose for REQ-156
+
+- Hand-rolled, dependency-free **PNG** codec (decode, encode RGB/RGBA, encode grayscale, dimensions, extract-rect). Bit-exact, so **AC2 asserts equality against a fixture corpus, not a bound**.
+- Split `perceptual.ts` into a pure core+codec module and an fs/browser shell, so the workerd UAT has something importable.
+- **Non-PNG input is refused explicitly**, with a message naming the format — a stated behaviour change, since `1c crop --input` currently takes anything `sharp` reads.
+- **Narrow AC4 to the arithmetic cores** (`computeDiff`, `reconcileGates`, values-diff comparison) and leave the bundle reads to REQ-155, which owns them.
+- Add GIF only if you want it — it's cheap, but nothing asks for it.
+- Streaming decode+diff noted as a follow-up.
+
+If you're happy with that, I'll fold it into the ticket body and start.
 
 <!-- xgd-chat-end -->
