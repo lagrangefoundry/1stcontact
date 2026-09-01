@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:10:13.606836+00:00'
+updated_at: '2026-09-01T20:10:33.240457+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3023,5 +3023,39 @@ Want me to make those two changes (delete the line, rewrite the comment, update 
 <!-- xgd-chat role="user" ts="2026-09-01T20:10:13.506055+00:00" -->
 #### You
 Show me the form of `~/Documents/secrets/1c.dev.env`
+
+<!-- xgd-turn id="1f36e19d-88f5-4aa4-a927-62ded349b2fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T20:10:32.694715+00:00" -->
+#### Claude
+```dotenv
+# ~/Documents/secrets/1c.dev.env
+# Local dev secrets for 1stcontact/apps/control-app. Never in the repo.
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Format notes:
+
+- **`KEY=value`, no spaces around `=`.** This is dotenv, not TOML. (`.dev.vars` tolerates ` = ` — don't carry that habit over.)
+- **No quotes needed.** Anthropic keys are `[A-Za-z0-9_-]` only, so nothing needs escaping. If you do quote, wrangler strips the quotes — but unquoted avoids the classic bug where the quotes end up *in* the value.
+- **No `export` prefix.** It's not a shell script.
+- **`#` comments** and blank lines are fine.
+- **One file, many keys** if you want — add `CLOUDFLARE_API_TOKEN=...` alongside it later, though note that one is read by wrangler itself from your shell env, not injected as a Worker binding, so it doesn't belong here unless the Worker code actually reads it.
+
+Create it with tight permissions so it isn't world-readable:
+
+```bash
+umask 077
+cat > ~/Documents/secrets/1c.dev.env <<'EOF'
+ANTHROPIC_API_KEY=sk-ant-api03-...
+EOF
+chmod 600 ~/Documents/secrets/1c.dev.env
+```
+
+The heredoc is quoted (`<<'EOF'`) so the shell won't try to expand anything in the key, and `umask 077` means it's never briefly readable during creation.
+
+One thing to check on first run: whether wrangler tilde-expands the `--env-file` path. If `pnpm dev` still reports the assistant off, switch the script to `$HOME/Documents/secrets/1c.dev.env` — npm runs scripts through a shell, so `$HOME` will expand even where `~` doesn't.
+
+Say the word and I'll do the repo side: delete the `ANTHROPIC_API_KEY` line from `.dev.vars`, rewrite that comment block to point here instead, and update the `dev` script.
 
 <!-- xgd-chat-end -->
