@@ -474,11 +474,6 @@ describe('REQ-123 — the corpus export', () => {
 
       const binding = await bindKb(scratch)
 
-      // `description`, not `prompt`: the declaration's prose field is
-      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
-      // assertion compared `undefined` against a string that appears nowhere.
-      // It never ran — this block's `beforeAll` crashes when the corpus comes
-      // back empty, and every assertion in it was reported as skipped.
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')

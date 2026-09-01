@@ -246,20 +246,6 @@ export const DOC_KIND_FIELD = 'doc_kind'
 export const MEMBER_KIND = 'system_kb'
 
 /**
- * The `doc_kind` a document AUTHORED FOR THE AI carries (DOC-39 §3.3).
- *
- * Single-valued by construction, which is the point: a document is an
- * `architecture` record or a `system_kb` one, never both, and the field's shape
- * enforces the exclusivity §3.1 argues for rather than leaving it to discipline.
- * A projection is unambiguously the second kind — it is written for the
- * assistant and for nobody else — so it declares it.
- *
- * The same kind {@link MEMBER_KIND} names, read from the other side: that one is
- * the value a ticket is SELECTED by, this one the value a projection ASSERTS.
- */
-export const SYSTEM_KB_DOC_KIND = MEMBER_KIND
-
-/**
  * Whether a ticket belongs to the system KB.
  *
  * Strictly the exact string. `doc_kind` is a closed enum defined in xgd, so a
@@ -477,11 +463,14 @@ export function writeProjections(root: string = kbRoot()): { projected: string[]
  * Read from the declaration rather than restated, because the declaration is
  * where membership is decided and an exported ticket satisfies the predicate by
  * carrying the ticket's own fields. A projection has no ticket, so it has to
- * assert membership itself — and asserting a hardcoded `system_kb: true` would
- * make the projections silently fall out of the KB the day the predicate
+ * assert membership itself — and hardcoding whatever the predicate happens to be
+ * today would make the projections silently fall out of the KB the day it
  * changed, which is the one failure a generated document is supposed to be
- * incapable of. Deriving it means a projection is a member under whatever
- * predicate is declared, including none at all.
+ * incapable of. That day has already come once: the predicate was
+ * `fields.system_kb: true` until REQ-164 made it a `doc_kind`, and the shipped
+ * corpus is now unrestricted (`corpus: {}`) because the distribution IS the
+ * boundary. Deriving means a projection is a member under any of those,
+ * including none at all.
  *
  * Only `fields.x` predicates are read: `type` is the document's kind and is
  * handled separately, and a predicate on anything else is not something a
@@ -535,7 +524,7 @@ export function projectedDocument(
 ): string {
   const fields: Record<string, unknown> = {
     ...membership.fields,
-    doc_kind: SYSTEM_KB_DOC_KIND,
+    [DOC_KIND_FIELD]: MEMBER_KIND,
     projected: true,
     source: doc.source,
   }
@@ -1094,11 +1083,18 @@ export interface KbStatus {
   /** Documents on disk in the corpus directory. */
   corpus: number
   /**
-   * `doc` tickets carrying the membership kind — what the corpus SHOULD hold.
+   * How many of `corpus` are projected rather than exported (REQ-165).
    *
-   * Counts the EXPORTED half only, because that is the half tickets produce: a
-   * projection has no ticket, so `corpus` is `tickets` plus `projected` in the
-   * healthy case (REQ-165).
+   * Reported beside the total rather than instead of it, and load-bearing for
+   * the check below: with two producers writing into one directory, `corpus` is
+   * no longer comparable to `tickets` on its own — the healthy state is
+   * `corpus === tickets + projected`, and without this split a build with a
+   * perfectly current corpus would report itself stale by exactly the number of
+   * projections.
+   */
+  projected: number
+  /**
+   * `doc` tickets carrying the membership kind — what the corpus SHOULD hold.
    *
    * `null` when the ticket store could not be read at all (no `xgd` on `PATH`,
    * a store that will not answer). That is reported as unknown rather than as
@@ -1107,13 +1103,6 @@ export interface KbStatus {
    * does not know.
    */
   tickets: number | null
-  /**
-   * How many of `corpus` are projected rather than exported (REQ-165). Reported
-   * beside the total rather than instead of it: a corpus whose projections are
-   * missing has the same *shape* as one that is merely small, and only the split
-   * distinguishes them.
-   */
-  projected: number
   index: boolean
   chunks: boolean
   map: boolean
@@ -1139,8 +1128,8 @@ export function kbStatus(root: string = kbRoot()): KbStatus {
   const files = existsSync(dir) ? readdirSync(dir) : []
   return {
     corpus: files.filter((f) => f.endsWith('.md') && f !== AWARENESS_FILE).length,
-    tickets: countMemberTickets(),
     projected: files.filter((f) => isProjected(f)).length,
+    tickets: countMemberTickets(),
     index: existsSync(path.join(dir, INDEX_DIR)),
     chunks: existsSync(path.join(dir, CHUNKS_DIR)),
     map: files.includes(AWARENESS_FILE),

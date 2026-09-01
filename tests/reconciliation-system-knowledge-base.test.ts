@@ -653,10 +653,6 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       const binding = await bindKb(root)
-      // `description`, not `prompt`: the declaration's prose field is
-      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
-      // assertion compared `undefined` against a string appearing nowhere in the
-      // declaration this test writes.
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.doc_kind')
@@ -739,14 +735,14 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
       // Nothing built at all — reports zeros rather than failing. `tickets` is
       // what the store says the corpus SHOULD hold, so it is asserted against a
       // controlled store rather than whatever this machine's tickets happen to be.
+      // `projected` is the corpus's second producer (REQ-165), reported beside
+      // the total because a corpus whose projections are missing has the same
+      // shape as one that is merely small.
       await withStore([], () => {
         expect(kbStatus(root)).toEqual({
           corpus: 0,
-          tickets: 0,
-          // How many of the corpus are projected rather than exported (REQ-165) —
-          // reported beside the total, because a corpus whose projections are
-          // missing has the same shape as one that is merely small.
           projected: 0,
+          tickets: 0,
           index: false,
           chunks: false,
           map: false,
@@ -762,10 +758,11 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
           exportCorpus(root)
           expect(kbStatus(root)).toEqual({
             corpus: CORPUS.length,
-            tickets: CORPUS.length,
-            // Nothing projected: this tree's corpus came from the export alone
-            // (REQ-165), and an exhaustive assertion has to say so.
+            // Nothing projected: this tree's corpus came from `exportCorpus`
+            // alone, and the two producers write into disjoint namespaces
+            // (REQ-165), so the export cannot have manufactured one.
             projected: 0,
+            tickets: CORPUS.length,
             index: false,
             chunks: false,
             map: false,
@@ -801,7 +798,11 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
     const expected = kbStatus()
     const bare = await cli(['kb'])
     expect(bare.code).toBeUndefined()
-    expect(bare.out).toContain(`corpus: ${expected.corpus} document(s)`)
+    // The corpus line names both producers separately (REQ-165), because the
+    // total on its own is no longer comparable to the ticket count beside it.
+    expect(bare.out).toContain(
+      `corpus: ${expected.corpus - expected.projected} exported + ${expected.projected} projected`,
+    )
     expect(bare.out).toContain(`index:  ${expected.index ? 'built' : 'missing'}`)
     expect(bare.out).toContain(`chunks: ${expected.chunks ? 'built' : 'missing'}`)
     expect(bare.out).toContain(`map:    ${expected.map ? 'built' : 'missing'}`)
