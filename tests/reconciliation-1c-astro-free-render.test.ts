@@ -43,6 +43,7 @@ import type {
   ValueElement,
 } from '../tools/generate/src/cli/capture'
 import { expectNoAstroContainerToConstruct } from './support/astro-absent'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -150,8 +151,8 @@ describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', ()
     // Fold a capture to L1 and import it as a raw-L1 home page, then render it
     // through the ordinary render entry point with container creation observed.
     const ref = path.join(cwd, 'bundle')
-    writeL1(ref, foldToL1(l1Oracle()))
-    cmdRepro('l1only', { cwd, ref })
+    await writeL1(fsReferenceBundle(ref), foldToL1(l1Oracle()))
+    await cmdRepro('l1only', { cwd, ref })
 
     const l1Out = (await cmdRender('l1only', { cwd })).outDir
 

@@ -22,11 +22,23 @@ import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import { foldToL1, localizeAssets, promoteToFlow, threeProbeGate } from '../l1'
 import type { FoldedForm, FoldResidual, ThreeProbeReport } from '../l1'
-import { copyDir, draftDir, emptyDir, ensureDir, pathExists, siteDir, writeDraftBase, writeJson } from '../store'
+import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
+import type { ReferenceBundle } from '../store'
 import { ctxOf } from './commands'
 import type { GlobalOptions } from './commands'
-import { readCapture, readCaptureAssets, readForms, readL1, readMultiState, writeForms, writeL1 } from './capture/bundle'
+import {
+  listAssets,
+  readCapture,
+  readCaptureAssets,
+  readForms,
+  readL1,
+  readMultiState,
+  writeForms,
+  writeL1,
+} from './capture/bundle'
+import { ASSETS_PREFIX } from '../store/reference-store'
 import { fontResourcesFromTheme } from './capture/capture'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 /** Content-perturbation factor for the robustness probe + structure recovery. */
@@ -92,16 +104,22 @@ function countNodes(doc: L1Document): number {
  * before REQ-93, or a page with no behaviour — carries no slot either, and
  * imports exactly as it did before.
  */
-export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
+export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproResult> {
   const ctx = ctxOf(opts)
-  const l1 = readL1(opts.ref)
+  // REQ-155 — `--ref <dir>` is the operator's argument and stays a directory, so
+  // the bundle handle is the filesystem one. The reproduction verbs read through
+  // the port because their dependency moved, not because they were re-pointed at
+  // R2: they are the framework-growth loop ([[DOC-21]]), run by a developer at a
+  // CLI, and nothing in [[CHAT-27]] asks for them in the cloud.
+  const bundle = fsReferenceBundle(opts.ref)
+  const l1 = await readL1(bundle)
   if (!l1) {
     throw new Error(
       `No l1.json in bundle '${opts.ref}'. The bundle predates the L1 fold — ` +
         `re-capture with \`1c capture page <url>\` before reproducing.`,
     )
   }
-  const forms = readForms(opts.ref)
+  const forms = await readForms(bundle)
 
   // REQ-93 — the two artifacts must describe the same seams. They always do when
   // written together, so a mismatch means the bundle is half-stale (an `l1.json`
@@ -129,7 +147,7 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
   // reproduction network-dependent and blinds the perceptual gate to image
   // regressions, so an unresolvable handle fails the import outright: a
   // reproduction is self-contained or it does not exist.
-  const localized = localizeAssets(l1, readCaptureAssets(opts.ref))
+  const localized = localizeAssets(l1, await readCaptureAssets(bundle))
   if (localized.unmirrored.length) {
     throw new Error(
       `Reproduction would hotlink the captured origin — ${localized.unmirrored.length} media ` +
@@ -188,10 +206,22 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
   writeDraftBase(ctx, slug, null)
 
   // Mirror the bundle's assets (photos, fonts) so the reproduction renders with
-  // the site's own media rather than remote URLs.
-  const bundleAssets = path.join(opts.ref, 'assets')
-  const copiedAssets = pathExists(bundleAssets)
-  if (copiedAssets) copyDir(bundleAssets, path.join(draft, 'assets'))
+  // the site's own media rather than remote URLs. Read through the port rather
+  // than copied directory-to-directory (REQ-155): the *source* is a bundle,
+  // whatever holds it, while the destination is unambiguously this machine's
+  // draft — so only the read side moves.
+  const assetKeys = await listAssets(bundle)
+  for (const key of assetKeys) {
+    const bytes = await bundle.read(key)
+    if (!bytes) continue
+    const dest = path.join(draft, 'assets', ...key.slice(ASSETS_PREFIX.length).split('/'))
+    // Capture names every mirror by basename, so this is flat in practice — but
+    // the old `copyDir` handled a nested tree and a hand-assembled bundle may
+    // still have one, so the destination is made rather than assumed.
+    mkdirSync(path.dirname(dest), { recursive: true })
+    writeFileSync(dest, bytes)
+  }
+  const copiedAssets = assetKeys.length > 0
 
   return {
     slug,
@@ -206,7 +236,8 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
 
 /** What a {@link cmdRefold} run rewrote in the bundle. */
 export interface RefoldResult {
-  bundleDir: string
+  /** The bundle that was rewritten, by store name (REQ-155). */
+  bundle: string
   nodeCount: number
   forms: FoldedForm[]
   residuals: FoldResidual[]
@@ -226,26 +257,34 @@ export interface RefoldResult {
  *
  * The oracle, the screenshots, the mirrored assets and the hints are untouched:
  * a refold changes what we DERIVE, never what we OBSERVED.
+ *
+ * REQ-155 AC4 — this takes a {@link ReferenceBundle} rather than a directory,
+ * and it is the ONE reproduction verb that does. Everything it needs is in the
+ * bundle (the retained oracle in, the two derived members out) and nothing it
+ * needs is on the machine running it, so re-folding a bundle held in R2 is the
+ * same call as re-folding one on disk. `cmdRepro` cannot be this, because what
+ * it produces is a draft in the operator's own site tree.
  */
-export function cmdRefold(opts: ReproOptions): RefoldResult {
-  const multiState = readMultiState(opts.ref)
+export async function cmdRefold(bundle: ReferenceBundle): Promise<RefoldResult> {
+  const multiState = await readMultiState(bundle)
   if (!multiState) {
     throw new Error(
-      `No multistate.json in bundle '${opts.ref}'. The bundle predates multi-state ` +
+      `No multistate.json in bundle '${bundle.name}'. The bundle predates multi-state ` +
         `capture, so there is no retained oracle to re-fold — re-capture with ` +
         `\`1c capture page <url>\`.`,
     )
   }
   const forms: FoldedForm[] = []
   const residuals: FoldResidual[] = []
+  const capture = await readCapture(bundle)
   const doc = foldToL1(multiState, {
-    fonts: fontResourcesFromTheme(readCapture(opts.ref).theme.fonts),
+    fonts: fontResourcesFromTheme(capture.theme.fonts),
     forms,
     residuals,
   })
-  writeL1(opts.ref, doc)
-  writeForms(opts.ref, forms)
-  return { bundleDir: opts.ref, nodeCount: countNodes(doc), forms, residuals }
+  await writeL1(bundle, doc)
+  await writeForms(bundle, forms)
+  return { bundle: bundle.name, nodeCount: countNodes(doc), forms, residuals }
 }
 
 export interface L1GateResult extends ThreeProbeReport {
@@ -274,11 +313,11 @@ export interface L1GateResult extends ThreeProbeReport {
  * residuals each name a framework gap (a missing L1 axis, a capture-hint gap, or
  * a region needing promotion) to feed back per the DOC-21 growth loop.
  */
-export function cmdL1Gate(opts: ReproOptions): L1GateResult {
-  const multiState = readMultiState(opts.ref)
+export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> {
+  const multiState = await readMultiState(bundle)
   if (!multiState) {
     throw new Error(
-      `No multistate.json in bundle '${opts.ref}'. The bundle predates multi-state ` +
+      `No multistate.json in bundle '${bundle.name}'. The bundle predates multi-state ` +
         `capture — re-capture with \`1c capture page <url>\` before gating.`,
     )
   }

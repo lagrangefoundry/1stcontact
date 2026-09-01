@@ -11,6 +11,7 @@ import {
   type StateProjection,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-61 — `values-diff --size mobile|tablet|desktop`.
@@ -39,7 +40,7 @@ function manifestAtWidth(width: number): ValueManifest {
 }
 
 /** A ladder reference: one rest/chromium projection per named-size width. */
-function ladderBundle(): string {
+async function ladderBundle(): Promise<string> {
   const dir = mkdtempSync(path.join(tmpdir(), 'req61-ladder-'))
   const projections: StateProjection[] = [
     { engine: 'chromium', viewport: VIEWPORTS.mobile, state: 'rest', manifest: manifestAtWidth(VIEWPORTS.mobile.width) },
@@ -47,7 +48,7 @@ function ladderBundle(): string {
     { engine: 'chromium', viewport: VIEWPORTS.desktop, state: 'rest', manifest: manifestAtWidth(VIEWPORTS.desktop.width) },
   ]
   const matrix: MultiStateCapture = { url: 'ref', projections, notes: [] }
-  writeMultiState(dir, matrix)
+  await writeMultiState(fsReferenceBundle(dir), matrix)
   return dir
 }
 
@@ -68,7 +69,7 @@ afterEach(() => {
 
 describe('REQ-61 — values-diff --size selects the reference projection at that width', () => {
   it('test_UAT_FC_REQ-61_size_selects_matching_ladder_width', async () => {
-    const dir = ladderBundle()
+    const dir = await ladderBundle()
     bundles.push(dir)
     // The actual side is an empty manifest — content is irrelevant here; we assert
     // WHICH reference width was diffed against via the report's expectedSource.
@@ -108,7 +109,7 @@ describe('REQ-61 — values-diff --size selects the reference projection at that
       ],
       notes: [],
     }
-    writeMultiState(dir, matrix)
+    await writeMultiState(fsReferenceBundle(dir), matrix)
     const actual = actualManifestFile({ source: 'draft:x', elements: [], sections: [] })
     await expect(
       cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actual, size: 'desktop' }),

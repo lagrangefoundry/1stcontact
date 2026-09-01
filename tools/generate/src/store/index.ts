@@ -102,3 +102,37 @@ export {
   JOURNAL_TEXT_LIMIT,
   JOURNAL_WINDOW,
 } from './journal'
+
+// The reference store (REQ-155). Same split as above: the port, the pure name
+// helpers and the two worker-safe adapters are re-exported here for node
+// callers, and a Worker imports `./reference-store` / `./r2-reference-store`
+// directly rather than through this barrel, which pulls `node:fs` in.
+export type {
+  ReferenceBundle,
+  ReferenceStore,
+  ReferenceStoreRoot,
+} from './reference-store'
+export {
+  ASSETS_PREFIX,
+  CAPTURE_MEMBER,
+  FORMS_MEMBER,
+  HINTS_MEMBER,
+  L1_MEMBER,
+  MULTISTATE_MEMBER,
+  RAW_MEMBER,
+  RENDERED_MEMBER,
+  SCREENSHOT_MEMBER,
+  bundleNameFor,
+  ladderMember,
+  pathSlug,
+} from './reference-store'
+export {
+  bundleDir,
+  bundleDirFor,
+  fsReferenceBundle,
+  fsReferenceStore,
+  ladderScreenshotPath,
+} from './fs-reference-store'
+export { memoryReferenceBundle, memoryReferenceStore } from './memory-reference-store'
+export type { ReferenceStoreEnv } from './r2-reference-store'
+export { r2ReferenceStore } from './r2-reference-store'

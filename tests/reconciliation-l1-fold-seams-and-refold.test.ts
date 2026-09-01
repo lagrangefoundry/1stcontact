@@ -45,6 +45,7 @@ import {
   type ValueElement,
   type Viewport,
 } from '../tools/generate/src/cli/capture'
+import { bundleDirFor, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /** The fixed sampled width ladder `1c capture page` walks. */
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -498,12 +499,11 @@ describe('AC-814 a retained bundle can be re-folded offline, rewriting only what
   it('test_UAT_AC814_refold_is_offline_rewrites_only_derived_artifacts_and_demands_an_oracle', async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac814-'))
     tmpDirs.push(cwd)
-    const captured = await cmdCapturePage('http://fixture.test/', {
-      cwd,
+    const captured = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
       driverFactory: async () => new FakeDriver(),
       isEngineAvailable: async () => true,
     })
-    const bundle = captured.bundleDir
+    const bundle = bundleDirFor(cwd, captured.capture)
     const freshL1 = readFileSync(path.join(bundle, 'l1.json'), 'utf8')
     const freshForms = readFileSync(path.join(bundle, 'forms.json'), 'utf8')
     const before = fingerprint(bundle)

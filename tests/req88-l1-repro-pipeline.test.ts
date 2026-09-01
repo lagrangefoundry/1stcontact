@@ -27,6 +27,7 @@ import type {
   StateProjection,
   ValueElement,
 } from '../tools/generate/src/cli/capture'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -89,18 +90,18 @@ afterEach(() => {
 })
 
 /** Write a fixture capture bundle carrying an l1.json (+ optionally multistate). */
-function bundleWith(opts: { l1?: MultiStateCapture; multistate?: MultiStateCapture }): string {
+async function bundleWith(opts: { l1?: MultiStateCapture; multistate?: MultiStateCapture }): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(dir, { recursive: true })
-  if (opts.l1) writeL1(dir, foldToL1(opts.l1))
-  if (opts.multistate) writeMultiState(dir, opts.multistate)
+  if (opts.l1) await writeL1(fsReferenceBundle(dir), foldToL1(opts.l1))
+  if (opts.multistate) await writeMultiState(fsReferenceBundle(dir), opts.multistate)
   return dir
 }
 
 describe('REQ-88 — L1 reproduction pipeline', () => {
   it('test_UAT_FC_REQ-88_repro_import_renders_l1_page', async () => {
-    const ref = bundleWith({ l1: pinnedOracle() })
-    const result = cmdRepro('gigabyte', { cwd, ref })
+    const ref = await bundleWith({ l1: pinnedOracle() })
+    const result = await cmdRepro('gigabyte', { cwd, ref })
 
     // The import produced a schema-valid site whose home page IS a raw L1
     // document (no behavior-module stack).
@@ -120,20 +121,20 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(html).not.toContain('data-fc-type')
   })
 
-  it('test_UAT_FC_REQ-88_repro_is_idempotent_rebuild', () => {
-    const ref = bundleWith({ l1: pinnedOracle() })
-    const first = cmdRepro('gigabyte', { cwd, ref })
+  it('test_UAT_FC_REQ-88_repro_is_idempotent_rebuild', async () => {
+    const ref = await bundleWith({ l1: pinnedOracle() })
+    const first = await cmdRepro('gigabyte', { cwd, ref })
     // Re-import overwrites cleanly (the "delete + rebuild" loop) — same result,
     // no "already exists" throw.
-    const second = cmdRepro('gigabyte', { cwd, ref })
+    const second = await cmdRepro('gigabyte', { cwd, ref })
     expect(second.nodeCount).toBe(first.nodeCount)
     const loaded = loadSite({ cwd, root: 'sites' }, 'gigabyte', 'draft')
     expect(loaded.ok).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-88_l1_gate_passes_clean_bundle', () => {
-    const ref = bundleWith({ multistate: cleanOracle() })
-    const report = cmdL1Gate({ cwd, ref })
+  it('test_UAT_FC_REQ-88_l1_gate_passes_clean_bundle', async () => {
+    const ref = await bundleWith({ multistate: cleanOracle() })
+    const report = await cmdL1Gate(fsReferenceBundle(ref))
 
     expect(report.pass).toBe(true)
     expect(report.promoted).toEqual([]) // nothing to overrun → no recovery
@@ -144,9 +145,9 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(report.contentRobustness.pass).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-88_l1_gate_surfaces_and_recovers_pinned_residual', () => {
-    const ref = bundleWith({ multistate: pinnedOracle() })
-    const report = cmdL1Gate({ cwd, ref })
+  it('test_UAT_FC_REQ-88_l1_gate_surfaces_and_recovers_pinned_residual', async () => {
+    const ref = await bundleWith({ multistate: pinnedOracle() })
+    const report = await cmdL1Gate(fsReferenceBundle(ref))
 
     // The gate SURFACES the content-robustness residual (that is why promotion
     // ran) and its demand-driven recovery CLOSES it — the discriminator behavior.
@@ -156,11 +157,11 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(report.pass).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-88_l1_gate_requires_recaptured_bundle', () => {
+  it('test_UAT_FC_REQ-88_l1_gate_requires_recaptured_bundle', async () => {
     // A bundle predating multi-state capture has no oracle to gate against — the
     // verb must fail-fast with a re-capture instruction, not a cryptic crash.
-    const ref = bundleWith({}) // empty bundle
-    expect(() => cmdL1Gate({ cwd, ref })).toThrow(/re-capture/)
+    const ref = await bundleWith({}) // empty bundle
+    await expect(cmdL1Gate(fsReferenceBundle(ref))).rejects.toThrow(/re-capture/)
   })
 
   it('test_UAT_FC_REQ-88_schema_page_l1_admits_no_second_body', () => {

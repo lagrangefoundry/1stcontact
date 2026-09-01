@@ -14,6 +14,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-58 items 3b + 4 — treatments the capture read off the wrong
@@ -42,7 +43,7 @@ describe('REQ-58 items 3b/4 — wrapper accent bar + card fill (real Chromium)',
     if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req58-cap-'))
       tmpDirs.push(cwd)
-      capture = (await cmdCapturePage(`${server.origin}/req58-treatments.html`, { cwd })).capture
+      capture = (await cmdCapturePage(`${server.origin}/req58-treatments.html`, fsReferenceStore(cwd))).capture
     }
   }, 120000)
 

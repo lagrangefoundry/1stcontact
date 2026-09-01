@@ -21,6 +21,7 @@ import {
   type ValuesDiffReport,
   type Viewport,
 } from '../tools/generate/src/cli'
+import { bundleDirFor, fsReferenceBundle, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-58 (T2) — the multi-viewport values-diff.
@@ -235,17 +236,17 @@ describe('REQ-58 T2 — capture persists a multi-viewport reference', () => {
   itB(
     'test_UAT_FC_REQ-58_multiviewport_capture_persists_ladder',
     async () => {
-      const res = await cmdCapturePage(`${server.origin}/rich.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/rich.html`, fsReferenceStore(cwd))
       // multistate.json is written into the bundle and read back with the ladder.
-      expect(existsSync(path.join(res.bundleDir, 'multistate.json'))).toBe(true)
-      const persisted = readMultiState(res.bundleDir) as MultiStateCapture
+      expect(existsSync(path.join(bundleDirFor(cwd, res.capture), 'multistate.json'))).toBe(true)
+      const persisted = await readMultiState(fsReferenceBundle(bundleDirFor(cwd, res.capture))) as MultiStateCapture
       const widths = new Set(persisted.projections.map((p) => p.viewport.width))
       // The reference spans several widths — not a single desktop shot.
       expect(widths.size).toBeGreaterThanOrEqual(2)
       // The return value carries the same matrix that was persisted.
       expect(res.multiState.projections.length).toBe(persisted.projections.length)
       // Sanity: the bundle still has its single-viewport artifacts too.
-      expect(readdirSync(res.bundleDir)).toContain('capture.json')
+      expect(readdirSync(bundleDirFor(cwd, res.capture))).toContain('capture.json')
     },
     120000,
   )

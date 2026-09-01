@@ -53,6 +53,7 @@ import {
   type ValueElement,
   type Viewport,
 } from '../tools/generate/src/cli/capture'
+import { bundleDirFor, fsReferenceBundle, fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -208,17 +209,16 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac689-'))
     tmpDirs.push(cwd)
 
-    const result = await cmdCapturePage('http://fixture.test/', {
-      cwd,
+    const result = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
       driverFactory: async () => new FakeDriver(),
       isEngineAvailable: async () => true,
     })
 
     // One L1 reproduction document is written to the bundle, is VALID against the
     // L1 envelope, declares the sampled ladder, and its root is a container.
-    const l1Path = path.join(result.bundleDir, 'l1.json')
+    const l1Path = path.join(bundleDirFor(cwd, result.capture), 'l1.json')
     expect(existsSync(l1Path)).toBe(true)
-    const l1 = readL1(result.bundleDir)
+    const l1 = await readL1(fsReferenceBundle(bundleDirFor(cwd, result.capture)))
     expect(l1).not.toBeNull()
     expect(validateL1(l1!).ok).toBe(true)
     expect(l1!.widths).toEqual(LADDER)
@@ -234,21 +234,20 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac690-'))
     tmpDirs.push(cwd)
 
-    const result = await cmdCapturePage('http://fixture.test/', {
-      cwd,
+    const result = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
       driverFactory: async () => new FakeDriver(),
       isEngineAvailable: async () => true,
     })
 
     // The raw multi-viewport sample ladder is retained in the bundle alongside
     // the folded document — the fold augments, it does not replace the oracle.
-    expect(existsSync(path.join(result.bundleDir, 'multistate.json'))).toBe(true)
-    const oracle = readMultiState(result.bundleDir)
+    expect(existsSync(path.join(bundleDirFor(cwd, result.capture), 'multistate.json'))).toBe(true)
+    const oracle = await readMultiState(fsReferenceBundle(bundleDirFor(cwd, result.capture)))
     expect(oracle).not.toBeNull()
 
     // The oracle's sampled widths match the folded document's declared widths.
     const oracleWidths = [...new Set(oracle!.projections.map((p) => p.viewport.width))].sort((a, b) => a - b)
-    const l1 = readL1(result.bundleDir)!
+    const l1 = (await readL1(fsReferenceBundle(bundleDirFor(cwd, result.capture))))!
     expect(oracleWidths).toEqual(LADDER)
     expect(oracleWidths).toEqual(l1.widths)
   })
@@ -347,13 +346,12 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     // order and per-node authored sizing units.
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac694-'))
     tmpDirs.push(cwd)
-    const result = await cmdCapturePage('http://fixture.test/', {
-      cwd,
+    const result = await cmdCapturePage('http://fixture.test/', fsReferenceStore(cwd), {
       driverFactory: async () => new FakeDriver(),
       isEngineAvailable: async () => true,
     })
-    expect(existsSync(path.join(result.bundleDir, 'hints.json'))).toBe(true)
-    const hints = readHints(result.bundleDir)
+    expect(existsSync(path.join(bundleDirFor(cwd, result.capture), 'hints.json'))).toBe(true)
+    const hints = await readHints(fsReferenceBundle(bundleDirFor(cwd, result.capture)))
     expect(hints).not.toBeNull()
     expect(hints!.mediaBreakpoints).toEqual([...hints!.mediaBreakpoints].sort((a, b) => a - b))
     expect(hints!.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)

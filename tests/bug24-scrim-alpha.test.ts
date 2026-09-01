@@ -49,6 +49,7 @@ import type {
   StateProjection,
   ValueElement,
 } from '../tools/generate/src/cli/capture'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -166,7 +167,7 @@ describe('BUG-24 capture resolves a colour-with-alpha scrim (real Chromium)', ()
     if (await chromiumAvailable()) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'bug24-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/bug24-scrim.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/bug24-scrim.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

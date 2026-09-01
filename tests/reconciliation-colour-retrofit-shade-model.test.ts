@@ -73,6 +73,7 @@ import {
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { listFilesRel } from '../tools/generate/src/store'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = path.join(REPO_ROOT, 'tools', 'generate', 'bin', '1c.mjs')
@@ -276,10 +277,10 @@ function paintedSandboxSite(slug: string, colors: string[]): string {
  * A capture bundle carrying a folded `l1.json` — the input to the reproduction
  * path, which emits colour literals only and never a palette.
  */
-function capturedBundle(cwd: string, colors: string[]): string {
+async function capturedBundle(cwd: string, colors: string[]): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  writeL1(dir, synthDoc(colors) as never)
+  await writeL1(fsReferenceBundle(dir), synthDoc(colors) as never)
   writeFileSync(
     path.join(dir, 'capture.json'),
     JSON.stringify({ url: 'https://example.test/', host: 'example.test', assets: [] }, null, 2),
@@ -935,14 +936,14 @@ describe('AC-946 derived names describe the colour and rename from the command l
 // ── AC-947 — a separate, re-runnable pass, and a byte-identical fixpoint ─────
 
 describe('AC-947 assignment is a separate pass and a second run is a byte-identical fixpoint', () => {
-  it('test_UAT_AC947_reproduced_sites_carry_literals_and_re_assignment_is_a_byte_identical_fixpoint', () => {
+  it('test_UAT_AC947_reproduced_sites_carry_literals_and_re_assignment_is_a_byte_identical_fixpoint', async () => {
     const cwd = freshCwd()
 
     // A site produced by reproducing a captured reference carries its colours as
     // literals and NO palette — assignment is a pass an author runs, never
     // something a site arrives with.
-    const ref = capturedBundle(cwd, ['#fffef8', '#1f2937', '#2e86a3', '#2e86a3a6', '#2e86a355', '#4aafc9'])
-    cmdRepro('reproduced', { cwd, ref })
+    const ref = await capturedBundle(cwd, ['#fffef8', '#1f2937', '#2e86a3', '#2e86a3a6', '#2e86a355', '#4aafc9'])
+    await cmdRepro('reproduced', { cwd, ref })
     const siteDir = path.join(cwd, 'storage', 'sites', 'reproduced')
     expect(paletteOf(siteDir)).toBeUndefined()
     expect(pagesOf(siteDir).flatMap((p) => collectColorLiterals(p)).length).toBeGreaterThan(0)

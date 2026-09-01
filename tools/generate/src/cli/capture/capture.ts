@@ -1,10 +1,20 @@
 /**
- * `1c capture page <url>` orchestrator (DOC-13). Runs the rendered-only capture
- * pipeline and writes the self-contained bundle to `references/<host>/<path>/`.
+ * `1c capture page <url>` orchestrator ([[DOC-13]]). Runs the rendered-only
+ * capture pipeline and writes the self-contained bundle into whichever
+ * {@link ReferenceStore} it was handed — the operator's `storage/references/`
+ * tree, or R2 (REQ-155).
+ *
+ * THE STORE IS INJECTED AND HAS NO DEFAULT. A `store ?? fsReferenceStore(cwd)`
+ * fallback would put `node:fs` back in this module's import graph, which is
+ * exactly what REQ-155 removes; the CLI constructs the filesystem adapter
+ * because the CLI is the thing that knows it is on a laptop. This is the same
+ * inject-or-fail rule `driverFactory` needs for the same reason, and applying
+ * one of them without the other would leave the seam half-cut.
  */
 import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
+import { writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState } from './bundle'
+import { bundleNameFor, type ReferenceStore } from '../../store/reference-store'
 import { foldToL1 } from '../../l1/fold'
 import type { FoldedForm } from '../../l1/forms'
 import { primaryFamily } from './theme'
@@ -37,8 +47,6 @@ export function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
 }
 
 export interface CapturePageOptions {
-  /** Working directory the `references/` tree is resolved against. */
-  cwd?: string
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
   /** Extra navigation attempts on browser failure. */
@@ -47,7 +55,9 @@ export interface CapturePageOptions {
   isEngineAvailable?: (engine: RenderEngine) => Promise<boolean>
 }
 
-export interface CapturePageResult extends BundleLocation {
+export interface CapturePageResult {
+  /** What the bundle is called in the store it landed in ({@link bundleNameFor}). */
+  name: string
   capture: Capture
   /** REQ-58 (T2) — the reference projected across the viewport ladder, persisted as `multistate.json`. */
   multiState: MultiStateCapture
@@ -57,12 +67,21 @@ export interface CapturePageResult extends BundleLocation {
   hints: StructuralHints
 }
 
-export async function cmdCapturePage(url: string, opts: CapturePageOptions = {}): Promise<CapturePageResult> {
+export async function cmdCapturePage(
+  url: string,
+  store: ReferenceStore,
+  opts: CapturePageOptions = {},
+): Promise<CapturePageResult> {
   const result = await runCapturePipeline(url, {
     driverFactory: opts.driverFactory,
     retries: opts.retries,
   })
-  const location = writeBundle(result, opts.cwd ?? process.cwd())
+  // The name comes from the captured URL, not from anywhere the caller chose —
+  // see `bundleNameFor`. Both adapters therefore agree on what this bundle is
+  // called, which is what lets a cloud capture and a laptop capture of the same
+  // URL be compared member for member (REQ-155 AC3).
+  const bundle = store.bundle(bundleNameFor(result.capture))
+  await writeBundle(bundle, result)
 
   // REQ-58 (T2) — a reference is only complete if it spans the viewport ladder: a
   // %-vs-fixed reflow (a wordmark that drifts on resize) is invisible at a single
@@ -73,13 +92,13 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
     driverFactoryFor: opts.driverFactory ? () => opts.driverFactory! : undefined,
     isEngineAvailable: opts.isEngineAvailable,
   })
-  writeMultiState(location.bundleDir, multiState)
+  await writeMultiState(bundle, multiState)
 
   // REQ-61 — the image sibling of the ladder: a full-page reference screenshot at
   // each width, so `1c diff --size` compares our reproduction against a same-width
   // reference rather than the single desktop shot.
   const ladderShots = await captureLadderScreenshots(url, { driverFactory: opts.driverFactory })
-  writeLadderScreenshots(location.bundleDir, ladderShots)
+  await writeLadderScreenshots(bundle, ladderShots)
 
   // REQ-83 — fold the retained ladder into ONE L1 document (the reproduction
   // artifact), and read the advisory structural hints. `multistate.json` stays as
@@ -93,12 +112,12 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
     fonts: fontResourcesFromTheme(result.capture.theme.fonts),
     forms,
   })
-  writeL1(location.bundleDir, l1)
-  writeForms(location.bundleDir, forms)
+  await writeL1(bundle, l1)
+  await writeForms(bundle, forms)
   const hints = await captureStructuralHints(url, {
     driverFactory: opts.driverFactory,
   })
-  writeHints(location.bundleDir, hints)
+  await writeHints(bundle, hints)
 
-  return { ...location, capture: result.capture, multiState, l1, hints }
+  return { name: bundle.name, capture: result.capture, multiState, l1, hints }
 }

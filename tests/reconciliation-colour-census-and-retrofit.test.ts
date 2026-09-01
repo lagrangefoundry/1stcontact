@@ -56,6 +56,7 @@ import {
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { listFilesRel } from '../tools/generate/src/store'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = path.join(REPO_ROOT, 'tools', 'generate', 'bin', '1c.mjs')
@@ -214,10 +215,10 @@ function paintedSite(cwd: string, slug: string, colors: string[]): string {
  * A capture bundle carrying a folded `l1.json` — the input to the reproduction
  * path, which emits colour literals only and never a palette.
  */
-function capturedBundle(cwd: string, colors: string[]): string {
+async function capturedBundle(cwd: string, colors: string[]): Promise<string> {
   const dir = path.join(cwd, 'bundle')
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
-  writeL1(dir, synthDoc(colors) as never)
+  await writeL1(fsReferenceBundle(dir), synthDoc(colors) as never)
   writeFileSync(
     path.join(dir, 'capture.json'),
     JSON.stringify({ url: 'https://example.test/', host: 'example.test', assets: [] }, null, 2),
@@ -549,7 +550,7 @@ describe('story-5e7eb0c5 — a completed retrofit renders byte-identically', () 
     const cwd = freshCwd()
     // A site of colour literals, including one RGB at three opacities so the
     // alpha path is exercised by the pixel-identity proof too.
-    const ref = capturedBundle(cwd, [
+    const ref = await capturedBundle(cwd, [
       '#fffef8',
       '#1f2937',
       '#2e86a3',
@@ -558,7 +559,7 @@ describe('story-5e7eb0c5 — a completed retrofit renders byte-identically', () 
       '#4aafc9',
       '#ffffff',
     ])
-    cmdRepro('painted', { cwd, ref })
+    await cmdRepro('painted', { cwd, ref })
     const siteDir = path.join(cwd, 'storage', 'sites', 'painted')
     expect(paletteOf(siteDir)).toBeUndefined()
 
@@ -754,14 +755,14 @@ describe('story-5e7eb0c5 — derived names describe the colour and rename from t
 // ── AC-947 — assignment is a separate, re-runnable pass ──────────────────────
 
 describe('story-5e7eb0c5 — a site arrives with literals, and re-assignment is idempotent', () => {
-  it('test_UAT_AC947_repro_carries_literals_and_re_assignment_reproduces_the_palette', () => {
+  it('test_UAT_AC947_repro_carries_literals_and_re_assignment_reproduces_the_palette', async () => {
     const cwd = freshCwd()
 
     // A site produced by reproducing a captured reference carries its colours as
     // literals and NO palette — assignment is a pass an author runs, never
     // something a site arrives with.
-    const ref = capturedBundle(cwd, ['#fffef8', '#1f2937', '#2e86a3', '#2e86a3a6', '#2e86a355', '#4aafc9'])
-    cmdRepro('reproduced', { cwd, ref })
+    const ref = await capturedBundle(cwd, ['#fffef8', '#1f2937', '#2e86a3', '#2e86a3a6', '#2e86a355', '#4aafc9'])
+    await cmdRepro('reproduced', { cwd, ref })
     const siteDir = path.join(cwd, 'storage', 'sites', 'reproduced')
     expect(paletteOf(siteDir)).toBeUndefined()
     const literalsOnArrival = pageFiles(siteDir).flatMap((f) => collectColorLiterals(readJsonFile(f)))

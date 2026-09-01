@@ -17,6 +17,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-62 — a gradient PANEL background is a captured, authorable, and
@@ -150,7 +151,7 @@ describe('REQ-62 gradient panel — real Chromium capture', () => {
     if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req62-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/gradient-panel.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/gradient-panel.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)

@@ -15,6 +15,7 @@ import {
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
+import { fsReferenceStore } from '../tools/generate/src/store/fs-reference-store'
 
 /**
  * UATs for REQ-59 — text-fill gradient stop *positions* are a captured,
@@ -128,7 +129,7 @@ describe('REQ-59 gradient stop positions — real Chromium capture', () => {
     if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'req59-cap-'))
       tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/gradient-positions.html`, { cwd })
+      const res = await cmdCapturePage(`${server.origin}/gradient-positions.html`, fsReferenceStore(cwd))
       capture = res.capture
     }
   }, 120000)
