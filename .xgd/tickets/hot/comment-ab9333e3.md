@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-43
 created_by: xgd
 created_at: '2026-09-01T21:54:36.482890+00:00'
-updated_at: '2026-09-01T22:28:44.757261+00:00'
+updated_at: '2026-09-01T22:36:32.037757+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -50,5 +50,43 @@ Say the word and I'll cut the branch and implement the fix as scoped.
 ok I tried the refresh a second time and it worked that time. 
 
 What I would like is a tool API for the AI to trigger a page update. It should ideally trigger updates as it goes so the user can see the page "unfold".
+
+<!-- xgd-turn id="1608e7a4-9c37-45c3-a35c-57d760799de4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:36:31.863758+00:00" -->
+#### Claude
+Confirmed — the missing reload was the whole fault. Let me update the ticket for the live-unfold requirement, then build it.
+
+Now the host-side change signal:
+
+Now the two event-kind constants, with the reasoning that belongs beside them:
+
+Now the panel side — `chat.js` watching the stream, and `app.js` wiring the reload:
+
+Now merge back to `xgd-working` and promote:
+
+Done and landed on `xgd-working` (BUG-43, `84cc117aa1`, v0.2.40).
+
+## What it does
+
+The turn stream now carries a change signal that the panel acts on, **one per write** rather than one per turn — so a request answered by four edits shows the page unfolding as the assistant works.
+
+- **`host-core.ts`** — `streamPrompt` iterates the model's stream instead of passing it through. After each `tool_activity` it re-reads the draft change counter, and when the counter moved it yields `{kind: 'site_changed', meta: {at, changes}}`. One primary-key read per tool call; none at all on a turn with no tools.
+- **`chat.js`** — wraps the stream it already consumes, reports each signal to its host, passes nothing on. A callback that throws is swallowed: reloading a frame is the host's business and its failure isn't the conversation's.
+- **`app.js`** — answers with the same `panel.frame.contentWindow.location.reload()` the palette popup and the segment editor already perform.
+
+## One deliberate departure from what you asked
+
+You asked for a tool API the AI triggers. I built the signal so the **host derives it from the change counter** rather than declaring an operation the model calls. A tool is a capability the model can skip, and it would skip it on exactly the long multi-edit turns where watching the page arrive matters most — whereas a counter comparison can't be forgotten, can't fire twice, and can't announce a write that didn't happen. It's the same argument REQ-131 already makes for pushing the change reminder instead of leaving the model to ask. The outcome you wanted is unchanged; say the word if you'd rather have the model hold the trigger and I'll add the declared operation on top.
+
+Also worth knowing: a turn that changes nothing signals nothing, so asking a question no longer costs you your scroll position.
+
+## Tests
+
+9 new UATs, all passing:
+- **workerd** (`test_UAT_FC_BUG-43_site_changed_signal.workers.test.ts`) — a two-write turn produces `tool_activity, site_changed, tool_activity, site_changed, text, done` in that order, with `at: 1` then `at: 2`, and both new pages render from `/preview/…/draft/`. Real D1, real R2, real tool loop; only the Anthropic client is doubled. A read-only turn signals nothing.
+- **panel/app** (`test_UAT_FC_BUG-43_preview_follows_the_assistant.test.ts`) — the signal fires once per write, leaves no trace in the transcript, survives a throwing callback, and reloads the preview frame twice for two writes and zero times for a question.
+
+The full workers project (197 tests) and the neighbouring chat/AI suites pass. One unrelated pre-existing type error in `session-knowledge.ts` (`SHIPPED_SOURCE` not exported) is present on the base checkout too — I left it alone.
 
 <!-- xgd-chat-end -->
