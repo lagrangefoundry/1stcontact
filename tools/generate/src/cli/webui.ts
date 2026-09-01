@@ -145,6 +145,14 @@ export const WEBUI_SCOPE = '@lagrangefoundry'
  * consumer's to supply, so it has to reach the browser's import map too — an
  * import map that resolves the panel but not what the panel imports fails at the
  * first rendered message rather than at load.
+ *
+ * `webui-scroll` is here for the same reason and never for its own: nothing in
+ * this repository imports it. `webui-list-detail` — the Library's list and detail
+ * panes ([[REQ-161]]) — composes it for the detail's sticky, persisted scroll,
+ * and a browser import map is not a package manager: it resolves what it is
+ * told about and nothing transitively. Omitting a dependency of a listed
+ * component therefore fails at the first mount rather than at build, which is
+ * exactly the class of failure this list exists to move earlier.
  */
 export const WEBUI_PACKAGES = [
   'webui-shell',
@@ -152,6 +160,8 @@ export const WEBUI_PACKAGES = [
   'webui-fields',
   'webui-chat',
   'webui-markdown',
+  'webui-list-detail',
+  'webui-scroll',
 ] as const
 export type WebuiPackage = (typeof WEBUI_PACKAGES)[number]
 

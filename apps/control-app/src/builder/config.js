@@ -46,12 +46,63 @@ export const APP_FONT = "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
  */
 export const SITE_TAB = { id: 'site', label: 'Site', fill: true }
 
-/** Every tab the shell mounts, in order. One today; the list is the seam. */
-export const TABS = [SITE_TAB]
+/**
+ * The Library — everything the client has given us (REQ-161, DOC-38 §6).
+ *
+ * `fill` for the same reason the site tab has it: this hosts a `list-detail`,
+ * which is a split, which resolves its height against the panel. Without it the
+ * list collapses to the height of its rows and the detail pane to nothing.
+ *
+ * BESIDE the site tab and not inside it. The Library is TENANT-wide while the
+ * site tab is about one site (DOC-38 §7.7, DOC-10 §4.1) — a client's second site
+ * should not start as cold as their first — so nesting it under a site would
+ * make a scope claim the data does not have.
+ */
+export const LIBRARY_TAB = { id: 'library', label: 'Library', fill: true }
+
+/** Every tab the shell mounts, in order. */
+export const TABS = [SITE_TAB, LIBRARY_TAB]
 
 /** Per-instance persistence keys, namespaced by the shell under `APP_ID`. */
 export const STORAGE_KEYS = {
   split: `${SITE_TAB.id}:split`,
   panel: `${SITE_TAB.id}:panel`,
   chat: `${SITE_TAB.id}:chat`,
+  library: `${LIBRARY_TAB.id}:list`,
 }
+
+/**
+ * The two drop areas of the upload overlay — REQ-161, and the only question this
+ * product ever asks about a file.
+ *
+ * ROLES, NOT FILE TYPES, and the reason is the whole of the ticket. Sorting by
+ * type asks the client for something the system already knows (a `.pdf` is a
+ * document, a `.woff2` is a font) while leaving unasked the one thing it cannot
+ * infer: what the file is FOR. A JPEG may be a hero photograph destined for the
+ * site or a screenshot of a competitor the assistant should look at and must
+ * never publish — identical bytes, identical content type, opposite rights.
+ *
+ * THE SECOND SUB-LINE IS LOAD-BEARING, not decoration. A client uploading their
+ * positioning document wants to know it stays private, and the moment they are
+ * deciding where to drop it is the moment to say so (DOC-35's register: plain,
+ * reassuring, no jargon).
+ *
+ * `id` is the wire value the ingestion route validates against; the copy is
+ * provisional and lives here for the same reason every other label does.
+ */
+export const UPLOAD_PROMPT = "What's this for?"
+
+export const UPLOAD_AREAS = [
+  {
+    id: 'site',
+    label: 'Put it on the site',
+    hint: 'Photos, logos, fonts. Things your visitors will see.',
+    icon: '🖼',
+  },
+  {
+    id: 'reference',
+    label: 'Just for you to read',
+    hint: "Brand guidelines, notes, reports. I'll use these to understand your business; they won't appear on your site.",
+    icon: '📄',
+  },
+]

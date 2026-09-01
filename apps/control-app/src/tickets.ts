@@ -77,6 +77,31 @@ const MATERIAL_FIELDS = {
   site_slug: { type: 'string' },
 
   /**
+   * What the client said the material is FOR — [[REQ-161]], [[DOC-38]] §4.2.
+   *
+   * THE ONE THING PROVENANCE CANNOT INFER. `origin` records where the bytes came
+   * from and `kind` is read off the content type, so between them the system
+   * already knows everything about the file EXCEPT what it is wanted for. The
+   * case that proves the gap is a JPEG: a hero photograph destined for the site,
+   * and a screenshot of a competitor the assistant should look at and must never
+   * publish, are identical bytes with an identical content type and opposite
+   * rights. No rule over `origin` and `kind` separates them.
+   *
+   * NOT A LEGAL QUESTION, WHICH IS WHY IT MAY BE ASKED AT ALL. [[DOC-38]] §10.1
+   * refuses to ask *"do you own this?"* because the client frequently does not
+   * know; *"is this for the site, or for me to read?"* is a question about their
+   * own intention, which they answer instantly and correctly. So this narrows
+   * §10.1's accepted residual risk without reintroducing the dialog it rejected.
+   *
+   * NOT REQUIRED, and deliberately not derivable from `republishable`. A capture
+   * of the client's OWN previous site ([[DOC-38]] 3a) is `republishable` and yet
+   * plainly reference material, so the two fields come apart the moment captures
+   * land — which is why this is a field rather than a reading of that one. It is
+   * absent on material created before anyone was asked.
+   */
+  role: { type: 'enum', enum: ['site', 'reference'] },
+
+  /**
    * How the description in the body went — one mechanism for every degraded case
    * (REQ-163, `describe.ts`).
    *

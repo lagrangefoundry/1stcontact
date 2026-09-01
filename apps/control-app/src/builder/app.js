@@ -1,10 +1,12 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
-import { APP_FONT, APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
+import { APP_FONT, APP_ID, LIBRARY_TAB, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
+import { createLibraryPanel } from './library.js'
 import { createDisplayPanel } from './panel.js'
 import { openPalettePopup } from './palette-popup.js'
+import { createUploadOverlay } from './upload.js'
 import {
   colorsAction,
   createToolbar,
@@ -13,7 +15,13 @@ import {
   publishAction,
   siteSelectorAction,
 } from './toolbar.js'
-import { fetchPalette, openChatSession, previewUrl, writePalette } from './api.js'
+import {
+  fetchPalette,
+  openChatSession,
+  previewUrl,
+  uploadMaterial,
+  writePalette,
+} from './api.js'
 
 /**
  * Mount the builder shell (REQ-115 / DOC-28 §12 T1).
@@ -43,6 +51,12 @@ export function mountBuilder(root, options = {}) {
      * better than the wrong arithmetic.
      */
     shadeHex = (hex) => hex,
+    /**
+     * The Library's calls (REQ-161). `null` keeps the tab and its transport
+     * defaults; a test injects `{list, item, save, fileUrl, upload}` to drive the
+     * whole surface without an origin.
+     */
+    libraryTransport = null,
   } = options
 
   const shell = mountShell(root, {
@@ -206,6 +220,77 @@ export function mountBuilder(root, options = {}) {
   }
   panel.frame.addEventListener('load', rebind)
 
+  /**
+   * The Library (REQ-161), in its own tab beside the site.
+   *
+   * IT FOLLOWS THE PANEL'S SITE for the badge and the "used on this site" filter,
+   * by the same rule the assistant does: the toolbar's selector is the one place
+   * a site is chosen, and a second control that could disagree with it is worse
+   * than no control. What it does NOT do is scope its list to that site — see
+   * `library.js` for why the badge is a view and never a boundary.
+   */
+  const library = createLibraryPanel({
+    storage: shell.storage(STORAGE_KEYS.library),
+    getSite: () => panel.getSite(),
+    ...(libraryTransport ? { transport: libraryTransport } : {}),
+  })
+  shell.getPanel(LIBRARY_TAB.id).append(library.element)
+
+  /**
+   * The upload overlay, watching BOTH entry points (REQ-161, DOC-8 open item #4).
+   *
+   * ONE INSTANCE, TWO WATCHERS, and that is the ticket's answer to "drag into
+   * chat, or a dedicated panel?" — both, because they serve different moments,
+   * and the same interaction because the decision they lead to is identical.
+   *
+   * It mounts into `shell.element` for the reason every other builder surface
+   * does: the `--shell-*` tokens and the app font are declared on `.shell`, and
+   * anything appended beside it resolves neither.
+   */
+  const upload = createUploadOverlay({
+    host: shell.element,
+    onUpload: (files, role, source) => void receiveFiles(files, role, source),
+  })
+  const unwatchChat = upload.watch(chat.element, 'chat')
+  const unwatchLibrary = upload.watch(library.element, 'library')
+
+  const sendUpload = libraryTransport?.upload ?? uploadMaterial
+
+  /**
+   * What happens after the drop.
+   *
+   * SEQUENTIALLY, and deliberately not in parallel. Each upload is described and
+   * indexed on the origin before it answers, so firing five at once buys latency
+   * back by making five model calls compete — and the client watching the
+   * conversation would see the confirmations arrive in an order unrelated to the
+   * one they dropped them in.
+   *
+   * A CHAT-ROUTE DROP APPEARS IN THE CONVERSATION. That is the ticket's own
+   * acceptance, and it is two different things at once: the client can see what
+   * they sent, and the assistant has it — the second half through the origin's
+   * index refresh and the next turn's delta (DOC-39 §6.4), not through this
+   * message. A Library-route drop reaches the assistant by exactly the same path;
+   * what it does not do is put a line in a conversation it was not part of.
+   */
+  async function receiveFiles(files, role, source) {
+    for (const file of files) {
+      let result = null
+      let failure = null
+      try {
+        result = await sendUpload({ file, role, slug: panel.getSite() ?? undefined })
+      } catch (err) {
+        failure = err
+      }
+      if (source === 'chat') {
+        chat.getChat()?.appendMessage('user', uploadNote(file, result, failure))
+      }
+    }
+    // ALWAYS, and from the origin rather than from what the uploads returned: the
+    // list carries `description_status` and the site placement, both of which are
+    // decided after the bytes leave here.
+    await library.refresh().catch(() => {})
+  }
+
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,
     primary: panel.element,
@@ -258,8 +343,14 @@ export function mountBuilder(root, options = {}) {
 
   // Subscribed BEFORE the first call so a `restore()` that has already run and a
   // change made a second from now take the identical path.
-  const unbindSite = panel.on('site', (slug) => void showSite(slug))
+  const unbindSite = panel.on('site', (slug) => {
+    void showSite(slug)
+    // The badge and the "used on this site" filter are about the CURRENT site,
+    // so they redraw with it. The list itself is tenant-wide and is not re-read.
+    library.siteChanged()
+  })
   void showSite(panel.getSite())
+  void library.refresh().catch(() => {})
 
   return {
     shell,
@@ -278,9 +369,15 @@ export function mountBuilder(root, options = {}) {
      * in the one module that knows all three.
      */
     openPalette,
+    library,
+    upload,
     destroy() {
       panel.frame.removeEventListener('load', rebind)
       unbindSite()
+      unwatchChat()
+      unwatchLibrary()
+      upload.destroy()
+      library.destroy()
       chat.destroy()
       editor?.destroy()
       toolbar.destroy()
@@ -289,4 +386,34 @@ export function mountBuilder(root, options = {}) {
       shell.destroy()
     },
   }
+}
+
+/**
+ * What a chat-route drop says in the conversation (REQ-161).
+ *
+ * IN THE CLIENT'S VOICE AND AS THE CLIENT'S TURN, because that is what it is:
+ * they handed us a file, and the transcript should read as though they did.
+ *
+ * IT REPORTS WHAT ACTUALLY HAPPENED, including the parts that went wrong. An
+ * upload that stored the bytes but could not index them is the failure DOC-39 §4
+ * calls INVISIBILITY rather than staleness — search will never return it — and a
+ * confirmation that said "added" and nothing else would make that state
+ * indistinguishable from a working one to the only person who could tell us.
+ */
+function uploadNote(file, result, failure) {
+  if (failure || !result) {
+    return `📎 **${file.name}** — that didn't upload: ${failure?.message ?? 'the upload failed'}`
+  }
+  const lines = [`📎 **${file.name}**`]
+  if (result.site_asset) lines.push(`Added, and it's on your site as \`${result.site_asset}\`.`)
+  else if (result.role === 'reference') {
+    lines.push("Added. I'll read it — it won't appear on your site.")
+  } else lines.push('Added.')
+  if (result.site_asset_error) {
+    lines.push(`I couldn't put it on the site yet: ${result.site_asset_error}`)
+  }
+  if (result.indexed === false) {
+    lines.push("I've stored it, but I can't search it yet.")
+  }
+  return lines.join('\n\n')
 }

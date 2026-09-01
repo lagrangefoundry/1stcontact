@@ -884,3 +884,289 @@ body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/*
+ * The Library tab (REQ-161) — a link in the height chain, and badges.
+ *
+ * `webui-list-detail` composes `webui-split`, which already declares its own
+ * layout and internal scrolling; everything this has to do is be a
+ * definite-height box for it to fill. The list pane, the divider, the rail and
+ * the detail's sticky scroll are the component's and are not restyled here — the
+ * `--shell-*` tokens exist precisely so a host does not have to.
+ */
+.builder-library {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The filter slot the list header exposes (`listControls`). */
+.builder-library__filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.builder-library__search {
+  flex: 1 1 8ch;
+  min-width: 8ch;
+  font: inherit;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  padding: 3px 6px;
+}
+
+.builder-library__role,
+.builder-library__kind {
+  font: inherit;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  padding: 3px 4px;
+}
+
+.builder-library__here {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+  white-space: nowrap;
+}
+
+.builder-library__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.builder-library__row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-library__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.builder-library__badge {
+  font-size: 0.72em;
+  line-height: 1.6;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-border);
+  color: var(--shell-fg-muted);
+  white-space: nowrap;
+}
+
+/*
+ * "Used on this site" is the one badge that is not merely descriptive — it is
+ * the answer to a question the client asked by switching sites — so it is the
+ * one that carries the accent.
+ */
+.builder-library__badge--here {
+  color: var(--shell-accent);
+  border-color: var(--shell-accent);
+}
+
+.builder-library__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.builder-library__preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/*
+ * Bounded by the pane, never by the picture. A brand photograph is several
+ * thousand pixels wide and would otherwise decide the width of the whole detail
+ * pane — and, through the split, of the list beside it.
+ */
+.builder-library__image {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-surface-alt);
+}
+
+.builder-library__download {
+  font-size: 0.85em;
+  color: var(--shell-accent);
+}
+
+.builder-library__missing {
+  color: var(--shell-danger);
+  font-size: 0.85em;
+  margin: 0;
+}
+
+.builder-library__heading {
+  font-size: 0.95em;
+  margin: 0;
+}
+
+.builder-library__status {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+.builder-library__status:empty {
+  display: none;
+}
+
+/*
+ * The upload overlay (REQ-161).
+ *
+ * FULL-SCREEN AND TRANSLUCENT, over the whole shell rather than over one pane,
+ * because the gesture that raises it starts anywhere — a file dragged towards
+ * the conversation crosses the preview on its way — and an overlay scoped to a
+ * pane would blink in and out as the pointer travelled.
+ *
+ * `fixed` RATHER THAN `absolute`, even though it mounts inside `.shell`. It has
+ * to cover the viewport, and `absolute` would resolve against whichever ancestor
+ * happens to be positioned — a property of the shell's internals that this file
+ * does not own and must not depend on. It mounts inside `.shell` for the token
+ * and font inheritance `modal.js` explains, which is a cascade concern and not a
+ * layout one.
+ *
+ * `pointer-events` is deliberately left alone: every element under here must
+ * stop receiving the drag, and covering them is what does that.
+ */
+.builder-upload {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--shell-overlay, rgb(0 0 0 / 55%));
+  backdrop-filter: blur(2px);
+}
+
+.builder-upload[hidden] {
+  display: none;
+}
+
+.builder-upload__sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 28px;
+  max-width: 720px;
+}
+
+.builder-upload__prompt {
+  margin: 0;
+  font-size: 1.4em;
+  color: #fff;
+  text-align: center;
+}
+
+.builder-upload__areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+/*
+ * A REAL BUTTON, not a styled div. Dragging is a gesture some people cannot
+ * perform and some devices do not offer, so the area has to be reachable by
+ * keyboard and announced as something to activate — which a button is, for free.
+ */
+.builder-upload__area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 15rem;
+  padding: 24px 16px;
+  font: inherit;
+  text-align: center;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 2px dashed var(--shell-border);
+  border-radius: var(--shell-radius);
+  cursor: pointer;
+}
+
+.builder-upload__area:hover,
+.builder-upload__area:focus-visible,
+.builder-upload__area.is-over {
+  border-color: var(--shell-accent);
+  border-style: solid;
+}
+
+/*
+ * A file landed on the overlay but not in an area. Both answers are marked —
+ * never one — because the point is that the client has not chosen yet, and
+ * highlighting either would be the recommendation this surface must not make.
+ */
+.builder-upload__area.is-asking {
+  border-color: var(--shell-accent);
+}
+
+.builder-upload__icon {
+  font-size: 1.8em;
+  line-height: 1;
+}
+
+.builder-upload__label {
+  font-weight: 600;
+}
+
+.builder-upload__hint {
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+.builder-upload__note {
+  margin: 0;
+  min-height: 1.2em;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.builder-upload__cancel {
+  font: inherit;
+  color: #fff;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/*
+ * Out of the layout, but NOT `display: none` and not `hidden` — a hidden input
+ * cannot reliably be `click()`ed into opening a file picker. The button beside it
+ * is the control; this is the mechanism.
+ */
+.builder-upload__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
