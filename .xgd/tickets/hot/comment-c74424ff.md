@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T00:47:24.446331+00:00'
+updated_at: '2026-09-01T00:48:08.028096+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -700,6 +700,16 @@ Say the word and I'll create these four and cut the branch for A.
 
 <!-- xgd-chat role="user" ts="2026-09-01T00:47:23.938089+00:00" -->
 #### You
+Don't go cutting branches, please create detailed REQ tickets - I will implement these in those tickets (this is a design chat)
+
+Can you tell me the dependency relationship between the tickets (which can run in parallel) - how do they depend on the KMS work that is underway, are they orthogonal?
+
+<!-- xgd-turn id="bf2f02d9-003b-49e2-997e-bf74c2c40277-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:48:07.935813+00:00" -->
+#### You
+Do we have a DOC ticket for this, if not please create one - if we do please update it
+
 Don't go cutting branches, please create detailed REQ tickets - I will implement these in those tickets (this is a design chat)
 
 Can you tell me the dependency relationship between the tickets (which can run in parallel) - how do they depend on the KMS work that is underway, are they orthogonal?
