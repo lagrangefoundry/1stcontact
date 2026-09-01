@@ -54,6 +54,7 @@ import {
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { repoRoot, sharedModuleUrl } from './webui'
+import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
 import { isProjected, projections, type ProjectedDoc } from './kb-projection'
 import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
 

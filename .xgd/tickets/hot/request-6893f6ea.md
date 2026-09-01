@@ -54,13 +54,13 @@ The CLI path works. The Worker path was never connected.
 
 It must be declared **twice** — top level and under `[env.production]`. A named environment inherits neither vars nor bindings, and that file's own stated rule is that nothing depends on remembering which keys inherit. Every other binding there is pinned by a UAT asserting both declarations exist; this one gets the same treatment. Absent in production, the failure is not degradation — every search throws on `undefined`.
 
-1. **No bundle-resident artefacts.** `openKnowledgeRuntime` builds on `nodeIndexSource(...)`, which is filesystem access and does not exist in workerd. The Worker needs the index and the documents as generated modules it can import.
+3. **No bundle-resident artefacts.** `openKnowledgeRuntime` builds on `nodeIndexSource(...)`, which is filesystem access and does not exist in workerd. The Worker needs the index and the documents as generated modules it can import.
 
-2. **No Worker-side runtime opener** — the peer of `openKnowledgeRuntime`, built from `memoryIndexSource(INDEX)`, `DocDirStore(bundleDocReader(DOCS))` and the AI binding. It belongs on the Worker-safe side of the package boundary and must not reach `node:fs` transitively.
+4. **No Worker-side runtime opener** — the peer of `openKnowledgeRuntime`, built from `memoryIndexSource(INDEX)`, `DocDirStore(bundleDocReader(DOCS))` and the AI binding. It belongs on the Worker-safe side of the package boundary and must not reach `node:fs` transitively.
 
-3. **The surface is never passed.** `ai.ts` must construct the runtime and hand `knowledgeSurface` to `createL1ToolboxCore`.
+5. **The surface is never passed.** `ai.ts` must construct the runtime and hand `knowledgeSurface` to `createL1ToolboxCore`.
 
-4. **Priming.** `primeSession` injects the awareness map into the session so the AI starts with _the map, not the pile_ ([[DOC-10]] §5.1). Search without priming is a tool the AI does not know it should reach for.
+6. **Priming.** `primeSession` injects the awareness map into the session so the AI starts with _the map, not the pile_ ([[DOC-10]] §5.1). Search without priming is a tool the AI does not know it should reach for.
 
 ## Decision: the index is bundle-resident for v1
 
