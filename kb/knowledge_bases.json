@@ -2,14 +2,22 @@
   "knowledge_bases": {
     "system": {
       "description": "1stcontact system knowledge: how the product is designed and why — its architecture, storage model, the L1 layout substrate, the behavior-module contract, the builder application, and the development method behind them.",
-      "corpus": {
-        "type": [
-          "doc"
-        ],
-        "fields.system_kb": true
-      },
+      "corpus": {},
       "landscape": "authored",
       "source": "shipped",
+      "weight": 1
+    },
+    "project": {
+      "description": "This client's own knowledge: the conversations held with them, the material they uploaded, the reference sites captured on their behalf, and the brief recording what was decided. Everything a site is made FROM, as against how the system that builds it works.",
+      "corpus": {
+        "type": [
+          "chat",
+          "material",
+          "reference",
+          "brief"
+        ]
+      },
+      "landscape": "derived",
       "weight": 1
     }
   }

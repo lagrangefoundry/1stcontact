@@ -5,9 +5,9 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-08-31T21:38:56.541751+00:00'
+updated_at: '2026-08-31T22:57:13.252664+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -52,14 +52,14 @@ re-uses every unchanged blob — an unchanged hero image is one blob across ever
 capture that ever saw it. That matters far more for [[DOC-15]]'s permanently
 retained internal corpus than for any single tenant.
 
-## The body is the shadow of the site
+## The body is the description of the site
 
 The `reference` ticket's body is what the KB indexes ([[DOC-38]] §6), so it must
 describe the captured site as prose: what the business appears to be, how the
 page is structured, the palette and type treatment, the tone of the copy. Written
 once at capture time from `capture.json` plus the screenshot.
 
-A bundle with a weak shadow is a bundle the AI cannot find, however complete its
+A bundle with a weak description is a bundle the AI cannot find, however complete its
 members are.
 
 ## Rights are inferred, never asked

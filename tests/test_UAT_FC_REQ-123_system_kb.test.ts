@@ -19,7 +19,7 @@ import {
   corpusDocument,
   exportCorpus,
   kbStatus,
-  optedIn,
+  inSystemKb,
   readDocTickets,
   resolveEmbedder,
   SYSTEM_KB,
@@ -44,8 +44,8 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 const STUB = path.resolve('tests/fixtures/kb-stub-model.mjs')
 
 /** How many `doc` tickets have opted into the system KB, per the store itself. */
-function optedInTicketCount(): number {
-  return readDocTickets().filter(optedIn).length
+function memberTicketCount(): number {
+  return readDocTickets().filter(inSystemKb).length
 }
 
 /**
@@ -354,12 +354,12 @@ describe('REQ-123 — the corpus export', () => {
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('test_UAT_FC_REQ-123_every_opted_in_doc_ticket_is_exported_and_reads_back_as_a_ticket', async () => {
-    // Membership is opt-in (`fields.system_kb`), and every doc carries it today —
-    // so this asserts completeness against what the store says is IN the KB, not
-    // against a hard-coded count that would go stale the next time a doc lands.
+  it('test_UAT_FC_REQ-123_every_member_doc_ticket_is_exported_and_reads_back_as_a_ticket', async () => {
+    // Membership is `doc_kind: system_kb` (REQ-164) — so this asserts
+    // completeness against what the store says is IN the KB, not against a
+    // hard-coded count that would go stale the next time a doc lands.
     expect(first.docs.length).toBeGreaterThan(0)
-    expect(first.docs.length).toBe(optedInTicketCount())
+    expect(first.docs.length).toBe(memberTicketCount())
 
     const { DocDirStore } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
     const { nodeDocReader } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing', './node'))
@@ -392,23 +392,24 @@ describe('REQ-123 — the corpus export', () => {
     expect(readdirSync(corpusDir(root))).not.toContain('DOC-GONE.md')
   })
 
-  it('test_UAT_FC_REQ-123_only_an_explicit_true_opts_a_document_in', () => {
+  it('test_UAT_FC_REQ-123_only_the_system_kb_doc_kind_puts_a_document_in', () => {
     // The membership rule itself, asserted directly rather than through the
-    // export — because every doc is opted in today, so an export-driven test
-    // would have nothing to exclude and would pass vacuously.
+    // export — an export-driven test would only exercise whichever kinds this
+    // machine's tickets happen to carry.
     //
-    // Strictly the boolean. A field arriving as the STRING "true" is a document
-    // whose frontmatter did not parse the way its author assumed; treating it as
-    // opt-in would hide that, and the failure it hides is a document silently
-    // reaching a client-facing assistant.
-    expect(optedIn({ fields: { system_kb: true } })).toBe(true)
+    // A KIND, not a flag (REQ-164 / DOC-39 §3.3): `doc_kind` is single-valued,
+    // so a document cannot be an architecture document AND a system document.
+    expect(inSystemKb({ fields: { doc_kind: 'system_kb' } })).toBe(true)
 
-    expect(optedIn({ fields: {} })).toBe(false)
-    expect(optedIn({ fields: null })).toBe(false)
-    expect(optedIn({})).toBe(false)
-    expect(optedIn({ fields: { system_kb: false } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 'true' } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 1 } })).toBe(false)
+    expect(inSystemKb({ fields: {} })).toBe(false)
+    expect(inSystemKb({ fields: null })).toBe(false)
+    expect(inSystemKb({})).toBe(false)
+    expect(inSystemKb({ fields: { doc_kind: 'architecture' } })).toBe(false)
+    expect(inSystemKb({ fields: { doc_kind: 'system_kb ' } })).toBe(false)
+    // The retired boolean is not membership. Carrying it means nothing now, and
+    // honouring it would put a document in front of a client-facing assistant on
+    // a marker nobody maintains.
+    expect(inSystemKb({ fields: { system_kb: true } })).toBe(false)
   })
 
   it('test_UAT_FC_REQ-123_the_export_agrees_with_the_store_about_who_is_in', () => {
@@ -416,8 +417,8 @@ describe('REQ-123 — the corpus export', () => {
     // says of the real ticket store — no document silently added, none silently
     // dropped, and nothing reported as skipped that was in fact exported.
     const tickets = readDocTickets()
-    const shouldBeIn = tickets.filter(optedIn).map((t) => t.id).sort()
-    const shouldBeOut = tickets.filter((t) => !optedIn(t)).map((t) => t.id).sort()
+    const shouldBeIn = tickets.filter(inSystemKb).map((t) => t.id).sort()
+    const shouldBeOut = tickets.filter((t) => !inSystemKb(t)).map((t) => t.id).sort()
 
     expect(second.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
     expect(second.skipped).toEqual(shouldBeOut)
@@ -473,11 +474,6 @@ describe('REQ-123 — the corpus export', () => {
 
       const binding = await bindKb(scratch)
 
-      // `description`, not `prompt`: the declaration's prose field is
-      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
-      // assertion compared `undefined` against a string that appears nowhere.
-      // It never ran — this block's `beforeAll` crashes when the corpus comes
-      // back empty, and every assertion in it was reported as skipped.
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')

@@ -69,6 +69,21 @@ export const SYSTEM_KB = 'system'
  */
 export const SHIPPED_SOURCE = 'shipped'
 
+/**
+ * The other knowledge base declared in the same file — the client's own
+ * (REQ-159, [[DOC-38]] §8).
+ *
+ * NAMED HERE ONLY SO THE SCAFFOLD CAN WRITE IT. This command never serves it:
+ * its corpus is the tenant's D1 ticket store, which a release build does not
+ * have and `apps/control-app/src/knowledge.ts` does. What lives here is the
+ * starting-point declaration, for the same reason the system KB's does — so a
+ * fresh checkout has a complete file rather than half of one.
+ */
+export const PROJECT_KB = 'project'
+
+/** Its corpus: everything a site is made from ([[DOC-38]] §9). */
+export const PROJECT_CORPUS_TYPES = ['chat', 'material', 'reference', 'brief'] as const
+
 /** The ticket type the corpus selects. Everything we write as a document. */
 export const CORPUS_TYPE = 'doc'
 
@@ -154,61 +169,88 @@ interface DocTicket {
  * call, so this is one process rather than one per document.
  *
  * Banner chatter goes to stderr, so stdout is the JSON document alone.
+ *
+ * `--no-limit` IS LOAD-BEARING, not tidiness. `xgd ticket list` pages at 50 by
+ * default and reports the rest through `next_cursor`; a consumer that reads
+ * `items` and stops takes page one and calls it the corpus. There is no error
+ * and no warning — the export simply stops carrying documents past the page
+ * boundary, and the symptom surfaces much later as an assistant that does not
+ * know a thing it should. The corpus is a batch read of everything, so it asks
+ * for everything, and the loop lives upstream where the pagination does.
+ *
+ * The envelope is CHECKED AS WELL AS ASKED. `--no-limit` is upstream's promise
+ * and this is the assertion that it was kept: if a truncated page arrives
+ * anyway — an older `xgd` on `PATH`, a flag that stops meaning what it means —
+ * that has to be a loud failure rather than a quietly shorter corpus, because a
+ * quietly shorter corpus is the exact failure this line exists to prevent.
  */
 export function readDocTickets(): DocTicket[] {
-  const raw = execFileSync('xgd', ['ticket', 'list', '--type', CORPUS_TYPE, '--view', '--json'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  const parsed = JSON.parse(raw) as { items?: DocTicket[] }
+  const raw = execFileSync(
+    'xgd',
+    ['ticket', 'list', '--type', CORPUS_TYPE, '--view', '--json', '--no-limit'],
+    {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 256 * 1024 * 1024,
+    },
+  )
+  const parsed = JSON.parse(raw) as {
+    items?: DocTicket[]
+    next_cursor?: string | null
+    truncated?: boolean
+  }
+  if (parsed.truncated === true || (parsed.next_cursor ?? null) !== null) {
+    throw new Error(
+      `xgd ticket list returned a truncated page despite --no-limit ` +
+        `(${(parsed.items ?? []).length} item(s), more to come). The corpus would be ` +
+        `silently short, so this fails instead. Check the xgd on PATH supports --no-limit.`,
+    )
+  }
   return parsed.items ?? []
 }
 
 /**
- * The field a document opts into the system KB with.
+ * The frontmatter field carrying a document's kind, and the kind that means
+ * "this document is the assistant's, not ours".
  *
- * MEMBERSHIP IS OPT-IN, and the choice of direction is the whole point. An
- * exclusion list answers "what did we throw out", which nobody asks; inclusion
- * answers "what does the assistant know", which is the question that matters —
- * and it can be settled by reading one document's own frontmatter rather than by
- * cross-referencing a list somewhere else.
+ * MEMBERSHIP IS A KIND, NOT A FLAG (DOC-39 §3.3). A boolean invites the sentence
+ * *"this architecture document is **also** a system document"*, and that
+ * sentence is the category error DOC-39 §3.1 exists to prevent: an architecture
+ * document is written for someone deciding how to build the product, a system-KB
+ * document for an AI advising a client. They are different documents with
+ * different readers, not one document wearing two labels. `doc_kind` is
+ * single-valued, so the exclusivity is enforced by the shape rather than by
+ * discipline.
  *
- * It also FAILS SAFE. A document written tomorrow is outside the KB until
- * somebody says otherwise, so nothing reaches a client-facing agent by default.
- * The opposite default would put every new document in front of that agent the
- * moment it was saved, which is the wrong way round for a decision about what a
- * product tells its users.
+ * `doc_kind` rather than a field of our own: the sub-classification on `doc`
+ * tickets already exists and already carries `architecture`, `security_policy`
+ * and the rest, so "what kind of document is this" is answered where it is
+ * already asked. It also stays clear of `fields.kind`, which the knowledge
+ * component owns for its own awareness reports.
  *
- * The flag lives on the TICKET rather than in a list in the KB declaration
+ * MEMBERSHIP STILL FAILS SAFE. A document written tomorrow carries some other
+ * kind — or none — until somebody says otherwise, so nothing reaches a
+ * client-facing agent by default. The opposite default would put every document
+ * in front of that agent the moment it was saved, which is the wrong way round
+ * for a decision about what a product tells its users.
+ *
+ * The kind lives on the TICKET rather than in a list in the KB declaration
  * because it is a fact about the document and has to move with it — an id list
  * drifts silently when a document is renamed or retired.
  */
-export const INCLUDE_FIELD = 'system_kb'
+export const DOC_KIND_FIELD = 'doc_kind'
+export const MEMBER_KIND = 'system_kb'
 
 /**
- * The `doc_kind` a document AUTHORED FOR THE AI carries (DOC-39 §3.3).
+ * Whether a ticket belongs to the system KB.
  *
- * Single-valued by construction, which is the point: a document is an
- * `architecture` record or a `system_kb` one, never both, and the field's shape
- * enforces the exclusivity §3.1 argues for rather than leaving it to discipline.
- * A projection is unambiguously the second kind — it is written for the
- * assistant and for nobody else — so it declares it.
+ * Strictly the exact string. `doc_kind` is a closed enum defined in xgd, so a
+ * value arrives already validated; anything else here — a different kind, an
+ * absent field, a near-miss spelling that predates the enum — is out, which is
+ * what makes the default safe.
  */
-export const SYSTEM_KB_DOC_KIND = 'system_kb'
-
-/**
- * Whether a ticket has opted in.
- *
- * Strictly `true`, and strictly the boolean. A ticket field arrives already
- * parsed, so a document that says `system_kb: true` yields the boolean — but a
- * value that arrives as the STRING `"true"` is a document whose frontmatter did
- * not parse the way its author assumed, and treating it as opt-in would hide
- * that. Everything else — absent, `false`, anything truthy-but-not-true — is
- * out, which is what makes the default safe.
- */
-export function optedIn(ticket: { fields?: Record<string, unknown> | null }): boolean {
-  return (ticket.fields ?? {})[INCLUDE_FIELD] === true
+export function inSystemKb(ticket: { fields?: Record<string, unknown> | null }): boolean {
+  return (ticket.fields ?? {})[DOC_KIND_FIELD] === MEMBER_KIND
 }
 
 /**
@@ -277,12 +319,11 @@ function isScalar(value: unknown): boolean {
 }
 
 /**
- * Export the `doc` tickets that opted in, into the corpus directory.
+ * Export the `doc` tickets whose kind says they belong, into the corpus directory.
  *
- * **Membership is opt-in, per document** — see {@link INCLUDE_FIELD} for why that
- * direction and why the flag lives on the ticket. Every doc carries it today, so
- * this changes nothing about what is in the KB; what it changes is that a
- * mechanism decides rather than the absence of one.
+ * **Membership is `doc_kind: system_kb`, per document** — see
+ * {@link DOC_KIND_FIELD} for why a kind rather than a flag, and why it lives on
+ * the ticket.
  *
  * Skips are RETURNED, not swallowed, and the command prints them. A document
  * silently missing from the corpus is indistinguishable from one that was never
@@ -316,7 +357,7 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
 
   for (const ticket of tickets) {
     if (!ticket.id) continue
-    if (!optedIn(ticket)) {
+    if (!inSystemKb(ticket)) {
       skipped.push(ticket.id)
       continue
     }
@@ -418,11 +459,14 @@ export function writeProjections(root: string = kbRoot()): { projected: string[]
  * Read from the declaration rather than restated, because the declaration is
  * where membership is decided and an exported ticket satisfies the predicate by
  * carrying the ticket's own fields. A projection has no ticket, so it has to
- * assert membership itself — and asserting a hardcoded `system_kb: true` would
- * make the projections silently fall out of the KB the day the predicate
+ * assert membership itself — and hardcoding whatever the predicate happens to be
+ * today would make the projections silently fall out of the KB the day it
  * changed, which is the one failure a generated document is supposed to be
- * incapable of. Deriving it means a projection is a member under whatever
- * predicate is declared, including none at all.
+ * incapable of. That day has already come once: the predicate was
+ * `fields.system_kb: true` until REQ-164 made it a `doc_kind`, and the shipped
+ * corpus is now unrestricted (`corpus: {}`) because the distribution IS the
+ * boundary. Deriving means a projection is a member under any of those,
+ * including none at all.
  *
  * Only `fields.x` predicates are read: `type` is the document's kind and is
  * handled separately, and a predicate on anything else is not something a
@@ -476,7 +520,7 @@ export function projectedDocument(
 ): string {
   const fields: Record<string, unknown> = {
     ...membership.fields,
-    doc_kind: SYSTEM_KB_DOC_KIND,
+    [DOC_KIND_FIELD]: MEMBER_KIND,
     projected: true,
     source: doc.source,
   }
@@ -513,13 +557,16 @@ export function projectedDocument(
  * to `derived` for its own duration, which is upstream's own manoeuvre: derived
  * for the build, authored on disk.
  *
- * The corpus predicate REPEATS the opt-in flag the export already applied, and
- * the repetition is deliberate. The export decides which files exist; the
- * predicate decides which files belong to the KB. Stating it here makes the
- * declaration say what the KB actually contains instead of "every `doc` file that
- * happens to be in this directory", and it means a file arriving by some other
- * route — a stray copy, a half-finished hand edit — is not silently absorbed into
- * the corpus on the next index build.
+ * THE CORPUS IS UNRESTRICTED, and that is the honest declaration rather than a
+ * loosened one (DOC-39 §3.3). At runtime the distribution *is* the corpus: a
+ * directory of markdown served through the ticket interface by a read-only
+ * store, whose every member matched by construction when the export wrote it.
+ * Re-applying the export's own selection as a query-time predicate is a
+ * build-time filter re-run as if it were a membership rule — it can only ever
+ * subtract, and the only thing it can subtract is a file whose frontmatter does
+ * not look the way the predicate expects. That file then disappears from the KB
+ * with no error, which is the failure mode this whole ticket is about. The
+ * directory is already the boundary; `corpus: {}` says so.
  */
 export function ensureConfig(root: string = kbRoot()): string {
   const file = configPath(root)
@@ -532,9 +579,30 @@ export function ensureConfig(root: string = kbRoot()): string {
           '1stcontact system knowledge: how the product is designed and why — its ' +
           'architecture, storage model, the L1 layout substrate, the behavior-module ' +
           'contract, the builder application, and the development method behind them.',
-        corpus: { type: [CORPUS_TYPE], [`fields.${INCLUDE_FIELD}`]: true },
+        corpus: {},
         landscape: 'authored',
         source: SHIPPED_SOURCE,
+        weight: 1.0,
+      },
+      // The other half (REQ-159). Scaffolded here even though this command never
+      // serves it: the file is the ONE declaration of what a knowledge base is,
+      // and a fresh checkout that wrote only the half this command uses would
+      // leave the Worker with no project KB and no error saying why. Which of the
+      // two a host serves is that host's decision (see `bindKb`); what each one
+      // IS belongs in one file.
+      //
+      // NO `source` KEY, which is what makes it read the tenant's own ticket
+      // store, and no site term, because the tenant is a hard barrier while the
+      // site is only a predicate — two sites belonging to one client share what
+      // has been learned about that client.
+      [PROJECT_KB]: {
+        description:
+          "This client's own knowledge: the conversations held with them, the material " +
+          'they uploaded, the reference sites captured on their behalf, and the brief ' +
+          'recording what was decided. Everything a site is made FROM, as against how ' +
+          'the system that builds it works.',
+        corpus: { type: [...PROJECT_CORPUS_TYPES] },
+        landscape: 'derived',
         weight: 1.0,
       },
     },
@@ -610,7 +678,17 @@ export async function bindKb(root: string = kbRoot()): Promise<KbBinding> {
         `(declared: ${[...kbs.keys()].sort().join(', ') || 'none'}).`,
     )
   }
-  return { store, kb, kbs, sources: { [SHIPPED_SOURCE]: store } }
+  // ONE KB, NOT THE WHOLE DECLARATION FILE. `kb/knowledge_bases.json` now declares
+  // two knowledge bases and each host serves the ones it can actually resolve:
+  // this build has the shipped corpus and serves `system`, while the Worker has
+  // the tenant's D1 store and serves `project` (REQ-159, `apps/control-app/src/
+  // knowledge.ts`). Handing the whole map to `buildIndex` and `primeSession`
+  // would resolve `project` against the DocDirStore — a read-only directory of
+  // design documents that holds no `chat`, `material`, `reference` or `brief`
+  // — and the result would not be an error. It would be a knowledge base
+  // reported as searchable and empty, and a priming section apologising for a
+  // map nobody will ever build here.
+  return { store, kb, kbs: new Map([[SYSTEM_KB, kb]]), sources: { [SHIPPED_SOURCE]: store } }
 }
 
 /**
@@ -828,14 +906,15 @@ export async function buildKb(root: string = kbRoot()): Promise<BuildResult> {
   ensureConfig(root)
   const exported = exportCorpus(root)
   if (!exported.docs.length) {
-    // The likely cause is the opt-in flag, not an empty ticket store, so the
+    // The likely cause is the membership kind, not an empty ticket store, so the
     // message says so — "no documents" would send an operator looking in the
     // wrong place entirely.
     throw new Error(
-      `No ${CORPUS_TYPE} ticket has opted into the system KB, so the corpus would ` +
-        `be empty. Membership is opt-in: set fields.${INCLUDE_FIELD}=true on the ` +
-        `documents the assistant should know` +
-        (exported.skipped.length ? ` (${exported.skipped.length} did not).` : '.'),
+      `No ${CORPUS_TYPE} ticket carries ${DOC_KIND_FIELD}: ${MEMBER_KIND}, so the ` +
+        `corpus would be empty. Membership is a kind, not a flag: set ` +
+        `fields.${DOC_KIND_FIELD}=${MEMBER_KIND} on the documents the assistant ` +
+        `should know` +
+        (exported.skipped.length ? ` (${exported.skipped.length} carry another kind).` : '.'),
     )
   }
 
@@ -910,27 +989,75 @@ when no ANTHROPIC_API_KEY is set, so it needs no credentials of its own.`
 
 /** What `1c kb status` reports. */
 export interface KbStatus {
+  /** Documents on disk in the corpus directory. */
   corpus: number
   /**
-   * How many of `corpus` are projected rather than exported (REQ-165). Reported
-   * beside the total rather than instead of it: a corpus whose projections are
-   * missing has the same *shape* as one that is merely small, and only the split
-   * distinguishes them.
+   * How many of `corpus` are projected rather than exported (REQ-165).
+   *
+   * Reported beside the total rather than instead of it, and load-bearing for
+   * the check below: with two producers writing into one directory, `corpus` is
+   * no longer comparable to `tickets` on its own — the healthy state is
+   * `corpus === tickets + projected`, and without this split a build with a
+   * perfectly current corpus would report itself stale by exactly the number of
+   * projections.
    */
   projected: number
+  /**
+   * `doc` tickets carrying the membership kind — what the corpus SHOULD hold.
+   *
+   * `null` when the ticket store could not be read at all (no `xgd` on `PATH`,
+   * a store that will not answer). That is reported as unknown rather than as
+   * zero: zero is a real and alarming answer, and a status command that
+   * manufactures it from an unrelated failure is worse than one that admits it
+   * does not know.
+   */
+  tickets: number | null
   index: boolean
   chunks: boolean
   map: boolean
 }
 
+/**
+ * Whether the corpus on disk holds what the ticket store says it should.
+ *
+ * TRUNCATION IS VISIBLE, NOT INFERRED. Every failure this ticket closes has the
+ * same shape — the corpus quietly ends up smaller than intended, and the symptom
+ * appears much later and several artefacts downstream, as an assistant that does
+ * not know a thing it should. A count of files on disk cannot show that on its
+ * own: 37 documents looks exactly as healthy as 38 unless something says what
+ * the number was supposed to be. So status asks BOTH SIDES and puts them next to
+ * each other, which turns "the assistant seems to have forgotten something" into
+ * one line an operator reads before it ever becomes a question.
+ *
+ * `null` propagates rather than collapsing to `false`: an unreadable store means
+ * the check did not run, which is not the same as the check passing.
+ */
 export function kbStatus(root: string = kbRoot()): KbStatus {
   const dir = corpusDir(root)
   const files = existsSync(dir) ? readdirSync(dir) : []
   return {
     corpus: files.filter((f) => f.endsWith('.md') && f !== AWARENESS_FILE).length,
     projected: files.filter((f) => isProjected(f)).length,
+    tickets: countMemberTickets(),
     index: existsSync(path.join(dir, INDEX_DIR)),
     chunks: existsSync(path.join(dir, CHUNKS_DIR)),
     map: files.includes(AWARENESS_FILE),
+  }
+}
+
+/**
+ * How many `doc` tickets carry the membership kind, or `null` if unknowable.
+ *
+ * The only swallowed error in this file, and it is swallowed deliberately:
+ * `status` is the command an operator runs to find out what state things are in,
+ * so it must survive a store it cannot reach and still report the half it can
+ * see. Every other caller of {@link readDocTickets} — export, build — wants the
+ * failure, and gets it.
+ */
+function countMemberTickets(): number | null {
+  try {
+    return readDocTickets().filter(inSystemKb).length
+  } catch {
+    return null
   }
 }

@@ -64,7 +64,16 @@ import {
 } from './shared-store'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
-import { buildKb, ensureConfig, exportCorpus, kbStatus, writeProjections, KB_USAGE } from './kb'
+import {
+  buildKb,
+  ensureConfig,
+  exportCorpus,
+  kbStatus,
+  writeProjections,
+  DOC_KIND_FIELD,
+  MEMBER_KIND,
+  KB_USAGE,
+} from './kb'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import {
   cmdValuesDiff,
@@ -758,7 +767,9 @@ export async function run(argv: string[]): Promise<void> {
         // something is missing without telling them what, which is the version
         // of this message that generates a support question.
         if (skipped.length) {
-          console.log(`not in the KB (no fields.system_kb): ${skipped.join(', ')}`)
+          console.log(
+            `not in the KB (no ${DOC_KIND_FIELD}: ${MEMBER_KIND}): ${skipped.join(', ')}`,
+          )
         }
         return
       }
@@ -789,8 +800,27 @@ export async function run(argv: string[]): Promise<void> {
       }
       if (sub === 'status') {
         const s = kbStatus()
+        // The ticket count sits ON the corpus line rather than under its own
+        // heading, because the only thing it is for is to be read against the
+        // number beside it: a corpus is not "37 documents", it is "37 of the 38
+        // there should be", and a truncated export is a thing an operator sees
+        // rather than a thing they later infer from an assistant's silence.
+        //
+        // The comparison is against the EXPORTED half, not the whole directory
+        // (REQ-165). Two producers write here now, and the projections have no
+        // ticket to be counted by — measuring the total against the ticket count
+        // would report a perfectly current corpus as stale by exactly the number
+        // of projections, every single build.
+        const exported = s.corpus - s.projected
+        const expected =
+          s.tickets === null
+            ? ' (ticket store unreadable — cannot check)'
+            : s.tickets === exported
+              ? ` (of ${s.tickets} ticket(s) carrying ${DOC_KIND_FIELD}: ${MEMBER_KIND})`
+              : ` ⚠ ${s.tickets} ticket(s) carry ${DOC_KIND_FIELD}: ${MEMBER_KIND} —` +
+                ` the corpus is stale; run \`1c kb export\``
         console.log(
-          `corpus: ${s.corpus} document(s) (${s.projected} projected)\n` +
+          `corpus: ${exported} exported + ${s.projected} projected${expected}\n` +
             `index:  ${s.index ? 'built' : 'missing'}\n` +
             `chunks: ${s.chunks ? 'built' : 'missing'}\n` +
             `map:    ${s.map ? 'built' : 'missing'}`,

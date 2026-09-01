@@ -25,7 +25,7 @@ import {
   kbRoot,
   kbStatus,
   KB_USAGE,
-  optedIn,
+  inSystemKb,
   readDocTickets,
   resolveDescriber,
   SYSTEM_KB,
@@ -78,8 +78,8 @@ interface StoreTicket {
   fields: Record<string, unknown> | null
 }
 
-/** A ticket that has opted into the KB, unless `fields` says otherwise. */
-function ticket(id: string, title: string, body: string, fields: Record<string, unknown> | null = { system_kb: true }): StoreTicket {
+/** A ticket that belongs to the KB, unless `fields` says otherwise. */
+function ticket(id: string, title: string, body: string, fields: Record<string, unknown> | null = { doc_kind: 'system_kb' }): StoreTicket {
   return {
     uid: `doc-${id.toLowerCase()}`,
     id,
@@ -501,7 +501,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       ticket('DOC-IN1', 'In one', '# In one'),
       ticket('DOC-IN2', 'In two', '# In two'),
       ticket('DOC-OUT1', 'Out one', '# Out one', {}),
-      ticket('DOC-OUT2', 'Out two', '# Out two', { system_kb: false }),
+      ticket('DOC-OUT2', 'Out two', '# Out two', { doc_kind: 'architecture' }),
       ticket('DOC-OUT3', 'Out three', '# Out three', null),
     ]
 
@@ -548,9 +548,9 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       expect(gone.removed).not.toContain('awareness.md')
       expect(readdirSync(corpusDir(root))).toContain('awareness.md')
 
-      // (2) The ticket still exists but has opted back out.
+      // (2) The ticket still exists but has been reclassified out of the KB.
       const out = await withStore(
-        [ticket('DOC-P', 'Stays', '# Stays', { system_kb: false })],
+        [ticket('DOC-P', 'Stays', '# Stays', { doc_kind: 'architecture' })],
         () => exportCorpus(root),
       )
       expect(out.removed).toContain('DOC-P.md')
@@ -599,19 +599,19 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
 
   it('test_UAT_AC1300_a_build_with_nothing_opted_in_is_refused_and_reaches_no_model', async () => {
     // "No documents" would send an operator looking in the wrong place
-    // entirely; the cause is the opt-in flag, so the refusal names it. Run with
-    // no embedder configured at all, so reaching the model would raise the
-    // CREDENTIALS error instead — the opt-in message is therefore proof the
+    // entirely; the cause is the membership kind, so the refusal names it. Run
+    // with no embedder configured at all, so reaching the model would raise the
+    // CREDENTIALS error instead — the membership message is therefore proof the
     // refusal happened first.
     const nobody = [
-      ticket('DOC-N1', 'Absent flag', '# Absent flag', {}),
-      ticket('DOC-N2', 'False flag', '# False flag', { system_kb: false }),
+      ticket('DOC-N1', 'No kind', '# No kind', {}),
+      ticket('DOC-N2', 'Another kind', '# Another kind', { doc_kind: 'architecture' }),
     ]
 
     await withRoot(async (root) => {
       await withoutEnv(
         ['LAGRANGE_KM_EMBEDDER', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'], async () => {
-          await expect(withStore(nobody, () => buildKb(root))).rejects.toThrow(/system_kb/)
+          await expect(withStore(nobody, () => buildKb(root))).rejects.toThrow(/doc_kind/)
         },
       )
 
@@ -619,8 +619,8 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
         ['LAGRANGE_KM_EMBEDDER', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'],
         () => withStore(nobody, () => buildKb(root)).then(() => '', (err: Error) => err.message),
       )
-      expect(message).toContain('opt-in')
-      expect(message).toContain('doc')
+      expect(message).toContain('doc_kind')
+      expect(message).toContain('system_kb')
       expect(message).not.toMatch(/no documents/i)
 
       // Nothing was built and no model was reached.
@@ -642,7 +642,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
           knowledge_bases: {
             system: {
               description: 'Declared description, not a hard-coded one.',
-              corpus: { type: ['doc'], 'fields.system_kb': true },
+              corpus: { type: ['doc'], 'fields.doc_kind': 'system_kb' },
               landscape: 'authored',
               source: 'shipped',
               weight: 2.5,
@@ -653,13 +653,9 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       const binding = await bindKb(root)
-      // `description`, not `prompt`: the declaration's prose field is
-      // `description` and `KnowledgeBase` has no `prompt` at all, so the old
-      // assertion compared `undefined` against a string appearing nowhere in the
-      // declaration this test writes.
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
-      expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')
+      expect([...binding.kb.corpus.terms.keys()]).toContain('fields.doc_kind')
 
       // Authored data: a build never overwrites it, so a tuned prompt or an
       // adjusted weight survives every rebuild.
@@ -735,17 +731,22 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
   it('test_UAT_AC1293_status_reports_the_corpus_size_and_each_artefact', async () => {
     // Four facts, over three trees: how many documents, and whether each of the
     // three artefacts is built or missing.
-    await withRoot((root) => {
-      // Nothing built at all — reports zeros rather than failing.
-      expect(kbStatus(root)).toEqual({
-        corpus: 0,
-        // How many of the corpus are projected rather than exported (REQ-165) —
-        // reported beside the total, because a corpus whose projections are
-        // missing has the same shape as one that is merely small.
-        projected: 0,
-        index: false,
-        chunks: false,
-        map: false,
+    await withRoot(async (root) => {
+      // Nothing built at all — reports zeros rather than failing. `tickets` is
+      // what the store says the corpus SHOULD hold, so it is asserted against a
+      // controlled store rather than whatever this machine's tickets happen to be.
+      // `projected` is the corpus's second producer (REQ-165), reported beside
+      // the total because a corpus whose projections are missing has the same
+      // shape as one that is merely small.
+      await withStore([], () => {
+        expect(kbStatus(root)).toEqual({
+          corpus: 0,
+          projected: 0,
+          tickets: 0,
+          index: false,
+          chunks: false,
+          map: false,
+        })
       })
     })
 
@@ -753,8 +754,21 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
       process.env.LAGRANGE_KM_EMBEDDER = STUB
       process.env.LAGRANGE_KM_DESCRIBER = STUB
       try {
-        await withStore(CORPUS, () => exportCorpus(root))
-        expect(kbStatus(root)).toEqual({
+        await withStore(CORPUS, () => {
+          exportCorpus(root)
+          expect(kbStatus(root)).toEqual({
+            corpus: CORPUS.length,
+            // Nothing projected: this tree's corpus came from `exportCorpus`
+            // alone, and the two producers write into disjoint namespaces
+            // (REQ-165), so the export cannot have manufactured one.
+            projected: 0,
+            tickets: CORPUS.length,
+            index: false,
+            chunks: false,
+            map: false,
+          })
+        })
+        expect(kbStatus(root)).toMatchObject({
           corpus: CORPUS.length,
           projected: 0,
           index: false,
@@ -766,7 +780,7 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
         // The generated map sits in the corpus directory but is not one of the
         // documents, so the count is unchanged by it.
         expect(readdirSync(corpusDir(root))).toContain('awareness.md')
-        expect(kbStatus(root)).toEqual({
+        expect(kbStatus(root)).toMatchObject({
           corpus: CORPUS.length,
           projected: 0,
           index: true,
@@ -784,7 +798,11 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
     const expected = kbStatus()
     const bare = await cli(['kb'])
     expect(bare.code).toBeUndefined()
-    expect(bare.out).toContain(`corpus: ${expected.corpus} document(s)`)
+    // The corpus line names both producers separately (REQ-165), because the
+    // total on its own is no longer comparable to the ticket count beside it.
+    expect(bare.out).toContain(
+      `corpus: ${expected.corpus - expected.projected} exported + ${expected.projected} projected`,
+    )
     expect(bare.out).toContain(`index:  ${expected.index ? 'built' : 'missing'}`)
     expect(bare.out).toContain(`chunks: ${expected.chunks ? 'built' : 'missing'}`)
     expect(bare.out).toContain(`map:    ${expected.map ? 'built' : 'missing'}`)
@@ -832,24 +850,26 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('test_UAT_AC1295_only_a_genuine_boolean_true_opts_a_document_in', () => {
-    // Strictly the boolean, and every other shape is out. A value that merely
-    // LOOKS like true is a document whose frontmatter did not parse the way its
-    // author assumed; admitting it would hide exactly the failure worth seeing,
-    // which is a document silently reaching a client-facing assistant.
-    expect(optedIn({ fields: { system_kb: true } })).toBe(true)
-    expect(optedIn({ fields: {} })).toBe(false)
-    expect(optedIn({})).toBe(false)
-    expect(optedIn({ fields: null })).toBe(false)
-    expect(optedIn({ fields: { system_kb: false } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 'true' } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 1 } })).toBe(false)
+  it('test_UAT_AC1295_only_the_system_kb_doc_kind_puts_a_document_in', () => {
+    // Membership is a KIND, not a flag (DOC-39 §3.3 / REQ-164). `doc_kind` is
+    // single-valued, so "this architecture document is also a system document"
+    // is unsayable — which is the category error the kind exists to prevent.
+    // The old boolean is now just another field, and carrying it is not
+    // membership: admitting it would let a document reach a client-facing
+    // assistant on a marker nobody maintains any more.
+    expect(inSystemKb({ fields: { doc_kind: 'system_kb' } })).toBe(true)
+    expect(inSystemKb({ fields: {} })).toBe(false)
+    expect(inSystemKb({})).toBe(false)
+    expect(inSystemKb({ fields: null })).toBe(false)
+    expect(inSystemKb({ fields: { doc_kind: 'architecture' } })).toBe(false)
+    expect(inSystemKb({ fields: { doc_kind: 'System_KB' } })).toBe(false)
+    expect(inSystemKb({ fields: { system_kb: true } })).toBe(false)
 
     // The integration half, against the real store: what the export produced is
     // exactly what the rule selects — nothing silently added, nothing silently
     // dropped, and no excluded document with a file in the corpus.
-    const shouldBeIn = tickets.filter(optedIn).map((t) => t.id).sort()
-    const shouldBeOut = tickets.filter((t) => !optedIn(t)).map((t) => t.id).sort()
+    const shouldBeIn = tickets.filter(inSystemKb).map((t) => t.id).sort()
+    const shouldBeOut = tickets.filter((t) => !inSystemKb(t)).map((t) => t.id).sort()
 
     expect(shouldBeIn.length).toBeGreaterThan(0)
     expect(exported.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)

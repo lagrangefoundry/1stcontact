@@ -6,12 +6,12 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-31T19:43:22.768134+00:00'
+updated_at: '2026-08-31T21:59:34.014855+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: doc_kind
 status: null
 fields:
-  doc_kind: architecture
+  doc_kind: system_kb
 ---
 
 # The Consultation Playbook — how the builder AI takes a client from nothing to a live site

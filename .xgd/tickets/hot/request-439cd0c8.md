@@ -5,9 +5,9 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-08-31T20:33:08.539304+00:00'
+updated_at: '2026-08-31T22:57:11.632203+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -40,10 +40,10 @@ Five steps, per [[DOC-38]] §10:
    default: a per-file *"do you own this?"* is a legal question put to a café
    owner, is clicked through unread, and most importantly asks for information
    the client frequently does not have.
-3. **Shadow.** The step that makes the material findable, and the reason this
+3. **Describe.** The step that makes the material findable, and the reason this
    ticket is not plumbing. Four sub-pipelines with four failure modes:
 
-   | Input | Shadow |
+   | Input | Description |
    |---|---|
    | PDF / document | extracted text (and a decision on scanned pages — OCR or refuse) |
    | Image | a written description, from a VLM |
@@ -52,7 +52,7 @@ Five steps, per [[DOC-38]] §10:
 
    Per [[DOC-38]] §7.4 this is ours, not the ticketing component's. The component
    stores bytes and metadata.
-4. **Create the ticket** with the shadow as body and §9's fields.
+4. **Create the ticket** with that description as its body, plus §9's fields.
 5. **Index incrementally** — the `since` cursor picks it up ([[DOC-39]] §4.1).
    No rebuild. This is what makes the material searchable *immediately*, which is
    what lets the map rebuild run asynchronously behind it ([[DOC-39]] §5.2).
@@ -67,10 +67,10 @@ Both converge after step 1.
 
 ## Why the body matters more than it looks
 
-The shadow is what the knowledge base indexes. [[DOC-38]] §6's whole
+The description is what the knowledge base indexes. [[DOC-38]] §6's whole
 simplification rests on it: because a photo carries a written description, the KB
 indexes bodies uniformly and never learns that images exist, and there is no
-second retrieval path for media. A weak shadow is not a cosmetic problem — it is
+second retrieval path for media. A weak description is not a cosmetic problem — it is
 material that cannot be found.
 
 ## Constraints
@@ -99,7 +99,7 @@ material that cannot be found.
 ## Acceptance
 
 - A file arriving through the Worker becomes a blob, then a `material` ticket
-  whose body is a usable shadow, and is searchable without a full reindex.
+  whose body is a usable description, and is searchable without a full reindex.
 - Rights are set from provenance and never from a question.
 - The same file uploaded twice yields one blob and two records.
 - A blob above the ceiling is rejected with a message a non-technical client can
@@ -107,13 +107,81 @@ material that cannot be found.
 - A crash between blob and record leaves no dangling pointer.
 - An image's description is good enough to retrieve it by what it depicts —
   *"the kitchen at dusk"* — not merely by filename.
+- The pipeline calls the index seam exactly once per created material, and the
+  Worker logs when no indexer is wired.
+- A degraded description (no key, scanned, unsupported) still yields a material that
+  is visible, honestly described, and selectable by `description_status`.
+- A fetch of a private, loopback, link-local or non-HTTPS address is refused, and
+  each redirect hop is re-validated.
+- Promotion of a non-`republishable` source is refused.
+
+## Decisions from implementation review
+
+**Routes.** This ticket owns exactly two — `POST /api/material` (upload) and
+`POST /api/material/fetch` (URL). They are pipeline entry points, not Library
+surfaces; `/api/tickets/*` and the drop overlay belong to [[REQ-161]], whose
+overlay will POST to these. Treat the contract as public from the start.
+
+**The index step is a seam.** [[REQ-159]] does not exist yet, so step 5 declares
+`deps.index?(uid)` and a UAT proves the pipeline calls it exactly once per
+created material. Building an index here would be building half of [[REQ-159]].
+
+But an unwired optional hook is a silent failure of the worst kind: [[DOC-39]]
+§4 is explicit that an unindexed document is **invisible**, not merely stale. So
+the Worker **logs loudly when no indexer is wired**, and [[REQ-159]] promotes it
+to a construction-time requirement in the manner of `ticketStoreFor(env)`.
+
+**The image description takes a second LLM path, deliberately.** The AI component's
+backend surface is text-only (`promptStream(ref, text)`) with no image content
+block anywhere, so `describeImage` calls the SDK directly behind an injectable
+seam. This is duplication and is accepted as temporary — **the consolidation
+point is named now** ([[REQ-157]], or an image block on the AI component's
+surface) so it does not become permanent by default.
+
+**`description_status` is one mechanism for three degraded cases**, not three special
+cases: no API key, a scanned PDF with no extractable text, and an unsupported
+content type. In each the material is still created, is visible in the Library
+with an honest description of what is missing, and is findable **by predicate**
+for a later re-describe pass. `description_model` is recorded alongside it.
+
+- **Scanned PDFs are never rejected.** Store the blob, write *"Scanned document,
+  14 pages, no extractable text"*, set the status. Refusing a client's scanned
+  brand book is the worse failure. No OCR in v1.
+- **Regeneration is out of scope but enabled** — no automatic re-describe, and the
+  two fields make a later pass a query rather than a migration.
+
+**PDF text extraction takes a dependency** — `unpdf` (pdf.js packaged for
+workerd, no native code). The fallback of filename-plus-size guts step 3, and
+class 4b *is* PDFs. Two conditions: check the licence, and **measure its
+contribution to the Worker bundle** — [[REQ-158]] independently plans to bundle
+the KB vector index, neither ticket can see the other's footprint, and the
+Cloudflare bundle ceiling is hard. Whoever lands second would otherwise discover
+it. Report the measured number to [[REQ-158]].
+
+**Fetch is a plain `fetch`, with a guard this repo does not yet have.** A
+*rendered* fetch is capture ([[REQ-166]]). The guard: HTTPS only, no
+private/loopback/link-local/metadata addresses, a redirect cap with
+re-validation at each hop, and a size cap at the 25MB ceiling.
+
+The guard matters more than the SSRF framing suggests. **Fetched content becomes
+corpus material the AI reads**, so this is a prompt-injection path into the
+assistant's context, not only a network-reach problem. Two consequences: keep the
+guard, *and* mark fetched material untrusted in the manner [[DOC-10]] §5.2
+already requires for retrieved content — a fetch of attacker-chosen content is a
+risk even when the address is entirely legitimate.
+
+**The asset-promotion gate ships here, unrouted.** There is no material →
+site-asset promotion path today, so there is nothing to gate — which is exactly
+how [[DOC-38]] §5's "most damaging single action available in the system" reaches
+production ungated. Implement the function *with* its refusal now, so [[REQ-161]]
+wires a surface to something already safe. It writes a `site_assets` row pointing
+at the existing blob; that table exists today and this does not wait on the
+`site_assets` migration.
 
 ## Open questions
 
-- **Scanned PDFs.** OCR, or reject with an explanation? OCR is a whole dependency;
-  rejecting is honest but will bite someone with a scanned brand book.
-- **Shadow regeneration.** If the description model improves, do existing
-  materials get re-shadowed? The blob is retained, so it is possible; whether it
-  is automatic is a policy question.
-- **Fetch transport** — whether pulling a URL on the client's behalf runs through
-  the same browser the capture pipeline uses, or a plain fetch.
+- **Whether `describeImage` should eventually move into the AI component** rather
+  than being consolidated via [[REQ-157]]. Both routes close the duplication; they
+  differ in who owns vision.
+- **Whether a re-describe pass is operator-triggered or automatic** once a better
+  model exists. The fields make either possible; nothing chooses yet.
