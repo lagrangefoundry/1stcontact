@@ -46,6 +46,7 @@ import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
 import {
+  CARETAKER_PURPOSE,
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
   resetAiHost as resetAiHostCore,

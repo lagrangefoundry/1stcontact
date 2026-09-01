@@ -613,7 +613,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'assets': {
       // REQ-145 — the build step that replaces three request-time routes. It runs
       // before the Worker is bundled, because the Worker serves what it emits.
-      const report = cmdAssets({ cwd: process.cwd() })
+      const report = await cmdAssets({ cwd: process.cwd() })
       console.log(
         flags.json === true ? JSON.stringify(report, null, 2) : formatAssetReport(report),
       )
