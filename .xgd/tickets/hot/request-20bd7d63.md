@@ -17,6 +17,7 @@ fields:
   - REQ-163
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-97f85575
 ---
 
 # Capture → ticket: bundles become corpus members
