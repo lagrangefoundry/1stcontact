@@ -36,7 +36,7 @@ import {
  * is the same failure as no tool at all.
  *
  * WHAT MAKES THIS EVIDENCE. Every assertion runs inside workerd, through the
- * Worker's own `route()`, over the real `@lagrangefoundry/knowledge` component:
+ * Worker's own `route()`, over the real shared knowledge component:
  * the corpus is resolved by its `resolveCorpus`, both indexes are built by its
  * `buildIndex` and `buildChunkIndex`, the search is its own `search`, the tool
  * surface is the bridge's `KnowledgeToolbox` and the priming is the bridge's

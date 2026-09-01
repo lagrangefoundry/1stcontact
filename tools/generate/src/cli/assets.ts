@@ -493,19 +493,31 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
   const appDir = path.join(repoRoot, 'apps', 'control-app')
   const outDir = path.join(appDir, 'dist-assets')
 
+  // BUILT ASIDE, THEN SWAPPED IN, for two reasons that are really one.
+  //
   // Emptied, not merged: a stale component left behind by a rename would be
   // served for as long as nobody looked, which is the failure this whole ticket
-  // is removing from the request path.
-  fs.rmSync(outDir, { recursive: true, force: true })
-  fs.mkdirSync(outDir, { recursive: true })
+  // is removing from the request path. But emptying the directory that is being
+  // SERVED and refilling it over the next several seconds means everything
+  // reading it in the meantime — a `wrangler dev` on this checkout, another test
+  // in the same run — gets a 404 for every component. And a build that FAILS
+  // part-way through, which is exactly what an incomplete component store makes
+  // it do, leaves that hole permanently.
+  //
+  // So the new tree is assembled beside the old one and takes its place only
+  // once it is whole. A reader sees the previous build or the new one, never a
+  // half of either, and a failed build leaves the working one in place.
+  const stageDir = `${outDir}.staging`
+  fs.rmSync(stageDir, { recursive: true, force: true })
+  fs.mkdirSync(stageDir, { recursive: true })
 
-  const builderFiles = copyDir(path.join(appDir, 'src', 'builder'), path.join(outDir, 'builder'))
+  const builderFiles = copyDir(path.join(appDir, 'src', 'builder'), path.join(stageDir, 'builder'))
 
   const imports: Record<string, string> = {}
   const styles: string[] = []
   let webuiFiles = 0
   for (const name of WEBUI_PACKAGES) {
-    webuiFiles += copyDir(webuiPackageDir(name), path.join(outDir, 'webui', name))
+    webuiFiles += copyDir(webuiPackageDir(name), path.join(stageDir, 'webui', name))
     for (const [subpath, target] of Object.entries(webuiExports(name))) {
       const url = `/webui/${name}/${target.replace(/^\.\//, '')}`
       // Composed from the single scope declaration, never restated.
@@ -515,7 +527,7 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
     }
   }
 
-  const fwOut = path.join(outDir, 'framework')
+  const fwOut = path.join(stageDir, 'framework')
   fs.mkdirSync(fwOut, { recursive: true })
   const frameworkFiles: string[] = []
   for (const [name, rel] of Object.entries(FRAMEWORK_SOURCES)) {
@@ -535,6 +547,16 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
   const knowledgeEntry = writeKnowledgeShim(generated)
   const aiKnowledgeEntry = writeAiKnowledgeShim(generated)
   const kb = await writeKbModule(generated, repoRoot)
+
+  // The swap, last, once every artifact above exists. Two renames rather than a
+  // delete-then-rename: a directory rename cannot land on a non-empty one, and
+  // moving the old tree aside first keeps the moment the path is unoccupied to a
+  // single syscall instead of the whole copy.
+  const retiredDir = `${outDir}.retired`
+  fs.rmSync(retiredDir, { recursive: true, force: true })
+  if (fs.existsSync(outDir)) fs.renameSync(outDir, retiredDir)
+  fs.renameSync(stageDir, outDir)
+  fs.rmSync(retiredDir, { recursive: true, force: true })
 
   return {
     modules,

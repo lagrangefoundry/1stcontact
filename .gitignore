@@ -185,4 +185,8 @@ Cargo.lock  # Remove this line if project is a binary/application
 # (an `index.html` was deleted for exactly this before). `bin/build` runs
 # `1c assets` before it typechecks, so the Worker always has one to import.
 /apps/control-app/dist-assets/
+# `1c assets` assembles the new tree beside the live one and swaps it in, so a
+# run that fails part-way can leave either of these behind.
+/apps/control-app/dist-assets.staging/
+/apps/control-app/dist-assets.retired/
 /apps/control-app/src/generated/
