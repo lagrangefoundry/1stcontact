@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:09:46.191730+00:00'
+updated_at: '2026-09-01T22:41:41.470858+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -572,5 +572,19 @@ The image went through the same door: `material-a4932624` holds a real vision de
 On the leftovers you mention — those are pre-fix materials whose bodies were frozen as *"nothing here can read application/octet-stream"*. There's no backfill. material.ts:797 says a re-describe pass "**could** be a QUERY (`description_status = no_describer`)" — i.e. the query is identified but the pass was never built, so anything uploaded before BUG-41 stays unreadable until something re-describes it. Separate from anything filed today; say the word if you want it scoped.
 
 I've deliberately left faults 3 and 4 unscoped, on the reasoning recorded in BUG-44: a refusal that names the failing field may remove most of the need for a projected L1 vocabulary, so sizing that work before BUG-39 lands would be guessing.
+
+<!-- xgd-turn id="5d789b42-9c13-4870-98a5-42140edf07f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:41:41.143276+00:00" -->
+#### You
+Curious.
+
+Everything in the KMS (every KB) is represented as a ticket and accessible through the ticket API, yes?
+
+Assets are cataloged as tickets so they should be accessed as tickets that point to blobs, right?
+
+What does the KMS return? Does it not include references to tickets?
+
+Help me understand what the AI is actually accessing here?
 
 <!-- xgd-chat-end -->
