@@ -2,13 +2,13 @@
 uid: bug-3ade1af4
 id: BUG-40
 type: bug
-title: 'Test suite: 23 failures — a half-finished install, a stale asset build, and
-  ten UATs superseded by later work'
+title: 'Test suite: 27 failures + 30 collection errors — a half-finished install,
+  a stale asset build, and eleven UATs superseded by later work'
 created_by: xgd
 created_at: '2026-09-01T19:01:30.821719+00:00'
-updated_at: '2026-09-01T19:28:25.148071+00:00'
+updated_at: '2026-09-01T19:30:16.853642+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: title
 status: free_coded
 fields:
   auto_merge_back: true
