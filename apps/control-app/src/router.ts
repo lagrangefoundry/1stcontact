@@ -28,6 +28,7 @@ import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { projectKnowledgeFor } from './knowledge'
+import { systemKnowledge } from './system-knowledge'
 import { anthropicImageDescriber, type DescribeImage } from './describe'
 import { FetchRefusedError } from './fetch-guard'
 import {
@@ -118,7 +119,13 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
     CHAT = (async () => {
       const tenantId = (env.TENANT_ID ?? '').trim()
       const store = await (deps.store ?? storeFor)(env)
-      return workerHost(env, store, tenantId)
+      // Opened HERE and not inside `workerHost`, for the reason the store above
+      // is: this is the one place per isolate where the expensive things are
+      // built, and the KB is one of them — `KnowledgeRuntime.open` decodes the
+      // whole bundled index into vectors. Doing it per request would decode it
+      // per turn, for an artefact that cannot change while the isolate lives.
+      const knowledge = await (deps.knowledge ?? systemKnowledge)(env)
+      return workerHost(env, store, tenantId, knowledge)
     })()
   }
   return CHAT
@@ -229,6 +236,16 @@ export interface RouterDeps {
   store?: (env: RouterEnv) => Promise<TenantSiteStore>
   /** The ticket store the ingestion routes write material into ([[REQ-163]]). */
   tickets?: (env: RouterEnv) => Promise<TicketStore>
+  /**
+   * The system knowledge base the chat session searches ([[REQ-158]]).
+   *
+   * Injectable for the same reason `index` below is: the built-in one is the
+   * corpus `1c kb build` produced for THIS checkout, which is a release artefact
+   * a test cannot depend on and must not assert against. A UAT hands in a corpus
+   * it planted itself, so "the assistant answered from the document and named
+   * it" is a claim about a document whose content the test chose.
+   */
+  knowledge?: (env: RouterEnv) => Promise<unknown>
   /**
    * Step 5's indexer, and the whole reason it is injectable.
    *
