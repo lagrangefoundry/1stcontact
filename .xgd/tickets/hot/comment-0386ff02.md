@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T19:43:45.471599+00:00'
+updated_at: '2026-09-01T19:44:52.093937+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2882,5 +2882,49 @@ cat /tmp/aiprobe/log
 I get `{"dims":384}`
 
 `How do I start the server?`
+
+<!-- xgd-turn id="41fda7c7-1f29-4bee-b435-4c869cc13fa5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:44:51.989180+00:00" -->
+#### Claude
+The AI binding works on your machine — that was my sandbox's proxy, not a wrangler bug. So the whole knowledge path is available to you locally. Let me set up the launch.
+
+`.dev.vars` works — Access is open and the builder serves. I wrote `apps/control-app/.dev.vars` (gitignored) with the two Access vars blanked and an empty `ANTHROPIC_API_KEY`. **Put your real key in that one line** and you're ready.
+
+## Starting it
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+
+# One-time housekeeping, if you haven't since the last pull:
+pnpm install            # see the caveat below
+./bin/1c assets         # builds the builder client + inlines the system KB
+(cd apps/control-app && npx wrangler d1 migrations apply 1stcontact --local)
+
+# The server:
+cd apps/control-app && npx wrangler dev --port 8788
+```
+
+Then open **http://localhost:8788**.
+
+I've already run `1c assets` and the migrations, and I've got a server up on **port 8805** right now if you'd rather just look — but it's holding the empty API key, so the chat panel will tell you the assistant isn't switched on. Once you've filled in the key, restart to pick it up.
+
+Clear my leftovers first, or use a free port:
+
+```bash
+lsof -ti:8799,8801,8802,8803,8805 | xargs kill
+```
+
+There's also a stale one on 8788 from before this session that my sandbox couldn't kill — `lsof -ti:8788 | xargs kill` from your shell will get it.
+
+## What you'll be able to do
+
+The Library tab and the drop-to-upload overlay are live, and with your AI binding confirmed the whole ingestion path should now run for real: drop a document describing your business, and it gets stored, described, turned into a material ticket, and indexed into the project KB. Sites `alpha` and `xgd` are already in the local D1 to edit against.
+
+**The one thing that won't work yet:** the AI can't see any of it. The chat session is primed with the system KB only — the project KB is indexed but never handed to the session, and nothing tells the assistant when a file lands mid-conversation. So you can upload your business documents and search them from the Library, but asking the AI about them gets you nothing. That's REQ-160, still `draft`, and it's the gap between "uploads work" and "work with the AI on creating a site."
+
+## The install caveat
+
+`pnpm install` may fail on `iconv-lite@0.6.3` — it ships a `.idea/` directory and something in your setup refuses to create it (it's a hard block in my sandbox; may or may not bite you). If it does, the `.local-vendor/iconv-lite` copy already on disk is the workaround, but it's referenced only by the installed lockfile, not the committed one. `node_modules` is currently functional either way — only `1c preflight`'s drift check complains — so you can skip the install if it fights you.
 
 <!-- xgd-chat-end -->
