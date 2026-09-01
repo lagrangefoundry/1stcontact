@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T01:07:10.562898+00:00'
+updated_at: '2026-09-01T01:22:49.053845+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,54 @@ Now wire it into `ai.ts` and `router.ts`:
 <!-- xgd-chat role="user" ts="2026-09-01T01:07:10.291055+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="4ef5c623-3877-4c37-9832-91e862b9884b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T01:22:48.501345+00:00" -->
+#### Claude
+Let me run `1c assets` and the typecheck to see where the build stands.
+
+Now let me run the affected existing test suites.
+
+Now let me export `writeKbModule` and write the node UAT.
+
+Now the workerd behavioural UAT.
+
+Suite running. Meanwhile, let me update the ticket body to record what was actually built.
+
+All four fail at baseline too — pre-existing, not my diff. Restoring:
+
+Now the commit.
+
+Now merge back into `xgd-working` under the shared lock.
+
+REQ-158 is free-coded and landed on `xgd-working` as `2745001`.
+
+## What shipped
+
+**Build side** — `kbBundle()` reads a built KB off disk into values (both indexes, vectors base64 through upstream's encoder, corpus text with each document's own `updated_at`). `1c assets` gained two emitters: the `ai-knowledge` shim and `generated/kb.js`, the latter written **unconditionally** with `export const KB = null` when nothing is built, so the Worker's static import can never fail to resolve on a fresh checkout. A missing KB shouts in the asset report rather than passing silently.
+
+**Worker side** — `apps/control-app/src/system-knowledge.ts` opens the same KB from three values via `memoryIndexSource` + `bundleDocReader`, reaching no filesystem. `router.ts` opens it once per isolate beside the store; `ai.ts` hands the surface and the priming to the toolbox as a pair. `SYSTEM_KB`/`SHIPPED_SOURCE`/`CORPUS_TYPE` moved to `kb-model.ts` so both halves share one declaration.
+
+**One real bug found on the way:** making `cmdAssets` async silently broke `bin/1c.mjs`, which dispatches `assets` outside the CLI barrel and did not await it — `1c assets` printed `Cannot read properties of undefined (reading 'css')` and exited 0. Now awaited.
+
+## Evidence
+
+- `test_UAT_FC_REQ-158_system_kb.workers.test.ts` — the acceptance sentence in workerd through the Worker's own `route()`. The model double is **not told the answer**: it reads the tool result out of the request the host sent it, so "answers from the planted document and names it" can only hold if the fact travelled corpus → search → tool loop → context. Also: priming carries the map and not the pile, the answering document outranks the one that doesn't, the grant is exactly the three read operations, an absent KB still takes a turn.
+- `test_UAT_FC_REQ-158_system_kb_bundle.test.ts` — the artefact claims a conversation can't establish.
+
+## Verified
+
+`1c kb build` has now run here: 4 documents, 145 chunks, a 2-territory map with 13 validated access points. Only 4 `doc` tickets carry `doc_kind: system_kb` — the other 35 are DOC-39 §10's pending marker migration, not this ticket.
+
+Full suite: **16 failures, all pre-existing or the known dist-assets rebuild race** — I stashed my diff and reproduced 10 of them at baseline verbatim; the other 6 pass on serial rerun with fresh assets. One failure *was* mine (BUG-39's "wire protocol transcribed in exactly one place" — I'd hand-rolled a tool-call streamer instead of using the shared `calls`) and is fixed.
+
+## Two things worth your attention
+
+**The size headroom is smaller than the ticket estimated.** Measured by dry-run: 1052 KiB gzip with `KB = null`, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket.
+
+**Node's `fetch` ignores `HTTPS_PROXY`.** `1c kb build` died with a bare `fetch failed` (an `EPERM` connect underneath) while `curl` to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. `NODE_USE_ENV_PROXY=1` fixes it. Also noted on the ticket.
+
+The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
