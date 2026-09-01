@@ -392,6 +392,22 @@ function correctOrigin(): Map<string, Reply> {
     [`${root}/app.js`, asset('export {}', 'text/javascript; charset=utf-8')],
     [`${root}/assets/logo.svg`, asset('<svg/>', 'image/svg+xml')],
     [`${root}/fonts/x.woff2`, asset('font-bytes', 'font/woff2')],
+    // The control app, on its own origins (REQ-147). Both checks assert a
+    // NEGATIVE — "this does not serve the builder" — so a correctly deployed
+    // pair is an Access challenge on the real hostname and anything-but-200 on
+    // the workers.dev one.
+    [
+      `${FAKE_CONTROL_ORIGIN}/`,
+      {
+        status: 302,
+        headers: { location: 'https://lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login' },
+        body: '',
+      },
+    ],
+    [
+      `${FAKE_WORKERS_DEV_ORIGIN}/`,
+      { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
+    ],
   ])
 }
 
@@ -409,7 +425,10 @@ const FETCH_HOOK = `
 const TABLE = JSON.parse(process.env.UAT_ORIGIN_TABLE)
 globalThis.fetch = async (input) => {
   const url = new URL(String(input))
-  const hit = TABLE[url.pathname]
+  // Keyed by origin AND path first, so the control app's \`/\` can answer
+  // differently from the public site's; by path alone otherwise, which is every
+  // entry written before there was more than one origin in a run.
+  const hit = TABLE[url.origin + url.pathname] ?? TABLE[url.pathname]
   if (hit) {
     return new Response(hit.body === '' ? null : hit.body, { status: hit.status, headers: hit.headers })
   }
@@ -472,8 +491,12 @@ async function smoke(
 }
 
 /**
- * The nine checks that answer "does this public origin serve?", in the order the
+ * The checks that answer "does this PUBLIC origin serve?", in the order the
  * report lists them. Selected by `--origin` plus `--slug` / `--draft`.
+ *
+ * Ordered, because the skip clauses below are expressed as ranges of it: the
+ * first two need only an origin, the next two also need a slug, and the rest
+ * also need a preview identifier.
  */
 const PUBLIC_CHECKS = [
   'apex_resolves',
@@ -489,16 +512,27 @@ const PUBLIC_CHECKS = [
 
 /**
  * The two checks on the INDEPENDENT axis — "is the operator surface private?"
- * (AC-1425). They are selected by their own options, so a run pointed at a
- * public-serving origin has nothing to point them at and they skip. Held apart
- * from `PUBLIC_CHECKS` rather than appended to it because the distinction is the
- * subject of AC-1336: a passing run is not required to have skipped nothing, it
- * is required to NAME what it skipped.
+ * (AC-1425, REQ-147). They run against the CONTROL app rather than the public
+ * origin and are selected by their own options, so they skip for their own
+ * reason. Held apart from `PUBLIC_CHECKS` rather than appended to it because
+ * that distinction is the subject of AC-1338, and would be lost if they were
+ * folded into the range arithmetic above.
  */
 const CONTROL_CHECKS = ['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed']
 
 /** Every check the report lists, in order. */
 const ALL_CHECKS = [...PUBLIC_CHECKS, ...CONTROL_CHECKS]
+
+/**
+ * The control app's two origins, as the smoke run is told about them.
+ *
+ * Distinct hosts from {@link FAKE_ORIGIN}, because the whole point of the two
+ * checks is that they are asked of a DIFFERENT deployment from the public site.
+ * The transport double below keys on origin as well as path so the same `/` can
+ * answer three different ways.
+ */
+const FAKE_CONTROL_ORIGIN = 'https://control.example.test'
+const FAKE_WORKERS_DEV_ORIGIN = 'https://control.example.workers.dev'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // AC-1330 — the environment preflight
@@ -638,23 +672,35 @@ describe('story-d5167ced — the build discovers every Worker and bundles it for
       expect(stopped.out).not.toContain('==> Bundle ')
       expect(broken.log()).toEqual([])
 
-      // ── the check can be skipped for an environment that cannot satisfy it ──
+      // ── the check can be skipped ──────────────────────────────────────────
       //
       // TWO runs, because the claim has two halves and no single tree can show
       // both. The option's purpose is observable only on the environment that
       // cannot satisfy the check — but "the remaining stages run normally" is
       // observable only on one that can.
       //
-      // Half one: the SAME incomplete environment the run above stopped on. With
-      // the flag, the preflight does not run at all — the stage header is absent
-      // and the refusal that stopped the previous run is gone — and control
-      // reaches the next stage. What this half deliberately does NOT assert is a
-      // zero exit: `--skip-preflight` gates the preflight stage and nothing else
-      // (`bin/build:87-90`), so the unconditional `Control-app assets` stage that
-      // follows — AC-1427's subject — still needs the component this environment
-      // hides. A deliberately incomplete tree building clean is not something
-      // this criterion claims, and asserting it would make the test fail on
-      // exactly the machines where its first leg passes.
+      // WHAT THE FLAG DOES, AND WHAT IT CANNOT DO. It suppresses the CHECK; it
+      // does not conjure the components. REQ-145 made `1c assets` a stage of
+      // this build, and that stage needs every component the preflight probes —
+      // so on a tree that genuinely lacks one, skipping the check moves the
+      // failure later rather than removing it.
+      //
+      // The incomplete environment goes FIRST, and the order is load-bearing:
+      // its `1c assets` clears the output directory before failing, and that
+      // directory is the real one every other suite in this process serves the
+      // builder from. The complete run below rebuilds it, so the tree is left as
+      // it was found.
+      //
+      // Half one, then: the SAME incomplete environment the run above stopped
+      // on. With the flag, the preflight does not run at all — the stage header
+      // is absent and the refusal that stopped the previous run is gone — and
+      // control reaches the next stage. What this half deliberately does NOT
+      // assert is a zero exit: `--skip-preflight` gates the preflight stage and
+      // nothing else (`bin/build:87-90`), so the unconditional `Control-app
+      // assets` stage that follows — AC-1427's subject — still needs the
+      // component this environment hides. The run stops there instead, because
+      // the missing component is a fact about the tree rather than an opinion of
+      // the check's, and nothing is bundled.
       const skippedIncomplete = realRepoShims('build-skip-incomplete')
       const past = sh(path.join(REPO, 'bin', 'build'), ['--skip-preflight'], {
         cwd: REPO,
@@ -670,6 +716,13 @@ describe('story-d5167ced — the build discovers every Worker and bundles it for
       // A later stage was entered: the run got past the check, which is the only
       // thing the flag promises on a tree like this one.
       expect(past.out, past.all).toContain('==> Control-app assets')
+      // …and stopped there rather than building on. The component the
+      // environment hides is still missing, so the run fails, names it, bundles
+      // nothing and never reaches a bundler.
+      expect(past.code, past.all).not.toBe(0)
+      expect(past.all).toContain('webui-shell')
+      expect(past.out).not.toContain('==> Bundle ')
+      expect(skippedIncomplete.log().filter((l) => l.startsWith('npx|'))).toEqual([])
 
       // Half two: the real tree, which CAN satisfy the check. Skipping it leaves
       // every remaining stage running normally — one package build, one bundle
@@ -965,36 +1018,32 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('story-d5167ced — the smoke check against an origin that serves correctly', () => {
-  it('test_UAT_AC1336_every_applicable_check_passes_and_each_skip_is_named_with_a_zero_exit', () => {
-    // The origin under test is a parameter of the run, so the same checks are
-    // used against production and against any other serving origin.
-    const run = runSmokeCli(['--origin', FAKE_ORIGIN, '--slug', SLUG, '--draft', DRAFT], correctOrigin())
+  it('test_UAT_AC1336_every_check_passes_with_nothing_skipped_and_the_command_exits_zero', () => {
+    // EVERY input the script takes is supplied, because "nothing skipped" is
+    // only a claim about a complete run — a check that skipped for want of an
+    // argument would satisfy "no failures" while proving nothing. The control
+    // app's two origins are among them (REQ-147): they are a different
+    // deployment from the public site, so they are named separately rather than
+    // inferred.
+    const run = runSmokeCli(
+      [
+        '--origin', FAKE_ORIGIN,
+        '--slug', SLUG,
+        '--draft', DRAFT,
+        '--control-origin', FAKE_CONTROL_ORIGIN,
+        '--workers-dev-origin', FAKE_WORKERS_DEV_ORIGIN,
+      ],
+      correctOrigin(),
+    )
 
     expect(run.code, run.all).toBe(0)
-    for (const name of PUBLIC_CHECKS) {
+    for (const name of ALL_CHECKS) {
       expect(run.out, `${name} did not pass`).toContain(`PASS  ${name}`)
     }
     expect(run.out).not.toContain('FAIL  ')
-
-    // A passing run is NOT required to have skipped nothing. The two
-    // control-surface checks sit on an independent axis, selected by their own
-    // options, and this run — pointed at a public-serving origin — has nothing
-    // to point them at. What the run must do is NAME each one it skipped, so
-    // "everything applicable passed" and "nothing was left untested" stay
-    // distinguishable rather than being conflated into one green result.
-    for (const name of CONTROL_CHECKS) {
-      expect(run.out, `${name} was not named as skipped`).toContain(`skip  ${name}`)
-      expect(run.out, `${name} was reported as a pass`).not.toContain(`PASS  ${name}`)
-    }
-    // Exactly those two, and no more: a skip that crept into the applicable set
-    // would otherwise pass this test by being counted rather than named.
-    expect(run.out.match(/^\s*skip {2}/gm)?.length ?? 0).toBe(CONTROL_CHECKS.length)
-
-    // The summary states how many passed and how many were skipped, counting
-    // them separately.
-    expect(run.out).toContain(
-      `Smoke passed against ${FAKE_ORIGIN}: ${PUBLIC_CHECKS.length} passed, ${CONTROL_CHECKS.length} skipped.`,
-    )
+    expect(run.out).not.toContain('skip  ')
+    // The summary states how many passed and how many were skipped.
+    expect(run.out).toContain(`Smoke passed against ${FAKE_ORIGIN}: ${ALL_CHECKS.length} passed, 0 skipped.`)
 
     // The asset check reports the number it verified, rather than reporting a
     // pass having verified none.
@@ -1298,6 +1347,15 @@ describe('story-d5167ced — every named environment repeats every var and bindi
 
       for (const envName of Object.keys(config.envs)) {
         const missing = missingFromEnv(config, envName)
+        // ONE EXCEPTION, and it is the INVERSE of this rule rather than a hole
+        // in it. `ACCESS_DEV_OPEN` opens an unconfigured Access gate for
+        // `wrangler dev` (REQ-145/REQ-147), and its ABSENCE from production is
+        // precisely what makes that safe — a named environment inheriting no
+        // vars is why the top-level declaration cannot reach the deployed
+        // Worker. That absence is pinned as a positive claim of its own by
+        // `test_UAT_FC_REQ-145_build_artifacts`; this criterion must not demand
+        // the opposite.
+        missing.vars = missing.vars.filter((v) => v !== 'ACCESS_DEV_OPEN')
         expect(
           missing.vars,
           `apps/${app}/wrangler.toml: [env.${envName}] does not repeat ${missing.vars.join(', ')} — ` +
@@ -1327,7 +1385,15 @@ describe('story-d5167ced — every named environment repeats every var and bindi
     }
 
     // The check is only worth having if it CATCHES the configuration that
-    // shipped: the builder origin and a storage binding declared only at the top.
+    // shipped — the omission that made a first deploy answer its own
+    // service-unavailable response to every request: the builder origin and a
+    // storage binding declared only at the top.
+    //
+    // `BUILDER_ORIGIN` survives here as the fixture's subject and nowhere else.
+    // REQ-145 stopped the control app being a proxy, so the var it was missing
+    // is gone from the real file and asserting its presence there would pin a
+    // configuration that no longer exists. What the guard has to keep catching
+    // is the SHAPE, which is what this synthetic tree is.
     const shipped = `
 name = "1stcontact-control-app"
 main = "src/index.ts"
@@ -1446,6 +1512,9 @@ describe('story-d5167ced — no secret value is committed, and the push is piped
       path.join(REPO, 'tools', 'generate', 'bin', 'smoke.mjs'),
       path.join(REPO, 'bin', 'deploy.d', 'migrate', 'README.md'),
       path.join(REPO, 'bin', 'deploy.d', 'secrets', 'README.md'),
+      // The hook that actually pushes a secret, scanned for the same shapes as
+      // everything else: it is the file in this tree closest to a credential.
+      path.join(REPO, 'bin', 'deploy.d', 'secrets', '10-anthropic-api-key'),
       ...APPS.map((app) => path.join(REPO, 'apps', app, 'wrangler.toml')),
     ]
 
@@ -1478,6 +1547,17 @@ describe('story-d5167ced — no secret value is committed, and the push is piped
     // … and never echoed back: a hook reports the name and the destination.
     expect(doc).toContain('Never echo the value')
     expect(doc).toContain('Report the *name* and the destination')
+
+    // …and that instruction is OBEYED where the lines are actually emitted.
+    // Read off the hook as well as the README, because the hook is the file that
+    // produces them — the documented example is generic, and the concrete
+    // messages live here, which is the stronger place to assert them.
+    const hook = readFileSync(path.join(REPO, 'bin', 'deploy.d', 'secrets', '10-anthropic-api-key'), 'utf8')
+    expect(hook).toContain('would push ANTHROPIC_API_KEY to $DEPLOY_WORKER_NAME')
+    expect(hook).toContain('pushed ANTHROPIC_API_KEY to $DEPLOY_WORKER_NAME')
+    // The value never reaches a line the operator sees, in either tense.
+    expect(hook).not.toMatch(/echo[^\n]*\$THE_VALUE|echo[^\n]*\$value/)
+    expect(hook).not.toMatch(/wrangler secret put \w+ [^-\n]/)
     // No form that passes the value as an argument appears anywhere.
     expect(doc).not.toMatch(/wrangler secret put \w+ [^-\n]/)
     // The only listing offered is of NAMES.

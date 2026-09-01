@@ -370,6 +370,10 @@ describe('a turn is addressed to a conversation, never to a site', () => {
         // is a miss.
         { id: '../../etc/passwd', why: 'path traversal, unprefixed' },
         { id: 'site-../../etc/passwd', why: 'path traversal behind the prefix' },
+        // …including the traversal that would reach a site this account really
+        // does hold, if the identifier were ever joined onto a path rather than
+        // resolved. It is not, so this is a miss like any other.
+        { id: `site-../${SLUG}`, why: 'path traversal behind the prefix, onto a real site' },
       ]
 
       for (const { id, why } of refused) {

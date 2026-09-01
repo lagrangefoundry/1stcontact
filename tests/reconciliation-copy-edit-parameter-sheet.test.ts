@@ -468,13 +468,19 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       const parameters = declared.filter((f) => f.type !== 'string')
       expect(words.map((f) => f.name)).toEqual(['text'])
       expect(parameters.length, 'the run exposes parameters beside its words').toBeGreaterThan(1)
-      // The parameters are the shapes the criterion enumerates — a bounded
-      // number, a choice from a list the surface supplied, a yes/no, and since
-      // REQ-140 a colour. Every one of them is a shape the SHEET draws; what the
-      // set asserts is that nothing else has crept in beside the words.
-      expect(new Set(parameters.map((f) => f.type))).toEqual(
-        new Set(['integer', 'enum', 'boolean', 'color']),
-      )
+      // The parameters INCLUDE the shapes the criterion enumerates — a bounded
+      // number, a choice from a list the surface supplied, a yes/no. Stated as
+      // containment rather than equality, for the same reason the split above
+      // is derived rather than keyed on a list of names: the derivation grows,
+      // and an exact set is the assertion that strands the next shape it grows.
+      // (It grew: the palette work added a colour parameter.) What the criterion
+      // is about is that every non-word descriptor opens in the sheet, which the
+      // loop below asserts over ALL of them, whatever shapes they are.
+      const shapes = new Set(parameters.map((f) => f.type))
+      for (const shape of ['integer', 'enum', 'boolean']) {
+        expect(shapes, `the run exposes a ${shape} parameter`).toContain(shape)
+      }
+      expect(shapes, 'a parameter is never a word').not.toContain('string')
 
       const modal = await openAt(A_RUN)
       const box = modal.querySelector('.builder-modal__box')!
@@ -519,8 +525,14 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       //
       // A painted panel offering only a background image renders no editing box
       // — an empty one would frame a void beneath the thumbnails.
+      // The rule is that a form with nothing to put in it is not rendered, so it
+      // is read off the descriptors rather than off a remembered shape of what
+      // this panel happens to expose. The panel has no words, so no box; whether
+      // it has parameters is the derivation's business, and the sheet follows it.
       const panelFields = await descriptorsOf(A_PAINTED_PANEL)
-      expect(panelFields.some((f) => f.type === 'string')).toBe(false)
+      const panelWords = panelFields.filter((f) => f.type === 'string')
+      const panelParameters = panelFields.filter((f) => f.type !== 'string')
+      expect(panelWords).toHaveLength(0)
       const panel = await openAt(A_PAINTED_PANEL)
       expect(panel.querySelector('.builder-modal__picker'), 'the panel offers its picker').toBeTruthy()
       expect(panel.querySelector('.builder-modal__box')).toBeNull()
@@ -528,8 +540,14 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       // there is anything to put in it. Since REQ-140 this panel exposes its
       // colour as well as its background image, so it gets a sheet holding that
       // row and still no box — a region exposing only a colour is the same case.
+      // Stated as the biconditional against the DERIVED parameter list rather
+      // than as a remembered "there is a sheet here now", so the next shape the
+      // derivation grows — or drops — is not something this line strands.
       const panelSheet = panel.querySelector('.builder-modal__props')
-      expect(panelSheet, 'the panel gets a sheet for the colour it exposes').toBeTruthy()
+      expect(
+        Boolean(panelSheet),
+        'the sheet is rendered exactly when there are parameters to put in it',
+      ).toBe(panelParameters.length > 0)
       for (const field of panelFields.filter((f) => f.format !== 'image')) {
         expect(rowIn(panelSheet!, field.name), `${field.name} is in the sheet`).toBeTruthy()
       }
