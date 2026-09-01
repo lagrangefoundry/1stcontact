@@ -474,13 +474,56 @@ function sfntNames(bytes: Uint8Array): (Map<number, string> & { variable: boolea
   return out.size === 0 ? null : out
 }
 
-/** The first substantial line, as a title. */
+/**
+ * The first substantial line, as a title — **past any front matter** (BUG-41).
+ *
+ * A markdown file that opens with a YAML block would otherwise be titled `---`:
+ * the fence is three characters, which clears the "substantial" bar, and it is
+ * the first line there is. So the block is skipped — and where it DECLARES a
+ * title, that is taken, because a title the author wrote beats one inferred from
+ * a heading, the same reason {@link describePdf} prefers the PDF's own metadata.
+ *
+ * ONLY A LEADING, CLOSED BLOCK COUNTS. A `---` that never closes is a horizontal
+ * rule in a document that happens to start with one, not front matter, and
+ * treating it as a block would swallow the whole file's title.
+ */
 function titleFromText(text: string, filename: string): string {
-  for (const line of text.split('\n')) {
+  const lines = text.split('\n')
+  let start = 0
+  if (lines[0]?.trim() === '---') {
+    const close = lines.findIndex((line, i) => i > 0 && line.trim() === '---')
+    if (close > 0) {
+      const declared = frontMatterTitle(lines.slice(1, close))
+      if (declared !== '') return clipTitle(declared)
+      start = close + 1
+    }
+  }
+  for (const line of lines.slice(start)) {
     const trimmed = line.replace(/^#+\s*/, '').trim()
+    // A RULE IS NOT A TITLE. `---`, `***`, `===` clear the length bar and say
+    // nothing; without this an unclosed opening rule is titled `---` for exactly
+    // the reason the front-matter fence was.
+    if (/^[-=*_]+$/.test(trimmed)) continue
     if (trimmed.length >= 3) return clipTitle(trimmed)
   }
   return filename || 'Untitled material'
+}
+
+/**
+ * A `title:` from front-matter lines, unquoted, or `''`.
+ *
+ * READ AS LINES, NOT PARSED AS YAML. One field is wanted and a YAML dependency
+ * to reach it would be a parser in the ingestion path — with its own failure
+ * modes — for a string a regex finds. A title this misses simply falls through
+ * to the first heading, which is where it came from before.
+ */
+function frontMatterTitle(lines: string[]): string {
+  for (const line of lines) {
+    const match = line.match(/^title\s*:\s*(.+)$/i)
+    if (!match) continue
+    return match[1].trim().replace(/^(['"])(.*)\1$/, '$2').trim()
+  }
+  return ''
 }
 
 function clipTitle(text: string): string {
