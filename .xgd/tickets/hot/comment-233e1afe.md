@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-09-01T21:37:01.534134+00:00'
+updated_at: '2026-09-01T22:07:04.182946+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,21 @@ If you're happy with that, I'll fold it into the ticket body and start.
 on row lockstep - simple now
 
 ok lets start with that
+
+<!-- xgd-turn id="8207ab65-0cde-4bff-84a1-fc3326b288bf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:07:03.456841+00:00" -->
+#### Claude
+Ticket updated and branch cut at `free-REQ-156`. Building the fixture corpus first — the baseline has to be captured while `sharp` is still installed.
+
+Important finding from the baseline: `sharp` **expands greyscale to RGB** on decode (`gray8` → 3 channels, `gray+alpha` → 4). Matching that is load-bearing, since `computeDiff` strides by channel count. Writing the codec to that contract.
+
+Codec compiles. Now the UATs — starting with the node suite that pins AC1, AC2 and AC6.
+
+Now the workerd suite for AC3 and AC4.
+
+All UATs green in both runtimes. Adding the ticket-body language for behaviours the UATs assert that the body doesn't yet name.
+
+These preflight suites pin facts REQ-156 legitimately changes. Updating them.
 
 <!-- xgd-chat-end -->
