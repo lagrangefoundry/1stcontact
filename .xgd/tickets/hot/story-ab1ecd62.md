@@ -6,9 +6,9 @@ title: 'Product Ticket Store: The Client''s Material In A Database, Scoped To On
   Account, Standing On The Component''s Own Schema'
 created_by: xgd
 created_at: '2026-09-01T23:56:31.229073+00:00'
-updated_at: '2026-09-01T23:56:31.229073+00:00'
+updated_at: '2026-09-01T23:59:10.058275+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: request-13a5e206
@@ -52,7 +52,8 @@ store writes and the site store's original table lacks.
 
 **One wiring point, and it refuses a deployment it cannot serve.** A store is obtained *for* the
 account the deployment is configured for. The account is bound into the handle at that moment, so no
-operation takes an account as an argument and no call site is given the chance to supply the wrong one.
+operation takes an account as an argument and no call site is given the chance to supply the wrong one;
+the scoped handle is also terminal, so holding one account's store conveys no reach into another's.
 Obtaining a store fails immediately, with a named error saying what is missing and where to declare it,
 when the deployment names no account or gives attachment bytes nowhere to go.
 
@@ -107,23 +108,20 @@ store; and the knowledge base built over these types (REQ-159).
   component's schema arrives as a migration; it is silent on anything verifying that the transcription
   has not drifted from its source. The landed code asserts every published statement appears in the
   migration, and without that assertion the migration is a fork that would deploy a database a version
-  behind an upstream change with nothing reporting it. Formalized as AC "The ticket schema stays in
-  agreement with the component that publishes it"; this is reconciliation closing a gap in the original
-  spec, not an operator request.
+  behind an upstream change with nothing reporting it. Formalized as AC-1477; this is reconciliation
+  closing a gap in the original spec, not an operator request.
 - **Register-if-absent account bootstrap** (decided at reconciliation, 2026-09-01): the intent's
   acceptance list is silent on how the account comes to exist in the registry, and a freshly migrated
   database has an empty one — a handle would be refused and the builder dead on arrival. The landed code
   registers the configured account only after a read proves it absent, because the registration write
-  overwrites status. Formalized as AC "The configured account is registered on demand, and an account
-  already recorded keeps the status it has"; the read-before-write half is formalized because without
+  overwrites status. Formalized as AC-1480; the read-before-write half is formalized because without
   it account suspension becomes a suggestion, which is a security property and not an implementation
   detail.
 - **Stale-install reporting** (decided at reconciliation, 2026-09-01): the intent's implementation notes
   cover generating the shim but are silent on what happens when the shared install is present yet
   predates the capability the store needs — the state that actually blocked the work. The landed code
   decides presence by the file the capability lives in rather than by a package version that never
-  changes, and reports a named skip carrying the command that fixes it. Formalized as part of AC "The
-  shared ticket component resolves from any checkout, and a stale install is reported by name".
+  changes, and reports a named skip carrying the command that fixes it. Formalized as part of AC-1485.
 
 ## Dependencies
 
