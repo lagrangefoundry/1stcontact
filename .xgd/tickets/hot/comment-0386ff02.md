@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:11:42.502788+00:00'
+updated_at: '2026-09-01T20:14:10.827881+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3096,5 +3096,16 @@ export CLOUDFLARE_ACCOUNT_ID=...          # kb.ts needs this too
 So: `1c.dev.env` (dotenv, → `--env-file`, Worker bindings only) and `1c.env` (shell, → `source`, CLI credentials). The file extension marking which is which is worth the small redundancy.
 
 One thing worth flagging: `resolveEmbedder` also wants `CLOUDFLARE_ACCOUNT_ID`, which I don't see in your exports — `pnpm kb` will fail on that until it's set.
+
+<!-- xgd-turn id="6f3b8157-eaa5-4d73-8cbf-853ac51987ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T20:14:10.804107+00:00" -->
+#### You
+File created, starting with: 
+
+((.venv-working) ) martin@nyx control-app % npx wrangler dev --port 8788 --env-file ~/Documents/secrets/1c.dev.env
+
+But I get:
+Cloudflare Access rejected this request: no Access token was presented.
 
 <!-- xgd-chat-end -->
