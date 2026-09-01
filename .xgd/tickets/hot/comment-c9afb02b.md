@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:07:13.712840+00:00'
+updated_at: '2026-09-01T22:09:46.191730+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -535,5 +535,42 @@ A. Please create a ticket for A in lf
 On the assets we fixed a bug there where .md files were not a recognised type. That's fixed but unreadable assets are still left there. Question: is the md doc I just uploaded readable to the AI?
 
 D. is this a lf change? If so, please create another ticket for it
+
+<!-- xgd-turn id="f0273b55-03da-4e45-b55f-83eae28b0188-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:09:45.952159+00:00" -->
+#### Claude
+Both lf tickets created, and BUG-44 now cross-references them.
+
+## A → lagrange-framework BUG-39
+
+*"Declared error codes discard the host's own diagnosis, so a refusal cannot be acted on"*
+
+Scoped around the inversion at the heart of it: `_renderHostError`'s **undeclared** branch is the only one that tells the caller anything specific, so declaring an error code makes the failure *less* informative than not declaring it. The ticket separates the declared *meaning* of a code (genuinely declaration-owned, must not drift) from the *instance* — the JSON-pointer and failing value, which no declaration can contain and which suppressing doesn't prevent drift, only diagnosis. Notes the py twin must move with it, and that fixing this makes `set_l1`'s existing "the refusal names the field" description truthful rather than requiring it to be weakened — so fault 2 needs no 1stcontact change.
+
+## D → lagrange-framework BUG-40 — yes, it's an lf change
+
+The `kb` param is declared as `kb_names` in `components/ai_knowledge/{js,py}/src/knowledge_surface.json`, but the refusal comes from the shared param layer, `components/ai/js/src/toolbox/params.js`:
+
+```js
+case 'array':
+  return Array.isArray(value) ? [...value] : MISMATCH
+```
+
+So it's not a knowledge-surface quirk — **every** `base: array` param on every surface behaves this way. Worth noting `coerce` is already lenient elsewhere (a numeric string becomes a number for `integer`), so `array` is the strictest base in the table, and a scalar-for-a-single-item-list is the one unambiguous case it declines. The ticket argues for tolerating rather than refusing harder, on the principle BUG-20 already established one function away in that same file, and explicitly rejects "improve the message" — the current message is already precise, so it's not a clarity problem and the turn is spent regardless.
+
+---
+
+## Your .md: yes, it's readable — and the AI did read it
+
+Direct evidence in your own transcript. `KnowledgeGet({"uid":"material-0ff89fb5"})` returned the brand doc's **full body** — ~3,000 characters of correctly-structured markdown, headings, the AWE positioning, the five product directions. `created_at: 2026-09-01T21:00:40Z`, so it's a post-fix upload. `resolveContentType` (material.ts:225) mapped `.md` → `text/markdown`, `isTextual` said yes, and the text was extracted and indexed. That's BUG-41 working.
+
+The image went through the same door: `material-a4932624` holds a real vision description of your gold A logo.
+
+**But note where "readable" lives.** The md is readable as **KB material**, via `KnowledgeSearch`/`KnowledgeGet` — not as a site asset. Those are two separate stores, and that distinction is exactly fault 4: the AI could read your logo's *description* through the knowledge tools while being unable to *place the actual image* through the asset tools.
+
+On the leftovers you mention — those are pre-fix materials whose bodies were frozen as *"nothing here can read application/octet-stream"*. There's no backfill. material.ts:797 says a re-describe pass "**could** be a QUERY (`description_status = no_describer`)" — i.e. the query is identified but the pass was never built, so anything uploaded before BUG-41 stays unreadable until something re-describes it. Separate from anything filed today; say the word if you want it scoped.
+
+I've deliberately left faults 3 and 4 unscoped, on the reasoning recorded in BUG-44: a refusal that names the failing field may remove most of the need for a projected L1 vocabulary, so sizing that work before BUG-39 lands would be guessing.
 
 <!-- xgd-chat-end -->
