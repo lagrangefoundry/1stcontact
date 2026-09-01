@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-09-01T21:21:20.812723+00:00'
+updated_at: '2026-09-01T21:37:01.534134+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,13 @@ Mitigating factor: iOS Safari commonly transcodes HEIC to JPEG when uploading th
 - Streaming decode+diff noted as a follow-up.
 
 If you're happy with that, I'll fold it into the ticket body and start.
+
+<!-- xgd-turn id="8207ab65-0cde-4bff-84a1-fc3326b288bf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T21:37:01.489354+00:00" -->
+#### You
+on row lockstep - simple now
+
+ok lets start with that
 
 <!-- xgd-chat-end -->
