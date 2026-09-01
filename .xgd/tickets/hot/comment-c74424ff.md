@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T00:52:12.069647+00:00'
+updated_at: '2026-09-01T01:12:39.493249+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -773,5 +773,11 @@ The couplings, in descending order of how much they matter:
 **3. Per-user tenants meet the project KB — and this one is already solved.** REQ-159 made the project KB tenant-scoped by R2 prefix (`kb/<tenant>/…`). So when REQ-168 makes tenants per-user, each new account automatically gets its own project KB namespace, with the bundle-resident *system* KB (REQ-158) shared across all of them. That's exactly right, and it needs no work — worth knowing because it would otherwise look like a gap.
 
 The one thing that isn't orthogonal in the longer run is the parked super-chat: cross-tenant knowledge queries are a KMS question wearing an identity mask. DOC-40 §7 records the constraints so that whenever it comes back, it doesn't get built as a widening of `forTenant`. Content moderation is the trigger you named, and it's noted there as the case to design against.
+
+<!-- xgd-turn id="d794d753-a0b8-455c-a5cc-7d2bad6b6ea6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T01:12:39.416922+00:00" -->
+#### You
+Perhaps the super-tenant is implement with a special tool that allows the chat to change tenant?
 
 <!-- xgd-chat-end -->
