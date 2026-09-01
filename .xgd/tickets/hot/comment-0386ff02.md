@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T19:44:52.093937+00:00'
+updated_at: '2026-09-01T20:04:05.195653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2926,5 +2926,20 @@ The Library tab and the drop-to-upload overlay are live, and with your AI bindin
 ## The install caveat
 
 `pnpm install` may fail on `iconv-lite@0.6.3` — it ships a `.idea/` directory and something in your setup refuses to create it (it's a hard block in my sandbox; may or may not bite you). If it does, the `.local-vendor/iconv-lite` copy already on disk is the workaround, but it's referenced only by the installed lockfile, not the committed one. `node_modules` is currently functional either way — only `1c preflight`'s drift check complains — so you can skip the install if it fights you.
+
+<!-- xgd-turn id="80fbedeb-0981-4b97-bf0d-4e2418197d4a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T20:04:04.622480+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx control-app % export ANTHROPIC_API_KEY="$(< ~/Documents/secrets/ANTH_KEY)"       
+((.venv-working) ) martin@nyx control-app % export CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"
+((.venv-working) ) martin@nyx control-app % npx wrangler dev --port 8788
+
+```
+
+I checked the API keys are getting set but I still see:
+
+*The assistant is not switched on: this builder was started without an Anthropic API key. Set ANTHROPIC_API_KEY in the environment and restart it.*
 
 <!-- xgd-chat-end -->
