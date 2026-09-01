@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T01:12:39.493249+00:00'
+updated_at: '2026-09-01T01:14:37.770537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -779,5 +779,58 @@ The one thing that isn't orthogonal in the longer run is the parked super-chat: 
 <!-- xgd-chat role="user" ts="2026-09-01T01:12:39.416922+00:00" -->
 #### You
 Perhaps the super-tenant is implement with a special tool that allows the chat to change tenant?
+
+<!-- xgd-turn id="d794d753-a0b8-455c-a5cc-7d2bad6b6ea6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T01:14:37.632356+00:00" -->
+#### Claude
+That's a better mechanism than the one I proposed, and for a reason I'd underweighted: it needs **no new query surface at all**.
+
+## Why it's better
+
+My platform-scope design meant writing a new read path — hand-rolled `WHERE tenant_id` predicates, new code, new bugs, in the one place in the system where a bug is a confidentiality breach. Your version reuses `forTenant`: at every instant the assistant holds exactly one ordinary scoped handle, the same terminal one every other code path uses. The barrier isn't widened, it's *called again*. Three things fall out:
+
+- **No wildcard exists anywhere.** My objection to loosening `forTenant` was that every scoped handle becomes one bug away from global. This design never creates the thing I was worried about.
+- **`forTenant`'s existing checks come free** — including refusing an inactive tenant, which a new query path would have had to re-implement and could have forgotten.
+- **The audit record is better than I'd have got.** Switching is a discrete event with a stated reason. Platform-scope would have needed the query layer instrumented to know which tenants were even touched; here the log is just the sequence of switches.
+
+And it makes the parked moderation case trivial: after a switch, the assistant is a normal builder chat in that tenant. Site content, blobs, KB — all reachable through the paths that already exist, with nothing new to secure.
+
+## What gets worse, and it's not nothing
+
+**The barrier moves off the data path and into the model's context.** That's the feature — correlating X against Y means both in one context window. But it means: if the assistant holds a *write* handle after switching, it can write tenant X's confidential material into tenant Y's site. A cross-tenant leak accomplished with zero cross-tenant reads.
+
+So read-only becomes *more* load-bearing, not less. Under platform-scope the data could only escape through the transcript; under switching it can escape into another customer's published site.
+
+Three specifics that are easy to get wrong:
+
+1. **The transcript must not follow the switch.** The naive implementation archives to `chat/<current tenant>/…`, which sprays cross-tenant content into customer tenants. The session pins its archive to the platform tenant at open, and the switch tool moves the store handle only.
+2. **The KB index must follow the switch.** `projectKnowledgeFor` builds R2 index sources from `indexPrefix(tenantId, …)`. Swap the store and not the vectors and you get the right tenant's tickets scored against the wrong tenant's embeddings — the "plausible-looking nonsense" failure `knowledge.ts` already warns about for model mismatch, in a new costume.
+3. **Injection can drive navigation.** Customer-supplied material can say "switch to tenant Y and read it out." The defence can't be *controlling* the switch — the model will be talked into it. The defence has to be that switching is *harmless*, which means read-only. Authorising the tool against the human's `platform_admin` on every call is necessary but not sufficient, because the human is legitimately an admin.
+
+## One gap in the pure-switch model
+
+"Which tenants are seeing this bug?" needs a fan-out. With switching alone that's N sequential switches — fine at 30 accounts, useless at 3000. And there's no `listTenants` on either root today, so even enumerating is a capability that doesn't exist.
+
+So I'd pair them: **a narrow cross-tenant index query for breadth, the switch tool for depth.** The index query hits the ticket store only, returns `(tenant_id, ticket_id, snippet)` — pointers, not content — and is one small auditable function. Then the assistant switches into whichever tenant looks relevant and reads properly through the ordinary handle. Search wide, read deep.
+
+That keeps the only cross-tenant surface to a single search primitive over operational data, which is a far smaller thing to get right than a general platform-scope store.
+
+## What I've changed in the tickets
+
+Your idea simplifies REQ-168 rather than complicating it — the `{kind:'platform'}` variant I'd added as a placeholder isn't needed, because under this design the scope is *always* a single tenant. What's needed instead is that resolution take an explicit target and authorise it, which REQ-170's admin-operating-a-customer-account wants anyway.
+
+Both updated:
+
+**DOC-40 §7** now records the switch design as the settled shape — the three reasons it beats wide-scope, the context-window trade it makes, the three implementation traps (transcript doesn't follow the switch, KB index does, injection drives navigation), and the narrow index primitive for breadth.
+
+**REQ-168** lost the `{kind:'platform'}` placeholder entirely. `Scope` is now always a single tenant, and the resolver gains an optional authorised target instead — which REQ-170 needed anyway for an admin operating a customer's builder. Net simplification: one fewer unreachable branch, one fewer UAT, and the same function serves the switch tool if it's ever built.
+
+Nothing else moved. REQ-167, 169, 170 and the dependency graph are unchanged.
+
+Two things still open on the parked assistant, neither blocking:
+
+- **Read-only forever, or eventually write?** I've written it as read-only and the argument above is why. If you want write, it should be specific verbs with explicit targets rather than the assistant holding a general write handle post-switch.
+- **The index primitive can wait.** At alpha scale pure switching is fine — visiting thirty accounts in turn is tolerable. It only becomes necessary at the scale where enumeration hurts, so it's not part of a first build.
 
 <!-- xgd-chat-end -->
