@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-165
 created_by: xgd
 created_at: '2026-08-31T21:51:22.915848+00:00'
-updated_at: '2026-09-01T18:57:59.991753+00:00'
+updated_at: '2026-09-01T18:59:22.681113+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,11 @@ The corpus gets inlined into the Worker bundle by `1c assets` so production sear
 So: build-time generated product reference, delivered by retrieval. Not a replacement for the tool manual, and it doesn't touch it.
 
 One correction to what I said earlier — I've now checked `generated/kb.js` and it's still carrying yesterday's build, so the three `REF-*` files are on disk but not yet in the bundle or the index. `1c kb build` is what closes that. Say the word and I'll run it.
+
+<!-- xgd-turn id="d2f219f0-3790-480d-bde1-d3faabebb8ef-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:59:22.526950+00:00" -->
+#### You
+I think you are splitting hairs there - "tools" in this context includes the framwork for building websites IMO
 
 <!-- xgd-chat-end -->
