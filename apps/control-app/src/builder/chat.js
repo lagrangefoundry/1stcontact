@@ -47,6 +47,45 @@ import { streamChatPrompt } from './api.js'
 // `app.js`'s job, not this file's — see the header on why this pane is synchronous.
 import './markdown.js'
 
+/**
+ * The host's event kind for "the site moved" (BUG-43). Its meaning is
+ * `host-core.ts`'s `SITE_CHANGED`; this is the same string on the client's side
+ * of the wire.
+ */
+const SITE_CHANGED = 'site_changed'
+
+/**
+ * Pass a turn through, telling the host each time it reports a write (BUG-43).
+ *
+ * A WRAPPER AROUND THE STREAM RATHER THAN A SECOND SUBSCRIPTION, because there
+ * is only one stream and `mountChat` consumes it. The chat component ignores
+ * event kinds it does not know, so `site_changed` could simply have been left in
+ * — but then nothing would act on it, and passing on an event whose only purpose
+ * is already served is how a panel ends up rendering a blank bubble the day the
+ * component learns another kind. It is observed here and stops here.
+ *
+ * The callback fires DURING the turn, not after it: the write it reports has
+ * already landed in the store, so the render it triggers is current, and firing
+ * as they arrive is what lets a multi-edit answer show the page unfolding rather
+ * than jumping to a finished state when the assistant stops talking.
+ *
+ * A throwing callback must not take the turn with it. Reloading a frame is the
+ * caller's business and its failure is not the conversation's.
+ */
+async function* watchForWrites(events, onSiteChanged) {
+  for await (const event of events) {
+    if (event?.kind !== SITE_CHANGED) {
+      yield event
+      continue
+    }
+    try {
+      onSiteChanged(event.meta ?? {})
+    } catch {
+      // Deliberately swallowed; see above.
+    }
+  }
+}
+
 /** Per-session instance id — also the key the composer's draft persists under. */
 export const CHAT_ID_PREFIX = 'builder-chat:'
 
@@ -59,9 +98,15 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  * @param {object} [options]
  * @param {Storage} [options.storage]   per-instance draft persistence
  * @param {object}  [options.transport] `{streamPrompt}` — injected by tests
+ * @param {(meta: {at?: number, changes?: number}) => void} [options.onSiteChanged]
+ *   Called each time the turn reports a write — see {@link watchForWrites}.
  */
 export function createChatPanel(options = {}) {
-  const { storage, transport = { streamPrompt: streamChatPrompt } } = options
+  const {
+    storage,
+    transport = { streamPrompt: streamChatPrompt },
+    onSiteChanged = () => {},
+  } = options
 
   const element = document.createElement('div')
   element.className = 'builder-chat'
@@ -104,7 +149,7 @@ export function createChatPanel(options = {}) {
       emptyText: EMPTY_TEXT,
       toolPane: true,
       ...(storage ? { storage } : {}),
-      sendPrompt: (text) => transport.streamPrompt(id, text),
+      sendPrompt: (text) => watchForWrites(transport.streamPrompt(id, text), onSiteChanged),
     })
 
     for (const turn of session.turns ?? []) chat.appendMessage(turn.role, turn.markdown)
