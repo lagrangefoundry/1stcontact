@@ -5,9 +5,9 @@ type: request
 title: 'Projected reference: the products own facts, generated rather than authored'
 created_by: xgd
 created_at: '2026-08-31T21:38:31.838491+00:00'
-updated_at: '2026-08-31T21:57:01.925843+00:00'
+updated_at: '2026-09-01T18:31:05.976259+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -81,11 +81,77 @@ output is a corpus member like any other.
 - No projected fact is also stated in an authored `system_kb` document — asserted
   by review, since the whole point is one source per fact.
 
+---
+
+## What landed
+
+A projector (`tools/generate/src/cli/kb-projection.ts`) and a second corpus
+producer beside the ticket export (`writeProjections` in
+`tools/generate/src/cli/kb.ts`), run by `1c kb export` and by the assets build
+before `1c kb build`.
+
+**Three projections, one source each.** `REF-behaviors` from the framework
+behavior catalogue (`CATALOG`), `REF-l1` from the L1 schemas and envelope,
+`REF-surface` from the declared control surface (`ai/l1-surface.json`). Each
+reads exactly one source and reads no document: every sentence is either
+rendered from the shape of the source or lifted verbatim from prose the source
+itself carries (a declaration's `description`, a schema's doc comment). A
+projection that copied a sentence out of an authored document would recreate the
+two-sources failure this ticket exists to avoid; one that invented a sentence
+would be a fact with no source at all.
+
+**One catalogue per source, not one document per module.** The granularity
+question above is answered by chunk retrieval: a chunk is only useful if it is
+coherent alone, and with two behaviors in the catalogue a per-module split
+produces documents too small to cluster and a map territory per module. It stays
+one document per source until a single module no longer fits a chunk.
+
+**A projection is not `renderManual`.** The shared AI library already projects
+the same `l1-surface.json` into a tool manual, and this deliberately does not
+call it. A manual is projected *through a grant* — the operations one role was
+given, in the second person, as instructions. A reference describes the whole
+declared surface to a reader asking what the product can do. One source, two
+renderings; §3.2's rule is one source per fact, not one rendering.
+
+### Consequences that had to be decided
+
+- **Two producers, two namespaces, one sweep each.** Projections are named
+  `REF-*` and the ticket export's sweep spares that namespace, while the
+  projector sweeps only `REF-*`. So a withdrawn document is deleted and a
+  withdrawn projection is deleted, and neither producer can delete the other's
+  output whatever order they run in. Without the split, a build could lose a
+  projection to ordering, and a KB test fixture that supplies its own stubbed
+  ticket store would silently get three documents it never asked for — which for
+  a suite tuning a corpus to make a clustering assertion is destructive, not
+  merely surprising.
+- **An unchanged projection is not rewritten.** The index keys its incremental
+  manifest on the file stamp, so rewriting an identical file every build would
+  re-embed the entire reference every build.
+- **Membership is read from the KB declaration, never hardcoded.** An exported
+  ticket satisfies the corpus predicate by carrying its own fields; a projection
+  has no ticket and must assert membership itself. Hardcoding today's predicate
+  would drop the projections out of the KB the day it changed — the one failure a
+  generated document is supposed to be incapable of, and a day that has already
+  come once (the predicate was `fields.system_kb: true` until [[REQ-164]] made it
+  a `doc_kind`).
+- **A projection says where its facts came from, in the body as well as the
+  frontmatter.** Retrieval returns passages and a passage carries no
+  frontmatter, so an assistant reading a chunk mid-conversation can still say
+  where the fact came from and where to go to change it. The same banner marks
+  the document as rebuilt on every build, so a hand edit is known to be lost.
+- **No projection cites an internal ticket.** The sources are read for what they
+  declare, not for the `[[DOC-N]]`/`[[REQ-N]]` cross-references our own
+  documents carry — sending a client-facing assistant to an internal ticket is a
+  dead end for its reader.
+- **A definition does not leak out of the shape it was written for.** The L1
+  projection scopes each element kind's value sets to that kind, rather than
+  pooling them into one vocabulary that would claim every shape accepts every
+  value.
+- **Frontmatter is the export's own dialect.** `DocDirStore` reads it, so a
+  projection formatting its own would be a second dialect in one directory.
+
 ## Open questions
 
-- **Granularity** — one document per module, or one catalogue? Chunk retrieval
-  argues for whichever produces coherent chunks; the catalogue is probably right
-  until modules are numerous.
 - **Whether projections carry into the awareness map's territories** or are
   described separately. They are a different kind of knowledge from consultation
   material and may cluster oddly beside it.
