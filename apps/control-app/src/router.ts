@@ -26,10 +26,25 @@ import { workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
-// REQ-162 — the ticket store's bindings are part of this Worker's env even
-// though no route reaches them yet: a binding declared in wrangler.toml and
-// absent from the type program is one nothing checks.
-import type { TicketStoreEnv } from './tickets'
+import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
+import { projectKnowledgeFor } from './knowledge'
+import { systemKnowledge } from './system-knowledge'
+import { anthropicImageDescriber, type DescribeImage } from './describe'
+import { FetchRefusedError } from './fetch-guard'
+import {
+  ingestFetch,
+  ingestUpload,
+  listMaterial,
+  materialFile,
+  MaterialRejectedError,
+  NotMaterialError,
+  NotRepublishableError,
+  promoteToSiteAsset,
+  readMaterial,
+  reviseDescription,
+  type IndexMaterial,
+  type MaterialRole,
+} from './material'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -104,7 +119,13 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
     CHAT = (async () => {
       const tenantId = (env.TENANT_ID ?? '').trim()
       const store = await (deps.store ?? storeFor)(env)
-      return workerHost(env, store, tenantId)
+      // Opened HERE and not inside `workerHost`, for the reason the store above
+      // is: this is the one place per isolate where the expensive things are
+      // built, and the KB is one of them — `KnowledgeRuntime.open` decodes the
+      // whole bundled index into vectors. Doing it per request would decode it
+      // per turn, for an artefact that cannot change while the isolate lives.
+      const knowledge = await (deps.knowledge ?? systemKnowledge)(env)
+      return workerHost(env, store, tenantId, knowledge)
     })()
   }
   return CHAT
@@ -182,6 +203,16 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv {
    * missing binding.
    */
   BROWSER?: Fetcher
+  /**
+   * Workers AI ([[REQ-159]]) — the embedder behind the project knowledge base.
+   *
+   * On the router's env because [[REQ-163]]'s ingestion routes index what they
+   * create: an unindexed document is INVISIBLE ([[DOC-39]] §4), not merely stale,
+   * so the upload path needs the same binding the KB does. Optional here for the
+   * same reason it is optional there — a deployment without it still stores and
+   * still lists material, and says loudly that nothing can find it.
+   */
+  AI?: { run(model: string, input: unknown): Promise<unknown> }
 }
 
 /**
@@ -203,6 +234,31 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv {
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv) => Promise<TenantSiteStore>
+  /** The ticket store the ingestion routes write material into ([[REQ-163]]). */
+  tickets?: (env: RouterEnv) => Promise<TicketStore>
+  /**
+   * The system knowledge base the chat session searches ([[REQ-158]]).
+   *
+   * Injectable for the same reason `index` below is: the built-in one is the
+   * corpus `1c kb build` produced for THIS checkout, which is a release artefact
+   * a test cannot depend on and must not assert against. A UAT hands in a corpus
+   * it planted itself, so "the assistant answered from the document and named
+   * it" is a claim about a document whose content the test chose.
+   */
+  knowledge?: (env: RouterEnv) => Promise<unknown>
+  /**
+   * Step 5's indexer, and the whole reason it is injectable.
+   *
+   * Wired below to the project KB's `onMaterialWritten`. A UAT substitutes a
+   * counter to prove the pipeline calls it EXACTLY ONCE per created material —
+   * a claim that would otherwise need an embedder, an R2 index and a real
+   * Workers AI binding to make.
+   */
+  index?: (env: RouterEnv) => Promise<IndexMaterial | null>
+  /** The vision seam, so ingestion UATs describe an image without a network. */
+  describeImage?: DescribeImage
+  /** The fetch the guard drives, so redirect re-validation is provable offline. */
+  fetch?: typeof fetch
 }
 
 /**
@@ -233,6 +289,151 @@ const NO_STORE = 'no-store, must-revalidate'
  */
 function secretsOf(env: RouterEnv): Array<string | undefined> {
   return [env.ANTHROPIC_API_KEY]
+}
+
+/**
+ * Step 5, wired to the project knowledge base ([[REQ-163]] / [[REQ-159]]).
+ *
+ * `onMaterialWritten` is the right call rather than a bare `refreshIndex`: an
+ * upload is a REQUEST FOR ATTENTION ([[DOC-39]] §4.2). The client is not adding a
+ * document to be thorough; they want to talk about it now. So the index refresh
+ * is awaited — the material is searchable the instant the upload returns — and
+ * the awareness-map rebuild is deferred behind it, which is the decomposition
+ * that leaves the assistant never blocked and never blind.
+ *
+ * `null` WHEN THE BINDING IS ABSENT, and the caller says so loudly rather than
+ * treating it as a degradation. `projectKnowledgeFor` raises rather than
+ * degrading when `AI` is missing, which is right for the KB's own routes and
+ * wrong here: an upload that 500s because nothing can embed it would lose the
+ * client's file to a problem the operator has to fix.
+ */
+async function defaultIndexer(env: RouterEnv): Promise<IndexMaterial | null> {
+  if (!env.AI) return null
+  const knowledge = await projectKnowledgeFor(env)
+  return async () => knowledge.onMaterialWritten()
+}
+
+/**
+ * The image describer, or nothing.
+ *
+ * Absent is an ordinary state, exactly as it is for the chat routes: a
+ * deployment with no key still stores every file the client hands it, and says
+ * in each body that nothing has looked at it yet.
+ */
+function defaultDescriber(env: RouterEnv): DescribeImage | undefined {
+  return env.ANTHROPIC_API_KEY ? anthropicImageDescriber(env.ANTHROPIC_API_KEY) : undefined
+}
+
+/**
+ * Say, loudly, that an upload landed where nothing can find it.
+ *
+ * ONCE PER AFFECTED UPLOAD, naming the uid and the binding. [[DOC-39]] §4's
+ * point is that the failure is INVISIBILITY rather than staleness: the request
+ * succeeded, the Library shows the file, and search will never return it. A
+ * silent skip would make that indistinguishable from a working deployment.
+ * [[REQ-159]] should promote this to a construction-time requirement in the
+ * manner of `ticketStoreFor`'s refusals; until then, a log is what there is.
+ */
+function warnUnindexed(uid: string): void {
+  console.warn(
+    `[REQ-163] material ${uid} was stored but NOT indexed: no AI binding is ` +
+      'configured, so the project knowledge base cannot embed it and nothing ' +
+      'will find it by search. Declare [ai] in apps/control-app/wrangler.toml, ' +
+      'under [env.production.ai] as well — a named environment inherits neither.',
+  )
+}
+
+/**
+ * What an ingestion answers with.
+ *
+ * THE DESCRIPTION STATUS AND `indexed` ARE IN THE ENVELOPE, not just in the log.
+ * The Library has to be able to show *"stored, but nothing has read it"* without
+ * a second request, and a client watching an upload succeed deserves to be told
+ * when what they uploaded cannot yet be found.
+ */
+function materialEnvelope(ingested: {
+  ticket: { uid: string; title: string; fields: Record<string, unknown> }
+  attachment: { uid: string; fields: Record<string, unknown> }
+  description: { status: string }
+  indexed: boolean
+}): Record<string, unknown> {
+  return {
+    uid: ingested.ticket.uid,
+    title: ingested.ticket.title,
+    kind: ingested.ticket.fields.kind,
+    rights: ingested.ticket.fields.rights,
+    republishable: ingested.ticket.fields.republishable,
+    exportable: ingested.ticket.fields.exportable,
+    origin: ingested.ticket.fields.origin,
+    // WHAT THE CLIENT SAID IT WAS FOR ([[REQ-161]]). Echoed rather than left to
+    // be re-derived from `republishable`, because the two come apart the moment
+    // captures land ([[DOC-38]] 3a is reference material AND republishable), and
+    // the Library filters on this one.
+    role: ingested.ticket.fields.role,
+    source_url: ingested.ticket.fields.source_url,
+    description_status: ingested.description.status,
+    description_model: ingested.ticket.fields.description_model,
+    attachment: {
+      uid: ingested.attachment.uid,
+      sha256: ingested.attachment.fields.sha256,
+      size: ingested.attachment.fields.size,
+      content_type: ingested.attachment.fields.content_type,
+    },
+    indexed: ingested.indexed,
+  }
+}
+
+/**
+ * "Put it on the site" means the bytes are actually on the site ([[REQ-161]]).
+ *
+ * THE ROLE IS NOT A LABEL. The overlay's first area promises the file will be
+ * something visitors see, and a ticket in a store is not that — until the bytes
+ * are in the site's asset library the client has dropped their logo into a
+ * filing cabinet. So the upload route completes the promise, immediately, which
+ * is also what makes a dropped logo pickable in the same second rather than
+ * after some later step nobody has specified.
+ *
+ * THROUGH THE GATE, NEVER AROUND IT. `promoteToSiteAsset` refuses anything whose
+ * ticket is not `republishable`, and `classify` writes that bit from the role —
+ * so the second area is mechanically incapable of reaching a published site,
+ * rather than merely not routed there. That is [[DOC-38]] §5's invariant getting
+ * its first real caller, which is the whole reason [[REQ-163]] shipped the
+ * refusal before anything could call it.
+ *
+ * A FAILURE HERE DOES NOT LOSE THE UPLOAD. The material is stored, described and
+ * indexed by the time this runs; a site store that refuses the write (an unknown
+ * slug, a store that is not there) must not turn that into a 500 that tells the
+ * client their file did not arrive. It is reported in the envelope instead —
+ * named, not swallowed, so the overlay can say what did and did not happen.
+ *
+ * AND SCRUBBED ON THE WAY OUT, exactly as the route table's own failures are.
+ * This is a 200 carrying a message from a caught exception, which is the one
+ * shape that looks like it escapes REQ-146's guarantee — the envelope leaves the
+ * Worker whatever the status code on it says, so the scrubber has to travel with
+ * it rather than being applied only where an error status is set.
+ */
+async function placeOnSite(
+  ingested: { ticket: { uid: string; fields: Record<string, unknown> } },
+  slug: string | undefined,
+  openTickets: () => Promise<TicketStore>,
+  openStore: () => Promise<TenantSiteStore>,
+  scrub: (message: string) => string,
+): Promise<Record<string, unknown>> {
+  if (ingested.ticket.fields.role !== 'site' || !slug) return { site_asset: null }
+  const name = String(ingested.ticket.fields.filename ?? '')
+  try {
+    const placed = await promoteToSiteAsset(await openTickets(), await openStore(), {
+      uid: ingested.ticket.uid,
+      slug,
+      name,
+    })
+    return { site_asset: placed.name }
+  } catch (err) {
+    return {
+      site_asset: null,
+      site_asset_error: scrub(err instanceof Error ? err.message : String(err)),
+    }
+  }
 }
 
 function uncacheable(response: Response): Response {
@@ -361,6 +562,41 @@ async function routeUncached(
   // "something changed".
   const edit = async () => ({ store: await openStore(), actor: 'client' as const })
 
+  // Memoised per request for the same reason the site store is: a route that
+  // opens it twice would perform two tenant-registry checks to obtain the same
+  // handle.
+  let tickets: Promise<TicketStore> | null = null
+  const openTickets = (): Promise<TicketStore> => {
+    tickets ??= (deps.tickets ?? ticketStoreFor)(env)
+    return tickets
+  }
+
+  /**
+   * What ingestion needs from this deployment — the indexer and the describer.
+   *
+   * BOTH ARE OPTIONAL AND THE TWO ABSENCES ARE NOT ALIKE, which is why they are
+   * reported differently:
+   *
+   *   - NO DESCRIBER is an ordinary, visible state. The material is stored, its
+   *     body says nothing has looked at it, and `description_status` makes the
+   *     backlog a query. Nothing is lost that a later pass cannot recover.
+   *   - NO INDEXER IS NOT. [[DOC-39]] §4 is explicit that an unindexed document
+   *     is **invisible** — search cannot return what it has not embedded — so an
+   *     unwired hook is a silent failure of the worst kind: every upload
+   *     succeeds, the Library fills up, and the assistant can find none of it.
+   *     So it is LOGGED LOUDLY, once per affected upload, naming the binding.
+   *
+   * [[REQ-159]] is landed, so the hook has a real implementation to reach —
+   * `onMaterialWritten` refreshes the vector index inline and defers the
+   * awareness-map rebuild behind it. The seam survives anyway, because the claim
+   * a UAT needs to make ("called exactly once per created material") should not
+   * require an embedder, an R2 index and a Workers AI binding to make.
+   */
+  const ingestDeps = async () => ({
+    index: deps.index ? await deps.index(env) : await defaultIndexer(env),
+    describeImage: deps.describeImage ?? defaultDescriber(env),
+  })
+
   try {
     if (p === '/api/sites' && method === 'GET') {
       // `latest` is the live revision — the highest id in the log, derived and
@@ -422,6 +658,171 @@ async function routeUncached(
       const slug = url.searchParams.get('slug')
       if (!slug) return json(400, { error: 'slug is required' })
       return json(200, (await editAssetList(slug, await edit())).data)
+    }
+
+    /**
+     * The Library's read surface ([[REQ-161]]) — the list, one item, its bytes.
+     *
+     * THREE ROUTES AND NOT ONE, and the split is the payload rather than taste.
+     * A material's body is its extracted text, so a brand book is tens of
+     * kilobytes of it; a list that carried bodies would ship the client's entire
+     * corpus to draw a column of filenames. So the list is rows, the item adds
+     * the body, and the bytes are their own response with their own content type.
+     *
+     * TENANT-WIDE, and the `slug` the Library also holds is never sent here.
+     * [[DOC-38]] §7.7 lets one blob back two sites and [[DOC-10]] §4.1 makes
+     * shared knowledge across a client's sites deliberate — so "used on this
+     * site" is a badge the client filters by, decided in the browser from
+     * `site_slug` on the row, and never a boundary this route enforces.
+     */
+    if (p === '/api/material' && method === 'GET') {
+      return json(200, { material: await listMaterial(await openTickets()) })
+    }
+
+    if (p === '/api/material/item' && method === 'GET') {
+      const uid = url.searchParams.get('uid')
+      if (!uid) return json(400, { error: 'uid is required' })
+      return json(200, await readMaterial(await openTickets(), uid))
+    }
+
+    /**
+     * The bytes, so the detail pane can SHOW the thing rather than name it.
+     *
+     * Served from the private bucket through the tenant-bound blob handle, which
+     * is why this is a route on the builder origin and not a URL into `SITES`:
+     * the public Worker has no binding on the material bucket, deliberately
+     * ([[DOC-38]] §7.1), and giving it one to save a hop is the disclosure that
+     * boundary exists to prevent.
+     */
+    if (p === '/api/material/file' && method === 'GET') {
+      const uid = url.searchParams.get('uid')
+      if (!uid) return json(400, { error: 'uid is required' })
+      const file = await materialFile(await openTickets(), uid)
+      return new Response(file.bytes as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'content-type': file.contentType,
+          // INLINE, with the original name. The pane renders images and audio
+          // directly and offers everything else as a download; a bare
+          // `attachment` would make the preview a download prompt instead.
+          'content-disposition': `inline; filename="${file.filename.replace(/["\\]/g, '')}"`,
+        },
+      })
+    }
+
+    /**
+     * The client corrects what we said their material is ([[REQ-161]]).
+     *
+     * The body IS the description ([[DOC-38]] §6), so this is a ticket write —
+     * but it re-indexes, which is the half that makes the ticket's acceptance
+     * true. A correction that changed the body and not the index would leave the
+     * Library showing the client's words while search kept answering with ours.
+     */
+    if (p === '/api/material/description' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.uid !== 'string' || body.uid === '') {
+        return json(400, { error: 'uid is required' })
+      }
+      if (typeof body.body !== 'string') {
+        return json(400, { error: 'body is required' })
+      }
+      const revised = await reviseDescription(
+        await openTickets(),
+        { uid: body.uid, body: body.body },
+        (await ingestDeps()).index,
+      )
+      if (!revised.indexed) warnUnindexed(body.uid)
+      return json(200, revised.row)
+    }
+
+    /**
+     * The two ingestion entry points ([[REQ-163]], [[DOC-38]] §10).
+     *
+     * THEY BELONG HERE AND NOT TO [[REQ-161]], and the line is worth stating
+     * because the two tickets meet exactly at it: these are PIPELINE ENTRY
+     * POINTS — the only way a byte enters the system — while listing material,
+     * showing it, and the drag-and-drop overlay that will POST to them are
+     * SURFACES over what already exists. So the contract below is public from
+     * the start: the Library is written against it rather than alongside it.
+     *
+     * `multipart/form-data` for the upload, because that is what a dropped file
+     * is in a browser and what `FormData` produces without ceremony. JSON for
+     * the fetch, because its whole input is one address.
+     */
+    if (p === '/api/material' && method === 'POST') {
+      const form = await request.formData()
+      // CAST BECAUSE `@cloudflare/workers-types` DECLARES `get` TOO NARROWLY —
+      // `get(name): string | null`, with no `File` in the union, even though the
+      // runtime returns one for a file part and the same file's declaration is a
+      // class two hundred lines up in that very file. Without the cast the
+      // `instanceof` below does not compile, and narrowing structurally instead
+      // would leave the value `never`.
+      const file = form.get('file') as unknown as File | string | null
+      if (!(file instanceof File)) {
+        return json(400, { error: 'a file is required, sent as multipart form field `file`' })
+      }
+      const slug = form.get('slug')
+      const siteSlug = typeof slug === 'string' && slug !== '' ? slug : undefined
+      /**
+       * WHICH DROP AREA THE CLIENT CHOSE ([[REQ-161]]).
+       *
+       * VALIDATED AND NOT COERCED. A misspelled role must be a refusal, because
+       * the two silent alternatives are both wrong in a way nobody would notice:
+       * falling back to `site` publishes something the client marked private,
+       * and falling back to `reference` quietly withholds a hero photograph they
+       * meant to put on their site.
+       *
+       * ABSENT IS STILL ALLOWED, and that is deliberate. This route is the
+       * pipeline's entry point as well as the overlay's target, so a caller that
+       * predates the question — [[REQ-163]]'s own path — lands on [[DOC-38]]
+       * §10.1's provenance answer exactly as it did. The guarantee that a human
+       * chose belongs to the overlay, which has no drop target that is not one of
+       * the two areas; it is not something a route can assert on its behalf.
+       */
+      const rawRole = form.get('role')
+      if (rawRole != null && rawRole !== 'site' && rawRole !== 'reference') {
+        return json(400, { error: "role must be 'site' or 'reference'" })
+      }
+      const role = (rawRole ?? undefined) as MaterialRole | undefined
+      const ingested = await ingestUpload(
+        await openTickets(),
+        {
+          bytes: new Uint8Array(await file.arrayBuffer()),
+          filename: file.name,
+          // The browser's own observation about the bytes, with a fallback
+          // rather than a refusal — a type we cannot read still gets stored and
+          // still says so, which is the trade the pipeline makes throughout.
+          contentType: file.type || 'application/octet-stream',
+          role,
+          siteSlug,
+        },
+        await ingestDeps(),
+      )
+      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
+      return json(200, {
+        ...materialEnvelope(ingested),
+        ...(await placeOnSite(
+          ingested,
+          siteSlug,
+          openTickets,
+          openStore,
+          redactor(secretsOf(env)),
+        )),
+      })
+    }
+
+    if (p === '/api/material/fetch' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.url !== 'string' || body.url === '') {
+        return json(400, { error: 'url is required' })
+      }
+      const ingested = await ingestFetch(await openTickets(), body.url, {
+        ...(await ingestDeps()),
+        fetch: deps.fetch,
+        siteSlug: typeof body.slug === 'string' && body.slug !== '' ? body.slug : undefined,
+      })
+      if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
+      return json(200, materialEnvelope(ingested))
     }
 
     /**
@@ -642,6 +1043,36 @@ async function routeUncached(
     // name is taken, and the only thing that resolves it is choosing another.
     if (err instanceof SlugClaimedError) {
       return json(409, { error: scrub(err.message) })
+    }
+    // [[REQ-163]] — three refusals a client can act on, and each carries the
+    // status that says WHOSE problem it is.
+    //
+    // A file over the ceiling, or one nothing can store, is 413/400: the request
+    // is wrong and the message says how ([[DOC-38]] §14 asks for "a clear
+    // rejection rather than an out-of-memory", and a clear rejection is one the
+    // person who dragged the file can act on). An address the guard refuses is
+    // 400 for the same reason — it is not a server failure and it is not a
+    // permission the caller could be granted.
+    //
+    // Promotion of a non-republishable source is 403 and NOT 400, because the
+    // request is perfectly well formed: it is forbidden. That distinction is the
+    // whole of [[DOC-38]] §5 — the most damaging single action available in the
+    // system is refused as a matter of RIGHTS, not of syntax.
+    if (err instanceof MaterialRejectedError) {
+      return json(err.message.includes('the limit is') ? 413 : 400, { error: scrub(err.message) })
+    }
+    if (err instanceof FetchRefusedError) {
+      return json(400, { error: scrub(err.message), url: err.url })
+    }
+    if (err instanceof NotRepublishableError) {
+      return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // 404 AND NOT 403 ([[REQ-161]]). The uid names nothing this surface reaches:
+    // either it does not exist or it is a ticket of another kind. The two are
+    // answered identically on purpose — distinguishing them would turn the
+    // Library's read routes into an oracle for which uids exist in the tenant.
+    if (err instanceof NotMaterialError) {
+      return json(404, { error: scrub(err.message), uid: err.uid })
     }
     const message = err instanceof Error ? err.message : String(err)
     return json(500, { error: scrub(message) })

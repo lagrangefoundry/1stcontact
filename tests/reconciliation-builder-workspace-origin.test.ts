@@ -46,7 +46,7 @@ import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
-import { applyLocalD1Schema } from './support/local-d1'
+import { applyLocalD1Schema, seedIdentity } from './support/local-d1'
 // REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
 // JWT before it proxies anything. AC-964 and AC-965 are about what an ADMITTED
 // caller receives, so they now authenticate rather than assert the pre-gate
@@ -400,6 +400,52 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // Ingestion ([[REQ-163]]). Probed in their REJECTION shape, for the same
+      // reason the assistant's POSTs are: the success shape would store a blob
+      // and call a model, and this criterion is about a header. A cacheable
+      // refusal is the specific harm here — a client who fixes the file and
+      // retries would be shown the old refusal.
+      {
+        route: '/api/material',
+        url: '/api/material',
+        ok: false,
+        init: {
+          method: 'POST',
+          headers: { 'content-type': 'multipart/form-data; boundary=x' },
+          body: '--x--\r\n',
+        },
+      },
+      {
+        route: '/api/material/fetch',
+        url: '/api/material/fetch',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
+      // The Library's read surface ([[REQ-161]]), probed in the same REJECTION
+      // shape and for a sharper version of the same reason. These are the routes
+      // that answer *what the client has given us*, and the builder rewrites that
+      // set underneath the browser — an upload lands, a description is corrected —
+      // so a cached list is a Library that silently stops showing the file the
+      // client just dropped into it. Each refuses on its own arguments, before it
+      // opens a store, which is what lets a header claim be made without one.
+      {
+        route: '/api/material/item',
+        url: '/api/material/item',
+        ok: false,
+      },
+      {
+        route: '/api/material/file',
+        url: '/api/material/file',
+        ok: false,
+      },
+      {
+        route: '/api/material/description',
+        url: '/api/material/description',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // A rendered page in EACH channel, plus the two ways a preview request
       // fails. `published` REDIRECTS since REQ-149 (D4) — a 302 is still a
       // response this origin returns, and the directive must be on it too: a
@@ -667,6 +713,11 @@ describe('story-e674c60a control-app front', () => {
     // The Worker reads its own D1 now, and miniflare's local database
     // starts with no schema (REQ-145).
     applyLocalD1Schema(REPO)
+    // REQ-167 — a verified Access identity is no longer admission. The token
+    // this suite mints belongs to `uat@westhead.me`; without an invited user,
+    // a membership and a live grant behind that address, every request below
+    // would be refused 403 by `index.ts` before a route ran.
+    seedIdentity(REPO, 'uat@westhead.me')
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {

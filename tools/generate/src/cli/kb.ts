@@ -42,10 +42,19 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { repoRoot, sharedModuleUrl } from './webui'
+import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from './kb-model'
 import { isProjected, projections, type ProjectedDoc } from './kb-projection'
 
 /**
@@ -56,18 +65,16 @@ import { isProjected, projections, type ProjectedDoc } from './kb-projection'
  */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** The knowledge base's name — its key in the config, and its scope axis value. */
-export const SYSTEM_KB = 'system'
-
 /**
- * The store name the KB's corpus resolves against.
+ * The KB's name, its source and its corpus type — declared in `kb-model.ts` and
+ * re-exported here.
  *
- * A KB names a SOURCE rather than carrying a store, so "a shipped read-only
- * directory" and "a tenant's D1 store" are the same code path with different
- * sources (DOC-7 §4.2). This is the former; the latter is what a per-tenant KB
- * will name without the library changing.
+ * THEY LIVE THERE RATHER THAN HERE because the Worker needs the same three
+ * values and cannot import this file: everything else in it reaches a
+ * filesystem, which is exactly what must not appear on the query path. Re-
+ * exported so every existing importer of `../kb` is unaffected.
  */
-export const SHIPPED_SOURCE = 'shipped'
+export { SYSTEM_KB, SHIPPED_SOURCE, CORPUS_TYPE } from './kb-model'
 
 /**
  * The other knowledge base declared in the same file — the client's own
@@ -83,9 +90,6 @@ export const PROJECT_KB = 'project'
 
 /** Its corpus: everything a site is made from ([[DOC-38]] §9). */
 export const PROJECT_CORPUS_TYPES = ['chat', 'material', 'reference', 'brief'] as const
-
-/** The ticket type the corpus selects. Everything we write as a document. */
-export const CORPUS_TYPE = 'doc'
 
 /**
  * The layout inside the KB tree — the Python peer's, so a corpus built by either
@@ -969,6 +973,93 @@ export async function openKnowledgeRuntime(root: string = kbRoot()): Promise<Unt
     embedder: await resolveEmbedder(),
     sources: binding.sources,
   })
+}
+
+// ── step 3b: the KB as a Worker gets it ──────────────────────────────────────
+
+/**
+ * The built KB, as values a Worker can hold (REQ-158).
+ *
+ * THE SECOND RESIDENCY, AND THE REASON THERE HAS TO BE ONE.
+ * {@link openKnowledgeRuntime} above builds on `nodeIndexSource` and
+ * `nodeDocReader` — two directories on a disk — and workerd has no disk. The
+ * `IndexSource` and doc-reader seams exist precisely so the query path does not
+ * care which it got, so this is the same index and the same corpus expressed as
+ * a value: `memoryIndexSource` rehydrates the first two, `bundleDocReader` the
+ * third, and search cannot tell the difference.
+ *
+ * BUNDLE-RESIDENT IS A DECISION ABOUT *THIS* KB AND MUST NOT BE GENERALISED. The
+ * system corpus is a release artefact — byte-identical for every client, changed
+ * only by shipping new software — so travelling inside the bundle costs a little
+ * size and buys a query path with no network on it at all. The *project* KB
+ * ([[DOC-38]] §8) can never be this: it is tenant data, written continuously,
+ * different per tenant, and it goes to R2 through the same seam
+ * (`apps/control-app/src/knowledge.ts`'s `r2IndexSource`).
+ *
+ * THE VECTORS TRAVEL AS BASE64 because a JavaScript module cannot hold raw
+ * bytes, and they must not go through a UTF-8 round trip — that would silently
+ * replace every invalid sequence and corrupt the index into something that still
+ * loads. Upstream's own `writeIndexModule` makes the same call for the same
+ * reason; this composes its encoder rather than restating the choice, and covers
+ * two indexes and the corpus rather than one index.
+ */
+export interface KbBundle {
+  /** The document index, keyed by upstream's own `INDEX_FILES` names. */
+  index: Record<string, string>
+  /** The chunk index, same shape. Separate artefacts, not two modes of one. */
+  chunks: Record<string, string>
+  /**
+   * The corpus itself, `path -> {text, updated_at}`.
+   *
+   * THE STAMP IS CARRIED, not defaulted. `bundleDocReader` stamps everything
+   * `EPOCH` when it is not told otherwise, while `nodeDocReader` takes each
+   * file's mtime — so a bundle without stamps would make the corpus the Worker
+   * reads a differently-dated corpus from the one the index was built against.
+   * Nothing would error; the two would simply disagree about how recent every
+   * document is, which is the ranker's own input.
+   */
+  docs: Record<string, { text: string; updated_at: string }>
+}
+
+/**
+ * Read the built KB off disk into {@link KbBundle}, or `null` if it is unbuilt.
+ *
+ * `null` rather than a throw, for the reason {@link openKnowledgeRuntime} gives:
+ * an operator who has never run `1c kb build` gets an assistant that knows its
+ * tools and not the design documents, which is a degradation and not a failure.
+ * What must NOT happen is a build that cannot compile because a generated module
+ * is missing — see `assets.ts`, which always writes one.
+ */
+export async function kbBundle(root: string = kbRoot()): Promise<KbBundle | null> {
+  const dir = corpusDir(root)
+  if (!existsSync(path.join(dir, INDEX_DIR))) return null
+  const lib = await km()
+  const { nodeIndexSource, readCorpusDir } = await kmNode()
+
+  const files = async (sub: string): Promise<Record<string, string>> => {
+    const source = nodeIndexSource(path.join(dir, sub))
+    const out: Record<string, string> = {}
+    // Upstream's own file list, so an index that grows a fourth sidecar travels
+    // without anything here being told about it.
+    for (const name of lib.INDEX_FILES as string[]) {
+      out[name] =
+        name === lib.EMBEDDINGS_FILE
+          ? lib.bytesToBase64((await source.readBytes(name)) ?? new Uint8Array())
+          : ((await source.readText(name)) ?? '')
+    }
+    return out
+  }
+
+  // The corpus walk is upstream's — `readCorpusDir` is the documented bridge
+  // between "a directory of markdown" and "the map a bundled reader takes", and
+  // it already skips everything that is not a `.md`. Only the stamps are added.
+  const text = readCorpusDir(dir) as Record<string, string>
+  const docs: KbBundle['docs'] = {}
+  for (const [rel, body] of Object.entries(text)) {
+    docs[rel] = { text: body, updated_at: statSync(path.join(dir, rel)).mtime.toISOString() }
+  }
+
+  return { index: await files(INDEX_DIR), chunks: await files(CHUNKS_DIR), docs }
 }
 
 // ── the command ──────────────────────────────────────────────────────────────

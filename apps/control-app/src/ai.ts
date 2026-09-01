@@ -33,11 +33,13 @@
 import * as aiLib from './generated/ai-workers.js'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
+import { CARETAKER_PURPOSE } from '../../../tools/generate/src/cli/ai/host-core'
 import {
   bufferedAuditSink,
   type AuditLine,
   type BufferedAuditSink,
 } from '../../../tools/generate/src/cli/ai/toolbox-core'
+import { knowledgePriming, knowledgeSurfaceFor } from './system-knowledge'
 
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -187,8 +189,18 @@ export function workerHost(
   env: WorkerAiEnv,
   store: TenantSiteStore,
   tenantId: string,
+  knowledge: Untyped | null = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
+  // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
+  // rule `host.ts` states for Node and this inherits rather than restates. A
+  // session primed with the landscape but not granted the corpus would be told
+  // to read documents it cannot open; one granted the corpus and not primed
+  // would never learn there was anything to read.
+  // `!= null` deliberately, covering `undefined` as well: `router.ts` resolves
+  // this through an injectable seam, and a seam that hands back nothing must
+  // read as "no corpus" rather than as a corpus that throws on first use.
+  const knowing = knowledge != null
   return {
     audit,
     deps: {
@@ -205,6 +217,8 @@ export function workerHost(
       // deployment with no key still opens the session, still replays the
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
+      knowledgeSurface: knowing ? knowledgeSurfaceFor(knowledge) : null,
+      priming: knowing ? knowledgePriming(knowledge, CARETAKER_PURPOSE) : null,
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

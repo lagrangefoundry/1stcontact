@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-08-31T19:53:13.061738+00:00'
+updated_at: '2026-09-01T18:19:42.810220+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,112 @@ I've read the ticket and traced the whole seam. The design is clear — but four
 4. **`SYSTEM_KB` scoping** (your open question 2.) I'd leave it hard-coded — there is one KB, and the project-KB ticket is the right place to introduce configuration rather than inventing a config surface with one member. Confirm?
 
 Nothing is written yet; I'll cut `free-REQ-158` and start once you've answered 1–3.
+
+<!-- xgd-turn id="dc69f789-a6df-41ff-b0ea-59dc5453a56a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:19:25.695410+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="98901093-b2ee-47ef-ace4-dd52de62931d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:35:09.777908+00:00" -->
+#### You
+**Q1 — creds: yes, and here's exactly what's needed.** `CLOUDFLARE_ACCOUNT_ID` plus a `CLOUDFLARE_API_TOKEN` with **Account → Workers AI → Read** — that's the permission that authorises `/accounts/{id}/ai/run/@cf/baai/bge-small-en-v1.5`. No Anthropic key needed; the map's paragraphs go through the Claude Code CLI when `ANTHROPIC_API_KEY` is unset. I verified `api.cloudflare.com` is reachable from here.
+
+One thing blocks the build regardless of the key: **the **`1c`** CLI doesn't boot in this checkout.** `1c kb status` dies on `Cannot find module 'unpdf'` — REQ-163 added the dependency and this tree never installed it. `pnpm install --frozen-lockfile` refuses non-interactively because it wants to purge `node_modules` first. It needs `CI=true pnpm install --frozen-lockfile`, which removes and rebuilds the tree — your call, so I didn't run it.
+
+**Q2 — generated, not committed; the catch dissolves.** GitHub Actions is not a live deploy path: `deploy.yml` has run **once, on 2026-08-02, and failed after 7 seconds**, and has never successfully deployed anything. `bin/deploy` is the real path, and `bin/build` runs `1c assets` before the typecheck for exactly this reason. Committing would fight two stated rules — both `generated/` and `kb/system/` are gitignored, and `bin/build` says outright that a checked-in generator output is a second definition site BUG-32's scan fails on. So `generated/kb.js`, always written, `export const KB = null` when absent. I flagged two follow-ups: a missing KB must be loud at deploy time, and `deploy.yml` should be fixed or deleted rather than left as a trap.
+
+**Q3 — take the proposal.** It already has precedent: `tests/support/stub-embedder.ts` plus REQ-159's and REQ-163's workerd tests do exactly this. Don't gate a real-corpus variant behind an env var — a test that never runs in CI isn't one. I added that the fixture UAT must assert all three parts: answer from the planted document, names it, and priming put the map in the session.
+
+**Q4 — neither hard-code nor invent config.** REQ-159 already added `kb/knowledge_bases.json`, and it already declares `system` beside `project`. Mirror `projectKb()` with a `systemKb()` parsing the same file — following the rule that function records, *parsed, not paraphrased*.
+
+There's an API key in the env, it has permissions to get the account id
+
+<!-- xgd-turn id="98901093-b2ee-47ef-ace4-dd52de62931d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T01:05:39.424314+00:00" -->
+#### Claude
+Now let me write the code. Starting with the bundle payload builder in `kb.ts`:
+
+Now wire the new emitters into the build and make it async:
+
+Now the Worker-side runtime opener:
+
+Now wire it into `ai.ts` and `router.ts`:
+
+<!-- xgd-turn id="4ef5c623-3877-4c37-9832-91e862b9884b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T01:07:10.291055+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+<!-- xgd-turn id="4ef5c623-3877-4c37-9832-91e862b9884b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T01:22:48.501345+00:00" -->
+#### Claude
+Let me run `1c assets` and the typecheck to see where the build stands.
+
+Now let me run the affected existing test suites.
+
+Now let me export `writeKbModule` and write the node UAT.
+
+Now the workerd behavioural UAT.
+
+Suite running. Meanwhile, let me update the ticket body to record what was actually built.
+
+All four fail at baseline too — pre-existing, not my diff. Restoring:
+
+Now the commit.
+
+Now merge back into `xgd-working` under the shared lock.
+
+REQ-158 is free-coded and landed on `xgd-working` as `2745001`.
+
+## What shipped
+
+**Build side** — `kbBundle()` reads a built KB off disk into values (both indexes, vectors base64 through upstream's encoder, corpus text with each document's own `updated_at`). `1c assets` gained two emitters: the `ai-knowledge` shim and `generated/kb.js`, the latter written **unconditionally** with `export const KB = null` when nothing is built, so the Worker's static import can never fail to resolve on a fresh checkout. A missing KB shouts in the asset report rather than passing silently.
+
+**Worker side** — `apps/control-app/src/system-knowledge.ts` opens the same KB from three values via `memoryIndexSource` + `bundleDocReader`, reaching no filesystem. `router.ts` opens it once per isolate beside the store; `ai.ts` hands the surface and the priming to the toolbox as a pair. `SYSTEM_KB`/`SHIPPED_SOURCE`/`CORPUS_TYPE` moved to `kb-model.ts` so both halves share one declaration.
+
+**One real bug found on the way:** making `cmdAssets` async silently broke `bin/1c.mjs`, which dispatches `assets` outside the CLI barrel and did not await it — `1c assets` printed `Cannot read properties of undefined (reading 'css')` and exited 0. Now awaited.
+
+## Evidence
+
+- `test_UAT_FC_REQ-158_system_kb.workers.test.ts` — the acceptance sentence in workerd through the Worker's own `route()`. The model double is **not told the answer**: it reads the tool result out of the request the host sent it, so "answers from the planted document and names it" can only hold if the fact travelled corpus → search → tool loop → context. Also: priming carries the map and not the pile, the answering document outranks the one that doesn't, the grant is exactly the three read operations, an absent KB still takes a turn.
+- `test_UAT_FC_REQ-158_system_kb_bundle.test.ts` — the artefact claims a conversation can't establish.
+
+## Verified
+
+`1c kb build` has now run here: 4 documents, 145 chunks, a 2-territory map with 13 validated access points. Only 4 `doc` tickets carry `doc_kind: system_kb` — the other 35 are DOC-39 §10's pending marker migration, not this ticket.
+
+Full suite: **16 failures, all pre-existing or the known dist-assets rebuild race** — I stashed my diff and reproduced 10 of them at baseline verbatim; the other 6 pass on serial rerun with fresh assets. One failure *was* mine (BUG-39's "wire protocol transcribed in exactly one place" — I'd hand-rolled a tool-call streamer instead of using the shared `calls`) and is fixed.
+
+## Two things worth your attention
+
+**The size headroom is smaller than the ticket estimated.** Measured by dry-run: 1052 KiB gzip with `KB = null`, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket.
+
+**Node's `fetch` ignores `HTTPS_PROXY`.** `1c kb build` died with a bare `fetch failed` (an `EPERM` connect underneath) while `curl` to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. `NODE_USE_ENV_PROXY=1` fixes it. Also noted on the ticket.
+
+The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="a8c81484-cf3f-48ab-bc7c-a89c307eff41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T03:33:17.200851+00:00" -->
+#### You
+## Two things worth your attention
+
+**The size headroom is smaller than the ticket estimated.** Measured by dry-run: 1052 KiB gzip with `KB = null`, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket.
+
+**Node's **`fetch`** ignores **`HTTPS_PROXY`**.** `1c kb build` died with a bare `fetch failed` (an `EPERM` connect underneath) while `curl` to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. `NODE_USE_ENV_PROXY=1` fixes it. Also noted on the ticket.
+
+Please explain this it does nott make sense to me
+
+<!-- xgd-turn id="26051ddb-50d2-410b-bb4a-75585eefb107-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:19:42.369447+00:00" -->
+#### You
+Two things worth your attention The size headroom is smaller than the ticket estimated. Measured by dry-run: 1052 KiB gzip with KB = null, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket. Node's fetch ignores HTTPS_PROXY. 1c kb build died with a bare fetch failed (an EPERM connect underneath) while curl to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. NODE_USE_ENV_PROXY=1 fixes it. Also noted on the ticket. Please explain this it does nott make sense to me
 
 <!-- xgd-chat-end -->

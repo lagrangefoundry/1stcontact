@@ -190,6 +190,26 @@ export interface HostDeps {
 }
 
 
+/**
+ * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
+ *
+ * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
+ * priming answers "what should I go looking for in this corpus", and an agent
+ * told only "you are a caretaker" has no basis for choosing between a document
+ * about storage and one about typography.
+ *
+ * IT LIVES ON THE SHARED SIDE (REQ-158) because both hosts prime with it and it
+ * is a statement about the ROLE, which is the same role in either runtime. Node
+ * reads it in `host.ts`; workerd reads it in `apps/control-app/src/ai.ts`. Two
+ * copies would be two role definitions, and the drift would be invisible — the
+ * Worker's assistant would simply go looking for different things.
+ */
+export const CARETAKER_PURPOSE =
+  'You look after a website for someone who is not technical. You will need to ' +
+  'know how this system builds and describes sites — its layout vocabulary, its ' +
+  'components, how pages are stored and published, and the reasoning behind those ' +
+  'designs — so you can act correctly and explain plainly.'
+
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(slug: string): string {
   return `claude+site:${slug}`

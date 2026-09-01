@@ -75,6 +75,68 @@ const MATERIAL_FIELDS = {
   source_url: { type: 'string', required_when: 'origin in [captured, fetched]' },
   /** Which site this belongs to, where it belongs to one. Absent = tenant-wide. */
   site_slug: { type: 'string' },
+
+  /**
+   * What the client said the material is FOR — [[REQ-161]], [[DOC-38]] §4.2.
+   *
+   * THE ONE THING PROVENANCE CANNOT INFER. `origin` records where the bytes came
+   * from and `kind` is read off the content type, so between them the system
+   * already knows everything about the file EXCEPT what it is wanted for. The
+   * case that proves the gap is a JPEG: a hero photograph destined for the site,
+   * and a screenshot of a competitor the assistant should look at and must never
+   * publish, are identical bytes with an identical content type and opposite
+   * rights. No rule over `origin` and `kind` separates them.
+   *
+   * NOT A LEGAL QUESTION, WHICH IS WHY IT MAY BE ASKED AT ALL. [[DOC-38]] §10.1
+   * refuses to ask *"do you own this?"* because the client frequently does not
+   * know; *"is this for the site, or for me to read?"* is a question about their
+   * own intention, which they answer instantly and correctly. So this narrows
+   * §10.1's accepted residual risk without reintroducing the dialog it rejected.
+   *
+   * NOT REQUIRED, and deliberately not derivable from `republishable`. A capture
+   * of the client's OWN previous site ([[DOC-38]] 3a) is `republishable` and yet
+   * plainly reference material, so the two fields come apart the moment captures
+   * land — which is why this is a field rather than a reading of that one. It is
+   * absent on material created before anyone was asked.
+   */
+  role: { type: 'enum', enum: ['site', 'reference'] },
+
+  /**
+   * How the description in the body went — one mechanism for every degraded case
+   * (REQ-163, `describe.ts`).
+   *
+   * DECLARED HERE RATHER THAN LEFT UNDECLARED, even though the engine tolerates
+   * an undeclared field. The whole value of the status is that a later
+   * re-describe pass is a QUERY (`fields.description_status = no_describer`)
+   * rather than a migration, and a predicate over a field nothing declares is a
+   * predicate over a convention.
+   *
+   * NOT REQUIRED, because a `reference` created by a capture has no description
+   * at the moment its bundle lands — the same reason the body is not required.
+   */
+  description_status: {
+    type: 'enum',
+    enum: ['ok', 'no_describer', 'no_text', 'unsupported', 'too_large', 'failed'],
+  },
+  /**
+   * Who wrote the description: a model id where a model wrote it, an extractor's
+   * name (`unpdf`, `sfnt-name-table`, `text-decode`) where code did, absent where
+   * nothing has.
+   *
+   * A plain string rather than an enum: the value is a MODEL ID as the API
+   * returned it, and an enum would have to be widened for every model release —
+   * turning "which describer wrote this" into a schema change.
+   */
+  description_model: { type: 'string' },
+  /**
+   * The name the file arrived under.
+   *
+   * Kept on the material even though the attachment record carries it too, and
+   * the duplication is deliberate: the Library lists materials, and reading a
+   * filename would otherwise cost an `attachments` call per row. It is also the
+   * only handle a client recognises when the description is degraded.
+   */
+  filename: { type: 'string' },
 }
 
 /**
@@ -361,6 +423,20 @@ export interface TicketStore {
     meta?: Record<string, unknown>
   }): Promise<{ attachment: Ticket }>
   attachments(a: { uid: string }): Promise<{ attachments: Ticket[] }>
+  /**
+   * The tenant-bound blob handle, for reading an attachment's bytes back.
+   *
+   * NAMED HERE rather than reached for with a cast at the one call site that
+   * needs it (REQ-163's asset promotion). It is the component's own scoped
+   * handle — `forTenant` binds it alongside the accessor — so reading through it
+   * cannot address another account's blob even by a correctly-formed key, and
+   * that guarantee is worth stating in the type rather than in a comment beside
+   * an `as unknown as`.
+   *
+   * `null` on a store built without a blob store. `ticketStoreFor` refuses to
+   * build one, so this Worker never sees it — but the component's contract does.
+   */
+  blobs: { get(key: string): Promise<Uint8Array | null> } | null
 }
 
 /** The canonical ticket object every op above returns. */
