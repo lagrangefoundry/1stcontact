@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-09-01T18:42:04.024625+00:00'
+updated_at: '2026-09-01T19:13:44.752744+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1984,5 +1984,13 @@ Supersede rather than revive — the record should show the priority changed bec
 ---
 
 Two things I'd want your call on before writing: whether §9 should propose the REQ-80 supersession as a ticket action (I'd file nothing without you saying so), and whether the doc should carry the funnel-diagnostic connection from [[DOC-35]] §4.3 or just cross-reference it. My instinct is cross-reference — the diagnostic is a persona concern, and this doc stays a reproduction doc.
+
+<!-- xgd-turn id="5008e8fc-b0d1-4a52-acc6-c1dda7d1d228-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:13:44.599898+00:00" -->
+#### You
+Oh dear, this conversation had become too big for your context, I fear. What you are talking about above is a document that talks about site importing. What I was hoping for is a document that captures our conversation here. Can you review the transcript? 
+
+We had a long and useful conversation about the playbook for leading a customer through a design process - we talked about different personas and the importants of making the experience fun and engaging - was that ever captured in a doc?
 
 <!-- xgd-chat-end -->
