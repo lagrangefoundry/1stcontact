@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:04:05.195653+00:00'
+updated_at: '2026-09-01T20:05:21.357650+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2941,5 +2941,13 @@ The Library tab and the drop-to-upload overlay are live, and with your AI bindin
 I checked the API keys are getting set but I still see:
 
 *The assistant is not switched on: this builder was started without an Anthropic API key. Set ANTHROPIC_API_KEY in the environment and restart it.*
+
+<!-- xgd-turn id="80fbedeb-0981-4b97-bf0d-4e2418197d4a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T20:05:21.290866+00:00" -->
+#### Claude
+Found it. `wrangler dev` doesn't pass shell environment variables into the Worker's `env` — only `.dev.vars`, `[vars]`, and `--var` reach it. And the `.dev.vars` I left you has `ANTHROPIC_API_KEY = ""`, which overrides `[vars]` with an empty string. So exporting it in your shell had no effect.
+
+Let me put the real key in that file without printing it:
 
 <!-- xgd-chat-end -->
