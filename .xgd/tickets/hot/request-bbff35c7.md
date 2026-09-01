@@ -6,10 +6,10 @@ title: 'Session seeding and turn reminders: two-KB priming, the change cursor, a
   the delta channel'
 created_by: xgd
 created_at: '2026-08-30T23:19:07.355942+00:00'
-updated_at: '2026-09-01T19:54:48.501188+00:00'
+updated_at: '2026-09-01T19:56:43.867901+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -19,6 +19,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f5f16122
+  commits:
+  - working_sha: e9bd703bd909ee89f9992cc645551cbb9dbefde8
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 751b0706e02a4570ab6320401c47f3088a2d107a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.34
 ---
 
 # Session seeding and turn reminders: two-KB priming, the change cursor, and the delta channel
