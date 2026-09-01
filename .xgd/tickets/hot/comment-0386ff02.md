@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T18:46:10.708016+00:00'
+updated_at: '2026-09-01T19:39:26.228146+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2821,5 +2821,31 @@ I've added `.dev.vars` to `.gitignore` — it wasn't there, which meant the obvi
 I left several detached `wrangler dev` processes on ports 8788, 8799, 8801, 8802, 8803. Kill them with `lsof -ti:8788,8799,8801,8802,8803 | xargs kill`. One on 8788 predates this session and my sandbox couldn't kill it.
 
 `pnpm install` fails in this sandbox — `iconv-lite@0.6.3` ships a `.idea/` directory and the sandbox refuses to create it. There's a `.local-vendor/iconv-lite` workaround already on disk from a prior session, but it's referenced only by the installed lockfile, not the committed one, so a fresh install reverts to the registry copy and hits the wall again. `node_modules` is functionally fine — only `1c preflight`'s drift check complains — but it's worth deciding whether that override belongs in `package.json` permanently.
+
+<!-- xgd-turn id="08f0ccbb-ed3c-4dd5-9a6a-7812c539dc0a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T19:39:25.838024+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % mkdir -p /tmp/aiprobe && cd /tmp/aiprobe
+((.venv-working) ) martin@nyx aiprobe % printf 'name="ai-probe"\nmain="index.js"\ncompatibility_date="2025-07-01"\n[ai]\nbinding="AI"\n' > wrangler.toml
+((.venv-working) ) martin@nyx aiprobe % printf 'export default{async fetch(r,e){const o=await e.AI.run("@cf/baai/bge-small-en-v1.5",{text:["hi"]});return Response.json({dims:o.data[0].length})}}\n' > index.js
+((.venv-working) ) martin@nyx aiprobe % npx wrangler dev --port 8803 &
+[1] 27385
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+
+ ⛅️ wrangler 4.38.0 (update available 4.128.0)
+──────────────────────────────────────────────
+Your Worker has access to the following bindings:
+Binding        Resource      Mode
+env.AI         AI            remote
+
+[1]  + suspended (tty output)  npx wrangler dev --port 8803
+((.venv-working) ) martin@nyx aiprobe % curl localhost:8803
+
+```
+
+The curl is hanging?
 
 <!-- xgd-chat-end -->
