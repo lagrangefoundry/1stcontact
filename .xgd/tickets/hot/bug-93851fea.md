@@ -6,10 +6,10 @@ title: 'Library: an uploaded .md is stored undescribed because the browser sends
   content type'
 created_by: xgd
 created_at: '2026-09-01T20:41:58.464808+00:00'
-updated_at: '2026-09-01T20:50:00.753420+00:00'
+updated_at: '2026-09-01T23:10:29.516648+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
