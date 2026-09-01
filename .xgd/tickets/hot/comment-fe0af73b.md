@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T22:13:06.313091+00:00'
+updated_at: '2026-09-01T22:14:31.511166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,38 @@ And then
 Lets use the term "reminder" not preamble please.
 
 I think your 7 rules are too big for the reminder, but the reminder could include "Don't forget the 7 rules of interaction in DOC-33" for example
+
+<!-- xgd-turn id="467c011f-bdcc-4172-bd3c-a01d1691dc8e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:14:31.303051+00:00" -->
+#### Claude
+Let me get the actual structure from the code rather than from memory.
+
+Checked the code. There are **four** parts, not three — and the one you didn't list is the biggest.
+
+**A. The role's system prompt** — `CARETAKER_SYSTEM` in `roles.ts`. ~40 lines, hand-written, sits on the `Role` object. Not part of KM's priming document at all. This is where "You are the caretaker of a website your user owns" lives.
+
+**B. The priming document** — one document KM assembles (`assemblePriming` in `@lagrangefoundry/knowledge`), three fixed sections in this order:
+
+1. `# What exists` — the landscape maps, one per KB, plus honest gaps
+2. `# Your purpose` — `CARETAKER_PURPOSE` verbatim
+3. `# How to search` — the projected tool manual, the list of searchable KBs, then a closing trigger: *"Prime yourself now: pick the territories above that bear on your purpose, search them, and read what you find before starting work."*
+
+**C. The per-turn reminder** — `caretakerReminder()`, system channel, never in the transcript.
+
+Your numbering maps to B3, B2, B1 — so your (1) is real but it's **last**, not first, and the landscape you didn't name is first. Your (4) is C. Nothing in your list is A.
+
+Two things follow from that:
+
+**Your "short, points to the docs" instinct for (2) isn't what's there.** `# Your purpose` is currently four lines of prose that name no documents. Making it a purpose plus a reading list is a real change, and it's the shape the section was built for — the trigger line right after it already says "pick the territories that bear on your purpose."
+
+**You're right about the 7 rules, and it settles my earlier question.** Rules in the corpus, pointer in the reminder. But the pointer is dead on arrival right now: zero doc tickets carry `doc_kind: system_kb`, so DOC-33 isn't in the corpus for the model to search for. "Don't forget the 7 rules in DOC-33" only works once DOC-33 is in there.
+
+**My question about naming.** You said use "reminder" not "preamble". I'd been using "preamble" for **A** and "reminder" for **C**, which are different objects — A rides once at session start, C rides every turn. So which did you mean?
+
+- Rename A to something else, keeping A and C distinct? (`roles.ts` calls A "the preamble" in its own comments, so this is a real rename.)
+- Or: A shouldn't exist as a separate blob at all — dissolve it into B1/B2/B3 and C, so there's exactly one hand-written text per your four-part model?
+
+The second would be the stronger position given "don't fill the context with duplicative things" — A is 40 hand-written lines and some of it is arguably restating what the projected manual already says.
 
 <!-- xgd-chat-end -->
