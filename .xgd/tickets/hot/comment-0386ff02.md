@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T00:09:34.508032+00:00'
+updated_at: '2026-09-01T00:13:08.627541+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2684,5 +2684,22 @@ Want me to apply the three body corrections to REQ-111 and close out REQ-163's t
 <!-- xgd-chat role="user" ts="2026-09-01T00:09:34.406243+00:00" -->
 #### You
 REQ-163 has completed - if you need to make corrections add them to the ticket please?
+
+<!-- xgd-turn id="3a494778-12e1-47c7-9e34-f7f7e9e1ab19-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T00:13:08.580583+00:00" -->
+#### Claude
+Both tickets updated. Two things changed since my last check, one of which retires most of what I flagged.
+
+**REQ-111 finished while we were talking** — it's at `ready_to_reconcile`, landed in `cb17ec80d7`. Its session recorded all three drifts itself: the FNV-1a fingerprint (with the `applyRecords`-must-stay-sync reason) under Deviations, and the media-type intersection plus the CLI backends serving flattened text blocks under As built. Nothing for me to correct there. The commit didn't sweep the `node_modules` symlinks either — that hazard is still latent in `free-REQ-108`, but it didn't bite here.
+
+**REQ-163** (`free_coded`, `d99c1f4`) — added a *Resolved after implementation* section closing the two open questions, written as corrections above the existing bullets rather than by deleting them, matching the convention the ticket already uses for its five departures:
+
+- **Vision consolidates into lagrange-framework REQ-111, not REQ-157.** REQ-111 names REQ-163 as its first consumer and the direct-SDK path as what it deletes, so "who owns vision" resolves to the component — on the same grounds the ticket used to justify the duplication. `anthropicImageDescriber` goes and `@anthropic-ai/sdk` with it, reclaiming the measured +138 KiB; the `DescribeImage` seam stays, since it exists to keep UATs off the network.
+- **Re-describe splits by field.** Automatic for `description_status` of `no_describer` or `failed` — the material has no real description, which is a defect that shouldn't wait to be noticed. Operator-triggered for `description_model` — a description that's fine and could be better costs a call per material and rewrites bodies that aren't wrong. `no_text`/`unsupported`/`too_large` are excluded from both: they're honest accounts, not defects.
+
+**REQ-111** got a section recording its consumer's actual state, since whoever deletes that code won't be whoever wrote it: where it lives, the seam that survives, the +138 KiB reclaim, and the fact that its block shape and four media types independently match `IMAGE_MEDIA_TYPES` — two people reaching the same intersection from opposite ends.
+
+One loose end I recorded in both rather than fixed: the `VISION_MODEL` doc comment in `apps/control-app/src/describe.ts` still names REQ-157 as the consolidation point. It's a comment inside completed, committed REQ-163 work, so it belongs to whoever deletes the function — not a stealth edit now.
 
 <!-- xgd-chat-end -->
