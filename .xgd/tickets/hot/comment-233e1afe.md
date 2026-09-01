@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-156
 created_by: xgd
 created_at: '2026-08-23T23:40:37.090863+00:00'
-updated_at: '2026-08-23T23:48:01.555268+00:00'
+updated_at: '2026-09-01T21:19:04.571720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,18 @@ Same shape for `perceptual.ts` itself: it imports `./shot` (which imports playwr
 - Whether AC2's fixture corpus asserts bit-equality (I think it should) rather than a bound.
 
 Want me to fold this into the ticket body once we've settled those?
+
+<!-- xgd-turn id="ba4918ea-d4aa-4211-9cd0-186f0252d378-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T21:19:04.548534+00:00" -->
+#### You
+Lets go dependency free for now and revisit later if things are too slow
+PNG only is too narrow - we need at least jpeg, giff and WebP too. Can we do the apple format HEIC?
+
+2. Ok
+
+Whether streaming row-lockstep decode+diff is in scope now, or a follow-up once a page actually OOMs. <-- what??
+
+On AC4 and AC2 whatever makes most sense to you
 
 <!-- xgd-chat-end -->
