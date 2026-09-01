@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: the product ticket store (REQ-162, free-coded commits)'
 created_by: xgd
 created_at: '2026-09-01T23:51:59.267222+00:00'
-updated_at: '2026-09-01T23:51:59.267222+00:00'
+updated_at: '2026-09-01T23:59:43.342530+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-13a5e206
@@ -55,7 +55,7 @@ fields:
       material is unreachable from another's, or that construction fails loudly on
       a misconfigured deployment. This is a new capability bucket — the client's material
       as tickets — not an extension of the site store's.
-    story_uid: null
+    story_uid: story-ab1ecd62
   - index: 2
     component: Material Blob Storage
     item_type: feature
