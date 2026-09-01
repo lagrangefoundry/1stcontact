@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-160
 created_by: xgd
 created_at: '2026-09-01T18:30:41.623877+00:00'
-updated_at: '2026-09-01T18:35:06.781807+00:00'
+updated_at: '2026-09-01T18:51:04.637302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,15 @@ Five questions, each with a recommendation. Say "go" and I'll proceed on all fiv
 **5. Scope confirmation.** I'm reading REQ-160 as also owning "wire `projectKnowledgeFor` into the chat host". Correct?
 
 Two of your open questions I don't think need asking — DOC-39 already settles them, and I'll follow it unless you say otherwise: the cap is **characters (≤400) with the document count always exact** and titles truncated (§6.4), and the cursor initialises to **the awareness map's build timestamp**, not session start (§6.3), so resume needs no separate "while you were away" report — the delta covers the gap by construction, which is how your resumed-session acceptance criterion gets met.
+
+<!-- xgd-turn id="bceb7f9e-810a-43a4-a5bd-a581bc471fe1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:51:04.232380+00:00" -->
+#### You
+1. I don't understand please restate. Honestly my expectation is Independent knowledge bases with independent indexes that are co-ranked for final presentation of the results.
+   2. Again I don't understand - please read the discussions on KB deltas which are feed to the AI every turn
+   3. If you need features in the components, create a ticket in lagrange-framework and I will have it build what you need
+   **4. Where the session cursor lives.** The ticket says "the session is a ticket, <-- the session is stored in a comment attached to a chat ticket theres plenty of places to put metadata??
+   5. What is `projectKnowledgeFor` ?
 
 <!-- xgd-chat-end -->
