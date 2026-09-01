@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T21:59:00.736408+00:00'
+updated_at: '2026-09-01T22:02:12.286567+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-5bc83942
@@ -457,5 +457,73 @@ The draft site is done. Here's what I've put together for you:
 **One thing to flag:** I found your actual gold A image in the system, but it's not yet registered in a way that lets me place it on a page — that's done through the builder's asset manager, not through our chat. I've drawn a close match as a placeholder. Once your original image is properly registered, I can swap it in with a word from you.
 
 What would you like to change or add?
+
+<!-- xgd-turn id="0f4b2b2f-e42b-468c-8991-0b09362d965f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:02:12.181150+00:00" -->
+#### Claude
+I read the code behind that transcript. **This isn't a KB content problem** — and adding KB content would make it worse.
+
+DOC-39 §3.2 is explicit: machine-readable facts are *projected, never authored*. The L1 element vocabulary is a machine-readable fact. So the AI searching the KB for "L1 page element vocabulary" and getting DOC-31's design-research prose back is the system working as designed — the KB correctly does not contain it. Authoring it in would create a second source of truth that goes stale on the next schema change.
+
+The real faults are all in the projection/runtime layer, and there are four:
+
+## 1. The refusal throws away the diagnosis the host already computed
+
+`tools/generate/src/cli/edit.ts:216` builds the error as `${first.path}: ${first.message}` — the exact JSON-pointer of the offending field.
+
+`lagrange-framework` `components/ai/js/src/toolbox/runtime.js:331`:
+
+```js
+if (declared !== undefined && operation.errors.includes(String(code))) {
+  return `Error: ${operation.tool} failed (${code}). ${declared.message}`
+}
+```
+
+When the code is declared, `error.message` and `error.path` are **discarded entirely** in favour of the surface's generic prose. The AI is told "look first at anything you invented" without being told *which* thing — so it bisects a 30-line node by hand. That's five refused `set_l1` calls, each returning the same paragraph.
+
+The comment above that function argues the rendering must live in the declaration or "the manual's error taxonomy and the actual error text drift apart." That reasoning holds for the *meaning* of a code; it doesn't hold for the *instance* — path and message aren't taxonomy, they're the finding.
+
+## 2. The declaration promises exactly what the runtime withholds
+
+`l1-surface.json`, `set_l1.description`:
+
+> "the refusal names the field and what it would have accepted — correct it and send it again."
+
+It doesn't. The model believed the manual, tried to correct, got the identical paragraph, and tried again. The manual is lying about its own error contract.
+
+## 3. `node` has no declared schema at all
+
+`set_l1.params.node` is `{"type": "object", "description": "The replacement element, in the same form get_l1 returns."}`. There is no projected element vocabulary anywhere in the surface — no shape, no param_type. The only way to learn a field name is to read a node and generalise. `background`, `widthPx`, the image element shape — all invented for that reason.
+
+## 4. Uploaded client material is listed, unreadable, and unregisterable
+
+- `editAssetList` (edit.ts:1913) returns registered **and** unregistered assets
+- `editAssetGet` (edit.ts:1924) resolves only registered ones
+- `ManageAssets` (`add_asset`) is **not** in the caretaker's grant (`instances.json`)
+
+So the client's logo appears in the listing, can't be read, can't be registered. And `NOT_FOUND`'s declared meaning — *"Re-read the listing; do not guess again"* — is actively wrong here: it *did* read the listing, and the thing *does* exist. The `absences` entry ("Uploading a picture, or any file") is right in spirit but directly contradicted by what `list_assets` shows.
+
+This is the one that cost the client something real, not just tokens: they uploaded a logo and were told to go find an asset manager.
+
+---
+
+## Approaches
+
+**A. Stop discarding the host's error detail** (runtime.js, ~5 lines). Declared meaning *plus* the instance's `path`/`message`. Highest leverage in the transcript by a wide margin, and it makes the declaration honest. This is a `lagrange-framework` change, not 1stcontact.
+
+**B. Project the L1 vocabulary into the surface.** Generate a `shapes.element` entry from the actual site schema at build time. Cost: the L1 tree is large, and the whole point of §6.1 is not to force-carry reference material every turn. Two shapes:
+- **B1** — project a compact form (kinds, their fields, enum values) into the manual. Bounded, cached in the prefix.
+- **B2** — a `describe_vocabulary` read op the AI calls on demand. Zero standing cost; one extra round trip when authoring.
+
+B2 composes better with A: with a precise refusal, the AI usually doesn't need the full vocabulary at all.
+
+**C. Fix the asset dead-end.** Two sub-decisions: does `list_assets` stop showing unregistered files (honest but hides the client's upload), or does `get_asset` resolve them and say "not usable yet"? And separately — should the caretaker be granted a *register-from-client-material* op? DOC-38 §7.7 gives the machinery (site_assets name binding over a content-addressed blob); the grant gap looks deliberate but predates client uploads existing.
+
+**D. Widen `KnowledgeSearch.kb` to accept a bare string.** Trivial, one first-call error per session.
+
+My recommendation: **A first, alone, and re-run this exact prompt.** It's small, it's in the wrong-layer-discards-information category rather than the missing-feature category, and I'd expect it to eliminate most of the flailing on its own — which would tell us how much of B is actually needed. C is a separate product decision and probably its own ticket.
+
+Diagnosis is recorded on BUG-44. Nothing coded yet — which of these do you want to pursue, and note that A lands in `lagrange-framework`, not here.
 
 <!-- xgd-chat-end -->
