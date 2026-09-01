@@ -168,6 +168,16 @@ export function mountBuilder(root, options = {}) {
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+    // BUG-43 — the same reload the palette popup and the segment editor perform,
+    // for the same reason and by the same means: `draft` and `edit` render at
+    // request time, so the bytes the next fetch produces already carry the
+    // assistant's write and there is no artifact for it to keep in step. It was
+    // the only writer that never triggered one, so its changes sat in the store
+    // unseen until the operator reloaded by hand.
+    //
+    // Fired PER WRITE rather than at the end of the turn, so a request answered
+    // by several edits shows the page unfolding as the assistant works.
+    onSiteChanged: () => panel.frame.contentWindow?.location.reload(),
   })
 
   const splitHost = document.createElement('div')
