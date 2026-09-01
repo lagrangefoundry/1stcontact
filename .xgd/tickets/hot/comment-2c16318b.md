@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-09-01T19:13:44.752744+00:00'
+updated_at: '2026-09-01T19:16:23.488153+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1992,5 +1992,43 @@ Two things I'd want your call on before writing: whether §9 should propose the 
 Oh dear, this conversation had become too big for your context, I fear. What you are talking about above is a document that talks about site importing. What I was hoping for is a document that captures our conversation here. Can you review the transcript? 
 
 We had a long and useful conversation about the playbook for leading a customer through a design process - we talked about different personas and the importants of making the experience fun and engaging - was that ever captured in a doc?
+
+<!-- xgd-turn id="5008e8fc-b0d1-4a52-acc6-c1dda7d1d228-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T19:16:22.900124+00:00" -->
+#### Claude
+You're right — that conversation isn't in my context; what I summarized above is the importer doc. Let me go find the actual transcript and check whether the design-process playbook ever landed in a doc.
+
+Found two candidates. Let me read them.
+
+I found it. The conversation is session `103bc2f0` (Aug 20, 27 user turns), scoped to CHAT-21 — the same ticket this session is scoped to. Here's what happened to it.
+
+## What got captured
+
+**Personas — yes, fully.** [[DOC-35]] *"Personas, Modes & Registers"* (`doc-edba99c9.md`, created Aug 21) is exactly that conversation written up: the five personas, the three independent axes, the capacity diagnosis behind Sarah's "I want more leads", the elicitation rules, the three real populations. Its own §1 says "captured from a design conversation ([[CHAT-21]])."
+
+**Data collection/deletion — yes.** That was turns 20–25 of the same session → DOC-36, DOC-37.
+
+**The ledger — yes.** `chat-2aaa79f4.md` §"Session 2" is a genuinely good six-point summary of the whole session, including the engagement thread.
+
+## What did *not* get captured
+
+**The fun-and-engaging half has no document.** It exists in exactly two places:
+
+1. One paragraph in the CHAT-21 chat ticket — point 3, *"Fun is the extraction mechanism, not a nice-to-have"*: output quality is bounded by signal quality, a bored client gives short agreeable answers, DOC-33 banks all its drama on one reveal two hours in, distributed delight is the more robust bet. Then a compressed list of mechanics: every turn moves the page; build by resolution not addition (whole page in ghost from ~minute 20); the carousel as a standing comparison surface; deliberately-wrong extremes to bracket the space; plausible-but-wrong real English rather than Lorem Ipsum, because greeking extracts no corrections.
+
+2. A name-check in DOC-35 §9.5 — the mechanics are *listed* in a subordinate clause, to argue that the plurality dial is the only one that has to bend for anxious clients. They are never defined there.
+
+So the mechanics are named in two places and specified in none. "Computers as Theatre", the anti-anchoring-by-plurality argument, the reference-materials thread, the hard-to-reverse-vs-cheap scheduling curve — none of it is in a doc.
+
+**And DOC-33 is untouched.** The playbook that would actually be executed still has §8 "The plain pass" intact, with all three of its justifications — including "it makes the Act III reveal genuinely dramatic" — even though the Aug 20 session concluded the plain pass dies once plurality opens the session. DOC-35 §10 explicitly *defers* DOC-33's restructure rather than doing it. Both docs' `updated_at` of Aug 31 is a bulk `doc_kind` field write, not a body edit.
+
+## The gap, stated plainly
+
+DOC-35 answers **who** we're talking to. DOC-33 answers **what** must be decided. Nothing answers **why the session is worth sitting through** — which is the half you're asking about, and the half that carries the strongest claim of the three, because it's the one that says engagement is an *extraction mechanism* rather than polish.
+
+I'd write it as a third doc — provisionally *"The Session as Experience — engagement as an extraction mechanism"* — sibling to DOC-35 rather than a revision of DOC-33: §1 the bounded-by-signal-quality argument, §2 distributed delight vs. the single reveal, §3 the five mechanics each specified properly, §4 the reversibility curve and what it implies for scheduling, §5 the death of the plain pass and what replaces it, §6 what this obliges DOC-33 to change.
+
+Want me to write that, or would you rather I fold it into DOC-33 as the restructure DOC-35 §10 has been deferring?
 
 <!-- xgd-chat-end -->
