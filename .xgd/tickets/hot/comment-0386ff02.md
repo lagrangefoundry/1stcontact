@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T23:14:26.143475+00:00'
+updated_at: '2026-09-01T00:09:34.508032+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2678,5 +2678,11 @@ This is the time-sensitive one. **REQ-163 is at `free_coding` too** — someone 
 Nothing from the attachment-description rename touches REQ-111 itself; it never used "shadow" and its "describing uploaded images so they can be retrieved" reads correctly.
 
 Want me to apply the three body corrections to REQ-111 and close out REQ-163's two open questions before its session reads them?
+
+<!-- xgd-turn id="3a494778-12e1-47c7-9e34-f7f7e9e1ab19-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T00:09:34.406243+00:00" -->
+#### You
+REQ-163 has completed - if you need to make corrections add them to the ticket please?
 
 <!-- xgd-chat-end -->
