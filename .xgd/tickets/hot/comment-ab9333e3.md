@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-43
 created_by: xgd
 created_at: '2026-09-01T21:54:36.482890+00:00'
-updated_at: '2026-09-01T22:03:12.595049+00:00'
+updated_at: '2026-09-01T22:28:44.757261+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -42,5 +42,13 @@ The chat pane has no equivalent. Worse, `CARETAKER_SYSTEM` tells the assistant *
 **One thing doesn't fit, and I'd rather ask than guess:** you said refreshing the page made no difference. A full browser refresh re-mounts the iframe and re-fetches the preview, so it *should* have shown the change. Which were you refreshing — the builder page itself, or a published site / tab opened via "open in new tab"? If it was the builder page and the change genuinely wasn't there, there's a second fault and I'll keep digging before writing any code.
 
 Say the word and I'll cut the branch and implement the fix as scoped.
+
+<!-- xgd-turn id="1608e7a4-9c37-45c3-a35c-57d760799de4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:28:44.657248+00:00" -->
+#### You
+ok I tried the refresh a second time and it worked that time. 
+
+What I would like is a tool API for the AI to trigger a page update. It should ideally trigger updates as it goes so the user can see the page "unfold".
 
 <!-- xgd-chat-end -->
