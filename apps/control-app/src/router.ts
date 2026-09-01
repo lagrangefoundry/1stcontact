@@ -29,6 +29,7 @@ import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
+import { sessionKnowledgeFor } from './session-knowledge'
 import { anthropicImageDescriber, type DescribeImage } from './describe'
 import { FetchRefusedError } from './fetch-guard'
 import {
@@ -119,13 +120,29 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
     CHAT = (async () => {
       const tenantId = (env.TENANT_ID ?? '').trim()
       const store = await (deps.store ?? storeFor)(env)
+      // THE TICKET STORE IS THE TRANSCRIPT'S HOME NOW ([[REQ-160]]), so it is
+      // held for the isolate's life exactly as the site store above is, and for
+      // the same reason: `TicketSessionArchive` caches the chat ticket's uid and
+      // its transcript comment's uid per archive, and both lookups behind that
+      // cache are full store scans (upstream BUG-29). A store per request would
+      // be an archive per request, so every turn would pay the scan that only a
+      // session's first turn should.
+      const tickets = await (deps.tickets ?? ticketStoreFor)(env)
       // Opened HERE and not inside `workerHost`, for the reason the store above
       // is: this is the one place per isolate where the expensive things are
       // built, and the KB is one of them — `KnowledgeRuntime.open` decodes the
       // whole bundled index into vectors. Doing it per request would decode it
       // per turn, for an artefact that cannot change while the isolate lives.
-      const knowledge = await (deps.knowledge ?? systemKnowledge)(env)
-      return workerHost(env, store, tenantId, knowledge)
+      //
+      // TWO KNOWLEDGE BASES, ONE SESSION ([[REQ-160]]). `deps.knowledge` stays
+      // exactly what it was — the SYSTEM half, injectable so a UAT can plant a
+      // corpus whose content it chose — and `sessionKnowledgeFor` opens the
+      // tenant's beside it. Composing here rather than widening that seam keeps
+      // the injection point about the one KB a test has any business replacing:
+      // the project corpus is the tenant's real D1 store either way.
+      const system = await (deps.knowledge ?? systemKnowledge)(env)
+      const knowledge = await sessionKnowledgeFor(env, { system, tickets })
+      return workerHost(env, store, tenantId, tickets, knowledge)
     })()
   }
   return CHAT

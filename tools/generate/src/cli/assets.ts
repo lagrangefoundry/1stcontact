@@ -203,6 +203,12 @@ const AI_WORKER_EXPORTS = [
   'Tool',
   'Toolbox',
   'ToolboxSurface',
+  // REQ-160 — the archive that homes a session in a `chat` ticket (DOC-10 §8).
+  // It replaced an R2-object archive, so it is not an addition to the boundary
+  // so much as the other half of one: `chatSchemas` below declares the ticket
+  // this writes, and a shim carrying one without the other would leave the type
+  // pack describing a ticket nothing creates.
+  'TicketSessionArchive',
   'applyRecords',
   'availableBackends',
   // REQ-162 — the chat half of the ticket store's type pack. The AI component
@@ -357,6 +363,15 @@ export const KNOWLEDGE_EXPORTS = [
   'publishAwarenessReport',
   'resolveCorpus',
   'search',
+  // REQ-160 — the co-ranked fan-out. `search` alone was enough while one host
+  // served one knowledge base; a session that reaches two searches each index
+  // through its own runtime and merges on the component's own scores, so the
+  // chunk half of that pair is needed for the same reason the document half is,
+  // and the two defaults come with them because the merge has to take the top
+  // `k` of the union rather than of either side.
+  'searchChunks',
+  'DEFAULT_TOP_K',
+  'DEFAULT_CHUNKS_PER_HIT',
 ] as const
 
 /**
