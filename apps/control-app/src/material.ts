@@ -196,6 +196,85 @@ export function kindOf(contentType: string, filename: string): MaterialKind {
 }
 
 /**
+ * A content type for a file whose own type says nothing — **the repair**.
+ *
+ * WHY THIS EXISTS AT ALL (BUG-41). A browser has no registered MIME type for
+ * `.md`, so `File.type` is the EMPTY STRING and the upload route falls back to
+ * `application/octet-stream`. That fallback is honest about what the browser
+ * observed and useless to everything downstream: `describeDocument` asks
+ * `isTextual` and gets `false`, so a client's markdown is stored with a body
+ * saying *"nothing here can read application/octet-stream"* — a plain text file
+ * the system declined to read.
+ *
+ * IT REPAIRS ONLY SILENCE. A type the browser or the server actually STATED is
+ * returned untouched, including one this table would map differently: the sender
+ * observed the bytes and we did not, and second-guessing that would make a
+ * mislabelled `.txt` unreadable in a new way to fix an old one. Only `''` and
+ * `application/octet-stream` — the two ways of saying nothing — consult the name.
+ *
+ * ONE RESOLUTION, THREE CONSUMERS. {@link ingest} calls this once and hands the
+ * result to `classify`, to `describe` and to `attach`, so `kind`, the description
+ * and the attachment record cannot disagree about what the file is. Recording the
+ * repaired type on the attachment is what makes it durable: a later re-describe
+ * pass reads that record, and an `application/octet-stream` frozen there would
+ * make the same wrong decision again.
+ *
+ * AN UNMAPPED EXTENSION STILL DEGRADES. `.xyz` stays `application/octet-stream`,
+ * lands as a `document`, and gets the honest `unsupported` body. This widens what
+ * can be read; it does not change what happens to what cannot.
+ */
+export function resolveContentType(contentType: string, filename: string): string {
+  const ct = (contentType || '').split(';')[0].trim().toLowerCase()
+  if (ct !== '' && ct !== 'application/octet-stream') return contentType
+  const ext = (filename.match(/\.([A-Za-z0-9]+)$/)?.[1] ?? '').toLowerCase()
+  return TYPE_BY_EXTENSION[ext] ?? 'application/octet-stream'
+}
+
+/**
+ * Extension to content type, for the silent case only.
+ *
+ * DELIBERATELY NOT A GENERAL MIME DATABASE. Every entry is a format some step of
+ * this pipeline can actually do something with — the textual ones `isTextual`
+ * reads, the PDF `unpdf` extracts, the images the vision call accepts, the fonts
+ * the name-table parser opens. A row for a format nothing can read would change
+ * the words in a degraded body and nothing else.
+ */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  // Textual — the reason this table exists. A client's notes, brief or export.
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  mdx: 'text/markdown',
+  txt: 'text/plain',
+  text: 'text/plain',
+  log: 'text/plain',
+  csv: 'text/csv',
+  tsv: 'text/tab-separated-values',
+  html: 'text/html',
+  htm: 'text/html',
+  css: 'text/css',
+  json: 'application/json',
+  xml: 'application/xml',
+  yaml: 'text/yaml',
+  yml: 'text/yaml',
+  // Extracted rather than decoded, but just as badly served by silence.
+  pdf: 'application/pdf',
+  // Images and fonts, which {@link kindOf} already rescues for `kind` alone —
+  // named here too so the ATTACHMENT RECORD is right as well as the routing.
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  svg: 'image/svg+xml',
+  woff: 'font/woff',
+  woff2: 'font/woff2',
+  ttf: 'font/ttf',
+  otf: 'font/otf',
+  ttc: 'font/collection',
+}
+
+/**
  * The index seam — step 5.
  *
  * A SEAM RATHER THAN A DIRECT CALL, so a UAT can prove it is invoked exactly once
@@ -335,8 +414,14 @@ async function ingest(
   },
   deps: IngestDeps,
 ): Promise<Ingested> {
+  // ONCE, AT THE HEAD, FOR ALL THREE CONSUMERS (BUG-41). `classify`, `describe`
+  // and `attach` each ask what this file is; resolving separately in each — or in
+  // only some of them, which is what the bug was — lets them disagree, and the
+  // one that disagreed was the describer.
+  const contentType = resolveContentType(input.contentType, input.filename)
+
   const classification = classify({
-    contentType: input.contentType,
+    contentType,
     filename: input.filename,
     origin: input.origin,
     role: input.role,
@@ -347,7 +432,7 @@ async function ingest(
     {
       bytes: input.bytes,
       kind: classification.kind,
-      contentType: input.contentType,
+      contentType,
       filename: input.filename,
       sourceUrl: input.sourceUrl,
     },
@@ -374,7 +459,10 @@ async function ingest(
     uid: ticket.uid,
     bytes: input.bytes,
     filename: input.filename,
-    content_type: input.contentType,
+    // THE RESOLVED TYPE, NOT THE CALLER'S. This record is what a later
+    // re-describe pass reads, so an `application/octet-stream` frozen here would
+    // make it repeat exactly the decision BUG-41 is about.
+    content_type: contentType,
   })
 
   // AWAITED, NOT DEFERRED. [[DOC-39]] §5.2's decomposition depends on it: the
