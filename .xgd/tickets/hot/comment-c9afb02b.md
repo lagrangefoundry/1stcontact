@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:41:41.470858+00:00'
+updated_at: '2026-09-01T22:44:16.518403+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -586,5 +586,81 @@ Assets are cataloged as tickets so they should be accessed as tickets that point
 What does the KMS return? Does it not include references to tickets?
 
 Help me understand what the AI is actually accessing here?
+
+<!-- xgd-turn id="5d789b42-9c13-4870-98a5-42140edf07f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:44:16.442992+00:00" -->
+#### Claude
+Your model is right on all three counts — and following it through changes the diagnosis of fault 4 substantially.
+
+## Yes: every KB document is a ticket
+
+`apps/control-app/src/material.ts` `ingest` does exactly two writes:
+
+```ts
+const { ticket } = await store.create({ type: 'material', title, body, fields })
+const { attachment } = await store.attach({ uid: ticket.uid, bytes, filename, content_type })
+```
+
+So a document is a ticket, and its bytes are a blob hanging off it. One detail worth knowing: the blob is keyed by **the attachment record's uid, not the sha256**. `readBlob`'s comment says `attach` used to content-address and dedup and gave it up deliberately — a shared blob can't be moved to trash without breaking whichever sibling record still names it, and moving it is what makes deletion actually revoke reach. `sha256` stays on the record for integrity only.
+
+## Yes: the KMS returns ticket references
+
+`knowledge_surface.json` shapes:
+
+- `hits.uid` — *"The document's uid — the handle for reading the whole thing"*
+- `document.ticket` — *"The whole document: its uid, type, title, fields and full body"*
+
+`KnowledgeGet` returns literally `{ticket: {...}}`. The shape is *called* `document`; the field is `ticket`. That's what the AI called and it worked.
+
+## But the site asset store is a different store, and it is not ticket-shaped
+
+This is the answer to "what is the AI actually accessing" — **two stores, only one of which is ticket-shaped**:
+
+| | KMS / material | Site assets |
+|---|---|---|
+| Unit | ticket + blob attachment | bytes under `draft/assets/` + an `assets` registry inside the site definition |
+| Handle | `uid` | a bare filename |
+| AI reaches it via | `KnowledgeSearch` / `KnowledgeGet` | `list_assets` / `get_asset` / `write_image` |
+
+No uid on the right-hand side, no blob handle, no ticket. The bridge is `promoteToSiteAsset` (material.ts:536), and it's reachable only from `router.ts:442` — an HTTP endpoint the Library UI calls. Not an AI tool, not in `l1-surface.json`.
+
+## And here's the thing that actually explains the transcript
+
+Compare the two writers into the site store:
+
+```ts
+// editAssetWrite — write_image, edit.ts:2081
+await opts.store.write(slug, { siteJson: newBase, assets: [{ name: filename, bytes }] })
+
+// promoteToSiteAsset — material.ts:564
+await sites.write(args.slug, { assets: [{ name, bytes }] })
+```
+
+`write_image` writes the registry entry **and** the bytes. `promoteToSiteAsset` writes bytes only. A promoted file is therefore permanently `onDisk: true, registered: false` — which is exactly what `list_assets` showed for `image (6).png`, and exactly why `get_asset` (registry-only, edit.ts:1930) said `NOT_FOUND`.
+
+So your client had already promoted their logo through the Library. It was sitting in the site's asset store the whole time.
+
+## I need to correct what I told you earlier
+
+I said the AI's conclusion — that it couldn't use the logo — was a real product gap. Tracing the schema, it isn't:
+
+```ts
+// packages/site-schema/src/l1/schema.ts:1124
+kind: z.literal('image'),
+src: z.string(),   // scheme-checked by the envelope, NOT checked against the registry
+```
+
+`image.src` is validated for scheme safety only. Referencing `/assets/image (6).png` would have been **accepted and would have rendered**. Registration governs alt text and what the picker offers — not whether a page may reference the bytes.
+
+The AI inferred "unregistered ⇒ unusable" from `get_asset`'s NOT_FOUND, told your client that adding their logo happens outside the chat, and drew a substitute. The file was usable all along.
+
+That makes fault 4 three separable defects, none of which depend on lf BUG-39:
+
+1. `promoteToSiteAsset` doesn't register what it promotes
+2. `get_asset` and `list_assets` disagree about which namespace they serve
+3. nothing in the surface says registration isn't a precondition for use
+
+I've rewritten fault 4 on BUG-44 with this. Given it's independent of the framework work and it's the one that visibly cost your client, it's probably what to do first — want me to scope it?
 
 <!-- xgd-chat-end -->
