@@ -5,9 +5,9 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-01T00:51:05.648749+00:00'
+updated_at: '2026-09-01T01:14:03.947255+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -54,27 +54,34 @@ change of *where the value comes from*, not a re-architecture. A UAT asserts
 is one site left behind, quietly serving the platform tenant's data into a
 customer's session.
 
-## The scope is a value, not a string
+## The scope is a tenant, always — resolution takes a target
 
 ```ts
-type Scope =
-  | { kind: 'tenant'; id: string }
-  | { kind: 'platform' }
+type Scope = { kind: 'tenant'; id: string }
+
+resolveScope(env, identity, requestedAccountId?): Promise<Scope>
 ```
 
-`resolveScope(env, identity)` returns the first form. **The second is declared
-and throws.** It is not implemented and is not wanted here.
+There is **no platform-wide scope variant**, and an earlier draft of this ticket
+was wrong to reserve one. [[DOC-40]] §7 now settles the parked operations
+assistant as a *tenant-switching* design rather than a wide-scope one: it holds
+one ordinary scoped handle at a time and changes which tenant that is. Nothing
+in the system ever needs a handle that spans tenants, so declaring the variant
+would reserve a shape that is not going to be built.
 
-It exists in the type because [[DOC-40]] §7 parks a platform-scope operations
-assistant, and a `Scope` introduced later as a widening of `string` would mean
-revisiting every call site this ticket touches. Declaring the variant now costs
-one unreachable branch. A UAT asserts constructing a platform scope throws, so
-the placeholder cannot quietly become a capability.
+**Resolution takes an optional target.** Omitted, it resolves the caller's own
+account — the ordinary case. Supplied, it authorises the caller against that
+account and resolves it, which is what an administrator operating a customer's
+builder needs ([[REQ-170]]) and what the parked switch tool would call. A UAT
+asserts an unauthorised target is refused rather than silently falling back to
+the caller's own account, because a fallback turns an authorisation failure into
+a confusing success in someone else's tenant.
 
 **`forTenant` is not modified.** The tenant barrier stays structural: the site
-store's root can still do exactly one thing, and the ticket store's scoped
-handle stays terminal. Whatever the platform variant eventually becomes, it is a
-separate construction path — [[DOC-40]] §7.
+store's root can still do exactly one thing, and the ticket store's scoped handle
+stays terminal. The switch design's whole merit is that it reuses this check
+instead of adding a second read path beside it — including its refusal of an
+inactive tenant, which a new path would have had to re-implement.
 
 ## What `TENANT_ID` becomes
 
