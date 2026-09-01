@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T21:57:06.387993+00:00'
+updated_at: '2026-09-01T22:02:18.397984+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,11 @@ The two decisions I'd like from you before coding:
 **Scope.** The rename and the three texts are one unit. The ledger (write path + trigger + title rename) and the system-KB authoring pass for DOC-33/DOC-35 are each substantial enough to stand alone — I've recorded both as open rather than assuming a split, since you own ticket creation. Say the word and I'll file them.
 
 **The one question I couldn't settle for you** is at the bottom of the ticket: where the conversational mechanics live. Options-not-iterations, show-don't-ask, ask-facts-not-diagnoses, the one-push rule — REQ-126's layering test says anything that moves with the method belongs in the corpus, and these move with DOC-33. But they're also exactly the habits that decay over a long session, which is a preamble concern. Corpus knowledge only fires when the model goes looking; a habit has to be present whether it looks or not. My inclination is the preamble carries them as compressed rules and the corpus carries the method they come from — but that's a genuine duplication, and I'd rather you weighed in than have me pick.
+
+<!-- xgd-turn id="f64871e8-a77a-47e7-a7e4-47f300797342-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:02:18.118425+00:00" -->
+#### You
+Can you ask your question as a question - I don't know what you are trying to ask?
 
 <!-- xgd-chat-end -->
