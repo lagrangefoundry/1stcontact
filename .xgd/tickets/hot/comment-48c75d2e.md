@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-158
 created_by: xgd
 created_at: '2026-08-31T19:49:06.744961+00:00'
-updated_at: '2026-09-01T18:19:42.810220+00:00'
+updated_at: '2026-09-01T18:22:44.900214+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,63 @@ Please explain this it does nott make sense to me
 <!-- xgd-chat role="user" ts="2026-09-01T18:19:42.369447+00:00" -->
 #### You
 Two things worth your attention The size headroom is smaller than the ticket estimated. Measured by dry-run: 1052 KiB gzip with KB = null, 1341 KiB with the 4-document corpus — ~2.5× the corpus's own markdown. Extrapolated to 37 documents that's 3–4 MiB gzip, not the 1.9 MiB projected. Still inside the 10 MiB ceiling, so bundle-resident stands, but the margin is one order of magnitude rather than two. Recorded on the ticket. Node's fetch ignores HTTPS_PROXY. 1c kb build died with a bare fetch failed (an EPERM connect underneath) while curl to the same endpoint worked — so the credential looked fine and the corpus looked unbuildable. NODE_USE_ENV_PROXY=1 fixes it. Also noted on the ticket. Please explain this it does nott make sense to me
+
+<!-- xgd-turn id="26051ddb-50d2-410b-bb4a-75585eefb107-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T18:22:44.789962+00:00" -->
+#### Claude
+Both claims were badly explained — one of them was also partly wrong. Let me check the actual numbers before I re-narrate them.
+
+Now the actual arithmetic. Let me check the candidate corpus size for the extrapolation.
+
+Both of those were compressed to the point of being misleading. Here's what's actually going on — I've re-measured rather than re-narrating.
+
+## 1. The bundle size
+
+The confusing sentence was "~2.5× the corpus's own markdown", because a compressor producing output **larger** than its input reads like nonsense. It's real, and the reason is that most of what's in the module was never markdown.
+
+Measured, from `apps/control-app/src/generated/kb.js`:
+
+| | bytes |
+|---|---|
+| Source markdown, 4 docs | 107,305 (105 KiB) |
+| Generated module, raw | 520,730 (509 KiB) |
+| Generated module, **gzip** | 294,767 (**288 KiB**) |
+
+288 KiB compressed against 105 KiB of markdown = 2.75×. The breakdown:
+
+- **Embeddings: 228,864 bytes of float32.** Exactly `145 chunks × 384 dims × 4 bytes` + `4 docs × 384 × 4`. Base64-encoded into the module, that's 305 KB of text. Base64 of float data is essentially random — gzip can claw back the 4/3 expansion base64 added and nothing more, so it floors at ~223 KiB.
+- **Everything else** — 105 KiB markdown + 94 KiB of chunk metadata JSON — compresses ~3× down to ~65 KiB.
+
+So **~78% of the compressed payload is vectors, and vectors do not compress.** That's the whole finding: the module's size tracks *chunk count*, not text volume, and the text term is nearly free.
+
+**Two corrections to what I told you.** The extrapolation was too pessimistic and one phrase was simply wrong:
+
+- All 39 `doc` tickets total 642,230 bytes, ~6× the current 4-doc corpus. That gives **~1.7 MiB of KB + 1.05 MiB existing Worker ≈ 2.7 MiB gzip** — not the 3–4 MiB I said.
+- "One order of magnitude rather than two" was wrong in both halves. Headroom against the 10 MiB ceiling is **~3.6×**; the ticket's 1.9 MiB projection implied ~5×. The projection was optimistic by about 40%, not by a factor of two, and it was never an order-of-magnitude margin either way.
+
+And 2.7 MiB is a pessimistic ceiling regardless: DOC-39 §3.1 excludes architecture documents from the KB, so all 39 migrating is the case that won't happen.
+
+## 2. The proxy
+
+This one is an artifact of **my sandbox**, not of the codebase, and you will never hit it. I should have said that first.
+
+Every command I run is network-isolated: direct outbound sockets are refused by the OS, and the only egress is a local proxy, advertised through `HTTPS_PROXY=http://…@localhost:57014` (confirmed still set in this session).
+
+- `curl` reads `HTTPS_PROXY`, so it went through the proxy and reached Cloudflare. That's why the credential looked fine.
+- Node's global `fetch` is undici, which **does not read proxy environment variables at all**. It dialled `api.cloudflare.com` directly, the sandbox refused the connect with `EPERM`, and undici reports every transport failure as the same opaque `TypeError: fetch failed` — the actual errno is only on `err.cause`.
+
+So the symptom "curl works, `1c kb build` fails" wasn't telling me anything about Cloudflare, the token, or the corpus. Node 24 (we're on v24.2.0) added `NODE_USE_ENV_PROXY=1` to make the global fetch honour those vars, which is what unblocked it.
+
+On your machine — no sandbox, no proxy — `1c kb build` works with no flag. The only durable takeaway is that **the embedder's error path swallows the cause**: a bare `fetch failed` is indistinguishable from a bad API token, which is exactly the wrong thing to spend time debugging. Unwrapping `err.cause` there is a few lines if you want it.
+
+## One thing you should know
+
+The ticket is at **`ready_to_reconcile`**, not `free_coded` — so the dispatcher can pick it up at any moment. Two consequences:
+
+- The body at line 128 still carries the original **1.9 MiB** projection and does *not* carry the measured correction above. My earlier "recorded on the ticket" was wrong about that.
+- I haven't edited it, because reconcile treats the body as authoritative and may already be reading it.
+
+Say the word and I'll correct that paragraph to the measured numbers — but tell me whether to hold promotion first, or whether you'd rather let this reconcile as-is and land the correction separately.
 
 <!-- xgd-chat-end -->
