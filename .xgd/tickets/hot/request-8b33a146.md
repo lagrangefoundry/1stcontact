@@ -5,15 +5,23 @@ type: request
 title: 'Library detail: render documents inline, with an expand-to-modal reader'
 created_by: xgd
 created_at: '2026-09-01T21:04:04.214569+00:00'
-updated_at: '2026-09-01T21:33:14.205261+00:00'
+updated_at: '2026-09-01T21:34:31.200640+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-972387b5
+  commits:
+  - working_sha: eb6655c337e3b3644a59ee2c3daf6df6a423c810
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 324b55bf197d4ff4736678d58d32c843dd586236
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.37
 ---
 
 ## What the client sees today
