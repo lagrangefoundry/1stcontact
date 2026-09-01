@@ -33,9 +33,16 @@ import { FetchRefusedError } from './fetch-guard'
 import {
   ingestFetch,
   ingestUpload,
+  listMaterial,
+  materialFile,
   MaterialRejectedError,
+  NotMaterialError,
   NotRepublishableError,
+  promoteToSiteAsset,
+  readMaterial,
+  reviseDescription,
   type IndexMaterial,
+  type MaterialRole,
 } from './material'
 
 /**
@@ -341,6 +348,11 @@ function materialEnvelope(ingested: {
     republishable: ingested.ticket.fields.republishable,
     exportable: ingested.ticket.fields.exportable,
     origin: ingested.ticket.fields.origin,
+    // WHAT THE CLIENT SAID IT WAS FOR ([[REQ-161]]). Echoed rather than left to
+    // be re-derived from `republishable`, because the two come apart the moment
+    // captures land ([[DOC-38]] 3a is reference material AND republishable), and
+    // the Library filters on this one.
+    role: ingested.ticket.fields.role,
     source_url: ingested.ticket.fields.source_url,
     description_status: ingested.description.status,
     description_model: ingested.ticket.fields.description_model,
@@ -351,6 +363,59 @@ function materialEnvelope(ingested: {
       content_type: ingested.attachment.fields.content_type,
     },
     indexed: ingested.indexed,
+  }
+}
+
+/**
+ * "Put it on the site" means the bytes are actually on the site ([[REQ-161]]).
+ *
+ * THE ROLE IS NOT A LABEL. The overlay's first area promises the file will be
+ * something visitors see, and a ticket in a store is not that — until the bytes
+ * are in the site's asset library the client has dropped their logo into a
+ * filing cabinet. So the upload route completes the promise, immediately, which
+ * is also what makes a dropped logo pickable in the same second rather than
+ * after some later step nobody has specified.
+ *
+ * THROUGH THE GATE, NEVER AROUND IT. `promoteToSiteAsset` refuses anything whose
+ * ticket is not `republishable`, and `classify` writes that bit from the role —
+ * so the second area is mechanically incapable of reaching a published site,
+ * rather than merely not routed there. That is [[DOC-38]] §5's invariant getting
+ * its first real caller, which is the whole reason [[REQ-163]] shipped the
+ * refusal before anything could call it.
+ *
+ * A FAILURE HERE DOES NOT LOSE THE UPLOAD. The material is stored, described and
+ * indexed by the time this runs; a site store that refuses the write (an unknown
+ * slug, a store that is not there) must not turn that into a 500 that tells the
+ * client their file did not arrive. It is reported in the envelope instead —
+ * named, not swallowed, so the overlay can say what did and did not happen.
+ *
+ * AND SCRUBBED ON THE WAY OUT, exactly as the route table's own failures are.
+ * This is a 200 carrying a message from a caught exception, which is the one
+ * shape that looks like it escapes REQ-146's guarantee — the envelope leaves the
+ * Worker whatever the status code on it says, so the scrubber has to travel with
+ * it rather than being applied only where an error status is set.
+ */
+async function placeOnSite(
+  ingested: { ticket: { uid: string; fields: Record<string, unknown> } },
+  slug: string | undefined,
+  openTickets: () => Promise<TicketStore>,
+  openStore: () => Promise<TenantSiteStore>,
+  scrub: (message: string) => string,
+): Promise<Record<string, unknown>> {
+  if (ingested.ticket.fields.role !== 'site' || !slug) return { site_asset: null }
+  const name = String(ingested.ticket.fields.filename ?? '')
+  try {
+    const placed = await promoteToSiteAsset(await openTickets(), await openStore(), {
+      uid: ingested.ticket.uid,
+      slug,
+      name,
+    })
+    return { site_asset: placed.name }
+  } catch (err) {
+    return {
+      site_asset: null,
+      site_asset_error: scrub(err instanceof Error ? err.message : String(err)),
+    }
   }
 }
 
@@ -579,6 +644,81 @@ async function routeUncached(
     }
 
     /**
+     * The Library's read surface ([[REQ-161]]) — the list, one item, its bytes.
+     *
+     * THREE ROUTES AND NOT ONE, and the split is the payload rather than taste.
+     * A material's body is its extracted text, so a brand book is tens of
+     * kilobytes of it; a list that carried bodies would ship the client's entire
+     * corpus to draw a column of filenames. So the list is rows, the item adds
+     * the body, and the bytes are their own response with their own content type.
+     *
+     * TENANT-WIDE, and the `slug` the Library also holds is never sent here.
+     * [[DOC-38]] §7.7 lets one blob back two sites and [[DOC-10]] §4.1 makes
+     * shared knowledge across a client's sites deliberate — so "used on this
+     * site" is a badge the client filters by, decided in the browser from
+     * `site_slug` on the row, and never a boundary this route enforces.
+     */
+    if (p === '/api/material' && method === 'GET') {
+      return json(200, { material: await listMaterial(await openTickets()) })
+    }
+
+    if (p === '/api/material/item' && method === 'GET') {
+      const uid = url.searchParams.get('uid')
+      if (!uid) return json(400, { error: 'uid is required' })
+      return json(200, await readMaterial(await openTickets(), uid))
+    }
+
+    /**
+     * The bytes, so the detail pane can SHOW the thing rather than name it.
+     *
+     * Served from the private bucket through the tenant-bound blob handle, which
+     * is why this is a route on the builder origin and not a URL into `SITES`:
+     * the public Worker has no binding on the material bucket, deliberately
+     * ([[DOC-38]] §7.1), and giving it one to save a hop is the disclosure that
+     * boundary exists to prevent.
+     */
+    if (p === '/api/material/file' && method === 'GET') {
+      const uid = url.searchParams.get('uid')
+      if (!uid) return json(400, { error: 'uid is required' })
+      const file = await materialFile(await openTickets(), uid)
+      return new Response(file.bytes as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'content-type': file.contentType,
+          // INLINE, with the original name. The pane renders images and audio
+          // directly and offers everything else as a download; a bare
+          // `attachment` would make the preview a download prompt instead.
+          'content-disposition': `inline; filename="${file.filename.replace(/["\\]/g, '')}"`,
+        },
+      })
+    }
+
+    /**
+     * The client corrects what we said their material is ([[REQ-161]]).
+     *
+     * The body IS the description ([[DOC-38]] §6), so this is a ticket write —
+     * but it re-indexes, which is the half that makes the ticket's acceptance
+     * true. A correction that changed the body and not the index would leave the
+     * Library showing the client's words while search kept answering with ours.
+     */
+    if (p === '/api/material/description' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.uid !== 'string' || body.uid === '') {
+        return json(400, { error: 'uid is required' })
+      }
+      if (typeof body.body !== 'string') {
+        return json(400, { error: 'body is required' })
+      }
+      const revised = await reviseDescription(
+        await openTickets(),
+        { uid: body.uid, body: body.body },
+        (await ingestDeps()).index,
+      )
+      if (!revised.indexed) warnUnindexed(body.uid)
+      return json(200, revised.row)
+    }
+
+    /**
      * The two ingestion entry points ([[REQ-163]], [[DOC-38]] §10).
      *
      * THEY BELONG HERE AND NOT TO [[REQ-161]], and the line is worth stating
@@ -605,6 +745,28 @@ async function routeUncached(
         return json(400, { error: 'a file is required, sent as multipart form field `file`' })
       }
       const slug = form.get('slug')
+      const siteSlug = typeof slug === 'string' && slug !== '' ? slug : undefined
+      /**
+       * WHICH DROP AREA THE CLIENT CHOSE ([[REQ-161]]).
+       *
+       * VALIDATED AND NOT COERCED. A misspelled role must be a refusal, because
+       * the two silent alternatives are both wrong in a way nobody would notice:
+       * falling back to `site` publishes something the client marked private,
+       * and falling back to `reference` quietly withholds a hero photograph they
+       * meant to put on their site.
+       *
+       * ABSENT IS STILL ALLOWED, and that is deliberate. This route is the
+       * pipeline's entry point as well as the overlay's target, so a caller that
+       * predates the question — [[REQ-163]]'s own path — lands on [[DOC-38]]
+       * §10.1's provenance answer exactly as it did. The guarantee that a human
+       * chose belongs to the overlay, which has no drop target that is not one of
+       * the two areas; it is not something a route can assert on its behalf.
+       */
+      const rawRole = form.get('role')
+      if (rawRole != null && rawRole !== 'site' && rawRole !== 'reference') {
+        return json(400, { error: "role must be 'site' or 'reference'" })
+      }
+      const role = (rawRole ?? undefined) as MaterialRole | undefined
       const ingested = await ingestUpload(
         await openTickets(),
         {
@@ -614,12 +776,22 @@ async function routeUncached(
           // rather than a refusal — a type we cannot read still gets stored and
           // still says so, which is the trade the pipeline makes throughout.
           contentType: file.type || 'application/octet-stream',
-          siteSlug: typeof slug === 'string' && slug !== '' ? slug : undefined,
+          role,
+          siteSlug,
         },
         await ingestDeps(),
       )
       if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
-      return json(200, materialEnvelope(ingested))
+      return json(200, {
+        ...materialEnvelope(ingested),
+        ...(await placeOnSite(
+          ingested,
+          siteSlug,
+          openTickets,
+          openStore,
+          redactor(secretsOf(env)),
+        )),
+      })
     }
 
     if (p === '/api/material/fetch' && method === 'POST') {
@@ -877,6 +1049,13 @@ async function routeUncached(
     }
     if (err instanceof NotRepublishableError) {
       return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // 404 AND NOT 403 ([[REQ-161]]). The uid names nothing this surface reaches:
+    // either it does not exist or it is a ticket of another kind. The two are
+    // answered identically on purpose — distinguishing them would turn the
+    // Library's read routes into an oracle for which uids exist in the tenant.
+    if (err instanceof NotMaterialError) {
+      return json(404, { error: scrub(err.message), uid: err.uid })
     }
     const message = err instanceof Error ? err.message : String(err)
     return json(500, { error: scrub(message) })

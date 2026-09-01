@@ -233,3 +233,73 @@ export async function publishSite(slug, fetchImpl = fetch) {
   if (!res.ok) throw new Error(`POST /api/publish → ${res.status}`)
   return res.json()
 }
+
+/**
+ * Everything the client has given us, tenant-wide (REQ-161).
+ *
+ * NO SLUG. The Library is deliberately not site-scoped — DOC-38 §7.7 lets one
+ * blob back two sites, and DOC-10 §4.1 makes shared knowledge across a client's
+ * sites deliberate. "Used on this site" is a badge the list computes from
+ * `site_slug` on each row, never a request the origin filters.
+ */
+export async function fetchMaterial(fetchImpl = fetch) {
+  const res = await fetchImpl('/api/material')
+  if (!res.ok) throw new Error(`GET /api/material → ${res.status}`)
+  return res.json()
+}
+
+/** One piece of material with its description — the row plus the body. */
+export async function fetchMaterialItem(uid, fetchImpl = fetch) {
+  const res = await fetchImpl(`/api/material/item?uid=${encodeURIComponent(uid)}`)
+  if (!res.ok) throw new Error(`GET /api/material/item → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Where the detail pane loads a material's own bytes from.
+ *
+ * A URL rather than a fetch, because the consumer is an `<img>`/`<a>` and the
+ * browser is better at streaming bytes into one than we are. Same-origin by
+ * construction, like {@link previewUrl}.
+ */
+export function materialFileUrl(uid) {
+  return `/api/material/file?uid=${encodeURIComponent(uid)}`
+}
+
+/**
+ * Send one dropped file (REQ-161).
+ *
+ * `role` IS ALWAYS SENT, because this function is only ever reached from the
+ * overlay and the overlay has no drop target that is not one of the two areas.
+ * The route tolerates its absence for the pipeline's older callers; this side
+ * never exercises that tolerance, which is what makes "the client chose"
+ * mechanically true rather than a matter of remembering.
+ *
+ * `slug` is optional and means "and put it on this site if the role says so" —
+ * the origin promotes it into that site's asset library, so a dropped logo is
+ * pickable the same second.
+ */
+export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('role', role)
+  if (slug) form.append('slug', slug)
+  return copyEnvelope(await fetchImpl('/api/material', { method: 'POST', body: form }))
+}
+
+/**
+ * Correct what we said a piece of material is (REQ-161).
+ *
+ * The body is the description (DOC-38 §6), and the origin re-indexes it — which
+ * is the half that makes the correction reach retrieval rather than just the
+ * screen.
+ */
+export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
+  return copyEnvelope(
+    await fetchImpl('/api/material/description', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uid, body }),
+    }),
+  )
+}

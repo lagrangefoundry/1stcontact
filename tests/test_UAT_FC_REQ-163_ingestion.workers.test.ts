@@ -145,12 +145,19 @@ describe('REQ-163 — a file arriving through the Worker', () => {
     // The BLOB is in the material bucket — not in SITES, which the public Worker
     // serves. That separation is [[REQ-162]]'s and this is where an upload would
     // break it.
+    //
+    // ADDRESSED BY THE ATTACHMENT RECORD'S UID, not by the hash ([[REQ-161]]).
+    // This asserted `t/<tenant>/blob/<sha>` because the component content-
+    // addressed when [[REQ-163]] was written; it gave that up deliberately —
+    // a shared blob cannot be moved to the trash without breaking whichever
+    // sibling record still names it, and moving it is what makes deletion
+    // actually revoke reach. `sha256` stays on the record for INTEGRITY, which
+    // is why it is still asserted here, and is no longer the address.
     const attachment = body.attachment as Record<string, unknown>
     const sha = String(attachment.sha256)
     expect(sha).toMatch(/^[0-9a-f]{64}$/)
-    expect(await keysUnder(env.BLOBS as R2Bucket, `t/${TENANT}/blob/${sha}`)).toEqual([
-      `t/${TENANT}/blob/${sha}`,
-    ])
+    const key = `t/${TENANT}/blob/${attachment.uid}`
+    expect(await keysUnder(env.BLOBS as R2Bucket, key)).toEqual([key])
 
     // And the description really is in the ticket's body, read back through a
     // second, independently constructed store — not from the response envelope.
@@ -208,19 +215,32 @@ describe('REQ-163 — a file arriving through the Worker', () => {
     expect(embedder.calls - before).toBeLessThan(before)
   })
 
-  it('UAT_FC_REQ-163 the same file uploaded twice is ONE blob and TWO records', async () => {
-    // Content addressing inside the tenant prefix ([[DOC-38]] §7.2). Two clients
-    // uploading the same PDF share nothing; one client uploading it twice pays
-    // for it once.
+  it('UAT_FC_REQ-163 the same file uploaded twice is TWO records that OWN their bytes', async () => {
+    // WHAT THIS CRITERION NOW SAYS, AND WHY IT CHANGED ([[REQ-161]]). It read
+    // "ONE blob and TWO records" — content addressing inside the tenant prefix,
+    // so a client uploading the same PDF twice paid for it once. The component
+    // withdrew that: sharing a blob between two records makes deletion
+    // unimplementable, because the shared bytes cannot be moved to the trash
+    // without breaking whichever sibling still names them, and moving them is
+    // what makes deletion actually revoke reach ([[DOC-37]]).
+    //
+    // So one record owns exactly one blob. The property that survives — and the
+    // one the tenant barrier rests on — is that the bytes stay under THIS
+    // tenant's prefix and that identical content still hashes identically, which
+    // is what `sha256` is for now that it is not the address.
     const bytes = bytesOf('a positioning paper, uploaded twice')
     const first = (await (await upload(bytes, 'a.txt', 'text/plain')).json()) as Record<string, unknown>
     const second = (await (await upload(bytes, 'b.txt', 'text/plain')).json()) as Record<string, unknown>
 
-    const shaA = String((first.attachment as Record<string, unknown>).sha256)
-    const shaB = String((second.attachment as Record<string, unknown>).sha256)
-    expect(shaA).toBe(shaB)
+    const attachA = first.attachment as Record<string, unknown>
+    const attachB = second.attachment as Record<string, unknown>
+    expect(String(attachA.sha256)).toBe(String(attachB.sha256))
     expect(first.uid).not.toBe(second.uid)
-    expect(await keysUnder(env.BLOBS as R2Bucket, `t/${TENANT}/blob/${shaA}`)).toHaveLength(1)
+    expect(attachA.uid).not.toBe(attachB.uid)
+    for (const attachment of [attachA, attachB]) {
+      const key = `t/${TENANT}/blob/${attachment.uid}`
+      expect(await keysUnder(env.BLOBS as R2Bucket, key)).toEqual([key])
+    }
   })
 
   it('UAT_FC_REQ-163 a file over the ceiling is refused in words a client can act on', async () => {

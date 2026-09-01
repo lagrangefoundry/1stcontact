@@ -190,7 +190,14 @@ describe('REQ-162 — attachments', () => {
     })
     const { attachment } = await store.attach({ uid: ticket.uid, bytes })
 
-    const key = `t/${TENANT_A}/blob/${attachment.fields.sha256}`
+    // ADDRESSED BY THE ATTACHMENT RECORD'S OWN UID ([[REQ-161]]). This composed
+    // the key from `sha256` because the component content-addressed when
+    // [[REQ-162]] was written; it gave that up deliberately, since a blob shared
+    // between two records cannot be moved to the trash without breaking whichever
+    // sibling still names it — and moving it is what makes deletion actually
+    // revoke reach. Nothing about THIS claim changes: the bytes are in the
+    // private bucket and are not in the public one, whatever names them.
+    const key = `t/${TENANT_A}/blob/${attachment.uid}`
     expect(await env.BLOBS.head(key), 'the blob is in BLOBS').not.toBeNull()
     expect(await env.SITES.head(key), 'the blob is NOT in the public site bucket').toBeNull()
   })
@@ -198,9 +205,17 @@ describe('REQ-162 — attachments', () => {
   it('UAT_FC_REQ-162 one tenant cannot address another tenant blob', async () => {
     // The port half of the barrier. Keys on a scoped handle are relative and the
     // handle composes the prefix itself, so B's store writing the same bytes
-    // produces a DIFFERENT absolute key — the content address dedups within a
-    // tenant and isolates across, rather than silently sharing one object
+    // produces a DIFFERENT absolute key, rather than silently sharing one object
     // between two accounts that uploaded the same file.
+    //
+    // THE ISOLATION IS THE CLAIM; THE DEDUP IS NO LONGER PART OF IT ([[REQ-161]]).
+    // This used to read "the content address dedups within a tenant and isolates
+    // across" — true when the component content-addressed, and half-true now: one
+    // record owns one blob, so identical bytes are stored twice even inside one
+    // tenant. What has to hold, and is what this test exists for, is that a
+    // tenant's blob is unreachable from another tenant's prefix. `sha256` is
+    // still asserted equal because identical content must still hash identically
+    // — it is an integrity field now rather than the address.
     const a = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_A }))
     const b = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_B }))
     const shared = new TextEncoder().encode('the same file, uploaded twice')
@@ -217,8 +232,8 @@ describe('REQ-162 — attachments', () => {
     const inB = await mk(b)
 
     expect(inA.fields.sha256).toBe(inB.fields.sha256)
-    const keyA = `t/${TENANT_A}/blob/${inA.fields.sha256}`
-    const keyB = `t/${TENANT_B}/blob/${inB.fields.sha256}`
+    const keyA = `t/${TENANT_A}/blob/${inA.uid}`
+    const keyB = `t/${TENANT_B}/blob/${inB.uid}`
     expect(keyA).not.toBe(keyB)
     expect(await env.BLOBS.head(keyA)).not.toBeNull()
     expect(await env.BLOBS.head(keyB)).not.toBeNull()

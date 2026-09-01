@@ -60,6 +60,15 @@ export const MAX_MATERIAL_BYTES: number = MAX_BLOB_BYTES
 /** Where a piece of material came from — the input to every rights decision. */
 export type Provenance = 'uploaded' | 'fetched'
 
+/**
+ * What the client said the material is FOR ([[REQ-161]], [[DOC-38]] §4.2).
+ *
+ * The two drop areas of the upload overlay, and the only thing that surface asks
+ * anybody. See `tickets.ts`'s `role` for why this question is askable when
+ * [[DOC-38]] §10.1's *"do you own this?"* is not.
+ */
+export type MaterialRole = 'site' | 'reference'
+
 /** The §9 field block, as this pipeline computes it. */
 export interface Classification {
   kind: MaterialKind
@@ -67,6 +76,7 @@ export interface Classification {
   republishable: boolean
   exportable: boolean
   origin: Provenance
+  role: MaterialRole
   source_url?: string
 }
 
@@ -104,6 +114,7 @@ export function classify(input: {
   contentType: string
   filename: string
   origin: Provenance
+  role?: MaterialRole
   sourceUrl?: string
 }): Classification {
   const kind = kindOf(input.contentType, input.filename)
@@ -111,6 +122,10 @@ export function classify(input: {
     return {
       kind,
       origin: input.origin,
+      // ALWAYS REFERENCE. Nobody was asked, and nobody needs to be: something we
+      // pulled on the client's behalf is by construction background for the
+      // assistant to read rather than something the client handed us to publish.
+      role: 'reference',
       rights: 'third_party',
       // NEVER republishable. Publishing bytes or copy out of something we fetched
       // on a client's behalf is the one scenario where our own automation would
@@ -123,11 +138,25 @@ export function classify(input: {
       source_url: input.sourceUrl,
     }
   }
+  // THE ROLE NARROWS; IT NEVER WIDENS ([[REQ-161]]). [[DOC-38]] §10.1's table
+  // says an upload is republishable, full stop, and accepts as residual risk that
+  // a client may hand us something they do not hold rights to. Asking what the
+  // file is FOR closes the commonest shape of that risk — the competitor
+  // screenshot — without asking a legal question, because a client who says
+  // "just for you to read" has told us not to publish it whatever the law says.
+  //
+  // An ABSENT role therefore lands on §10.1's answer unchanged, which is what
+  // keeps this a narrowing rather than a new gate: the programmatic entry points
+  // that predate the overlay behave exactly as they did. It is the OVERLAY, not
+  // this function, that guarantees a human chose — it has no drop target that is
+  // not one of the two areas, so nothing it sends can be role-less.
+  const role: MaterialRole = input.role ?? 'site'
   return {
     kind,
     origin: input.origin,
+    role,
     rights: 'owned',
-    republishable: true,
+    republishable: role !== 'reference',
     // NOT exportable: an upload is the client's own business — [[DOC-36]] §6
     // flags exactly this material as confidential — so it must not leave the
     // tenant as aggregate.
@@ -221,7 +250,14 @@ export class MaterialRejectedError extends Error {
  */
 export async function ingestUpload(
   store: TicketStore,
-  file: { bytes: Uint8Array; filename: string; contentType: string; siteSlug?: string },
+  file: {
+    bytes: Uint8Array
+    filename: string
+    contentType: string
+    /** Which drop area the client chose ([[REQ-161]]). Absent = §10.1 unchanged. */
+    role?: MaterialRole
+    siteSlug?: string
+  },
   deps: IngestDeps = {},
 ): Promise<Ingested> {
   if (file.bytes.length > MAX_MATERIAL_BYTES) {
@@ -237,6 +273,7 @@ export async function ingestUpload(
       filename: file.filename,
       contentType: file.contentType,
       origin: 'uploaded',
+      role: file.role,
       siteSlug: file.siteSlug,
     },
     deps,
@@ -288,6 +325,7 @@ async function ingest(
     filename: string
     contentType: string
     origin: Provenance
+    role?: MaterialRole
     sourceUrl?: string
     siteSlug?: string
   },
@@ -297,6 +335,7 @@ async function ingest(
     contentType: input.contentType,
     filename: input.filename,
     origin: input.origin,
+    role: input.role,
     sourceUrl: input.sourceUrl,
   })
 
@@ -415,9 +454,39 @@ export async function promoteToSiteAsset(
     )
   }
   const sha256 = String(attachment.fields.sha256 ?? '')
-  const bytes = await readBlob(tickets, args.uid, sha256)
-  await sites.write(args.slug, { assets: [{ name: args.name, bytes }] })
-  return { name: args.name, size: bytes.byteLength, sha256 }
+  const bytes = await readBlob(tickets, args.uid, attachment.uid)
+  // A FREE NAME, NEVER THE REQUESTED ONE BLIND. `write` puts bytes at a name and
+  // says nothing about what was already there, so promoting a second `logo.png`
+  // would REPLACE the first — silently changing a picture that is live on the
+  // client's site, from a surface whose whole promise is that it only adds. The
+  // CLI's `asset add` refuses a collision instead, because it has an operator to
+  // tell; this has a client who dragged a file, so it renames and reports.
+  const name = await freeAssetName(sites, args.slug, args.name)
+  await sites.write(args.slug, { assets: [{ name, bytes }] })
+  return { name, size: bytes.byteLength, sha256 }
+}
+
+/**
+ * `hero.png`, or `hero-2.png` when that is taken, or `hero-3.png` when that is.
+ *
+ * The suffix goes before the extension rather than after it, because the
+ * extension is what every consumer reads the type from — `hero.png-2` is not a
+ * PNG to a content-type lookup, a picker's icon, or an operator.
+ */
+async function freeAssetName(
+  sites: TenantSiteStore,
+  slug: string,
+  wanted: string,
+): Promise<string> {
+  const taken = new Set(await sites.listAssets(slug))
+  if (!taken.has(wanted)) return wanted
+  const dot = wanted.lastIndexOf('.')
+  const stem = dot > 0 ? wanted.slice(0, dot) : wanted
+  const ext = dot > 0 ? wanted.slice(dot) : ''
+  for (let n = 2; ; n++) {
+    const candidate = `${stem}-${n}${ext}`
+    if (!taken.has(candidate)) return candidate
+  }
 }
 
 /**
@@ -426,22 +495,223 @@ export async function promoteToSiteAsset(
  * Through the store's own blob handle rather than a bucket reach-around: the
  * handle is tenant-bound, so this cannot address another account's blob even by
  * a correctly-formed key.
+ *
+ * **KEYED BY THE ATTACHMENT RECORD'S OWN UID, NOT BY `sha256`.** This read
+ * `blobs.get(sha256)` and found nothing, every time, because the component's
+ * addressing moved underneath it: `attach` used to content-address and dedup,
+ * and gave that up deliberately — a shared blob cannot be moved to the trash
+ * without breaking whichever sibling record still names it, and moving it is
+ * what makes deletion actually revoke reach. `sha256` stays on the record for
+ * INTEGRITY and is no longer the address.
+ *
+ * It was invisible because nothing had ever read a blob back: `promoteToSiteAsset`
+ * shipped with its refusal proved and its success path unexercised, so the only
+ * covered branch was the one that returns before reaching here ([[REQ-163]]).
+ * [[REQ-161]] is the first surface that shows a client their own file, which is
+ * why it is the ticket that found this.
  */
-async function readBlob(store: TicketStore, uid: string, sha256: string): Promise<Uint8Array> {
+async function readBlob(store: TicketStore, uid: string, blobKey: string): Promise<Uint8Array> {
   const blobs = store.blobs
   if (!blobs) {
     throw new MaterialRejectedError(
       'The ticket store has no blob handle, so attached files cannot be read.',
     )
   }
-  const bytes = await blobs.get(sha256)
+  const bytes = await blobs.get(blobKey)
   if (!bytes) {
     // A record naming absent bytes — the failure [[DOC-38]] §7.3's ordering
     // exists to make unconstructible. Reaching it means a sweep collected a blob
     // that was still named, so it is reported as such rather than as a 404.
     throw new MaterialRejectedError(
-      `The file for ${uid} is no longer in storage (${sha256.slice(0, 12)}…).`,
+      `The file for ${uid} is no longer in storage (${blobKey.slice(0, 20)}…).`,
     )
   }
   return bytes
 }
+
+/**
+ * The two ticket types the Library shows ([[REQ-161]], [[DOC-38]] §9).
+ *
+ * BOTH, ALWAYS, and never one type as a shortcut. `material` and `reference`
+ * carry the identical `MATERIAL_FIELDS` block precisely so that every query
+ * across the client's material spans them — a Library that listed only
+ * `material` would silently omit every capture the moment captures land, and
+ * would do it without an empty state to notice.
+ */
+export const MATERIAL_TYPES = ['material', 'reference'] as const
+
+/**
+ * One row of the Library's list.
+ *
+ * THE BODY IS NOT HERE, and its absence is the whole shape of this type. A
+ * material's body is its extracted text — a brand book runs to tens of
+ * kilobytes — so a list that carried bodies would ship the entire corpus to draw
+ * a column of filenames. {@link readMaterial} fetches the one the client
+ * selected.
+ *
+ * `filename` is read off the material's own field rather than its attachment,
+ * which is exactly why `tickets.ts` duplicates it there: the alternative is an
+ * `attachments` call per row to render a list.
+ */
+export interface MaterialRow {
+  uid: string
+  type: string
+  title: string
+  filename: string
+  kind: MaterialKind | string
+  role: string | null
+  rights: string
+  republishable: boolean
+  exportable: boolean
+  origin: string
+  site_slug: string | null
+  source_url: string | null
+  description_status: string | null
+  description_model: string | null
+  updated_at: string
+}
+
+function rowOf(ticket: Ticket): MaterialRow {
+  const f = ticket.fields
+  const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
+  return {
+    uid: ticket.uid,
+    type: ticket.type,
+    title: ticket.title,
+    filename: str(f.filename) ?? ticket.title,
+    kind: String(f.kind ?? 'document'),
+    role: str(f.role),
+    rights: String(f.rights ?? 'owned'),
+    republishable: f.republishable === true,
+    exportable: f.exportable === true,
+    origin: String(f.origin ?? 'uploaded'),
+    site_slug: str(f.site_slug),
+    source_url: str(f.source_url),
+    description_status: str(f.description_status),
+    description_model: str(f.description_model),
+    updated_at: ticket.updated_at,
+  }
+}
+
+/**
+ * Everything the tenant has given us, newest first ([[REQ-161]]).
+ *
+ * TENANT-WIDE, NEVER SITE-SCOPED, and that is a decision rather than an
+ * omission. [[DOC-38]] §7.7 allows one blob to back two sites and [[DOC-10]]
+ * §4.1 makes shared knowledge across a client's sites deliberate — their second
+ * site should not start as cold as their first. So `site_slug` travels on the
+ * row as something to BADGE and FILTER BY, and the store is never asked to hide
+ * anything on the strength of it.
+ *
+ * TWO LISTS RATHER THAN ONE PREDICATE, because `list` takes a type and the
+ * predicate language is the component's rather than ours; two calls that cannot
+ * be mis-spelled beat one string that can.
+ */
+export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
+  const pages = await Promise.all(
+    MATERIAL_TYPES.map((type) => store.list({ type, limit: 'all' })),
+  )
+  return pages
+    .flatMap((page) => page.tickets)
+    .map(rowOf)
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+}
+
+/** Raised for a uid that is not this tenant's material. */
+export class NotMaterialError extends Error {
+  readonly name = 'NotMaterialError'
+  constructor(readonly uid: string) {
+    super(`${uid} is not a piece of material.`)
+  }
+}
+
+async function materialTicket(store: TicketStore, uid: string): Promise<Ticket> {
+  const { ticket } = await store.get({ uid })
+  // CHECKED RATHER THAN ASSUMED. Every route below takes a uid off the wire, and
+  // without this a caller could read a `chat` body or rewrite an awareness map
+  // through a surface that is supposed to reach material and nothing else. The
+  // tenant handle already stops it reaching another account; this stops it
+  // reaching another KIND of thing inside its own.
+  if (!(MATERIAL_TYPES as readonly string[]).includes(ticket.type)) throw new NotMaterialError(uid)
+  return ticket
+}
+
+/** One piece of material in full — the row, plus the body the list omits. */
+export async function readMaterial(
+  store: TicketStore,
+  uid: string,
+): Promise<MaterialRow & { body: string }> {
+  const ticket = await materialTicket(store, uid)
+  return { ...rowOf(ticket), body: ticket.body ?? '' }
+}
+
+/**
+ * The attached bytes, with enough about them to serve a response.
+ *
+ * THE PREVIEW IS WHY THIS EXISTS. A Library row that could not show the picture
+ * would be a list of filenames, which is the thing [[REQ-132]] already rejected
+ * for the image picker: choosing a photograph by reading a path asks the client
+ * to recognise a property of where the file is filed rather than of the picture.
+ */
+export async function materialFile(
+  store: TicketStore,
+  uid: string,
+): Promise<{ bytes: Uint8Array; contentType: string; filename: string }> {
+  await materialTicket(store, uid)
+  const { attachments } = await store.attachments({ uid })
+  const attachment = attachments[0]
+  if (!attachment) {
+    throw new MaterialRejectedError(`That material has no file attached to it (${uid}).`)
+  }
+  return {
+    bytes: await readBlob(store, uid, attachment.uid),
+    contentType: String(attachment.fields.content_type ?? 'application/octet-stream'),
+    filename: String(attachment.fields.filename ?? 'file'),
+  }
+}
+
+/**
+ * The client corrects what we said their material is ([[REQ-161]]).
+ *
+ * THE BODY IS THE DESCRIPTION ([[DOC-38]] §6), so correcting it is an ordinary
+ * ticket write and not a new mechanism. What makes it worth a function rather
+ * than a bare `update` is the two fields that must move with it.
+ *
+ * `description_model` BECOMES THE CLIENT, and `description_status` becomes `ok`.
+ * That pair is not bookkeeping: [[REQ-163]] declared the status precisely so a
+ * later re-describe pass could be a QUERY (`description_status = no_describer`)
+ * rather than a migration — and a client who has just written a better
+ * description than any model could must not have it overwritten by that pass.
+ * Recording who wrote it is what makes the correction survive.
+ *
+ * AND IT RE-INDEXES. [[DOC-39]] §4 is explicit that the index, not the body, is
+ * what retrieval sees: a corrected description that was never re-embedded would
+ * leave the Library showing the client's words while search kept answering with
+ * ours. The ticket's acceptance says the correction is *reflected in retrieval*,
+ * and this call is the only place that can be true.
+ */
+export async function reviseDescription(
+  store: TicketStore,
+  args: { uid: string; body: string },
+  index?: IndexMaterial | null,
+): Promise<{ row: MaterialRow & { body: string }; indexed: boolean }> {
+  const body = args.body.trim()
+  if (body === '') {
+    throw new MaterialRejectedError(
+      'A description cannot be empty — it is the only thing that makes this file findable.',
+    )
+  }
+  await materialTicket(store, args.uid)
+  await store.update({
+    uid: args.uid,
+    patch: {
+      body,
+      fields: { description_status: 'ok', description_model: CLIENT_DESCRIBER },
+    },
+  })
+  if (index) await index(args.uid)
+  return { row: await readMaterial(store, args.uid), indexed: Boolean(index) }
+}
+
+/** `description_model` for a description the client wrote themselves. */
+export const CLIENT_DESCRIBER = 'client'
