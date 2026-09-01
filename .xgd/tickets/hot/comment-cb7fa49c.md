@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-165
 created_by: xgd
 created_at: '2026-08-31T21:51:22.915848+00:00'
-updated_at: '2026-09-01T18:53:35.114596+00:00'
+updated_at: '2026-09-01T18:57:25.187134+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -177,5 +177,11 @@ There are now **two** things writing into `kb/system/`: the ticket export (`DOC-
 ---
 
 Two things to flag: running the export just now added the three `REF-*` files to `kb/system/` but the index in `kb/system/index/` is still from yesterday, so those three aren't searchable until `1c kb build` runs. `kb/` is gitignored so your tree is otherwise unchanged. Want me to rebuild the index so you can actually query it?
+
+<!-- xgd-turn id="ec06e2b4-a701-447f-9d05-ceb1fe382e5d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T18:57:24.947247+00:00" -->
+#### You
+So this is automatically created tooling documentation for the production AI? Created at build time?
 
 <!-- xgd-chat-end -->
