@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-09-01T20:28:26.257028+00:00'
+updated_at: '2026-09-01T20:29:37.735998+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3154,5 +3154,42 @@ Want me to make those two changes?
 <!-- xgd-chat role="user" ts="2026-09-01T20:28:25.636731+00:00" -->
 #### You
 yes
+
+<!-- xgd-turn id="c6f726c0-b0c5-463d-8a63-8a5f9a8e3425-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T20:29:37.167665+00:00" -->
+#### Claude
+Both are config-only (a `package.json` script and an untracked local file), so no ticket or branch needed per the free-coding protocol.
+
+Now the rewrite:
+
+Clean one-line diff. Now let me confirm `pnpm dev` works end to end with your real key file:
+
+My test flag collided with the script's own `--port`. Checking whether 8788 is free to test on:
+
+Your server is on 8788, so I'll test the script's exact env-file expression on a spare port rather than disturb it:
+
+Both changes are in and verified against your real key file.
+
+**`apps/control-app/package.json`** — one-line diff:
+```json
+"dev": "wrangler dev --port 8788 --env-file .dev.vars --env-file ${ONECONTACT_SECRETS:-$HOME/Documents/secrets/1c.dev.env}"
+```
+`$HOME` rather than `~` avoids the tilde-expansion question, and the `${ONECONTACT_SECRETS:-...}` default means a teammate can point elsewhere without editing the file.
+
+**`apps/control-app/.dev.vars`** — dropped the `ANTHROPIC_API_KEY` line, and the header now states the no-secrets rule, shows the layered invocation, and records the thing that cost us this round: `--env-file` *replaces* the default `.dev.vars` lookup, so both flags are load-bearing and each has a distinct failure mode.
+
+Verification (spare port 8813, running the script's exact env-file expression through `sh` so the `${...}` expansion was exercised — your 8788 server was left alone):
+- `GET /` → **200**, no Access rejection
+- `POST /api/ai/session` → `{"sessionId":"site-xgd","turns":[],"ready":true}` — real key, assistant on
+- zero errors in the wrangler log, and no `sk-ant-api` string anywhere in it
+
+One correction to flag: my first attempt failed because I passed `--port 8813` on top of the script's own `--port 8788` and wrangler rejects the duplicate. That's a property of the script — `pnpm dev --port X` won't work, you'd need to edit the script or drop the port from it. Not worth changing unless you regularly run on alternate ports.
+
+To pick this up, restart your 8788 server as `pnpm dev`. Your current process is still running on the old flags with no key.
+
+Two loose ends from earlier that I have not touched:
+- `CLOUDFLARE_ACCOUNT_ID` isn't in your exports, and `resolveEmbedder` (`tools/generate/src/cli/kb.ts:720`) needs it alongside the token — `pnpm kb` will fail until it's set.
+- The `~/Documents/secrets/1c.env` shell file for the CLI credentials is still just a suggestion; you're exporting those by hand each session.
 
 <!-- xgd-chat-end -->
