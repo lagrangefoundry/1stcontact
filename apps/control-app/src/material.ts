@@ -452,6 +452,12 @@ async function ingest(
       // about absence as a third state.
       description_model: description.describer,
       filename: input.filename,
+      // WRITTEN BESIDE THE FILENAME, from the same resolved variable the
+      // attachment below records (REQ-172). The Library's detail pane renders a
+      // document from its content type and `kind` files markdown, text and PDF
+      // alike as `document`, so the type has to travel on the row — and reading
+      // it off the attachment would be a call per row to draw the list.
+      content_type: contentType,
     },
   })
 
@@ -651,6 +657,15 @@ export interface MaterialRow {
   title: string
   filename: string
   kind: MaterialKind | string
+  /**
+   * What the bytes are — the row's answer to *how should this be shown?*
+   *
+   * SEPARATE FROM `kind` BECAUSE IT ANSWERS A DIFFERENT QUESTION. [[DOC-38]] §9's
+   * `kind` is a four-value vocabulary for filing, and it calls a markdown note, a
+   * plain-text export and a brand PDF all `document` — three files [[REQ-172]]'s
+   * detail pane has to render three different ways.
+   */
+  content_type: string
   role: string | null
   rights: string
   republishable: boolean
@@ -666,12 +681,20 @@ export interface MaterialRow {
 function rowOf(ticket: Ticket): MaterialRow {
   const f = ticket.fields
   const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
+  const filename = str(f.filename) ?? ticket.title
   return {
     uid: ticket.uid,
     type: ticket.type,
     title: ticket.title,
-    filename: str(f.filename) ?? ticket.title,
+    filename,
     kind: String(f.kind ?? 'document'),
+    // RESOLVED RATHER THAN READ, so material that predates the field is not a
+    // second state the pane has to handle (REQ-172). `resolveContentType`
+    // repairs only silence, so a stated type is returned untouched and an absent
+    // one falls back to the filename — the same mapping that would have been
+    // stored, recomputed. That is what makes this a cache rather than a
+    // migration.
+    content_type: resolveContentType(str(f.content_type) ?? '', filename),
     role: str(f.role),
     rights: String(f.rights ?? 'owned'),
     republishable: f.republishable === true,

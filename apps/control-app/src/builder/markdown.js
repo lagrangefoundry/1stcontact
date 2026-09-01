@@ -51,6 +51,22 @@ export const markdownReady = Promise.all([
  */
 export { renderSafe }
 
+/**
+ * The two engine seams, re-exported for the same reason `renderSafe` is — and
+ * for one more that is structural rather than tidy.
+ *
+ * A CDN import cannot run under vitest, so every suite that asserts RENDERED
+ * markdown has to inject the engines through the seams the components publish
+ * for it. Reaching for those seams by their package names would put the
+ * component scope in a test file, and `bug32-webui-scope-rebrand` allows that
+ * scope to be written in exactly two places: its declaration, and this
+ * directory. So the builder's own markdown module is where a suite must come to
+ * find them, which is the same "one place, one policy" rule this file already
+ * exists to state.
+ */
+export { setParser } from '@lagrangefoundry/webui-markdown'
+export { setSanitizer } from '@lagrangefoundry/webui-chat'
+
 /** Whether the sanitizer is present — i.e. whether `renderSafe` will render or escape. */
 export function markdownEngineReady() {
   return getSanitizer() != null
