@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:02:12.286567+00:00'
+updated_at: '2026-09-01T22:07:13.712840+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -525,5 +525,15 @@ B2 composes better with A: with a precise refusal, the AI usually doesn't need t
 My recommendation: **A first, alone, and re-run this exact prompt.** It's small, it's in the wrong-layer-discards-information category rather than the missing-feature category, and I'd expect it to eliminate most of the flailing on its own — which would tell us how much of B is actually needed. C is a separate product decision and probably its own ticket.
 
 Diagnosis is recorded on BUG-44. Nothing coded yet — which of these do you want to pursue, and note that A lands in `lagrange-framework`, not here.
+
+<!-- xgd-turn id="f0273b55-03da-4e45-b55f-83eae28b0188-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:07:12.956541+00:00" -->
+#### You
+A. Please create a ticket for A in lf
+
+On the assets we fixed a bug there where .md files were not a recognised type. That's fixed but unreadable assets are still left there. Question: is the md doc I just uploaded readable to the AI?
+
+D. is this a lf change? If so, please create another ticket for it
 
 <!-- xgd-chat-end -->
