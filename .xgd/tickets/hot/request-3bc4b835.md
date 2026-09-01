@@ -5,9 +5,9 @@ type: request
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: xgd
 created_at: '2026-09-01T00:50:39.990490+00:00'
-updated_at: '2026-09-01T01:18:52.331847+00:00'
+updated_at: '2026-09-01T01:30:30.141195+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -162,3 +162,5 @@ the code path that never runs during the alpha is the one that was promised.
 Self-signup, trials, subscriptions, discounts, the warning period, read-only
 access on expiry, and time-boxed support memberships. All are [[DOC-40]] §5 and
 §6, and all land on this schema without changing it.
+
+-
