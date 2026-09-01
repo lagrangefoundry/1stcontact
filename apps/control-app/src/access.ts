@@ -289,8 +289,27 @@ export interface AccessEnv {
 }
 
 /**
- * The gate itself: a Response to send INSTEAD of serving, or `undefined` when
- * the caller is allowed through.
+ * What the gate decided: who the caller is, or the Response to send instead.
+ *
+ * IT CARRIES THE IDENTITY OUT, and that is REQ-167's change to this file. The
+ * gate used to answer a yes/no question — a Response to refuse with, or
+ * `undefined` to carry on — because passing Access WAS admission. It is not any
+ * more: the Access policy is identity-only ([[DOC-40]] §3), so a verified email is
+ * the START of the decision and `identity.ts` finishes it. Re-verifying the token
+ * downstream to recover the email would mean two signature checks and two JWKS
+ * lookups per request for a value this function already holds.
+ *
+ * `email` is separate from `identity` because they are not the same claim. A
+ * service token authenticates as a `common_name` and carries no email at all, so
+ * `identity` is always present and `email` is not — and the one that decides
+ * admission is the one that can be absent.
+ */
+export type AccessOutcome =
+  | { ok: true; identity: string; email: string | null; claims: AccessClaims }
+  | { ok: false; response: Response }
+
+/**
+ * The gate itself.
  *
  * Two refusals, deliberately distinguished, because they need different fixes:
  *
@@ -306,7 +325,7 @@ export async function guardAccess(
   request: Request,
   env: AccessEnv,
   options: { fetch?: typeof fetch; now?: number } = {},
-): Promise<Response | undefined> {
+): Promise<AccessOutcome> {
   const teamDomain = (env.ACCESS_TEAM_DOMAIN ?? '').trim()
   const aud = (env.ACCESS_AUD ?? '').trim()
 
@@ -315,13 +334,16 @@ export async function guardAccess(
       teamDomain === '' ? 'ACCESS_TEAM_DOMAIN' : undefined,
       aud === '' ? 'ACCESS_AUD' : undefined,
     ].filter(Boolean)
-    return text(
-      503,
-      `Cloudflare Access is not configured: ${missing.join(' and ')} ${
-        missing.length > 1 ? 'are' : 'is'
-      } empty. ` +
-        'This Worker refuses every request until it can verify one — see apps/control-app/ACCESS.md.',
-    )
+    return {
+      ok: false,
+      response: text(
+        503,
+        `Cloudflare Access is not configured: ${missing.join(' and ')} ${
+          missing.length > 1 ? 'are' : 'is'
+        } empty. ` +
+          'This Worker refuses every request until it can verify one — see apps/control-app/ACCESS.md.',
+      ),
+    }
   }
 
   const result = await verifyAccessJwt({
@@ -333,9 +355,17 @@ export async function guardAccess(
   })
 
   if (!result.ok) {
-    return text(401, `Cloudflare Access rejected this request: ${result.reason}.`)
+    return {
+      ok: false,
+      response: text(401, `Cloudflare Access rejected this request: ${result.reason}.`),
+    }
   }
-  return undefined
+  return {
+    ok: true,
+    identity: result.identity,
+    email: typeof result.claims.email === 'string' ? result.claims.email : null,
+    claims: result.claims,
+  }
 }
 
 function text(status: number, body: string): Response {
