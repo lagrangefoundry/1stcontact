@@ -6,10 +6,10 @@ title: A material and a reference record rights and provenance in the same six-p
   form, and read it back unchanged
 created_by: xgd
 created_at: '2026-09-02T00:30:18.854612+00:00'
-updated_at: '2026-09-02T00:30:18.854612+00:00'
+updated_at: '2026-09-02T00:42:26.091904+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
