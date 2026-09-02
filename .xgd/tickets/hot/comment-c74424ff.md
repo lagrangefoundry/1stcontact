@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-01T18:25:38.361760+00:00'
+updated_at: '2026-09-02T20:59:14.990908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -897,5 +897,11 @@ You have a working single-tenant builder with a real editing surface, a complete
 2. **REQ-170** — without it, there's no way to invite anyone except by hand-calling a function.
 
 REQ-160 is the third, and it's the one that makes the assistant actually *use* the corpus you've spent five tickets building.
+
+<!-- xgd-turn id="ab18b73e-91ef-4a81-859b-1c7e68ae4563-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:59:14.951215+00:00" -->
+#### You
+Please read the transcript to REQ-168 and help me answer its questions
 
 <!-- xgd-chat-end -->
