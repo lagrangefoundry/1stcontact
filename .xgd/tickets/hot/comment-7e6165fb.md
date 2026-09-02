@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T23:48:29.674348+00:00'
+updated_at: '2026-09-02T23:50:57.589482+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -355,5 +355,31 @@ I have not run `1c kb build` or `bin/build` — both need network the sandbox bl
 <!-- xgd-chat role="user" ts="2026-09-02T23:48:29.472142+00:00" -->
 #### You
 **A gotcha I found while checking.** `1c builder` and `pnpm dev:control` both start `wrangler dev` on the control app, but `1c builder` spawns it with **no **`--env-file`** flags**. Wrangler falls back to its default `.dev.vars` lookup — so Access is correctly off, and `ANTHROPIC_API_KEY` is never loaded. The builder comes up and the assistant can't take a turn. Documented in §2; worth a small ticket if you want them aligned. <-- please create a ticket - and have the ticket update the doc when its done please
+
+<!-- xgd-turn id="547e2fc3-847e-4373-820e-b9b4d18aebdb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:50:57.410005+00:00" -->
+#### Claude
+Let me verify the specifics before writing it.
+
+Now let me point DOC-41's gotcha at BUG-50, so the doc and ticket reference each other.
+
+**BUG-50** created, and DOC-41 now points at it.
+
+While writing it up I found a second consequence worse than the one I reported to you. The missing key isn't only a chat problem — `defaultDescriber` (`router.ts:341`) returns `undefined` when `ANTHROPIC_API_KEY` is absent, so ingestion stores the upload and writes a material body saying nothing has looked at it yet. That's correct behaviour for a deployment with no key, and badly misleading here: the operator *has* a key, put it where the docs said, and is testing the exact ingestion-vision path CHAT-35 turned on. The symptom is indistinguishable from the feature being broken.
+
+So there's a loud half (chat says the assistant isn't switched on) and a silent half (images silently undescribed), both caused by a missing flag in a wrapper — everything about the configuration is correct, which is the worst kind of thing to debug.
+
+**What the ticket asks for:**
+
+1. `1c builder` composes the same two `--env-file` flags, honouring `ONECONTACT_SECRETS` with the same default.
+2. **The layering is defined once.** Two places each knowing half of it is precisely how the divergence arose — that's the part that matters, not the flags themselves.
+3. Missing secrets file → name the path and the consequence, **but still start**. A missing key is an ordinary runtime state in this codebase; the Worker is built to open, serve and explain itself without one. It's the *silent* version being removed, not the tolerance.
+4. UAT `test_UAT_FC_BUG-50_*` asserting the composed argv carries both flags and that `ONECONTACT_SECRETS` overrides the default.
+5. **DOC-41 §2's gotcha subsection is removed or rewritten** — with the reasoning that a runbook describing a trap that no longer exists is its own defect, since the next operator works around something already fixed.
+
+That last point is item 5 of "Done means", so it can't be closed with the doc left stale. I also updated the DOC-41 subsection now to name BUG-50, record the image-description consequence, and mark itself for deletion when the bug lands — so whoever picks it up finds the instruction in both places.
+
+I did not scope this into the free-coding flow (no branch, no code) — it's filed as a ticket for later, matching the others from this session. Session tally so far: REQ-174, REQ-175, REQ-177, BUG-48, BUG-50, DOC-41, plus appends to REQ-157, DOC-17, DOC-30, DOC-39.
 
 <!-- xgd-chat-end -->
