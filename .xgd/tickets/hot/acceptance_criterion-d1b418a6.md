@@ -6,10 +6,10 @@ title: The configured account is registered on demand, and an account already re
   keeps the status it has
 created_by: xgd
 created_at: '2026-09-01T23:57:44.477751+00:00'
-updated_at: '2026-09-01T23:57:44.477751+00:00'
+updated_at: '2026-09-02T00:13:30.376584+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
