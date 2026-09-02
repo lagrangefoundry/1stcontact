@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T00:27:51.523695+00:00'
+updated_at: '2026-09-02T00:29:25.474584+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -290,5 +290,31 @@ That looks like an accident of the seam rather than a decision, and it bears dir
 <!-- xgd-chat role="user" ts="2026-09-02T00:27:51.016435+00:00" -->
 #### You
 ok I want to fix this upstream in the framework
+
+<!-- xgd-turn id="b01f2276-10bb-4c77-97ff-b086e11f0834-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:29:25.452501+00:00" -->
+#### Claude
+Let me check the shape of the fix and the Python peer before proposing anything.
+
+Before you spend anything on this — **my "no search instruction" finding was wrong**, and the correction changes what's worth fixing.
+
+The knowledge surface's own declaration carries that guidance in its `overview`:
+
+> *"It is always here and retrieval is cheap, so search it whenever you are unsure, rather than assuming and rather than asking for material you could fetch yourself... If you were primed with a map of what exists, the bolded terms in it are validated access points."*
+
+And `host.ts` builds priming and composes the knowledge surface in the same `if (knowledge !== null)` branch, so whenever priming exists, `box.manual()` includes that block. The doctrine reaches the model every time. My dump only registered the L1 surface, which is why it looked absent.
+
+The size finding is unaffected: 37,389 of 38,030 characters.
+
+**What is actually defective upstream, having looked properly:**
+
+**The doctrine is written twice.** `DEFAULT_MECHANISM` in `knowledge/priming.js` and the `overview` in `ai-knowledge/knowledge_surface.json` say the same three things in near-identical words — retrieval is cheap so don't assume, query in natural language, the bolded map terms are validated access points. In every configuration that passes a `mechanism`, which is the documented intended usage, `DEFAULT_MECHANISM` is dead text that still reads as live doctrine. Two copies, one always dead, free to drift apart. You can already see the seam: priming says "the bolded terms **above**", the surface hedges with "**if you were primed with** a map".
+
+**The contract is unenforced.** KM assembles a section headed `# How to search` and hands the entire contents to the host, assuming the host will explain how to search. Nothing checks that. A host that passes a manual with no knowledge surface in it gets a section titled "How to search" containing unrelated tool documentation and no search instruction — silently, in both languages. That's the failure I mistakenly reported as current: it isn't happening here, but nothing prevents it.
+
+Neither is a crisis. The second is a genuine seam defect worth a ticket; the first is a dedupe that follows from fixing it.
+
+**My question:** REQ-113 is about the manual carrying too much detail for priming — different package (`ai` vs `knowledge`), different defect. Do you want this as a separate framework bug ticket, or folded into REQ-113 as a second section? I'd file it separately, but it's now small enough that either is defensible.
 
 <!-- xgd-chat-end -->
