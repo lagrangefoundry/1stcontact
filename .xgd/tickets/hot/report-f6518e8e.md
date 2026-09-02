@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: the product ticket store (REQ-162, free-coded commits)'
 created_by: xgd
 created_at: '2026-09-01T23:51:59.267222+00:00'
-updated_at: '2026-09-02T00:18:35.515112+00:00'
+updated_at: '2026-09-02T00:32:29.422618+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -132,7 +132,7 @@ fields:
       a session can persist as a ticket, and this commit changes no chat behaviour
       — it only makes the schemas available in the same pack, which is a property
       of the pack. The field rules are the substance of DOC-38 §9 and have no AC anywhere.'
-    story_uid: null
+    story_uid: story-e07c589b
   - index: 4
     component: Cloudflare Site Store
     item_type: upgrade
