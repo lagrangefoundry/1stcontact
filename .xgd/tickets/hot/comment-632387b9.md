@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T20:59:16.655362+00:00'
+updated_at: '2026-09-02T21:21:15.465907+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -176,5 +176,11 @@ So editing `UPLOAD_AREAS` in `config.js` changes the overlay *and* the pill. The
 **Ordering** — I've said BUG-47 should land first. It's the same badge, currently firing off `site_slug` (upload context, not placement), which is why it's on all three of your files. Renaming a badge that's showing on the wrong rows just makes it wrong in new words, and BUG-47 may replace the field it reads. The other five changes have no dependency.
 
 Tickets so far this session: **REQ-173** (digest/comment split), **BUG-47** (the pill), **REQ-176** (this). All committed locally — the `xgd` push is still failing on proxy auth, so none have reached the remote.
+
+<!-- xgd-turn id="7febdb28-eb09-4a43-81cb-02d589e1b913-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T21:21:15.346530+00:00" -->
+#### You
+My suggestion in the ticket: `Added to the site` for the pill <-- ok but I would ideally like a more succinct way to capture this, a second icon, a way of displaying things. I'm not sure what do you think?
 
 <!-- xgd-chat-end -->
