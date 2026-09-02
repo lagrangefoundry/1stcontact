@@ -5,9 +5,9 @@ type: request
 title: 'Rename the assistant role: caretaker -> consultant'
 created_by: xgd
 created_at: '2026-09-02T20:48:27.159106+00:00'
-updated_at: '2026-09-02T22:43:20.175366+00:00'
+updated_at: '2026-09-02T22:59:25.951151+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-6a65b0c6
 ---
+
 
 # Rename the assistant role: caretaker -> consultant
 
@@ -61,14 +62,69 @@ describes a custodial posture and should be rewritten to describe an advisory
 one, while keeping the existing constraint language about the closed vocabulary
 intact.
 
-## The stored-role compatibility question
+Concretely, the rewritten preamble must tell the assistant to form a view and
+state it, to say so when what the client has asked for would make the site
+worse, and never to build past an open question and leave it unmade — the three
+things the observed session did not do. The closed-vocabulary paragraph (no
+HTML, CSS or JavaScript; a malformed change is refused whole) is unchanged, and
+"user" becomes "client" throughout, because that is the relationship the word
+consultant describes.
+
+Two strings beyond the preamble carry the same register and change with it: the
+per-turn reminder, and `CARETAKER_PURPOSE` — the sentence that primes knowledge
+retrieval with what the role is for, which said the role "looks after" a
+website. The role name is also the KEY of the grant in `instances.json`, so the
+rename has to move that key or no session can construct a Toolbox at all.
+
+The rename must leave nothing behind. A straggler in a comment, a test helper or
+a JSON key is how a rename half-happens and then rots, so a guard scans the
+working tree for the old word and allows it in exactly one file: the declaration
+of the compatibility alias below. `kb/` and the inlined copy under `generated/`
+are excluded — they are the system knowledge base, exported from the ticket
+store and rebuilt by `1c kb build`, so DOC-33's rename reaches them on the next
+KB build rather than in this commit.
+
+## The stored-role compatibility question — decided: accept on read
 
 `CARETAKER_ROLE` is persisted in session records (`role: "caretaker"` appears in
-the `xgd-session` header of every archived chat). A rename must either migrate
-those or accept the old value on read. Sessions already archived must keep
-opening. Decide and record which; do not leave both paths live.
+the `xgd-session` header of every archived chat, and in the `session_start`
+record of a live junction). The session manager resolves a resumed session's
+role by looking that stored name up in the role map it was constructed with, and
+throws on a miss — so a rename alone would strand every conversation started
+before it.
+
+**Decision: accept the old value on read. There is no migration.** The old name
+is registered as a second key onto the *same* role object, declared as
+`LEGACY_ROLE_NAMES` in `roles.ts` beside the reasoning. Migrating instead would
+mean rewriting an append-only record stream and the archives of every
+deployment, including a store-backed one in production, to change a word; the
+alias costs one entry, behaves identically for the file archive, the junction
+and the store-backed archive, and needs nothing to be run anywhere.
+
+Only one path is live. Nothing is ever *written* under a legacy name —
+`createSession` records `CONSULTANT_ROLE` and `aiStatus` reports it alone — so
+the alias is read-only and ages out with the sessions that need it.
 
 ## Out of scope
 
 Renaming `DOC-4 Webcaretaker` and `DOC-5 Gendev Website Caretaker Architecture`.
 Those are historical architecture documents whose titles are part of the record.
+
+## Evidence
+
+`tests/test_UAT_FC_REQ-174_consultant_role.test.ts`, against the real builder
+origin with only the Anthropic client doubled:
+
+1. the preamble the model actually receives names a consultant, never the old
+   word, asks for judgement, for the "would make the site worse" pushback and
+   for the open question to be settled — and still carries the closed-vocabulary
+   constraint;
+2. a new session is recorded in the archive header and reported by
+   `api/ai/roles` under the new name alone;
+3. the grant in `instances.json` and the corpus purpose are the consultant's,
+   and the purpose no longer says the role "looks after" a site;
+4. a session whose stored role name is aged back to the old value reopens with
+   its turns intact and takes another turn that reaches the tools and changes
+   the site — verified to fail when the alias is removed;
+5. no file in the working tree carries the old word except the alias
+   declaration.
