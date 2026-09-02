@@ -5,10 +5,10 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-09-02T23:45:10.154627+00:00'
+updated_at: '2026-09-02T23:45:32.023285+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 8
