@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T23:54:55.874872+00:00'
+updated_at: '2026-09-02T23:58:22.894334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -377,5 +377,31 @@ If it was just "go ahead" on my last question, say so and I'll write the three-p
 <!-- xgd-chat role="user" ts="2026-09-02T23:54:55.560897+00:00" -->
 #### You
 REQ-113 complete, please proceed
+
+<!-- xgd-turn id="62040ebd-fa6c-4331-8dba-e54a06269b70-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:58:22.710685+00:00" -->
+#### Claude
+Both halves of REQ-113 landed — the `summary` level and a declared `DescribeTools` operation. Let me measure what it actually buys.
+
+The codebase has moved — `instances.json` now says `consultant`, plus a new `fidelity` surface. Let me see what landed.
+
+REQ-174 has already landed the consultant role in another session. Let me see what's left before I write anything.
+
+Everything's in place now. Numbers first: with REQ-113's summary level, the L1 manual goes **43,047 → 10,830 chars**, taking the priming document from **43,732 → 11,515**. That's 74% off. (The L1 surface grew from 37k to 43k when REQ-175 landed, so the saving is bigger than it would have been yesterday.) Writing the structure in now.
+
+REQ-171 rewritten around the three-part structure.
+
+**What I removed from scope,** because it landed while we were talking: REQ-174 already retired `caretaker`, declared `consultant`, rewrote the system prompt and left `LEGACY_ROLE_NAMES` for old sessions. REQ-113 shipped both halves upstream — the `summary` level and a `DescribeTools` operation. The ticket now records those as done rather than re-specifying them.
+
+**What the ticket says.** The three parts split by what changes them: product level (role-independent — what the product is, what the tools are for, how to reach the KMS), role level (purpose plus required reading), reminder (habits only). Both your amendments are written in as decisions: landscape maps go in (1), per-turn deltas stay in (3) as a *named* exception, and (1) is shared prose plus a per-grant tool projection so the never-told-about-an-ungranted-capability property survives. I also wrote in the consequence you should be able to argue with later — this demotes role identity out of the highest-attention position.
+
+**Two things worth knowing before the next step.**
+
+REQ-113 is `free_coded` upstream but hasn't reached this repo's shared store, and nothing is wired: `host.ts`, `session-knowledge.ts` and `system-knowledge.ts` all still call `box.manual()` with no level. So the 74% saving is available but not taken.
+
+The corpus is still empty — 0 of 40 doc tickets carry `doc_kind: system_kb`. Every "reference it rather than restate it" decision in the ticket is inert until DOC-33 and DOC-35 are in there, and they need an authoring pass first, not a field flip. That's the real critical path.
+
+I've left the title alone again. It now describes almost none of the ticket; suggest *"The session's three texts: product level, role level, reminder"* — say the word.
 
 <!-- xgd-chat-end -->
