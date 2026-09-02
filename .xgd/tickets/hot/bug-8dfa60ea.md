@@ -5,9 +5,9 @@ type: bug
 title: 'Chat upload: a file dropped on "Put it on the site" is unusable to the assistant'
 created_by: xgd
 created_at: '2026-09-01T22:31:24.397792+00:00'
-updated_at: '2026-09-02T00:43:12.672374+00:00'
+updated_at: '2026-09-02T00:43:49.587342+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.41
+  story_points: 3
 ---
 
 ## Symptom
@@ -45,116 +46,114 @@ material-a4932624  "Gigabyte Alchemy Gold \"A\" Logo on Navy Background"
   republishable: false
 ```
 
-**The file arrived as reference material.** `placeOnSite` returns at its first
-line on `role !== 'site'`, so the bytes never reached the site's asset folder and
-the republishable gate was never even consulted. The image was not an unregistered
-asset; it was not on the site at all. The assistant's explanation was
-confabulated — it knew the material existed from the corpus delta, could not find
-it in `list_assets`, and reached for registry vocabulary to explain the gap.
+**That particular file arrived as reference material.** `placeOnSite` returns at
+its first line on `role !== 'site'`, so the bytes never reached the site's asset
+folder and the republishable gate was never consulted. The assistant's
+explanation was confabulated: it knew the material existed from the corpus delta,
+could not find it in `list_assets`, and reached for registry vocabulary.
 
-Whether the drop landed on the wrong area or the two areas are less legible in use
-than in code is not settled. `upload.js` takes the role from the specific button
-dropped on, per drop, with no default, and no mislabelling path was found.
+`upload.js` takes the role from the specific button dropped on, per drop, with no
+default, and no mislabelling path was found — so whether this was a misdrop or a
+legibility problem in the two areas is unresolved and is not addressed here.
 
-## The four defects
+**The registration defect is real and independent.** Site `alpha`'s registry held
+exactly one entry — `ga-gold-a.svg`, the assistant's own drawing, registered
+because `write_image` registers. The client's two genuinely promoted uploads had
+bytes on disk, rows in `site_assets`, and no registry entry. The only registered
+picture on the site was the substitute.
 
-### 1. Promotion writes bytes but never registers (CONFIRMED, independent of the above)
-
-`promoteToSiteAsset` (`apps/control-app/src/material.ts:563`) calls
-`sites.write(slug, { assets: [{ name, bytes }] })` with `siteJson` omitted. The
-bytes land in `draft/assets/`; `site.json`'s `assets` array is never touched.
-
-Only two functions ever write that array: `editAssetAdd` (`edit.ts:1984`) and
-`editImageWrite` (`edit.ts:2082`). Chat promotion goes past both.
-
-The evidence is exact. Site `alpha`'s registry held **one** entry —
-`ga-gold-a.svg`, the assistant's own drawing, registered because `write_image`
-registers. The client's two genuinely promoted uploads (`ChatGPT Image Jun
-22…png`, `image (6).png`) had bytes on disk and `site_assets` rows and no registry
-entry. The only registered picture on the site was the substitute.
-
-It also discards alt text we already paid for: ingestion describes every uploaded
-image ([[DOC-38]] §6), and promotion drops that description on the floor.
-
-### 2. The declared absence still says uploads are impossible
-
-`l1-surface.json`'s `absences` carries "Uploading a picture, or any file":
-
-> […] you cannot take a file from a conversation and put it in the site. […]
-> Offer the user the images already in the site's list, and tell them adding a
-> file is done outside the chat.
-
-True before [[REQ-161]]; false now. The overlay's first area *is* "Put it on the
-site", and the upload route promotes in the same request. The assistant's reply —
-including sending the client to the asset manager — is this paragraph read back.
-It is a projected reference ([[DOC-39]] §3.2): while it says this, no prompt work
-changes the answer.
-
-### 3. `get_asset` contradicts `list_assets`, and the manual backs the wrong one
-
-`editAssetGet` reads only the registry, so an asset `list_assets` has just listed
-raises `NOT_FOUND`. The surface language compounds it: `asset_id` is "The
-registered name of an image or font already in the site", `get_asset` is "one
-**registered** image or font".
-
-Registration is not permission. Nothing checks the registry before a page may
-reference an asset — every capture-folded page points at `/assets/<name>` against
-an empty registry (`l1/assets.ts`) and renders. Left alone, this reproduces the
-same refusal on the next unregistered file.
-
-### 4. The substitute was silent
-
-`write_image` warns it is "not a way to make a photograph" but does not forbid
-standing in for a file the client supplied. It drew one and reported completion.
-
-## Behaviour required
+## Behaviour delivered
 
 1. **Promotion registers.** A file promoted from the chat lands as a first-class
-   asset: bytes stored, registry entry created, `site.json` validated, and the
-   write recorded in the draft change journal so the assistant is told it arrived
-   rather than having to notice. It reaches this by the same path every other
-   asset does, so there is one set of rules about names and one about validity.
-2. **The description becomes the alt text.** The material ticket's AI-written
-   title lands on the registry entry, instead of the entry being created with an
-   empty `alt`.
-3. **Existing gates are unchanged.** Non-republishable material is still refused
-   outright, and a refusal still registers nothing and stores nothing. A name
-   already taken is still renamed rather than replaced, and it is the renamed name
-   that gets registered.
-4. **The surface stops describing uploads as impossible.** The assistant still
-   cannot itself put a file into a site; what it must no longer say is that a file
-   cannot arrive through the chat, or direct the client to the builder interface.
-   The correct move when it needs a picture is to ask for it to be dropped on the
-   chat.
-5. **Anything `list_assets` reports can be read by `get_asset`**, including an
-   asset with bytes but no registry entry. `registered` remains reportable — it is
-   a true fact about the file — but is described as provenance, not permission, so
-   nothing on the surface implies an unregistered asset may not be used.
-6. **No silent substitution.** A drawn image is never a stand-in for a file the
-   client supplied. If the client's file cannot be used, the assistant says so
-   instead of composing a replacement.
+   asset: bytes stored, registry entry created, `site.json` validated as a whole,
+   and the write recorded in the draft change journal so the assistant is told a
+   picture arrived rather than having to notice. It reaches this through
+   `editAssetAdd` — the same path every other asset takes — so there is one set of
+   rules about names and one about validity.
+2. **The description becomes the alt text.** Ingestion already describes every
+   uploaded image ([[DOC-38]] §6); that description was computed, stored on the
+   material ticket, and discarded at the one moment a site asset wanted it. The
+   ticket's title now lands on the registry entry. A title that is merely the
+   filename is treated as no description and leaves `alt` empty — `alt="ChatGPT
+   Image Sep 9, 2025 at 11_24_45 AM.png"` is the filename read aloud, and an
+   empty field is visibly unfilled where that one looks filled.
+3. **The existing gates survive.** Non-republishable material is still refused
+   outright, and a refusal registers nothing and stores nothing. A name already
+   taken is still renamed rather than replaced, and it is the renamed name that
+   gets registered, with its own material's description.
+4. **The surface stops describing uploads as impossible.** The absence
+   "Uploading a picture, or any file" said a file could not arrive through a
+   conversation at all — true before [[REQ-161]], and the paragraph the assistant
+   read back, including the instruction to send the client to the builder
+   interface. It is now "Fetching a picture, or any file, yourself": the assistant
+   still cannot go and get a file, and the remedy it names is the one that works —
+   ask for it to be dropped here, on "Put it on the site".
+5. **Anything `list_assets` reports can be read by `get_asset`.** It read the
+   registry alone, so an asset the listing had just shown raised `NOT_FOUND`; the
+   manual agreed with the wrong side, describing an `asset_id` as "the
+   **registered** name". Registration is not permission — nothing consults the
+   registry before a page references an asset, and every capture-folded page
+   points at `/assets/<name>` against an empty one. `get_asset` now answers from
+   the listing, by id **or** by the `/assets/<name>` handle a page actually holds,
+   and returns the listing's own shape so the two operations agree on what an
+   asset is. `registered` stays reportable and is documented as provenance.
+6. **No silent substitution.** `write_image` now says plainly that a drawing is
+   never a stand-in for a file the client supplied: if their file cannot be found
+   or used, say so and ask for it, rather than composing something similar.
 
-## Test plan
+## What is mechanical and what is not
 
-UATs named `test_UAT_FC_BUG-45_*`:
+Behaviours 1, 2, 3 and 5 are code, with assertions against real stores.
 
-- Promoting an upload registers it — it appears in `list_assets` with
-  `registered: true` and carries the material's title as its alt (behaviour 1, 2).
-- The promotion is journalled, so it shows up as a draft change (behaviour 1).
-- Non-republishable material is still refused, and registers nothing (behaviour 3).
-- A colliding name still renames rather than replaces, and the renamed asset is the
-  registered one (behaviour 3).
-- `get_asset` answers for an asset on disk but absent from the registry, rather
-  than raising `NOT_FOUND` (behaviour 5).
-- The declared surface no longer says a file cannot arrive through the chat, and
-  no longer directs the client to the builder interface (behaviour 4).
-- The declared surface forbids substituting a drawing for a supplied file
-  (behaviour 6).
+Behaviours 4 and 6 are text in `l1-surface.json`, projected verbatim into the
+assistant's manual. Nothing enforces them — a model that ignores the manual can
+still substitute a drawing. Their UATs assert the declaration no longer contains
+the false claims that produced this incident; they do not assert obedience, and
+are written so as not to imply it. A mechanical gate on substitution is a
+different and larger design and is not attempted here.
 
-Regression scope: `test_UAT_FC_REQ-163_ingestion.workers.test.ts`,
-`test_UAT_FC_REQ-165_projected_reference.test.ts`,
-`reconciliation-assistant-control-surface.test.ts`, and the edit-surface asset
-suites.
+`surface_version` moved 4 → 5: `get_asset` returns a different shape and an
+absence inverted its meaning.
+
+## Evidence
+
+UATs, all passing:
+
+`tests/test_UAT_FC_BUG-45_promoted_asset_is_registered.workers.test.ts`
+
+- `..._promotion_registers_the_asset_and_carries_its_description` — behaviour 1, 2
+- `..._the_promotion_is_recorded_as_a_draft_change` — behaviour 1
+- `..._an_uninformative_title_leaves_alt_empty` — behaviour 2
+- `..._a_colliding_name_is_renamed_and_the_renamed_one_is_registered` — behaviour 3
+- `..._a_refused_promotion_registers_nothing` — behaviour 3
+- `..._get_asset_answers_for_an_unregistered_file` — behaviour 5
+- `..._get_asset_still_refuses_a_name_the_site_does_not_have` — behaviour 5
+
+`tests/test_UAT_FC_BUG-45_surface_tells_the_truth.test.ts`
+
+- `..._no_absence_claims_a_file_cannot_reach_the_site` — behaviour 4
+- `..._the_absence_says_to_ask_for_the_file_here` — behaviour 4
+- `..._registration_is_never_described_as_permission` — behaviour 5
+- `..._write_image_forbids_standing_in_for_a_supplied_file` — behaviour 6
+- `..._the_surface_version_moved_with_the_surface` — behaviour 4, 5
+
+## Existing tests changed, and why
+
+- `test_UAT_FC_REQ-163_ingestion.workers.test.ts` — the promotion fixture called
+  `createDraft` alone, which leaves `site_json` NULL. Registration needs a site
+  definition to register into, which every provisioned site has because
+  `createStarterSite` writes the scaffold immediately after `createDraft`. The
+  fixture now materialises a real site through the shared seed; its own assertion
+  (the bytes are copied) is unchanged.
+- `test_UAT_FC_REQ-130_beyond_l1.test.ts` — asserted the manual contained
+  "cannot take a file from a conversation", the exact sentence behaviour 4
+  removes. It now asserts the narrower absence that is still true.
+
+## Regression
+
+Full suite: 2240 passed, 67 skipped, 1 failed —
+`bug32-webui-scope-rebrand.test.ts::test_UAT_AC960_...`, which fails identically
+on an unmodified `main` checkout and is unrelated to this change.
 
 ## Not in scope
 
@@ -164,5 +163,11 @@ suites.
   the only occurrence of "quarantine" or "n-gram" in the tree is the comment at
   `material.ts:38` saying v1 ships the prompt-level constraint and the asset gate
   instead. Real, documented, unbuilt; its own ticket.
+- **`role` / `republishable` on a search hit.** [[DOC-38]] §11 says every hit
+  carries its `republishable` bit; `KnowledgeHit` carries neither it nor `role`.
+  Without them the assistant cannot tell reference-only material from a site file,
+  so it still cannot say the genuinely useful thing — *"that one came in as
+  reference; drop it on 'Put it on the site' and I'll use it."* Raised with the
+  operator during this session; left out pending their decision.
 - **Why the file was classified `reference`.** Needs a reproduction, not a code
-  change. Separate if it recurs.
+  change.
