@@ -6,7 +6,31 @@
  */
 import { EXTRACT_SCRIPT, type RawFontFace, type RawSignals } from './extract'
 import { HINTS_SCRIPT, type StructuralHints } from './hints'
-import { createEngineDriver, createPlaywrightDriver, engineAvailable } from './playwright-driver'
+// REQ-157 — NO DRIVER IMPORT HERE, and its absence is the point.
+//
+// This module used to default four seams to Playwright's factories, which was
+// invisible while every caller was a `1c` command on a laptop. It is not
+// invisible now: `capture_site` runs in a Worker, and a static
+// `?? createPlaywrightDriver` put Playwright into the Worker's bundle graph —
+// the exact thing REQ-154 removed and REQ-155 named ("the inject-or-fail rule
+// `driverFactory` needs for the same reason") without applying here.
+//
+// So the seams are INJECT-OR-FAIL: absent, they throw by name rather than
+// reaching for a browser this runtime may not have. The Node convenience is not
+// lost, only relocated — `capture/index.ts` is the Node-only barrel (it says so
+// in its own header) and defaults them there, so every `1c` command and every
+// existing test calls exactly what it always did.
+/** The seam a caller must supply, named so a missing one is legible. */
+function required<T>(value: T | undefined, seam: string): T {
+  if (value === undefined) {
+    throw new Error(
+      `${seam} was not supplied. Capture needs a browser, and this module does not ` +
+        `choose one: pass a driver factory (\`createPlaywrightDriver\` on a laptop, a ` +
+        `leased Browser Rendering session in a Worker).`,
+    )
+  }
+  return value
+}
 import { buildSections } from './sections'
 import { buildTheme, primaryFamily } from './theme'
 import {
@@ -207,7 +231,7 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
 }
 
 export async function runCapturePipeline(url: string, opts: CapturePipelineOptions = {}): Promise<CaptureResult> {
-  const factory = opts.driverFactory ?? createPlaywrightDriver
+  const factory = required(opts.driverFactory, 'runCapturePipeline driverFactory')
   const attempts = Math.max(1, (opts.retries ?? 2) + 1)
   let lastErr: unknown
   for (let i = 0; i < attempts; i++) {
@@ -259,8 +283,8 @@ export async function runMultiStateCapture(
   // `restingByWidth` keeps the ladder entry for a shared width (first-wins).
   const viewports = opts.viewports ?? [...RESPONSIVE_VIEWPORTS, ...HEIGHT_PROBE_VIEWPORTS]
   const requestedStates = opts.states ?? ['rest', 'hover']
-  const factoryFor = opts.driverFactoryFor ?? createEngineDriver
-  const isAvailable = opts.isEngineAvailable ?? engineAvailable
+  const factoryFor = required(opts.driverFactoryFor, 'runMultiStateCapture driverFactoryFor')
+  const isAvailable = required(opts.isEngineAvailable, 'runMultiStateCapture isEngineAvailable')
 
   const projections: StateProjection[] = []
   const notes: string[] = []
@@ -325,8 +349,7 @@ export async function captureLadderScreenshots(
   opts: LadderScreenshotOptions = {},
 ): Promise<LadderScreenshot[]> {
   const viewports = opts.viewports ?? RESPONSIVE_VIEWPORTS
-  const engine = opts.engine ?? 'chromium'
-  const factory = opts.driverFactory ?? createEngineDriver(engine)
+  const factory = required(opts.driverFactory, 'captureLadderScreenshots driverFactory')
   const shots: LadderScreenshot[] = []
   for (const viewport of viewports) {
     const driver = await factory()
@@ -365,8 +388,7 @@ export async function captureStructuralHints(
   opts: StructuralHintsOptions = {},
 ): Promise<StructuralHints> {
   const viewport = opts.viewport ?? { width: 1280, height: 800 }
-  const engine = opts.engine ?? 'chromium'
-  const factory = opts.driverFactory ?? createEngineDriver(engine)
+  const factory = required(opts.driverFactory, 'captureStructuralHints driverFactory')
   const driver = await factory()
   try {
     await driver.navigate(url, viewport)

@@ -19,7 +19,11 @@
  * an honest default rather than fabricating one.
  */
 import { isSafeUrl, type L1Node } from '@1stcontact/site-schema'
-import type { ValueElement } from '../cli/capture'
+// REQ-157 — the deep path, not the `capture` barrel. Even as an `import type`
+// this matters: the barrel re-exports `playwright-driver`, and REQ-154's bundle
+// check follows every local import regardless of whether TypeScript erases it,
+// because a bundler's resolution and a type checker's are not the same thing.
+import type { ValueElement } from '../cli/capture/values-diff'
 
 /** A captured box, as the capture records it. */
 interface Box {

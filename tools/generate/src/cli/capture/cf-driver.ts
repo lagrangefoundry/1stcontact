@@ -40,6 +40,7 @@
  * a crash. Reuse lives strictly *below* the driver.
  */
 import { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
+import type { EgressGuard } from './egress-guard'
 import type {
   BrowserDriver,
   BrowserDriverFactory,
@@ -116,6 +117,16 @@ export interface CfDriverOptions {
   origin?: OriginResolver
   /** Navigation timeout in ms (default 30s). */
   navigationTimeoutMs?: number
+  /**
+   * REQ-157 — the rule applied to every request this page makes, including the
+   * ones a redirect or a subresource issues that no caller ever typed.
+   *
+   * Omitted, the driver fetches whatever the page asks for, which is right for
+   * `1c capture` on an operator's laptop against a URL that operator chose. A
+   * host that takes the URL from a MODEL passes one; see `egress-guard.ts` for
+   * why the check cannot live above this seam.
+   */
+  guard?: EgressGuard
 }
 
 class CfBrowserDriver implements BrowserDriver {
@@ -212,6 +223,21 @@ class CfBrowserDriver implements BrowserDriver {
    * one outcome this whole mechanism exists to make impossible.
    */
   private async handleRequest(req: PuppeteerRequest): Promise<void> {
+    // THE GUARD RUNS FIRST, and before the origin check, so a refusal cannot be
+    // routed around by naming our own host. A refused request is answered 403
+    // rather than left hanging: the page then fails that resource and carries
+    // on, which produces a screenshot with a visible hole and a journalled
+    // reason, instead of a navigation that stalls until the timeout.
+    const guard = this.opts.guard
+    if (guard && !guard.allow(req.url())) {
+      return void (await req
+        .respond({
+          status: 403,
+          contentType: 'text/plain; charset=utf-8',
+          body: 'refused by egress policy',
+        })
+        .catch(() => undefined))
+    }
     const origin = this.opts.origin
     if (!origin) return void (await req.continue().catch(() => undefined))
     let target: URL
@@ -248,6 +274,10 @@ class CfBrowserDriver implements BrowserDriver {
     if (this.cached.has(url)) return
     try {
       const body = await resp.buffer()
+      // REQ-157 — the response cap is counted here because this is the only
+      // place a body's real size is known; a `content-length` header is a claim,
+      // and a chunked response does not carry one at all.
+      this.opts.guard?.record(body.byteLength)
       this.cached.set(url, {
         url,
         status: resp.status(),
@@ -312,6 +342,47 @@ function base64ToBytes(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i)
   return out
+}
+
+/**
+ * REQ-157 — a {@link BrowserDriverFactory} where each driver owns its own lease.
+ *
+ * WHY THIS AND NOT {@link withBrowserSession}. That takes a callback and holds
+ * one lease across everything inside it, which is right for a command that knows
+ * how many pictures it is about to take. A tool surface does not: an operation
+ * asks for a driver, uses it, and closes it, and the next operation may not come
+ * at all. So the lease is bound to the driver's own lifetime — every caller in
+ * this codebase already closes a driver in a `finally` (that is the seam's
+ * contract), and closing it now releases the metered session too.
+ *
+ * The cost is one lease per picture rather than one per turn. That is the right
+ * way round: a stranded lease counts against the account's concurrency cap until
+ * the platform's idle reaper takes it, so the failure mode of over-leasing is a
+ * shrinking pool that looks like an outage, and the failure mode of
+ * under-sharing is a slower screenshot.
+ */
+export function leasedDriverFactory(
+  launch: BrowserLauncher,
+  opts: CfDriverOptions = {},
+): BrowserDriverFactory {
+  return async () => {
+    const browser = await launch()
+    const driver = new CfBrowserDriver(browser, opts)
+    // Delegation rather than subclassing: `close()` is the only method whose
+    // behaviour differs, and the rest must stay whatever the driver does.
+    return new Proxy(driver, {
+      get(target, prop, receiver) {
+        if (prop !== 'close') return Reflect.get(target, prop, receiver)
+        return async () => {
+          try {
+            await target.close()
+          } finally {
+            await browser.close().catch(() => undefined)
+          }
+        }
+      },
+    })
+  }
 }
 
 // ── the lease ────────────────────────────────────────────────────────────────

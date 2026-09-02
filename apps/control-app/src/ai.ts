@@ -193,7 +193,7 @@ export function workerHost(
       // deployment with no key still opens the session, still replays the
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
-      knowledgeSurface: knowing ? sessionKnowledgeSurface(knowledge) : null,
+      extraSurfaces: knowing ? [sessionKnowledgeSurface(knowledge)] : [],
       // The role's purpose is no longer passed in: `host-core.ts` owns where it
       // sits between the map and the manual, and states that order in the entry
       // list it builds the role from.

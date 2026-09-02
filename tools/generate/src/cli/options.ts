@@ -38,4 +38,19 @@ export interface GlobalOptions {
    * answer.
    */
   actor?: EditActor
+  /**
+   * This process's own externally-reachable origin, e.g. `http://localhost:4321`
+   * — REQ-157.
+   *
+   * WHY IT CANNOT BE DERIVED. The fidelity surface shoots our own preview
+   * channels by navigating a browser to a real absolute URL, so it has to know
+   * what this host is called from outside itself. A Node process listening on an
+   * ephemeral port does not know until it has bound one, and nothing in
+   * `GlobalOptions` could compute it. The builder sets it per request from the
+   * `Host` header, which is the only value that is right for every caller.
+   *
+   * ABSENT IS ORDINARY: a `1c` invocation with no server behind it gets an
+   * assistant with no fidelity surface rather than one that fails to start.
+   */
+  origin?: string
 }

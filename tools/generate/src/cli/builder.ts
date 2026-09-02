@@ -292,6 +292,16 @@ export async function handleBuilderRequest(
   const url = new URL(req.url ?? '/', 'http://localhost')
   const p = url.pathname
 
+  // REQ-157 — what this server is called from outside itself, which is the one
+  // thing the fidelity surface needs and `opts` cannot carry: the port is
+  // ephemeral and is not known until `listen` has bound it. Taken from the
+  // request rather than from the handle, because a request that arrived is by
+  // definition addressed to a name that works.
+  const aiOpts: BuilderOptions = {
+    ...opts,
+    origin: `http://${req.headers.host ?? `localhost:${url.port || 80}`}`,
+  }
+
   /**
    * FRESHNESS, SET ONCE, BEFORE ANY ROUTING — for this transport's OWN routes.
    *
@@ -321,7 +331,7 @@ export async function handleBuilderRequest(
       // 200 even when the assistant cannot run: the answer carries the stored
       // transcript AND the reason, which are independent. Refusing the whole
       // response for a missing API key would throw away the conversation too.
-      json(res, 200, await openSession(body.slug, opts))
+      json(res, 200, await openSession(body.slug, aiOpts))
       return
     }
 
@@ -339,7 +349,7 @@ export async function handleBuilderRequest(
         json(res, 400, { error: `${missing.join(' and ')} ${verb} required` })
         return
       }
-      await streamTurn(res, body.sessionId, body.text, opts)
+      await streamTurn(res, body.sessionId, body.text, aiOpts)
       return
     }
 

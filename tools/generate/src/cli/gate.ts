@@ -56,289 +56,38 @@ import { ensureDir, fsReferenceBundle } from '../store'
 import type { RenderChannel } from '../store'
 import type { ViewportName } from './shot'
 
-/**
- * The perceptual floor. A reproduction over EITHER bound has failed no matter
- * what the value gates report.
- *
- * PROVISIONAL, and deliberately generous. DOC-21 §4 calls for these to be
- * calibrated against a human-labelled anchor set of (reference, render) pairs
- * tagged indistinguishable / not; that set does not exist yet. The defaults are
- * set from the two reproductions we have measured — `gigabytealchemy.ai` (a
- * reproduction an operator accepts) reads mean 2.12 / 2.6%, and
- * `joyfulculinarycreations.com` (a page that did not reproduce) reads 106.84 /
- * 80.3% — so anything between is unclassified rather than wrongly passed. Both
- * are overridable per run; neither is a claim about perceptual thresholds.
- */
-export const PERCEPTUAL_MEAN_FLOOR = 8
-export const PERCEPTUAL_PCT_FLOOR = 25
+// REQ-157 — the reconciliation MOVED to `gate-core.ts`, re-exported here so no
+// caller had to move with it.
+//
+// WHY IT WENT. `1c gate` obtains its inputs from `cmdDiff` and `cmdValuesDiff`
+// and writes `gate.json`, so this module needs `node:fs`, a loopback server and
+// Playwright. Deciding what the gates MEAN needs none of those, and REQ-157 put
+// that decision on a surface that runs in workerd. The command is a CALLER of
+// the reconciliation now rather than its owner, which is what makes
+// `check_fidelity` and `1c gate` the same verdict by construction.
+export {
+  PERCEPTUAL_MEAN_FLOOR,
+  PERCEPTUAL_PCT_FLOOR,
+  SECTION_DENSITY_PX,
+  referenceCoverage,
+  reconcileGates,
+} from './gate-core'
+export type {
+  CoverageFinding,
+  ReferenceCoverage,
+  GateVerdict,
+  PerceptualFloor,
+  ReconcileInput,
+  GateReport,
+} from './gate-core'
 
-/**
- * Page height per captured section above which segmentation is treated as
- * suspect. DOC-13 §7 is explicit that a uniformly-styled page is correctly ONE
- * section, so a long band is not wrong by itself — this is a proxy reported as
- * evidence under an already-failing perceptual diff, never a finding on its own.
- * `gigabytealchemy.ai` segments at ~566 px/section; `joyfulculinarycreations.com`
- * at ~2450.
- */
-export const SECTION_DENSITY_PX = 1200
-
-/** One reference-coverage proxy that came back suspect. */
-export interface CoverageFinding {
-  kind: 'unreferenced-image' | 'section-density'
-  /** Operator-facing sentence: what was measured and why it reads as a gap. */
-  detail: string
-}
-
-/**
- * Cheap proxies for "did the capture actually record this page", read from the
- * bundle alone. Reported always; escalated to a verdict only when the perceptual
- * floor is breached (see {@link reconcileGates}).
- */
-export interface ReferenceCoverage {
-  /** Image assets the capture mirrored into the bundle. */
-  mirroredImages: number
-  /** Mirrored image assets some reference element carries as its media `src`. */
-  referencedImages: number
-  /** Mirrored image assets no reference element references, by local path. */
-  unreferencedImages: string[]
-  /** Sections the capture segmented the reference page into. */
-  sections: number
-  /** The reference page's full document height, from its own element boxes. */
-  pageHeightPx: number
-  /** `pageHeightPx / max(1, sections)` — the segmentation-density proxy. */
-  pxPerSection: number
-  findings: CoverageFinding[]
-}
-
-/**
- * What the reconciliation concluded.
- *
- * - `pass`                     — every gate this command owns is clear.
- * - `structural-failure`       — `l1-gate` itself failed; ordinary, pre-existing.
- * - `capture-incomplete`       — perceptual floor breached AND reference coverage
- *                                is suspect. The value gates are not wrong, they
- *                                are BLIND: they cannot raise a delta against
- *                                substance the capture never recorded.
- * - `reproduction-wrong`       — perceptual floor breached, coverage clean, and
- *                                the value gates do see deltas. They agree; the
- *                                values-diff already names what to fix.
- * - `unexplained-disagreement` — perceptual floor breached and nothing else sees
- *                                it. A framework gap: an axis that moves pixels
- *                                which the value manifest does not carry.
- */
-export type GateVerdict =
-  | 'pass'
-  | 'structural-failure'
-  | 'capture-incomplete'
-  | 'reproduction-wrong'
-  | 'unexplained-disagreement'
-
-/** The floor a run was held to (echoed into the report so it is never implicit). */
-export interface PerceptualFloor {
-  mean: number
-  pct: number
-}
-
-/** Everything the reconciliation reads. Pure input — no I/O, no browser. */
-export interface ReconcileInput {
-  l1Gate: Pick<L1GateResult, 'pass'>
-  coverage: ReferenceCoverage
-  perceptual: Pick<PerceptualDiffReport, 'meanDiff' | 'pctOverThreshold' | 'regions'>
-  values: Pick<ValuesDiffReport, 'deltas' | 'matched' | 'unmatched'>
-  floor?: Partial<PerceptualFloor>
-}
-
-export interface GateReport {
-  pass: boolean
-  verdict: GateVerdict
-  /** What the verdict means, in the operator's terms. */
-  diagnosis: string
-  /** The single next action the verdict implies. */
-  nextStep: string
-  floor: PerceptualFloor
-  /** True when the perceptual diff exceeded either bound. */
-  perceptualBreach: boolean
-  l1Pass: boolean
-  perceptual: { meanDiff: number; pctOverThreshold: number; regions: number }
-  values: { deltas: number; matched: number; unmatched: number }
-  coverage: ReferenceCoverage
-}
-
-/**
- * The widest `rest`-state projection on the reference's primary engine — the one
- * cell whose manifest best represents "the page as the reference screenshot shows
- * it". Coverage is a whole-page question, so it is asked once, at the width the
- * full-page screenshot was taken at, rather than averaged across the ladder.
- */
-function widestRestProjection(oracle: MultiStateCapture): StateProjection | null {
-  const rest = oracle.projections.filter((p) => p.state === 'rest')
-  const pool = rest.length ? rest : oracle.projections
-  if (!pool.length) return null
-  const engine = pool[0].engine
-  const sameEngine = pool.filter((p) => p.engine === engine)
-  return sameEngine.reduce((best, p) => (p.viewport.width > best.viewport.width ? p : best), sameEngine[0])
-}
-
-/** Full document height implied by a manifest's own element boxes. */
-function manifestHeight(manifest: ValueManifest): number {
-  let bottom = 0
-  for (const el of manifest.elements) {
-    if (!el.box) continue
-    bottom = Math.max(bottom, el.box.y + el.box.height)
-  }
-  return Math.round(bottom)
-}
-
-/**
- * Read the bundle's reference-coverage proxies.
- *
- * Both are numbers the pipeline already computed and simply never reported:
- *
- *   - **media coverage.** The capture mirrors every subresource it intercepts,
- *     including images it then fails to attribute to any element. A bundle that
- *     mirrored seven images and attributed four has three images' worth of page
- *     the value gates are structurally unable to see.
- *   - **segmentation density.** A 4900px page recorded as two style-scope bands
- *     is either genuinely uniform (DOC-13 §7 says that is legal) or a capture
- *     that stopped short. Under a failing perceptual diff, the second reading is
- *     overwhelmingly the likely one.
- *
- * Throws when the bundle predates multi-state capture: coverage measured against
- * a manifest that does not exist would be a fabricated clean bill.
- */
-export async function referenceCoverage(bundle: ReferenceBundle): Promise<ReferenceCoverage> {
-  const oracle = await readMultiState(bundle)
-  if (!oracle) {
-    throw new Error(
-      `No multistate.json in bundle '${bundle.name}'. Reference coverage is measured against the ` +
-        `reference manifest — re-capture with \`1c capture page <url>\` before gating.`,
-    )
-  }
-  const projection = widestRestProjection(oracle)
-  if (!projection) {
-    throw new Error(`Bundle '${bundle.name}' has an empty multistate.json — nothing to measure coverage against.`)
-  }
-  const manifest = projection.manifest
-  const images = (await readCapture(bundle)).assets.filter((a) => a.kind === 'image')
-  const referenced = new Set(
-    manifest.elements.map((el) => el.src).filter((src): src is string => typeof src === 'string' && src.length > 0),
-  )
-  const unreferencedImages = images.filter((a) => !referenced.has(a.src)).map((a) => a.localPath)
-
-  const sections = manifest.sections.length
-  const pageHeightPx = manifestHeight(manifest)
-  const pxPerSection = Math.round(pageHeightPx / Math.max(1, sections))
-
-  const findings: CoverageFinding[] = []
-  if (unreferencedImages.length) {
-    findings.push({
-      kind: 'unreferenced-image',
-      detail:
-        `${unreferencedImages.length} of ${images.length} mirrored image asset(s) are referenced by no ` +
-        `element in the reference manifest — the capture kept the bytes but never attributed them to the page.`,
-    })
-  }
-  if (pxPerSection > SECTION_DENSITY_PX) {
-    findings.push({
-      kind: 'section-density',
-      detail:
-        `the capture segmented ${pageHeightPx}px into ${sections} section(s) (${pxPerSection} px/section) — ` +
-        `a band this long is usually under-segmentation rather than a uniformly-styled page.`,
-    })
-  }
-
-  return {
-    mirroredImages: images.length,
-    referencedImages: images.length - unreferencedImages.length,
-    unreferencedImages,
-    sections,
-    pageHeightPx,
-    pxPerSection,
-    findings,
-  }
-}
-
-/**
- * Reconcile the three gates into one verdict.
- *
- * Ordering is deliberate. Coverage is consulted BEFORE the value-delta count
- * because a delta count measured against an impoverished reference is not
- * evidence: if the capture missed half the page, the value gates' silence about
- * that half says nothing, and their deltas about the rest are a distraction from
- * the real defect. So a run with both coverage findings AND value deltas is
- * reported as `capture-incomplete`, naming both, and the operator is told which
- * to work first.
- */
-export function reconcileGates(input: ReconcileInput): GateReport {
-  const floor: PerceptualFloor = {
-    mean: input.floor?.mean ?? PERCEPTUAL_MEAN_FLOOR,
-    pct: input.floor?.pct ?? PERCEPTUAL_PCT_FLOOR,
-  }
-  const { meanDiff, pctOverThreshold } = input.perceptual
-  const perceptualBreach = meanDiff > floor.mean || pctOverThreshold > floor.pct
-  const deltas = input.values.deltas.length
-  const coverage = input.coverage
-
-  let verdict: GateVerdict
-  let diagnosis: string
-  let nextStep: string
-
-  if (!input.l1Gate.pass) {
-    verdict = 'structural-failure'
-    diagnosis = 'The 3-probe gate failed: the reproduction is not geometrically faithful to the oracle.'
-    nextStep = 'Work `1c l1-gate --ref <bundle>` — its residuals each name the framework gap to close.'
-  } else if (!perceptualBreach) {
-    verdict = 'pass'
-    diagnosis =
-      'The perceptual eye and the structural gate agree the reproduction is faithful. ' +
-      'No cross-gate disagreement to explain.'
-    nextStep =
-      deltas > 0
-        ? `\`1c values-diff\` still reports ${deltas} delta(s) — the sharp instrument for a page this close. Work them there.`
-        : 'Nothing outstanding from this gate.'
-  } else if (coverage.findings.length) {
-    verdict = 'capture-incomplete'
-    diagnosis =
-      'The perceptual eye sees a page-scale difference the value gates do not, and reference coverage ' +
-      'says why: the reference manifest is impoverished relative to the reference screenshot. ' +
-      'The value gates are not disagreeing — they are BLIND. They compare elements present in both ' +
-      'manifests, so they cannot raise a delta against substance the capture never recorded.'
-    nextStep =
-      'This is a CAPTURE defect, not a reproduction defect. Close the extraction gap (or re-capture) ' +
-      'first' +
-      (deltas > 0
-        ? `; the ${deltas} values-diff delta(s) are measured against an impoverished reference and are not yet evidence.`
-        : '.')
-  } else if (deltas > 0) {
-    verdict = 'reproduction-wrong'
-    diagnosis =
-      'The perceptual eye and the value gates agree the reproduction differs, and reference coverage is ' +
-      'clean — so the reference is trustworthy and the defect is ours.'
-    nextStep = `Work the ${deltas} \`1c values-diff\` delta(s): they name, element by element, what to fix.`
-  } else {
-    verdict = 'unexplained-disagreement'
-    diagnosis =
-      'The perceptual eye sees a difference that NOTHING else explains: the structural gate passes, ' +
-      'reference coverage is clean, and the value gates report no delta. A pixel moved that no ' +
-      'ValueElement axis carries.'
-    nextStep =
-      'This is a FRAMEWORK gap: find the pixel-moving property the value manifest does not record and ' +
-      'add it as a typed axis (DOC-24 — an axis belongs in L1 iff it moves a pixel).'
-  }
-
-  return {
-    pass: verdict === 'pass',
-    verdict,
-    diagnosis,
-    nextStep,
-    floor,
-    perceptualBreach,
-    l1Pass: input.l1Gate.pass,
-    perceptual: { meanDiff, pctOverThreshold, regions: input.perceptual.regions.length },
-    values: { deltas, matched: input.values.matched, unmatched: input.values.unmatched },
-    coverage,
-  }
-}
+import {
+  PERCEPTUAL_MEAN_FLOOR,
+  PERCEPTUAL_PCT_FLOOR,
+  referenceCoverage,
+  reconcileGates,
+} from './gate-core'
+import type { GateReport, GateVerdict, PerceptualFloor } from './gate-core'
 
 const VERDICT_LABEL: Record<GateVerdict, string> = {
   pass: 'PASS',

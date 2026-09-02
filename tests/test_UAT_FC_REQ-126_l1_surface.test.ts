@@ -16,6 +16,7 @@ import {
 } from '../tools/generate/src/cli/ai/toolbox'
 import type { L1Node } from '@1stcontact/site-schema'
 import { fsOpts } from './support/site-factory'
+import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
 
 /**
  * REQ-126 — **the L1 control surface as a declared API** (DOC-30).
@@ -143,12 +144,19 @@ describe('REQ-126 — the surface is declared as data', () => {
     // rather than a local re-reading of the format. A declaration that fails here
     // would otherwise fail at session construction, on an operator's machine,
     // with a turn already in flight.
+    // BOTH DECLARATIONS, because the instance config names both since REQ-157:
+    // `instances.json` says what the caretaker may do, and it may now also look
+    // at the site. Validating the L1 declaration against it alone would report a
+    // configuration naming an undeclared surface — which is the validator being
+    // right about a pair it was only shown half of.
     const { validateData } = await aiCore()
-    const report = validateData([L1_DECLARATION], L1_INSTANCES)
+    const report = validateData([L1_DECLARATION, FIDELITY_DECLARATION], L1_INSTANCES)
 
     expect(report.problems).toEqual([])
     expect(report.ok).toBe(true)
-    expect(report.surfaces).toEqual(['l1'])
+    // This ticket's claim is about the L1 surface, and it is still exactly one
+    // surface — declared separately, not merged into or out of anything.
+    expect(report.surfaces).toContain('l1')
     expect(report.roles).toContain('caretaker')
   })
 

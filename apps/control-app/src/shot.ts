@@ -27,6 +27,9 @@ import {
 } from '../../../tools/generate/src/cli/capture/screenshot'
 import { PreviewRenderer, previewOriginResolver } from '../../../tools/generate/src/cli/preview'
 import type { PreviewChannel } from '../../../tools/generate/src/cli/preview'
+import { leasedDriverFactory } from '../../../tools/generate/src/cli/capture/cf-driver'
+import type { ReferenceStore } from '../../../tools/generate/src/store/reference-store'
+import type { FidelityDeps } from '../../../tools/generate/src/cli/ai/fidelity-core'
 
 /** The Browser Rendering binding (`[browser]` in wrangler.toml). */
 export interface ShotEnv {
@@ -121,4 +124,49 @@ export async function shotPreview(
     async (session) => screenshotUrl(url, size, session.driverFactory({ origin: resolver })),
     { timeoutMs: deps.timeoutMs },
   )
+}
+
+/**
+ * REQ-157 — everything the fidelity surface needs, assembled for one site.
+ *
+ * THE ROUTE THIS FILE SAID WAS COMING, and the answer is that there is not one.
+ * Its own header records that REQ-154 deliberately exposed no HTTP route,
+ * because a metered session with an account-level concurrency cap is an
+ * authorisation and rate-limiting question rather than a wiring step, and that
+ * question belonged to the ticket that gives the assistant the surface. This is
+ * that ticket. The capability is reached through the tool surface — already
+ * authenticated, already granted per role, already audited per call, and already
+ * refusable by the policy the Toolbox applies before an operation runs — which
+ * is a better answer than a route with a bearer token in front of it.
+ *
+ * TWO DRIVER FACTORIES, and the difference is the whole security story. The
+ * plain one serves our own preview channels: its requests are fulfilled in
+ * process from {@link PreviewRenderer}, so they never leave the browser, never
+ * reach Access, and cannot come back as a challenge page. The guarded one is for
+ * `capture_site`, which fetches an address a MODEL chose, and it is held to the
+ * egress policy on every request the page makes — not just the one that was
+ * typed. See `egress-guard.ts` for why that distinction is the control.
+ */
+export function fidelityDeps(
+  env: ShotEnv,
+  renderer: PreviewRenderer,
+  references: ReferenceStore,
+  origin: string,
+  slug: string,
+  deps: ShotDeps = {},
+): FidelityDeps {
+  // Named `launcher`, not `launch`: this module's top-level `launch` is
+  // `@cloudflare/puppeteer`'s, and shadowing it here would read as a call to it.
+  const launcher = deps.launch ?? bindingLauncher(env)
+  const resolver = previewOriginResolver(renderer, new URL(origin).host)
+  return {
+    slug,
+    references,
+    origin,
+    driverFactory: leasedDriverFactory(launcher, { origin: resolver }),
+    // No origin resolver on this one, deliberately: a capture is of somebody
+    // else's site, and handing it our own resolver would let a captured page
+    // that happened to name our host be answered out of our own store.
+    guardedDriver: (guard) => leasedDriverFactory(launcher, { guard }),
+  }
 }

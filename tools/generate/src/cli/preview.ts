@@ -1,5 +1,6 @@
 import { renderSiteFiles, type RenderedSite } from '../render/render'
-import type { DraftSnapshot, SiteStore } from '../store/site-store'
+import { assembleSite, type LoadResult } from '../store/assemble'
+import type { SiteStore } from '../store/site-store'
 import { MIME } from '../store/content-type'
 import { InvalidDefinitionError } from './errors'
 import type { OriginFile, OriginResolver } from './capture/types'
@@ -34,8 +35,37 @@ import type { OriginFile, OriginResolver } from './capture/types'
  * {@link SiteStore}, and assets move as bytes.
  */
 
-/** The channels rendered on request. `published` is a build artifact and is not one. */
-export type PreviewChannel = 'draft' | 'edit'
+/**
+ * A published revision, addressed by id — REQ-157's fifth picture source.
+ *
+ * WHY A CHANNEL RATHER THAN A NEW ROUTE. Everything that shoots a page already
+ * takes a channel: the origin resolver matches one out of the path, the render
+ * cache is keyed by one, and `shotPreview` builds its URL from one. A revision
+ * is another thing to render at a URL, so making it a channel means the browser,
+ * the resolver and the cache all serve it without learning a second shape.
+ */
+export type RevisionChannel = `rev-${number}`
+
+/**
+ * The channels rendered on request.
+ *
+ * `draft` and `edit` render the working copy; `rev-<id>` renders a frozen
+ * revision. What is still not here is `published` as a bare word — it never
+ * named one thing (it meant "whichever revision is live", which changes under
+ * the caller), and an id always does.
+ */
+export type PreviewChannel = 'draft' | 'edit' | RevisionChannel
+
+/** The channel that names revision `id`. */
+export function revisionChannel(id: number): RevisionChannel {
+  return `rev-${id}`
+}
+
+/** The revision a channel names, or null when it names the draft side. */
+export function revisionIdOf(channel: string): number | null {
+  const match = /^rev-(\d+)$/.exec(channel)
+  return match ? Number(match[1]) : null
+}
 
 export type { DraftSnapshot } from '../store/site-store'
 
@@ -105,7 +135,7 @@ export class PreviewRenderer {
    * the ones production serves (REQ-113).
    */
   async file(slug: string, channel: PreviewChannel, rel: string): Promise<PreviewFile | null> {
-    const snapshot = await this.store.loadDraft(slug)
+    const snapshot = await this.source(slug, channel)
     if (snapshot === null) return null
     // An invalid draft is the AUTHOR'S error and must surface as such. Before
     // request-time rendering it could not: a broken edit left the last good
@@ -119,7 +149,7 @@ export class PreviewRenderer {
     if (name === '..' || name.startsWith('../')) return null
 
     if (name.startsWith('assets/')) {
-      const body = await this.store.readAsset(slug, name.slice('assets/'.length))
+      const body = await snapshot.asset(name.slice('assets/'.length))
       if (body === null) return null
       return {
         kind: 'bytes',
@@ -145,10 +175,52 @@ export class PreviewRenderer {
     }
   }
 
+  /**
+   * The definition a channel renders, and where its assets come from.
+   *
+   * THE ASSET LOOKUP TRAVELS WITH THE DEFINITION, and that is the whole reason
+   * this is one object rather than two calls. A revision is immutable, so
+   * revision 3's page must be served with revision 3's `logo.svg` — reading the
+   * asset off the draft would produce a picture of a page that never existed,
+   * and it would do so silently, which for a tool whose output is evidence is
+   * the worst available failure.
+   */
+  private async source(slug: string, channel: PreviewChannel): Promise<PreviewSource | null> {
+    const id = revisionIdOf(channel)
+    if (id === null) {
+      const draft = await this.store.loadDraft(slug)
+      if (draft === null) return null
+      return {
+        result: draft.result,
+        stamp: draft.stamp,
+        asset: (name) => this.store.readAsset(slug, name),
+      }
+    }
+
+    const snapshot = await this.store.readRevision(slug, id)
+    if (snapshot === null) return null
+    const assets = new Map(snapshot.assets.map((a) => [a.name, a.bytes]))
+    return {
+      result: assembleSite({
+        slug,
+        // Descriptive only — nothing at request time reads it, and a revision
+        // has no directory on any adapter.
+        sourceDir: `revision:${slug}/${id}`,
+        base: snapshot.siteJson ?? {},
+        pages: snapshot.pages.map((stored) => stored.page),
+        assetFiles: [...assets.keys()].sort(),
+      }),
+      // A revision cannot change, so its stamp is its id — which makes the
+      // render cache permanent for it rather than merely warm.
+      stamp: `revision:${id}`,
+      asset: (name) => Promise.resolve(assets.get(name) ?? null),
+    }
+  }
+
   private async render(
     slug: string,
     channel: PreviewChannel,
-    snapshot: DraftSnapshot,
+    snapshot: PreviewSource,
   ): Promise<RenderedSite> {
     const key = `${slug}\0${channel}`
     const hit = this.cache.get(key)
@@ -160,6 +232,13 @@ export class PreviewRenderer {
     this.cache.set(key, { stamp: snapshot.stamp, rendered })
     return rendered
   }
+}
+
+/** A definition to render, its cache stamp, and its own asset lookup. */
+interface PreviewSource {
+  result: LoadResult
+  stamp: string
+  asset(name: string): Promise<Uint8Array | null>
 }
 
 /**
@@ -200,8 +279,12 @@ export function previewOriginResolver(renderer: PreviewRenderer, host: string): 
       if (!match) return null
       const slug = decodeURIComponent(match[1])
       const channel = decodeURIComponent(match[2])
-      if (channel !== 'draft' && channel !== 'edit') return null
-      const file = await renderer.file(slug, channel, match[3] ?? '/')
+      // `rev-<id>` joins the two draft-side channels here (REQ-157). It is
+      // served the same way and for the same reason: a revision rendered in
+      // process cannot be answered by an Access challenge, and shooting one
+      // against a public URL would only work after it had been published live.
+      if (channel !== 'draft' && channel !== 'edit' && revisionIdOf(channel) === null) return null
+      const file = await renderer.file(slug, channel as PreviewChannel, match[3] ?? '/')
       if (file === null) return null
       return { status: 200, contentType: file.contentType, body: file.body }
     },

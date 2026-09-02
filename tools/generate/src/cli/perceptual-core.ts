@@ -328,3 +328,57 @@ export function clamp(v: number, lo: number, hi: number): number {
 export function round(v: number): number {
   return Math.round(v * 100) / 100
 }
+
+/**
+ * Box-filter downscale to a bounded longest edge — REQ-157's image cap.
+ *
+ * WHY IT IS HERE AND NOT IN THE SURFACE. It is raster arithmetic with no I/O,
+ * which is exactly what this module is for and exactly what the fidelity surface
+ * cannot import `sharp` (or anything else native) to obtain. It sits beside
+ * {@link cropRaster} because it is the same kind of operation: pixels in, pixels
+ * out, no opinion about where either came from.
+ *
+ * WHY A BOX FILTER rather than nearest-neighbour. The images this reduces are
+ * screenshots of text, and nearest-neighbour sampling of antialiased glyphs at a
+ * non-integer ratio produces shimmer that reads, to a model asked to judge
+ * fidelity, as a rendering defect that is not there. Averaging the source pixels
+ * that fall under each destination pixel is the cheapest filter that does not
+ * invent one.
+ *
+ * An image already within `maxEdge` is returned UNCHANGED — the same identity
+ * `cropRaster` observes — so a mobile shot is never resampled for the sake of
+ * going through this function.
+ */
+export function downsampleRaster(src: Raster, maxEdge: number): Raster {
+  const longest = Math.max(src.width, src.height)
+  if (longest <= maxEdge) return src
+
+  const scale = maxEdge / longest
+  const w = Math.max(1, Math.floor(src.width * scale))
+  const h = Math.max(1, Math.floor(src.height * scale))
+  const c = src.channels
+  const out = new Uint8Array(w * h * c)
+
+  // The source rectangle each destination pixel averages. Computed from the
+  // destination grid rather than by stepping the source, so every source pixel
+  // lands in exactly one box and none is counted twice or dropped.
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.floor((y * src.height) / h)
+    const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * src.height) / h))
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.floor((x * src.width) / w)
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * src.width) / w))
+      const n = (y1 - y0) * (x1 - x0)
+      for (let ch = 0; ch < c; ch++) {
+        let sum = 0
+        for (let sy = y0; sy < y1; sy++) {
+          const rowBase = sy * src.width * c
+          for (let sx = x0; sx < x1; sx++) sum += src.data[rowBase + sx * c + ch]
+        }
+        out[(y * w + x) * c + ch] = Math.round(sum / n)
+      }
+    }
+  }
+
+  return { data: out, width: w, height: h, channels: c }
+}
