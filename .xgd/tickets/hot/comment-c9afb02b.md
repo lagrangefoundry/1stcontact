@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:05:54.844245+00:00'
+updated_at: '2026-09-02T00:07:46.432979+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -668,5 +668,57 @@ I've rewritten fault 4 on BUG-44 with this. Given it's independent of the framew
 <!-- xgd-chat role="user" ts="2026-09-02T00:05:54.712834+00:00" -->
 #### You
 If 3 is not true, what's the point of registration? Is there any intended semantics to stored, but not registered?
+
+<!-- xgd-turn id="91c2c49b-e66d-4636-b733-50f3bad9264f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:07:46.407278+00:00" -->
+#### Claude
+You've found the real question, and the answer is: **registration currently buys nothing that matters, and the code already says so.**
+
+## What reads the registry
+
+`site.json`'s optional `assets` array is read in exactly one file — `edit.ts`, at five sites: the listing merge, `get_asset`, the collision checks in `add_asset`/`write_image`, and `remove_asset`. **Nothing else in the repo reads `siteJson.assets`.**
+
+It gates none of the things you'd expect:
+
+- **Rendering** — `l1ImageSchema` (l1/schema.ts:1122) carries its own *required* `alt`. Render-time alt comes from the node.
+- **Publishing** — `readDraftSnapshot` (publish.ts:83) snapshots `store.listAssets(slug)` — every byte on disk, registered or not.
+- **The picker** — `imageHandles` (edit.ts:1909) filters `listSiteAssets`, which is the *union*. Unregistered files are already offered.
+- **Validation** — `image.src` is `z.string()`, scheme-checked only.
+
+## What it was *for*
+
+`assetRefSchema` gives it two metadata fields beyond the name. Both are dead:
+
+- `alt` — superseded by the node's own required `alt`
+- `focalPoint` — **zero readers anywhere**. Schema definition and generated `.d.ts` only.
+
+## Is there intended semantics to stored-but-not-registered?
+
+Yes, exactly one, and `listSiteAssets`'s own comment states it (edit.ts:1876):
+
+> It is the UNION of two sources that genuinely disagree. The registry carries metadata (`alt`, `focalPoint`) but **every real site in `storage/` has an empty one**, so a registry-only picker offers nothing on the sites we actually build. The directory carries the bytes but no metadata. Reporting both, with provenance, is the honest answer: the picker can offer what exists, and **a future browser mode can show which files are undeclared**.
+
+So the intended meaning of unregistered is **"undeclared"** — a provenance distinction for an operator-facing browser that doesn't exist yet. Never a capability gate.
+
+I checked the claim: 8 of 9 `site.json` files under `storage/` have `assets: []`, including `sites/gigabytealchemy`. The one exception (`sandbox/joyfulculinary`, 14 entries) carries `alt: ""` on every single entry — a name list duplicating what `listAssets` already returns.
+
+`get_asset` is the **sole consumer that treats "undeclared" as "does not exist."**
+
+## This changes the fix — my earlier recommendation was wrong
+
+I said make `promoteToSiteAsset` register what it promotes. That's the wrong fix. It would write `{id, src, alt: ""}` that nothing reads, leave every non-promotion path still invisible to `get_asset`, and add a `site.json` write per promote.
+
+**The fix is `get_asset`**: resolve the same union `list_assets` reports. That restores the "one listing, three consumers" intent the code already states, needs no write-path change, and covers every way a file reaches the store. `get_asset`'s declared summary — "Read one *registered* image or font" — moves with it, and the surface should say plainly that registration isn't a precondition for use.
+
+## The larger question you've surfaced
+
+An optional field, empty on every real site, whose two metadata fields are dead, whose one behavioural consumer is the bug — that's a candidate for **removal** rather than repair. Deleting it would collapse `list_assets` to the directory listing and make the whole registered/unregistered distinction vanish.
+
+The argument against: `focalPoint` is a genuinely good idea that just never got wired up, and the "undeclared files" browser is a real operator need. Keeping the field costs nothing while it's unused.
+
+That's your call, and it's bigger than BUG-44 — I've recorded it as open rather than deciding it. All of the above is now on the ticket.
+
+Want me to scope the `get_asset` fix, or settle the registry question first?
 
 <!-- xgd-chat-end -->
