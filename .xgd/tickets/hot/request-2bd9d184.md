@@ -5,9 +5,9 @@ type: request
 title: The consultant gets the whole of L1, and keeps getting it
 created_by: xgd
 created_at: '2026-09-02T20:48:58.308743+00:00'
-updated_at: '2026-09-02T20:48:58.308743+00:00'
+updated_at: '2026-09-02T20:49:40.552839+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -50,7 +50,7 @@ and the way it found out — refusal by refusal — never reached them.
 node with an object validated against the full element schema, so every axis the
 importer emits — `backgroundImageUrl`, `overlay`, `objectFit`, `objectPosition`,
 `gapPx`, `surfaceFill`, `gradientFill`, `geometry`, `responsive` — is writable
-today. That half is a knowledge problem and is [[REQ-176]]'s to fix.
+today. That half is a knowledge problem and is [[BUG-48]]'s to fix.
 
 **The page document itself is genuinely unreachable.** `l1DocumentSchema`
 (`packages/site-schema/src/l1/schema.ts`) is:
@@ -104,7 +104,7 @@ rather than narrowing it to the known list.
 
 ## Related
 
-- [[REQ-176]] — the consultant must be able to *discover* the vocabulary. Parity
+- [[BUG-48]] — the consultant must be able to *discover* the vocabulary. Parity
   without discovery is what produced this session: full capability, no knowledge
   of it. Neither ticket is sufficient alone.
 - [[REQ-157]] — seeing the result. Parity plus discovery still leaves the
