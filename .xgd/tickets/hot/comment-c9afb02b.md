@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:27:48.305299+00:00'
+updated_at: '2026-09-02T00:39:56.379126+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -785,5 +785,11 @@ Two independent pieces of work, then:
 (2) subsumes (1) — if the registry is gone there's no union to reconcile. Worth doing (1) first anyway if you want your client unblocked before the bigger change lands.
 
 Want me to scope (1) now, or go straight at (2)?
+
+<!-- xgd-turn id="2d1fe0b4-978b-40ef-8bde-3f64c96bb74e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:39:56.343210+00:00" -->
+#### You
+Right please remove the registry and any code and doc references
 
 <!-- xgd-chat-end -->
