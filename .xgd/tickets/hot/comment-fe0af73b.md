@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T00:29:25.474584+00:00'
+updated_at: '2026-09-02T00:38:18.977640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -316,5 +316,17 @@ The size finding is unaffected: 37,389 of 38,030 characters.
 Neither is a crisis. The second is a genuine seam defect worth a ticket; the first is a dedupe that follows from fixing it.
 
 **My question:** REQ-113 is about the manual carrying too much detail for priming — different package (`ai` vs `knowledge`), different defect. Do you want this as a separate framework bug ticket, or folded into REQ-113 as a second section? I'd file it separately, but it's now small enough that either is defensible.
+
+<!-- xgd-turn id="4de62a61-c54f-4310-a804-82f15359b339-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:38:18.942890+00:00" -->
+#### You
+ok we seem to have 4 things and I think we only need three:
+
+(1) Product level material - what is the product, what tools are available to all roles - access to the KMS
+(2) Role level material - what is the role of this session, specific docs that should be read/followed
+(3) Reminder - role specific
+
+Do you agree?
 
 <!-- xgd-chat-end -->
