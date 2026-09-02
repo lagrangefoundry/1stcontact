@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T01:51:13.429658+00:00'
+updated_at: '2026-09-02T02:09:20.218834+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -849,5 +849,75 @@ I just want you to clear the data so that they can do a clean test this has noth
 <!-- xgd-chat role="user" ts="2026-09-02T01:51:13.322828+00:00" -->
 #### You
 BUG45 was written before our conversation - please overrule it and delete the registry. The fact that the content was not being added to the registry was a problem that needed to be fixed. What we discovered was we don't actually need the registry at all so let's get rid of it. Is that clear?
+
+<!-- xgd-turn id="52b48414-5410-46fa-8d90-31c26fcbf84c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T02:09:19.738442+00:00" -->
+#### Claude
+Clear. Overruling BUG-45 and deleting the registry.
+
+BUG-45's code landed on `xgd-working` at 17:43 — during our conversation. Let me see exactly what I'm unwinding.
+
+Now scoping BUG-44 with the required behaviour.
+
+Branch cut. Working in the worktree now.
+
+Now the schema change:
+
+edit.ts is clean. Now the remaining call sites and the surface:
+
+Typecheck is clean. Now the AI surface:
+
+Now the tests. Let me see what BUG-45 left and what else asserts on registration:
+
+Now rewriting that suite around the single-source premise:
+
+All 6 pass. Now the other affected suites:
+
+Now BUG-45's two UATs — one withdrawn, one re-aimed:
+
+That one's an intentional historical reference. Now the surface UAT:
+
+Now the workers suite and a broad sweep:
+
+Now confirming `bug32` is a pre-existing worktree artifact, not mine:
+
+Pre-existing failure, unrelated. Now the workers project:
+
+All 203 workers tests pass. Final sweep for stragglers, then commit:
+
+Clean — the copied `generated/` is gitignored. Committing:
+
+Branch is current. Promoting to `free_coded`:
+
+Now recording the supersession on BUG-45:
+
+Done. **2240 passing, 1 failure — `bug32-webui-scope-rebrand`, which I verified fails identically on the unmodified checkout.** Pre-existing and unrelated (it's about component scope declaration).
+
+## What went
+
+`site.json`'s optional `assets` array, and everything that existed to maintain it:
+
+- **`packages/site-schema/src/schema.ts`** — the field. `assetRefSchema` **stays**: it's the object shape permitted inside a `ContentValue` and is used by `backgroundSchema` and `layerChildSchema`. Only the site-level array went.
+- **`edit.ts`** — `assetRegistry()`, `SiteAsset.registered`, `SiteAsset.alt`, the union merge in `listSiteAssets`, the `(unregistered)` marker in `1c asset list`. `add_asset`, `write_image` and `remove_asset` now write bytes and never `site.json`; `remove_asset` gets its existence answer from the store, which fixes the same false negative `get_asset` had.
+- **`l1-surface.json`** → version 6. Zero occurrences of "registered" or "registry" remain.
+- **`material.ts`** — promotion no longer passes alt; `altFromMaterial` deleted.
+- **`scaffold.ts`, `repro.ts`** — the `assets: []` seed.
+
+`siteSchema` isn't `.strict()`, so sites still carrying the key load untouched and it's ignored. I stripped it from the two tracked sites (`storage/sites/xgd`, `storage/sites/gigabytealchemy`).
+
+## What this cost — worth knowing
+
+A promoted upload no longer carries the description ingestion wrote for it, because there's nowhere site-side left to put it. The description isn't lost — it's on the material ticket — but it doesn't arrive by itself. The surface now tells the assistant to read it there and write it onto the element that places the picture. That's recorded on both tickets.
+
+## BUG-45
+
+Its code had already merged (`fd6aa2bf39`, 17:43). I kept the two parts that survive — `get_asset` answering from the listing, and promotion running through `editAssetAdd` for the collision rules and journal note — and unwound registration and registry-alt. Its two UAT files were **re-aimed rather than deleted**, so the surviving behaviours keep coverage under BUG-44. Its ticket now records exactly which behaviours were withdrawn and why.
+
+Two ACs are withdrawn with the field they assert on, both now unreachable: **AC-1019** (a declared asset contributing its identity and listing with no file) and **AC-1020's off-site case** (a declaration naming an `https://` byte). AC-1019 is replaced by its inverse — a stale `assets` array changes nothing about the listing.
+
+Merged to `xgd-working` as `d46756fefa`, version 0.2.42, BUG-44 is `free_coded`.
+
+One loose end from earlier: you asked me to **clear the data for a clean test** and I never actioned it — I went into the BUG-45 conflict instead. Say the word on which store you mean (local `storage/`, or the deployed D1/R2 tenant) and I'll do it.
 
 <!-- xgd-chat-end -->
