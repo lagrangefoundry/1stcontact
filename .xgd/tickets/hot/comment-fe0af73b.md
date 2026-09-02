@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T23:28:55.823784+00:00'
+updated_at: '2026-09-02T23:54:55.874872+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -371,5 +371,11 @@ Checked. Here's the state:
 So nothing has changed since my last message, and I don't know what you wanted me to look at. What should I be checking?
 
 If it was just "go ahead" on my last question, say so and I'll write the three-part structure into REQ-171 — product level, role level, reminder — including the two amendments: an explicit home for generated state (landscape maps in (1), per-turn deltas staying in (3) as a named exception), and the tool summary staying projected per grant so a session is never told about a capability it wasn't granted.
+
+<!-- xgd-turn id="62040ebd-fa6c-4331-8dba-e54a06269b70-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:54:55.560897+00:00" -->
+#### You
+REQ-113 complete, please proceed
 
 <!-- xgd-chat-end -->
