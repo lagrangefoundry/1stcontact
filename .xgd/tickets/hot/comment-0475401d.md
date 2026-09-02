@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T22:40:31.165107+00:00'
+updated_at: '2026-09-02T23:14:25.445925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -324,5 +324,15 @@ Docs updated, and the change list turns out to be smaller than the conversation 
 **One correction to what I said earlier:** I warned that the tenant-wide comments in `config.js`, `router.ts`'s "TENANT-WIDE" Library block, and DOC-38 §7.7 would need rewriting. They don't. Keeping N-sites-per-business as the v2 story leaves all of them true — they now describe the inside of a business. That's a real payoff of where you landed rather than where I was pushing.
 
 Want me to scope REQ-168 and REQ-170's revisions into their bodies now, and open the selector work? The Account-is-the-portal decision (item 3) is the one I'd settle first, since it constrains the other two.
+
+<!-- xgd-turn id="0b8b566a-3bad-45af-87b2-dfa7e04e73ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:14:25.403951+00:00" -->
+#### You
+Please creaat a ticket for the identity change and then update all the REQs that need adjusting. Note you are a design chat you do not write code.
+
+Then (1) a ticket to move the selector (2) a ticket for 2,3 and 4.
+
+Account now needs access to N business is that covered?
 
 <!-- xgd-chat-end -->
