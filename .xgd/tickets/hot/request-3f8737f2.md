@@ -5,9 +5,9 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-09-02T20:50:28.796963+00:00'
+updated_at: '2026-09-02T21:49:43.931140+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -240,3 +240,118 @@ image content block reaches it (AC3), that a comparison verdict equals `1c diff`
 equivalent invocation (AC4), that each of `gate`'s verdicts is reproduced (AC5), that a private,
 oversized or looping URL is refused and journalled (AC6), and that no operation on this surface
 moves the site's change counter (AC8).
+---
+
+## As built
+
+### The surface
+
+`fidelity-surface.json` declares six operations in one group, `SeeSite`, every one
+`effect: read`. `fidelity-core.ts` implements them against the store and the browser seam and
+carries no prose the model ever sees — the same split `toolbox-core.ts` holds to.
+`createL1Toolbox` now takes `extraSurfaces: {surface, granted?}[]` instead of the single
+`knowledgeSurface` slot, and the knowledge surface became the first entry in that list.
+
+**The grant is narrowed to the surfaces actually composed.** `instances.json` says what the
+caretaker may do; which surfaces exist is a property of the deployment. A Worker with no
+`[browser]` binding, or a `1c` invocation with no server behind it, composes no fidelity surface —
+and the Toolbox refuses to construct when a configuration names a surface nobody registered. So
+`createL1Toolbox` filters the grant down to the composed set. The filter only ever removes keys,
+so it cannot widen a grant.
+
+### The picture vocabulary
+
+One `param_type` (`picture`) with a declared `keys` set, so `validateParams` enforces the keys and
+their enums and `wireProperties` projects the shape into the tool's JSON schema with
+`additionalProperties: false` — the model is shown the shape rather than refused for guessing it.
+Which field a `kind` requires is a cross-field rule no per-key declaration can express;
+`resolvePicture` enforces that and names the missing field.
+
+All five sources resolve through `resolvePicture` in `picture.ts`. The fifth was built rather than
+dropped: `PreviewRenderer` gained a `rev-<id>` channel that renders a frozen `StoredSnapshot`
+through the same `renderSiteFiles`, with **assets read from the snapshot's own bytes** — a
+revision that pointed at today's logo would not be a picture of that revision.
+
+### The image reaches the model inside the tool loop
+
+`screenshot` returns `[{type:'text'}, {type:'image'}]` and upstream carries it through unchanged.
+The UAT asserts what the **backend was handed**, driving upstream's real `ToolSet`,
+`runToolLoop` and `AnthropicWire` through the SDK-free `/core` entry point.
+
+Images are downsampled to a 1024px longest edge by a box filter (`downsampleRaster`, beside
+`cropRaster` in `perceptual-core.ts`) and refused over a byte ceiling. `streamPrompt` strips image
+data out of `meta.output` before the event reaches the SSE stream, so the operator's browser is
+never sent the base64 a second time.
+
+### Three modules had to be split, and it is the same split each time
+
+The fidelity surface runs in workerd, and REQ-146's boundary test named every violation the moment
+it did. Each fix is the seam `perceptual-core.ts` already established — the pure half of a module
+that was also a CLI command:
+
+- **`gate-core.ts`** — the perceptual floor, the coverage proxies, `reconcileGates`, and
+  `cmdL1Gate` (moved from `repro.ts`). `gate.ts` is `1c gate` and is now a *caller* of the
+  reconciliation rather than its owner, which is what makes "reproduces `1c gate`'s
+  reconciliation" a property of the build rather than of anyone's care.
+- **`responsive-table.ts`** — the N-way table builder. `l1/fold.ts` imports it, so the
+  `1c responsive-diff` command's `node:fs` graph was reaching every consumer of the L1 fold.
+- **`capture/pipeline.ts` is inject-or-fail** — it defaulted four driver seams to Playwright,
+  which REQ-155 named as needing this rule and did not apply. The Node convenience is relocated to
+  `capture/index.ts`, the barrel that is Node-only by design and says so, so every `1c capture` and
+  every real-browser test calls exactly what it always did. `ReconcileInput.perceptual.regions` was
+  widened from the CLI report's region type (which carries crop-file paths) to something countable,
+  because counting is all `reconcileGates` ever did with it.
+
+Three `../l1` and `../cli/capture` barrel imports became deep paths for the same reason — including
+two `import type`s, because REQ-154's bundle check follows every local import regardless of whether
+TypeScript erases it.
+
+### Safety
+
+`egress-guard.ts` classifies a URL (scheme, credentials, private/loopback/link-local space
+including IPv4-mapped IPv6) and carries the redirect and byte budgets for one capture. It is
+installed at **both** drivers' request seams, so it sees every redirect hop and every subresource —
+a pre-flight check on the typed URL cannot. `capture_site` also pre-flights, so an obviously bad
+address is refused without leasing a metered browser and without three retries. Refusals are
+returned to the model under the declared `REFUSED` code and carried in the Toolbox's audit record
+with the URL. What it honestly does not do is defeat DNS rebinding: nothing inside workerd can
+resolve a name to check it.
+
+### Both hosts
+
+The Worker composition root is `apps/control-app/src/shot.ts` — the file whose own header said this
+belonged to REQ-157 — with `leasedDriverFactory` binding one metered session to one driver's
+lifetime. Node is wired too: `GlobalOptions.origin` carries what the process is called from
+outside itself, which the builder sets per request from the `Host` header, because an ephemeral
+port is not knowable until `listen` has bound one. Absent an origin there is no fidelity surface,
+which is the honest answer — without one there is nowhere for a browser to navigate to see the
+draft.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts` — 27 UATs. The declaration is checked by the
+framework's own validator; the Toolbox, the operations, the stores, the diff maths, the
+reconciliation and the egress policy are all production code. One thing is doubled — the browser —
+and the pictures are real PNGs, because half of what is under test is what happens to pixels.
+
+Three suites belonging to other tickets were updated where this change made their assertions
+observe something new, rather than weakened: REQ-126's and AC1071's author-time validation now
+validate both declarations together (the instance config names both), and AC1058's offered-tool
+set is now the union of the two declarations' operations — still derived from the declarations
+rather than written out, which is the property that assertion exists to hold. The AC3 UAT drives
+the shared model double (`calls`/`says`) rather than transcribing the wire protocol a second time,
+which BUG-39 forbids.
+
+### Suite state
+
+`node`: **2064 passed, 1 failed** — `test_UAT_AC960` (bug32), which names
+`tests/test_UAT_FC_BUG-42_markdown_rendering.test.ts`, a file this branch does not touch.
+Pre-existing. `workers`: **203 passed, 0 failed**.
+
+### Not taken, and named so it is not mistaken for done
+
+The durable transcript still holds the capped base64: the manager appends the tool event as a
+`tool` record, which is a CONTENT kind, so it drains to the session file and is carried across a
+recycle. Upstream redacts images in `turn_start` and has no equivalent for tool records. That is
+the follow-up, shaped exactly like the redaction REQ-111 already built; the cap here is what keeps
+it bounded until then.
