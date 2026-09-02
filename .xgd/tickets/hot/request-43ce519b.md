@@ -14,6 +14,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6a65b0c6
 ---
 
 # Rename the assistant role: caretaker -> consultant
