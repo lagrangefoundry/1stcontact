@@ -108,7 +108,7 @@ describe('REQ-159 — the declaration', () => {
     expect(project.landscape).toBe('derived')
     // The tenant is a hard barrier and the site is a predicate — deliberately, so
     // two sites belonging to one client share what has been learned about that
-    // client. A `fields.site_slug` term would undo that with no other symptom
+    // client. A `fields.placed_on` term would undo that with no other symptom
     // than an assistant that had forgotten the last site it built.
     expect(Object.keys(project.corpus as Record<string, unknown>)).toEqual(['type'])
   })

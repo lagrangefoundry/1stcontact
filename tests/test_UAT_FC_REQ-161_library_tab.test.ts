@@ -61,7 +61,8 @@ const MATERIAL = [
     republishable: true,
     exportable: false,
     origin: 'uploaded',
-    site_slug: 'alpha',
+    // PLACED, because its promotion onto `alpha` landed (BUG-47).
+    placed_on: ['alpha'],
     source_url: null,
     description_status: 'ok',
     description_model: 'stub/vision-1',
@@ -78,7 +79,9 @@ const MATERIAL = [
     republishable: false,
     exportable: false,
     origin: 'uploaded',
-    site_slug: null,
+    // NEVER PLACED — dropped on "just for you to read", which is exactly the row
+    // the old `site_slug` badged as being on the site (BUG-47).
+    placed_on: [],
     source_url: null,
     description_status: 'ok',
     description_model: 'unpdf',
@@ -96,7 +99,7 @@ const MATERIAL = [
     exportable: false,
     origin: 'uploaded',
     // Another site of the SAME tenant — present in the list, badged differently.
-    site_slug: 'beta',
+    placed_on: ['beta'],
     source_url: null,
     description_status: 'no_describer',
     description_model: null,

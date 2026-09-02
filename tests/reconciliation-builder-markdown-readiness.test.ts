@@ -146,7 +146,7 @@ const MATERIAL = {
   republishable: true,
   exportable: false,
   origin: 'uploaded',
-  site_slug: 'alpha',
+  placed_on: ['alpha'],
   source_url: null,
   description_status: 'ok',
   description_model: 'stub/vision-1',
