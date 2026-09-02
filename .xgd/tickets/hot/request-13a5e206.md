@@ -5,10 +5,10 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-09-01T00:01:02.779719+00:00'
-completed_at: null
+updated_at: '2026-09-02T01:34:01.996315+00:00'
+completed_at: '2026-09-02T01:34:01.996315+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 13
