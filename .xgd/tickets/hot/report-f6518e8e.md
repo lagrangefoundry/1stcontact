@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: the product ticket store (REQ-162, free-coded commits)'
 created_by: xgd
 created_at: '2026-09-01T23:51:59.267222+00:00'
-updated_at: '2026-09-01T23:59:43.342530+00:00'
+updated_at: '2026-09-02T00:18:35.515112+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -90,7 +90,7 @@ fields:
       isolation across accounts), it was mutation-tested independently, and it carries
       its own deployment obligation: the bucket must be created before the next production
       deploy, since miniflare conjures it locally and Cloudflare does not.'
-    story_uid: null
+    story_uid: story-a7a12d81
   - index: 3
     component: Material Types
     item_type: feature
