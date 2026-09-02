@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T18:42:02.848169+00:00'
+updated_at: '2026-09-02T18:45:24.260193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,48 @@ The KMS should read comments too. I think the right place to put the full text i
 This is a design session you create tickets for me do not start implementing anything - I have the ticket agents for that.
 
 Next question: I uploaded 3 things a PNG, a MD and a PDF. The first I chose "Put it on the site" the second I chose "Just for you to read" All three have a pill that says "On this site"? What is that pill supposed to mean - it seems clearly wrong.
+
+<!-- xgd-turn id="c2903a4b-2175-4d49-ae99-f372764bf4da-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T18:45:23.437600+00:00" -->
+#### Claude
+Agreed on all three points — and the KMS half turned out to be the load-bearing one, so I made it explicit in the ticket.
+
+**REQ-173** — *Material description: a digest in the body, the full text in a comment* (draft, high, 3pt)
+
+It specifies the split you described, plus the dependency that has to land first: `buildChunkIndex` in `lagrange-framework` chunks `membership.get(uid)[0].body` and nothing else, so moving the text into a comment before the indexer reads comments would put it somewhere nothing indexes. Two traps flagged for whoever takes that half — the chunk manifest keys on the parent's `updated_at` and the file explicitly justifies that by saying chunks are *"a function of the body"*, which stops being true; and "chunk every comment on every ticket" is a much larger change than chunking a designated one, so a marked comment type keeps it narrow. I left it as one ticket rather than splitting the framework work out — say the word if you want that as its own ticket in the framework store.
+
+I did **not** create the framework ticket, since that's a different project's store.
+
+---
+
+## The pill
+
+It's wrong, and it's wrong in a way that contradicts a promise the product made seconds earlier. **BUG-47** filed.
+
+`site_slug` records **which site was open when you uploaded**. The pill reads it as **"the bytes are on this site."** Nothing reconciles those.
+
+The seam is visible in the transport's own comment in `builder/api.js`:
+
+> `slug` is optional and means "and put it on this site **if the role says so**"
+
+Conditional on the role. But `material.ts` writes it unconditionally:
+
+```js
+...(input.siteSlug ? { site_slug: input.siteSlug } : {}),
+```
+
+Meanwhile `placeOnSite` — the thing that actually promotes bytes into the site's asset library — is correctly gated: `if (role !== 'site' || !slug) return { site_asset: null }`. So the gate holds where it matters. Your Markdown file is **not** on the site; DOC-38 §5's invariant is intact. This is a display defect, not a leak.
+
+But every consumer of the field reads it as placement — the pill, the rights field labelled **`Used on`**, the `hereOnly` filter ("only show what's used here"), and the file comments in both `library.js` and `material.ts` that say *"used on this site"*. Four things describing placement, one field holding upload context.
+
+Two more problems fell out while I was in there:
+
+- **Even for `role: 'site'`, the pill can lie.** `placeOnSite` is documented to fail softly — *"a failure here does not lose the upload"* — and reports the failure in the envelope. `site_slug` is already written by then, so a promotion that failed is badged identically to one that succeeded.
+- **The field is the wrong shape.** DOC-38 §7.7 lets one blob back two sites, so placement is many-to-many. A scalar was fine for "where it was uploaded"; it can't express "on both of this client's sites."
+
+So the fix isn't a condition on the badge — it's that placement should be recorded by `placeOnSite` on success, as a collection, and the pill/label/filter should all read that instead. The ticket states the four invariants that have to hold afterwards rather than picking the field design.
+
+One note: `xgd` committed both tickets locally but the push failed — `This proxy requires authentication`. They're in the store, not on the remote yet.
 
 <!-- xgd-chat-end -->
