@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T21:14:41.744876+00:00'
+updated_at: '2026-09-02T21:21:53.863514+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -277,5 +277,11 @@ Now AC5 — the verdict reconciliation.
 Real regression — the static grant names a surface a browserless deployment won't have. Checking how a surface reports its name.
 
 Now the full node suite, to see what else this touched.
+
+<!-- xgd-turn id="98dab462-c4e4-451a-9f37-40100f661659-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T21:21:53.168187+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
