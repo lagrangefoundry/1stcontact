@@ -144,7 +144,7 @@ describe('REQ-159 — the declaration', () => {
     // `derived`, so the awareness pipeline may rebuild it. `authored` would refuse.
     expect(kb.landscape).toBe('derived')
     // Tenant-wide, NOT site-scoped: two sites belonging to one client share what
-    // has been learned about that client ([[DOC-10]] §4.3). A `fields.site_slug`
+    // has been learned about that client ([[DOC-10]] §4.3). A `fields.placed_on`
     // term here would be a silent narrowing of exactly that.
     expect([...kb.corpus.terms.keys()]).toEqual([])
   })

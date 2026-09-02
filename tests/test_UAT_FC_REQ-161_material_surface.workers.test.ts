@@ -247,13 +247,14 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     expect(rows).toHaveLength(2)
 
     // TENANT-WIDE, NOT SITE-SCOPED ([[DOC-38]] §7.7, [[DOC-10]] §4.1): the row
-    // bound to a site and the row bound to none are both here, and `site_slug`
+    // placed on a site and the row placed nowhere are both here, and `placed_on`
     // is what the browser badges and filters on rather than something the origin
     // used to hide anything.
     const wordmark = rows.find((row) => row.uid === bound.uid)!
     const positioning = rows.find((row) => row.uid !== bound.uid)!
-    expect(wordmark.site_slug).toBe(site.slug)
-    expect(positioning.site_slug).toBeNull()
+    expect(wordmark.placed_on).toEqual([site.slug])
+    // EMPTY, because nothing was ever put on a site for it (BUG-47).
+    expect(positioning.placed_on).toEqual([])
     expect(wordmark.role).toBe('site')
     expect(positioning.role).toBe('reference')
 

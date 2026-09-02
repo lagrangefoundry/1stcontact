@@ -16,8 +16,17 @@
  * TENANT-WIDE, WITH THE SITE AS A BADGE AND NEVER A BOUNDARY. DOC-38 §7.7 lets
  * one blob back two sites and DOC-10 §4.1 makes shared knowledge across a
  * client's sites deliberate — their second site should not start as cold as
- * their first. So `site_slug` decides a badge and a filter the client can turn
+ * their first. So `placed_on` decides a badge and a filter the client can turn
  * on, and the origin is never asked to hide anything on the strength of it.
+ *
+ * ONE FACT, READ BY ALL THREE (BUG-47). The pill, the `Used on` field and the
+ * `Used on this site` checkbox are three statements about the same thing, so
+ * they read the same field and can no longer disagree with each other. That
+ * field is `placed_on` — WHERE THE BYTES WENT — and it replaced `site_slug`,
+ * which held WHICH SITE WAS OPEN WHEN THE FILE ARRIVED. Reading upload context
+ * as placement is what put the pill on a file dropped on *"just for you to
+ * read"*, whose own hint had promised seconds earlier that it would not appear
+ * on the site.
  *
  * THE DETAIL REUSES THE EDITORS WE ALREADY HAVE. Both halves are `mountFields`:
  * the §9 rights block read-only, and the description as one editable field. A
@@ -68,7 +77,7 @@ const RIGHTS_FIELDS = [
   { name: 'origin', label: 'Where it came from' },
   { name: 'rights', label: 'Rights' },
   { name: 'republishable', label: 'Can appear on the site', type: 'boolean' },
-  { name: 'site_slug', label: 'Used on' },
+  { name: 'placed_on', label: 'Used on' },
   { name: 'source_url', label: 'Address' },
 ]
 
@@ -110,6 +119,23 @@ function paintDescription(host) {
   cell.dataset.markdownPaint = engine
   cell.classList.add('md-body')
   cell.innerHTML = renderSafe(markdown)
+}
+
+/**
+ * Where a row's bytes are, as a list of site slugs (BUG-47).
+ *
+ * TOLERANT OF ABSENCE, so a row that predates `placed_on` — or one the origin
+ * has not filled in — reads as "placed nowhere" rather than as a third state
+ * every caller has to guard. The three consumers below then ask exactly one
+ * question of it and cannot come apart from one another.
+ */
+function placedList(row) {
+  return Array.isArray(row.placed_on) ? row.placed_on : []
+}
+
+/** Whether this material's bytes are on the site currently open. */
+function placedHere(row, site) {
+  return placedList(row).includes(site)
 }
 
 function el(tag, className, text) {
@@ -213,7 +239,7 @@ export function createLibraryPanel(options = {}) {
     return all.filter((row) => {
       if (filter.role && row.role !== filter.role) return false
       if (filter.kind && row.kind !== filter.kind) return false
-      if (filter.hereOnly && (!site || row.site_slug !== site)) return false
+      if (filter.hereOnly && (!site || !placedHere(row, site))) return false
       if (!filter.text) return true
       return `${row.title} ${row.filename}`.toLowerCase().includes(filter.text)
     })
@@ -239,7 +265,7 @@ export function createLibraryPanel(options = {}) {
     // "not used on this site" badge on every other row would be noise about the
     // majority to say something about the few.
     const site = getSite()
-    if (site && row.site_slug === site) {
+    if (site && placedHere(row, site)) {
       meta.append(el('span', 'builder-library__badge builder-library__badge--here', 'On this site'))
     }
     wrap.append(meta)
@@ -280,7 +306,11 @@ export function createLibraryPanel(options = {}) {
         origin: row.origin,
         rights: row.rights,
         republishable: row.republishable,
-        site_slug: row.site_slug ?? '',
+        // JOINED, BECAUSE PLACEMENT IS PLURAL. `mountFields` reads a scalar, and
+        // a material may be on two of the client's sites (DOC-38 §7.7) — so the
+        // list is rendered as one, and an unplaced material shows nothing rather
+        // than an empty bracket.
+        placed_on: placedList(row).join(', '),
         source_url: row.source_url ?? '',
       },
       // READ-ONLY, AND NOT BECAUSE IT IS HARD TO MAKE THEM EDITABLE. These are
