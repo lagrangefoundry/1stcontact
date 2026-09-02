@@ -1626,7 +1626,7 @@ async function dispatchEdit(
         slug,
         requireArg(rest[2], 'name'),
         requireArg(str('content'), 'content'),
-        { ...opts, force, alt: str('alt') },
+        { ...opts, force },
       )
     case 'rm':
       return editAssetRm(slug, requireArg(rest[2], 'assetName'), { ...opts, force })

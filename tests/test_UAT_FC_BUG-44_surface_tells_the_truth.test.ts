@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import l1Surface from '../tools/generate/src/cli/ai/l1-surface.json'
 
 /**
- * BUG-45 — **the declared surface stops telling the assistant things that are false**.
+ * BUG-44 — **the declared surface stops telling the assistant things that are false**.
  *
  * WHY THESE ARE ASSERTIONS ABOUT TEXT, AND WHAT THAT IS WORTH. The declaration is
  * projected verbatim into the assistant's manual ([[DOC-39]] §3.2), so what it
@@ -17,12 +17,19 @@ import l1Surface from '../tools/generate/src/cli/ai/l1-surface.json'
  * interface, not through our chat". That reply was not invented: it is the
  * `absences` entry below, read back almost word for word, from a declaration
  * written before [[REQ-161]] wired the upload overlay and never revisited.
+ *
+ * BUG-45 answered the second of those beliefs by explaining registration as
+ * provenance rather than permission. BUG-44 removed the registry it explained,
+ * so the assertion below inverted: the manual must not describe registration at
+ * all, because there is nothing left to describe and a surviving mention could
+ * only be describing something the tools no longer have.
  */
 
 interface Operation {
   op: string
   summary: string
   description?: string
+  params?: Record<string, unknown>
 }
 
 interface Declaration {
@@ -47,8 +54,8 @@ function prose(op: string): string {
   return `${o.summary}\n${o.description ?? ''}`
 }
 
-describe('BUG-45 — the surface no longer says a file cannot arrive through the chat', () => {
-  it('test_UAT_FC_BUG-45_no_absence_claims_a_file_cannot_reach_the_site', () => {
+describe('BUG-44 — the surface no longer says a file cannot arrive through the chat', () => {
+  it('test_UAT_FC_BUG-44_no_absence_claims_a_file_cannot_reach_the_site', () => {
     // THE SENTENCE THAT CAUSED IT. The old note read: "you cannot take a file
     // from a conversation and put it in the site … tell them adding a file is
     // done outside the chat." Since REQ-161 the overlay's first area does exactly
@@ -65,7 +72,7 @@ describe('BUG-45 — the surface no longer says a file cannot arrive through the
     expect(notes).not.toMatch(/(?:through|via|in|from|using) the (?:asset manager|builder interface)/i)
   })
 
-  it('test_UAT_FC_BUG-45_the_absence_says_to_ask_for_the_file_here', () => {
+  it('test_UAT_FC_BUG-44_the_absence_says_to_ask_for_the_file_here', () => {
     // The absence is still an absence — the assistant genuinely cannot go and
     // FETCH a file — but the remedy it names has to be the one that works.
     const upload = declaration.absences.find((a) => /file/i.test(a.name))
@@ -81,29 +88,46 @@ describe('BUG-45 — the surface no longer says a file cannot arrive through the
     expect(note).toMatch(/Put it on the site/i)
   })
 
-  it('test_UAT_FC_BUG-45_registration_is_never_described_as_permission', () => {
-    // THE SECOND FALSE BELIEF. `asset_id` read "The REGISTERED name of an image
-    // or font already in the site", and `get_asset` "one REGISTERED image or
-    // font" — so an assistant that found an asset listed `(unregistered)` could
-    // only conclude it was ineligible. Nothing consults the registry before a
-    // page references an asset; every capture-folded page proves it.
-    const assetId = declaration.param_types.asset_id.description ?? ''
-    expect(assetId).not.toMatch(/^The registered name/i)
+  it('test_UAT_FC_BUG-44_registration_is_not_described_at_all', () => {
+    // THE SECOND FALSE BELIEF, AND ITS FINAL ANSWER. `asset_id` read "The
+    // REGISTERED name of an image or font already in the site", and `get_asset`
+    // "one REGISTERED image or font" — so an assistant that found an asset listed
+    // `(unregistered)` could only conclude it was ineligible. BUG-45 reframed the
+    // word; BUG-44 removed the thing. A manual that still explained registration
+    // would be explaining a distinction no tool can now report, which is a worse
+    // failure than the original: the assistant would look for a flag that is not
+    // in any answer and have to guess what its absence meant.
+    const everything = JSON.stringify(declaration)
+    expect(everything).not.toMatch(/registered/i)
+    expect(everything).not.toMatch(/registry|registration/i)
 
-    const list = prose('list_assets')
-    const get = prose('get_asset')
-
-    // `get_asset` no longer advertises itself as registry-only.
-    expect(get).not.toMatch(/one registered image or font/i)
-
-    // And the listing says plainly that an unregistered asset is usable, since
+    // The two descriptions that carried the claim now say what is true instead.
+    expect(declaration.param_types.asset_id.description ?? '').not.toMatch(/^The registered name/i)
+    expect(prose('get_asset')).not.toMatch(/one registered image or font/i)
+    // And the listing says plainly that everything it reports may be used, since
     // that is the inference that has to be blocked rather than merely not made.
-    expect(`${list}\n${declaration.shapes.asset_list.registered ?? ''}`).toMatch(
-      /provenance|usable|not permission/i,
-    )
+    expect(prose('list_assets')).toMatch(/every one of them may be referenced/i)
   })
 
-  it('test_UAT_FC_BUG-45_write_image_forbids_standing_in_for_a_supplied_file', () => {
+  it('test_UAT_FC_BUG-44_alt_text_belongs_to_the_element_not_the_file', () => {
+    // WHAT THE DELETION COST, AND WHERE THE MANUAL HAS TO POINT INSTEAD. The
+    // registry was the only place a site could hold alt text for a file, so a
+    // promoted upload no longer arrives carrying the description ingestion wrote
+    // for it. That description still exists — on the material the file came from
+    // — and the assistant has to be told to go and get it, or the accessible
+    // name for every client photograph silently becomes empty.
+    expect(operation('write_image').params ?? {}).not.toHaveProperty('alt')
+    expect(operation('add_asset').params ?? {}).not.toHaveProperty('alt')
+
+    const upload = declaration.absences.find((a) => /file/i.test(a.name))!.note
+    expect(upload).toMatch(/description/i)
+    expect(upload).toMatch(/element/i)
+
+    // A drawing has no description of its own either, and is told the same thing.
+    expect(prose('write_image')).toMatch(/element that places it/i)
+  })
+
+  it('test_UAT_FC_BUG-44_write_image_forbids_standing_in_for_a_supplied_file', () => {
     // THE THIRD FAILURE, AND THE ONE THE CLIENT ACTUALLY SAW. Having decided it
     // could not use their logo, the assistant drew a substitute and reported
     // completion. `write_image` warned it was "not a way to make a photograph"
@@ -119,10 +143,10 @@ describe('BUG-45 — the surface no longer says a file cannot arrive through the
     expect(write).toMatch(/not a way to make a photograph/i)
   })
 
-  it('test_UAT_FC_BUG-45_the_surface_version_moved_with_the_surface', () => {
-    // `get_asset` returns a different shape and an absence inverted its meaning.
-    // A consumer that recorded which surface it was written against (DOC-30 R6)
-    // is entitled to see that number change.
-    expect(declaration.surface_version).toBeGreaterThan(4)
+  it('test_UAT_FC_BUG-44_the_surface_version_moved_with_the_surface', () => {
+    // Two shapes lost a field, `write_image` lost a parameter and an absence
+    // inverted its meaning. A consumer that recorded which surface it was
+    // written against (DOC-30 R6) is entitled to see that number change.
+    expect(declaration.surface_version).toBeGreaterThan(5)
   })
 })

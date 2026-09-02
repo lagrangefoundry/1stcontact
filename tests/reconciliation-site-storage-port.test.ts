@@ -513,7 +513,9 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
     writeFileSync(source, SVG, 'utf8')
     const addition = await cli('asset', 'add', 'acme', source, '--as', 'logo.svg')
     expect(addition.ok).toBe(true)
-    expect(addition.data).toMatchObject({ asset: { id: 'logo.svg', src: 'logo.svg' } })
+    // One vocabulary for an asset wherever it is answered for (BUG-44): `src` is
+    // the handle a page holds, never the bare store name it used to hand back.
+    expect(addition.data).toMatchObject({ asset: { id: 'logo.svg', src: '/assets/logo.svg' } })
     expect((await cli('asset', 'list', 'acme')).data).toMatchObject({
       assets: [{ id: 'logo.svg' }],
     })

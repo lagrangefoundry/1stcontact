@@ -276,12 +276,12 @@ export function describeSiteStoreContract(
       expect(bytes).not.toBeNull()
       expect(new TextDecoder().decode(bytes!)).toBe(svg)
 
-      // Registered by the same call that stored the bytes.
-      expect((await listSiteAssets(slug, opts)).find((a) => a.id === 'wordmark.svg')).toMatchObject({
-        registered: true,
-        onDisk: true,
-        kind: 'image',
-      })
+      // Listed by the same call that stored the bytes — there is no second step
+      // that makes a stored asset usable, and no `registered` flag saying so
+      // (BUG-44).
+      const entry = (await listSiteAssets(slug, opts)).find((a) => a.id === 'wordmark.svg')!
+      expect(entry).toMatchObject({ onDisk: true, kind: 'image', src: '/assets/wordmark.svg' })
+      expect(entry).not.toHaveProperty('registered')
 
       await editAssetRm(slug, 'wordmark.svg', opts)
       expect(await opts.store.readAsset(slug, 'wordmark.svg')).toBeNull()

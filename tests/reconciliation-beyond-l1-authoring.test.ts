@@ -744,16 +744,17 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   it('test_UAT_AC1104_a_drawing_becomes_an_ordinary_site_image_and_ships_unaltered', async () => {
     const box = await caretaker()
 
-    const written = await json<{ asset: { id: string; src: string; alt: string } }>(box, 'write_image', {
+    const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
-      alt: 'The XGD wireframe mark',
     })
     expect(written.asset.id).toBe('wordmark.svg')
     // The handle handed back is the one an L1 image node takes, so the caller
     // uses the answer directly rather than composing a path.
     expect(written.asset.src).toBe('/assets/wordmark.svg')
-    expect(written.asset.alt).toBe('The XGD wireframe mark')
+    // It carries no description of its own (BUG-44): what a picture shows is
+    // written on the element that places it, not on the file.
+    expect(written.asset).not.toHaveProperty('alt')
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // The listing every image picker reads reports it as an image.
@@ -786,7 +787,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     const before = readFileSync(sitePath(), 'utf8')
 
     for (const [what, hostile] of HOSTILE) {
-      const answer = await box.run('write_image', { name: 'attack', svg: hostile, alt: what })
+      const answer = await box.run('write_image', { name: 'attack', svg: hostile })
       expect(answer, what).toContain('SCHEMA_INVALID')
       // The refusal identifies the rule that was broken rather than saying only
       // "invalid" — and it is never a rewrite: nothing is stripped to make the
@@ -891,7 +892,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(tools).not.toContain('add_asset')
     expect(tools).not.toContain('remove_asset')
 
-    await box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'mark' })
+    await box.run('write_image', { name: 'wordmark', svg: MARK })
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
   })
 })
@@ -1079,13 +1080,8 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       config: FORM_CONFIG,
     })
     await box.run('remove_component', { page: 'home', name: 'spare' })
-    await box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'The XGD wireframe mark' })
-    await box.run('write_image', {
-      name: 'wordmark',
-      svg: REDRAWN,
-      alt: 'The XGD wireframe mark',
-      replace: true,
-    })
+    await box.run('write_image', { name: 'wordmark', svg: MARK })
+    await box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true })
     await box.run('add_page', {
       page: 'about',
       title: 'About',
@@ -1107,7 +1103,11 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     // cannot pass for coverage.
     expect(readSite(viaCli).palette.primary).toEqual({ value: '#0f3f52' })
     expect(readSite(viaCli).palette.ink).toEqual(PALETTE.ink)
-    expect(readSite(viaCli).assets.map((a: any) => a.id)).toEqual(['wordmark.svg'])
+    // The drawing is in the STORE, not in the definition: BUG-44 removed
+    // `site.json`'s asset array, so what proves the drawing landed is the byte
+    // under its generated filename and the listing that reports it.
+    expect(readSite(viaCli)).not.toHaveProperty('assets')
+    expect(readdirSync(path.join(draftDir(viaCli), 'assets'))).toEqual(['wordmark.svg'])
     // The replacement's bytes, under the one name: replacing is not a second asset.
     expect(readFileSync(path.join(draftDir(viaCli), 'assets', 'wordmark.svg'), 'utf8')).toBe(REDRAWN)
     expect(readFileSync(path.join(draftDir(viaSurface), 'assets', 'wordmark.svg'), 'utf8')).toBe(

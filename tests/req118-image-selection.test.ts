@@ -338,8 +338,9 @@ describe('REQ-118 — image selection', () => {
 
   // AC7 — the asset listing is callable independently of the modal, so DOC-28
   // §9.2's asset browser mode reuses it rather than growing a second idea of what
-  // a site's assets are. It is the UNION of the registry and the directory: a
-  // registry-only listing shows nothing on any real site in `storage/`.
+  // a site's assets are. Its one source is the store: BUG-44 removed the declared
+  // registry it used to be merged with, because nothing read the metadata that
+  // registry carried and its only effect was to make a present file unaddressable.
   it('test_UAT_FC_REQ-118_the_asset_listing_is_callable_independently_of_the_modal', async () => {
     const listed = await cli(cwd, 'asset', 'list', 'acme')
     expect(listed.ok).toBe(true)
@@ -355,11 +356,17 @@ describe('REQ-118 — image selection', () => {
     ])
     expect(assets.map((a) => a.kind)).toEqual(['image', 'font', 'image', 'image', 'other'])
 
-    // Provenance, so a browser mode can tell a declared asset from a stray file.
+    // One shape for every entry, because there is one source. A file's name in
+    // the store is its id, and nothing distinguishes a "declared" asset from a
+    // "stray" one — that distinction went with the registry.
     const beta = assets.find((a) => a.src === BETA)!
-    expect(beta).toMatchObject({ id: 'beta', alt: 'The beta image', registered: true, onDisk: true })
+    expect(beta).toMatchObject({ id: 'beta.png', kind: 'image', onDisk: true })
     const hero = assets.find((a) => a.src === HERO)!
-    expect(hero).toMatchObject({ id: 'hero.png', registered: false, onDisk: true })
+    expect(hero).toMatchObject({ id: 'hero.png', kind: 'image', onDisk: true })
+    for (const a of assets) {
+      expect(a).not.toHaveProperty('registered')
+      expect(a).not.toHaveProperty('alt')
+    }
   })
 })
 

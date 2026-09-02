@@ -356,7 +356,6 @@ export function l1Operations(
     write_image: async (p) => {
       const out = await editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
         ...opts,
-        alt: opt(p, 'alt'),
         force: p.replace === true,
       })
       return { ...(out.data as object), now: out.at }

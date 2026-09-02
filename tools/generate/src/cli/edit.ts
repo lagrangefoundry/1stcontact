@@ -1797,11 +1797,6 @@ export async function editPaletteRename(
 
 // ── asset commands ───────────────────────────────────────────────────────────
 
-function assetRegistry(base: Record<string, unknown>): Record<string, unknown>[] {
-  const assets = base.assets
-  return Array.isArray(assets) ? (assets as Record<string, unknown>[]) : []
-}
-
 /** What an asset can be used for, derived from its extension. */
 export type SiteAssetKind = 'image' | 'font' | 'other'
 
@@ -1845,24 +1840,29 @@ function assetHandle(src: string): string {
   return local.startsWith('assets/') ? `/${local}` : `/assets/${local}`
 }
 
-/** One asset a site can reference, whether or not the registry knows about it. */
+/**
+ * One asset a site can reference.
+ *
+ * THERE IS NO SECOND CLASS (BUG-44). This carried `registered` — whether
+ * `site.json`'s `assets` array described the file — and `alt`, which only that
+ * array held. Both are gone with the array: a site's assets are the bytes its
+ * store holds, every one of them usable on a page, and an image's alt text is
+ * the required `alt` on the picture element that places it.
+ */
 export interface SiteAsset {
-  /** The registry id, or the filename when the file is unregistered. */
+  /** The asset's name in the store — the draft's `assets/<id>`. */
   id: string
   /** The handle to write into an L1 node — always `/assets/<name>`. */
   src: string
-  alt: string
   kind: SiteAssetKind
   /**
    * The store holds bytes for it under the draft's `assets/`.
    *
-   * Named for the filesystem because the picker and its tests already read this
-   * field by name; since REQ-142 it means "the store has it", which is the same
-   * question asked of a store that may have no disk.
+   * Always true, and kept because the picker and its tests read this field by
+   * name; since REQ-142 it means "the store has it", which is the same question
+   * asked of a store that may have no disk.
    */
   onDisk: boolean
-  /** `site.json`'s `assets` array carries an entry for it. */
-  registered: boolean
 }
 
 /**
@@ -1873,36 +1873,18 @@ export interface SiteAsset {
  * asset list` reads it too. One listing, three consumers — the alternative is
  * three ideas of what a site's assets are.
  *
- * It is the UNION of two sources that genuinely disagree. The registry carries
- * metadata (`alt`, `focalPoint`) but every real site in `storage/` has an empty
- * one, so a registry-only picker offers nothing on the sites we actually build.
- * The directory carries the bytes but no metadata. Reporting both, with
- * provenance, is the honest answer: the picker can offer what exists, and a
- * future browser mode can show which files are undeclared.
+ * ONE SOURCE (BUG-44). It used to be the union of the store and `site.json`'s
+ * `assets` array, reported with provenance so a caller could tell which half an
+ * entry came from. There is no second half now: the array is gone, and what a
+ * site's assets ARE is the bytes its store holds. That is also what publish,
+ * import and the renderer have always worked from, so the listing and the site
+ * can no longer disagree.
  */
 export async function listSiteAssets(slug: string, opts: EditOptions): Promise<SiteAsset[]> {
-  const base = await readBase(slug, opts)
-  const byHandle = new Map<string, SiteAsset>()
-
-  for (const rel of await opts.store.listAssets(slug)) {
-    const src = assetHandle(rel)
-    const kind = assetKind(rel)
-    byHandle.set(src, { id: rel, src, alt: '', kind, onDisk: true, registered: false })
-  }
-  for (const entry of assetRegistry(base)) {
-    const id = String(entry.id ?? '')
-    const src = assetHandle(String(entry.src ?? id))
-    const existing = byHandle.get(src)
-    byHandle.set(src, {
-      id: id || existing?.id || src,
-      src,
-      alt: typeof entry.alt === 'string' ? entry.alt : (existing?.alt ?? ''),
-      kind: assetKind(String(entry.src ?? id)),
-      onDisk: existing?.onDisk ?? false,
-      registered: true,
-    })
-  }
-  return [...byHandle.values()].sort((a, b) => a.src.localeCompare(b.src))
+  const names = await opts.store.listAssets(slug)
+  return names
+    .map((rel) => ({ id: rel, src: assetHandle(rel), kind: assetKind(rel), onDisk: true }))
+    .sort((a, b) => a.src.localeCompare(b.src))
 }
 
 /** The handles an image picker may offer — the listing, narrowed to images. */
@@ -1916,7 +1898,7 @@ export async function editAssetList(slug: string, opts: EditOptions): Promise<Ed
     assets.length === 0
       ? '(no assets)'
       : assets
-          .map((a) => `${a.id}\t${a.src}\t${a.kind}${a.registered ? '' : '\t(unregistered)'}`)
+          .map((a) => `${a.id}\t${a.src}\t${a.kind}`)
           .join('\n')
   return { data: { assets }, human }
 }
@@ -1924,23 +1906,17 @@ export async function editAssetList(slug: string, opts: EditOptions): Promise<Ed
 /**
  * One asset the site can reference — **anything {@link listSiteAssets} reports**.
  *
- * IT READ THE REGISTRY ALONE, AND THAT TAUGHT THE ASSISTANT SOMETHING FALSE
- * (BUG-45). `list_assets` reports the union of the registry and the store, so an
- * asset with bytes and no `site.json` entry is listed — and then `get_asset` on
+ * IT READ A REGISTRY ALONE, AND THAT TAUGHT THE ASSISTANT SOMETHING FALSE
+ * (BUG-45). `list_assets` reported the union of `site.json`'s `assets` array and
+ * the store, so a file with bytes and no entry was listed — and `get_asset` on
  * that same name raised NOT_FOUND. An assistant that lists, probes, and reads a
  * manual describing an `asset_id` as "the REGISTERED name" can only conclude
- * that an unregistered asset may not be used. It may: nothing consults the
- * registry before a page references an asset, and every capture-folded page
- * points at `/assets/<name>` against an empty one (`l1/assets.ts`). The belief
- * cost a client their uploaded logo, replaced by a drawing.
+ * that an unregistered asset may not be used. It cost a client their uploaded
+ * logo, replaced by a drawing.
  *
- * SO IT ANSWERS FROM THE LISTING, and returns the listing's own shape rather
- * than the raw `site.json` entry. One vocabulary for both operations is the
- * point: the divergence was not only which assets each could see but what an
- * asset *was* — `src` was the bare filename here and the `/assets/<name>` handle
- * there, so the two answers could not even be compared. `registered` travels on
- * the answer because it is a true fact about the file that an operator may want;
- * what it is not is permission.
+ * BUG-44 removed the array rather than reconciling the two halves, so there is
+ * no longer a second source to disagree with. This answers from the listing, in
+ * the listing's own shape, because they are now the same question asked twice.
  */
 export async function editAssetGet(
   slug: string,
@@ -1965,25 +1941,12 @@ export async function editAssetGet(
 }
 
 export interface AssetAddOptions extends EditOptions {
-  /** Registered name (and store name); defaults to the source basename. */
+  /** The name to store it under; defaults to the source basename. */
   as?: string
-  /**
-   * What the picture shows, for someone who cannot see it.
-   *
-   * Optional because the two callers that have an operator — `1c asset add` and
-   * the AI toolbox's adapter — have nobody to ask for it at the moment the file
-   * is read, and an empty string is the honest answer there. It exists for the
-   * caller that DOES already know: chat promotion arrives holding the
-   * description ingestion wrote for the image ([[DOC-38]] §6), and without a way
-   * to pass it that description was computed, stored on the material ticket, and
-   * then dropped on the floor at exactly the moment a site asset was created
-   * that needed it (BUG-45).
-   */
-  alt?: string
 }
 
 /**
- * Register bytes the operator already had, under `name`.
+ * Store bytes the operator already had, under `name`.
  *
  * WHY IT TAKES BYTES AND NOT A PATH (REQ-142). It used to take a path on the
  * operator's own machine and `copyFileSync` it in. That path was never the
@@ -1992,6 +1955,13 @@ export interface AssetAddOptions extends EditOptions {
  * a filesystem to read from: `1c asset add` and the AI toolbox's adapter. Both
  * still take a `file` argument and both still refuse a missing one with the same
  * NOT_FOUND envelope; what changed is which layer opens it.
+ *
+ * IT WRITES NO DEFINITION (BUG-44). It used to add an entry to `site.json`'s
+ * `assets` array and validate the whole site before storing a byte. With the
+ * array gone there is nothing about an asset the definition can be wrong about,
+ * so the write is the bytes and the journal note. The note is the part that
+ * mattered anyway: it is how a file promoted from the chat tells the assistant
+ * it arrived, on the turn it arrives.
  */
 export async function editAssetAdd(
   slug: string,
@@ -1999,16 +1969,6 @@ export async function editAssetAdd(
   bytes: Uint8Array,
   opts: AssetAddOptions,
 ): Promise<EditOutput> {
-  const base = await readBase(slug, opts)
-  const assets = assetRegistry(base)
-  if (assets.some((a) => a.id === name)) {
-    throw new CommandError({
-      code: 'CONFLICT',
-      message: `Asset '${name}' is already registered in site '${slug}'.`,
-      path: name,
-      hint: 'Choose a different name with --as.',
-    })
-  }
   if ((await opts.store.listAssets(slug)).includes(name)) {
     throw new CommandError({
       code: 'CONFLICT',
@@ -2018,16 +1978,17 @@ export async function editAssetAdd(
     })
   }
 
-  const newAsset: Record<string, unknown> = { id: name, src: name, alt: opts.alt ?? '' }
-  const newBase = { ...base, assets: [...assets, newAsset] }
-  // Validate the registry before any byte is stored.
-  validateOrThrow(newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
-
-  await opts.store.write(slug, { siteJson: newBase, assets: [{ name, bytes }] })
+  await opts.store.write(slug, { assets: [{ name, bytes }] })
+  const asset: SiteAsset = {
+    id: name,
+    src: assetHandle(name),
+    kind: assetKind(name),
+    onDisk: true,
+  }
   return note(
     slug,
     opts,
-    { data: { asset: newAsset }, human: `Added asset '${name}'.` },
+    { data: { asset }, human: `Added asset '${name}'.` },
     { op: 'asset.add', label: name },
   )
 }
@@ -2065,8 +2026,6 @@ const GENERATED_NAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 export interface AssetWriteOptions extends EditOptions {
   /** Replace the bytes of an asset of this name that already exists. */
   force?: boolean
-  /** Alt text recorded in the registry. */
-  alt?: string
 }
 
 export async function editAssetWrite(
@@ -2075,8 +2034,6 @@ export async function editAssetWrite(
   content: string,
   opts: AssetWriteOptions,
 ): Promise<EditOutput> {
-  const base = await readBase(slug, opts)
-
   const stem = name.toLowerCase().replace(new RegExp(`\\${GENERATED_EXTENSION}$`), '')
   if (!GENERATED_NAME.test(stem)) {
     throw new CommandError({
@@ -2098,10 +2055,12 @@ export async function editAssetWrite(
     })
   }
 
-  const assets = assetRegistry(base)
-  const registered = assets.find((a) => a.id === filename)
+  // WHAT IS ALREADY THERE IS THE STORE'S ANSWER (BUG-44). This asked the registry
+  // and the store both, because a name could be in one and not the other. There
+  // is one place to ask now, and "already has an image called this" means the
+  // bytes exist.
   const stored = (await opts.store.listAssets(slug)).includes(filename)
-  if ((registered || stored) && opts.force !== true) {
+  if (stored && opts.force !== true) {
     throw new CommandError({
       code: 'CONFLICT',
       message: `Site '${slug}' already has an image called '${filename}'.`,
@@ -2110,30 +2069,24 @@ export async function editAssetWrite(
     })
   }
 
-  const entry: Record<string, unknown> = {
-    id: filename,
-    src: filename,
-    alt: opts.alt ?? registered?.alt ?? '',
-  }
-  const newBase = {
-    ...base,
-    assets: [...assets.filter((a) => a.id !== filename), entry],
-  }
-  // The registry is validated before a byte is stored, as everywhere else here.
-  validateOrThrow(newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
-
   // `TextEncoder` rather than `Buffer`: the byte count is part of the answer and
   // has to be computable wherever this runs, not only under Node.
   const bytes = new TextEncoder().encode(content)
-  await opts.store.write(slug, { siteJson: newBase, assets: [{ name: filename, bytes }] })
+  await opts.store.write(slug, { assets: [{ name: filename, bytes }] })
+  const asset: SiteAsset = {
+    id: filename,
+    src: assetHandle(filename),
+    kind: assetKind(filename),
+    onDisk: true,
+  }
   return note(
     slug,
     opts,
     {
-      data: { asset: { ...entry, src: `/assets/${filename}` } },
-      human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${bytes.length} bytes).`,
+      data: { asset },
+      human: `${stored ? 'Replaced' : 'Wrote'} image '${filename}' (${bytes.length} bytes).`,
     },
-    { op: 'asset.write', label: filename, after: clip(String(entry.alt ?? '')) },
+    { op: 'asset.write', label: filename },
   )
 }
 
@@ -2146,14 +2099,16 @@ export async function editAssetRm(
   assetName: string,
   opts: AssetRmOptions,
 ): Promise<EditOutput> {
-  const base = await readBase(slug, opts)
-  const assets = assetRegistry(base)
-  const asset = assets.find((a) => a.id === assetName)
-  if (!asset) {
+  // THE STORE SAYS WHETHER IT EXISTS (BUG-44). This asked the registry, so an
+  // asset whose bytes were present but undeclared could not be removed at all —
+  // the same false negative `get_asset` gave, on the operation that repairs it.
+  const held = (await opts.store.listAssets(slug)).includes(assetName)
+  if (!held) {
     throw new CommandError({
       code: 'NOT_FOUND',
       message: `Asset '${assetName}' not found in site '${slug}'.`,
       path: assetName,
+      hint: `List assets with '1c asset list ${slug}'.`,
     })
   }
 
@@ -2169,16 +2124,9 @@ export async function editAssetRm(
     })
   }
 
-  const newBase = { ...base, assets: assets.filter((a) => a.id !== assetName) }
-  validateOrThrow(newBase, files.map((f) => f.page))
-
-  // De-registering and removing the bytes are one write. Removing an asset the
-  // store does not hold is not an error, which is why there is no existence
-  // check in front of it.
-  await opts.store.write(slug, {
-    siteJson: newBase,
-    removeAssets: [String(asset.src ?? assetName)],
-  })
+  // Removing an asset is removing its bytes. There is no definition to keep in
+  // step with them and so nothing to validate before the write.
+  await opts.store.write(slug, { removeAssets: [assetName] })
   return note(
     slug,
     opts,

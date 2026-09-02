@@ -4,13 +4,18 @@
  * anything on a page.
  *
  * The claim under test is that there is exactly ONE listing, reachable two ways,
- * and that it is the UNION of two sources that genuinely disagree — the site
- * definition's declared registry (metadata, no bytes) and the draft asset
- * directory (bytes, no metadata). Every real site in `storage/` has an empty
- * registry beside a full directory, so a registry-only answer names nothing at
- * all on the sites actually being built; the tests are shaped to fail if the
- * listing ever regresses to one source, invents a second handle vocabulary, or
- * flattens the disagreement between the two sources into a guess.
+ * and that its single source is the draft asset directory — the bytes the site's
+ * store holds. It was the union of that directory and a declared registry in
+ * `site.json` until BUG-44 removed the registry: nothing read the metadata it
+ * carried, and its one behavioural effect was that an asset could be present and
+ * still unaddressable. The tests are shaped to fail if the listing ever grows a
+ * second source again, invents a second handle vocabulary, or reports a file the
+ * store does not hold.
+ *
+ * AC-1019 — a declared asset contributing its identity and listing with no file —
+ * IS WITHDRAWN with the registry, not regressed. Nothing declares an asset now,
+ * so there is no second source to contribute anything and no way to name a byte
+ * the store does not have.
  *
  * Two real entry points, nothing between them stubbed:
  *
@@ -46,76 +51,18 @@ const ASSET_FILES: Record<string, string> = {
   'site.css': 'body{}',
 }
 
-/**
- * What the site definition declares.
- *
- * Deliberately three shapes at once: a bare filename (the form `asset add`
- * writes), an already-qualified path (the form a capture fold writes), and a
- * declaration whose file was never uploaded. The first two name files that DO
- * exist on disk, so the merge has something to merge.
- */
-const REGISTRY = [
-  { id: 'beta', src: 'beta.png', alt: 'The beta image' },
-  { id: 'hero', src: '/assets/hero.png', alt: 'The hero' },
-  { id: 'ghost', src: 'ghost.png', alt: 'Declared, never uploaded' },
-]
-
 /** The site-local handle form a page already holds for an image. */
 const HERO = '/assets/hero.png'
 const BETA = '/assets/beta.png'
-const GHOST = '/assets/ghost.png'
 
-/** Every entry the mixed site's store holds, in the order it reports them. */
+/** Every entry the site's store holds, in the order it reports them. */
 const MIXED_STORE = [
-  {
-    id: 'beta',
-    src: BETA,
-    alt: 'The beta image',
-    kind: 'image',
-    onDisk: true,
-    registered: true,
-  },
-  {
-    id: 'body.woff2',
-    src: '/assets/body.woff2',
-    alt: '',
-    kind: 'font',
-    onDisk: true,
-    registered: false,
-  },
-  {
-    id: 'ghost',
-    src: GHOST,
-    alt: 'Declared, never uploaded',
-    kind: 'image',
-    onDisk: false,
-    registered: true,
-  },
-  { id: 'hero', src: HERO, alt: 'The hero', kind: 'image', onDisk: true, registered: true },
-  {
-    id: 'logo.svg',
-    src: '/assets/logo.svg',
-    alt: '',
-    kind: 'image',
-    onDisk: true,
-    registered: false,
-  },
-  {
-    id: 'photo.jpg',
-    src: '/assets/photo.jpg',
-    alt: '',
-    kind: 'image',
-    onDisk: true,
-    registered: false,
-  },
-  {
-    id: 'site.css',
-    src: '/assets/site.css',
-    alt: '',
-    kind: 'other',
-    onDisk: true,
-    registered: false,
-  },
+  { id: 'beta.png', src: BETA, kind: 'image', onDisk: true },
+  { id: 'body.woff2', src: '/assets/body.woff2', kind: 'font', onDisk: true },
+  { id: 'hero.png', src: HERO, kind: 'image', onDisk: true },
+  { id: 'logo.svg', src: '/assets/logo.svg', kind: 'image', onDisk: true },
+  { id: 'photo.jpg', src: '/assets/photo.jpg', kind: 'image', onDisk: true },
+  { id: 'site.css', src: '/assets/site.css', kind: 'other', onDisk: true },
 ]
 
 function draftPath(cwd: string, slug: string, ...rest: string[]): string {
@@ -123,7 +70,7 @@ function draftPath(cwd: string, slug: string, ...rest: string[]): string {
 }
 
 /**
- * A site with files on disk and, optionally, a declared registry.
+ * A site with files on disk.
  *
  * The home page carries an image node holding the fold's handle for one of those
  * files, so "the listing names an asset the way a page already does" is
@@ -132,18 +79,13 @@ function draftPath(cwd: string, slug: string, ...rest: string[]): string {
 function seedSite(
   cwd: string,
   slug: string,
-  opts: { files?: Record<string, string>; registry?: Record<string, unknown>[] } = {},
+  opts: { files?: Record<string, string> } = {},
 ): void {
   const files = opts.files ?? ASSET_FILES
   mkdirSync(draftPath(cwd, slug, 'assets'), { recursive: true })
   for (const [name, bytes] of Object.entries(files)) {
     writeFileSync(draftPath(cwd, slug, 'assets', name), bytes)
   }
-
-  const siteJson = draftPath(cwd, slug, 'site.json')
-  const base = JSON.parse(readFileSync(siteJson, 'utf8'))
-  base.assets = opts.registry ?? []
-  writeFileSync(siteJson, JSON.stringify(base, null, 2))
 
   const homePath = draftPath(cwd, slug, 'pages', 'home.json')
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
@@ -167,10 +109,8 @@ interface CliResult {
 interface StoreEntry {
   id: string
   src: string
-  alt: string
   kind: string
   onDisk: boolean
-  registered: boolean
 }
 
 /** Drive the real `1c` entry point — argv in, envelope and exit code out. */
@@ -208,7 +148,7 @@ describe('story-c46abfa6 — the site asset store', () => {
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-c46abfa6-'))
     cmdNew('acme', { cwd })
-    seedSite(cwd, 'acme', { registry: REGISTRY })
+    seedSite(cwd, 'acme')
   })
 
   afterEach(() => {
@@ -216,11 +156,11 @@ describe('story-c46abfa6 — the site asset store', () => {
   })
 
   it('test_UAT_AC1018_a_file_present_in_the_site_assets_is_listed_even_when_undeclared', async () => {
-    // AC-1018 — the state EVERY real site in `storage/` is in: a full asset
-    // directory beside an empty declared registry. A registry-only listing would
-    // name nothing here, which is why the union exists.
+    // AC-1018 — the state EVERY real site in `storage/` is in, and since BUG-44
+    // the only state there is: a full asset directory and nothing declaring any
+    // of it. A listing that needed a declaration would name nothing at all here.
     cmdNew('undeclared', { cwd })
-    seedSite(cwd, 'undeclared', { registry: [] })
+    seedSite(cwd, 'undeclared')
 
     const listed = await askForAssets(cwd, 'undeclared')
     expect(listed.ok).toBe(true)
@@ -235,51 +175,50 @@ describe('story-c46abfa6 — the site asset store', () => {
 
     for (const name of Object.keys(ASSET_FILES)) {
       const entry = assets.find((a) => a.src === `/assets/${name}`)!
-      // An undeclared file has no metadata to borrow, so it is its own identity.
+      // A file is its own identity: there is nowhere else an id could come from.
       expect(entry.id, name).toBe(name)
       expect(entry.onDisk, name).toBe(true)
-      expect(entry.registered, name).toBe(false)
       expect(typeof entry.kind, name).toBe('string')
+      // Nothing on the entry says an asset needs declaring before it is used.
+      expect(entry, name).not.toHaveProperty('registered')
     }
   })
 
-  it('test_UAT_AC1019_a_declared_asset_contributes_its_identity_and_is_listed_with_no_file', async () => {
-    // AC-1019 — the definition's metadata is what the directory cannot supply,
-    // and the two sources merge into ONE entry per handle rather than two.
-    const assets = entriesOf(await askForAssets(cwd, 'acme'))
+  it('test_UAT_BUG-44_the_listing_reports_the_store_and_nothing_but_the_store', async () => {
+    // The inverse of the withdrawn AC-1019. A site definition that still carries
+    // the old `assets` array — every site written before BUG-44 does — is loaded
+    // untouched, and not one of its entries reaches the listing. The key is
+    // ignored, never refused: the site validates and nothing about it changes.
+    const siteJson = draftPath(cwd, 'acme', 'site.json')
+    const base = JSON.parse(readFileSync(siteJson, 'utf8'))
+    base.assets = [
+      { id: 'beta', src: 'beta.png', alt: 'The beta image' },
+      { id: 'ghost', src: 'ghost.png', alt: 'Declared, never uploaded' },
+    ]
+    writeFileSync(siteJson, JSON.stringify(base, null, 2))
 
-    const beta = assets.filter((a) => a.src === BETA)
-    expect(beta).toHaveLength(1)
-    expect(beta[0]).toEqual({
-      id: 'beta',
-      src: BETA,
-      alt: 'The beta image',
-      kind: 'image',
-      onDisk: true,
-      registered: true,
-    })
+    const listed = await askForAssets(cwd, 'acme')
+    expect(listed.ok).toBe(true)
+    const assets = entriesOf(listed)
 
-    // Declared, never uploaded: still listed, and the disagreement between the
-    // two sources is visible rather than silently resolved either way.
-    const ghost = assets.filter((a) => a.src === GHOST)
-    expect(ghost).toHaveLength(1)
-    expect(ghost[0]).toMatchObject({
-      id: 'ghost',
-      alt: 'Declared, never uploaded',
-      registered: true,
-      onDisk: false,
-    })
+    // The stale declaration changes nothing: the same entries, from the store.
+    expect(assets).toEqual(MIXED_STORE)
+    // `ghost` names bytes the store does not hold, so it is not an asset at all.
+    expect(assets.map((a) => a.id)).not.toContain('ghost')
+    expect(assets.find((a) => a.src === BETA)!.id).toBe('beta.png')
+    // And no entry carries the metadata that array existed to hold.
+    for (const entry of assets) expect(entry).not.toHaveProperty('alt')
   })
 
   it('test_UAT_AC1020_every_listed_asset_is_named_in_the_site_local_handle_a_page_holds', async () => {
-    // AC-1020 — one handle vocabulary. The registry declares `beta.png` bare and
-    // `/assets/hero.png` qualified; both files are also on disk. Four sources of
-    // naming, one handle each, no entry counted twice.
+    // AC-1020 — one handle vocabulary. The store names a file bare (`beta.png`)
+    // and a page names it qualified (`/assets/hero.png`); the listing speaks the
+    // page's form, so what it hands back can be written straight into a node.
     const assets = entriesOf(await askForAssets(cwd, 'acme'))
 
     expect(assets.filter((a) => a.src === BETA)).toHaveLength(1)
     expect(assets.filter((a) => a.src === HERO)).toHaveLength(1)
-    // The qualified site-local form, never the bare filename the registry used.
+    // The qualified site-local form, never the bare filename the store holds.
     expect(assets.map((a) => a.src)).not.toContain('beta.png')
     expect(assets.every((a) => a.src.startsWith('/assets/'))).toBe(true)
 
@@ -293,22 +232,13 @@ describe('story-c46abfa6 — the site asset store', () => {
     const again = entriesOf(await askForAssets(cwd, 'acme'))
     expect(again.map((a) => a.src)).toEqual(assets.map((a) => a.src))
 
-    // The BOUNDARY of that normalisation: a declaration naming a byte that is
-    // not the site's own is already a complete reference, and is reported as it
-    // stands. Prefixing it would manufacture `/assets/https://…` — a handle no
-    // page holds and no file answers, which is precisely the translation step
-    // this criterion says a listed handle must not need.
-    cmdNew('remote', { cwd })
-    seedSite(cwd, 'remote', {
-      files: { 'local.png': 'bytes:local' },
-      registry: [{ id: 'cdn', src: 'https://cdn.example/far.png', alt: 'Off-site' }],
-    })
-    const offsite = entriesOf(await askForAssets(cwd, 'remote'))
-    expect(offsite.map((a) => a.src)).toEqual([
-      '/assets/local.png',
-      'https://cdn.example/far.png',
-    ])
-    expect(offsite.find((a) => a.id === 'cdn')!.kind).toBe('image')
+    // The BOUNDARY of that normalisation used to be a declaration naming a byte
+    // that is not the site's own — an `https://` src in the registry, reported as
+    // it stood rather than prefixed into `/assets/https://…`. Nothing can declare
+    // an asset now, and a store holds filenames rather than URLs, so the case is
+    // unreachable and is withdrawn with the registry (BUG-44). What survives it
+    // is the rule it was protecting, asserted above: every handle the listing
+    // reports is one a page can hold unchanged.
   })
 
   it('test_UAT_AC1021_each_asset_reports_what_it_can_be_used_for', async () => {
@@ -330,7 +260,6 @@ describe('story-c46abfa6 — the site asset store', () => {
     // …and a caller needing one kind narrows the same list itself.
     expect(assets.filter((a) => a.kind === 'image').map((a) => a.src)).toEqual([
       BETA,
-      GHOST,
       HERO,
       '/assets/logo.svg',
       '/assets/photo.jpg',
@@ -344,8 +273,8 @@ describe('story-c46abfa6 — the site asset store', () => {
     expect(listed.ok).toBe(true)
     expect(listed.exitCode).toBe(0)
 
-    // The full entry shape, for every asset — identity, handle, descriptive
-    // text, usage kind, present-on-disk and declared-in-definition.
+    // The full entry shape, for every asset — identity, handle, usage kind and
+    // present-in-the-store. There is nothing else an asset has.
     expect(entriesOf(listed)).toEqual(MIXED_STORE)
 
     // "This site has no assets" is an answer, not a failure.
@@ -364,7 +293,7 @@ describe('story-c46abfa6 — the site asset store over the builder origin', () =
   beforeAll(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'story-c46abfa6-origin-'))
     cmdNew('acme', { cwd })
-    seedSite(cwd, 'acme', { registry: REGISTRY })
+    seedSite(cwd, 'acme')
     builder = await startBuilder({ cwd })
   }, 120000)
 

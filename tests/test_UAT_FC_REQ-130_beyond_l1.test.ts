@@ -452,7 +452,6 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
-      alt: 'The XGD wireframe mark',
     })
     expect(written.asset.id).toBe('wordmark.svg')
     // The handle it hands back is the one an L1 image node takes, so a caller
