@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-02T23:31:27.002400+00:00'
+updated_at: '2026-09-02T23:33:08.188713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,52 @@ Decisions I'd like before writing anything:
 <!-- xgd-chat role="user" ts="2026-09-02T23:31:26.297281+00:00" -->
 #### You
 PLease note the ticket changes
+
+<!-- xgd-turn id="49246999-9223-4661-9380-2ec44a60a1ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:33:07.584112+00:00" -->
+#### Claude
+Read it. The appended **Revision** section changes the dependency graph and invalidates two of my five open questions. Here's the delta against what I reported.
+
+## What the revision changes
+
+**REQ-168 now depends on REQ-178, which is `draft`.** The revision authorises against "[[REQ-178]]'s admission list", but `admit()` today returns a singular `accountId` (`identity.ts:246`) — and REQ-178's own acceptance criteria call that "the only place the one-business-per-account assumption is baked into shipped code." REQ-168 cannot read a set that nothing produces. Either REQ-178 lands first, or REQ-168 absorbs the `Admission`-returns-a-list change. That's the sequencing question the ticket doesn't state; everything else follows from it.
+
+**My §8 is answered, and answered the other way.** I recommended landing `resolveScope` with no transport, on the grounds that REQ-170 explicitly excluded cross-account operation. Wrong now: REQ-179 says the switcher persists a selection client-side in `STORAGE_KEYS` and "sends it rather than deciding it — the server-side half, resolution accepting the target and authorising it, is [[REQ-168]]." So REQ-168 owns the wire contract, and the target is on ordinary requests, not an admin override. That needs deciding here: header vs query param vs cookie. A header is the only one that survives on `/preview/<slug>/…`, `/builder/*` and the SSE stream without rewriting every URL the chrome builds — but it also means the assets fall-through and the preview iframe have to carry it, which the iframe currently cannot.
+
+**My §5 (tenant status) is partly settled and partly sharpened.** The revision requires refusing a lapsed entitlement *separately* from a missing membership — "those are different things to tell someone." That cuts against `DENIED_MESSAGE`'s one-message rule from REQ-167, but REQ-178 reconciles it: person-level refusals stay uniform, per-business ones are marked in the list. So the resolver's refusal of a *target* is a third category, and it needs its own answer shape.
+
+## One contradiction worth resolving before any code
+
+REQ-168's fallback rule and REQ-179's persistence model disagree about where the last selection lives.
+
+- REQ-168: a request with no target "resolves to the operator's last selection if it is still admissible."
+- REQ-179: the selection is client-side, per account, in `STORAGE_KEYS`.
+
+A request arriving with no target — the ticket's own examples: first load, a bookmarked deep link, an API caller — is by definition one where localStorage didn't reach the server. The server cannot know the last selection unless it records one. `users.fields` is an untyped JSON bag that exists for exactly this (`0004_identity.sql`), so the natural fix is a server-side write on selection, with localStorage as the client-side fast path. But that's a write on the switcher path that nothing currently specifies, and it's REQ-168's to add if we take that reading. The alternative is to drop "last selection" from the fallback and go straight to "first admissible business," which costs the returning-operator property REQ-179 promises.
+
+## The one place the revision's absolute rule collides with the code
+
+> Never to `env.TENANT_ID`
+
+That holds for the identity path. It cannot hold for the ~15 workers suites and the Node transport (`builder.ts:130`), which never call `admit` at all — `isUnconfiguredLocalDev` skips the gate, so there is no identity to resolve from and no membership list to fall back through. That's a distinct branch from the no-target fallback the rule is written about, so I read the rule as compatible: the dev-open scope comes from `TENANT_ID` *inside the resolver*, which is exactly where the UAT permits the last reader to live. Worth you confirming, because the ticket's wording is absolute and a UAT written to the letter would fail that branch.
+
+## What stands unchanged from my earlier report
+
+The revision explicitly says "the four reads and the UAT covering them are unaffected" — so these still need correcting in the body, since a UAT has to trace to ticket language:
+
+- **`tickets.ts:422` is a fifth read and is missing from the table.** It scopes the ticket store: chat transcripts, uploaded material, the project corpus. Leaving it behind is the exact "one site left behind" failure the UAT is written against.
+- **`ai.ts` is in the table but reads nothing** — `TENANT_ID` on `WorkerAiEnv:134` is vestigial, `workerHost` already takes `tenantId`. The actual read is `router.ts:121`, which the table also lists. And the transcript archive named there moved to the ticket store in REQ-160; only `audit/<tenant>/…` is still an R2 tenant path.
+- **The isolate-level chat host (`router.ts:112`)** is still the sharpest edge, and the revision makes it worse rather than better: with a switcher, one operator changes business mid-isolate, so the cached host is stale for the *same person*, not just across people.
+- **The migration hazard** (§7) is now REQ-178's `provisionBusiness` — an existing account needs a membership onto the existing `1stcontact` business, or the live builder resolves empty.
+
+## Questions
+
+1. Does REQ-178 land first, or does REQ-168 absorb the `Admission`-returns-a-set change? This decides whether the ticket is 3 points or considerably more.
+2. Wire shape for the target — header, and if so how do the preview iframe and the assets fall-through carry it?
+3. Last selection: server-side in `users.fields`, or drop it from the fallback in favour of first-admissible?
+4. Confirm the dev-open branch may read `TENANT_ID` inside the resolver.
+
+Once those are settled I'll update the ticket body — correcting the read table and adding language for the transport, the fallback rule and the chat-host scoping — before cutting the branch.
 
 <!-- xgd-chat-end -->
