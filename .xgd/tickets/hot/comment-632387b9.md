@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T22:38:00.121980+00:00'
+updated_at: '2026-09-02T22:39:42.373464+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -239,5 +239,56 @@ This is a refinement of REQ-176 §3 rather than new work, and it depends on BUG-
 <!-- xgd-chat role="user" ts="2026-09-02T22:37:59.979845+00:00" -->
 #### You
 See the "Site scope vs tenent scope" chat - the new model is Account has multiple businesses each business has one site (many sites in the future as an option) tenant == business. So in the short-medium term there is one site per tenant/
+
+<!-- xgd-turn id="08fae06a-a522-4b98-9610-37828bf36213-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T22:39:41.048438+00:00" -->
+#### Claude
+This changes the answer — and I should check something first, because that transcript references code I don't think existed when I filed BUG-47.
+
+Read it. That model kills my three-state recommendation — and points to something more succinct than what you asked for.
+
+Both tickets landed while we were talking, incidentally: BUG-47 replaced `site_slug` with `placed_on` (a slug list written by `recordPlacement` only after the bytes copy), and REQ-176 shipped the icon, the one-line row, and the three safe wording changes. The badge still reads `On this site` — the implementer correctly held the fourth string pending your answer.
+
+## Why the third state is gone
+
+Under Account → N businesses → one site each, `placed_on` degenerates to a 0-or-1-element list. `placedHere(row, site)` becomes `placedList(row).length > 0`. **"Site asset, but on another site" cannot exist in v1** — there is no other site to be on. So the trichotomy I proposed collapses to a binary.
+
+And the accent-colour rationale dies with it. The CSS comment defends that badge as *"the answer to a question the client asked by switching sites"* — but under the header-level selector, switching site switches the whole business, and the Library changes underneath you. Nobody switches sites and re-scans the same list. The question that badge answers stops being asked.
+
+## The binary is already the role pill
+
+- `reference` → never placed (double-gated: `republishable: role !== 'reference'`, then `promoteToSiteAsset` refuses)
+- `site` → placed, unless promotion failed
+
+So in v1, the placement badge is either **redundant** (site + placed, the normal case) or an **error signal** (site + not placed). It carries no information in the case where it fires most.
+
+## Recommendation: badge the exception, not the rule
+
+```
+[type icon]  Title  ·  [Site asset | Background information]
+```
+
+That's it in the normal case. No second icon, no placement pill.
+
+Then, **only** when `role === 'site'` and `placed_on` is empty, a warning mark. That's the state BUG-47 named as its second defect — *"a promotion that failed is badged identically to one that succeeded"* — and it's still invisible today. It's rare, it's actionable, and it's the one thing on that row a client would actually want to be told.
+
+The current design spends the accent colour on the common case, which under one-site-per-tenant means colouring nearly every site-role row. Inverting it costs an element and gains a real signal.
+
+This is shorter than the second icon you were reaching for — the answer turned out to be one fewer indicator, not a smaller one.
+
+## Two more things the model breaks
+
+**The `hereOnly` filter degenerates.** *"Only show what's used on this site"* becomes *"only show site assets that got placed"* — which is the role filter plus the error case. Candidate for deletion, not rewording.
+
+**Two load-bearing comments are now false.** `library.js` and `material.ts:790` both justify the tenant-wide Library with *"their second site should not start as cold as their first."* You've since decided the cold start is a **feature** — that XGD context shouldn't leak into 1stcontact. Those comments are the design record here, and they now argue for the opposite of the model. Same for DOC-38 §7.7's one-blob-backs-two-sites, which v1 no longer exercises.
+
+## On "Live on the site"
+
+Still moot, and now doubly so — the badge goes away. But the underlying truth is unchanged: `editAssetAdd` writes `draft/assets`, so nothing in the Library is live until you publish. If you do want a genuine live indicator later, that's a read against published state, not a rename.
+
+---
+
+I haven't filed anything for this. Your last message in CHAT-36 asks for exactly *"specific changes to what we have today (and what is on deck)"* — the Library changes are a subset of that, and a ticket from me now would race whatever that produces. Better as one coherent pass once the model is written up. Say the word if you'd rather I file the Library slice separately.
 
 <!-- xgd-chat-end -->
