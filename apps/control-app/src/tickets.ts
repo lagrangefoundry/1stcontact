@@ -73,8 +73,33 @@ const MATERIAL_FIELDS = {
   },
   kind: { type: 'enum', enum: ['document', 'image', 'font', 'capture'], required: true },
   source_url: { type: 'string', required_when: 'origin in [captured, fetched]' },
-  /** Which site this belongs to, where it belongs to one. Absent = tenant-wide. */
-  site_slug: { type: 'string' },
+  /**
+   * The sites this material's bytes are actually ON — [[BUG-47]], [[DOC-38]] §7.7.
+   *
+   * WRITTEN BY THE PROMOTION, NOT BY THE UPLOAD. This replaces `site_slug`,
+   * which recorded WHICH SITE WAS OPEN WHEN THE FILE ARRIVED while every
+   * consumer — the Library's `On this site` pill, its `Used on` field, its
+   * "used on this site" filter — read it as WHERE THE BYTES ARE. Those are
+   * different facts, so a file dropped on *"Just for you to read"* was badged,
+   * on the very next screen, as being on the site whose own hint had promised
+   * seconds earlier that it would never appear there.
+   *
+   * A LIST, BECAUSE PLACEMENT IS MANY-TO-MANY. [[DOC-38]] §7.7 lets one blob
+   * back two sites and [[DOC-10]] §4.1 makes shared knowledge across a client's
+   * sites deliberate, so a scalar cannot express a logo that is on both of a
+   * client's sites. The scalar was tenable while the field meant "where it was
+   * uploaded"; it is not once the field means "where it is placed".
+   *
+   * APPENDED ONLY WHERE `promoteToSiteAsset` SUCCEEDED. Promotion is documented
+   * to fail softly — the upload is kept and the failure is reported in the
+   * envelope — so a field written before the copy would badge a promotion that
+   * failed identically to one that landed.
+   *
+   * NOT REQUIRED. Most material is never placed anywhere, and material that
+   * predates this field has no record of where it went; `MaterialRow` reads
+   * absence as the empty list so no consumer has to treat it as a third state.
+   */
+  placed_on: { type: 'list' },
 
   /**
    * What the client said the material is FOR — [[REQ-161]], [[DOC-38]] §4.2.

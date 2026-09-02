@@ -423,6 +423,13 @@ function materialEnvelope(ingested: {
  * client their file did not arrive. It is reported in the envelope instead —
  * named, not swallowed, so the overlay can say what did and did not happen.
  *
+ * WHICH IS WHY PLACEMENT IS RECORDED INSIDE `promoteToSiteAsset` AND NOT HERE
+ * (BUG-47). Because this path fails softly, a `placed_on` written on the way in
+ * would mark every soft failure as a success — the material is kept, so the row
+ * would survive carrying a placement that never happened. The record is written
+ * after the asset write returns, so the only rows that claim a site are the ones
+ * whose bytes reached it.
+ *
  * AND SCRUBBED ON THE WAY OUT, exactly as the route table's own failures are.
  * This is a 200 carrying a message from a caught exception, which is the one
  * shape that looks like it escapes REQ-146's guarantee — the envelope leaves the
@@ -690,7 +697,7 @@ async function routeUncached(
      * [[DOC-38]] §7.7 lets one blob back two sites and [[DOC-10]] §4.1 makes
      * shared knowledge across a client's sites deliberate — so "used on this
      * site" is a badge the client filters by, decided in the browser from
-     * `site_slug` on the row, and never a boundary this route enforces.
+     * `placed_on` on the row, and never a boundary this route enforces.
      */
     if (p === '/api/material' && method === 'GET') {
       return json(200, { material: await listMaterial(await openTickets()) })
@@ -811,7 +818,6 @@ async function routeUncached(
           // still says so, which is the trade the pipeline makes throughout.
           contentType: file.type || 'application/octet-stream',
           role,
-          siteSlug,
         },
         await ingestDeps(),
       )
@@ -833,10 +839,13 @@ async function routeUncached(
       if (typeof body.url !== 'string' || body.url === '') {
         return json(400, { error: 'url is required' })
       }
+      // NO SLUG (BUG-47). What we fetch on a client's behalf is always
+      // `reference` and never `republishable`, so it can never be promoted onto
+      // a site — a slug here could only ever have recorded which site happened
+      // to be open, which is the fact the Library was misreading as placement.
       const ingested = await ingestFetch(await openTickets(), body.url, {
         ...(await ingestDeps()),
         fetch: deps.fetch,
-        siteSlug: typeof body.slug === 'string' && body.slug !== '' ? body.slug : undefined,
       })
       if (!ingested.indexed) warnUnindexed(ingested.ticket.uid)
       return json(200, materialEnvelope(ingested))
