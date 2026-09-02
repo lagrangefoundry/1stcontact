@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T01:48:47.206009+00:00'
+updated_at: '2026-09-02T01:49:51.921514+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,39 @@ One thing I don't need to ask about: the false comment at `ai.ts:187-190` is una
 <!-- xgd-chat role="user" ts="2026-09-02T01:48:47.173667+00:00" -->
 #### You
 **The upstream dependency is not available (blocking for parts 1 & 3). Check now**
+
+<!-- xgd-turn id="6ce5cbd6-dc8b-4d1a-a468-bd337cd3b37c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T01:49:50.558786+00:00" -->
+#### Claude
+Checked. **Still blocked — nothing has changed since my last check.**
+
+The prescribed check, run just now:
+
+```
+grep -c "async transcript(" /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/manager.js
+→ 0
+```
+
+Where `transcript()` actually is, verified branch by branch:
+
+| ref | has `async transcript(` |
+|---|---|
+| framework `free-BUG-38` (tip `2c9a2e84`) | **yes** |
+| framework `xgd-working` | no |
+| framework `main` | no |
+| shared install `node_modules/@lagrangefoundry/ai` | no |
+
+So the ticket's "re-install/re-vendor before starting (1)" is not sufficient on its own: there is nothing to re-install yet. Framework BUG-38 is still `status: draft` with `commits: [2c9a2e84]`, `branch: free-BUG-38` — the code is committed on its branch but has not been promoted to `free_coded` and not merged back, so the framework's own `xgd-working` doesn't have it either. The framework worktree is clean; no uncommitted `transcript()` work anywhere.
+
+Unblocking takes two steps in the framework repo, in order:
+1. merge `free-BUG-38` → `xgd-working` (trivial: one code commit ahead, `xgd-working` only ticket-commits ahead, no code overlap)
+2. `bin/install --lang js --component ai` to repopulate the shared store
+
+Step 2 is the one with reach — it republishes the artifact every sibling project resolves against, not just ours.
+
+Parts **(1)** and **(3)** stay blocked until both run. Part **(2)** — thread `ExecutionContext` into `streamTurn` and `ctx.waitUntil()` the stream, plus correcting the false comment at `ai.ts:187-190` and the stale "`ctx.waitUntil` is not reachable from here" at `router.ts:1112` — is entirely in our repo and unblocked. It's also the half that caused the reported incident, and the ticket says to do it "first and separately."
+
+Say the word and I'll cut `free-BUG-46` and implement (2) now; or tell me to do the framework merge + install first and I'll do all three in one pass. Still open from before: whether part (3) includes the `api.js`/`chat.js` client changes it needs to be visible, and whether you want the Durable Object ticket (part 4) filed.
 
 <!-- xgd-chat-end -->
