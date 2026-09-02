@@ -6,10 +6,10 @@ title: A brief names the site it belongs to and carries a document; one that nam
   no site or says nothing is refused
 created_by: xgd
 created_at: '2026-09-02T00:30:53.220046+00:00'
-updated_at: '2026-09-02T00:30:53.220046+00:00'
+updated_at: '2026-09-02T00:42:25.511136+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
