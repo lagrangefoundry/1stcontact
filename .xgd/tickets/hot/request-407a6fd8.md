@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-be5ca689
 ---
 
 # Identity: an account operates several businesses, not one
