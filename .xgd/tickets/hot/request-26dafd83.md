@@ -5,7 +5,7 @@ type: request
 title: 'Projected reference: the products own facts, generated rather than authored'
 created_by: xgd
 created_at: '2026-08-31T21:38:31.838491+00:00'
-updated_at: '2026-09-01T23:10:06.570969+00:00'
+updated_at: '2026-09-02T01:52:29.230056+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile
