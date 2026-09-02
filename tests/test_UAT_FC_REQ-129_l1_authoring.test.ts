@@ -136,7 +136,7 @@ interface Box {
   manual: () => string
 }
 
-function caretaker(): Promise<Box> {
+function consultant(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd })
 }
 
@@ -163,7 +163,7 @@ describe('REQ-129 — the page map shows the whole page', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_129_map_emits_every_element_including_layout_containers', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const map = await json<{ segments: Segment[] }>(box, 'describe_page', { page: 'home' })
 
     // Every node, not only the ones with copy fields. Compared against a walk of
@@ -179,7 +179,7 @@ describe('REQ-129 — the page map shows the whole page', () => {
   })
 
   it('test_UAT_FC_REQ_129_map_labels_are_recognisable_and_carry_no_axes', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const answer = await box.run('describe_page', { page: 'home' })
     const map = JSON.parse(unwrap(answer)) as { segments: Segment[] }
 
@@ -209,7 +209,7 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_129_get_l1_returns_the_subtree_exactly_as_stored', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const read = await json<{ node: unknown }>(box, 'get_l1', { page: 'home', path: '0.0' })
 
     // Byte-for-byte the stored subtree. Verbatim is the DECISION, not a default:
@@ -229,7 +229,7 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
   })
 
   it('test_UAT_FC_REQ_129_writing_back_what_was_read_changes_nothing', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = JSON.parse(draftBytes())
 
     // The property the whole pair rests on, measured rather than argued: if a
@@ -251,7 +251,7 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
   })
 
   it('test_UAT_FC_REQ_129_set_l1_replaces_a_subtree_and_keeps_its_siblings', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     const answer = await box.run('set_l1', {
       page: 'home',
@@ -284,7 +284,7 @@ describe('REQ-129 — the assistant composes structure it could not reach before
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_129_authors_a_nav_bar_of_link_roles_and_it_renders', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The ticket's acceptance case, run the way a session runs it. It needs BOTH
     // halves — reading a subtree with its axes, and writing one back with
@@ -338,7 +338,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_129_an_element_outside_the_vocabulary_is_refused_whole', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // "The AI cannot write HTML, CSS or JavaScript" used to hold because no
@@ -372,7 +372,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
   })
 
   it('test_UAT_FC_REQ_129_a_refusal_is_correctable_within_the_turn', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // A refusal the model cannot act on is a dead end, and it will either retry
     // the identical call or give up and tell the user the site is broken. So a
@@ -395,7 +395,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
   })
 
   it('test_UAT_FC_REQ_129_an_address_that_does_not_exist_writes_nothing', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     const answer = await box.run('set_l1', {
@@ -446,7 +446,7 @@ describe('REQ-129 — the AI-facing copy operations are retired, not shadowed', 
     }).sort()
     expect(implemented).toEqual([...declared].sort())
 
-    const box = await caretaker()
+    const box = await consultant()
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))
     expect(box.toolNames()).not.toContain('set_copy')
     expect(box.manual()).not.toContain('set_copy')
@@ -460,7 +460,7 @@ describe('REQ-129 — the AI-facing copy operations are retired, not shadowed', 
     // a declaration one, and a grant naming a group the surface no longer has is
     // a startup failure on an operator's machine with a turn in flight.
     const groups = (L1_DECLARATION.groups as { group: string }[]).map((g) => g.group)
-    const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
     for (const group of granted) expect(groups).toContain(group)
     expect(granted).toContain('AuthorPages')
   })
@@ -491,7 +491,7 @@ describe('REQ-129 — the click-to-edit modal still works on what the AI authore
 
     // The assistant authors a subtree of its own — a container holding a text run
     // and an image, none of it written by hand.
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('set_l1', {
       page: 'home',
       path: '0.1',

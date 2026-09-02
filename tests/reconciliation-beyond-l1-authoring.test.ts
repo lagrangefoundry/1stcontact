@@ -48,7 +48,7 @@ interface Box {
   manual: () => string
 }
 
-const caretaker = (root = cwd): Promise<Box> => createL1Toolbox(SLUG, { cwd: root })
+const consultant = (root = cwd): Promise<Box> => createL1Toolbox(SLUG, { cwd: root })
 
 const json = async <T,>(box: Box, tool: string, input: Record<string, unknown> = {}): Promise<T> =>
   JSON.parse(unwrap(await box.run(tool, input))) as T
@@ -158,7 +158,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1095_a_settings_group_is_written_whole_and_unnamed_siblings_survive', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // A whole palette — several entries — in ONE call.
     expect(await box.run('set_config', { key: 'palette', settings: PALETTE })).not.toContain(
@@ -199,7 +199,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
   })
 
   it('test_UAT_AC1096_omitting_the_group_writes_top_level_and_a_scalar_is_refused', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const themeBefore = readSite().theme
 
     // No `key` at all: the object merges into the site's top-level settings
@@ -246,7 +246,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
   })
 
   it('test_UAT_AC1097_a_settings_value_the_site_schema_rejects_leaves_the_site_unchanged', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('set_config', { key: 'palette', settings: PALETTE })
     const before = readFileSync(sitePath(), 'utf8')
 
@@ -277,7 +277,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1098_the_catalog_is_listable_and_closed', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const { behaviors } = await json<{ behaviors: any[] }>(box, 'list_behaviors')
     expect(behaviors.length).toBeGreaterThan(0)
 
@@ -332,7 +332,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
   })
 
   it('test_UAT_AC1099_a_component_is_added_with_configuration_alone_and_arrives_rendering', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // Configuration only — no presentation. The vetted default look is laid out
     // from this instance's own config, so a form asked for with these fields
@@ -495,7 +495,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
   }, 180000)
 
   it('test_UAT_AC1100_a_configuration_violating_the_kind_contract_is_refused_at_the_field', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = readFileSync(pagePath(), 'utf8')
 
     // `action` is declared required by contact-form's OWN contract. A form with
@@ -539,7 +539,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
   })
 
   it('test_UAT_AC1101_reconfiguring_merges_and_removing_leaves_the_seam_in_place', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('add_component', {
       page: 'home',
       name: 'signup',
@@ -585,7 +585,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
   })
 
   it('test_UAT_AC1102_describing_a_page_reports_its_components_and_their_configuration', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // A page with nothing on it still reports the list — present and empty, so a
     // caller can tell "none" from "not supported".
@@ -633,7 +633,7 @@ describe('story-b3de4571 — a page describes itself to a search engine', () => 
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1103_search_metadata_is_written_merged_and_reaches_the_rendered_document', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // Written on creation.
     await box.run('add_page', {
@@ -742,7 +742,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1104_a_drawing_becomes_an_ordinary_site_image_and_ships_unaltered', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
@@ -782,7 +782,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   }, 120000)
 
   it('test_UAT_AC1105_a_drawing_carrying_anything_executable_is_refused_whole', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const assetsDir = path.join(draftDir(), 'assets')
     const before = readFileSync(sitePath(), 'utf8')
 
@@ -828,7 +828,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   })
 
   it('test_UAT_AC1107_the_filename_is_generated_and_an_existing_name_is_a_conflict', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // There is no path to traverse because no path is accepted — a name is one
     // plain lowercase word of letters, digits and hyphens.
@@ -880,13 +880,13 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
 
     // The grant is what makes the separation real: the assistant holds the
     // drawing group and not the supplied-file one.
-    const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
     expect(granted).toContain(drawing!.group)
     expect(granted).not.toContain(supplied!.group)
 
     // ...and that is what the assistant is actually offered: drawing is present
     // and performs a write; managing supplied files is absent from the set.
-    const box = await caretaker()
+    const box = await consultant()
     const tools = box.toolNames()
     expect(tools).toContain('write_image')
     expect(tools).not.toContain('add_asset')
@@ -1059,7 +1059,7 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     ).toBe(true)
 
     // ── the equivalent surface calls ────────────────────────────────────────
-    const box = await caretaker(viaSurface)
+    const box = await consultant(viaSurface)
     await box.run('add_component', {
       page: 'home',
       name: 'signup',

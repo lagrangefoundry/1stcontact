@@ -150,7 +150,7 @@ interface Box {
   manual: () => string
 }
 
-function caretaker(): Promise<Box> {
+function consultant(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd }) as Promise<Box>
 }
 
@@ -226,7 +226,7 @@ describe('the page map answers where every element is', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1083_map_emits_every_element_with_its_address_kind_and_scope', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await addForm(box)
 
     const map = await json<PageMap>(box, 'describe_page', { page: 'home' })
@@ -276,7 +276,7 @@ describe('the page map answers where every element is', () => {
   })
 
   it('test_UAT_AC1084_labels_identify_an_element_and_carry_no_styling', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await addForm(box)
 
     const answer = await box.run('describe_page', { page: 'home' })
@@ -367,7 +367,7 @@ describe('one address reads and writes the element at it', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1085_get_returns_the_subtree_exactly_as_stored', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await addForm(box)
 
     const read = await json<{ target: Record<string, unknown>; node: L1Node }>(box, 'get_l1', {
@@ -415,7 +415,7 @@ describe('one address reads and writes the element at it', () => {
   })
 
   it('test_UAT_AC1086_writing_back_what_was_read_is_accepted_and_changes_nothing', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = readPage()
 
     const read = await json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: '0' })
@@ -431,7 +431,7 @@ describe('one address reads and writes the element at it', () => {
   })
 
   it('test_UAT_AC1087_replacing_an_element_replaces_its_subtree_and_spares_its_siblings', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('add_page', { page: 'about', title: 'About' })
     const otherPage = draftBytes('about')
 
@@ -474,7 +474,7 @@ describe('one address reads and writes the element at it', () => {
   })
 
   it('test_UAT_AC1088_adding_and_removing_are_replacing_a_group_and_the_result_renders', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The surface's own worked sequences say this is how it is done — there is no
     // insert operation to look for and the manual does not imply one.
@@ -538,7 +538,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1089_an_element_outside_the_vocabulary_is_refused_whole', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // These six ARE the guarantee. It used to hold because no operation accepted
@@ -563,7 +563,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
   })
 
   it('test_UAT_AC1090_a_refusal_carries_the_code_and_a_recovery_strategy', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // A refusal the caller cannot act on is a dead end — it retries the identical
     // call or tells the user the site is broken. This caller does not receive the
@@ -582,7 +582,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
   })
 
   it('test_UAT_AC1091_an_address_that_resolves_to_nothing_writes_nothing', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // Beyond the tree: refused as not-found, and told where a real address comes
@@ -633,7 +633,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     expect(declared).not.toContain('get_copy')
     expect(declared).not.toContain('set_copy')
 
-    const box = await caretaker()
+    const box = await consultant()
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))
     expect(box.toolNames()).not.toContain('get_copy')
     expect(box.toolNames()).not.toContain('set_copy')
@@ -645,7 +645,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     // A grant naming a group the surface does not declare is a startup failure on
     // an operator's machine with a turn in flight.
     const groups = L1_DECLARATION.groups as { group: string; operations: string[] }[]
-    const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
     for (const group of granted) expect(groups.map((g) => g.group)).toContain(group)
     expect(granted).toContain('AuthorPages')
     // ...and that group is the one changing a page belongs to.
@@ -670,7 +670,7 @@ describe("the click-to-edit gesture still works on what the assistant composed",
   beforeAll(async () => {
     fresh('compose-modal-')
 
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('set_l1', {
       page: 'home',
       path: '0.1',

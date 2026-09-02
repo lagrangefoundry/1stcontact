@@ -112,8 +112,8 @@ function unwrap(answer: string): string {
   return answer.replace(/^<<<untrusted>>>\n/, '').replace(/\n<<<\/untrusted>>>$/, '')
 }
 
-/** The caretaker's Toolbox for the seeded site, audited to disk like the real host. */
-function caretaker(): Promise<{
+/** The consultant's Toolbox for the seeded site, audited to disk like the real host. */
+function consultant(): Promise<{
   /**
    * `Toolbox.run` awaits what `surface.invoke` returns — REQ-142 made every L1
    * operation async, and the model's tool loop awaits the answer. So does every
@@ -145,7 +145,7 @@ describe('REQ-126 — the surface is declared as data', () => {
     // would otherwise fail at session construction, on an operator's machine,
     // with a turn already in flight.
     // BOTH DECLARATIONS, because the instance config names both since REQ-157:
-    // `instances.json` says what the caretaker may do, and it may now also look
+    // `instances.json` says what the consultant may do, and it may now also look
     // at the site. Validating the L1 declaration against it alone would report a
     // configuration naming an undeclared surface — which is the validator being
     // right about a pair it was only shown half of.
@@ -157,7 +157,7 @@ describe('REQ-126 — the surface is declared as data', () => {
     // This ticket's claim is about the L1 surface, and it is still exactly one
     // surface — declared separately, not merged into or out of anything.
     expect(report.surfaces).toContain('l1')
-    expect(report.roles).toContain('caretaker')
+    expect(report.roles).toContain('consultant')
   })
 
   it('test_UAT_FC_REQ_126_surface_carries_its_own_version', () => {
@@ -222,7 +222,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     // checked, and reachable by a differently-configured session.
     expect(declared).toEqual(expect.arrayContaining(['add_asset', 'remove_asset', 'publish']))
 
-    const box = await caretaker()
+    const box = await consultant()
     const offered = box.toolNames()
 
     // ...and are not offered to the builder chat, which is the point: the surface
@@ -236,7 +236,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     // A session is never told about a capability it does not have, so it cannot
     // propose one, apologise for one, or probe for it. The manual offers an
     // operation as `- **tool** — summary`, so that is what must be absent; the
-    // overview still explains what publishing IS, because a caretaker that did
+    // overview still explains what publishing IS, because a consultant that did
     // not understand draft-versus-public would be worse, not safer.
     const manual = box.manual()
     expect(manual).not.toContain('**add_asset**')
@@ -246,7 +246,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
   })
 
   it('test_UAT_FC_REQ_126_ungranted_operation_is_refused_and_recorded', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     const answer = await box.run('add_asset', { file: '/etc/hosts', as: 'hosts.png' })
@@ -292,7 +292,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
 
 describe('REQ-126 — arguments are validated before anything reaches edit.ts', () => {
   it('test_UAT_FC_REQ_126_bad_arguments_never_reach_the_write_path', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // Each of these used to be a hand-rolled check inside its own handler. They
@@ -318,7 +318,7 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
   })
 
   it('test_UAT_FC_REQ_126_a_refusal_names_the_declared_meaning_and_writes_nothing', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // An address the model composed rather than read — the likeliest bad call.
@@ -342,7 +342,7 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
 
 describe('REQ-126 — the declared surface still drives the one write path', () => {
   it('test_UAT_FC_REQ_126_map_then_write_lands_on_the_draft', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     const map = JSON.parse(unwrap(await box.run('describe_page', { page: 'home' }))) as {
       segments: { path: string; label: string }[]
@@ -371,7 +371,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
 
   it('test_UAT_FC_REQ_126_site_content_comes_back_marked_as_third_party', async () => {
     const { UNTRUSTED_OPEN, UNTRUSTED_CLOSE } = await aiCore()
-    const box = await caretaker()
+    const box = await consultant()
 
     // Every read on this surface returns text somebody else wrote: page copy, a
     // page title, a config value. `inproc` would default all of it TRUSTED, which
@@ -395,7 +395,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
   })
 
   it('test_UAT_FC_REQ_126_every_call_against_the_site_is_recorded', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('describe_page', { page: 'home' })
     await box.run('set_l1', { page: 'home', path: HEADLINE_PATH, node: { kind: 'text', text: 'Recorded.' } })
     await box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
@@ -424,7 +424,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
 
 describe('REQ-126 — the surface documents itself', () => {
   it('test_UAT_FC_REQ_126_manual_names_every_offered_operation_and_its_absences', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const manual = box.manual()
 
     for (const tool of box.toolNames()) expect(manual).toContain(tool)
@@ -445,7 +445,7 @@ describe('REQ-126 — the surface documents itself', () => {
   it('test_UAT_FC_REQ_126_offers_no_operation_that_could_write_markup_or_source', async () => {
     // The forbidden list, tested as what it actually is: the absence of an
     // operation. There is no schema through which markup could arrive.
-    const box = await caretaker()
+    const box = await consultant()
     const offered = box.toolNames()
     for (const forbidden of ['write_file', 'set_css', 'set_html', 'eval', 'run', 'set_style']) {
       expect(offered).not.toContain(forbidden)

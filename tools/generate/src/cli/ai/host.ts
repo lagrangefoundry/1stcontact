@@ -39,7 +39,7 @@ import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
 import {
-  CARETAKER_PURPOSE,
+  CONSULTANT_PURPOSE,
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
   resetAiHost as resetAiHostCore,
@@ -171,7 +171,7 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     // rather than through a sentence written by hand about what it might have.
     priming = async (box: Untyped) =>
       bridge.KnowledgeDocs.open(knowledge, {
-        rolePurpose: CARETAKER_PURPOSE,
+        rolePurpose: CONSULTANT_PURPOSE,
         mechanism: box.manual(),
       })
   }

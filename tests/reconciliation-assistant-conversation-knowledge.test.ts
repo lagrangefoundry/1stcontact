@@ -63,7 +63,7 @@ const HEADLINE = 'The old headline.'
 /** The address of the page's one text run: root list index, then child index. */
 const HEADLINE_PATH = '0.0'
 
-/** What the caretaker is here to do — priming step 2, and the ordering probe. */
+/** What the consultant is here to do — priming step 2, and the ordering probe. */
 const PURPOSE = 'You look after a website for someone who is not technical.'
 
 /**
