@@ -16,7 +16,7 @@ import {
   L1_INSTANCES,
   L1_SURFACE_VERSION,
 } from '../tools/generate/src/cli/ai/toolbox'
-import { CARETAKER_ROLE } from '../tools/generate/src/cli/ai/roles'
+import { CONSULTANT_ROLE } from '../tools/generate/src/cli/ai/roles'
 import type { L1Node } from '@1stcontact/site-schema'
 import { fsOpts } from './support/site-factory'
 import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
@@ -122,7 +122,7 @@ interface Toolbox {
 }
 
 /** The builder assistant's Toolbox for the seeded site, audited to disk as the host does. */
-function caretaker(): Promise<Toolbox> {
+function consultant(): Promise<Toolbox> {
   return createL1Toolbox(SLUG, { cwd }, { audit: fileAuditSink({ cwd }), session: `site-${SLUG}` })
 }
 
@@ -154,7 +154,7 @@ const sequences = (): Sequence[] => L1_DECLARATION.sequences as Sequence[]
 
 /** The capability groups this consumer is actually granted, read from the grant. */
 const grantedGroups = (): string[] =>
-  (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+  (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
 
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'surface-'))
@@ -175,7 +175,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // rule reachable in this repository at all.
     const { validateData } = await aiCore()
 
-    // BOTH DECLARATIONS, because the caretaker's instance config names both
+    // BOTH DECLARATIONS, because the consultant's instance config names both
     // since REQ-157 — the site's controls and the fidelity surface it may look
     // through. Checking the L1 declaration against it alone reports a
     // configuration naming an undeclared surface, which is the validator being
@@ -187,7 +187,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // This story is about the CONTROL surface, and it is still exactly one
     // surface — declared on its own, granted on its own.
     expect(report.surfaces).toContain('l1')
-    expect(report.roles).toContain(CARETAKER_ROLE)
+    expect(report.roles).toContain(CONSULTANT_ROLE)
   })
 
   it('test_UAT_AC1072_surface_states_its_own_version_distinct_from_the_format_version', () => {
@@ -284,7 +284,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     const declared = operations().map((o) => o.tool)
     expect(declared).toEqual(expect.arrayContaining(['add_asset', 'remove_asset', 'publish']))
 
-    const box = await caretaker()
+    const box = await consultant()
     const offered = box.toolNames()
 
     // ...and are not offered to the builder's assistant, which is the point: the
@@ -352,7 +352,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
   })
 
   it('test_UAT_AC1076_arguments_are_checked_before_any_value_reaches_the_site', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // One schema check, run BEFORE invocation — the security model, not an
@@ -381,7 +381,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
   })
 
   it('test_UAT_AC1077_a_refusal_names_its_code_and_that_codes_published_meaning', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = draftBytes()
 
     // An address composed rather than read — the likeliest well-formed bad call.
@@ -405,7 +405,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
 
   it('test_UAT_AC1078_reads_are_marked_third_party_and_write_confirmations_are_not', async () => {
     const { UNTRUSTED_OPEN, UNTRUSTED_CLOSE } = await aiCore()
-    const box = await caretaker()
+    const box = await consultant()
 
     // Everything a read returns is somebody else's words — page copy, a title, a
     // setting — so it comes back wrapped, opened and closed around the payload.
@@ -431,7 +431,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
   })
 
   it('test_UAT_AC1079_every_call_against_the_site_is_recorded', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     await box.run('describe_page', { page: 'home' })
     await box.run('set_l1', {
@@ -467,7 +467,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
   })
 
   it('test_UAT_AC1080_the_manual_is_a_projection_of_the_declaration_and_the_grant', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const manual = box.manual()
 
     // Every operation actually offered is named there — the manual cannot fall
@@ -526,7 +526,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
   })
 
   it('test_UAT_AC1082_a_change_through_the_surface_lands_via_the_one_write_path', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // Read the page's map and take an address from it — nothing here composes
     // one, because a consumer cannot either.
@@ -612,7 +612,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // names `publish`, whose group the builder's assistant does not hold, so a
     // manual that projected the sequences unfiltered would be teaching it a
     // procedure it cannot carry out.
-    const box = await caretaker()
+    const box = await consultant()
     const offered = box.toolNames()
     const manual = box.manual()
 

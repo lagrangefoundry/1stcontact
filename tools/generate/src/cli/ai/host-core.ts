@@ -51,7 +51,12 @@
 
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
-import { CARETAKER_ROLE, CARETAKER_SYSTEM, caretakerReminder } from './roles'
+import {
+  CONSULTANT_ROLE,
+  CONSULTANT_SYSTEM,
+  consultantReminder,
+  LEGACY_ROLE_NAMES,
+} from './roles'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { fidelitySurfaceFor } from './fidelity-core'
 import type { FidelityDeps } from './fidelity-core'
@@ -268,11 +273,11 @@ export interface HostDeps {
 
 
 /**
- * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
+ * What the consultant is here to do, for KM's priming (step 2 of the landscape).
  *
  * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
  * priming answers "what should I go looking for in this corpus", and an agent
- * told only "you are a caretaker" has no basis for choosing between a document
+ * told only "you are a consultant" has no basis for choosing between a document
  * about storage and one about typography.
  *
  * IT LIVES ON THE SHARED SIDE (REQ-158) because both hosts prime with it and it
@@ -281,11 +286,12 @@ export interface HostDeps {
  * copies would be two role definitions, and the drift would be invisible — the
  * Worker's assistant would simply go looking for different things.
  */
-export const CARETAKER_PURPOSE =
-  'You look after a website for someone who is not technical. You will need to ' +
-  'know how this system builds and describes sites — its layout vocabulary, its ' +
-  'components, how pages are stored and published, and the reasoning behind those ' +
-  'designs — so you can act correctly and explain plainly.'
+export const CONSULTANT_PURPOSE =
+  'You advise a client who is not technical about their website, and you build it ' +
+  'with them. You will need to know how this system builds and describes sites — ' +
+  'its layout vocabulary, its components, how pages are stored and published, and ' +
+  'the reasoning behind those designs — so you can form a view, act on it, and ' +
+  'explain it plainly.'
 
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(slug: string): string {
@@ -502,8 +508,8 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   )
 
   const role = new lib.Role({
-    name: CARETAKER_ROLE,
-    system: CARETAKER_SYSTEM,
+    name: CONSULTANT_ROLE,
+    system: CONSULTANT_SYSTEM,
     // `ContextSource` is duck-typed — `{documents(): string[]}` — so the manual
     // is supplied in memory. `StaticDocs` reads files; there is no file here, and
     // writing one so it could be read back would only create something to go
@@ -528,7 +534,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // role is constructed identically either way and nothing downstream branches
     // on which one it got.
     source: deps.priming ? await deps.priming(box) : { documents: () => [box.manual()] },
-    reminder: caretakerReminder(slug),
+    reminder: consultantReminder(slug),
   })
   roles.set(managerKey(slug, deps), role)
 
@@ -558,8 +564,24 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // adapters would pass every test in workerd and lose every conversation in
   // production — the precise failure lagrange-framework REQ-103 measured before
   // drawing the port.
+
+  // ONE ROLE, UNDER EVERY NAME IT HAS EVER BEEN WRITTEN AS (REQ-174).
+  //
+  // The manager resolves a resumed session's role by looking its stored name up
+  // in this map and throwing on a miss, and the name is durable in two places a
+  // rename cannot reach — the archived transcript's header and the live
+  // junction's `session_start` record. Every legacy name is therefore an extra
+  // KEY onto the SAME role object, which is what lets a conversation started
+  // before the rename reopen unchanged.
+  //
+  // It is a read path only: `createSession` records {@link CONSULTANT_ROLE} and
+  // {@link aiStatus} reports it alone, so nothing is ever written under a legacy
+  // name and the alias ages out with the sessions that need it.
+  const named: Record<string, Untyped> = { [CONSULTANT_ROLE]: role }
+  for (const legacy of LEGACY_ROLE_NAMES) named[legacy] = role
+
   return new lib.SessionManager(
-    { [CARETAKER_ROLE]: role },
+    named,
     deps.archive,
     deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir },
   )
@@ -600,7 +622,7 @@ async function attach(manager: Untyped, sessionId: string, slug: string): Promis
     // would fail the same way for the second — so the distinction is made by
     // whether the archive holds it, not by inspecting the error.
     if ((await manager.archive.list()).includes(sessionId)) throw err
-    await manager.createSession(CARETAKER_ROLE, siteBackendName(slug), { sessionId })
+    await manager.createSession(CONSULTANT_ROLE, siteBackendName(slug), { sessionId })
   }
 }
 
@@ -705,8 +727,8 @@ export async function* streamPrompt(
   if (role) {
     role.reminder =
       before === undefined
-        ? caretakerReminder(slug, undefined, delta)
-        : caretakerReminder(slug, { at: before, changes: at - before }, delta)
+        ? consultantReminder(slug, undefined, delta)
+        : consultantReminder(slug, { at: before, changes: at - before }, delta)
   }
 
   // BUG-43 — the counter as it stands right now, carried down the loop below so
@@ -789,7 +811,7 @@ export async function aiStatus(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): Promise<{ roles: string[]; backends: string[]; ready: boolean; error?: string }> {
-  const base = { roles: [CARETAKER_ROLE], backends: [] as string[] }
+  const base = { roles: [CONSULTANT_ROLE], backends: [] as string[] }
   try {
     const lib = await ai(deps)
     // Construction is where a missing prerequisite surfaces, by design — the

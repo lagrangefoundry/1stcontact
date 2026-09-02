@@ -63,7 +63,7 @@ import {
   editStatus,
   type CopyTargetOptions,
 } from '../edit'
-import { CARETAKER_ROLE } from './roles'
+import { CONSULTANT_ROLE } from './roles'
 
 /**
  * The declared surface, IMPORTED AS DATA rather than read from disk (REQ-146).
@@ -176,7 +176,7 @@ export function l1Operations(
    * now, so it sits in the core with every other operation and works against
    * whichever store the host supplied.
    *
-   * NOT GRANTED TO THE CARETAKER (`instances.json` withholds `ManageAssets`), so
+   * NOT GRANTED TO THE CONSULTANT (`instances.json` withholds `ManageAssets`), so
    * its absence changes nothing a session can reach: the Toolbox refuses an
    * ungranted operation before it would look for a method. A host that DOES
    * grant it must supply it, and the Toolbox's own startup binding check is what
@@ -494,7 +494,7 @@ export async function createL1Toolbox(
   slug: string,
   opts: GlobalOptions = {},
   {
-    role = CARETAKER_ROLE,
+    role = CONSULTANT_ROLE,
     config = null,
     audit = null,
     session = null,
@@ -566,7 +566,7 @@ export async function createL1Toolbox(
 
   // NARROWED TO THE SURFACES THIS SESSION ACTUALLY COMPOSED (REQ-157).
   //
-  // `instances.json` says what the CARETAKER may do; which surfaces exist is a
+  // `instances.json` says what the CONSULTANT may do; which surfaces exist is a
   // property of the DEPLOYMENT, and the two are not the same question. The
   // fidelity surface needs a browser and a reference store, and a deployment
   // with neither — a Worker with no `[browser]` binding, a `1c` invocation with

@@ -189,7 +189,7 @@ describe('the assistant answers for itself before any conversation exists', () =
 
     // One role on offer, named — and the answer says a turn can be run, with no
     // reason attached because there is nothing to explain.
-    expect(status.roles).toEqual(['caretaker'])
+    expect(status.roles).toEqual(['consultant'])
     expect(status.ready).toBe(true)
     expect(status.error).toBeUndefined()
 
@@ -215,7 +215,7 @@ describe('the assistant answers for itself before any conversation exists', () =
     // `host.ts:26-29` explains why the names are per-site). Invariance of that
     // registry is neither claimed by this AC nor guaranteed by the design, so
     // asserting it would be testing the library rather than this behaviour.
-    expect(afterStatus.roles).toEqual(['caretaker'])
+    expect(afterStatus.roles).toEqual(['consultant'])
     expect(afterStatus.ready).toBe(true)
     expect(afterStatus.error).toBeUndefined()
   })
@@ -566,7 +566,7 @@ describe('a failure is reported honestly', () => {
         error?: string
       }
       expect(status.ready).toBe(false)
-      expect(status.roles).toContain('caretaker')
+      expect(status.roles).toContain('consultant')
       expect(status.error).toContain('ANTHROPIC_API_KEY')
     } finally {
       if (key !== undefined) process.env.ANTHROPIC_API_KEY = key

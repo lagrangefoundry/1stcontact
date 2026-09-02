@@ -78,7 +78,7 @@ interface Box {
   manual: () => string
 }
 
-function caretaker(): Promise<Box> {
+function consultant(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd })
 }
 
@@ -116,7 +116,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_130_writes_a_whole_palette_in_one_call', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The ticket's first acceptance case. Before this the `value` parameter was
     // declared `string`, so a palette family — an object of objects — had no
@@ -135,7 +135,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
   })
 
   it('test_UAT_FC_REQ_130_naming_one_setting_leaves_its_siblings_alone', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('set_config', { key: 'palette', settings: XGD_PALETTE })
 
     // The property that makes an object-valued write safe rather than dangerous.
@@ -160,7 +160,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
   })
 
   it('test_UAT_FC_REQ_130_writes_nav_entries_the_conversation_could_not_reach', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The failure that produced this ticket: the assistant could not add a nav
     // entry, because an entry is an object in a list and the parameter was a
@@ -183,7 +183,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
   })
 
   it('test_UAT_FC_REQ_130_a_setting_the_site_does_not_accept_is_refused_whole', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = readFileSync(sitePath(), 'utf8')
 
     // Widening the parameter must not widen what the site accepts. The shared
@@ -217,7 +217,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_130_the_catalog_is_closed_and_says_what_a_component_needs', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const { behaviors } = await json<{ behaviors: any[] }>(box, 'list_behaviors')
 
     const form = behaviors.find((b) => b.type === 'contact-form')
@@ -247,7 +247,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
   })
 
   it('test_UAT_FC_REQ_130_adds_a_form_that_validates_and_renders', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The ticket's second acceptance case, in one call — because L2 supplies the
     // look from the config, and the look is then ordinary L1.
@@ -276,7 +276,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
   }, 120000)
 
   it('test_UAT_FC_REQ_130_a_component_missing_a_required_setting_is_refused', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const before = readFileSync(pagePath(), 'utf8')
 
     // `config` is checked against the behavior's OWN declared contract, not just
@@ -294,7 +294,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
   })
 
   it('test_UAT_FC_REQ_130_configures_and_removes_an_instance', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('add_component', {
       page: 'home',
       name: 'signup',
@@ -334,7 +334,7 @@ describe('REQ-130 — a page can describe itself to a search engine', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_130_seo_metadata_is_written_on_add_and_merged_on_update', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     await box.run('add_page', {
       page: 'about',
@@ -356,7 +356,7 @@ describe('REQ-130 — a page can describe itself to a search engine', () => {
   })
 
   it('test_UAT_FC_REQ_130_seo_metadata_reaches_the_rendered_page', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('update_page', {
       page: 'home',
       seo: { title: 'XGD — AI writes it.', description: 'A living spec of intended behaviour.' },
@@ -447,7 +447,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_FC_REQ_130_a_drawing_is_written_and_referenced_from_a_page', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
@@ -486,7 +486,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
   }, 120000)
 
   it('test_UAT_FC_REQ_130_every_executable_svg_is_refused_and_no_byte_is_written', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const assetsDir = path.join(draftDir(), 'assets')
     const before = readFileSync(sitePath(), 'utf8')
 
@@ -556,7 +556,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
   })
 
   it('test_UAT_FC_REQ_130_the_filename_is_generated_and_never_taken_from_the_caller', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // Not a file-write primitive pointed at a directory: there is no path to
     // traverse because there is no path, and the one extension is the one text
@@ -605,11 +605,11 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     expect(Object.keys(opsUnion).sort()).toEqual([...declared].sort())
 
     const groups = (L1_DECLARATION.groups as { group: string }[]).map((g) => g.group)
-    const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
     for (const group of granted) expect(groups).toContain(group)
     expect(granted).toEqual(expect.arrayContaining(['ManageComponents', 'DrawImages']))
 
-    const box = await caretaker()
+    const box = await consultant()
     expect(box.toolNames()).toEqual(
       expect.arrayContaining(['add_component', 'write_image', 'list_behaviors']),
     )
@@ -619,7 +619,7 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
   })
 
   it('test_UAT_FC_REQ_130_the_surface_states_what_it_still_cannot_do', async () => {
-    const box = await caretaker()
+    const box = await consultant()
     const manual = box.manual()
 
     // An absence is what stops the model flailing at a wall. Drawing an image is
@@ -656,7 +656,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
   beforeAll(async () => {
     fresh('req130-modal-')
     seedSlot()
-    const box = await caretaker()
+    const box = await consultant()
     await box.run('add_component', {
       page: 'home',
       name: 'signup',
@@ -676,7 +676,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
   })
 
   it('test_UAT_FC_REQ_130_copy_inside_the_component_is_addressable_and_editable', async () => {
-    const box = await caretaker()
+    const box = await consultant()
 
     // The map is the modal's own idea of where things are, and it must reach
     // inside the instance the assistant created.

@@ -41,7 +41,7 @@ import { fsSiteStore } from '../../store'
 import { CommandError } from '../errors'
 import { sharedModuleUrl } from '../webui'
 import { SYSTEM_KB } from '../kb'
-import { CARETAKER_ROLE } from './roles'
+import { CONSULTANT_ROLE } from './roles'
 import {
   createL1Toolbox as createL1ToolboxCore,
   opt,
@@ -105,7 +105,7 @@ function readSourceFile(file: string): { name: string; bytes: Uint8Array } {
  * `toolbox-core.ts` and works against whichever store the host has. What is left
  * is `add_asset`, which reads a file the operator names — genuinely a disk.
  *
- * IT IS NOT GRANTED TO THE CARETAKER. `instances.json` withholds `ManageAssets`,
+ * IT IS NOT GRANTED TO THE CONSULTANT. `instances.json` withholds `ManageAssets`,
  * so the manual never mentions it and the model cannot propose it; it is declared
  * because the surface declares the whole API and the grant narrows it (DOC-30).
  * Supplying it here keeps that true for Node while making its absence in a Worker
@@ -161,7 +161,7 @@ export async function createL1Toolbox(
   slug: string,
   opts: GlobalOptions = {},
   {
-    role = CARETAKER_ROLE,
+    role = CONSULTANT_ROLE,
     config = null,
     audit = null,
     session = null,
