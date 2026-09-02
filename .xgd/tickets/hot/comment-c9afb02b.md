@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T02:09:20.218834+00:00'
+updated_at: '2026-09-02T20:24:37.161329+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -919,5 +919,15 @@ Two ACs are withdrawn with the field they assert on, both now unreachable: **AC-
 Merged to `xgd-working` as `d46756fefa`, version 0.2.42, BUG-44 is `free_coded`.
 
 One loose end from earlier: you asked me to **clear the data for a clean test** and I never actioned it — I went into the BUG-45 conflict instead. Say the word on which store you mean (local `storage/`, or the deployed D1/R2 tenant) and I'll do it.
+
+<!-- xgd-turn id="6d4b97ee-6c59-4616-9046-05d43919bf4c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:24:36.755055+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-44` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-44`
+- branch HEAD: `d46756fefa43ca8709acb13d64abccb2ac91d961`
 
 <!-- xgd-chat-end -->
