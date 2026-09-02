@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T21:22:30.392124+00:00'
+updated_at: '2026-09-02T22:38:00.121980+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -233,5 +233,11 @@ Compute the pill from **actual placement**, not by inferring it from the role. T
 ---
 
 This is a refinement of REQ-176 §3 rather than new work, and it depends on BUG-47 settling what the underlying fact is. Say which way you want to go and I'll fold it in — I've left REQ-176 as-is for now rather than guessing.
+
+<!-- xgd-turn id="08fae06a-a522-4b98-9610-37828bf36213-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T22:37:59.979845+00:00" -->
+#### You
+See the "Site scope vs tenent scope" chat - the new model is Account has multiple businesses each business has one site (many sites in the future as an option) tenant == business. So in the short-medium term there is one site per tenant/
 
 <!-- xgd-chat-end -->
