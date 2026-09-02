@@ -5,9 +5,9 @@ type: request
 title: 'Library: a type icon, a one-line row, and the wording clients actually read'
 created_by: xgd
 created_at: '2026-09-02T20:59:01.075259+00:00'
-updated_at: '2026-09-02T22:30:12.691676+00:00'
+updated_at: '2026-09-02T22:36:24.153954+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -144,3 +144,114 @@ and can go ahead regardless.
 - The overlay's two area labels and the Library's role pill read identically,
   from one constant.
 - `role` wire values are still `site` and `reference`.
+
+
+---
+
+## What was implemented
+
+Everything above **except the fourth string**, which is still awaiting the
+confirmation this ticket asks for. See *"Still open"* below.
+
+### 1 & 2 — the icon and the one-line row
+
+`KIND_ICON` in `library.js` names the three kinds a client uploads — `document`,
+`image`, `font` — and `KIND_ICON_FALLBACK` catches `capture` and whatever
+[[DOC-38]] §9 adds next. The map is **partial by design**: a `kind` the map has
+never heard of lands on the paperclip rather than rendering an empty leading
+cell, because an iconless row reads as a rendering fault rather than as a kind.
+Emoji rather than SVG, matching the upload overlay's own area icons.
+
+`renderRow` emits the icon, then the title, then the meta strip — which now
+carries the role pill and the placement badge only. The `kind` pill is gone.
+
+**The icon is labelled, not hidden** — a technical consequence of removing the
+pill rather than a separate request. The pill was the only place the row said
+its type *in words*, so the glyph carries `role="img"` and
+`aria-label="<kind>"`: the fact moved to the icon, it did not leave the row. An
+`aria-hidden` glyph — which is what the overlay's area icons are, correctly,
+because a visible label sits beside them — would have silently deleted the kind
+for a screen reader.
+
+`builder.css` makes `.builder-library__row` a row axis; the title is
+`flex: 1 1 auto; min-width: 0` with `font-size: 13px` to match
+`.list-detail-row-title`; the icon and `.builder-library__row-meta` are
+`flex: none` and the meta strip no longer wraps. `webui-list-detail` is
+untouched.
+
+### 3 — the three unambiguous wording changes
+
+`UPLOAD_PROMPT` is `Purpose`; the two `UPLOAD_AREAS` labels are `Site asset` and
+`Background information`. The `id` values are unchanged. The hints are
+unchanged. `ROLE_LABEL` derives the Library's role pill and role filter from the
+same constant, so the rename reached both surfaces from one edit.
+
+### The rename reaches the assistant's own manual
+
+Not in the original scope, and load-bearing: the L1 surface declaration's
+"cannot fetch a file" absence note tells the client to drop a file onto the
+conversation and **choose the area by name**. A note quoting a button that no
+longer exists sends them hunting for it, so
+`tools/generate/src/cli/ai/l1-surface.json` was renamed with the label.
+
+Two existing suites asserted the old literal against that note and were updated
+with it — `test_UAT_FC_BUG-44_surface_tells_the_truth` and
+`test_UAT_FC_REQ-130_beyond_l1`. Their invariant is unchanged: *the note quotes
+the drop area's own words*. This ticket's own UAT asserts that invariant
+**against the constant** rather than against a literal, so the two can no longer
+drift apart the way they just did.
+
+Comments in `router.ts` and `tickets.ts` that quoted the old labels as UI copy
+were updated for the same reason — a comment naming a button nobody can see is
+a false landmark.
+
+### BUG-47's ordering constraint is discharged
+
+[[BUG-47]] is `free_coded` and landed before this. The badge reads `placed_on`,
+which records where the bytes actually went, so the rows wearing it are the
+right rows. Nothing here was blocked.
+
+## Still open — the fourth string
+
+`Used on this site` → `Live on the site` is **not implemented**, per the
+analysis above: `placeOnSite` writes to `draft/assets`, and `Live on the site`
+would tell a client who has not published that their logo is on their website.
+
+Note that BUG-47 moved the strings this section describes. The three renderings
+today are:
+
+| Surface | Reads |
+|---|---|
+| the row pill | `On this site` |
+| the rights field on `placed_on` | `Used on` |
+| the list filter checkbox | `Used on this site` |
+
+The recommendation stands — `Added to the site` for the pill, `Added to` for the
+field label, and the filter following them — but it needs the operator's
+confirmation, or a decision that promotion *should* become publish-visible,
+which is a different and much larger ticket.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-176_library_row_and_wording.test.ts` — nine UATs:
+
+- every row opens with exactly one non-empty icon, over a fixture holding all
+  four §9 kinds plus one the map has never heard of; the three named kinds are
+  distinct and the two unnamed ones share the fallback
+- the icon still says the kind to a screen reader
+- no row carries a `kind` pill, and the role and placement pills survive
+- the row lays out on one axis, the title shrinks and ellipses
+- the pills are `flex: none` and do not wrap
+- the title is 13px, matching the component's own rows
+- the overlay asks `Purpose` and names its two areas plainly, with the `site` /
+  `reference` wire values unmoved and the second hint unchanged
+- the overlay's labels and the Library's role pills read identically, from one
+  constant, with both surfaces mounted
+- the assistant's manual names the area the client will actually see, asserted
+  against the constant
+
+Layout is asserted through the CSS contract that produces it rather than by
+measuring boxes: jsdom computes no layout and would report zero either way.
+
+Regression scope run green: the four Library and upload suites, both surface
+suites, both workers placement suites, and the builder-origin suite.
