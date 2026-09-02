@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-01T23:57:15.713698+00:00'
+updated_at: '2026-09-02T00:00:39.822420+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -240,5 +240,49 @@ So in the short terms I would like this:
 
 (1) Can you create a ticket for an operation, built into the API or as a separate build-script that will construct the tool summary - I actually like that it would be part of the API - it should be available on all our tool APIs - please create a lagrange framework ticket for that.
 (2) Its very hard to have this abstract conversation about the session proming I need to see the ACTUAL TEXT and how it is specificed. I assume there is a configu document can you point me to it?
+
+<!-- xgd-turn id="3061a67a-63cd-4c73-b630-779eef663a25-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:00:39.800664+00:00" -->
+#### Claude
+Framework store reachable. Creating the ticket.
+
+Created **REQ-113** in lagrange-framework (the ticket saved locally; the git push to the remote failed — worth a look separately). Now let me get you the actual priming text.
+
+Now the priming text. There is no config document — it's assembled at runtime from four code locations, so let me render the real thing.
+
+Both done.
+
+## (1) lagrange-framework REQ-113
+
+Created: *"A summary level for the projected manual, and a declared way to fetch the detail"*. It specifies the summary level as a coarser projection of the same declaration (group title + group description + one line per operation), holds it to the two properties the renderer already claims — pure projection, byte-for-byte JS/Python parity — and treats "how to get more info" as a declared operation so every surface gets it automatically rather than each host inventing its own. The declared-operation-versus-host-accessor choice is left open, with the tradeoff stated.
+
+One thing to note: the ticket saved locally but the git push failed (`Could not read from remote repository`) — that repo's remote may need attention.
+
+## (2) There is no config document
+
+That's the answer, and it's part of the problem. The priming is assembled at runtime from four locations, one of which is in another repo:
+
+| Part | Where it's specified |
+|---|---|
+| System prompt | `tools/generate/src/cli/ai/roles.ts` |
+| `# What exists` | awareness-map tickets, read at session start |
+| `# Your purpose` | `tools/generate/src/cli/ai/host-core.ts` |
+| `# How to search` | projected from `l1-surface.json` + `instances.json` |
+| Reminder | `roles.ts` |
+| The assembly itself | `@lagrangefoundry/knowledge/src/priming.js` — upstream |
+
+So I rendered it. **`.xgd/tmp/session-texts.md`** has all four texts verbatim, produced by `.xgd/tmp/dump-priming.mjs` which imports the real modules — nothing in it is hand-written for the document.
+
+**The sizes make your point better than the argument did:**
+
+- System prompt: **2,251 chars**
+- Priming document: **38,030 chars** — of which the manual is **37,389**, or **98.3%**
+
+Everything that is not the tool manual — the purpose, all three headings, the searchable-KB list, the closing trigger — is **641 characters**. And that 37,389 is the L1 site surface *alone*; real sessions compose the knowledge surface too, so the true figure is higher.
+
+**One structural finding that fell out of rendering it.** Because the host passes `box.manual()` as the `mechanism`, it *replaces* the knowledge component's own default prose — the text that says retrieval is cheap, reach for it rather than assuming, the bolded terms are validated access points and make good first queries. So the section headed `# How to search` contains no instruction about searching. It contains the site-editing manual. The only thing left telling the model to use the knowledge base is the single trigger line at the very end.
+
+That looks like an accident of the seam rather than a decision, and it bears directly on the role rebuild. Worth reading the file before we go further.
 
 <!-- xgd-chat-end -->
