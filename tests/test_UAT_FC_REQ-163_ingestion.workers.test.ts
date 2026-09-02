@@ -12,6 +12,7 @@ import { storeFor } from '../apps/control-app/src/store'
 import { applySchema } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 import { bytesOf, minimalPdf } from './support/material-fixtures'
+import { siteSeed } from './support/site-seed'
 
 /**
  * REQ-163 — **ingestion, in workerd, end to end**.
@@ -463,7 +464,16 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // and the byte copy is that act made honest.
     const tickets = await ticketStoreFor(routerEnv())
     const sites = await storeFor(routerEnv())
-    await sites.createDraft('promo')
+    // A REAL SITE, not a bare draft (BUG-45). Promotion now registers the asset
+    // in `site.json` rather than only storing its bytes, so it needs a site
+    // definition to register into — which every provisioned site has, because
+    // `createStarterSite` writes the scaffold immediately after `createDraft`.
+    const seed = siteSeed({ slug: 'promo' })
+    await sites.createDraft(seed.slug)
+    await sites.write(seed.slug, {
+      siteJson: seed.siteJson,
+      pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
+    })
 
     const { ticket } = await tickets.create({
       type: 'material',
@@ -486,12 +496,12 @@ describe('REQ-163 — the crash property and the asset gate', () => {
 
     const promoted = await promoteToSiteAsset(tickets, sites, {
       uid: ticket.uid,
-      slug: 'promo',
+      slug: seed.slug,
       name: 'kitchen.jpg',
     })
     expect(promoted.name).toBe('kitchen.jpg')
-    expect(await sites.listAssets('promo')).toEqual(['kitchen.jpg'])
-    const read = await sites.readAsset('promo', 'kitchen.jpg')
+    expect(await sites.listAssets(seed.slug)).toEqual(['kitchen.jpg'])
+    const read = await sites.readAsset(seed.slug, 'kitchen.jpg')
     expect(new TextDecoder().decode(read as Uint8Array)).toBe('their own photograph')
   })
 })

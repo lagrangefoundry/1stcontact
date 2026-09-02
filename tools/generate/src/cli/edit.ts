@@ -1921,13 +1921,38 @@ export async function editAssetList(slug: string, opts: EditOptions): Promise<Ed
   return { data: { assets }, human }
 }
 
+/**
+ * One asset the site can reference — **anything {@link listSiteAssets} reports**.
+ *
+ * IT READ THE REGISTRY ALONE, AND THAT TAUGHT THE ASSISTANT SOMETHING FALSE
+ * (BUG-45). `list_assets` reports the union of the registry and the store, so an
+ * asset with bytes and no `site.json` entry is listed — and then `get_asset` on
+ * that same name raised NOT_FOUND. An assistant that lists, probes, and reads a
+ * manual describing an `asset_id` as "the REGISTERED name" can only conclude
+ * that an unregistered asset may not be used. It may: nothing consults the
+ * registry before a page references an asset, and every capture-folded page
+ * points at `/assets/<name>` against an empty one (`l1/assets.ts`). The belief
+ * cost a client their uploaded logo, replaced by a drawing.
+ *
+ * SO IT ANSWERS FROM THE LISTING, and returns the listing's own shape rather
+ * than the raw `site.json` entry. One vocabulary for both operations is the
+ * point: the divergence was not only which assets each could see but what an
+ * asset *was* — `src` was the bare filename here and the `/assets/<name>` handle
+ * there, so the two answers could not even be compared. `registered` travels on
+ * the answer because it is a true fact about the file that an operator may want;
+ * what it is not is permission.
+ */
 export async function editAssetGet(
   slug: string,
   assetName: string,
   opts: EditOptions,
 ): Promise<EditOutput> {
-  const base = await readBase(slug, opts)
-  const asset = assetRegistry(base).find((a) => a.id === assetName)
+  const assets = await listSiteAssets(slug, opts)
+  // BY ID OR BY HANDLE. The id is what `list_assets` puts in the first column and
+  // is the documented way to name one; the handle is what a PAGE holds, so a
+  // caller reading a node and asking about what it found has the handle and not
+  // the id. Refusing that would be a second riddle of the same kind.
+  const asset = assets.find((a) => a.id === assetName || a.src === assetHandle(assetName))
   if (!asset) {
     throw new CommandError({
       code: 'NOT_FOUND',
@@ -1942,6 +1967,19 @@ export async function editAssetGet(
 export interface AssetAddOptions extends EditOptions {
   /** Registered name (and store name); defaults to the source basename. */
   as?: string
+  /**
+   * What the picture shows, for someone who cannot see it.
+   *
+   * Optional because the two callers that have an operator — `1c asset add` and
+   * the AI toolbox's adapter — have nobody to ask for it at the moment the file
+   * is read, and an empty string is the honest answer there. It exists for the
+   * caller that DOES already know: chat promotion arrives holding the
+   * description ingestion wrote for the image ([[DOC-38]] §6), and without a way
+   * to pass it that description was computed, stored on the material ticket, and
+   * then dropped on the floor at exactly the moment a site asset was created
+   * that needed it (BUG-45).
+   */
+  alt?: string
 }
 
 /**
@@ -1980,7 +2018,7 @@ export async function editAssetAdd(
     })
   }
 
-  const newAsset: Record<string, unknown> = { id: name, src: name, alt: '' }
+  const newAsset: Record<string, unknown> = { id: name, src: name, alt: opts.alt ?? '' }
   const newBase = { ...base, assets: [...assets, newAsset] }
   // Validate the registry before any byte is stored.
   validateOrThrow(newBase, (await readPageFiles(slug, opts)).map((f) => f.page))

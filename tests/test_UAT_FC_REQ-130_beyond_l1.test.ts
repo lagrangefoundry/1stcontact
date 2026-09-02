@@ -624,9 +624,17 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     const manual = box.manual()
 
     // An absence is what stops the model flailing at a wall. Drawing an image is
-    // now possible and uploading one is not, which is a distinction fine enough
-    // that leaving it implicit would guarantee the wrong conclusion.
-    expect(manual).toMatch(/cannot take a file from a conversation/i)
+    // one capability and obtaining one is another, which is a distinction fine
+    // enough that leaving it implicit would guarantee the wrong conclusion.
+    //
+    // WHAT THE DISTINCTION IS NOW (BUG-45). This asserted the manual said the
+    // assistant "cannot take a file from a conversation" — true when REQ-130
+    // wrote it, false since REQ-161 gave the upload overlay a "Put it on the
+    // site" area that promotes a dropped file in the same request. The absence
+    // that remains is narrower and still real: the assistant cannot go and FETCH
+    // a file. What it must do instead is ask for one here.
+    expect(manual).toMatch(/cannot go and get a file/i)
+    expect(manual).toMatch(/Put it on the site/i)
     expect(manual).toMatch(/new one is built by a developer/i)
   })
 })
