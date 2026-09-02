@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-166
 created_by: xgd
 created_at: '2026-09-01T00:19:24.380095+00:00'
-updated_at: '2026-09-02T23:33:02.338573+00:00'
+updated_at: '2026-09-02T23:35:54.936669+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,46 @@ Want me to start implementing, or would you rather review the ticket body first?
 <!-- xgd-chat role="user" ts="2026-09-02T23:33:02.140548+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="01a7e6ac-1e73-4dab-b339-f1e0b0d2de36-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:35:54.077942+00:00" -->
+#### Claude
+Let me read the protocol and survey the ground before asking anything.
+
+The protocol doc is xgd-project-specific (pytest). Let me get this project's own conventions.
+
+Important finding — let me confirm where a full capture bundle is actually produced.
+
+I've surveyed enough to implement, and one question genuinely changes the shape of the work. Here's what I found.
+
+**The ground is mostly prepared.** `MATERIAL_TYPES` already includes `reference`, `r2ReferenceStore` uses the same `DB` + `BLOBS` the ticket store uses (so the Worker can already reach a tenant's bundles), `bundleNameFor` already gives one bundle per URL, and `driver.query(EXTRACT_SCRIPT)` runs in-page so `document.title` is a one-line addition to the extract signals.
+
+**The gap: nothing triggers the transition.** A complete bundle is only produced by `cmdCapturePage`, called from the `1c capture page` CLI. It takes a `ReferenceStore` and nothing else — REQ-155 deliberately removed `node:fs` from that module's graph, and handing it a `TicketStore` would put D1 back in the CLI's import graph for the same reason. Meanwhile `shot.ts` says in as many words that no route exposes Browser Rendering yet, on purpose, because rate-limiting and authorisation belong to REQ-157.
+
+So the ticket needs an entry point it doesn't currently name.
+
+## Q1 — What triggers the ticket creation? (blocking)
+
+My recommendation: **a Worker route that adopts an already-written bundle by name** — `POST /api/material/capture {bundle}` — reading the bundle out of R2 through `r2ReferenceStore`, creating the `reference` ticket, attaching each member, and indexing it. That matches the ticket's own out-of-scope line, *"The capture pipeline itself — REQ-154/REQ-155. This consumes what they produce."* It's drivable end-to-end through `route()` in a UAT exactly like REQ-163's, with no browser in the test.
+
+The alternative — having `1c capture page` create the ticket itself — I'd avoid for the import-graph reason above.
+
+Is an adopt route right, or did you intend REQ-166 to also grow the in-Worker capture trigger (which would pull REQ-157's rate-limiting question in with it)?
+
+## Q2 — Who calls it? (affects auth, not structure)
+
+If it's the adopt route: is it operator/assistant-facing for v1, or does the builder UI need a "capture a site" control? Nothing in the Library UI currently initiates a capture, and I'd rather not invent that surface unasked. My assumption unless you say otherwise: **no new client-facing control** — the route exists, the Library displays the result.
+
+## Assumptions I'll proceed on without asking
+
+- **`title` is optional** on the `Capture` interface, with `host` as the fallback — matching the existing precedent there (*"All optional so pre-REQ-47 `capture.json` bundles still parse"*), so bundles captured before this change keep working.
+- **The describer reuses `describe.ts`'s model seam** rather than introducing a second one, stubbed at that boundary in tests as REQ-163 stubs vision.
+- **The file route grows a `member` parameter** (`/api/material/file?uid=X&member=screenshot.full.png`) rather than a new route.
+- Test naming `test_UAT_FC_REQ-166_*` in `tests/`, driven through real entry points, no mocks of anything we own.
+
+One practical note: this worktree is missing `apps/control-app/src/generated/` (gitignored, and its absence breaks webui resolution and the workerd project at import). I'll restore it from the main checkout before running anything — flagging it so a failing suite later isn't mistaken for a code problem.
+
+Answer Q1 and I'll start; Q2 I can proceed on the stated assumption if you'd rather not decide it now.
 
 <!-- xgd-chat-end -->
