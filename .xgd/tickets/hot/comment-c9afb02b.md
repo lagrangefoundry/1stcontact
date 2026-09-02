@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T20:24:37.161329+00:00'
+updated_at: '2026-09-02T20:25:18.240569+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -929,5 +929,36 @@ please complete the free-coding of this ticket
 Blocking details:
 - branch `free-BUG-44` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-44`
 - branch HEAD: `d46756fefa43ca8709acb13d64abccb2ac91d961`
+
+<!-- xgd-turn id="6d4b97ee-6c59-4616-9046-05d43919bf4c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:25:17.818108+00:00" -->
+#### Claude
+Free-coding on BUG-44 is complete.
+
+```
+Status:   free_coded
+Version:  0.2.42
+Commits:  working_sha d46756fefa43ca8709acb13d64abccb2ac91d961
+```
+
+`xgd branch clean BUG-44` removed the worktree, deleted the local branch, and released the merge lock. The commit is confirmed an ancestor of `xgd-working`.
+
+The `origin/free-BUG-44` remote ref remains, which matches the existing pattern — eight other completed tickets (`free-BUG-34`, `free-REQ-131`, `free-REQ-133`…) leave the same remnant, so `clean` isn't expected to remove it.
+
+**Full protocol trail:**
+
+1. Ticket scoped with six required behaviours and a test plan before any code
+2. `xgd branch cut BUG-44` → worktree
+3. Code + UATs named `test_UAT_FC_BUG-44_*`, each tracing to ticket-body language — including the two re-aimed from BUG-45
+4. Committed `[FREE-CODED]`
+5. `xgd branch lock` → merge by hand → `xgd ticket move-to-free-coded` with the 40-char SHA and version
+6. `xgd branch clean`
+
+Final suite: **2240 passing, 67 skipped, 1 failure** — `bug32-webui-scope-rebrand`, which I verified fails identically on the unmodified main checkout. Pre-existing, unrelated to this change.
+
+BUG-45's ticket carries the supersession record: which of its behaviours were withdrawn, which survive, and where their coverage moved.
+
+Still outstanding from earlier, and untouched: **clearing the data for a clean test**. Tell me which store — local `storage/` or the deployed D1/R2 tenant — and I'll handle it.
 
 <!-- xgd-chat-end -->
