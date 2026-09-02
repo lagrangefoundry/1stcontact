@@ -5,9 +5,9 @@ type: bug
 title: 'Chat upload: a file dropped on "Put it on the site" is unusable to the assistant'
 created_by: xgd
 created_at: '2026-09-01T22:31:24.397792+00:00'
-updated_at: '2026-09-02T01:49:42.790757+00:00'
+updated_at: '2026-09-02T02:07:46.572695+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   auto_merge_back: true
@@ -171,3 +171,37 @@ on an unmodified `main` checkout and is unrelated to this change.
   operator during this session; left out pending their decision.
 - **Why the file was classified `reference`.** Needs a reproduction, not a code
   change.
+
+## Superseded in part by BUG-44 (operator decision, 2026-09-01)
+
+This ticket's fix landed as `fd6aa2bf39` and was then partly unwound. The
+analysis that produced BUG-44 found that the registry this ticket set out to
+keep in step is read by nothing else in the codebase: not the renderer, not
+publish, not import, not the picker. Its `alt` is superseded by the required
+`alt` on the L1 image node, its `focalPoint` has no reader anywhere, and eight
+of the nine tracked `site.json` files had it empty. The operator's call was to
+delete it rather than maintain it — *"we don't actually need the registry at
+all"* — landed as `d46756fefa`.
+
+**Withdrawn from this ticket's required behaviour:**
+
+- **1. Promotion registers** — there is nothing to register. Promotion still runs
+  through `editAssetAdd` for the collision rules and the journal note, which was
+  the part that mattered.
+- **2. The description becomes the alt text** — there is nowhere site-side to
+  hold it. The material's description stays on the material ticket, and the
+  surface now tells the assistant to read it there and write it onto the picture
+  element. Noted in BUG-44 as the one thing the deletion cost.
+- **5. `registered` remains reportable** — it is reportable nowhere, because
+  there is no second state a stored file can be in.
+
+**Kept, and still covered:** `get_asset` answering for anything `list_assets`
+shows (behaviour 5's substance), promotion's republishable gate and rename-on-
+collision (behaviour 3), the surface no longer claiming a file cannot arrive
+through the chat (behaviour 4), and `write_image`'s refusal to stand in for a
+file the client supplied (behaviour 6).
+
+This ticket's two UAT files were re-aimed rather than deleted —
+`test_UAT_FC_BUG-44_promoted_asset_is_usable.workers.test.ts` and
+`test_UAT_FC_BUG-44_surface_tells_the_truth.test.ts` — so the surviving
+behaviours keep their coverage under BUG-44.
