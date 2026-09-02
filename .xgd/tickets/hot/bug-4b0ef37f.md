@@ -5,9 +5,9 @@ type: bug
 title: 1c builder and pnpm dev:control start the same server differently
 created_by: xgd
 created_at: '2026-09-02T23:50:14.011344+00:00'
-updated_at: '2026-09-02T23:50:14.011344+00:00'
+updated_at: '2026-09-02T23:50:19.214339+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -91,7 +91,7 @@ that this ticket exists to remove.
 2. The env-file layering is defined once.
 3. Starting `1c builder` with no secrets file names the path it looked for and
    what will not work; it still starts.
-4. A UAT named `test_UAT_FC_TICKETID_*` asserts the composed argv carries both
+4. A UAT named ``test_UAT_FC_BUG-50_*`` asserts the composed argv carries both
    `--env-file` flags and that `ONECONTACT_SECRETS` overrides the default.
 5. **[[DOC-41]] §2 is updated**: the subsection *"Gotcha: `1c builder` is not
    `pnpm dev:control`"* is removed or rewritten, because it stops being true.
