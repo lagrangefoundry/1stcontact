@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T20:27:29.141351+00:00'
+updated_at: '2026-09-02T20:46:05.528849+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -215,5 +215,21 @@ The cheapest fix is a coverage assertion — `1c assets` refuses to inline (or a
 That reorders my earlier recommendation. Improving refusal messages is still worth doing, but it's no longer the main event — the field vocabulary was written, correct, and shipped; it was just unsearchable. Fix the index coverage and most of that session doesn't happen.
 
 Want me to scope this as tickets? I'd suggest: **(a)** index/docs coverage check in `1c assets` + `kb build` — the real bug; **(b)** page `background`/`textColor` as addressable L1 — still genuinely unreachable and unreadable; **(c)** contrast metadata on `get_l1`/`describe_page`, which needs palette refs resolved since `get_l1` returns them unresolved; **(d)** image content block on `promptStream`, which is really just REQ-157 landing. Say which and I'll scope them under CHAT-35 properly.
+
+<!-- xgd-turn id="2a3cd673-18be-487a-a25b-026c6a6107c0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:46:05.305350+00:00" -->
+#### You
+We need to switch language caretaker -> consultant please.
+
+The consultant needs all the flexibility of the reproduction system - we need a ticket for this please background/text color and ANYTHING ELSE developed for reproduction - the consultant needs all the power of L1 - and it needs to automatically get all the new features as we add them.
+
+The decision not to include the image access to the consultant as a tool is a massive misunderstanding in scope - another ticket  (ah this is REQ-157 which is in progress)
+
+A ticket to include the tools documentation in the system kb please - or is this a missing build step? How did we include half the docs and not the others?
+
+The cheapest fix is a coverage assertion — `1c assets` refuses to inline (or at minimum warns loudly) when a doc has no manifest entry. Re-running `1c kb build` fixes today's instance, but the skew will recur because `export` and `build` are separate verbs writing to one tree. <-- I don't understand - are you saying the reason that the test is failing is that we missed a build step?
+
+Just create tickets and update docs here please? Saying which can you bring any docs up to date with these changes
 
 <!-- xgd-chat-end -->
