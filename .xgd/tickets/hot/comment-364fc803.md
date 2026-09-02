@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T23:32:29.747319+00:00'
+updated_at: '2026-09-02T23:33:38.353454+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -152,5 +152,44 @@ Meanwhile, part **(2)** — the `waitUntil` fix — needs none of this and is th
 <!-- xgd-chat role="user" ts="2026-09-02T23:32:29.646527+00:00" -->
 #### You
 I have run the install
+
+<!-- xgd-turn id="ea234d8a-6d5b-4adc-bc12-72fc147a8144-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:33:37.685963+00:00" -->
+#### Claude
+The probe still reads `0`. Let me find out why.
+
+The install didn't land. The shared store is byte-for-byte the same copy as before your run:
+
+| | framework checkout (correct source) | shared install |
+|---|---|---|
+| `manager.js` lines | 872 | **823** |
+| `async transcript(` | 1 | **0** |
+| `README.md` bytes | 10773 | **8393** |
+| README "transcript" mentions | 7 | 4 (the pre-BUG-38 ones) |
+| `@lagrangefoundry/ai/` dir mtime | — | **Sep 1 18:48**, unchanged since before you ran it |
+
+The source is definitely right: `/Users/martin/lagrangefoundry/lagrange-framework` is the main checkout, on `xgd-working` at `11c959d5a8`, and its `components/ai/js/` has the BUG-38 content. So `pnpm pack` would have packed the right thing — the extraction just never happened.
+
+I also ruled out a wrong-target install: `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry` is the only such directory anywhere under `~/lagrangefoundry` or the xgd worktrees, and no stray one was created in the last two days. There are no leftover pack tempdirs either, which suggests the run didn't get as far as extracting.
+
+My guess is it failed the same way mine did and the traceback scrolled past — `bin/install` deletes the old install before extracting, so it dies at `shutil.rmtree` with `PermissionError: [Errno 1] Operation not permitted` if the shell it ran in is also sandboxed. Harmless (that's why the old copy is still intact), but it exits non-zero having done nothing.
+
+Could you re-run it in an ordinary unsandboxed terminal and paste what it prints?
+
+```
+cd /Users/martin/lagrangefoundry/lagrange-framework
+bin/install --lang js --component ai --no-deps ; echo "exit=$?"
+```
+
+A successful run ends with a table naming `@lagrangefoundry/ai 0.0.0` and the path it now occupies. Then this should flip `0` → `1`:
+
+```
+grep -c "async transcript(" /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/manager.js
+```
+
+If it keeps failing on the rmtree, `rm -rf /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai` by hand first and then re-run — the install rebuilds it from the tarball, so nothing is lost.
+
+Meanwhile: I still have part **(2)** sitting unblocked and it's the half that caused the reported turn loss. Rather than keep idling on the vendor, I'd like to cut `free-BUG-46` and land it now — say go and I'll start, and (1)/(3) fold in when the store updates.
 
 <!-- xgd-chat-end -->
