@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T18:45:24.260193+00:00'
+updated_at: '2026-09-02T20:57:22.446778+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,19 @@ Two more problems fell out while I was in there:
 So the fix isn't a condition on the badge — it's that placement should be recorded by `placeOnSite` on success, as a collection, and the pill/label/filter should all read that instead. The ticket states the four invariants that have to hold afterwards rather than picking the field design.
 
 One note: `xgd` committed both tickets locally but the push failed — `This proxy requires authentication`. They're in the store, not on the remote yet.
+
+<!-- xgd-turn id="3adbc7f3-a062-4d6e-93da-c6fc8f102551-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:57:22.392680+00:00" -->
+#### You
+ok I would like to (1) add an initial icon to the item indicating its type - we basically have docs and images so an icon for each please. (2) Item title is in rather large text - and the item plus pills takes two lines I would like it to reduce to one. The addition of the icon for type removes one of our pills lets just put the others after the title.
+
+I would like to change the wording:
+"Just for you to read" -> "Background information"
+"Put it on the site" -> "Site asset"
+"What is it for" -> "Purpose"
+"Used on this site" -> "Live on the site" <-- actually I want to check the semantics here does this mean (1) "its currently on the published site" or (2) "its in a version of the site" or (3) its in a version of the site including draft?
+
+This needs to change on the upload overlay and the pills and the field. Can you create a ticket for these changes please?
 
 <!-- xgd-chat-end -->
