@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T00:00:39.822420+00:00'
+updated_at: '2026-09-02T00:27:51.523695+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -284,5 +284,11 @@ Everything that is not the tool manual — the purpose, all three headings, the 
 **One structural finding that fell out of rendering it.** Because the host passes `box.manual()` as the `mechanism`, it *replaces* the knowledge component's own default prose — the text that says retrieval is cheap, reach for it rather than assuming, the bolded terms are validated access points and make good first queries. So the section headed `# How to search` contains no instruction about searching. It contains the site-editing manual. The only thing left telling the model to use the knowledge base is the single trigger line at the very end.
 
 That looks like an accident of the seam rather than a decision, and it bears directly on the role rebuild. Worth reading the file before we go further.
+
+<!-- xgd-turn id="b01f2276-10bb-4c77-97ff-b086e11f0834-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:27:51.016435+00:00" -->
+#### You
+ok I want to fix this upstream in the framework
 
 <!-- xgd-chat-end -->
