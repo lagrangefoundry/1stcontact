@@ -340,7 +340,6 @@ export async function ingestUpload(
     contentType: string
     /** Which drop area the client chose ([[REQ-161]]). Absent = §10.1 unchanged. */
     role?: MaterialRole
-    siteSlug?: string
   },
   deps: IngestDeps = {},
 ): Promise<Ingested> {
@@ -358,7 +357,6 @@ export async function ingestUpload(
       contentType: file.contentType,
       origin: 'uploaded',
       role: file.role,
-      siteSlug: file.siteSlug,
     },
     deps,
   )
@@ -378,7 +376,7 @@ export async function ingestUpload(
 export async function ingestFetch(
   store: TicketStore,
   url: string,
-  deps: IngestDeps & { fetch?: typeof fetch; siteSlug?: string } = {},
+  deps: IngestDeps & { fetch?: typeof fetch } = {},
 ): Promise<Ingested> {
   const fetched = await guardedFetch(url, MAX_MATERIAL_BYTES, { fetch: deps.fetch })
   if (fetched.bytes.length === 0) {
@@ -395,7 +393,6 @@ export async function ingestFetch(
       // a `source_url` that named an address we were redirected away from would
       // be a provenance record that is quietly wrong.
       sourceUrl: fetched.finalUrl,
-      siteSlug: deps.siteSlug,
     },
     deps,
   )
@@ -411,7 +408,6 @@ async function ingest(
     origin: Provenance
     role?: MaterialRole
     sourceUrl?: string
-    siteSlug?: string
   },
   deps: IngestDeps,
 ): Promise<Ingested> {
@@ -446,7 +442,10 @@ async function ingest(
     body: description.body,
     fields: {
       ...classification,
-      ...(input.siteSlug ? { site_slug: input.siteSlug } : {}),
+      // NO PLACEMENT HERE (BUG-47). Which site was open when the file arrived is
+      // not where its bytes ended up, and writing it as though it were is what
+      // badged a file dropped on *"just for you to read"* as being on the site.
+      // `promoteToSiteAsset` writes `placed_on`, after the copy it records.
       description_status: description.status,
       // `null` rather than omitted where nothing wrote it: the field is then
       // present on every material, so a predicate over it never has to reason
@@ -579,7 +578,52 @@ export async function promoteToSiteAsset(
   // that places the image, which is the only place a renderer has ever read alt
   // text from anyway.
   await editAssetAdd(args.slug, name, bytes, { store: sites, actor: 'client' })
+  // PLACEMENT IS RECORDED HERE, AND ONLY HERE (BUG-47). This is the one function
+  // that puts a material's bytes on a site, so it is the only thing that knows
+  // the fact the Library's pill, its `Used on` field and its "used on this site"
+  // filter are all trying to state. Recording it anywhere earlier would restate
+  // the upload's context instead — which is the bug — and recording it before
+  // this line would badge a promotion that threw identically to one that landed.
+  await recordPlacement(tickets, ticket, args.slug)
   return { name, size: bytes.byteLength, sha256 }
+}
+
+/**
+ * Append a slug to the material's `placed_on`, idempotently.
+ *
+ * A SET UNION RATHER THAN A PUSH. Promoting the same logo onto the same site
+ * twice is an ordinary thing for a client to do — they drag it again because
+ * they forgot — and it must not leave the row claiming two placements where
+ * there is one. Absence reads as the empty list, so material that predates the
+ * field needs no migration to grow its first placement.
+ *
+ * READ OFF THE TICKET WE ALREADY HOLD, not re-fetched: `promoteToSiteAsset` got
+ * it to check `republishable`, and a second read would be a window in which the
+ * two could disagree.
+ */
+async function recordPlacement(
+  tickets: TicketStore,
+  ticket: Ticket,
+  slug: string,
+): Promise<void> {
+  const placed = placedOn(ticket.fields)
+  if (placed.includes(slug)) return
+  await tickets.update({ uid: ticket.uid, patch: { fields: { placed_on: [...placed, slug] } } })
+}
+
+/**
+ * `fields.placed_on` as a list of slugs, whatever the row actually holds.
+ *
+ * ABSENCE IS THE EMPTY LIST, so no consumer has to treat "never placed" as a
+ * third state distinct from "placed nowhere" — and material written before the
+ * field existed reads as unplaced rather than as unknown. Non-strings are
+ * dropped rather than rendered: the field's declared type only asserts that the
+ * value is a list, so a caller could put anything in one.
+ */
+function placedOn(fields: Record<string, unknown>): string[] {
+  const raw = fields.placed_on
+  if (!Array.isArray(raw)) return []
+  return raw.filter((v): v is string => typeof v === 'string' && v !== '')
 }
 
 /**
@@ -689,7 +733,18 @@ export interface MaterialRow {
   republishable: boolean
   exportable: boolean
   origin: string
-  site_slug: string | null
+  /**
+   * The sites this material's bytes are ON — [[BUG-47]].
+   *
+   * WHERE IT LANDED, NOT WHERE IT WAS UPLOADED FROM. It replaces `site_slug`,
+   * which held the slug of whichever site was open when the file arrived and
+   * was read by three separate consumers as though it meant placement.
+   *
+   * ALWAYS AN ARRAY, never null: the Library asks `includes(site)` of it on
+   * every row it draws and every row it filters, and a nullable field would put
+   * a guard in front of each of those.
+   */
+  placed_on: string[]
   source_url: string | null
   description_status: string | null
   description_model: string | null
@@ -718,7 +773,7 @@ function rowOf(ticket: Ticket): MaterialRow {
     republishable: f.republishable === true,
     exportable: f.exportable === true,
     origin: String(f.origin ?? 'uploaded'),
-    site_slug: str(f.site_slug),
+    placed_on: placedOn(f),
     source_url: str(f.source_url),
     description_status: str(f.description_status),
     description_model: str(f.description_model),
@@ -732,9 +787,14 @@ function rowOf(ticket: Ticket): MaterialRow {
  * TENANT-WIDE, NEVER SITE-SCOPED, and that is a decision rather than an
  * omission. [[DOC-38]] §7.7 allows one blob to back two sites and [[DOC-10]]
  * §4.1 makes shared knowledge across a client's sites deliberate — their second
- * site should not start as cold as their first. So `site_slug` travels on the
+ * site should not start as cold as their first. So `placed_on` travels on the
  * row as something to BADGE and FILTER BY, and the store is never asked to hide
  * anything on the strength of it.
+ *
+ * IT IS PLACEMENT, NOT UPLOAD CONTEXT (BUG-47). The badge this feeds says the
+ * bytes are on a site, so it is written by `promoteToSiteAsset` when the copy
+ * lands and by nothing else — a row whose promotion failed, or whose file was
+ * dropped on *"just for you to read"*, carries no placement at all.
  *
  * TWO LISTS RATHER THAN ONE PREDICATE, because `list` takes a type and the
  * predicate language is the component's rather than ours; two calls that cannot

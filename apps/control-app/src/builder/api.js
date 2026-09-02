@@ -240,7 +240,7 @@ export async function publishSite(slug, fetchImpl = fetch) {
  * NO SLUG. The Library is deliberately not site-scoped — DOC-38 §7.7 lets one
  * blob back two sites, and DOC-10 §4.1 makes shared knowledge across a client's
  * sites deliberate. "Used on this site" is a badge the list computes from
- * `site_slug` on each row, never a request the origin filters.
+ * `placed_on` on each row, never a request the origin filters.
  */
 export async function fetchMaterial(fetchImpl = fetch) {
   const res = await fetchImpl('/api/material')
@@ -278,6 +278,12 @@ export function materialFileUrl(uid) {
  * `slug` is optional and means "and put it on this site if the role says so" —
  * the origin promotes it into that site's asset library, so a dropped logo is
  * pickable the same second.
+ *
+ * IT IS AN INSTRUCTION, NOT A LABEL (BUG-47). The conditional in that sentence
+ * is the whole of it: nothing on the material records this slug, because a file
+ * dropped on *"just for you to read"* is sent with one and must never come back
+ * badged as being on the site. Only the promotion the origin performs writes
+ * `placed_on`, and only when the bytes actually land.
  */
 export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
   const form = new FormData()
