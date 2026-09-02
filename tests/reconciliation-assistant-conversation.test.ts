@@ -16,6 +16,7 @@ import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
 
 /**
  * **One continuing conversation about one site** (story-a58a0974).
@@ -456,12 +457,25 @@ describe('what the assistant is offered', () => {
     const { system, tools } = client.seen[0]
     const names = tools.map((t) => t.name)
 
-    // Exactly the operations its grant allows — the same projection the surface
-    // makes for this role, not a second list that could drift from it.
+    // Exactly the operations its grant allows — the same projection the surfaces
+    // make for this role, not a second list that could drift from them.
+    //
+    // TWO SURFACES SINCE REQ-157. This session reaches the assistant through the
+    // builder, which knows its own origin and therefore composes the fidelity
+    // surface alongside the L1 one; `createL1Toolbox` here is called without one
+    // and composes only L1. So the expected set is the union of the two
+    // declarations' operations — still derived from the declarations rather than
+    // written out, which is the property this assertion exists to hold.
     const granted = Object.keys(
       (await createL1Toolbox(SLUG, { cwd })).schemas() as Record<string, unknown>,
     )
-    expect(names.slice().sort()).toEqual(granted.slice().sort())
+    const looking = (FIDELITY_DECLARATION.operations as { tool: string }[]).map((o) => o.tool)
+    expect(names.slice().sort()).toEqual([...granted, ...looking].sort())
+
+    // The assistant can look at what it built, and that is a grant it did not
+    // have before this session type existed.
+    expect(names).toContain('screenshot')
+    expect(names).toContain('check_fidelity')
 
     // Site-changing and site-reading operations are there…
     expect(names).toContain('set_l1')

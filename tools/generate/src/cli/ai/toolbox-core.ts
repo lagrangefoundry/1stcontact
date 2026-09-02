@@ -476,17 +476,19 @@ export function bufferedAuditSink(): BufferedAuditSink {
  * axis that is not declared. That is the startup-failure rule, and it is why the
  * same check runs in CI against the same two files.
  *
- * TWO SURFACES WHEN THE SYSTEM KB IS BUILT (REQ-123): the site's L1 controls, and
- * the knowledge corpus. They compose here rather than either one wrapping the
- * other, which is what the Toolbox taking a LIST of surfaces is for — upstream's
- * own `knowledgeToolbox()` helper is the one-surface convenience, and a session
- * that composes knowledge with anything else is told to build the Toolbox itself.
+ * UP TO THREE SURFACES: the site's L1 controls, the knowledge corpus (REQ-123),
+ * and the fidelity surface (REQ-157). They compose here rather than any one of
+ * them wrapping the others, which is what the Toolbox taking a LIST of surfaces
+ * is for — upstream's own `knowledgeToolbox()` helper is the one-surface
+ * convenience, and a session composing more than one is told to build the
+ * Toolbox itself.
  *
  * The knowledge grant is READ-ONLY and is scoped to the declared KBs on both
  * axes, by upstream's `instanceConfig`. Writing it by hand here would be a second
  * place for the two scope axes to drift apart — `kb` (what may be searched) and
  * `document` (what may be read) must name the same set, or a session could read
- * documents it was never allowed to search for.
+ * documents it was never allowed to search for. The fidelity grant has no such
+ * coupling and is therefore an ordinary entry in `instances.json`.
  */
 export async function createL1Toolbox(
   slug: string,
@@ -499,7 +501,7 @@ export async function createL1Toolbox(
     lib: injectedLib,
     store,
     extraOps = {},
-    knowledgeSurface = null,
+    extraSurfaces = [],
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -519,11 +521,24 @@ export async function createL1Toolbox(
     /** Operations only the host's runtime can implement — see {@link l1Operations}. */
     extraOps?: Partial<L1Operations>
     /**
-     * A pre-built knowledge surface and the grant it adds, when the host has a
-     * system KB. The BRIDGE is loaded by the host, not here: it lives in the
-     * shared store and is reached by file URL, which is Node's to do.
+     * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
+     * with it — a LIST since REQ-157, because there are now two of them.
+     *
+     * WHY A LIST AND NOT TWO NAMED SLOTS. It was `knowledgeSurface`, a single
+     * named parameter, which was honest while there was exactly one thing that
+     * could be composed. A second named slot would have made the third one's
+     * shape a foregone conclusion, and — more to the point — it would have made
+     * REQ-157's "registered alongside the L1 surface rather than merged into it"
+     * a claim about a special case rather than about the composition rule. The
+     * Toolbox has always taken a list of surfaces; this now passes one through.
+     *
+     * A GRANT IS OPTIONAL PER ENTRY. The knowledge surface brings its own,
+     * because its two scope axes (`kb`, `document`) must name the same set and
+     * composing them in two places is how they would come to disagree. The
+     * fidelity surface brings none: its grant is local and is written in
+     * `instances.json` beside the L1 grant, which is where a reviewer looks.
      */
-    knowledgeSurface?: { surface: Untyped; granted: Record<string, unknown> } | null
+    extraSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
   },
 ): Promise<Untyped> {
   const lib = injectedLib
@@ -542,13 +557,30 @@ export async function createL1Toolbox(
   // branching.
   const surfaces: Untyped[] = [new L1Toolbox(slug, { ...opts, store }, extraOps)]
   let granted = instance
-  if (knowledgeSurface) {
-    surfaces.push(knowledgeSurface.surface)
-    // The grant is the host's too, and travels WITH the surface: `kb` (what may
-    // be searched) and `document` (what may be read) must name the same set, and
-    // composing them in two places is how they would come to disagree.
-    granted = { ...instance, ...knowledgeSurface.granted }
+  for (const extra of extraSurfaces) {
+    surfaces.push(extra.surface)
+    // A grant that travels with its surface is merged over the instance's; one
+    // that does not is already in the instance, and this leaves it alone.
+    if (extra.granted) granted = { ...granted, ...extra.granted }
   }
+
+  // NARROWED TO THE SURFACES THIS SESSION ACTUALLY COMPOSED (REQ-157).
+  //
+  // `instances.json` says what the CARETAKER may do; which surfaces exist is a
+  // property of the DEPLOYMENT, and the two are not the same question. The
+  // fidelity surface needs a browser and a reference store, and a deployment
+  // with neither — a Worker with no `[browser]` binding, a `1c` invocation with
+  // no server behind it — composes it not at all. Left unnarrowed, the Toolbox
+  // reads the grant, finds a surface nobody registered, and refuses to
+  // construct: a deployment that cannot take pictures would fail to start an
+  // assistant that could still edit a site perfectly well.
+  //
+  // The narrowing is one-directional and cannot widen a grant: a surface with no
+  // entry here is still ungranted, because this only ever removes keys.
+  const composed = new Set(surfaces.map((surface) => surface.surface as string))
+  granted = Object.fromEntries(
+    Object.entries(granted).filter(([surfaceName]) => composed.has(surfaceName)),
+  )
 
   return new lib.Toolbox(surfaces, granted, { audit, session, role })
 }

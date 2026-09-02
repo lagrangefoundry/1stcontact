@@ -47,6 +47,9 @@ import {
   type ChatSession,
   type HostDeps,
 } from './host-core'
+import { fsReferenceStore } from '../../store/fs-reference-store'
+import { createPlaywrightDriver, guardedPlaywrightDriver } from '../capture/playwright-driver'
+import type { FidelityDeps } from './fidelity-core'
 
 export {
   setModelClient,
@@ -115,22 +118,52 @@ function openKnowledge(): Promise<Untyped | null> {
  * built from the same runtime, and a session primed with the landscape but not
  * granted the corpus would be told to go and read documents it cannot open.
  */
+/**
+ * REQ-157 — what the fidelity surface needs on Node.
+ *
+ * The mirror of `apps/control-app/src/shot.ts`'s `fidelityDeps`, and the same
+ * two-factory shape for the same reason: our own preview channels are served in
+ * process so a screenshot of the draft cannot be answered by anything else, and
+ * `capture_site` — which fetches an address a model chose — is held to the
+ * egress policy on every request its page makes.
+ *
+ * The difference from the Worker is only which browser and which store: a
+ * locally-installed Playwright rather than a leased Browser Rendering session,
+ * and `storage/references/` rather than R2. Nothing below this line can tell.
+ */
+function nodeFidelityDeps(slug: string, opts: GlobalOptions, origin: string): FidelityDeps {
+  return {
+    slug,
+    origin,
+    references: fsReferenceStore(ctxOf(opts).cwd),
+    // NO ORIGIN RESOLVER HERE, and its absence is the difference between the two
+    // hosts rather than an omission. The Worker fulfils preview requests in
+    // process because the builder it would otherwise fetch is behind Cloudflare
+    // Access, and a browser it launches is an unauthenticated client that would
+    // faithfully screenshot the challenge page ([[REQ-154]]). A local builder has
+    // no Access in front of it, so the browser simply fetches the real loopback
+    // URL and gets the real page.
+    driverFactory: createPlaywrightDriver,
+    guardedDriver: (guard) => guardedPlaywrightDriver(guard),
+  }
+}
+
 async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
   const lib = await ai()
   const store = fsSiteStore(ctxOf(opts))
   const dir = sessionsDir(opts)
   const knowledge = await openKnowledge()
 
-  let knowledgeSurface: HostDeps['knowledgeSurface'] = null
+  const extraSurfaces: NonNullable<HostDeps['extraSurfaces']> = []
   let priming: HostDeps['priming'] = null
   if (knowledge !== null) {
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
-    knowledgeSurface = {
+    extraSurfaces.push({
       surface: new bridge.KnowledgeToolbox(knowledge),
       // `knowledgeInstanceConfig` at the package root; `instanceConfig` is the
       // name inside the module it comes from.
       granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
-    }
+    })
     // KM owns the internal order of the one document it assembles: the map of
     // what exists, then what this agent is for, then how to reach the rest. The
     // manual goes in as the `mechanism` — the last thing read is the thing done
@@ -149,7 +182,14 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     archive: new lib.FileArchive(dir),
     logDir: path.join(dir, 'live'),
     audit: fileAuditSink(opts),
-    knowledgeSurface,
+    extraSurfaces,
+    // REQ-157 — the fidelity surface, when this process knows what it is called
+    // from outside itself. `1c` invocations with no server behind them have no
+    // origin and get no surface, which is the honest answer: without one there
+    // is nowhere for a browser to navigate to see the draft.
+    fidelity: opts.origin
+      ? (slug: string) => nodeFidelityDeps(slug, opts, opts.origin!)
+      : null,
     priming,
   }
 }

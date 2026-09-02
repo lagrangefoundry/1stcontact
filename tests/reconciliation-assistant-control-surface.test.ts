@@ -19,6 +19,7 @@ import {
 import { CARETAKER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import type { L1Node } from '@1stcontact/site-schema'
 import { fsOpts } from './support/site-factory'
+import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
 
 /**
  * **The assistant's declared control surface** (story-93905de4).
@@ -174,11 +175,18 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // rule reachable in this repository at all.
     const { validateData } = await aiCore()
 
-    const report = validateData([L1_DECLARATION], L1_INSTANCES)
+    // BOTH DECLARATIONS, because the caretaker's instance config names both
+    // since REQ-157 — the site's controls and the fidelity surface it may look
+    // through. Checking the L1 declaration against it alone reports a
+    // configuration naming an undeclared surface, which is the validator being
+    // right about a pair it was shown half of.
+    const report = validateData([L1_DECLARATION, FIDELITY_DECLARATION], L1_INSTANCES)
 
     expect(report.problems).toEqual([])
     expect(report.ok).toBe(true)
-    expect(report.surfaces).toEqual(['l1'])
+    // This story is about the CONTROL surface, and it is still exactly one
+    // surface — declared on its own, granted on its own.
+    expect(report.surfaces).toContain('l1')
     expect(report.roles).toContain(CARETAKER_ROLE)
   })
 
