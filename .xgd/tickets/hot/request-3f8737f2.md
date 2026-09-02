@@ -5,9 +5,9 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-08-20T23:16:44.004000+00:00'
+updated_at: '2026-09-02T20:50:13.226783+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -136,3 +136,54 @@ at satisfies none of this ticket.** The point is the eyes.
 
 [[CHAT-27]]. Last of four, and the only one the operator asked for directly; the other three are
 what it stands on.
+
+
+---
+
+## Field evidence: the scope of "cannot see" is wider than this ticket assumed
+
+*Appended from [[CHAT-35]], 2026-09-02 — the first client-shaped session run
+against the product.*
+
+This ticket frames looking as a **fidelity** capability: capture a reference,
+shoot the draft, compare, judge. That framing is right and it is not wide
+enough. The session showed the assistant needs to see in order to do ordinary
+authoring work, before any question of fidelity arises.
+
+The operator uploaded a hero image and asked for a placeholder site. The
+assistant placed it as a large standalone block. The operator's objection was
+not about fidelity to a reference — there was no reference — it was that the
+image had been *composed* as a backdrop and was being used as a subject:
+
+> "This image was created to be a background image that the hero text would
+> layer on top of... loading up this page it looks weird, even at a
+> three-quarter sized browser window all I see is my background image."
+
+The judgement required is *backdrop or subject?* — and it is unanswerable from
+`{id, src, kind, onDisk}`, which is all `get_asset` returns. The assistant said
+so itself, and named the two things it would need: what the image looks like,
+and whether it is meant to sit behind something.
+
+**The capability already exists and is pointed elsewhere.** `describe.ts` runs
+`claude-opus-5` over every uploaded image at ingestion (REQ-163) and writes a
+composition description — *"blue daylight comes through an arched gothic window
+on the right"* — into the **material ticket body** for retrieval. The assistant
+had that description available by search, did not think to look for it, and told
+the operator that its alt text had been written by whoever uploaded the file.
+So there are three distinct failures stacked here, and only the first is this
+ticket's:
+
+1. No image reaches the assistant's context. (This ticket.)
+2. The description that does exist is not attached to the asset, so
+   `get_asset` cannot return it and nothing points from the file to the words
+   about it. Cheap to fix and independent of the fidelity surface.
+3. Nothing prompts the assistant to ask the backdrop-or-subject question when
+   an image arrives.
+
+**Status note for scheduling.** The operator's reading in the session was that
+this ticket is in progress. It is `draft`, and depends on REQ-154, REQ-155,
+REQ-156 and REQ-149. Meanwhile `describe.ts:107-118` names *this ticket* as one
+of the two places the duplicate vision path gets deleted, so the temporary
+duplication it accepts is currently open-ended. Worth deciding whether (2) above
+should land ahead of the fidelity surface rather than waiting on the dependency
+chain — it would have changed the outcome of this session on its own.
