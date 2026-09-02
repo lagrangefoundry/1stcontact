@@ -5,9 +5,9 @@ type: doc
 title: L1 Control Surface API — the documented, maintained way to change a site
 created_by: xgd
 created_at: '2026-08-08T21:12:39.376838+00:00'
-updated_at: '2026-08-31T19:43:19.599354+00:00'
+updated_at: '2026-09-02T20:50:57.339857+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -350,3 +350,62 @@ knowledge bridges.
 4. **Where the CLI fits.** DOC-20 makes `ai_ticketing`'s CLI a Toolbox host in its own right so
    the security boundary lives in the CLI's re-check of the same declared policy. `1c` has the
    same shape and the same option; worth deciding when the declaration lands rather than after.
+
+
+---
+
+## Parity with reproduction — added 2026-09-02 ([[CHAT-35]], [[REQ-175]])
+
+**The rule this surface is now held to: anything the reproduction path can write,
+the surface can write.** Reproduction is where L1 grows — vocabulary is added
+because a captured founder site needed it, and the importer emits it the same
+day. A surface that does not grow with it turns every new capability into a
+widening gap between what a captured site can look like and what a client can be
+sold.
+
+### The gap found
+
+The **L1 document's own keys are unaddressable.** `l1DocumentSchema` is
+`{widths, background?, textColor?, resources?, column?, root}`, and `set_l1`
+addresses a roots array that is literally `[l1.root]` — so path `"0"` *is*
+`root`, and the other five keys have no path. Nothing else writes them either:
+`update_page` writes `title`/`slug`/`seoMeta`, `set_config` writes the site base,
+and the only writer in the toolchain is `scaffold.ts` at site-creation time.
+
+They are also unreadable. `describe_page` returns `{page: {id, slug, title,
+seoMeta}, components, segments}`; the page background appears in no tool result.
+An assistant therefore cannot set a page's background, cannot read it, and has
+no way to learn that it is white — which is how the [[CHAT-35]] session shipped
+off-white text on a white page and then reported the background as a platform
+gap it could not reach.
+
+Note the colour form: reproduction writes `{"ref": "sand"}` into `background`,
+so document-level colour must accept palette refs, not hex alone.
+
+### The rest of the surface was already at parity, and nobody knew
+
+Everything else the importer emits — `backgroundImageUrl`, `overlay`,
+`objectFit`, `objectPosition`, `gapPx`, `surfaceFill`, `gradientFill`,
+`geometry`, `responsive` — is writable through `set_l1` today, because it
+replaces a node with an object validated against the full element schema.
+
+This is worth recording as a property of the surface rather than an accident:
+**`set_l1` inherits new vocabulary automatically.** Its `node` parameter is
+declared `{"type": "object"}` and the Zod schema is the gate, so an axis added
+for reproduction is callable by the assistant with no change to this document or
+to `l1-surface.json`.
+
+The corollary is the trap [[CHAT-35]] fell into. Automatic capability is not
+automatic knowledge: the same declaration that makes new fields callable is the
+reason the surface names none of them, and the field vocabulary lives in the
+projected `REF-l1` reference instead (see [[DOC-39]] §12, [[BUG-48]]). A surface
+that silently gains capability must be paired with a reference that reliably
+gains description, or the capability is unusable and — worse — gets reported as
+absent.
+
+### Enforcement
+
+[[REQ-175]] adds a parity test that fails when the reproduction path can write
+something the surface cannot, fixtured on the reproduced pages in
+`storage/sites/`. Parity is not maintained by remembering to maintain it; the
+gap above went unnoticed until a client-shaped session hit it.
