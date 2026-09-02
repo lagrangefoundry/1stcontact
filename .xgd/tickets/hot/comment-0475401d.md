@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T22:26:49.145363+00:00'
+updated_at: '2026-09-02T22:28:07.119809+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,51 @@ OK, I actually think that resolves my confusion I think there are two levels the
 OK, great, I think that's the right model it changes slightly what we build today because I do not want the multi site within a single tenant story. I want multiple tenants within a single account. We need a user facing name for this concept. It is more than site.
 
 In fact in general this is a useful conversation what does First contact provide, I have struggled to provide a succinct description of its capabilities the package makes complete sense to me as a product but I do not know how to capture that story to users. We could consider my use case. I am going to have a business called lagrange foundry with initially two products 1st Contact and XGD. There will be three sites and I believe I need three tenants. But there is only one business. Perhaps the concept I am grasping for here is "brand" these are three brands each one has its own marketing threads its own customers and its own products and of course its own website. Is brand the right idea here?
+
+<!-- xgd-turn id="aa6e0026-1561-44a3-900e-ba5cfdcb3d99-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T22:28:05.905174+00:00" -->
+#### Claude
+That resolves it, and the resolution is better than either of the positions we started from. To state it back once:
+
+**Account → N tenants → (v1: one site each; v2: N sites).** The tenant is the isolation boundary and owns customers, money, calendar, marketing, monitoring, knowledge. The ecosystem case, if it ever arrives, is served by allowing multiple sites *within* a tenant — never by building cross-tenant machinery. That's the right call for the reason you found yourself: an ecosystem player with shared customers probably wants one identity, not three, so "multiple sites, one customer base" is a truer model of that need than "three tenants that leak into each other."
+
+Build-today consequence: the data model keeps `sites (tenant_id, slug)` as-is — it already expresses N sites per tenant — and v1 simply holds the invariant of one. Nothing gets migrated, nothing gets precluded. Everything else (CRM, payments, scheduling, monitoring, library, KB) keys on tenant and never on slug, which is *simpler* than what I was proposing, not harder.
+
+## The name
+
+Shortlist is **Business** vs **Brand**, and I'd take Business — but the reason is worth more than the verdict.
+
+"Brand" names the *reason* two tenants are separate: different name, different voice, different market. That's exactly your intuition and it's why it feels right for Lagrange Foundry → 1stcontact, XGD. "Business" names the *contents* of the container. Products almost always want the second, because the name appears possessively next to the contents on every screen:
+
+- "your business's customers" / "your brand's customers"
+- "your business's calendar" / "your brand's calendar"
+- "payments for this business" / "payments for this brand"
+
+A brand doesn't have a calendar. The moment the container holds operational data rather than identity assets, "brand" starts reading slightly off — and that's the phrasing that recurs everywhere, whereas the "why are these separate" framing shows up once, in the switcher.
+
+The other test is your modal customer, not you. A hairdresser with one shop has a business; they don't think of themselves as having a brand, and "Brand: Snip City" in the top-left reads like agency jargon aimed at someone else. Whereas you'd happily call 1stcontact a business — "I run two businesses" is ordinary English for exactly your situation. Lagrange Foundry is the *company*; the three things below it are the businesses. I'd let Account carry the company.
+
+Brand wins only if the product's center of gravity turns out to be marketing and identity rather than operations. Given that the tenant owns money and bookings, I don't think it does. **Workspace** is the zero-risk generic option (Slack/Notion/Linear), and I'd avoid it — the whole pitch is that this isn't generic software.
+
+Also: this is a *user-facing* name decision only. `tenant_id` stays `tenant_id` in the schema. Renaming the column to match the label is how you buy a migration for a word.
+
+## What 1stcontact provides
+
+I think the model you just landed on hands you the description, because the tenant's contents *are* the product:
+
+> **1stcontact is the front office for a small business.**
+
+Front office is the customer-facing half — reception, booking, invoicing, keeping in touch, and the shopfront itself. Back office is accounting, payroll, inventory, tax. Explicitly not you. A positioning line has to draw the boundary as well as claim the territory, and this one does both in five words.
+
+It also explains the bundle as something other than a feature list. Right now "website + CRM + payments + scheduling + marketing + monitoring" sounds like six products stapled together, which is why it's hard to say succinctly. But run it as a single narrative and it's one thing:
+
+> A stranger finds you *(website)*, gets in touch *(forms → CRM)*, books a time *(scheduling)*, pays you *(payments)*, and hears from you again *(marketing)* — and you get told the moment any of it stops working *(monitoring)*.
+
+That's the first contact and everything downstream of it, which is the name doing its job. The name isn't just "the first contact" — it's the promise that the product owns that moment and every one after.
+
+And it closes the naming loop: if the product is a front office, the container is a business, because a business is the thing that has one. The v2 multi-site case then reads naturally as *one front office, several doors*.
+
+Two threads left open if you want them: whether per-tenant is the pricing meter, and whether the Account surface is literally the same portal your customers get. Want me to scope any of this into CHAT-36, or keep going in conversation?
 
 <!-- xgd-chat-end -->
