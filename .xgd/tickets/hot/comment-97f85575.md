@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-166
 created_by: xgd
 created_at: '2026-09-01T00:19:24.380095+00:00'
-updated_at: '2026-09-02T22:29:09.679093+00:00'
+updated_at: '2026-09-02T22:30:55.244688+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,50 @@ Once you answer 1–3 I'll set `status=free_coding`, cut `free-REQ-166`, and rec
 <!-- xgd-chat role="user" ts="2026-09-02T22:29:09.006061+00:00" -->
 #### You
 I agree with B. can we talk about the user experience for a second. After this ticket is created if we capture a site does it appear in my library? What does it look like?
+
+<!-- xgd-turn id="ef95cb6f-e386-43a9-9b37-5886ce18ea96-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T22:30:54.999685+00:00" -->
+#### Claude
+I'll ground this in what's actually built rather than what's designed. Let me look.
+
+Good question to ask before cutting the branch, because the answer turns out to be *"yes, automatically"* — and that's what makes the gaps worth deciding now rather than discovering later.
+
+## It already appears — REQ-161 built the shelf
+
+Two things are already in place, both anticipating this ticket:
+
+- `material.ts:702` — `MATERIAL_TYPES = ['material', 'reference']`, and `listMaterial` queries both types into one list.
+- `builder/library.js` — `KINDS = ['image', 'document', 'font', 'capture']` in the kind filter.
+
+So the moment REQ-166 writes a `reference` ticket, it shows up in the Library with no UI work at all. Nothing to build for it to be *visible*.
+
+## What it looks like today, unchanged
+
+**The row**: title, plus a `capture` kind badge. No role badge (roles are `site` / `reference` — both about a *dropped* file; a capture wasn't dropped). No "On this site" badge. That all reads correctly.
+
+**The detail pane** is where it comes apart, because every part of it assumes *one ticket = one file* and a bundle is 11–99:
+
+| Element | What happens |
+|---|---|
+| **Preview** | `kind !== 'image'`, and `readerKind()` on a resolved `application/octet-stream` returns null → **nothing renders**. The screenshot — the one thing that makes a captured site instantly recognisable — is sitting right there as a member and isn't shown. |
+| **"File"** | `rowOf` falls back `filename ?? ticket.title`, so the File field shows the ticket title. Reads like a bug. |
+| **Download link** | `materialFile` takes `attachments[0]` — an arbitrary member. The link labelled *gigabytealchemy.ai* serves whichever member sorts first, probably `assets/hero.jpg`. That's a wrong answer, not a cosmetic one. |
+| **Rights block** | Genuinely good already: `source_url` shows the captured address, and a competitor capture reads **"Can appear on the site: No"** — exactly the reassurance §10.1's inference is for. |
+| **Description** | The AI's prose about the site, rendered as markdown, editable by the client. The good bit, and the bit the KB indexes. |
+
+## Four decisions this raises
+
+**1. The preview is the screenshot.** Highest-value change and it costs nothing extra: the member-addressed file route (`?uid=X&member=screenshot.full.png`) is already required by the ticket's *"read a single member without materialising the bundle"* criterion. The UX need and the architectural criterion are the same route.
+
+**2. What replaces "File" and the download link.** My recommendation: drop the filename field, point the download at the screenshot, and add a plain *"99 files captured"* line. The client's model of a capture is *"a picture of that site and what you thought of it"* — members are re-extraction machinery, not something to browse. A 99-row member list would be honest and useless.
+
+**3. The title should be AI-written, like the body.** DOC-38 §7 is explicit that project-KB entries have an AI-written title over an AI-written body — *"a `material` ticket is not called `Notes.pdf`"*. So *"Gigabyte Alchemy — dark, gold-accented consultancy site"* rather than the bare host, with the host visible in `source_url` beneath it.
+
+**4. Recapture behaviour is a direct consequence of choosing (B).** One `reference` per URL means the row doesn't multiply — it updates in place and floats to the top of the list. But: **does a recapture overwrite a description the client corrected?** `reviseDescription` sets `description_model: 'client'` precisely so a re-describe pass can't clobber their words. If the site genuinely changed, their description is stale too — but silently replacing what they wrote is the worse failure. I'd re-describe only when `description_model !== 'client'`, and leave a visible marker otherwise. Your call.
+
+One thing I'd flag but not change: a competitor capture sitting in *"Your material"* alongside the client's own photos is slightly odd phrasing, but I think showing it is right — it's transparent about what we hold on their behalf, and the rights block says plainly that it can't reach their site.
+
+Say which way you want 1–4 and I'll record the reasoning in the ticket body, set `status=free_coding`, and cut the branch.
 
 <!-- xgd-chat-end -->
