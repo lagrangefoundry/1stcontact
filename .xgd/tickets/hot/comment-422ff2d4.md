@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T21:51:50.185026+00:00'
+updated_at: '2026-09-02T23:06:46.631980+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -353,5 +353,11 @@ REQ-157 is free-coded and landed on `xgd-working` at version 0.2.44.
 I updated three suites belonging to other tickets where this change made their assertions observe something new — REQ-126's and AC1071's author-time validation now validate both declarations (the instance config names both), and AC1058's offered-tool set is the union of the two declarations. Each is still derived from declarations rather than written out, so the property those assertions exist to hold is intact. Worth a look when you review, since they're other tickets' evidence.
 
 The ticket is parked at `free_coded`; promoting to `ready_to_reconcile` is your call.
+
+<!-- xgd-turn id="378bf5b2-5217-405a-a3f2-f8dd7466d8f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:06:46.023160+00:00" -->
+#### You
+Can you double check that the ticket corresponds to what was impletmneted - a chat agent updated the ticket during our conversation I do not know wether you niticed the change
 
 <!-- xgd-chat-end -->
