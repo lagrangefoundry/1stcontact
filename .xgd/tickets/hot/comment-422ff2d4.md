@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T20:23:47.399434+00:00'
+updated_at: '2026-09-02T20:27:14.932525+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,65 @@ Nothing changed on disk. Want me to record these findings on REQ-157 (a comment,
 <!-- xgd-chat role="user" ts="2026-09-02T20:23:47.343448+00:00" -->
 #### You
 Are we ready to code this?
+
+<!-- xgd-turn id="e0158f95-2aa6-4067-9b2b-9a5eb14e3ce6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:27:14.896033+00:00" -->
+#### Claude
+## Nearly — three decisions and one body fix stand between here and coding
+
+I re-checked everything against the tree as it stands today (2026-09-02). **The blocking finding from August is gone**: all four dependencies have landed.
+
+| | Aug 23 | Today |
+|---|---|---|
+| REQ-149 revisions | `free_coded` | `free_and_reconciled` |
+| REQ-154 browser | **draft** | `free_and_reconciled` |
+| REQ-155 ReferenceStore | **draft** | `ready_to_reconcile` |
+| REQ-156 sharp | **draft** | `ready_to_reconcile` |
+
+And they landed *well* — better than the ticket assumes in three places:
+
+- `apps/control-app/src/shot.ts` already gives the Worker `shotUrl(url, viewport)` and `shotPreview({slug, channel, path, viewport})`. Its own header says *"No route answers this yet, on purpose… it belongs to REQ-157."* Four of the five picture sources are already reachable.
+- `capture/capture.ts` now takes an injected `ReferenceStore` + `driverFactory` and has **no `node:fs` in its import graph**. Capture runs in workerd.
+- `perceptual-core.ts` was split out from `perceptual.ts` precisely so the maths imports cleanly into an isolate; `png.ts` is a pure-JS codec. Diff and gate are portable — only their CLI wrappers still touch `node:fs`.
+
+So the "grant it and the Toolbox constructor throws at boot" risk is retired.
+
+---
+
+### What still has to be decided before code
+
+**1. How the image reaches the model — the ticket's own "settle this first", and it is now a *choice*, not a wait.**
+
+Upstream **REQ-111 landed** (`cb17ec80d7`) — but it widened the **input** side: `promptStream`/`prompt` accept `{type:'image', mediaType, data}` blocks, with a `vision` capability and a shared refusal gate. It did **not** touch the tool-result path. I verified: `toolbox/declaration.js::parseReturns` still accepts only `{shape, provenance, max_bytes}`; `provenance.serialize/mark/normalise` are still string-only; `runtime.run` still returns `payload` and records `payload.length`.
+
+That leaves two routes:
+
+- **(a) Upstream again** — grow the toolbox result path a block form. Correct, but it's a second round-trip, and it drags in the two problems I flagged in August that REQ-111 sidestepped: `OpenAIWire.record` pushes `{role:'tool', content}`, which cannot carry images at all, and `mark()` has no rule for wrapping a non-text block in the untrusted markers.
+- **(b) Host-side injection, available *today*** — `screenshot` returns a handle; the host attaches the bytes as a `{type:'image'}` block via REQ-111's widened surface. No upstream work, works on OpenAI (REQ-111 already translates to `image_url` on a user message), and provenance is labellable separately from the block.
+
+The cost of (b) is real and should be stated rather than discovered: **the image lands on the next turn, not inside the same tool-loop iteration.** "Shoot → look → adjust" then costs a turn per look instead of an iteration. Whether that's acceptable is the decision.
+
+AC3 as written — *"a UAT asserts an image content block reaches the backend; asserting that a key or a URL was returned does not satisfy this"* — is satisfied by **either** route, which I don't think was intended. It needs to say which.
+
+**2. Published revisions are still not shootable.** `PreviewChannel = 'draft' | 'edit'` — no published member, and nothing renders a *named* revision to a preview URL. Four of the five rows in the picture-source table work; that one is new plumbing. Either add a published channel to `PreviewRenderer` or drop the row.
+
+**3. SSRF has a home now, but nothing in it.** `shotPreview` proves the driver can intercept per-request (`driverFactory({ origin: resolver })`), which is exactly where the guard must sit — a pre-flight check on the typed URL cannot see a 302 to `169.254.169.254`. So AC6 is buildable here rather than deferred to REQ-154, but it is entirely greenfield: the only URL guard in the repo is `assertSafeUrl`, a scheme allowlist for markup.
+
+**Body fix:** AC5 says *"which of the three causes it names"*. `gate.ts` names **five** verdicts — `pass`, `structural-failure`, `capture-incomplete`, `reproduction-wrong`, `unexplained-disagreement`.
+
+---
+
+### Two small things that are just work, not decisions
+
+- `createL1Toolbox` still takes `knowledgeSurface?: {surface, granted} | null` as a **named slot** (`toolbox-core.ts:502`), not a list. AC1's "registered alongside" needs it generalized to `extraSurfaces[]`. Ten lines.
+- The fidelity grant is a *local* surface, so it belongs in `instances.json` under `caretaker` — not travelling with the surface the way the knowledge grant does. Worth a comment so nobody later "unifies" them.
+- Still unaddressed and still real: `router.ts:658` frames every stream event as `data: ${JSON.stringify(event)}` and `toolEvent` carries `meta.output` verbatim. A desktop screenshot is 0.5–3 MB before base64, per call, per loop iteration. Route (b) above partly dodges this; either way, decide whether `meta.output` is stripped for media-bearing results and whether the operator's copy goes via `cardEvent` instead.
+
+---
+
+**My recommendation:** take route (b), pin AC3 to it explicitly, drop the published-revision row (or split it out), fix AC5's verdict list, and code it in this session. That makes REQ-157 self-contained — no upstream dependency — at the price of a stated turn-boundary in the look-and-adjust loop.
+
+Want me to write those decisions into the ticket body and start?
 
 <!-- xgd-chat-end -->
