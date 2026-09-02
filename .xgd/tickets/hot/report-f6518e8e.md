@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: the product ticket store (REQ-162, free-coded commits)'
 created_by: xgd
 created_at: '2026-09-01T23:51:59.267222+00:00'
-updated_at: '2026-09-02T00:32:29.422618+00:00'
+updated_at: '2026-09-02T00:47:12.726717+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -155,7 +155,7 @@ fields:
       upgrade rather than feature because the behaviour is already documented and
       merely generalised; the BLOBS bucket''s own claims live in item 2, on the store
       that owns it.'
-    story_uid: null
+    story_uid: story-fde7370b
     target_story_ids:
     - story-fde7370b
     intent_delta_summary: 'Generalise AC-1398 from a single-bucket claim to a per-binding
