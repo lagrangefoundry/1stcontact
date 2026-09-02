@@ -25,7 +25,7 @@ import {
   STORAGE_QUESTIONS,
   askStorageQuestions,
 } from './support/storage-questions'
-import { missingFromEnv, readWranglerConfig } from './support/wrangler-toml'
+import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
 
 /**
  * Reconciliation UATs for story-fde7370b — "Cloudflare Site Store: Definitions
@@ -39,7 +39,8 @@ import { missingFromEnv, readWranglerConfig } from './support/wrangler-toml'
  *   AC-1385  one body of storage questions, answered identically by every store
  *   AC-1391  the filesystem store's stated NON-guarantee for a conditional write
  *   AC-1397  one extension, one content type, wherever an asset is served
- *   AC-1398  both deployment halves, and the schema applied before upload
+ *   AC-1398  each declared binding paired across both deployment halves, and the
+ *            schema applied before upload
  *
  * The other ten criteria are claims about the cloud store, which exists only
  * inside workerd against real D1 and R2 bindings. They live in the sibling
@@ -55,6 +56,103 @@ const readRepo = (rel: string): string => readFileSync(path.join(REPO, rel), 'ut
 const WORKERS_SUITE = 'tests/reconciliation-cloudflare-site-store.workers.test.ts'
 
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"></svg>'
+
+// ── AC-1398: reading a wrangler.toml one HALF at a time ──────────────────────
+//
+// The criterion pairs the two halves BY BINDING NAME. A count across the whole
+// file — "there are two bucket names and they are identical" — states the same
+// thing only while the application declares a single bucket, and becomes wrong
+// rather than merely imprecise the moment a second, correctly declared binding
+// is added. So nothing below counts anything: every reading is `binding -> the
+// target it names`, taken from the tables one half owns and no others.
+
+/** Which half of a `wrangler.toml` a declaration belongs to. */
+type Half = 'local' | 'deployed'
+
+/** The table-path prefix `wrangler deploy --env production` reads, and only that. */
+const DEPLOYED_PREFIX = 'env.production.'
+
+const inHalf = (table: string, half: Half): boolean =>
+  half === 'deployed' ? table.startsWith(DEPLOYED_PREFIX) : table !== '' && !table.startsWith('env.')
+
+interface TomlBlock {
+  /** Dotted table path, e.g. `r2_buckets` or `env.production.r2_buckets`. */
+  table: string
+  keys: Map<string, string>
+  /** Line index of the header, and of the first line after the block. */
+  start: number
+  end: number
+}
+
+/** Strip a trailing comment, so prose about a bucket is never read as a declaration. */
+const bare = (line: string): string => line.replace(/(^|\s)#.*$/, '').trim()
+
+/**
+ * The file as its tables, in order, each carrying the lines it spans — enough of
+ * a TOML reader to answer which table declares which binding, following the
+ * reader `tests/support/wrangler-toml.ts` already establishes for the same file.
+ * The line span is what lets the mutation below re-point exactly one declaration.
+ */
+function tomlBlocks(source: string): TomlBlock[] {
+  const lines = source.split('\n')
+  const out: TomlBlock[] = [{ table: '', keys: new Map(), start: 0, end: lines.length }]
+  lines.forEach((raw, index) => {
+    const line = bare(raw)
+    if (line === '') return
+    const header = /^\[\[?([^\]]+)\]\]?$/.exec(line)
+    if (header) {
+      out[out.length - 1].end = index
+      out.push({ table: header[1].trim(), keys: new Map(), start: index, end: lines.length })
+      return
+    }
+    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*"([^"]*)"$/.exec(line)
+    if (assignment) out[out.length - 1].keys.set(assignment[1], assignment[2])
+  })
+  return out
+}
+
+/**
+ * `binding name -> the target that binding names`, for ONE half.
+ *
+ * A binding is identified STRUCTURALLY — any table assigning `binding` — so the
+ * pairing covers however many bindings the configuration declares, including a
+ * kind nobody remembered to add to a list. The target is the identifying keys
+ * that table carries (`database_name`, `database_id`, `bucket_name`); a binding
+ * that names no target pairs on its presence alone, which is all there is to say
+ * about it.
+ */
+function bindingTargets(source: string, half: Half): Map<string, Record<string, string>> {
+  const out = new Map<string, Record<string, string>>()
+  for (const block of tomlBlocks(source)) {
+    if (!inHalf(block.table, half)) continue
+    const name = block.keys.get('binding')
+    if (name === undefined) continue
+    const target: Record<string, string> = {}
+    for (const [key, value] of block.keys) if (/_(name|id)$/.test(key)) target[key] = value
+    out.set(name, target)
+  }
+  return out
+}
+
+/** The file with one half's declaration of `binding` re-pointed at another target. */
+function repointBinding(
+  source: string,
+  half: Half,
+  binding: string,
+  key: string,
+  to: string,
+): string {
+  const lines = source.split('\n')
+  const block = tomlBlocks(source).find(
+    (b) => inHalf(b.table, half) && b.keys.get('binding') === binding && b.keys.has(key),
+  )
+  expect(block, `the ${half} half declares ${binding}.${key}`).toBeDefined()
+  const pattern = new RegExp(`^\\s*${key}\\s*=`)
+  const patched = lines
+    .slice(block!.start, block!.end)
+    .map((line) => (pattern.test(line) ? `${key} = "${to}"` : line))
+  return [...lines.slice(0, block!.start), ...patched, ...lines.slice(block!.end)].join('\n')
+}
 
 /** A minimal L1 page, so the draft assembles and can be rendered. */
 function pageWithPaletteRef(): Record<string, unknown> {
@@ -302,7 +400,7 @@ describe('story-fde7370b — the cloud site store, from the host runtime', () =>
 
   // ── AC-1398 ────────────────────────────────────────────────────────────────
 
-  it('test_UAT_AC1398_both_deployment_halves_declare_the_store_and_the_schema_precedes_upload', () => {
+  it('test_UAT_AC1398_each_declared_binding_names_one_target_across_both_halves_and_the_schema_precedes_upload', () => {
     const appDir = path.join(REPO, 'apps', 'control-app')
     const wranglerFile = path.join(appDir, 'wrangler.toml')
     const toml = readFileSync(wranglerFile, 'utf8')
@@ -319,17 +417,60 @@ describe('story-fde7370b — the cloud site store, from the host runtime', () =>
     expect(config.envs.production.bindings).toContain('r2_buckets:SITES')
     expect(missingFromEnv(config, 'production').bindings).toEqual([])
 
-    // …and the two halves name the SAME database and the SAME bucket. Not a
-    // duplicate of the two checks above: both would pass with production
-    // pointing at a different database.
-    const ids = [...toml.matchAll(/database_id\s*=\s*"([0-9a-f-]{36})"/g)].map((m) => m[1])
-    expect(ids).toHaveLength(2)
-    expect(new Set(ids).size).toBe(1)
-    const databases = [...toml.matchAll(/database_name\s*=\s*"([^"]+)"/g)].map((m) => m[1])
-    expect(databases).toEqual(['1stcontact', '1stcontact'])
-    const buckets = [...toml.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)].map((m) => m[1])
-    expect(buckets).toHaveLength(2)
-    expect(new Set(buckets).size).toBe(1)
+    // …and EACH DECLARED BINDING names the same target in both halves. Not a
+    // duplicate of the checks above: both would pass with production pointing at
+    // a different database.
+    //
+    // PAIRED BY BINDING NAME, WITH NOTHING SAID ABOUT HOW MANY THERE ARE. Every
+    // binding either half declares is declared by the other, and the two
+    // declarations of that name agree on the target they point at.
+    const local = bindingTargets(toml, 'local')
+    const deployed = bindingTargets(toml, 'deployed')
+    expect([...local.keys()].sort()).toEqual([...deployed.keys()].sort())
+    for (const [binding, target] of local) {
+      expect(deployed.get(binding), binding).toEqual(target)
+    }
+
+    // Not vacuous: the two bindings this store actually depends on were really
+    // read, and they carry the identity a deployment turns on — a database is
+    // the same database by its id, not only by a name that could be reused.
+    expect(local.get('DB')).toEqual({
+      database_name: '1stcontact',
+      database_id: '0434cd88-07e0-4eb2-a7d8-7370c333534c',
+    })
+    expect(local.get('SITES')).toEqual({ bucket_name: '1stcontact-sites' })
+
+    // WHY THIS IS PAIRED AND NOT COUNTED, stated as an observation rather than
+    // as a comment. The counted form — "there are N bucket names across the file
+    // and they are all the same" — says the same thing only while ONE bucket is
+    // declared. This configuration declares more than one object store, each
+    // correctly repeated across both halves, so the count and the
+    // one-distinct-value form now FAIL on a configuration that is right.
+    const bucketBindings = [...local]
+      .filter(([, target]) => 'bucket_name' in target)
+      .map(([binding]) => binding)
+    expect(bucketBindings.length).toBeGreaterThan(1)
+    const counted = [...toml.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)].map((m) => m[1])
+    expect(new Set(counted).size).toBeGreaterThan(1)
+    // …while the per-binding claim holds over exactly those same buckets.
+    for (const binding of bucketBindings) {
+      expect(deployed.get(binding), binding).toEqual(local.get(binding))
+    }
+
+    // And the pairing is a real reading, not one satisfied by any file: a
+    // deployed half naming a DIFFERENT target for a binding still declares that
+    // binding on both halves — it passes every check above it — and fails here.
+    for (const [binding, key] of [
+      ['DB', 'database_id'],
+      ['SITES', 'bucket_name'],
+      ['BLOBS', 'bucket_name'],
+    ] as const) {
+      const drifted = repointBinding(toml, 'deployed', binding, key, 'somewhere-else')
+      expect(missingFromEnv(parseWranglerConfig(drifted), 'production').bindings).toEqual([])
+      expect(bindingTargets(drifted, 'deployed').get(binding), binding).not.toEqual(
+        bindingTargets(drifted, 'local').get(binding),
+      )
+    }
 
     // The declaration states where the schema lives, and that location holds it.
     // A correct path to an empty directory applies zero migrations and reports
