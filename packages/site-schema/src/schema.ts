@@ -989,7 +989,21 @@ export const siteSchema = z
     palette: l1PaletteSchema.optional(),
     nav: navConfigSchema,
     pages: z.array(pageSchema),
-    assets: z.array(assetRefSchema).optional(),
+    /*
+     * THERE IS NO SITE-LEVEL ASSET REGISTRY (BUG-44). `assets` used to sit here:
+     * an optional array of {@link assetRefSchema}, meant to carry per-asset `alt`
+     * and `focalPoint`. Nothing ever read either. Alt text is the picture
+     * element's own required field, `focalPoint` acquired no consumer at all, and
+     * publishing, rendering, importing and the image picker all work from the
+     * bytes the store holds. Its one behavioural effect was that `get_asset`
+     * could not resolve a file the store had and the listing showed, which taught
+     * an assistant that an unregistered asset may not be used.
+     *
+     * A site's assets are the bytes under its draft's `assets/`. Nothing declares
+     * them. This object is not `.strict()`, so a definition still carrying the
+     * old key validates and the key is ignored rather than refused — which is
+     * what lets sites written before this change load untouched.
+     */
   })
   .superRefine((site, ctx) => {
     const seen = new Set<string>()

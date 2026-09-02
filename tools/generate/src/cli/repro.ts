@@ -162,7 +162,6 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
     config: { businessName: slug, tagline: '' },
     theme: defaultTokens,
     nav: { pattern: 'top-tabs' as const, entries: [] },
-    assets: [],
   }
   // REQ-93 — one behavior-module instance per recovered form, each bound by name
   // to the `slot` the fold emitted for it. The L1 document stays the single page

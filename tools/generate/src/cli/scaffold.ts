@@ -35,7 +35,6 @@ export function starterSiteJson(slug: string): Record<string, unknown> {
     },
     theme: defaultTokens,
     nav: { pattern: 'top-tabs', entries: [] },
-    assets: [],
   }
 }
 

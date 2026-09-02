@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 5,
+  "surface_version": 6,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -20,7 +20,7 @@
     },
     "asset_id": {
       "base": "string",
-      "description": "The id of an image or font in the site's list — the first column of `list_assets`. An asset's `src` handle names it too. Whether or not it is `registered` makes no difference to naming it or using it."
+      "description": "The id of an image or font in the site's list — the first column of `list_assets`. An asset's `src` handle names it too."
     },
     "behavior_id": {
       "base": "string",
@@ -61,7 +61,7 @@
       "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
     },
     "image": {
-      "asset": "the drawing as the site now holds it — the name to reference it by, and its description",
+      "asset": "the drawing as the site now holds it — the name to reference it by",
       "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
     },
     "element": {
@@ -69,11 +69,10 @@
       "node": "the element itself, with everything inside it, exactly as stored — and therefore exactly what a replacement for it looks like"
     },
     "asset_list": {
-      "assets": "every image and font the site can use: `id`, `src` (the handle to write into a picture element), `kind`, and `registered`",
-      "registered": "whether the site's own list carries an entry describing this file. It is provenance and NOT permission — an unregistered asset is an ordinary asset that nobody has written a description for, and you may place it on a page exactly like any other"
+      "assets": "every image and font the site can use: `id`, `src` (the handle to write into a picture element), and `kind`"
     },
     "asset": {
-      "asset": "one asset — its id, its `src` handle, its alt text, its `kind`, and whether it is `registered`",
+      "asset": "one asset — its id, its `src` handle and its `kind`",
       "now": "the site's change count after a write that added it; absent when you are only reading"
     },
     "config_value": {
@@ -229,13 +228,13 @@
       "errors": [
         "NOT_FOUND"
       ],
-      "description": "This is the whole set a page may reference. Some carry `registered: false`, meaning nobody has written a description for the file; they are usable exactly like the rest. An asset is placed by writing its `src` into a picture element — there is no separate step that makes one eligible first."
+      "description": "This is the whole set a page may reference, and every one of them may be referenced. An asset is placed by writing its `src` into a picture element — there is no separate step that makes one eligible first."
     },
     {
       "op": "get_asset",
       "tool": "get_asset",
       "effect": "read",
-      "summary": "Read one image or font in the site: its file, its alt text, and where it came from.",
+      "summary": "Read one image or font in the site: its file and what it can be used as.",
       "params": {
         "asset": {
           "type": "asset_id",
@@ -249,7 +248,7 @@
       "errors": [
         "NOT_FOUND"
       ],
-      "description": "Answers for anything `list_assets` showed, registered or not. Name it by its id or by its `src` handle — a handle is what you find on a page, so a picture element you have just read can be asked about directly."
+      "description": "Answers for anything `list_assets` showed. Name it by its id or by its `src` handle — a handle is what you find on a page, so a picture element you have just read can be asked about directly.\n\nIt does not carry alt text. What a picture shows is written on the picture element that places it, not on the file: two pages may use one image and need to describe it differently."
     },
     {
       "op": "get_config",
@@ -669,7 +668,7 @@
       "op": "add_asset",
       "tool": "add_asset",
       "effect": "write",
-      "summary": "Register a new image or font from a file on the machine running the builder.",
+      "summary": "Add a new image or font from a file on the machine running the builder.",
       "description": "Takes a path on the operator's own machine, so it is not a way to accept a file from a conversation. When a CLIENT wants a file on the site they drop it on the conversation and it arrives by itself — this is for whoever is running the builder, working from their own disk.",
       "params": {
         "file": {
@@ -679,7 +678,7 @@
         },
         "as": {
           "type": "string",
-          "description": "The name to register it under. Defaults to the file's own name."
+          "description": "The name to store it under. Defaults to the file's own name."
         }
       },
       "returns": {
@@ -696,7 +695,7 @@
       "tool": "write_image",
       "effect": "write",
       "summary": "Draw an image yourself and put it in the site.",
-      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site’s list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site’s own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar and put that on the page. A drawing offered in place of their own file is not a smaller version of what they asked for; it is a different thing wearing its name, and they will find out by looking at their site. Draw when a drawing is what was wanted.\n\nThis is not a way to make a photograph.",
+      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site’s list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site’s own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar and put that on the page. A drawing offered in place of their own file is not a smaller version of what they asked for; it is a different thing wearing its name, and they will find out by looking at their site. Draw when a drawing is what was wanted.\n\n**Say what it shows on the element that places it.** A drawing carries no description of its own; the picture element you put it in has a field for what someone who cannot see it needs told, and that is where it goes.\n\nThis is not a way to make a photograph.",
       "params": {
         "name": {
           "type": "image_name",
@@ -706,10 +705,6 @@
           "type": "string",
           "required": true,
           "description": "The drawing itself, as a complete `<svg>` document."
-        },
-        "alt": {
-          "type": "string",
-          "description": "What the drawing shows, for someone who cannot see it."
         },
         "replace": {
           "type": "boolean",
@@ -729,7 +724,7 @@
       "op": "remove_asset",
       "tool": "remove_asset",
       "effect": "write",
-      "summary": "Remove a registered image or font from the site.",
+      "summary": "Remove an image or font from the site.",
       "params": {
         "asset": {
           "type": "asset_id",
@@ -960,7 +955,7 @@
     },
     {
       "name": "Fetching a picture, or any file, yourself",
-      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Put it on the site”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph, a logo or a font, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. You can also DRAW an image — see `write_image` — but read what that says about when not to."
+      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Put it on the site”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph, a logo or a font, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. You can also DRAW an image — see `write_image` — but read what that says about when not to. A file that arrives this way brings a written description of what it shows, held with the material it came from rather than on the file itself — so when you place a picture your client sent, read that description and write it onto the element as what the picture shows."
     },
     {
       "name": "Making a new kind of component",
