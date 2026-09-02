@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-02T22:44:19.380866+00:00'
+updated_at: '2026-09-02T23:23:22.101927+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,13 @@ The corpus check alone would pass a schema key that no reproduced page happens t
 **D. Is `resources` in scope for this ticket?** It's a document key, so mechanically yes. But making it writable without also closing the silent-fallback hole (§3) hands the consultant a way to half-bind a font. The fallback check could be a small addition to `validate.ts` here, or its own ticket.
 
 No code changed. Tell me which way on A–D and I'll populate the ticket body accordingly before cutting a branch.
+
+<!-- xgd-turn id="a0c53fe1-6388-4ea1-939a-bbdb50bbe730-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:23:22.044541+00:00" -->
+#### You
+The consultant needs access to all the capabilities you are discussing - in fact we will be expanding on the set. So yes to everything.
+
+In general L1 needs to be self-validating - if the AI propose a change that will break things we should not allow the change with a clear and helpful warning
 
 <!-- xgd-chat-end -->
