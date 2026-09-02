@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T20:57:22.446778+00:00'
+updated_at: '2026-09-02T20:59:16.655362+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,45 @@ I would like to change the wording:
 "Used on this site" -> "Live on the site" <-- actually I want to check the semantics here does this mean (1) "its currently on the published site" or (2) "its in a version of the site" or (3) its in a version of the site including draft?
 
 This needs to change on the upload overlay and the pills and the field. Can you create a ticket for these changes please?
+
+<!-- xgd-turn id="3adbc7f3-a062-4d6e-93da-c6fc8f102551-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:59:16.612336+00:00" -->
+#### Claude
+Before the ticket — the semantics question has a definite answer, and it rules out your proposed wording.
+
+**REQ-176** filed (draft, medium, 3pt) — covers all three, plus one thing I've flagged as **do not implement as written**.
+
+## The semantics answer: it's (3), and "Live on the site" would be false
+
+`placeOnSite` → `promoteToSiteAsset` → `editAssetAdd`, which writes to **`draft/assets`**. Its own collision message says so: `Asset file '<name>' already exists in draft/assets.` `RenderChannel` is `draft | published`, and publishing is a separate act.
+
+So of your three readings:
+
+1. **currently on the published site** — no
+2. **in a version of the site** — no, not until published
+3. **in the draft, including unpublished work** — **yes, this is it**
+
+`Live on the site` asserts (1). A client who drops a logo, reads "Live on the site" and never publishes has been told their logo is on their website when it isn't — and given this pill is the one that carries the accent colour precisely because it's *"the answer to a question the client asked"*, it'd be a confident wrong answer.
+
+My suggestion in the ticket: **`Added to the site`** for the pill, `Added to` for the field label. True of a draft, still says something real happened. But I marked it **confirm before implementing** — if what you actually want is for promotion to be publish-visible, that's a different and much bigger ticket, not a wording change.
+
+## The rest
+
+**Icon** — one correction to your framing: it's not just docs and images. `fields.kind` is `document | image | font | capture`, `describeFont` parses SFNT name tables, and the *"Put it on the site"* hint literally reads *"Photos, logos, **fonts**."* So three icons plus a fallback, not two.
+
+**One line** — `.builder-library__row` is `flex-direction: column` today, which is the two lines. Separately, the title is oversized because `renderRow` builds its own span with no `font-size`, so it inherits the shell body size while the component's own `.list-detail-row-title` is 13px. Fixed in `builder.css`, not in `webui-list-detail` — other hosts share that.
+
+**Wording** — the three unambiguous ones are cheaper than expected. `library.js` derives the role pill from the overlay's constant:
+
+```js
+const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
+```
+
+So editing `UPLOAD_AREAS` in `config.js` changes the overlay *and* the pill. The `id` values (`site`, `reference`) are the wire vocabulary the route validates — labels change, ids don't.
+
+**Ordering** — I've said BUG-47 should land first. It's the same badge, currently firing off `site_slug` (upload context, not placement), which is why it's on all three of your files. Renaming a badge that's showing on the wrong rows just makes it wrong in new words, and BUG-47 may replace the field it reads. The other five changes have no dependency.
+
+Tickets so far this session: **REQ-173** (digest/comment split), **BUG-47** (the pill), **REQ-176** (this). All committed locally — the `xgd` push is still failing on proxy auth, so none have reached the remote.
 
 <!-- xgd-chat-end -->
