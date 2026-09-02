@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T21:21:15.465907+00:00'
+updated_at: '2026-09-02T21:22:30.392124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -182,5 +182,56 @@ Tickets so far this session: **REQ-173** (digest/comment split), **BUG-47** (the
 <!-- xgd-chat role="user" ts="2026-09-02T21:21:15.346530+00:00" -->
 #### You
 My suggestion in the ticket: `Added to the site` for the pill <-- ok but I would ideally like a more succinct way to capture this, a second icon, a way of displaying things. I'm not sure what do you think?
+
+<!-- xgd-turn id="7febdb28-eb09-4a43-81cb-02d589e1b913-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T21:22:30.353471+00:00" -->
+#### Claude
+Genuinely open question, and I think there's a better answer than either a pill or a second icon: **there shouldn't be two indicators at all.** The role pill and the placement pill are one fact.
+
+## The two pills are correlated by construction
+
+`classify` writes `republishable: role !== 'reference'`, and the fetch path hardcodes `republishable: false`. `promoteToSiteAsset` refuses anything not republishable, and `placeOnSite` independently returns early unless `role === 'site'`. Double-gated. So today:
+
+- `role: reference` → **can never be on a site**
+- `role: site` → on this site, or not
+
+Which means when both pills show, you're reading *"Site asset"* next to *"Added to the site"* — the second one mostly restating the first. And when only the role pill shows, you can't tell whether that's *"site asset, not placed here"* or *"you missed the accent colour."*
+
+## Recommendation: one pill, three states
+
+| State | Pill |
+|---|---|
+| `reference` | `Background` |
+| `site`, placed on the site you're viewing | `On this site` *(accent)* |
+| `site`, not placed here | `Site asset` |
+
+One element instead of two, ≤3 words, and **strictly more informative than today** — the third state is currently invisible, because "site asset that isn't here" and "site asset that is here" render identically to anyone not scanning for accent colour.
+
+Row becomes: `[icon] Title · [one pill]`.
+
+## Why not a second icon
+
+A type icon works because a document glyph means *document* — nothing to learn. There's no conventional glyph for *"this file is in your site's draft assets."* You'd be teaching a private symbol, and a client would have to hover it to find out. Two words are read; an invented glyph is decoded. If the goal is succinctness, a mark that needs a legend isn't succinct, it's just small.
+
+## Two other channels, and why they're closed
+
+**Colour or treatment on the type icon itself** — accent = placed, muted = not. Zero extra width, no new element. But colour alone fails WCAG 1.4.1, so it needs a shape difference too, and now you're drawing a composite glyph for each of four kinds × two states. More work than deleting a pill.
+
+**A left accent stripe on the row** — already taken. `list-detail.css` uses `border-left: 2px solid var(--listdetail-accent)` for the selected row, with a comment about compensating the padding. A second meaning on that border would collide with selection.
+
+## The one I'd take seriously as an alternative
+
+**Drop the placement badge from the row entirely.** The `hereOnly` filter already answers "what's on this site" exhaustively and exactly. If the row is meant to be scannable, the filter *is* the scan — and you'd be down to `[icon] Title · [Background|Site asset]`, which is as short as this can get.
+
+What it costs is the thing the CSS comment defends: the badge is *"the answer to a question the client asked by switching sites"* — visible without an extra click. I'd keep it, but if you want maximum succinctness that's the honest option, not a smaller glyph.
+
+## One caveat for whoever implements it
+
+Compute the pill from **actual placement**, not by inferring it from the role. The correlation is total today but `router.ts` explicitly anticipates it breaking — *"the two come apart the moment captures land (DOC-38 3a is reference material AND republishable)"*. A trichotomy derived from role would silently mislabel captures the day they arrive.
+
+---
+
+This is a refinement of REQ-176 §3 rather than new work, and it depends on BUG-47 settling what the underlying fact is. Say which way you want to go and I'll fold it in — I've left REQ-176 as-is for now rather than guessing.
 
 <!-- xgd-chat-end -->
