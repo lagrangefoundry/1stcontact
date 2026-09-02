@@ -6,9 +6,9 @@ title: 'Material Types: The Vocabulary Of What A Site Is Made From, With Rights 
   Provenance Stated Rather Than Inferred'
 created_by: xgd
 created_at: '2026-09-02T00:29:48.930229+00:00'
-updated_at: '2026-09-02T00:29:48.930229+00:00'
+updated_at: '2026-09-02T00:32:02.866259+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: request-13a5e206
@@ -97,12 +97,12 @@ conversations into this store.
 - **The conversation shapes are borrowed, not authored.** CAP-90 (AI Site Assistant) and CAP-91
   (Assistant Pane) own conversation behaviour and neither changes here. What this story claims is
   narrower: that the conversation shapes live in the same vocabulary as the material ones, and that
-  a session consequently persists as a ticket. Migrating conversations that exist elsewhere is
-  explicitly out of scope on the intent.
+  a session consequently persists as a ticket (AC-1499). Migrating conversations that exist elsewhere
+  is explicitly out of scope on the intent.
 - **No lifecycle vocabulary on the three material kinds, deliberately.** The rights and provenance
   specification names six fields and no lifecycle, and a status vocabulary invented here would be a
   lifecycle nothing implements and every later story would have to honour. The component already
-  ships the one lifecycle these need, and it is not a status.
+  ships the one lifecycle these need, and it is not a status. Stated as part of AC-1491.
 - **No contradiction between intent and code in this item.** The intent's two open questions —
   whether a reference stays its own kind, and whether a brief is a kind or a well-known record of
   another kind — are settled in the intent body itself, both in favour of a kind of its own, and the
@@ -113,25 +113,26 @@ conversations into this store.
 - **A material's record is valid before its text has been extracted** (decided at reconciliation,
   2026-09-01): the intent names the six rights and provenance fields but is silent on the body of a
   material or a reference. The landed code leaves it optional, because the record is created when the
-  file arrives and the extracted text is written afterwards. Formalized as AC covering the
-  extraction-pending state, because the alternative reading — a record invalid until extraction ran —
-  would make every ingestion a two-phase write and is not what the platform does.
+  file arrives and the extracted text is written afterwards. Formalized as AC-1497, because the
+  alternative reading — a record invalid until extraction ran — would make every ingestion a two-phase
+  write and is not what the platform does.
 - **A brief's body is required and must not be blank** (decided at reconciliation, 2026-09-01): the
   intent settles that a brief is its own kind carrying its site, and is silent on its body. The landed
-  code requires a non-empty one. Formalized because an empty brief is indistinguishable from an absent
-  one to everything that reads it, and unlike a material there is no later extraction that fills it in.
+  code requires a non-empty one. Formalized as the second half of AC-1496, because an empty brief is
+  indistinguishable from an absent one to everything that reads it, and unlike a material there is no
+  later extraction that fills it in.
 - **Material may name the site it belongs to, or belong to the account at large** (decided at
   reconciliation, 2026-09-01): the intent names a site only on the brief. The landed code also lets a
-  material or a reference name one, treating its absence as account-wide. Formalized because an account
-  may own several sites and material gathered for one is not automatically material for another; the
-  landed suite does not yet exercise this field on its own, so it is stated here as the property it
-  exists for.
+  material or a reference name one, treating its absence as account-wide. Formalized as AC-1498,
+  because an account may own several sites and material gathered for one is not automatically material
+  for another; the landed suite does not yet exercise this field on its own, so it is stated here as
+  the property it exists for.
 - **How a conversation persists** (decided at reconciliation, 2026-09-01): the intent asks only that
   the conversation shapes be merged into the same vocabulary. The landed code proves the consequence —
   a session is a record found by its session identifier, its transcript is a comment on it, and its body
-  is left for a summary. Formalized as its own criterion, because "merged into the pack" is a statement
-  about a file and the reason the merge was wanted is that sessions can be stored; without the
-  consequence asserted, the claim is unobservable.
+  is left for a summary. Formalized as AC-1499, because "merged into the pack" is a statement about a
+  file and the reason the merge was wanted is that sessions can be stored; without the consequence
+  asserted, the claim is unobservable.
 
 ## Dependencies
 
