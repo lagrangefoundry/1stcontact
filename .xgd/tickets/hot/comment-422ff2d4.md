@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T23:06:46.631980+00:00'
+updated_at: '2026-09-02T23:08:57.841434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -359,5 +359,62 @@ The ticket is parked at `free_coded`; promoting to `ready_to_reconcile` is your 
 <!-- xgd-chat role="user" ts="2026-09-02T23:06:46.023160+00:00" -->
 #### You
 Can you double check that the ticket corresponds to what was impletmneted - a chat agent updated the ticket during our conversation I do not know wether you niticed the change
+
+<!-- xgd-turn id="378bf5b2-5217-405a-a3f2-f8dd7466d8f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:08:57.778265+00:00" -->
+#### Claude
+I'll read the ticket as it stands now and compare it against what actually landed.
+
+Status has moved to `ready_to_reconcile` since I handed off. Let me read the full body and diff it against what landed.
+
+The body has my `## As built` section, but the top half may have been edited. Let me check the ticket file's history.
+
+Found it. A chat agent appended a section at 20:50:13 UTC — and my body rewrite 14 seconds later at 20:50:27 deleted it. Let me recover the full text.
+
+Now verifying the `## As built` claims against the actual commit.
+
+## Yes — a chat agent edited it, and my body rewrite deleted the edit
+
+The timeline from the ticket file's git history:
+
+| Time (UTC) | Commit | What |
+|---|---|---|
+| 20:50:13 | `e7b09994b6` | **A chat agent appended `## Field evidence: the scope of "cannot see" is wider than this ticket assumed`** — findings from CHAT-35 |
+| 20:50:27 | `8c444d581d` | **My scope update — wrote the body wholesale and removed that section** |
+| 21:49:44 | `b5dd1e5352` | My `## As built` section |
+| 22:27:31 | `d25cd43158` | Status → `ready_to_reconcile` (frontmatter only) |
+
+Fourteen seconds apart. I read the ticket before the agent's append landed and wrote back a full body, so the append was clobbered. That's my error against the "read the existing body first, merge around it" rule — the section is not in the ticket now.
+
+I've recovered it in full from `e7b09994b6`. It records the CHAT-35 session where the assistant placed a backdrop-composed hero as a standalone subject block, and stacks three failures: (1) no image reaches the assistant's context — *this ticket*; (2) `describe.ts`'s existing AI-written composition description isn't attached to the asset, so `get_asset` can't return it; (3) nothing prompts the backdrop-or-subject question. It also notes `describe.ts:107-118` names REQ-157 as one of two places a duplicate vision path gets deleted. Its closing "status note" is now stale (it says the ticket is `draft` and blocked on the dependency chain).
+
+## The `## As built` section is accurate
+
+I verified every claim against commit `11ca5fea9a`:
+
+- `fidelity-surface.json` — **6 operations, one `SeeSite` group, all `effect: read`** ✓
+- `picture` param type with a declared `keys` set; `resolvePicture` in `picture.ts` ✓
+- `PreviewRenderer` `rev-<id>` channel ✓
+- `createL1Toolbox` takes `extraSurfaces[]`; grant narrowed by `Object.entries(granted).filter(…composed.has…)` — removes keys only ✓
+- `gate-core.ts`, `responsive-table.ts`, `egress-guard.ts`, `downsampleRaster` in `perceptual-core.ts` ✓
+- `withoutImageData` strips SSE image bytes, and its comment states the durable-transcript gap it does *not* fix ✓
+- **27 UATs, covering AC1–AC8** ✓
+
+## Two discrepancies worth deciding
+
+**1. `caretaker` vs `consultant`.** AC7 and the "Grant and safety" section say *the caretaker*. `roles.ts:193` has `LEGACY_ROLE_NAMES = ['caretaker']`; the live role is `CONSULTANT_ROLE = 'consultant'`, and that's what `instances.json` grants. Same role, old name in the ticket — but a reconciler reading AC7 literally would look for a `caretaker` grant that doesn't exist.
+
+**2. The body contradicts itself about `createL1Toolbox`.** The original "A second surface" section asserts it *"already takes a **list** of surfaces (`host-core.ts:515`)"*. It didn't — it was a named `knowledgeSurface` slot, which is why generalising it was work. My Decisions §5 and As-built both say so. The stale claim is in the pre-existing text, not an agent edit.
+
+## What I'd like to do — but the ticket is at `ready_to_reconcile`
+
+The dispatcher can pick this up at any moment, and reconcile treats the body as authoritative, so I'm not editing it without your say-so. What I'd propose:
+
+- **Restore the CHAT-35 field-evidence section**, with its stale status note corrected to say the work landed. Its items (2) and (3) are explicitly *not* this ticket's scope, so it adds context without adding phantom ACs — but it does hand the reconciler real signal about `describe.ts`'s duplicate vision path.
+- **Fix "caretaker" → "consultant"** in AC7 and the grant section, so AC7 names something that exists.
+- **Fix the `createL1Toolbox` "already takes a list" claim** in the Why section.
+
+Say the word and I'll make those three edits. If you'd rather nothing touched the body now that it's promoted, the field-evidence text is safe in git at `e7b09994b6` and I can put it on a comment instead.
 
 <!-- xgd-chat-end -->
