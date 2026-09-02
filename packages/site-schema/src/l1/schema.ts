@@ -1354,3 +1354,22 @@ export const l1DocumentSchema = z
     root: l1NodeSchema,
   })
   .strict()
+
+/**
+ * Every key of the document that is not the element tree (REQ-175).
+ *
+ * DERIVED FROM THE SCHEMA, NEVER LISTED. This is the anchor of the parity
+ * guarantee: the control surface's document read projects exactly these keys,
+ * and the parity test asserts every one of them is reachable and writable. A
+ * sixth document key therefore appears here the moment it is added above, and
+ * fails the parity test the same day — which is the whole point. A hand-written
+ * copy of this list would go stale silently, and the symptom would be the one
+ * this ticket was filed over: a capability the reproduction path has and the
+ * consultant cannot reach, discovered a client session later.
+ *
+ * `root` is excluded because it is not unreachable — it IS the address `"0"`,
+ * and `set_l1` has always written it.
+ */
+export const L1_DOCUMENT_KEYS: readonly string[] = Object.keys(l1DocumentSchema.shape).filter(
+  (key) => key !== 'root',
+)

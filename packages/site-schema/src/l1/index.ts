@@ -27,8 +27,15 @@ export {
   renameL1PaletteRef,
 } from './palette'
 export type { L1Color, L1Palette, L1PaletteEntry, L1PaletteRef } from './palette'
-export { validateL1, checkPaletteRefs, isSafeUrl, L1_ENVELOPE } from './validate'
-export type { ValidateL1Options } from './validate'
+export {
+  validateL1,
+  checkPaletteRefs,
+  danglingAssetReferences,
+  danglingFontFamilies,
+  isSafeUrl,
+  L1_ENVELOPE,
+} from './validate'
+export type { L1DanglingReference, ValidateL1Options } from './validate'
 // REQ-93 — the slot inventory a page's behavior modules bind against.
 export { l1SlotNames, l1DocumentSlotNames, l1ControlNames } from './slots'
 // REQ-104 — the one place the renderer and the analytic evaluator agree on which

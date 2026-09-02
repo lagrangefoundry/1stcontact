@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-02T21:01:25.734124+00:00'
+updated_at: '2026-09-02T23:53:26.673865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -960,5 +960,13 @@ Worth fixing before implementation starts, since the UATs trace to this language
 - **"Authorisation is re-checked on resume"** describes `chat/<tenant>/<sessionId>.md`, which REQ-160 retired. Two of its three legs already hold (`admit` runs on every request including `/api/ai/prompt`; `slugForSession` resolves through the tenant-scoped store). What's actually missing is only the cached host in §3 — fix that and the requirement is met, and the session doesn't need to record its account because the transcript's location *is* the account.
 
 Want me to update the body with these five decisions and the two corrections?
+
+<!-- xgd-turn id="cdb5fdf9-d369-4565-8569-64367b39d0b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:53:25.381820+00:00" -->
+#### You
+See the "Site scope vs tenent scope" chat - the new model is Account has multiple businesses each business has one site (many sites in the future as an option) tenant == business. So in the short-medium term there is one site per tenant
+
+Can you update REQ-168 with your answers and corrections please
 
 <!-- xgd-chat-end -->

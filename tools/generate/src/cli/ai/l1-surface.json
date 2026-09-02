@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 6,
+  "surface_version": 7,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -55,7 +55,8 @@
     "page_map": {
       "page": "the page's id, its address in the site, its title, and its search-and-share wording",
       "components": "the components already on this page: what each is called, what kind it is, which seam it sits in, and how it is currently set up",
-      "segments": "every element on the page, in the order it appears — each with the address a read or a write takes, the kind of thing it is, a short label to recognise it by, and the component instance and slot it sits in when it is inside one"
+      "segments": "every element on the page, in the order it appears — each with the address a read or a write takes, the kind of thing it is, a short label to recognise it by, and the component instance and slot it sits in when it is inside one",
+      "style": "how the page itself is painted — the same parts `get_page_style` returns, so the map already tells you what colour the page is before you put anything on it"
     },
     "behavior_list": {
       "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
@@ -112,6 +113,10 @@
       "changed": "what the write did, including the number of uses it moved",
       "message": "the same thing in a sentence",
       "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
+    },
+    "page_style": {
+      "target": "the page this was read from",
+      "document": "how the page itself is painted: `background` (the colour behind everything), `textColor` (what text falls back to when an element names none), `widths` (the layout widths the page is arranged against), `column` (the shared centred column elements line up with), and `resources` (the typefaces the page serves, each bound to the file that draws it). A part the page does not set is simply absent."
     }
   },
   "errors": {
@@ -214,6 +219,26 @@
       "errors": [
         "NOT_FOUND",
         "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "get_page_style",
+      "tool": "get_page_style",
+      "effect": "read",
+      "summary": "Read how a page itself is painted — its background, its default text colour, the type it serves.",
+      "description": "The elements on a page are one thing; the page they sit on is another, and this is the only way to see it. It answers what colour the page is, what colour text falls back to when an element names none, the widths the page is laid out against, the shared centred column its elements line up with, and the typefaces it serves.\n\n**Read this before you paint anything.** A page has a background whether or not anyone chose one, and text that reads perfectly against the colour you had in mind is invisible against the colour the page actually is. What comes back is exactly what `set_page_style` accepts, so read it, change the part you mean, and send that part back.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "page_style",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
       ]
     },
     {
@@ -356,6 +381,31 @@
         "slot": {
           "type": "string",
           "description": "The slot within that instance."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "set_page_style",
+      "tool": "set_page_style",
+      "effect": "write",
+      "summary": "Change how the page itself is painted — its background, its default text colour, the type it serves.",
+      "description": "Name only what you are changing. **Anything you do not name is left exactly as it was** — so setting the background does not disturb the type or the layout widths.\n\nWhat you do name is written WHOLE, because each of these is a single value rather than a group of settings: sending a colour replaces the colour, and sending the list of typefaces replaces the list. So read the current value first when you mean to add to one rather than replace it. Send `null` for a value to take it away entirely.\n\nA page's colours may be one of the site's named colours, exactly as an element's may — which is almost always what you want, because then the page moves with the palette instead of drifting away from it.\n\nIf what you send would break the page — a layout width that elements are pinned to, a column that elements line up against, a typeface with nothing to render it — the change is refused whole, the page is left exactly as it was, and the refusal says what is wrong and what would be accepted.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "style": {
+          "type": "object",
+          "required": true,
+          "description": "The parts you are changing, in the same form `get_page_style` returns. Only what you name changes."
         }
       },
       "returns": {
@@ -775,6 +825,7 @@
         "list_pages",
         "describe_page",
         "get_l1",
+        "get_page_style",
         "list_assets",
         "get_asset",
         "get_config",
@@ -788,9 +839,10 @@
       "group": "AuthorPages",
       "effect": "write",
       "title": "Changing what is on a page",
-      "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch.",
+      "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch. The page the elements sit on is painted here too — its background and the type it serves are the page's, not any one element's.",
       "operations": [
-        "set_l1"
+        "set_l1",
+        "set_page_style"
       ]
     },
     {
