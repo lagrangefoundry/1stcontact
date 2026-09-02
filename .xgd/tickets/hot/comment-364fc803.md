@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T23:12:30.267353+00:00'
+updated_at: '2026-09-02T23:32:29.747319+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -146,5 +146,11 @@ bin/install --lang js --component ai --no-deps
 (Or add `/Users/martin/lagrangefoundry/node_modules` to the sandbox write allow-list and I'll run it.) I'll confirm with the ticket's own probe — `grep -c "async transcript(" .../@lagrangefoundry/ai/src/manager.js` should go `0` → `1`.
 
 Meanwhile, part **(2)** — the `waitUntil` fix — needs none of this and is the half that caused the reported incident. Say the word and I'll cut `free-BUG-46` and start on it now rather than idling; (1) and (3) fold in once the vendor lands. Still open: whether (3) includes the `api.js`/`chat.js` client changes, and whether you want the Durable Object ticket (4) filed.
+
+<!-- xgd-turn id="ea234d8a-6d5b-4adc-bc12-72fc147a8144-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:32:29.646527+00:00" -->
+#### You
+I have run the install
 
 <!-- xgd-chat-end -->
