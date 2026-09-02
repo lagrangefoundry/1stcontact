@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T00:39:12.341727+00:00'
+updated_at: '2026-09-02T23:28:02.319277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -350,5 +350,11 @@ I'd say: the maps go in (1) as what the KMS currently holds, and the per-turn de
 One consequence you should see before agreeing to it: this makes the system prompt product-level and shared, and moves role identity into the priming. That's an inversion of what's there now, and it means the role's own text — who it is, how it speaks, what it must not do — sits in a document the model reads *after* the product text rather than in the highest-weight position. I think that's right, but it's a real change in emphasis and not just a re-filing.
 
 Want me to write the three-part structure into REQ-171?
+
+<!-- xgd-turn id="bedf5160-18b9-44b3-9eed-9d008e8d15b6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:28:01.782577+00:00" -->
+#### You
+PLease check now
 
 <!-- xgd-chat-end -->
