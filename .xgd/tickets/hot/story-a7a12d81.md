@@ -6,9 +6,9 @@ title: 'Material Blob Storage: The Client''s Attached Bytes, In A Store The Publ
   Site Has No Reach Into'
 created_by: xgd
 created_at: '2026-09-02T00:16:45.252755+00:00'
-updated_at: '2026-09-02T00:16:45.252755+00:00'
+updated_at: '2026-09-02T00:18:04.400905+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: request-13a5e206
@@ -81,14 +81,14 @@ capability.
   environment (STORY-125 / AC-1341), and the site store's own configuration criterion is being
   generalised to pair each declared target across both halves (AC-1398, upgraded under this same
   intent). Neither says a second store exists, nor why it must not be the one the public site is
-  served from. The criteria here therefore lead with the separation and re-pin the repetition
-  specifically, which is the convention this repository already follows for the site store's
-  bindings.
+  served from. The criteria here therefore lead with the separation (AC-1489) and re-pin the
+  repetition specifically (AC-1490), which is the convention this repository already follows for the
+  site store's bindings.
 - **The disclosure claim was mutation-tested rather than argued.** Pointing the store's byte layer
-  at the public site's store fails the runtime criterion, which is how it is known to be an
-  assertion and not a comment. It is checked against real object stores inside the runtime
-  environment — both are declared to the test harness deliberately, so what is proved is where the
-  bytes actually went rather than what the configuration claims.
+  at the public site's store fails AC-1487, which is how it is known to be an assertion and not a
+  comment. It is checked against real object stores inside the runtime environment — both are
+  declared to the test harness deliberately, so what is proved is where the bytes actually went
+  rather than what the configuration claims.
 - **An operator obligation no criterion can carry.** The material store must be created in the
   hosting account before the next production deploy. The local runtime conjures it on demand and
   the platform does not, so its absence is invisible in every test and appears only in production.
@@ -99,16 +99,18 @@ capability.
 - **The attachment record's content address and size** (decided at reconciliation, 2026-09-01): the
   intent asks that attachment operations work through the wired store and that addressing be
   content-derived, but is silent on what the record hands back. The landed code returns a record
-  carrying the content digest and the byte count. Formalized as AC for the attach behaviour, because
-  every other claim in this story — dedup, isolation, and the disclosure check itself — is only
-  observable if the address of the bytes is on the record; without it the store's own placement
-  decisions could not be checked from outside.
+  carrying the content digest and the byte count. Formalized as AC-1486, because every other claim in
+  this story — dedup, isolation, and the disclosure check itself — is only observable if the address
+  of the bytes is on the record; without it the store's own placement decisions could not be checked
+  from outside.
 - **Identical bytes across two accounts** (decided at reconciliation, 2026-09-01): the intent gives
   the reason for prefixing addresses by account (an existence oracle across the barrier, and
   erasure) but its acceptance list asserts the barrier only on rows. The landed code asserts the
   byte half too: two accounts attaching the same file get one content address and two absolute
-  locations. Formalized as its own criterion, because the row barrier and the byte barrier are
-  separate mechanisms and proving one proves nothing about the other.
+  locations. Formalized as AC-1488, because the row barrier and the byte barrier are separate
+  mechanisms and proving one proves nothing about the other. The dedup-within-an-account half of
+  that criterion is a direct consequence of content-derived addressing that the landed suite does
+  not yet exercise on its own; it is stated because it is the property the addressing exists for.
 
 ## Dependencies
 
