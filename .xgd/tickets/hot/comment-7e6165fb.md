@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T20:52:18.774872+00:00'
+updated_at: '2026-09-02T23:04:20.267242+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -288,5 +288,16 @@ Fail (not warn) on skew in `1c assets`, rebuild to fix the instance, and close t
 **Not done:** DOC-33's four `caretaker` occurrences. Renaming prose while the code still says `caretaker` creates a temporary split — it belongs in REQ-174 so code and docs land together.
 
 Two things I did not do: I didn't re-run `1c kb build` (it needs Workers AI over the network, which this sandbox blocks) and I didn't touch CHAT-35's body, since that's the live transcript.
+
+<!-- xgd-turn id="b022d13a-28a6-49af-a51a-a62d8d5278d2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:04:20.069997+00:00" -->
+#### You
+Please can you create a doc for me "Build and deployment" - I would like a simple documented walk through of build and deployment steps including the credentials needed etc for our different environments:
+(1) Raw - I think this should be abandoned we should explicitly discontinue any aspect of the system that is still using raw servers (unless I am missing something) If so do not include instructions for this but create a ticket to deprecate associated commands and code paths
+(2) local CF simulation
+(3) running on CF
+
+For the other two I would like a summary of the commands to be run as a code block and then a per-command description of what its doing and why its needed
 
 <!-- xgd-chat-end -->
