@@ -2,13 +2,13 @@
 uid: acceptance_criterion-24cd21ca
 id: AC-1398
 type: acceptance_criterion
-title: Both deployment halves declare the same database and bucket, and the schema
-  is applied before upload with a rehearsal that changes nothing
+title: Every declared binding names the same target in both deployment halves, and
+  the schema is applied before upload with a rehearsal that changes nothing
 created_by: xgd
 created_at: '2026-08-31T09:48:12.827758+00:00'
-updated_at: '2026-09-02T00:44:06.502367+00:00'
+updated_at: '2026-09-02T00:44:14.923998+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-fde7370b
