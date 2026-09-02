@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-166
 created_by: xgd
 created_at: '2026-09-01T00:19:24.380095+00:00'
-updated_at: '2026-09-02T22:30:55.244688+00:00'
+updated_at: '2026-09-02T23:19:29.007016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,17 @@ So the moment REQ-166 writes a `reference` ticket, it shows up in the Library wi
 One thing I'd flag but not change: a competitor capture sitting in *"Your material"* alongside the client's own photos is slightly odd phrasing, but I think showing it is right — it's transparent about what we hold on their behalf, and the rights block says plainly that it can't reach their site.
 
 Say which way you want 1–4 and I'll record the reasoning in the ticket body, set `status=free_coding`, and cut the branch.
+
+<!-- xgd-turn id="c7a54191-2a11-4412-a534-ddec2c6763e9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:19:28.966005+00:00" -->
+#### You
+**The preview is the screenshot. <-- this**
+
+**What replaces "File" and the download link.** My recommendation: drop the filename field, point the download at the screenshot, and add a plain *"99 files captured"* line. The client's model of a capture is *"a picture of that site and what you thought of it"* — members are re-extraction machinery, not something to browse. A 99-row member list would be honest and useless. <-- sure AND can we make sure the body notes always begin with a clear link to the site captured please
+
+3. The site has a title, why not use that? The same that appears in my browser tab
+
+4. Good - yes overwrite we don't want to store inacceible garbage copied from elsewhere - archiving 3rd party sites is NOT our goal
 
 <!-- xgd-chat-end -->
