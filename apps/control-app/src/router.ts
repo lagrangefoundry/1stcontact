@@ -401,7 +401,7 @@ function materialEnvelope(ingested: {
 }
 
 /**
- * "Put it on the site" means the bytes are actually on the site ([[REQ-161]]).
+ * "Site asset" means the bytes are actually on the site ([[REQ-161]]).
  *
  * THE ROLE IS NOT A LABEL. The overlay's first area promises the file will be
  * something visitors see, and a ticket in a store is not that — until the bytes

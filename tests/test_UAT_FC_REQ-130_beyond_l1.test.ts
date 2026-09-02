@@ -631,9 +631,11 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     // wrote it, false since REQ-161 gave the upload overlay a "Put it on the
     // site" area that promotes a dropped file in the same request. The absence
     // that remains is narrower and still real: the assistant cannot go and FETCH
-    // a file. What it must do instead is ask for one here.
+    // a file. What it must do instead is ask for one here. (REQ-176 renamed that
+    // area to "Site asset"; the note has to quote whatever it is currently called
+    // or it sends the client looking for a button that is not there.)
     expect(manual).toMatch(/cannot go and get a file/i)
-    expect(manual).toMatch(/Put it on the site/i)
+    expect(manual).toMatch(/Site asset/i)
     expect(manual).toMatch(/new one is built by a developer/i)
   })
 })
