@@ -6,9 +6,9 @@ title: 'The admin console: users, entitlements, and the invite that provisions a
   account'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-01T00:51:42.772184+00:00'
+updated_at: '2026-09-02T23:17:35.105239+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -90,3 +90,35 @@ A UAT asserts a freshly invited account has exactly one site and that it renders
 
 Editing memberships, support-access grants, self-service anything, and the
 payments funnel that an expired grant should eventually lead to.
+
+
+---
+
+## Revision: accounts and businesses are two levels ([[DOC-40]] §2)
+
+[[DOC-40]] §2 splits the account from the business after this ticket was drafted.
+The console's shape is unaffected — a `/admin` route, `PLATFORM_ADMINS`,
+`webui/split` under `webui/list-detail`, `mountFields` on the right. What changes
+is what the rows mean.
+
+**The invite provisions an account and its first business.** [[DOC-40]] §4's
+table now reads: a `users` row in the platform tenant (the account), a `tenants`
+row (their first business), a membership, an entitlement, one site. The console
+calls [[REQ-178]]'s `provisionBusiness` for the business half rather than writing
+those rows itself, so the admin path and the later self-serve path cannot
+provision differently-shaped businesses.
+
+**The left list is accounts; businesses are the second dimension.** The detail
+pane gains the businesses that person may operate — the membership rows — which
+is the only place a second business is visible at all.
+
+**Entitlements are edited against a business, not against a person.**
+`entitlements.account_id` holds a tenant id ([[DOC-40]] §5), so an account with
+three businesses has up to three grants and the editor must say which one it is
+changing. "This user's plan" is the mistake this note exists to prevent: it is
+unrepresentable, and code written as though it were will silently edit whichever
+grant it found first.
+
+**Granting an existing account a further business** is an admin action here as
+well as an account-surface action ([[REQ-180]]); both go through the same
+function.
