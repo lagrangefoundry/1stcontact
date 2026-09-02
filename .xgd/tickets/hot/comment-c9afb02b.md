@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:42:29.658180+00:00'
+updated_at: '2026-09-02T01:50:00.649585+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -837,5 +837,11 @@ Meanwhile the node already has a **required** `alt` (`l1ImageSchema.alt: z.strin
 **I'd go with A.** It's what your instinct pointed at, it removes a store rather than adding a second home for alt text, and BUG-45 loses nothing real — its behaviour 2 currently targets a dead field, so re-aiming it at the node is a fix, not a concession.
 
 Say the word and I'll rewrite BUG-45's behaviour section, scope BUG-44 with the deletion behaviours, cut the branch, and do it. Worth noting the surface changes too — `registered` disappears from `list_assets`, and `get_asset`'s "Read one *registered* image or font" moves with it — so the AI-facing manual is part of the diff.
+
+<!-- xgd-turn id="7182fd69-5e8f-4ed5-b59c-136d7b6645a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T01:50:00.546794+00:00" -->
+#### You
+I just want you to clear the data so that they can do a clean test this has nothing to do with bug 45 what are you saying?
 
 <!-- xgd-chat-end -->
