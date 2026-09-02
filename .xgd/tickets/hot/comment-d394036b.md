@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-02T20:29:53.127859+00:00'
+updated_at: '2026-09-02T23:31:27.002400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,11 @@ Decisions I'd like before writing anything:
 3. Dev-open falls back to `TENANT_ID` (§6)?
 4. `requestedAccountId` with no transport in this ticket (§8)?
 5. How do you want your own account bound to the existing `1stcontact` tenant (§7) — invite option, or a seeded membership?
+
+<!-- xgd-turn id="49246999-9223-4661-9380-2ec44a60a1ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:31:26.297281+00:00" -->
+#### You
+PLease note the ticket changes
 
 <!-- xgd-chat-end -->
