@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T01:50:00.649585+00:00'
+updated_at: '2026-09-02T01:51:13.429658+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -843,5 +843,11 @@ Say the word and I'll rewrite BUG-45's behaviour section, scope BUG-44 with the 
 <!-- xgd-chat role="user" ts="2026-09-02T01:50:00.546794+00:00" -->
 #### You
 I just want you to clear the data so that they can do a clean test this has nothing to do with bug 45 what are you saying?
+
+<!-- xgd-turn id="52b48414-5410-46fa-8d90-31c26fcbf84c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T01:51:13.322828+00:00" -->
+#### You
+BUG45 was written before our conversation - please overrule it and delete the registry. The fact that the content was not being added to the registry was a problem that needed to be fixed. What we discovered was we don't actually need the registry at all so let's get rid of it. Is that clear?
 
 <!-- xgd-chat-end -->
