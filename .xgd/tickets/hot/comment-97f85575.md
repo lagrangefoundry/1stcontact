@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-166
 created_by: xgd
 created_at: '2026-09-01T00:19:24.380095+00:00'
-updated_at: '2026-09-01T00:23:48.080912+00:00'
+updated_at: '2026-09-02T22:29:09.679093+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -60,5 +60,11 @@ Is the pusher in scope, or do you want just the library + routes, with the wirin
 **4. Confirming a decision rather than asking one.** The body description needs both `capture.json` (copy, palette, type) and the screenshot, so I'll add a `DescribeCapture` seam beside `DescribeImage` in `describe.ts` (text + image in one call, capture-specific prompt), and `kind: 'capture'` stops falling through to `unsupported`. Degraded cases reuse the existing `description_status` vocabulary. Shout if you'd rather it were text-only.
 
 Once you answer 1–3 I'll set `status=free_coding`, cut `free-REQ-166`, and record the answers in the ticket body so reconciliation sees the reasoning rather than just the code.
+
+<!-- xgd-turn id="ef95cb6f-e386-43a9-9b37-5886ce18ea96-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T22:29:09.006061+00:00" -->
+#### You
+I agree with B. can we talk about the user experience for a second. After this ticket is created if we capture a site does it appear in my library? What does it look like?
 
 <!-- xgd-chat-end -->
