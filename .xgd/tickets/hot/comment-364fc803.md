@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T23:10:22.046994+00:00'
+updated_at: '2026-09-02T23:12:30.267353+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,54 @@ Say the word and I'll cut `free-BUG-46` and implement (2) now; or tell me to do 
 <!-- xgd-chat role="user" ts="2026-09-02T23:10:21.600069+00:00" -->
 #### You
 Please check again
+
+<!-- xgd-turn id="307f96e1-db2a-48fb-ba82-a38c329ee9c3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:12:29.377472+00:00" -->
+#### Claude
+Framework side has landed. Let me check the scale of what an install would bring across.
+
+Framework side has landed. The drift is exactly BUG-38 and nothing else — let me check what the install would do.
+
+Deps unchanged — only a trailing newline. So `--no-deps` is the surgical path (and avoids the pnpm dependency-resolution step that the sandbox has blocked before).
+
+Install is intact — `rmtree` failed on its first unlink and deleted nothing (same 31 files, same size). But the install itself cannot run from here:
+
+**Progress on your side, one step left — and it's one I can't take.**
+
+The framework half has landed since I last looked:
+
+| | before | now |
+|---|---|---|
+| framework BUG-38 status | `draft` | `ready_to_reconcile` |
+| `2c9a2e84` ancestor of framework `xgd-working` | no | **yes** |
+| `transcript()` on `xgd-working` | absent | **present** |
+| branch `free-BUG-38` | existed | deleted (merged back) |
+| **shared install** | **absent** | **still absent** |
+
+So the merge-back is done and the only thing standing between me and parts (1) and (3) is re-vendoring. I checked what that would move, and it's exactly BUG-38, nothing else — `manager.js` +49 lines (the `transcript()` method, one hunk) and a doc comment on `archive.js`. The component's `package.json` is byte-identical apart from a trailing newline, so no dependency changed.
+
+I tried to run it, with `--no-deps` to keep it surgical. **The sandbox blocks it:**
+
+```
+$ bin/install --lang js --component ai --no-deps
+PermissionError: [Errno 1] Operation not permitted:
+  PosixPath('/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai')
+```
+
+`/Users/martin/lagrangefoundry/node_modules` is not in this session's write allow-list — the sibling repos are, their parent directory isn't. The directory is `drwxrwxr-x martin`, so the OS would permit it; a bare `touch` there fails the same way. This isn't something I can work around, and re-running won't change it.
+
+**Nothing was damaged.** The failure hit `shutil.rmtree(target)` — it tries to delete the old install *before* extracting the new one — but it died on its first unlink, so the existing install is untouched: same 31 files in `src/`, `manager.js` same 33526 bytes. Worth knowing, because a later failure in that same call would have left the shared store half-deleted for every sibling project.
+
+**What I need from you:** run this yourself, then I'll verify and start:
+
+```
+cd /Users/martin/lagrangefoundry/lagrange-framework
+bin/install --lang js --component ai --no-deps
+```
+
+(Or add `/Users/martin/lagrangefoundry/node_modules` to the sandbox write allow-list and I'll run it.) I'll confirm with the ticket's own probe — `grep -c "async transcript(" .../@lagrangefoundry/ai/src/manager.js` should go `0` → `1`.
+
+Meanwhile, part **(2)** — the `waitUntil` fix — needs none of this and is the half that caused the reported incident. Say the word and I'll cut `free-BUG-46` and start on it now rather than idling; (1) and (3) fold in once the vendor lands. Still open: whether (3) includes the `api.js`/`chat.js` client changes, and whether you want the Durable Object ticket (4) filed.
 
 <!-- xgd-chat-end -->
