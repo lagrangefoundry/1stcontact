@@ -6,10 +6,10 @@ title: Captured and fetched material must name the address it came from; uploade
   material is not asked for one
 created_by: xgd
 created_at: '2026-09-02T00:30:44.955085+00:00'
-updated_at: '2026-09-02T00:30:44.955085+00:00'
+updated_at: '2026-09-02T00:42:25.675524+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
