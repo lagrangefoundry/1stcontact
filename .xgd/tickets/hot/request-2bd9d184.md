@@ -5,7 +5,7 @@ type: request
 title: The consultant gets the whole of L1, and keeps getting it
 created_by: xgd
 created_at: '2026-09-02T20:48:58.308743+00:00'
-updated_at: '2026-09-02T20:49:40.552839+00:00'
+updated_at: '2026-09-02T23:25:47.567425+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -110,3 +110,115 @@ rather than narrowing it to the known list.
   of it. Neither ticket is sufficient alone.
 - [[REQ-157]] — seeing the result. Parity plus discovery still leaves the
   consultant unable to check its own work.
+
+
+## Decisions (agreed with the operator)
+
+The implementation choice left open above is now made, and the scope is widened
+in one direction the first investigation found.
+
+### D1 — a dedicated document-level pair, in the authoring grant
+
+The document is reached by a **new read/write pair on the control surface**, not
+by extending the address grammar. `l1/edit.ts` states one resolution rule — index
+the root list, then walk `children` — and that rule is what keeps the address a
+render stamps identical to the address a write resolves. A non-positional
+sentinel in the same `l1_address` parameter would break that, and the surface
+declares `l1_address` as positional child indices, so the manual would be lying
+in the same way [[BUG-44]] found `set_l1`'s refusal prose lying.
+
+Nor is it folded into `update_page`. Page appearance would then sit in the
+`ManagePages` grant beside slug and SEO, while `set_l1` sits in `AuthorPages` —
+so a role granted authoring but not page management could paint every element on
+a page and not the page itself. The pair goes in **`AuthorPages`**, with `set_l1`,
+because painting the page is authoring.
+
+Write semantics are **merge, not replace**, on `set_config`'s reasoning: naming
+`background` must not silently drop `resources`. Reads return the document keys
+as stored — palette refs unresolved — so what comes back is what may be written
+back, exactly as `get_l1` already promises for a node.
+
+### D2 — the read gap closes at `describe_page`
+
+`describe_page` is where the blindness is introduced, not `edit.ts`: `editPageGet`
+already returns the whole page including `l1`, and the toolbox projection narrows
+it to `{page, components, segments}`. So the map a consultant reads carries the
+document-level keys, and the acceptance criterion — *set a page's background and
+read back what it set* — is met by the tool it would already have called.
+
+### D3 — every key, `widths` and `column` included
+
+All five non-`root` keys are writable: `background`, `textColor`, `widths`,
+`column`, `resources`. `widths` is included rather than declared absent. An
+absence here is a rule the parity test in (2) would have to carry an exception
+for, and an exception is how this gap comes back. It is also safe: the envelope
+validator already cross-checks every keyframe `at` against `doc.widths` and
+refuses `geometry.anchor` without a `column`, so a ladder change that would
+strand a keyframe is refused whole rather than half-applied.
+
+### D4 — `resources` is in scope, and so is the hole it opens
+
+A consultant that can set `axes.fontFamily` but cannot add a face to
+`resources.fonts` writes a family nothing serves and gets a clean accept and a
+serif fallback. So `resources` is writable here.
+
+That alone would only move the silent failure: an unbound family is still
+accepted today. **Nothing checks that a painted family resolves.** So this ticket
+closes it — see D5.
+
+### D5 — L1 is self-validating
+
+The general rule, of which D4's font hole is the instance this ticket found:
+
+> **A change that would break the page is refused, with a message that says what
+> is wrong and what would be accepted — never accepted and silently wrong.**
+
+L1 already works this way for most cross-references, and the model to copy is
+the one it already has: a palette reference that names nothing is refused with
+the declared names listed. The two references that do *not* work this way, and
+must:
+
+**A painted font family must resolve to a face.** `axes.fontFamily` carries a CSS
+font *stack* (`"Satoshi, Helvetica Neue, Arial, sans-serif"`), while
+`resources.fonts[].family` carries the primary family (`"Satoshi"`). The rule is
+therefore on the stack's **first** family, and a first family that is a generic
+or system keyword (`serif`, `ui-sans-serif`, `system-ui`, …) needs no face — the
+whole reproduction corpus paints stacks of both shapes and must keep validating
+unchanged. An unresolvable family is refused, naming the families the document
+does declare.
+
+**A referenced asset must exist.** An `image` node's `src` and a surface's
+`backgroundImageUrl` may name a site asset that is not there, and today that is
+accepted and paints a broken image — the failure [[BUG-44]]'s session ended on.
+Site-relative handles are checked against the site's actual assets, with the
+query and fragment stripped before comparison (the corpus writes
+`/assets/xgd-grid-hero.svg?v=3` for an asset stored as `xgd-grid-hero.svg`, and a
+naive comparison would reject the reproduction path's own output). Absolute
+`http(s)` references are not the site's to vouch for and are left to the existing
+scheme allowlist. The check runs where the asset listing is known — the site
+validation the write path already runs — and is skipped when no listing is in
+scope, the way the palette check already is.
+
+### D6 — the parity test has two layers
+
+Both, because either alone has a blind spot.
+
+**Round-trip over the reproduction corpus.** For every reproduced page in
+`storage/sites/`, every node address reads through the surface and writes back
+unchanged and accepted, and every document-level key the page carries does the
+same. This is what catches a surface that strips or refuses something the
+importer emits.
+
+**Enumeration from the schema.** The key set is *derived from
+`l1DocumentSchema`*, never listed by hand, and every key must be covered by a
+surface operation. This is the half that makes the guarantee structural: the
+sixth document key fails the test on the day it is added, which is the "next
+capability reopens the gap silently" failure this ticket exists to prevent. The
+corpus check alone would pass a key no reproduced page happens to use yet.
+
+### Not done here
+
+Asset **existence** is now validated, but the caretaker is granted `DrawImages`
+and not `ManageAssets` — so it can bind only faces and images the site already
+holds. Whether the consultant should be able to add an asset itself is a grant
+decision, not a parity gap, and is left where it is.
