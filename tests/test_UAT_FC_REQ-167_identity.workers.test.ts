@@ -344,8 +344,12 @@ describe('REQ-167 — login binds, and does not provision', () => {
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
-    expect(result.ok && result.accountId).toBe(invited.accountId)
-    expect(result.ok && result.entitlement.plan).toBe('pro')
+    // REQ-178 moved the business off the admission's singular `accountId` and
+    // into the list, one entry per business the account may operate. An invited
+    // person holds exactly one, so the shape is a one-element list rather than
+    // an id.
+    expect(result.ok && result.businesses.map((b) => b.accountId)).toEqual([invited.accountId])
+    expect(result.ok && result.businesses[0].entitlement?.plan).toBe('pro')
 
     const first = await env.DB.prepare('SELECT first_seen_at, last_seen_at FROM users WHERE id = ?')
       .bind(invited.user.id)
@@ -465,7 +469,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     ])
 
     const result = await admit(identityEnv(), email)
-    expect(result.ok && result.entitlement.plan).toBe('open')
+    expect(result.ok && result.businesses[0].entitlement?.plan).toBe('open')
   })
 
   it('test_UAT_FC_REQ-167_an_identity_with_no_email_has_nothing_to_bind_to', async () => {
