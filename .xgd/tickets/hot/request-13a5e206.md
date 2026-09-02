@@ -5,10 +5,10 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-09-01T00:01:02.779719+00:00'
-completed_at: null
+updated_at: '2026-09-02T01:34:00.748431+00:00'
+completed_at: '2026-09-02T01:34:00.748431+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 13
@@ -16,15 +16,9 @@ fields:
   needs_review: false
   chat_comment: comment-aa271bc5
   commits:
-  - working_sha: fc117f1d35954aae5db47665181c29ea07f2a086
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 2284bf4bbd6277afa4d0d22aa9ce6d01f97e9333
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: bc36b2cce9bd85641ebef3bff2bb459f4209b425
-    reconcile_sha: null
-    main_sha: null
+    main_sha: 4b43dd9a5c0fd50ed053a33ed3defcb63f7ed8cd
   version: 0.2.20
   orphan_commits:
   - old_sha: fe97d3bc344f6b637416ce69b5e6043fe3759e10
@@ -541,6 +535,7 @@ fields:
     new_sha: 48103a69eb0ebfd17a892b582800eb4102be535a
   - old_sha: 40a15571cfb3c116a1adb474ac6a80ded261162b
     new_sha: 505323ad56f7ba5ec1fbeec54630b7717d62ae03
+  merged_at_commit: 4b43dd9a5c0fd50ed053a33ed3defcb63f7ed8cd
 ---
 
 # The product ticket store: D1 schema, the TypePack, and the material types
