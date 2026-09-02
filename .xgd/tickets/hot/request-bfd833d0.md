@@ -5,10 +5,10 @@ type: request
 title: 'Library: a type icon, a one-line row, and the wording clients actually read'
 created_by: xgd
 created_at: '2026-09-02T20:59:01.075259+00:00'
-updated_at: '2026-09-02T22:36:24.153954+00:00'
+updated_at: '2026-09-02T22:36:57.949341+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 3
@@ -16,6 +16,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-794e4a3c
+  commits:
+  - working_sha: e1ceeb63c73e2b240178a15beca063d69c0eda82
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.45
 ---
 
 # Library: a type icon, a one-line row, and the wording clients actually read
