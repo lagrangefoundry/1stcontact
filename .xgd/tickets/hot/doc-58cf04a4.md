@@ -6,13 +6,14 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-31T21:59:34.014855+00:00'
+updated_at: '2026-09-02T22:58:37.316768+00:00'
 completed_at: null
-last_field_updated: doc_kind
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
 ---
+
 
 # The Consultation Playbook — how the builder AI takes a client from nothing to a live site
 
@@ -399,11 +400,11 @@ Runs as a subagent with fresh context. Four checks:
 #### Stage 10 — Publish & handoff
 *Entry:* critique passed.
 *Produces:* a live site; the ledger rendered as a plain-English design record; an introduction to
-the caretaker.
+the consultant.
 *Gate:* the client can find their site and knows how to change it.
 
 The ledger handed over is the artifact that *demonstrates* judgment was applied — [[DOC-32]] §2D's
-strategic-judgment driver, honestly, without implying a person was involved. The caretaker inherits
+strategic-judgment driver, honestly, without implying a person was involved. The consultant inherits
 it, which is how the relationship persists into the ongoing tier rather than restarting cold.
 
 The handoff states the division explicitly: **what is theirs to change** — the words, the photos,
@@ -434,7 +435,7 @@ than flashy — is that right, or do you want to feel more ambitious than that?"
 ### 7.3 Say plainly what cannot be done
 If something is outside what can be expressed, say so and offer the nearest thing that can be —
 never approximate it with a tool meant for something else. This is already the standing rule for
-the caretaker and it holds here.
+the consultant and it holds here.
 
 ### 7.4 The one-push rule
 Strategic pushback is one of the four things [[DOC-32]] found clients actually pay designers for.
@@ -691,7 +692,7 @@ what has shipped, and it is what tells the AI which class a new capability falls
   do) may need a declared field of its own. This is the largest unresolved dependency in this
   document.
 - **Parked capabilities as triggers.** A parked capability should surface when the capability
-  ships. Is that a query over ledgers, or something the caretaker notices? Nothing does it today.
+  ships. Is that a query over ledgers, or something the consultant notices? Nothing does it today.
 - **Image editing scope.** §7.8 and stage 5 assume the client can reframe and adjust their own
   images. [[DOC-28]] phase 1 scopes image segments to *"which image, basic framing"* — cropping
   and colour adjustment are past that line. The playbook must not promise a client something the
