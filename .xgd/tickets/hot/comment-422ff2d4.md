@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T23:08:57.841434+00:00'
+updated_at: '2026-09-02T23:25:53.984046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -416,5 +416,13 @@ The dispatcher can pick this up at any moment, and reconcile treats the body as 
 - **Fix the `createL1Toolbox` "already takes a list" claim** in the Why section.
 
 Say the word and I'll make those three edits. If you'd rather nothing touched the body now that it's promoted, the field-evidence text is safe in git at `e7b09994b6` and I can put it on a comment instead.
+
+<!-- xgd-turn id="f3e68eaa-e3e5-4ba9-8758-06116e095633-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:25:53.404582+00:00" -->
+#### You
+we have moved to the consultant term
+2 I don't know?
+I have moved the ticket back to free_coded please update the ticket and your work so everything is complette and consitstent
 
 <!-- xgd-chat-end -->
