@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-166
 created_by: xgd
 created_at: '2026-09-01T00:19:24.380095+00:00'
-updated_at: '2026-09-02T23:19:29.007016+00:00'
+updated_at: '2026-09-02T23:22:09.994193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -123,5 +123,47 @@ Say which way you want 1–4 and I'll record the reasoning in the ticket body, s
 3. The site has a title, why not use that? The same that appears in my browser tab
 
 4. Good - yes overwrite we don't want to store inacceible garbage copied from elsewhere - archiving 3rd party sites is NOT our goal
+
+<!-- xgd-turn id="c7a54191-2a11-4412-a534-ddec2c6763e9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:22:09.703571+00:00" -->
+#### Claude
+Taking 1, 2 and 4 as decided. Two things to verify before I write them into the ticket — whether the markdown renderer actually keeps links, and what `capture.json` already carries for a title.
+
+Both checks came back with something that changes #3. Let me read the full ticket body before I touch it.
+
+Two findings that bear on your answers:
+
+**#3 — the browser-tab title isn't captured.** `capture.json`'s schema (`tools/generate/src/cli/capture/types.ts:562`) is `url, host, path, capturedAt, viewport, theme, sections, assets`. No `title`. It exists in `rendered.html` but not in the structured essence, and re-extraction reads `capture.json` first — so parsing it out of the HTML at ticket-creation time would duplicate parsing logic that re-extraction wouldn't benefit from. I'd add `title` to the §4 schema and read `document.title` in the capture pass: one field, one line. That crosses into `tools/generate`, which this ticket currently lists as out of scope, so I'll note the exception explicitly rather than let it look like scope creep. Fallback to `host` when the title is blank.
+
+**Your link request works, with one snag.** `renderSafe` is DOMPurify on default config, so a markdown link in the body renders as a real clickable anchor. But the default adds no `target`/`rel` — clicking a captured competitor's URL would navigate the whole builder away and lose editor state. Cheap to fix where the description is painted.
+
+Appending the decisions to the ticket body — append-only so nothing existing is disturbed.
+
+Dependencies are clear — REQ-162 `free_and_reconciled`, REQ-163 `bundled`. Cutting the branch as promised.
+
+Ticket scoped and the branch is cut at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-166`.
+
+**What I recorded** — a *"What the client sees"* section covering all four decisions, with acceptance criteria that give each one something a UAT can trace to:
+
+- Screenshot as the preview, fetched as a single member — noting this is the same member-addressed read the re-extraction criterion already needed, so it's one route rather than two.
+- Detail drops the *File* field, downloads the screenshot, states the member count.
+- Body opens with a markdown link to the captured URL, which must not navigate the builder away.
+- Title from the page's own `<title>`, falling back to `host`.
+- Recapture overwrites the description in place.
+
+**Two things I wrote down as deliberate rather than incidental**, because both look like mistakes to anyone reading the code later:
+
+The `title` field is a **named exception** to *"the capture pipeline itself is out of scope"* — the ticket says so in as many words, so reconciliation doesn't read a `tools/generate` change as drift.
+
+Overwriting on recapture is an **exception to the `description_model: 'client'` protection** REQ-161 added. That guard exists so a background re-describe pass can't silently replace a client's words about their own material; a recapture is an explicit act about a page that has demonstrably moved. I wrote the distinction into the body in your terms — stale prose about a third-party page is inaccessible garbage, and archiving other people's sites isn't the goal — so the exception reads as reasoned rather than forgotten.
+
+Two things worth knowing before I write code:
+
+The dependencies are clear (REQ-162 `free_and_reconciled`, REQ-163 `bundled`), but this ticket now spans three subsystems — `tools/generate` for the schema field, `control-app/src/material.ts` for the member-addressed file route, and `builder/library.js` for the capture-shaped detail. At 8 story points that's the largest single piece of work in this area so far.
+
+I also haven't verified the worktree renders — memory records that a worktree breaks webui resolution and needs `src/generated/*` copied from the main checkout before the builder suites will run. I'll deal with that when I get there rather than assume it.
+
+Want me to start implementing, or would you rather review the ticket body first? `xgd ticket get REQ-166` shows it.
 
 <!-- xgd-chat-end -->
