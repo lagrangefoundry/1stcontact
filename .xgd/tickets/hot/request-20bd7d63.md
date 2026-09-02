@@ -5,7 +5,7 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-09-02T23:21:31.352093+00:00'
+updated_at: '2026-09-02T23:45:10.154627+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -175,3 +175,37 @@ demonstrably moved.
 - The ticket is titled with the captured page's own `<title>`, falling back to the
   host when it is blank.
 - Recapturing a site replaces the description in place, leaving one row per URL.
+
+
+## Where this happens: `capture_site` finishes the job it starts
+
+The assistant ALREADY captures. `capture_site` on the fidelity surface
+([[REQ-157]]) leases a browser, runs `cmdCapturePage`, and answers with a bundle
+name — and that is precisely where the asymmetry above begins: the bundle lands
+in the `ReferenceStore` and stops. So this ticket is not a new entry point. It is
+the second half of an operation the assistant already has, and the tool it is
+exposed through is the one that already exists.
+
+No new client-facing control. A UI that starts a capture may follow if it earns
+its place; the Library shows the result either way.
+
+**The ticket store reaches `capture_site` as an optional dep on `FidelityDeps`.**
+The Worker supplies it in `shot.ts`; the `1c` CLI, which has no D1 and whose
+capture module had `node:fs` deliberately removed from its import graph
+([[REQ-155]]), supplies nothing and captures exactly as it does today. That is
+the same conditional-composition rule the fidelity surface is itself registered
+under — a deployment that cannot do a thing does not declare it — rather than a
+second mechanism invented here.
+
+A capture that is stored but not adopted is REPORTED, not silently half-done: the
+operation's answer says whether a `reference` ticket was written, for the same
+reason [[REQ-163]]'s ingestion says loudly when a material was stored but not
+indexed. A bundle nothing can find is the failure this ticket exists to remove,
+and it must not be able to happen quietly.
+
+### Acceptance
+
+- `capture_site` yields both a bundle and a `reference` ticket, and says which.
+- The same URL captured twice leaves ONE `reference` ticket, updated in place.
+- A host with no ticket store captures exactly as before and says no ticket was
+  written, rather than failing.
