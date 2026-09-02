@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T23:29:44.256923+00:00'
+updated_at: '2026-09-02T23:33:50.330113+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -473,5 +473,11 @@ All 27 UATs now trace to body language. `27 passed (27)`, and the commit touched
 ## One thing left for you
 
 CHAT-35 items (2) — attach `describe.ts`'s composition description to the asset so `get_asset` can return it — and (3) — prompt the backdrop-or-subject question — are real, cheap, and independent of the fidelity surface. I haven't filed them, since this session is scoped to REQ-157. Say the word and I'll create them; (2) in particular is what would have changed the outcome of that session on its own, and it's what unblocks deleting the duplicate vision path.
+
+<!-- xgd-turn id="2fe28327-d240-4131-9bb2-995f317d8b7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:33:49.730239+00:00" -->
+#### You
+Will this tool appear in the docs that the AI gets handed?
 
 <!-- xgd-chat-end -->
