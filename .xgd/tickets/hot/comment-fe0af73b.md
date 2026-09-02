@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T00:38:18.977640+00:00'
+updated_at: '2026-09-02T00:39:12.341727+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -328,5 +328,27 @@ ok we seem to have 4 things and I think we only need three:
 (3) Reminder - role specific
 
 Do you agree?
+
+<!-- xgd-turn id="4de62a61-c54f-4310-a804-82f15359b339-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:39:12.128576+00:00" -->
+#### Claude
+Yes, agreed — and it's better than what I was proposing, because it fixes something I'd left broken.
+
+Today the system prompt is **per-role** and carries product facts: how the site is built, tools-only, a malformed change refused whole, private until published. Every one of those is true for the caretaker too. Under the current shape, standing the ongoing tier up later means copying them into a second role's prompt — exactly the drift we keep saying we're avoiding. Your (1) makes them role-independent and stated once. That's the real win.
+
+It also dissolves the upstream duplication I was about to file. The KMS doctrine is product-level; it belongs in (1) once, not written twice as `DEFAULT_MECHANISM` and again as the knowledge surface's overview, with one copy always dead. **So hold off on that framework ticket** — the split makes it moot rather than needing a fix. REQ-113 is unaffected; (1) still needs a summary-level tool projection rather than the full reference.
+
+Two amendments.
+
+**Generated state has no slot in your three, and it will get smuggled into (3) if we don't give it one.** `# What exists` — the landscape maps — is neither product nor role nor habit. It's what the corpus contains right now. Same for REQ-160's corpus delta and REQ-131's draft-change signal, which already ride in the reminder for exactly this reason; `roles.ts` flags it in its own comment: *"REQ-131 ADDED ONE THING THAT IS NOT A HABIT."*
+
+I'd say: the maps go in (1) as what the KMS currently holds, and the per-turn deltas stay in (3) because that's the only per-turn channel there is — but name that as a deliberate exception rather than letting it happen again by default. Otherwise (3) accretes every volatile thing that doesn't fit elsewhere, which is how the current reminder got its third and fourth jobs.
+
+**"Tools available to all roles" needs care.** The manual is projected per grant, and the required property is that a session is never told about a capability it wasn't granted — so it can't propose one, apologise for one, or probe for one. If (1) is one shared text listing every tool, that property breaks. It works if (1) is shared *prose* plus a tool summary still projected against this session's grant. Worth being explicit about which you meant: the tools every role has, or per-session-projected tools sitting in the product section.
+
+One consequence you should see before agreeing to it: this makes the system prompt product-level and shared, and moves role identity into the priming. That's an inversion of what's there now, and it means the role's own text — who it is, how it speaks, what it must not do — sits in a document the model reads *after* the product text rather than in the highest-weight position. I think that's right, but it's a real change in emphasis and not just a re-filing.
+
+Want me to write the three-part structure into REQ-171?
 
 <!-- xgd-chat-end -->
