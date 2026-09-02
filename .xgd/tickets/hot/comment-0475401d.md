@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T22:35:36.733088+00:00'
+updated_at: '2026-09-02T22:40:31.165107+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -273,5 +273,56 @@ Two threads left open if you want them: whether per-tenant is the pricing meter,
 Yes ok lets go with business - you are right it is somewhat more operational than brand - although I have worked in places that has used them relatively interchangably but cool lets go with businesss.
 
 We need to (1) capture this in existing or a new doc - I suspect its best an update of existing content around tenancy - one thing I want to be really clear on is this recursive idea that I am building first contact as a first contact site, and my first contact customers will use the same access controls that their customers will have and will appear in a CRM system just the same way that customer as well and they will be billed from first contact just the way they can bill their customers. It's really important that we get this right it's not just an architectural elegance it is important for leverage otherwise I have to build all those features twice. (2) let's talk about specific changes to what we have today (and what is on deck) that will be needed to realize this new model
+
+<!-- xgd-turn id="27773b79-fda1-46a8-9374-4390ad7b40e1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T22:40:30.694177+00:00" -->
+#### Claude
+Docs updated, and the change list turns out to be smaller than the conversation suggested — because the recursion you're describing is already half-built.
+
+## (1) Captured in DOC-40 and DOC-10
+
+**DOC-40 — Identity, Accounts & Entitlement** (the right home; it's where the conflation lived):
+
+- **§2 "Three nouns" → "Four nouns."** It literally said *"**Account** — a tenant"*, so the section now opens by naming that as the collapsed level and separating them: **Business** (the tenant, the barrier, the thing that owns website/customers/calendar/payments/knowledge), **Account** (the payer, owns N businesses, not a tenant of its own), **User**, **Membership**.
+- **§2.1 "The platform is a 1st Contact business"** — new, and written as the leverage argument rather than the elegance one. It carries the mapping table (a customer captures a contact / a prospect becomes a `users` row in the platform tenant; a customer bills from their portal / we bill from the platform business's payments surface), the conclusion that the Account surface **is** the customer portal rendered by the same code, and two rules stated as things a later hand will be tempted to break: *nothing is built platform-only* (the bespoke admin billing page is the named failure mode), and *our customers' customers never become tenants* — the recursion is exactly two levels by construction.
+- **§2.2** records why the boundary is the business rather than the account, including the split-vs-merge asymmetry.
+- **§2.3** records the ecosystem answer: several websites in one business, v2, already representable — and that this is what preserves DOC-10 §4.1 and DOC-38 §7.7 unchanged.
+- **§4** provisioning table: the invite now creates *an account and its first business*; a second business is the same rows minus the user, self-serve rather than invited.
+- **§5**: `account_id` is a business, so the meter is per business — three grants, one invoice, because invoicing rolls up by payer.
+- **§9.3b**: new open item — where the account's billing-entity attributes live.
+
+**DOC-10 §4.1**: *"The tenant is the account"* → *"the tenant is the business"*, with a parenthetical pointing at DOC-40 §2 and noting everything below was always describing the tenant. Also narrowed the "second site shouldn't start as cold as the first" rationale — still true inside a business, and across two businesses the cold start is now explicitly the feature.
+
+## (2) What actually has to change
+
+**Schema: nothing.** I went looking for the migration and there isn't one. `tenants`, `sites (tenant_id, slug)`, `tickets.tenant_id`, `memberships (user_id, account_id)`, `entitlements (account_id, email)` — every one of them reads correctly under the new model with only the word changing. `sites` is already keyed for N-per-tenant, so v2 is an invariant you relax, not a migration.
+
+**And the identity half of the recursion is already built.** `identity.ts:33` — *"The PLATFORM's own tenant — where `users` rows for builder users live"* — and `provisionInvite` already writes the user into the platform tenant and the business as a separate `tenants` row. You built this correctly before naming it. What's *not* built is the leverage half: the CRM view over those rows, the billing, the portal.
+
+**Landed code, one real change:**
+
+- `identity.ts` — `accountFor()` returns a single account and `Admission` carries `accountId` singular (`identity.ts:102`). That is the only place the one-business-per-account assumption is baked into shipped code. It becomes a set plus a selection.
+
+**On deck:**
+
+| | Change |
+|---|---|
+| **REQ-168** (draft, high) *"The tenant comes from the identity"* | Biggest, but it already has the hook — `resolveScope(env, identity, requestedAccountId?)` takes an optional target. That target stops being an admin override and becomes the normal path, driven by the selector. Adds: enumerate the account's businesses, and persist last-selected so a returning user lands where they left. |
+| **REQ-170** (draft, high) *admin console* | "The invite that provisions an account" → account **and** its first business; users pane gains a businesses column; entitlements are edited against a business. |
+| **REQ-169** (draft) *terms of service* | Unaffected — acceptance is on the user, which is the account, which is where `tos_version` already lives. |
+| **REQ-176 / 172 / 173 / 161 / 163** (Library, material) | **No change.** Tenant-scoped is now business-scoped. |
+| **REQ-159 / 160** (project KB, session seeding) | **No change**, same reason. |
+
+**New, not yet ticketed:**
+
+1. **The selector moves to the shell header.** Today it's `'site-selector'` in the *site tab's toolbar* (`app.js:106`, `115`, `147`) — that is exactly UX option (2), the one you rejected. And `app.js:158` documents the rule that stops being true: *"the toolbar's selector is the one place a site is chosen."* Promoting it to shell chrome above the tab strip is the actual UX work.
+2. **An endpoint listing the account's businesses**, to feed it.
+3. **The Account surface behind the avatar** — and per §2.1 the scoping decision to make *before* building is whether it's the platform business's customer portal or a builder page. That decision is the difference between building the portal once and twice, which is your whole leverage argument.
+4. **Naming pass** — user-facing "Business", schema stays `tenant_id`.
+
+**One correction to what I said earlier:** I warned that the tenant-wide comments in `config.js`, `router.ts`'s "TENANT-WIDE" Library block, and DOC-38 §7.7 would need rewriting. They don't. Keeping N-sites-per-business as the v2 story leaves all of them true — they now describe the inside of a business. That's a real payoff of where you landed rather than where I was pushing.
+
+Want me to scope REQ-168 and REQ-170's revisions into their bodies now, and open the selector work? The Account-is-the-portal decision (item 3) is the one I'd settle first, since it constrains the other two.
 
 <!-- xgd-chat-end -->
