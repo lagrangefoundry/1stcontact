@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T23:08:18.867436+00:00'
+updated_at: '2026-09-02T23:48:29.674348+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -349,5 +349,11 @@ A few things worth surfacing from the write-up:
 One correction I made after creating it: I'd initially filed DOC-41 as `doc_kind: system_kb`, which would sweep an operator runbook into the consultant's corpus. Changed to `architecture`, matching DOC-30/DOC-39 and DOC-39 §3.1's exclusion.
 
 I have not run `1c kb build` or `bin/build` — both need network the sandbox blocks, and neither was asked for.
+
+<!-- xgd-turn id="547e2fc3-847e-4373-820e-b9b4d18aebdb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:48:29.472142+00:00" -->
+#### You
+**A gotcha I found while checking.** `1c builder` and `pnpm dev:control` both start `wrangler dev` on the control app, but `1c builder` spawns it with **no **`--env-file`** flags**. Wrangler falls back to its default `.dev.vars` lookup — so Access is correctly off, and `ANTHROPIC_API_KEY` is never loaded. The builder comes up and the assistant can't take a turn. Documented in §2; worth a small ticket if you want them aligned. <-- please create a ticket - and have the ticket update the doc when its done please
 
 <!-- xgd-chat-end -->
