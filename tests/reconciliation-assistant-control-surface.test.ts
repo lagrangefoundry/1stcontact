@@ -251,6 +251,13 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // of them are things merge cannot express at all: removing a key and moving
     // one. Both of those carry guards stated in terms of references, which is
     // why they are operations rather than a broader `set_config`.
+    //
+    // REQ-175 added `set_page_style`, in `AuthorPages` beside `set_l1`. It is
+    // the first write to reach the page DOCUMENT — its background, its inherited
+    // text colour, its width ladder, its column, the faces it serves — none of
+    // which any operation could write before. It is in the authoring grant
+    // rather than `ManagePages` because painting a page is authoring: a role
+    // that can paint every element on a page can paint the page it sits on.
     expect([...writes].sort()).toEqual([
       'add_asset',
       'add_component',
@@ -265,6 +272,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
       'rename_palette_color',
       'set_config',
       'set_l1',
+      'set_page_style',
       'set_palette_color',
       'update_page',
       'write_image',

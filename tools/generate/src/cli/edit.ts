@@ -2,7 +2,10 @@ import {
   applyCopyFields,
   collectL1PaletteRefs,
   copyFieldsOf,
+  danglingAssetReferences,
+  danglingFontFamilies,
   formatL1Path,
+  L1_DOCUMENT_KEYS,
   l1OpaqueHexSchema,
   l1PaletteNameSchema,
   parseL1Path,
@@ -212,7 +215,80 @@ function findPageFile(files: PageFile[], pageId: string): PageFile | null {
  * Throws SCHEMA_INVALID (carrying the first error's JSON-pointer path) on
  * failure — the caller has not yet written anything, so the draft is untouched.
  */
-function validateOrThrow(base: Record<string, unknown>, pages: unknown[]): void {
+/** The font faces a page serves, by family name. */
+function servedFamilies(page: unknown): string[] {
+  const l1 = (page as { l1?: { resources?: { fonts?: L1FontFace[] } } } | undefined)?.l1
+  return (l1?.resources?.fonts ?? []).map((f) => f.family)
+}
+
+/**
+ * Every reference in a page that resolves to nothing (REQ-175), keyed by WHAT
+ * was written rather than by where it sits.
+ *
+ * KEYED BY VALUE, and that is load-bearing rather than incidental. The write
+ * path compares two versions of a page to find what this write introduced, and
+ * an address is not stable across a write: prepending a nav bar to the root
+ * moves every element below it, so a path-keyed comparison would report a
+ * picture the page has always had as newly broken the moment anything above it
+ * changed. What an author introduces is a *reference*, not a position.
+ */
+function danglingRefs(page: unknown, assets: readonly string[]): Map<string, string> {
+  const found = new Map<string, string>()
+  const note = (ref: { value: string; path: string; message: string }): void => {
+    if (!found.has(ref.value)) found.set(ref.value, `${ref.path}: ${ref.message}`)
+  }
+  for (const ref of danglingFontFamilies(page, servedFamilies(page))) note(ref)
+  for (const ref of danglingAssetReferences(page, assets)) note(ref)
+  return found
+}
+
+/**
+ * The site validates, and this write introduces no dangling reference (REQ-175).
+ *
+ * ASYNC because both halves need the store: the asset listing is what "the site
+ * holds this" is decided against, and the page as it stands is what "this write
+ * introduced it" is decided against.
+ *
+ * THE DIFFERENCE IS THE POINT. A font family with no face and an asset handle
+ * with no bytes are silent failures — the render is wrong and nothing says so —
+ * so a write that creates one must be refused. But both can also arrive from a
+ * capture, through no author's doing: a reproduction names the family its source
+ * named whether or not the face could be mirrored. Refusing those outright would
+ * make a reproduced page uneditable, which trades a wrong font for a page nobody
+ * can touch. So the rule is stated on the write: **a write may not introduce a
+ * dangling reference; it is not required to repair one it inherited.**
+ *
+ * The listing is fetched here rather than by each of the fourteen callers. A
+ * check that half the write paths perform is not a guarantee, and "which writes
+ * validate their references" is exactly the kind of distinction that decays.
+ */
+async function validateOrThrow(
+  slug: string,
+  opts: EditOptions,
+  base: Record<string, unknown>,
+  pages: unknown[],
+): Promise<void> {
+  const assets = (await listSiteAssets(slug, opts)).map((a) => a.src)
+  const before = new Map<string, Map<string, string>>()
+  for (const file of await readPageFiles(slug, opts)) {
+    before.set(String(file.page.id), danglingRefs(file.page, assets))
+  }
+  for (const page of pages) {
+    const id = String((page as { id?: unknown }).id)
+    // A page this write is ADDING has no previous version, so everything it
+    // references is something it introduced. That is the right reading: nothing
+    // in a page being created was inherited.
+    const inherited = before.get(id) ?? new Map<string, string>()
+    for (const [value, detail] of danglingRefs(page, assets)) {
+      if (inherited.has(value)) continue
+      throw new CommandError({
+        code: 'SCHEMA_INVALID',
+        message: `${id}/${detail}`,
+        path: id,
+        hint: 'Reference something the site holds, or add it to the site first.',
+      })
+    }
+  }
   const result = validateSite({ ...base, pages })
   if (!result.ok) {
     const first = result.errors[0]
@@ -714,7 +790,7 @@ export async function editCopySet(
   // The shared validator, layer 1 (DOC-8 §7) — the same call `page`, `config` and
   // `asset` make, and the same one the AI's tool surface will. It runs the site
   // schema AND the L1 envelope over the whole resulting definition.
-  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   const out: EditOutput = {
@@ -851,7 +927,7 @@ export async function editL1Set(
   }
   writeSegmentRoots(page, opts, roots)
 
-  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
@@ -874,6 +950,181 @@ export async function editL1Set(
       label: previous ? labelOf(previous) : undefined,
       before: previous ? clip(textOf(previous)) : undefined,
       after: clip(textOf(node as L1Node)),
+    },
+  )
+}
+
+// ── the L1 document itself (REQ-175) ─────────────────────────────────────────
+
+/**
+ * The page's L1 document, or a refusal naming what it is instead.
+ *
+ * Shared by the read and the write so the two cannot disagree about what "this
+ * page has a document" means — the read must not describe a page the write
+ * would refuse.
+ */
+function requireDocument(
+  page: Record<string, unknown>,
+  pageId: string,
+): Record<string, unknown> {
+  const l1 = page.l1
+  if (l1 === null || typeof l1 !== 'object' || Array.isArray(l1)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no L1 document.`,
+      path: pageId,
+      hint: 'Only an L1 page carries a document to read or paint.',
+    })
+  }
+  return l1 as Record<string, unknown>
+}
+
+/** The document's own keys, the element tree excluded. */
+function documentKeys(l1: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const key of L1_DOCUMENT_KEYS) {
+    if (l1[key] !== undefined) out[key] = l1[key]
+  }
+  return out
+}
+
+/**
+ * Read everything a page is outside its element tree (REQ-175).
+ *
+ * The document's five keys — the width ladder it is authored against, the page
+ * background, the inherited text colour, the shared content column and the font
+ * table — had no reader on this surface at all. `describe_page` returned the
+ * page's id, slug, title and SEO wording and nothing about how the page is
+ * painted, so an assistant could not discover that a page's background was
+ * white, let alone that it had put off-white text on it.
+ *
+ * VERBATIM, on the same terms as {@link editL1Get}: palette references come back
+ * as references, not as the hex they resolve to. What is read is what may be
+ * written back, and a resolved read would break that in the one direction that
+ * matters — writing a resolved colour back would silently sever the page from
+ * the palette entry it was following.
+ *
+ * The keys are projected through {@link L1_DOCUMENT_KEYS}, which is derived from
+ * the schema, so a document key added tomorrow is readable the day it lands.
+ */
+export async function editDocumentGet(
+  slug: string,
+  pageId: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const file = findPageFile(await readPageFiles(slug, opts), pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  const document = documentKeys(requireDocument(file.page, pageId))
+  return {
+    data: { target: { pageId }, document },
+    human: JSON.stringify(document, null, 2),
+  }
+}
+
+/**
+ * Write the page's document-level keys (REQ-175).
+ *
+ * MERGE AT THE TOP LEVEL, VALUES REPLACED WHOLE. Naming `background` leaves
+ * `resources`, `widths`, `column` and `textColor` exactly as they were; naming
+ * `column` replaces the column rather than merging into it.
+ *
+ * That is deliberately NOT `set_config`'s merge-at-every-depth, and the
+ * difference is not an inconsistency. A settings group is a bag of independent
+ * settings, so merging into it is what a caller means. A document key is a
+ * single VALUE — a colour, a ladder, a column, a font table — and merging into
+ * one produces a value nobody wrote: patching `{ref: 'blue'}` over
+ * `{ref: 'sand', shade: -0.4}` would leave a shade the caller never asked for on
+ * an entry that never had it. A partial value is refused by the envelope
+ * instead, which tells the caller what the whole value needs.
+ *
+ * An explicit `null` REMOVES the key. Four of the five are optional in the
+ * schema, and a document that has been given a background must be able to give
+ * it back — otherwise the surface could reach a state the importer can produce
+ * and then never leave it, which is the parity gap this ticket exists to close,
+ * pointed the other way.
+ *
+ * Atomic on the same terms as every other write here: the change lands in a
+ * clone, the resulting site is validated whole — envelope included, so a ladder
+ * change that would strand a keyframe or a column removal that would dangle an
+ * anchor is refused — and on refusal the draft is byte-unchanged.
+ */
+export async function editDocumentSet(
+  slug: string,
+  pageId: string,
+  patch: Record<string, unknown>,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  requireDocument(file.page, pageId)
+
+  const named = Object.keys(patch)
+  if (named.length === 0) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: 'Nothing to write; name at least one document key.',
+      hint: `Writable keys are ${L1_DOCUMENT_KEYS.join(', ')}.`,
+    })
+  }
+  // `root` is refused by name rather than ignored. It IS writable — as address
+  // "0", through `set_l1` — so silently dropping it from a document write would
+  // report success for a change that did not happen, and the caller would learn
+  // the difference from the render.
+  const unknown = named.filter((key) => !L1_DOCUMENT_KEYS.includes(key))
+  if (unknown.length > 0) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${unknown[0]}' is not a document key.`,
+      path: unknown[0],
+      hint:
+        unknown[0] === 'root'
+          ? 'The element tree is written through set_l1, at address "0".'
+          : `Writable keys are ${L1_DOCUMENT_KEYS.join(', ')}.`,
+    })
+  }
+
+  const page = structuredClone(file.page)
+  const l1 = page.l1 as Record<string, unknown>
+  const previous = documentKeys(l1)
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete l1[key]
+    else l1[key] = value
+  }
+
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+  const document = documentKeys(l1)
+  return note(
+    slug,
+    opts,
+    {
+      data: { target: { pageId }, changed: named, document },
+      human: `Updated ${named.join(', ')} on page '${pageId}'.`,
+    },
+    {
+      op: 'document.set',
+      page: pageId,
+      label: named.join(', '),
+      before: clip(fieldsText(previous, named)),
+      after: clip(fieldsText(document, named)),
     },
   )
 }
@@ -972,7 +1223,7 @@ export async function editPageAdd(
     ...(opts.seoMeta ? { seoMeta: opts.seoMeta } : {}),
     modules: [],
   }
-  validateOrThrow(base, [...files.map((f) => f.page), newPage])
+  await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
 
   await opts.store.write(slug, { pages: [{ name, page: newPage }] })
   return note(
@@ -1021,7 +1272,7 @@ export async function editPageUpdate(
   if (opts.seoMeta !== undefined) updated.seoMeta = mergeConfigValue(file.page.seoMeta, opts.seoMeta)
 
   const pages = files.map((f) => (f === file ? updated : f.page))
-  validateOrThrow(base, pages)
+  await validateOrThrow(slug, opts, base, pages)
 
   await opts.store.write(slug, { pages: [{ name: file.name, page: updated }] })
   return note(
@@ -1072,7 +1323,7 @@ export async function editPageRm(
 
   const newBase = referencing.length > 0 ? stripNavTargeting(base, pageId) : base
   const newPages = files.filter((f) => f !== file).map((f) => f.page)
-  validateOrThrow(newBase, newPages)
+  await validateOrThrow(slug, opts, newBase, newPages)
 
   // The nav rewrite and the page removal are ONE write. They were two before,
   // and a caller that crashed between them left a nav entry pointing at a page
@@ -1279,7 +1530,7 @@ export async function editModuleAdd(
     slots,
   }
   const page = { ...file.page, modules: [...moduleList(file.page), instance] }
-  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
@@ -1332,7 +1583,7 @@ export async function editModuleConfigure(
     pageId,
   )
 
-  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
@@ -1372,7 +1623,7 @@ export async function editModuleRm(
     })
   }
   const page = { ...file.page, modules: existing.filter((m) => m.id !== moduleId) }
-  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
   await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
@@ -1445,7 +1696,7 @@ export async function editConfigSet(
   }
   const newBase = scoped ? (merged as Record<string, unknown>) : setDotted(base, key, merged)
   const files = await readPageFiles(slug, opts)
-  validateOrThrow(newBase, files.map((f) => f.page))
+  await validateOrThrow(slug, opts, newBase, files.map((f) => f.page))
 
   await opts.store.write(slug, { siteJson: newBase })
   const where = scoped ? '(top level)' : key
@@ -1603,7 +1854,7 @@ export async function editPaletteSet(
   const hex = requirePaletteValue(value, `palette.${name}.value`)
   const files = await readPageFiles(slug, opts)
   const newBase = { ...base, palette: { ...palette, [name]: { ...palette[name], value: hex } } }
-  validateOrThrow(newBase, files.map((f) => f.page))
+  await validateOrThrow(slug, opts, newBase, files.map((f) => f.page))
   await opts.store.write(slug, { siteJson: newBase })
   const { entries } = paletteCensus(newBase, files.map((f) => f.page))
   const count = entries.find((e) => e.name === name)?.count ?? 0
@@ -1644,7 +1895,7 @@ export async function editPaletteAdd(
   const hex = requirePaletteValue(value, `palette.${name}.value`)
   const files = await readPageFiles(slug, opts)
   const newBase = { ...base, palette: { ...palette, [name]: { value: hex } } }
-  validateOrThrow(newBase, files.map((f) => f.page))
+  await validateOrThrow(slug, opts, newBase, files.map((f) => f.page))
   await opts.store.write(slug, { siteJson: newBase })
   return note(
     slug,
@@ -1696,7 +1947,7 @@ export async function editPaletteRm(
   }
   const { [name]: _gone, ...rest } = palette
   const newBase = { ...base, palette: rest }
-  validateOrThrow(newBase, pages)
+  await validateOrThrow(slug, opts, newBase, pages)
   await opts.store.write(slug, { siteJson: newBase })
   return note(
     slug,
@@ -1767,7 +2018,7 @@ export async function editPaletteRename(
     palette: renamed,
   }
   const newPages = pages.map((page) => renameL1PaletteRef(page, from, to))
-  validateOrThrow(newBase, newPages)
+  await validateOrThrow(slug, opts, newBase, newPages)
 
   // ONE call, and this is the case that made it the port's shape (REQ-142 AC-5).
   // A rename that moved `site.json`'s key without every page's references would
@@ -2310,7 +2561,7 @@ export async function cmdApplyGapFixes(
     gaps,
     files.map((f) => ({ page: f.page })),
   )
-  validateOrThrow(base, files.map((f) => f.page))
+  await validateOrThrow(slug, opts, base, files.map((f) => f.page))
   const apply = opts.apply === true
   // `planGapFixes` mutated the pages in place, so every one of them is written —
   // as one call, so a partial application is not a state the store can be left

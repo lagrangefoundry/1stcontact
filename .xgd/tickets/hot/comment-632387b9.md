@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T23:51:35.048387+00:00'
+updated_at: '2026-09-02T23:53:13.330100+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -296,5 +296,26 @@ I haven't filed anything for this. Your last message in CHAT-36 asks for exactly
 <!-- xgd-chat role="user" ts="2026-09-02T23:51:34.874522+00:00" -->
 #### You
 okk that sounds good can you create a ticket for the changes please
+
+<!-- xgd-turn id="ffe55e5f-a8b4-4462-97e8-5024ad92a0b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:53:13.248041+00:00" -->
+#### Claude
+**REQ-181** — *Library under one-site-per-business: badge the exception, not the rule* (draft, medium, 3pt). The push also went through this time, so the earlier tickets are on the remote now too.
+
+Six changes, and one of them turned out to be a correctness fix rather than a simplification:
+
+1. **Drop the placement pill** — the third state can't exist under one site per business, so the pill is redundant on the common case and silent on the failure.
+2. **Warning when `role === 'site'` and `placed_on` is empty** — the failed-promotion state BUG-47 named and didn't fix. Perceivable without colour, same as the type icon's `aria-label`.
+3. **Remove the `hereOnly` filter** — degenerates to the role filter plus the error case.
+4. **`getSite` and `placedHere` fall out of `library.js`** — that the Library stops needing to know which site is open is the correctness check on the whole change.
+5. **`placed_on` stays in the detail pane**, relabelled — `Used on` describes usage, not placement.
+6. **Three comments rewritten** — the ones arguing a second site shouldn't start cold, which you've now reversed.
+
+The one I'd flag: **`siteChanged` must become a reload, not a re-filter.** `app.js` currently says *"The list itself is tenant-wide and is not re-read"* — which is exactly the assumption the new model breaks. Once the selector switches tenants, leaving `siteChanged: () => apply()` shows the previous business's material after a switch. I've written it as the part not to drop if the rest gets trimmed.
+
+Kept out of scope and said so explicitly: the "live on the site" indicator (still a publish-state read, still not a rename), the DOC that supersedes the tenant-wide premise, and any schema change — `sites (tenant_id, slug)` already expresses N-per-tenant, so v1 holds one by convention and nothing migrates.
+
+Session tickets: **REQ-173**, **BUG-47** ✅ landed, **REQ-176** ✅ landed, **REQ-181**.
 
 <!-- xgd-chat-end -->

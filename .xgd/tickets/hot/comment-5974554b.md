@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-02T23:23:22.101927+00:00'
+updated_at: '2026-09-02T23:53:52.098024+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,33 @@ No code changed. Tell me which way on A–D and I'll populate the ticket body ac
 The consultant needs access to all the capabilities you are discussing - in fact we will be expanding on the set. So yes to everything.
 
 In general L1 needs to be self-validating - if the AI propose a change that will break things we should not allow the change with a clear and helpful warning
+
+<!-- xgd-turn id="a0c53fe1-6388-4ea1-939a-bbdb50bbe730-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:53:23.427532+00:00" -->
+#### Claude
+Aligned. Recording the decisions in the ticket first, then cutting the branch.
+
+Now `validateSite` threading:
+
+Now `edit.ts` — make `validateOrThrow` asset-aware:
+
+Now the document read/write pair in `edit.ts`:
+
+Now the broader suite, to see what the new validation refuses:
+
+The font rule as written breaks the reproduction path itself. Checking where the import writes:
+
+The rule must not punish inherited state — reproduced pages would become uneditable. Restructuring to "a write may not *introduce* a broken reference":
+
+Now the write-path gate in `edit.ts`:
+
+Path-keyed comparison misfires when an inherited node merely moves. Keying on the reference value instead:
+
+<!-- xgd-turn id="38049207-c859-4ed0-a877-c75f1abc656f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:53:51.817265+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
 
 <!-- xgd-chat-end -->

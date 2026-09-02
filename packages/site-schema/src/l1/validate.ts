@@ -650,6 +650,230 @@ export function checkPaletteRefs(
   }
 }
 
+
+
+// ── Dangling references (REQ-175) ────────────────────────────────────────────
+//
+// L1 IS SELF-VALIDATING: a document that would render wrong is refused, naming
+// what is wrong and what would be accepted, rather than accepted and painted
+// wrong. Every cross-reference in the substrate already worked that way but two.
+//
+// What makes those two worse than the checks above is not that they are wrong —
+// it is that they are SILENT. A keyframe at an undeclared width is refused; a
+// `geometry.anchor` with no `column` is refused; a palette reference naming
+// nothing is refused with the declared names listed. A font family with no face
+// paints the browser default, and an image handle with no bytes paints a broken
+// image or nothing at all — both accepted, and the author learns what they wrote
+// by looking at the render. That is the one failure mode an AI author cannot
+// correct from, because nothing tells it.
+//
+// WHY THESE ARE FINDERS RATHER THAN CHECKS, and why neither runs inside
+// {@link validateL1}. Both references can dangle for a reason that is nobody's
+// fault and nothing an author can fix: a capture reproduces a page that named
+// `Inter` and could not mirror the face, or referenced an image the mirror
+// missed. Refusing that document would mean refusing the IMPORT — and, because
+// `assembleSite` validates on every read, refusing to open the page ever again.
+// A wrong font is a blemish; an unopenable page is a loss.
+//
+// So the rule these serve is stated on the WRITE, not on the document:
+//
+//     A write may not INTRODUCE a dangling reference. It is not required to
+//     repair one it inherited.
+//
+// The write path holds both versions of a page and takes the difference, which
+// is why these report findings and let it decide. See `validateOrThrow`.
+
+/**
+ * The CSS generic and system font families.
+ *
+ * A stack that names one of these has a **declared** fallback: the browser is
+ * told what to paint when the preferred face is unavailable, so the outcome is
+ * the author's choice rather than the platform's default. That is the whole
+ * test — a stack with a generic in it cannot fail silently, whether or not any
+ * face is served for its primary family.
+ *
+ * This is why the test is on the STACK and not on the primary family alone.
+ * `fontFamily` carries a CSS font stack, not a name: the reproduction path emits
+ * `"Satoshi, Helvetica Neue, Arial, sans-serif"` from a computed style, while
+ * `resources.fonts[].family` carries the primary family (`"Satoshi"`) it binds.
+ * A rule stated on the primary alone would flag a captured page for carrying the
+ * fallbacks its own source declared.
+ */
+const GENERIC_FONT_FAMILIES: ReadonlySet<string> = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+  'math',
+  'fangsong',
+  'emoji',
+])
+
+/**
+ * One family name, unquoted and case-folded. CSS family matching is
+ * case-insensitive and quoting is optional, so `"Satoshi"`, `'satoshi'` and
+ * `Satoshi` are one family and must compare equal — otherwise a document would
+ * be flagged over its own punctuation.
+ */
+function normaliseFamily(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+/** The families a stack names, in declared order, empties dropped. */
+function familyStack(value: string): string[] {
+  return value.split(',').map(normaliseFamily).filter((f) => f !== '')
+}
+
+/** A reference that resolves to nothing, and the plain reason it does not. */
+export interface L1DanglingReference {
+  /** JSON-pointer-style path, relative to the input the finder was given. */
+  path: string
+  /** What was written. */
+  value: string
+  /** Why it resolves to nothing, and what would be accepted instead. */
+  message: string
+}
+
+/**
+ * REQ-175 — every painted font family that resolves to nothing the author chose.
+ *
+ * `fontFamily: "Poppins"` on a document that serves no Poppins face validates
+ * clean today and paints the browser's default serif; nothing in the answer says
+ * so. That is the same class of failure as the off-white text on the white page
+ * this ticket was filed over — a plausible write, accepted, and wrong in a way
+ * only a pair of eyes on the render catches.
+ *
+ * @param declared The families the document serves — `resources.fonts[].family`.
+ */
+export function danglingFontFamilies(
+  input: unknown,
+  declared: readonly string[],
+): L1DanglingReference[] {
+  const served = new Set(declared.map(normaliseFamily))
+  const out: L1DanglingReference[] = []
+  const walk = (v: unknown, path: string): void => {
+    if (Array.isArray(v)) {
+      v.forEach((item, i) => walk(item, `${path}/${i}`))
+      return
+    }
+    if (typeof v !== 'object' || v === null) return
+    const node = v as Record<string, unknown>
+    const axes = node.axes
+    const family =
+      axes !== null && typeof axes === 'object'
+        ? (axes as { fontFamily?: unknown }).fontFamily
+        : undefined
+    if (typeof family === 'string') {
+      const stack = familyStack(family)
+      const resolves =
+        stack.some((f) => GENERIC_FONT_FAMILIES.has(f)) || (stack.length > 0 && served.has(stack[0]))
+      if (!resolves) {
+        out.push({
+          path: `${path}/axes/fontFamily`,
+          value: family,
+          message:
+            `font family '${family}' resolves to nothing: no face is served for it and the stack ` +
+            `names no generic family, so it would paint the browser default rather than anything ` +
+            `chosen. ` +
+            (declared.length
+              ? `This page serves: [${declared.join(', ')}]. `
+              : 'This page serves no font faces. ') +
+            `Either serve the face, or name a fallback every browser has ` +
+            `(e.g. '${family}, sans-serif').`,
+        })
+      }
+    }
+    for (const [key, item] of Object.entries(node)) walk(item, `${path}/${key}`)
+  }
+  walk(input, '')
+  return out
+}
+
+/**
+ * The site-relative asset a reference names, or `null` when the site is not the
+ * one being asked to hold it.
+ *
+ * `null` for anything carrying a scheme or a protocol-relative authority: an
+ * `https://` image is somebody else's to serve, and the scheme allowlist above
+ * is the whole of what this substrate has to say about it. `null` too for a bare
+ * fragment, which addresses this document rather than a file.
+ *
+ * QUERY AND FRAGMENT ARE STRIPPED BEFORE COMPARISON. The reproduction path emits
+ * `/assets/xgd-grid-hero.svg?v=3` for an asset stored as `xgd-grid-hero.svg` — a
+ * cache-buster carried over from the captured source — so a literal comparison
+ * would flag the importer's own output on every page it appears.
+ */
+function assetKey(reference: string): string | null {
+  const trimmed = reference.trim()
+  if (trimmed === '' || trimmed.startsWith('#')) return null
+  if (/^([a-zA-Z][a-zA-Z0-9+.-]*:|\/\/)/.test(trimmed)) return null
+  const bare = trimmed.split(/[?#]/)[0]
+  return bare.replace(/^\.?\//, '').replace(/^assets\//, '')
+}
+
+/**
+ * REQ-175 — every asset a page references that the site does not hold.
+ *
+ * A picture element whose `src` names nothing renders a broken image, and a
+ * `backgroundImageUrl` that names nothing renders as no background at all — the
+ * second indistinguishable from a page that simply has no backdrop.
+ * [[BUG-44]]'s session ended on exactly this: the assistant concluded the
+ * client's own uploaded logo was unusable and drew a substitute.
+ *
+ * A structural walk rather than a typed one, for the same reason
+ * {@link collectL1PaletteRefs} is: a behavior module's `slots` are L1 subtrees
+ * that no L1 type describes, and a handle that dangles there breaks the render
+ * exactly as one in the page's own document does.
+ *
+ * @param held The site's assets, as handles (`/assets/<name>`) or bare names.
+ */
+export function danglingAssetReferences(
+  input: unknown,
+  held: readonly string[],
+): L1DanglingReference[] {
+  const have = new Set(held.map((a) => assetKey(a)).filter((k): k is string => k !== null))
+  const catalogue = have.size
+    ? `The site has: [${[...have].sort().map((k) => `/assets/${k}`).join(', ')}].`
+    : 'The site holds no assets yet.'
+  const out: L1DanglingReference[] = []
+  const note = (path: string, value: string): void => {
+    const key = assetKey(value)
+    if (key === null || have.has(key)) return
+    out.push({
+      path,
+      value,
+      message: `'${value}' is not an asset this site holds, so it would render as a broken image. ${catalogue}`,
+    })
+  }
+  const walk = (v: unknown, path: string): void => {
+    if (Array.isArray(v)) {
+      v.forEach((item, i) => walk(item, `${path}/${i}`))
+      return
+    }
+    if (typeof v !== 'object' || v === null) return
+    const node = v as Record<string, unknown>
+    if (node.kind === 'image' && typeof node.src === 'string') note(`${path}/src`, node.src)
+    const axes = node.axes
+    if (axes !== null && typeof axes === 'object') {
+      const painted = (axes as { backgroundImageUrl?: unknown }).backgroundImageUrl
+      if (typeof painted === 'string') note(`${path}/axes/backgroundImageUrl`, painted)
+    }
+    for (const [key, item] of Object.entries(node)) walk(item, `${path}/${key}`)
+  }
+  walk(input, '')
+  return out
+}
+
 /**
  * Validate an L1 document against the schema **and** the envelope. Returns the
  * typed document on success, or the full list of machine-readable errors — so an

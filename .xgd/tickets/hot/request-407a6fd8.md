@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-02T23:39:13.363213+00:00'
+updated_at: '2026-09-02T23:54:00.985975+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -110,3 +110,94 @@ picks*.
 - No caller reads a singular `accountId` off `Admission` — the failure mode is
   one call site left behind, serving the first membership found to a person who
   selected the second.
+
+
+---
+
+## What was implemented, including consequences of the above
+
+### `Admission` loses `accountId` and `entitlement` rather than keeping them beside the list
+
+The singular fields were **deleted**, not left in place next to `businesses`. A
+caller still reading `accountId` would serve whichever business sorted first to
+someone who had selected the second — plausible, silent and wrong. Deleting the
+fields turns every such call site into a compile error. `apps/control-app/src/index.ts`
+was the only shipped consumer and reads `ok` alone, so nothing needed rewiring;
+the two existing REQ-167 UATs that read the singular fields were updated.
+
+Each `AdmittedBusiness` carries `{ accountId, name, entitlement, selectable }`.
+`selectable` is false exactly when `entitlement` is null.
+
+### Revoked and expired memberships exclude the business entirely
+
+A lapsed *grant* keeps the business in the list, marked. A revoked or expired
+*membership* removes it. They are different facts: listing a revoked membership
+would tell a former employee which businesses they used to be able to reach.
+
+### The join onto `tenants` is also an integrity guard
+
+`businessesFor` inner-joins `tenants` for the name, which drops a membership
+pointing at a business the registry has never heard of — a row `forTenant` would
+refuse anyway, so it is better dropped here than surfaced as a switcher entry
+that throws when picked.
+
+### Provisioning: what the D1 batch now guarantees
+
+`provisionInvite` previously wrote user + membership + entitlement in one
+`DB.batch()`. Extracting `provisionBusiness` splits that, because the user
+belongs to the person and the other two belong to the business:
+
+- the user row is written first, on its own
+- membership + grant go in `provisionBusiness`'s batch, so a business can never
+  exist that nobody may operate or that carries no access
+
+The failure this newly admits is a person with no business. It is **visible** —
+they are refused `no_membership` — and it is made **repairable**: re-inviting
+someone who holds no live business provisions one. That is not a second account,
+because the account is the person and the person already existed; `created`
+stays false. Re-inviting someone who *does* hold a business is unchanged — it
+reports the first one they hold and writes nothing.
+
+### `provisionBusiness` signature and refusals
+
+```ts
+provisionBusiness(env, {
+  accountUserId, name, email?, plan?, startsAt?, endsAt?, grantedBy?, note?,
+}): Promise<{ accountId, name, siteSlug }>
+```
+
+Role is always `owner` and is not a parameter: every business this creates is
+created for the person who will own it, and a time-boxed `support` membership
+([[DOC-40]] §6) is granted against an *existing* business, so it is a different
+operation. An empty `accountUserId` or an empty `name` is refused, because
+neither row can be repaired from the outside once written.
+
+`InviteResult.accountId` stays **singular** and that asymmetry is deliberate: an
+invite provisions one business, so reporting one id is reporting what happened.
+It is admission — "which businesses may be operated" — where a singular answer
+would be a guess.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-178_businesses.workers.test.ts`, in workerd against real
+D1 with the deployed migrations, every business provisioned through the shipped
+entry points rather than seeded:
+
+- two businesses admitted, each with its own grant and its own `tenants.name`
+- the admission object carries no `accountId`/`entitlement` key
+- one lapsed among two — admitted, lapsed present, `selectable` false
+- every business lapsed — refused `no_entitlement` (driven with two, so it
+  cannot pass on code that stops at the first)
+- revoked and expired memberships each excluded
+- a suspended person holding a live business is still refused `user_inactive`
+- invite-provisioned and `provisionBusiness`-provisioned businesses compared
+  row-for-row out of D1
+- a second business is immediately operable, with a starter page
+- both provisioning refusals
+- the re-invite repair
+
+Regression scope: `tests/test_UAT_FC_REQ-167_identity.workers.test.ts` (19
+tests, two updated for the new shape) and the whole `workers` vitest project
+(26 files, 217 tests). The full suite has one pre-existing unrelated failure,
+`tests/bug32-webui-scope-rebrand.test.ts`, which fails identically on the base
+commit.

@@ -27,6 +27,7 @@
  * construction-scoped bindings are the finding to raise upstream).
  */
 
+import { L1_DOCUMENT_KEYS } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import l1Surface from './l1-surface.json'
@@ -45,6 +46,8 @@ import {
   editChanges,
   editConfigGet,
   editConfigSet,
+  editDocumentGet,
+  editDocumentSet,
   editL1Get,
   editL1Set,
   editModuleAdd,
@@ -221,8 +224,17 @@ export function l1Operations(
         (await editPageGet(slug, req(p, 'page'), opts)).data as { page: Record<string, unknown> }
       ).page
       const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
+      // REQ-175 — the page's own document keys, beside its metadata. This is
+      // where the blindness was: `editPageGet` has always returned the whole
+      // page, `l1` included, and this projection was what dropped it — so an
+      // assistant could not see that a page's background was white, could not
+      // discover that it had one, and shipped off-white text onto it.
+      const l1 = (page.l1 ?? {}) as Record<string, unknown>
       return {
         page: { id: page.id, slug: page.slug, title: page.title, seoMeta: page.seoMeta ?? null },
+        style: Object.fromEntries(
+          L1_DOCUMENT_KEYS.filter((key) => l1[key] !== undefined).map((key) => [key, l1[key]]),
+        ),
         // REQ-130 — the instances themselves, not only the addresses inside their
         // slots. A caller that can add and configure a component needs to see the
         // ones already there, and its config is what it would be changing.
@@ -241,6 +253,12 @@ export function l1Operations(
 
     get_l1: async (p) =>
       (await editL1Get(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts))).data,
+
+    // REQ-175 — the page document, which no operation reached before. It sits
+    // beside `get_l1`/`set_l1` rather than beside `update_page` because painting
+    // a page is authoring, not page management: the two go in the same grant, so
+    // a role that can paint every element on a page can also paint the page.
+    get_page_style: async (p) => (await editDocumentGet(slug, req(p, 'page'), opts)).data,
 
     list_assets: async () => (await editAssetList(slug, opts)).data,
 
@@ -264,6 +282,11 @@ export function l1Operations(
 
     set_l1: async (p) => {
       const out = await editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
+      return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
+    },
+
+    set_page_style: async (p) => {
+      const out = await editDocumentSet(slug, req(p, 'page'), obj(p, 'style') ?? {}, opts)
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
