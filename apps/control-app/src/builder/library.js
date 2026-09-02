@@ -69,6 +69,29 @@ const NO_DESCRIPTION =
 /** The `kind` vocabulary (DOC-38 §9), as a filter offers it. */
 const KINDS = ['image', 'document', 'font', 'capture']
 
+/**
+ * The glyph a row opens with, by `kind` (REQ-176).
+ *
+ * A TYPE IS A SHAPE BEFORE IT IS A WORD, which is why this replaced the `kind`
+ * pill rather than joining it: the pill spent a row's width restating what a
+ * picture says at a glance, and the row has to fit on one line.
+ *
+ * PARTIAL BY DESIGN, WITH A FALLBACK THAT IS NOT AN ERROR. `kind` is
+ * `document | image | font | capture` today (DOC-38 §9) and will grow — a
+ * capture is an ingested bundle rather than a file the client handed us, and
+ * whatever §9 adds next arrives before this map hears about it. So the three
+ * kinds a client uploads are named and everything else lands on the paperclip.
+ * A row must never render iconless: an empty leading cell reads as a missing
+ * icon, which is a bug, not a kind.
+ *
+ * Emoji rather than SVG, matching the upload overlay's own area icons — one
+ * convention for the two places in the builder that draw a type.
+ */
+const KIND_ICON = { document: '\u{1F4C4}', image: '\u{1F5BC}', font: '\u{1F524}' }
+
+/** Everything the map does not name, including `capture`. */
+const KIND_ICON_FALLBACK = '\u{1F4CE}'
+
 /** The §9 rights block, shown read-only. The client's own record of what we hold. */
 const RIGHTS_FIELDS = [
   { name: 'filename', label: 'File' },
@@ -252,10 +275,19 @@ export function createLibraryPanel(options = {}) {
   // --- the list rows ------------------------------------------------------------
   function renderRow(row) {
     const wrap = el('div', 'builder-library__row')
+
+    // THE ICON CARRIES THE KIND, AND CARRIES IT TO A SCREEN READER TOO. Dropping
+    // the pill dropped the only place the row said its type in words, so the
+    // glyph is labelled rather than hidden — the fact moved, it did not go.
+    const icon = el('span', 'builder-library__row-icon', KIND_ICON[row.kind] ?? KIND_ICON_FALLBACK)
+    icon.setAttribute('role', 'img')
+    icon.setAttribute('aria-label', row.kind ?? 'file')
+    icon.title = row.kind ?? ''
+    wrap.append(icon)
+
     wrap.append(el('span', 'builder-library__row-title', row.title || row.filename))
 
     const meta = el('div', 'builder-library__row-meta')
-    meta.append(el('span', 'builder-library__badge builder-library__badge--kind', row.kind))
     if (row.role) {
       meta.append(
         el('span', 'builder-library__badge builder-library__badge--role', ROLE_LABEL[row.role] ?? row.role),

@@ -85,23 +85,29 @@ export const STORAGE_KEYS = {
  * THE SECOND SUB-LINE IS LOAD-BEARING, not decoration. A client uploading their
  * positioning document wants to know it stays private, and the moment they are
  * deciding where to drop it is the moment to say so (DOC-35's register: plain,
- * reassuring, no jargon).
+ * reassuring, no jargon). REQ-176 shortened `label` to `Background information`,
+ * which puts MORE of that reassurance on the hint, not less — so the hints are
+ * unchanged and the second one stays exactly as load-bearing as it was.
  *
- * `id` is the wire value the ingestion route validates against; the copy is
- * provisional and lives here for the same reason every other label does.
+ * `id` is the wire value the ingestion route validates against — `site` and
+ * `reference` are what the route matches on and do not move when the copy does;
+ * the copy is provisional and lives here for the same reason every other label
+ * does. The Library's role pill and role filter derive from these labels rather
+ * than restating them (`ROLE_LABEL` in `library.js`), so the overlay and the
+ * list cannot come to describe the same file differently.
  */
-export const UPLOAD_PROMPT = "What's this for?"
+export const UPLOAD_PROMPT = 'Purpose'
 
 export const UPLOAD_AREAS = [
   {
     id: 'site',
-    label: 'Put it on the site',
+    label: 'Site asset',
     hint: 'Photos, logos, fonts. Things your visitors will see.',
     icon: '🖼',
   },
   {
     id: 'reference',
-    label: 'Just for you to read',
+    label: 'Background information',
     hint: "Brand guidelines, notes, reports. I'll use these to understand your business; they won't appear on your site.",
     icon: '📄',
   },

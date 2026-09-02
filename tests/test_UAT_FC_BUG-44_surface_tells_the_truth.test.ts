@@ -84,8 +84,10 @@ describe('BUG-44 — the surface no longer says a file cannot arrive through the
     // What the client can do instead, named precisely enough to be followed:
     // the drop area's own words, so the assistant asks for the thing the UI
     // actually offers rather than describing a gesture that does not exist.
+    // REQ-176 renamed that area; the invariant is that the note quotes whatever
+    // the area is called, which its own suite asserts against the constant.
     expect(note).toMatch(/drop/i)
-    expect(note).toMatch(/Put it on the site/i)
+    expect(note).toMatch(/Site asset/i)
   })
 
   it('test_UAT_FC_BUG-44_registration_is_not_described_at_all', () => {

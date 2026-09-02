@@ -943,22 +943,50 @@ body {
   white-space: nowrap;
 }
 
+/*
+ * ONE LINE: icon, title, then whatever the row still has to say (REQ-176).
+ *
+ * The row used to stack — title above, pills wrapping below — which spent two
+ * lines per item on a list whose whole job is to be scanned. Losing the `kind`
+ * pill to the leading icon is what made one line fit.
+ *
+ * TRUNCATION LANDS ON THE TITLE, NEVER ON A PILL. The title is the only thing
+ * here that can be cut and still read, so it takes the remaining space and
+ * ellipses; the icon and the pills are `flex: none` and keep their intrinsic
+ * width. A half-rendered pill reads as a rendering bug rather than as a name
+ * that was too long, which is why they may neither wrap nor shrink.
+ */
 .builder-library__row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
+.builder-library__row-icon {
+  flex: none;
+  line-height: 1;
+}
+
+/*
+ * 13px MATCHES `.list-detail-row-title`, the component's own rows. `renderRow`
+ * owns the whole content cell and builds its own title span, so it inherited the
+ * shell's body size and made the Library the one list in the builder with a
+ * larger row title than every other. Set here rather than in `webui-list-detail`,
+ * which other hosts share.
+ */
 .builder-library__row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .builder-library__row-meta {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
 }
 
