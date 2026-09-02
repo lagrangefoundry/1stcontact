@@ -5,9 +5,9 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-09-02T23:24:57.760371+00:00'
+updated_at: '2026-09-02T23:28:58.656376+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -51,8 +51,11 @@ are all read-only with respect to the site. Bolting them onto the L1 surface wou
 document's own claim about itself false.
 
 So this is a second declared surface, implemented the same way: declared as data, implemented
-against the store, granted per role. `createL1Toolbox` already takes a **list** of surfaces
-(`host-core.ts:515`) and the knowledge surface is the working precedent for a second one.
+against the store, granted per role. The knowledge surface is the working precedent for a second
+one — but it is only *half* a precedent: `createL1Toolbox` takes it as a **single named slot**
+(`knowledgeSurface`), not as a list, so composing a third surface means generalising that
+parameter first. (An earlier draft of this body claimed the parameter was already a list. It was
+not; see the Decisions below.)
 
 ## The picture vocabulary — "anything against anything"
 
@@ -119,9 +122,11 @@ at satisfies none of this ticket.** The point is the eyes.
 - Everything a capture returns is a third party's content arriving inside a tool result. The L1
   surface already marks reads `provenance: 'untrusted'`; this is more so, and a captured page's
   text must never be able to read as an instruction.
-- The caretaker grant is the whole surface: this is the role that builds sites, and looking at
+- The consultant grant is the whole surface: this is the role that builds sites, and looking at
   what it built is not a privileged act. It remains ungranted `Publish` and `ManageAssets`, which
-  this ticket does not touch.
+  this ticket does not touch. (This body was written when the role was called the *caretaker*;
+  [[REQ-174]] renamed it to the **consultant**, and `consultant` is the only name written
+  anywhere now. Read every "caretaker" below as the consultant.)
 
 ## Acceptance criteria
 
@@ -138,13 +143,68 @@ at satisfies none of this ticket.** The point is the eyes.
    `unexplained-disagreement`).
 6. `capture_site` is refused for private address space, over-large responses and redirect loops;
    each refusal is journalled with the URL.
-7. The caretaker is granted the surface and its manual says what it can now do.
+7. The consultant is granted the surface and its manual says what it can now do.
 8. No operation on this surface can change a site — asserted, not asserted-by-inspection.
 
 ## Origin
 
 [[CHAT-27]]. Last of four, and the only one the operator asked for directly; the other three are
 what it stands on.
+
+---
+
+## Field evidence: the scope of "cannot see" is wider than this ticket assumed
+
+*Appended from [[CHAT-35]], 2026-09-02 — the first client-shaped session run
+against the product. Restored: this section was overwritten by a body rewrite
+fourteen seconds after it was appended, and is reinstated here verbatim apart
+from its closing note, which had gone stale.*
+
+This ticket frames looking as a **fidelity** capability: capture a reference,
+shoot the draft, compare, judge. That framing is right and it is not wide
+enough. The session showed the assistant needs to see in order to do ordinary
+authoring work, before any question of fidelity arises.
+
+The operator uploaded a hero image and asked for a placeholder site. The
+assistant placed it as a large standalone block. The operator's objection was
+not about fidelity to a reference — there was no reference — it was that the
+image had been *composed* as a backdrop and was being used as a subject:
+
+> "This image was created to be a background image that the hero text would
+> layer on top of... loading up this page it looks weird, even at a
+> three-quarter sized browser window all I see is my background image."
+
+The judgement required is *backdrop or subject?* — and it is unanswerable from
+`{id, src, kind, onDisk}`, which is all `get_asset` returns. The assistant said
+so itself, and named the two things it would need: what the image looks like,
+and whether it is meant to sit behind something.
+
+**The capability already exists and is pointed elsewhere.** `describe.ts` runs
+`claude-opus-5` over every uploaded image at ingestion (REQ-163) and writes a
+composition description — *"blue daylight comes through an arched gothic window
+on the right"* — into the **material ticket body** for retrieval. The assistant
+had that description available by search, did not think to look for it, and told
+the operator that its alt text had been written by whoever uploaded the file.
+So there are three distinct failures stacked here, and only the first is this
+ticket's:
+
+1. No image reaches the assistant's context. (This ticket.)
+2. The description that does exist is not attached to the asset, so
+   `get_asset` cannot return it and nothing points from the file to the words
+   about it. Cheap to fix and independent of the fidelity surface.
+3. Nothing prompts the assistant to ask the backdrop-or-subject question when
+   an image arrives.
+
+**Status note, updated.** The original note here flagged that this ticket was
+still `draft` behind a four-ticket dependency chain, and asked whether (2) should
+be scheduled ahead of it. That is now moot for (1): REQ-154, REQ-155, REQ-156 and
+REQ-149 have all landed and the fidelity surface is built, so an image does now
+reach the assistant's context. **(2) and (3) remain open and are not in this
+ticket.** `describe.ts:107-118` names this ticket as one of the two places the
+duplicate vision path gets deleted — that deletion is *not* done here, so the
+duplication it accepts stays open until (2) is scheduled. Both belong in their
+own tickets.
+
 ---
 
 ## Decisions (design session, 2026-09-02)
@@ -248,6 +308,49 @@ image content block reaches it (AC3), that a comparison verdict equals `1c diff`
 equivalent invocation (AC4), that each of `gate`'s verdicts is reproduced (AC5), that a private,
 oversized or looping URL is refused and journalled (AC6), and that no operation on this surface
 moves the site's change counter (AC8).
+
+---
+
+## Behaviour the build settled
+
+Six things the operations must do that fall out of the above as technical
+consequence rather than being asked for directly. Written down because each is
+asserted, and an assertion with no language behind it reads as drift.
+
+**A comparison crops to the common rectangle.** A reproduction is rarely exactly
+as tall as its reference, and refusing a comparison on that basis would fail on
+the case the operation most exists for. Both sides are anchored top-left and
+cropped to the overlap, and the result reports the `size` actually compared
+rather than leaving the caller to assume it was either input's.
+
+**The reference side follows the actual side's viewport.** A page can be right at
+one width and wrong at another, so reading a desktop reference against a mobile
+reproduction would manufacture a failure that is entirely the gate's own doing.
+Whichever viewport the actual picture asked for is the one the reference is read
+at.
+
+**A missing ladder member falls back, and says so.** A bundle captured before the
+viewport ladder existed still holds a full-page shot. Reading it beats refusing a
+comparison the operator can plainly see is possible — but a comparison against a
+fallback must never be mistaken for one at the right width, so the picture's
+label names it as a fallback.
+
+**The surface is bound to one site at construction**, exactly as the L1 surface
+is. No operation takes a `slug`, and no picture names one. That is stronger than
+a scope axis that refuses the wrong value: there is no value for a model to get
+wrong, and it is the reason a picture of kind `draft` cannot be a picture of
+somebody else's draft.
+
+**Each of the five verdicts carries its own next step.** The verdicts are the
+whole reason `check_fidelity` exists rather than `compare` alone, and each
+implies a *different* action — so they must be distinguishable in what they tell
+the reader to do, not merely distinct as values.
+
+**Downsampling averages rather than samples.** Reducing to the 1024px edge by
+nearest-neighbour would drop exactly the thin high-contrast detail — rules, one-
+pixel borders, small type — that a fidelity judgement turns on. A box filter over
+the source pixels is what makes the reduced picture honest about what was there.
+
 ---
 
 ## As built
@@ -261,7 +364,7 @@ carries no prose the model ever sees — the same split `toolbox-core.ts` holds 
 `knowledgeSurface` slot, and the knowledge surface became the first entry in that list.
 
 **The grant is narrowed to the surfaces actually composed.** `instances.json` says what the
-caretaker may do; which surfaces exist is a property of the deployment. A Worker with no
+consultant may do; which surfaces exist is a property of the deployment. A Worker with no
 `[browser]` binding, or a `1c` invocation with no server behind it, composes no fidelity surface —
 and the Toolbox refuses to construct when a configuration names a surface nobody registered. So
 `createL1Toolbox` filters the grant down to the composed set. The filter only ever removes keys,
