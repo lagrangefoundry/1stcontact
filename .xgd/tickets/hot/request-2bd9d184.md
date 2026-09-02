@@ -14,6 +14,7 @@ fields:
   story_points: 13
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5974554b
 ---
 
 # The consultant gets the whole of L1, and keeps getting it
