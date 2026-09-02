@@ -6,10 +6,10 @@ title: The same file is one stored object within an account and two separate obj
   across two accounts
 created_by: xgd
 created_at: '2026-09-02T00:17:15.580046+00:00'
-updated_at: '2026-09-02T00:17:15.580046+00:00'
+updated_at: '2026-09-02T00:26:37.634964+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a7a12d81
   kind: behavior
