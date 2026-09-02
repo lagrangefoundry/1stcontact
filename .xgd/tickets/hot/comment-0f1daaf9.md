@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-49
 created_by: xgd
 created_at: '2026-09-02T23:00:31.052013+00:00'
-updated_at: '2026-09-02T23:24:00.299739+00:00'
+updated_at: '2026-09-02T23:30:58.873392+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,27 @@ Want me to scope that onto BUG-49 and implement it?
 <!-- xgd-chat role="user" ts="2026-09-02T23:24:00.062626+00:00" -->
 #### You
 yes
+
+<!-- xgd-turn id="5f0430f0-e091-4086-95a8-1be38dd105e8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:30:58.550637+00:00" -->
+#### Claude
+Ticket scoped. Now cutting the branch.
+
+Now the implementation.
+
+Now the UAT suite.
+
+The full suite is running. While it finishes, here's where things stand:
+
+**Implemented** (`tools/generate/src/cli/kb.ts`, worktree `free-BUG-49`):
+- `resolveEmbedder` now requires only `CLOUDFLARE_API_TOKEN`; a new private `resolveAccountId` discovers the account via `GET /accounts` — the same rule `bin/access-token`'s `resolve_account()` has always used.
+- `CLOUDFLARE_ACCOUNT_ID` short-circuits discovery entirely (no request made), which keeps a narrowly-scoped token usable.
+- Several accounts → named back with name + id, never guessed. Zero accounts → scope error. Refusal (403 *or* `success: false` under a 200) or an unreachable API → one error that names the narrow-scope case and carries Cloudflare's own reason.
+- `KB_USAGE` updated to match.
+
+**6 UATs** in `tests/test_UAT_FC_BUG-49_account_discovery.test.ts`, all passing; the four existing kb suites and both reconciliation suites still pass; version bumped 0.2.46 → 0.2.47.
+
+Waiting on the full-suite run to confirm nothing else regressed before I commit and promote the ticket.
 
 <!-- xgd-chat-end -->
