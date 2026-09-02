@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T22:57:10.006398+00:00'
+updated_at: '2026-09-02T20:51:15.901182+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -580,3 +580,59 @@ and the corpus contract is currently its own source comments. That is enough to
 argue with it, and any change to ranking or awareness semantics would be made
 without the reasoning that produced them. Finding it, or reconstructing it, is
 worth a ticket in `lagrange-framework`.
+
+
+---
+
+## 12. A document is in the knowledge base only if the index says so
+
+*Added 2026-09-02 ([[CHAT-35]], [[BUG-48]]).*
+
+§3.3 states membership as a filter at build time: a document is in the KB
+because its ticket carries the membership kind. That is the *corpus* rule and it
+is correct. It is not sufficient, because retrieval does not read the corpus —
+it reads the index. A document can satisfy §3.3 completely, be exported, be
+shipped, and still be unreachable.
+
+This is not hypothetical. In the bundle inlined on 2026-09-01:
+
+```
+docs:            DOC-17, DOC-31, DOC-33, DOC-35, REF-behaviors, REF-l1, REF-surface, awareness
+index manifest:  DOC-17, DOC-31, DOC-33, DOC-35
+chunks manifest: DOC-17, DOC-31, DOC-33, DOC-35
+```
+
+All three projections (§3.2's whole point) and the awareness map (§4.2, §6.2 —
+the thing a cold session is primed with) shipped as corpus text and were in
+neither index. The assistant carried `REF-l1` in its own bundle for an entire
+client session, could not retrieve it, and reported to the operator that no
+schema reference existed.
+
+**The mechanism, because the pipeline is not broken.** `1c kb build` runs
+`writeProjections()` and *then* indexes, deliberately and in that order. What
+fails is that nothing outside `kb build` has to respect it:
+
+- `1c kb export` calls `writeProjections()` and never indexes.
+- `1c assets` reads `docs` as a **directory listing** and `index`/`chunks` as
+  **build artefacts**, then inlines both without comparing them.
+
+So a document written after the last build enters the corpus text immediately and
+the index never. §4.1's incremental cursor keys on the file stamp and is doing
+exactly what it should; the skew is between two clocks that were never required
+to agree.
+
+**The rule.** *The corpus and the index are one artefact and must be shipped
+together or not at all.* An inline step that finds a document with no manifest
+entry fails, naming the documents and the command that fixes them — it does not
+warn. The failure mode of a silent stale index is an assistant that answers
+badly, and nobody attributes bad answers to indexing.
+
+This tightens §3.3 rather than replacing it: membership is still a kind, and now
+membership is not achieved until the document is searchable.
+
+**The wider point about projections.** §3.2 argues that a generated fact cannot
+go stale because it is rebuilt from its source on every build. True of the file,
+and the argument quietly assumed the file is what the assistant reads. It reads
+the index. A projection is only as fresh as the last build that embedded it, so
+§3.2's guarantee holds for `REF-l1.md` on disk and did not hold for the `REF-l1`
+the assistant could search.
