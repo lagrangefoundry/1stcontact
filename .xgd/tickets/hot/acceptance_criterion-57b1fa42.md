@@ -6,10 +6,10 @@ title: Republishability and exportability must be stated as true-or-false answer
   never omitted and never inferred
 created_by: xgd
 created_at: '2026-09-02T00:30:36.972216+00:00'
-updated_at: '2026-09-02T00:30:36.972216+00:00'
+updated_at: '2026-09-02T00:42:25.815654+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
