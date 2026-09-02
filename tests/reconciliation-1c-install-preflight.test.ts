@@ -511,7 +511,6 @@ describe('story-e15a19ef — the gate is scoped to what each command loads', () 
     mkdirSync(bare, { recursive: true })
     for (const command of [
       'render',
-      'serve',
       'builder',
       'repro',
       'refold',

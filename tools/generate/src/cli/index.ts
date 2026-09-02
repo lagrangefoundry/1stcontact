@@ -62,7 +62,6 @@ import {
   assertSharedStore as assertSharedStoreImpl,
   checkSharedStore as checkSharedStoreImpl,
 } from './shared-store'
-import { startServe } from './serve'
 import { startBuilder } from './builder'
 import {
   buildKb,
@@ -258,7 +257,6 @@ Usage:
     Replaces the draft with a revision. Forward-only: publishing afterwards mints a
     NEW highest revision recording what it descended from — history never rewinds.
   1c revisions <slug> [--sandbox]
-  1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
   1c builder [--port <n>] [--remote]
     Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
@@ -493,8 +491,7 @@ function parseRev(tok: string | undefined): number | undefined {
 }
 
 /**
- * Dispatch a parsed `1c` command line. Returns when the command completes —
- * except `serve`, which resolves only when its server closes.
+ * Dispatch a parsed `1c` command line. Returns when the command completes.
  */
 export async function run(argv: string[]): Promise<void> {
   const { positionals, flags } = parseArgs(argv)
@@ -700,20 +697,6 @@ export async function run(argv: string[]): Promise<void> {
         force: flags.force === true,
       })
       console.log(`Checked out revision r${id} → ${draftDir}`)
-      return
-    }
-
-    case 'serve': {
-      const slug = requireSlug(rest[0])
-      const source = flags.source === 'draft' ? 'draft' : 'published'
-      const { url, rootDir } = await startServe(slug, {
-        ...global,
-        source,
-        port: typeof flags.port === 'string' ? Number(flags.port) : undefined,
-      })
-      console.log(`Serving ${rootDir}\n  ${url}`)
-      // Keep the process alive until the server closes.
-      await new Promise<void>(() => {})
       return
     }
 
