@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T19:39:59.906293+00:00'
+updated_at: '2026-09-02T20:22:59.974660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,14 @@ That's worse than the contrast bug. A tool that reports non-existent gaps to its
 The cheapest high-leverage fix is making refusals informative: the validator is Zod with `.strict()` schemas, so it already knows the accepted key set at the failing node. Echoing that list back would have collapsed most of this session, and it beats enlarging a manual that's already consuming the whole priming budget.
 
 Want me to write this up as tickets? I'd suggest four: field-vocabulary discovery (the big one), page background as first-class L1, contrast metadata on read, and image-role/vision at placement time. Say the word and I'll draft them.
+
+<!-- xgd-turn id="41a472da-5b92-4804-8286-ba567f341d95-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:22:59.737554+00:00" -->
+#### You
+Ok there is a lot here to address its all important so lets go through it carefully. I have some questions know you have context:
+1) We reproduced gigabytealchemy.ai with text over the background image - can you look at that and see how its done?
+2) We have the ability to feed images to Claude - is that just not being exposed as a tool?
+3) We are automatically generating tooling documentation that is part of the knowledge base, I believe, how come this is so inadequate?
 
 <!-- xgd-chat-end -->
