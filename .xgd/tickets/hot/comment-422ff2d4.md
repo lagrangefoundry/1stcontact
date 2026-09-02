@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-08-23T23:51:56.905592+00:00'
+updated_at: '2026-09-02T20:23:47.399434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -139,5 +139,11 @@ Three levers worth deciding in the ticket: a viewport/scale cap on the model's c
 ---
 
 Nothing changed on disk. Want me to record these findings on REQ-157 (a comment, or an appended `## Investigation` section preserving the existing body), and/or raise the two upstream questions as their own tickets?
+
+<!-- xgd-turn id="e0158f95-2aa6-4067-9b2b-9a5eb14e3ce6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:23:47.343448+00:00" -->
+#### You
+Are we ready to code this?
 
 <!-- xgd-chat-end -->
