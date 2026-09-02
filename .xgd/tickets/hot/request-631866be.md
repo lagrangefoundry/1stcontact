@@ -14,6 +14,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-362ba12d
 ---
 
 # Discontinue the raw-server hosting path — and stop calling the test fixtures "servers"
