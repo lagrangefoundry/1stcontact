@@ -5,9 +5,9 @@ type: doc
 title: Chat Session Persistence and AI Memory
 created_by: xgd
 created_at: '2026-06-30T01:02:05.433710+00:00'
-updated_at: '2026-08-31T19:42:51.706514+00:00'
+updated_at: '2026-09-02T22:39:16.476236+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -54,7 +54,7 @@ Paired with:
 
 - The knowledge-management implementation itself — it is a framework component (see §6).
 - Auto-summarization or compaction (the AI's search tools cover navigation; we revisit only if priming becomes expensive).
-- Anything below the tenant boundary being *structurally* isolated. The hard barrier is the account (§4.1); a site is an object inside it, and site isolation is a predicate bound once, not a property of the store.
+- Anything below the tenant boundary being *structurally* isolated. The hard barrier is the business (§4.1); a site is an object inside it, and site isolation is a predicate bound once, not a property of the store.
 - A cross-chat "references library" UI for chat search results — the AI consumes search through tools; the user navigates through the session list.
 - Reference doc editing UX in v1 — initial docs are seeded; operator editing is a follow-up.
 
@@ -100,8 +100,8 @@ Key property: **chat sessions are durable but not authoritative**. They are the 
 ### 4.1 Identity and scope
 
 - A session has an opaque ID, belongs to a **tenant**, and names a `site_id`. The session list and search are scoped to a single site; no cross-site access.
-- **The tenant is the account, and it is the hard information barrier.** A site is an object — or a set of objects — inside a tenant, not a tenant of its own. The store binds tenancy into the handle at construction, so nothing below can reach across it; there is no handle spanning two accounts.
-- **Site isolation is one level down, and is a predicate rather than a property.** Within a tenant, `site_id` selects; a query that omits it sees the same client's other sites. So the site scope is bound **once**, into the session's store handle and the knowledge runtime's KB scope, and never left to individual call sites. The two scopes are the same shape at different strengths, and the difference is deliberate: sites belonging to one client *should* share accumulated knowledge — brand voice, terminology, decisions already made — so their second site does not start as cold as their first.
+- **The tenant is the business, and it is the hard information barrier.** A site is an object — or a set of objects — inside a tenant, not a tenant of its own. The store binds tenancy into the handle at construction, so nothing below can reach across it; there is no handle spanning two businesses. (This document once said *the tenant is the account*. [[DOC-40]] §2 splits those: an **account** is the payer and may own several **businesses**, each of which is a tenant. Everything below is unchanged — it was always describing the tenant.)
+- **Site isolation is one level down, and is a predicate rather than a property.** Within a tenant, `site_id` selects; a query that omits it sees the same client's other sites. So the site scope is bound **once**, into the session's store handle and the knowledge runtime's KB scope, and never left to individual call sites. The two scopes are the same shape at different strengths, and the difference is deliberate: sites belonging to one **business** *should* share accumulated knowledge — brand voice, terminology, decisions already made — so its second site does not start as cold as its first. Across two businesses the opposite holds and the cold start is the feature ([[DOC-40]] §2.2): one account's unrelated ventures must not contaminate each other's advice. v1 gives a business exactly one site, so the sharing case is real but not yet reachable ([[DOC-40]] §2.3).
 - Session title is AI-generated after the first turn (one-line summary) and operator-editable.
 - Sessions carry created/updated timestamps for list ordering.
 
