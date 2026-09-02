@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T01:10:54.930729+00:00'
+updated_at: '2026-09-02T01:48:47.206009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,11 @@ It's larger than the ticket's one paragraph suggests. `watch()` yields *junction
 **3. Part (4), the Durable Object junction.** The ticket says "separate ticket if taken" and "note the residual risk when closing this". Do you want me to file that ticket, or just record the residual risk in this body? (I won't create one unless you say so.)
 
 One thing I don't need to ask about: the false comment at `ai.ts:187-190` is unambiguously in scope and I'll fix it whichever path you pick.
+
+<!-- xgd-turn id="6ce5cbd6-dc8b-4d1a-a468-bd337cd3b37c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T01:48:47.173667+00:00" -->
+#### You
+**The upstream dependency is not available (blocking for parts 1 & 3). Check now**
 
 <!-- xgd-chat-end -->
