@@ -40,6 +40,7 @@
  */
 
 import { MAX_BLOB_BYTES } from './generated/ticketing'
+import { editAssetAdd } from '../../../tools/generate/src/cli/edit'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   describe,
@@ -560,8 +561,53 @@ export async function promoteToSiteAsset(
   // CLI's `asset add` refuses a collision instead, because it has an operator to
   // tell; this has a client who dragged a file, so it renames and reports.
   const name = await freeAssetName(sites, args.slug, args.name)
-  await sites.write(args.slug, { assets: [{ name, bytes }] })
+  // THROUGH `editAssetAdd`, NOT PAST IT (BUG-45). This was
+  // `sites.write(slug, { assets: [...] })` with `siteJson` omitted, so the bytes
+  // landed and `site.json`'s `assets` array never learned about them. Only two
+  // functions ever write that array — `editAssetAdd` and `editImageWrite` — and
+  // chat promotion went around both, which made a dropped file arrive as an
+  // asset the listing reported `(unregistered)`. On a real site that read as
+  // second-class next to the assistant's own drawings, which register because
+  // `write_image` registers: the one registered picture was the substitute and
+  // the client's uploads were not.
+  //
+  // Going through it is not only the registry entry. It is the same collision
+  // rules, the same whole-definition validation before a byte is stored, and the
+  // same draft-journal note every other asset write makes — so the assistant is
+  // TOLD a picture arrived on the turn it arrives, instead of having to notice.
+  // The name is already free, so the CONFLICT branch cannot fire from here.
+  await editAssetAdd(args.slug, name, bytes, {
+    store: sites,
+    actor: 'client',
+    // THE DESCRIPTION WE ALREADY PAID FOR. Ingestion describes every uploaded
+    // image ([[DOC-38]] §6) and the ticket's title is that description at alt
+    // length — "Gigabyte Alchemy Gold "A" Logo on Navy Background" is already
+    // the sentence someone who cannot see it needs. It was being computed,
+    // stored, and then discarded at the one moment it was wanted.
+    alt: altFromMaterial(ticket),
+  })
   return { name, size: bytes.byteLength, sha256 }
+}
+
+/**
+ * The alt text for a promoted image — the material's own title, or nothing.
+ *
+ * NOT the body. `describe` writes a title and two or three sentences beneath it;
+ * the sentences are for retrieval and are far past the length anyone wants read
+ * aloud between one element and the next. The title is already the short human
+ * label of what the picture shows, which is what alt text is.
+ *
+ * An UNINFORMATIVE title is worse than none, and the bare filename is the case
+ * that matters: `describe` falls back to it when there is no model in the loop,
+ * and `alt="ChatGPT Image Sep 9, 2025 at 11_24_45 AM.png"` is not a description
+ * — it is the filename read out, which a screen reader would have announced
+ * anyway. Empty leaves the field for someone to fill; the filename looks filled.
+ */
+function altFromMaterial(ticket: Ticket): string {
+  const title = String(ticket.title ?? '').trim()
+  const filename = String(ticket.fields.filename ?? '').trim()
+  if (title === '' || title === filename) return ''
+  return title
 }
 
 /**
