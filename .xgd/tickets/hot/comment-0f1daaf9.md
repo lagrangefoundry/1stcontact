@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-49
 created_by: xgd
 created_at: '2026-09-02T23:00:31.052013+00:00'
-updated_at: '2026-09-02T23:33:17.282783+00:00'
+updated_at: '2026-09-02T23:37:23.498575+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -81,5 +81,27 @@ Waiting on the full-suite run to confirm nothing else regressed before I commit 
 <!-- xgd-chat role="user" ts="2026-09-02T23:33:17.231914+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="dd52b2be-9c4e-496e-82c3-d4d4b8805a50-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:37:23.195516+00:00" -->
+#### Claude
+Now merge back to `xgd-working` before promoting the ticket.
+
+Now tearing down the branch and releasing the lock.
+
+Free-coding complete. BUG-49 is at `free_coded`, commit `b8e0b7f8af65b3efe774950ac01ec17020dc6b8a`, version 0.2.47, merged into `xgd-working`, branch and lock cleaned up.
+
+**What changed** — `tools/generate/src/cli/kb.ts`:
+- `resolveEmbedder` now needs only `CLOUDFLARE_API_TOKEN`. A new private `resolveAccountId` asks `GET /accounts` for the account, the same rule `bin/access-token`'s `resolve_account()` has always followed.
+- `CLOUDFLARE_ACCOUNT_ID` remains as the override and short-circuits the lookup — no request is made at all, which is what keeps a token too narrowly scoped to list accounts working.
+- Several accounts are named back with name + id rather than guessed between; zero accounts reads as a scope problem; a refusal (403, or Cloudflare's `success: false` under a 200) or an unreachable API produces one error naming the narrow-scope case and carrying Cloudflare's own reason, instead of looking like a broken knowledge build.
+- `KB_USAGE` updated to match.
+
+**Tests** — 6 UATs in `tests/test_UAT_FC_BUG-49_account_discovery.test.ts`, one per ticket acceptance criterion, with the Cloudflare API as the only double.
+
+**Suite state:** workers project 207/207 green. Node project 2087 passed, 1 failed — `tests/bug32-webui-scope-rebrand.test.ts` flagging `tests/test_UAT_FC_BUG-42_markdown_rendering.test.ts` for restating the webui scope outside its declaration. I confirmed that failure already exists on `xgd-working` without my changes, so I left it alone; it's someone else's ticket, not BUG-49's.
+
+For your original question: `bin/1c kb build` should now run with just the token set.
 
 <!-- xgd-chat-end -->
