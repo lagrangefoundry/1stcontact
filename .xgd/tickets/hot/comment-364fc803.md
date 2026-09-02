@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T01:49:51.921514+00:00'
+updated_at: '2026-09-02T23:10:22.046994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,11 @@ Step 2 is the one with reach — it republishes the artifact every sibling proje
 Parts **(1)** and **(3)** stay blocked until both run. Part **(2)** — thread `ExecutionContext` into `streamTurn` and `ctx.waitUntil()` the stream, plus correcting the false comment at `ai.ts:187-190` and the stale "`ctx.waitUntil` is not reachable from here" at `router.ts:1112` — is entirely in our repo and unblocked. It's also the half that caused the reported incident, and the ticket says to do it "first and separately."
 
 Say the word and I'll cut `free-BUG-46` and implement (2) now; or tell me to do the framework merge + install first and I'll do all three in one pass. Still open from before: whether part (3) includes the `api.js`/`chat.js` client changes it needs to be visible, and whether you want the Durable Object ticket (part 4) filed.
+
+<!-- xgd-turn id="307f96e1-db2a-48fb-ba82-a38c329ee9c3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:10:21.600069+00:00" -->
+#### You
+Please check again
 
 <!-- xgd-chat-end -->
