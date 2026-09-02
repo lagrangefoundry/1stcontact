@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-02T23:53:26.673865+00:00'
+updated_at: '2026-09-02T23:56:49.838906+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -968,5 +968,30 @@ Want me to update the body with these five decisions and the two corrections?
 See the "Site scope vs tenent scope" chat - the new model is Account has multiple businesses each business has one site (many sites in the future as an option) tenant == business. So in the short-medium term there is one site per tenant
 
 Can you update REQ-168 with your answers and corrections please
+
+<!-- xgd-turn id="cdb5fdf9-d369-4565-8569-64367b39d0b3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:56:48.759368+00:00" -->
+#### Claude
+Confirmed — REQ-168 already carries the CHAT-36 revision (Account → N businesses). I'll integrate my findings with that model rather than bolt them on. Writing the new body:
+
+REQ-168 updated. I read CHAT-36 first, so the changes are written against the Account → N businesses model rather than the older one-account-one-tenant premise.
+
+**Corrections folded in:**
+
+- **"The four reads" → "The six reads"**, with the disposition of all seven `TENANT_ID` mentions tabled. `tickets.ts:422` is added and called out as the omission that matters — since REQ-160/162 the ticket store holds transcripts, material and the project corpus, so it *is* the "one site left behind" failure the section's UAT targets. `ai.ts:134` is reclassified as a vestigial declaration to delete, not a read to move.
+- **The resume section** is rewritten. Two of its three legs already hold (`admit` runs on `/api/ai/prompt`; `slugForSession` resolves through the tenant-scoped store), so what's missing is only the cached host. The `chat/<tenant>/<sessionId>.md` path is marked stale, with `audit/<tenant>/<session>/…` noted as the only surviving tenant-keyed R2 path.
+
+**Decisions written in as new sections:** explicit `Scope` threading with the env-rewrite rejected on three counts; the per-isolate chat host as the live leak; `tenants.status` moving into the resolver; the dev-open branch; and the operator-seed migration. Each carries a UAT sentence so the tests have body language to trace to.
+
+**Three places the new model changed my earlier answers:**
+
+- **The `Scope` shape.** I'd argued for dropping the `kind` discriminant. Under DOC-40 §2 that's now a stronger argument for a different reason: account-id vs business-id is a real live confusion (both opaque strings, and `memberships.account_id` holds a *business*), so the type is `{ businessId: string }` and the parameter is `requestedBusinessId`.
+- **The target transport.** My §8 answer — land the logic with no transport — is obsolete, because the switcher makes the target the normal path. The body now says REQ-168 defines the wire form and reads it, REQ-179 sends it, and the fallback is what lets this land first.
+- **`accountFor`.** The `granted_at LIMIT 1` non-determinism I flagged is recorded as a hard constraint: this resolver authorises against REQ-178's set and must not be built on `accountFor`'s singular answer.
+
+I also reconciled the apparent conflict between "never `env.TENANT_ID`" (the authenticated no-target fallback) and my dev-open recommendation — they're different branches, and the body now says so explicitly, because an implementer reading "never" would otherwise be stuck.
+
+One thing I left alone: **`story_points: 3` is now light.** The original estimate covered four reads; the body now also carries the chat-host cache rework, a `tenants.status` join, and a migration. I'd put it at 5, but that's a planning call rather than a correction, so I didn't change it.
 
 <!-- xgd-chat-end -->
