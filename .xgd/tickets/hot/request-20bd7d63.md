@@ -5,7 +5,7 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-08-31T22:57:13.252664+00:00'
+updated_at: '2026-09-02T23:21:31.352093+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -100,3 +100,78 @@ domain is the most damaging single action available in the system.
   prompts the one factual question rather than assuming.
 - Recapturing an unchanged site creates new records but no new blobs.
 - Re-extraction reads a single member without materialising the whole bundle.
+
+
+## What the client sees: a capture in the Library
+
+[[REQ-161]] already built the shelf this lands on. `listMaterial` queries
+`MATERIAL_TYPES = ['material', 'reference']` and the Library's kind filter already
+offers `capture`, so a `reference` ticket appears in *Your material* the moment
+this ticket writes one — tenant-wide, newest first, with no Library work at all.
+
+What does not follow for free is the detail pane, because every part of it assumes
+ONE TICKET IS ONE FILE and a bundle is 11–99. Three things read wrong unchanged:
+nothing renders as a preview (`kind` is not `image` and the resolved content type
+has no reader), the *File* field falls back to the ticket title, and the download
+link serves `attachments[0]` — an arbitrary member of the bundle.
+
+### The preview is the screenshot
+
+A capture shows `screenshot.full.png`, fetched as a single member. This is the
+same member-addressed read the re-extraction criterion already requires, so the
+client-facing need and the architectural one are one route, not two.
+
+### A capture is a picture and a description, not a directory
+
+The client's model of a capture is *"a picture of that site and what you thought
+of it"*. Members are re-extraction machinery. So the detail drops the *File*
+field, points its download at the screenshot rather than at whichever member
+sorts first, and states the member count plainly — *"99 files captured"*. A
+99-row member list would be honest and useless.
+
+### The body opens with a link to the site captured
+
+The first line of every capture description is a markdown link to the captured
+URL, so the client can always get from our prose about a site back to the site.
+The Library renders the body through the sanitizer, which keeps anchors — but it
+adds no `target`/`rel`, so the link must be opened in a new context rather than
+navigating the builder away and discarding editor state.
+
+### The title is the site's own title
+
+The ticket is titled with what the client saw in their browser tab, not a phrase
+a model invented for someone else's site. `capture.json` does not currently carry
+it: [[DOC-13]] §4's `Capture` is `url, host, path, capturedAt, viewport, theme,
+sections, assets`. So `title` is ADDED TO THAT SCHEMA and read during the capture
+pass. Parsing it out of `rendered.html` at ticket-creation time was rejected —
+re-extraction reads `capture.json` first and would never see it, leaving the two
+paths to disagree about what a site is called. A blank or absent title falls back
+to `host`.
+
+This is a deliberate, named exception to the *capture pipeline itself* being out
+of scope above: one field on one schema, and the surface it feeds is here.
+
+### Recapture overwrites the description
+
+One `reference` per URL ([[DOC-38]] §9) means recapture updates a row in place
+rather than multiplying it. The description is REWRITTEN on recapture, including
+one the client corrected — an exception to the `description_model: client`
+protection [[REQ-161]] added for the re-describe pass, and deliberate: a
+description of a page that has since changed is inaccessible garbage about
+someone else's site, and archiving third-party sites is not the goal. The
+protection exists to stop a background pass silently replacing a client's words
+about THEIR OWN material; a recapture is an explicit act about a page that has
+demonstrably moved.
+
+### Acceptance
+
+- A completed capture appears in the Library as a `capture`-kind row without any
+  change to how the list is queried or filtered.
+- Its detail shows the captured screenshot, fetched as a single member.
+- The detail states how many files the bundle holds, offers the screenshot as its
+  download, and shows no single-file *File* field.
+- The description's first line links the captured URL, and following it does not
+  navigate away from the builder.
+- The ticket is titled with the captured page's own `<title>`, falling back to the
+  host when it is blank.
+- Recapturing a site replaces the description in place, leaving one row per URL.
