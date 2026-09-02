@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-49
 created_by: xgd
 created_at: '2026-09-02T23:00:31.052013+00:00'
-updated_at: '2026-09-02T23:30:58.873392+00:00'
+updated_at: '2026-09-02T23:33:17.282783+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,11 @@ The full suite is running. While it finishes, here's where things stand:
 **6 UATs** in `tests/test_UAT_FC_BUG-49_account_discovery.test.ts`, all passing; the four existing kb suites and both reconciliation suites still pass; version bumped 0.2.46 → 0.2.47.
 
 Waiting on the full-suite run to confirm nothing else regressed before I commit and promote the ticket.
+
+<!-- xgd-turn id="dd52b2be-9c4e-496e-82c3-d4d4b8805a50-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:33:17.231914+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
