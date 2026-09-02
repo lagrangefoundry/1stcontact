@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d394036b
 ---
 
 # The tenant comes from the identity, not from the configuration
