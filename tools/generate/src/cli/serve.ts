@@ -1,3 +1,26 @@
+/**
+ * The static-preview **capture fixture** (REQ-177).
+ *
+ * THIS IS NOT A HOSTING PATH, and there is no longer a command that starts it
+ * as one. `1c serve` used to exist and was removed: it was a second, divergent
+ * way to look at a site next to the real one, and an operator reading the CLI's
+ * own help could reasonably conclude that a `node:http` origin was a supported
+ * way to run a site. It is not. **The only supported way to serve a site is a
+ * Worker** — `wrangler dev` locally (`pnpm dev`, `1c builder`), `bin/deploy` in
+ * the cloud. Both go through the routes, store and runtime production uses.
+ *
+ * WHY IT STILL EXISTS. `startServe` is a library function, not a host. It binds
+ * an ephemeral loopback port inside a single test or CLI run and closes it
+ * again, so that a headless browser has an origin to point at: `1c shot`,
+ * `1c aligned-crops` and the module conformance harness all render to disk and
+ * then drive Playwright at the directory. The bytes under test there are static
+ * render output, not Worker behaviour, so moving the loop to workerd would cost
+ * speed and buy no fidelity.
+ *
+ * `resolveStaticFile` is shared with the builder's Node transport
+ * (`builder.ts`) so that the confinement, directory-index and extensionless
+ * rules cannot be present on one served tree and missing on another.
+ */
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import http from 'node:http'
@@ -23,10 +46,12 @@ export interface ServeHandle {
 }
 
 /**
- * Serve a site's rendered output as static files for browser viewing. Resolves
- * once the server is listening; the caller keeps the process alive. A bare
- * directory request resolves to `index.html`, and an extensionless path falls
- * back to the sibling `.html` file (REQ-113) so preview URLs match production.
+ * Bind an ephemeral loopback origin over a site's rendered output, so that a
+ * headless browser has somewhere to point. Test and capture infrastructure
+ * only — never a way to host a site (see the file header). Resolves once the
+ * server is listening; the caller closes it. A bare directory request resolves
+ * to `index.html`, and an extensionless path falls back to the sibling `.html`
+ * file (REQ-113) so captured URLs match production.
  */
 export function startServe(slug: string, opts: ServeOptions = {}): Promise<ServeHandle> {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'

@@ -32,7 +32,6 @@ copy of the whole working set.
 1c publish <slug> [-m "msg"] [--by <id>]                    snapshot → diff → history → render published
 1c checkout <slug> [<revId>] [--force]                      copy a revision into draft/
 1c revisions <slug>                                         print the publish log, newest-first
-1c serve <slug> [--source draft|published] [--port n]       static preview server
 ```
 
 Every command defaults to the git-tracked `sites/` tree; `--sandbox` targets the

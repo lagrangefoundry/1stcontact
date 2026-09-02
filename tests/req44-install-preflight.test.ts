@@ -181,7 +181,7 @@ describe('REQ-44 — the gate on commands', () => {
     // files. Blocking them on a browser dependency they never load would make the
     // preflight the obstacle it was written to remove — so a tree with no
     // playwright, no sharp and no install at all still runs them.
-    for (const command of ['render', 'serve', 'builder', 'repro', 'refold', 'l1-gate', 'responsive-diff', 'page', 'config', 'status']) {
+    for (const command of ['render', 'builder', 'repro', 'refold', 'l1-gate', 'responsive-diff', 'page', 'config', 'status']) {
       expect(() => assertInstall(command, { repoRoot: root, resolve: resolves() })).not.toThrow()
     }
   })

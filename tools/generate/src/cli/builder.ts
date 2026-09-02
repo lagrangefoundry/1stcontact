@@ -14,6 +14,11 @@ import { MIME } from '../store/content-type'
 /**
  * The builder's **Node transport** (REQ-145).
  *
+ * THIS IS NOT A HOSTING PATH. Like `serve.ts`, it is test infrastructure: an
+ * in-process transport a test starts and closes, never a way to run a site.
+ * **The only supported way to serve a site is a Worker** — `wrangler dev`
+ * locally, `bin/deploy` in the cloud (REQ-177).
+ *
  * WHAT THIS FILE USED TO BE. A 730-line origin with its own route table, its own
  * static file server, and a request-time TypeScript transpiler — the whole
  * builder, in Node, because a Worker could reach none of what it needed. All of
