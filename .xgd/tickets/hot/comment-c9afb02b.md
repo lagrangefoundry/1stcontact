@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:26:23.727826+00:00'
+updated_at: '2026-09-02T00:27:48.305299+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -726,5 +726,64 @@ Want me to scope the `get_asset` fix, or settle the registry question first?
 <!-- xgd-chat role="user" ts="2026-09-02T00:26:23.119654+00:00" -->
 #### You
 So look we have the tickets which have the metadata and references to the blobs - can we just get rid of the registry and all the code associated with it? Meta data goes in the ticket - if there is a need for "registering" a blob that should be ticket metadata not a separate store, right?
+
+<!-- xgd-turn id="e26307b4-7883-4b1f-82a1-6d4a5f33aa61-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:27:47.794128+00:00" -->
+#### Claude
+**Yes to deleting the registry. No to moving its metadata onto tickets** — and the reason matters, because it's the thing that would bite later.
+
+## The tickets don't cover the assets
+
+Five paths write bytes into `draft/assets/`. Only one has a ticket behind it:
+
+| Path | Registers? | Ticket? |
+|---|---|---|
+| `write_image` (AI-drawn SVG) | yes | **no** |
+| `add_asset` / `1c asset add` (operator) | yes | **no** |
+| capture fold (mirrors origin assets) | no | **no** |
+| fonts (copied under `draft/assets/`) | no | **no** |
+| `promoteToSiteAsset` (Library) | no | yes |
+
+Your own client site is the evidence. `storage/sites/gigabytealchemy/draft/assets/` holds a `woff2`, `blog.Byz9EGdq.css`, `css2`, `index`, `AlchemistLabWithTech.png` — capture-fold output — against an empty registry and no material tickets. Ticket-backed metadata would describe a fifth of the assets and leave the rest with nowhere to put anything.
+
+## The dependency runs the wrong way
+
+```
+@1stcontact/generate  →  framework, site-schema     (that's all)
+apps/control-app      →  generate
+```
+
+The ticket store lives in control-app. `edit.ts` can't reach a ticket without inverting that edge.
+
+## A site has to stay self-contained
+
+`readDraftSnapshot` reads asset **bytes** into memory rather than referencing them, and publish.ts:75 says why: a snapshot pointing at the draft's `logo.svg` *"would silently change the day someone replaced it."* And `import-site.ts` moves a whole site between stores as siteJson + pages + bytes — no tenant, no ticket store anywhere in it.
+
+Per-asset metadata held in a tenant-side ticket survives neither publication nor export.
+
+## The distinction worth keeping
+
+These aren't two copies of one thing:
+
+- A **material ticket** is *provenance* — what the client gave us, where it came from, whether it's republishable, what it depicts. Tenant-scoped, mutable, CRM-side, **not part of the site**.
+- A **site asset** is a *byte in the portable artifact* — named by filename, referenced as `/assets/<name>`, snapshot into immutable revisions.
+
+`promoteToSiteAsset` **copying** bytes across that boundary rather than referencing them is correct for exactly this reason, and it's the one place the two worlds are meant to touch.
+
+## So what I'd actually do
+
+The registry isn't in the wrong *place* — it's an unused *feature*. `alt` got superseded by the node's own required field; `focalPoint` was never wired up. Delete it because it's dead, not because tickets should take it over. The directory becomes the single source of truth for site assets, which is what the code has already de facto converged on.
+
+And if `focalPoint` ever gets built, it comes back in the site definition — same place — because that's where portable per-asset metadata has to live.
+
+Two independent pieces of work, then:
+
+1. **`get_asset` resolves the union** — fixes the actual client-facing bug, small, stands regardless of what you decide about the registry.
+2. **Delete the registry** — larger, touches `add_asset`/`write_image` collision checks, `remove_asset`, the `list_assets` shape (`registered` disappears from the AI's view), and `assetRefSchema`. Pure dead-code removal, but it changes a declared tool shape, so the surface moves with it.
+
+(2) subsumes (1) — if the registry is gone there's no union to reconcile. Worth doing (1) first anyway if you want your client unblocked before the bigger change lands.
+
+Want me to scope (1) now, or go straight at (2)?
 
 <!-- xgd-chat-end -->
