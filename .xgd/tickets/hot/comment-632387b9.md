@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T18:39:11.031282+00:00'
+updated_at: '2026-09-02T18:42:02.848169+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,15 @@ Want me to check the chunk indexer's corpus contract, or go straight to a ticket
 <!-- xgd-chat role="user" ts="2026-09-02T18:39:10.311077+00:00" -->
 #### You
 The KMS should read comments too. I think the right place to put the full text is in a comment. The body should be a short summary or digest.
+
+<!-- xgd-turn id="c2903a4b-2175-4d49-ae99-f372764bf4da-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T18:42:02.810586+00:00" -->
+#### You
+The KMS should read comments too. I think the right place to put the full text is in a comment. The body should be a short summary or digest. If you agree can you create a ticket for this,
+
+This is a design session you create tickets for me do not start implementing anything - I have the ticket agents for that.
+
+Next question: I uploaded 3 things a PNG, a MD and a PDF. The first I chose "Put it on the site" the second I chose "Just for you to read" All three have a pill that says "On this site"? What is that pill supposed to mean - it seems clearly wrong.
 
 <!-- xgd-chat-end -->
