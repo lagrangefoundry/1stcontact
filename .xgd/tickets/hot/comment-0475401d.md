@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T23:14:25.445925+00:00'
+updated_at: '2026-09-02T23:18:04.566544+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -334,5 +334,41 @@ Please creaat a ticket for the identity change and then update all the REQs that
 Then (1) a ticket to move the selector (2) a ticket for 2,3 and 4.
 
 Account now needs access to N business is that covered?
+
+<!-- xgd-turn id="0b8b566a-3bad-45af-87b2-dfa7e04e73ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:18:04.292886+00:00" -->
+#### Claude
+Done — design only, no code.
+
+## Created
+
+| | |
+|---|---|
+| **REQ-178** *(draft, high, 3pts)* | Identity: an account operates several businesses, not one |
+| **REQ-179** *(draft, high, 2pts)* | The business selector is shell chrome, not a tab's toolbar |
+| **REQ-180** *(draft, medium, 5pts)* | The account surface: the businesses endpoint, the customer portal, and the Business vocabulary |
+
+## Updated
+
+- **REQ-168** — appended a revision section. The key point: `resolveScope(env, identity, requestedAccountId?)` already has the right signature; what changes is that the target becomes the *normal* path (sent by the switcher) rather than an admin override, resolution authorises against REQ-178's set, and the no-target fallback needs a stated rule — last selection if still admissible, else first admissible, **never** `env.TENANT_ID`. The four reads and their UAT are untouched.
+- **REQ-170** — the invite provisions an account *and* its first business via `provisionBusiness`; the left list is accounts and businesses are the detail dimension; and entitlements are edited **against a business, not a person** — "this user's plan" is unrepresentable when they hold three.
+- **REQ-167** *(landed)* — a short note that it is now history, not the model: its rows were already shaped correctly, only the singular didn't survive.
+- **REQ-169** — untouched; ToS acceptance is on the user, which is the account, which is where `tos_version` already lives.
+
+## "Account now needs access to N businesses — is that covered?"
+
+Yes, and it's deliberately split across four layers so no ticket owns two questions:
+
+- **REQ-178** — *which* businesses may be operated. `accountFor()` returns one and `Admission` carries `accountId: string`; that becomes a set, each entry with its own entitlement and `tenants.name`.
+- **REQ-168** — which one is being operated *now* (resolution + authorisation).
+- **REQ-180** — how the browser learns about them (the endpoint).
+- **REQ-179** — how a person picks.
+
+One thing that fell out while scoping REQ-178 and wasn't in our discussion: **denial becomes per-business.** Today a single lapsed entitlement denies the person. With several businesses that's wrong — an account whose second business lapsed must still reach the first. So: no admissible business at all → refuse as now; some admissible → admit, and still show the lapsed ones marked and unselectable, because a business that silently vanishes from the switcher is indistinguishable from a deleted one, which is the wrong thing to tell someone whose card expired.
+
+## Flagged in REQ-180
+
+The account-is-the-portal decision is written up as the thing to settle **before** anything is built, with the split noted: if you confirm the portal reading, item 2 wants its own ticket; if you reject it, that rejection needs recording against DOC-40 §2.1, because it costs the leverage argument that section is built on.
 
 <!-- xgd-chat-end -->
