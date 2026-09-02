@@ -5,7 +5,7 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-01T01:14:03.947255+00:00'
+updated_at: '2026-09-02T23:17:34.329702+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -125,3 +125,35 @@ each new account simply starts with an empty project KB and the shared system KB
 
 Sequence this after the in-flight KMS tickets reconcile, or expect a small merge
 in one file.
+
+
+---
+
+## Revision: an account has several businesses ([[DOC-40]] §2)
+
+[[DOC-40]] §2 splits the account from the business — one account, several
+tenants — after this ticket was drafted. Three things change, and none of them
+change the shape above.
+
+**The optional target becomes the normal path.** `resolveScope(env, identity,
+requestedAccountId?)` was drafted with the target as an administrator's override
+([[REQ-170]]) and the ordinary case as "the account the membership names". With
+several businesses there is no such thing as *the* account: the target is
+supplied on ordinary requests, by the switcher ([[REQ-179]]). The signature is
+already right — what changes is that the argument is routinely present, and the
+no-target branch becomes a fallback rather than the main line.
+
+**Resolution authorises against a set.** `Scope` stays `{ kind: 'tenant'; id }`;
+there is still no platform-wide variant and §7's argument is untouched. What it
+authorises against is [[REQ-178]]'s admission list. A target the account holds no
+live membership for is refused; a target whose entitlement has lapsed is refused
+*separately*, because those are different things to tell someone.
+
+**The no-target fallback needs a stated rule.** A request arriving without a
+target — first load, a bookmarked deep link, an API caller — resolves to the
+operator's last selection if it is still admissible, and otherwise to the first
+admissible business. Never to `env.TENANT_ID`: the UAT asserting that var has no
+reader outside the resolver is what stops a customer's session being served the
+platform tenant's data, and it holds unchanged.
+
+The four reads and the UAT covering them are unaffected.
