@@ -5,10 +5,10 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-09-02T21:49:43.931140+00:00'
+updated_at: '2026-09-02T21:51:18.823770+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -20,6 +20,14 @@ fields:
   auto_merge_back: true
   needs_review: true
   chat_comment: comment-422ff2d4
+  commits:
+  - working_sha: 11ca5fea9ae676265d4d492c426df027f249ab53
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ecbed061a8306552701b6f920f8a7a9cb12e980a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.44
 ---
 
 # The fidelity surface: the assistant can look, compare and judge
