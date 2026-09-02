@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T21:21:53.863514+00:00'
+updated_at: '2026-09-02T21:51:50.185026+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -283,5 +283,75 @@ Now the full node suite, to see what else this touched.
 <!-- xgd-chat role="user" ts="2026-09-02T21:21:53.168187+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="98dab462-c4e4-451a-9f37-40100f661659-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T21:51:50.146435+00:00" -->
+#### Claude
+The full-suite run was OOM-killed. Re-running in batches to get a clean regression picture.
+
+Important catch by REQ-146's boundary test — I dragged `node:fs` into the Worker graph. Let me see the full list.
+
+The fix is the split this codebase already uses for `perceptual-core.ts`. Extracting the pure half of the gate path.
+
+Now moving `cmdL1Gate` into the portable core too.
+
+Same mixed-module pattern one level down. Splitting the pure table builder out.
+
+Sources are clean (the remaining one is a pre-existing Cloudflare global). Running the affected suites now.
+
+All targeted suites pass. Now the full node suite, serially, to avoid the earlier OOM.
+
+8 failures. Triaging — several look like mine.
+
+`pipeline.ts` still defaults to Playwright — the inject-or-fail rule REQ-155 states but never applied here. Checking the blast radius.
+
+The proportionate fix: make the pipeline inject-or-fail and keep the Playwright default at the Node-only barrel, so no existing caller moves.
+
+Now the Node-only barrel keeps the convenience, so no existing caller moves.
+
+Three genuine consequences of my change. The BUG-39 one is a real violation — my test hand-rolled wire events. Fixing that first.
+
+Now the two reconciliation tests that legitimately observe the new surface.
+
+Passes in isolation — the timeouts were contention in the serial run. Confirming the other two.
+
+The inject-or-fail change over-reached: an injected driver already answers "is a browser available". Fixing that.
+
+Found it — my barrel defaults were overriding an explicitly injected driver. Fixing.
+
+One failure left, in a file I never touched. Confirming it's pre-existing, then running the workerd project.
+
+All workerd tests pass (203), node is 2064 passed with one pre-existing failure. Now updating the ticket body to cover what actually landed.
+
+Now committing.
+
+Committed. Now taking the merge lock and merging back into `xgd-working`.
+
+0.2.44 is free. Bumping and recording it.
+
+REQ-157 is free-coded and landed on `xgd-working` at version 0.2.44.
+
+## What shipped
+
+**The surface.** `fidelity-surface.json` declares six operations in one `SeeSite` group, every one `effect: read`. `createL1Toolbox` now takes `extraSurfaces: {surface, granted?}[]` instead of the single `knowledgeSurface` slot — which is what makes "registered alongside rather than merged into" true rather than a special case.
+
+**The picture vocabulary** is one declared `picture` param type with a `keys` set, so validation, the JSON schema the model is *shown*, and resolution all come from one declaration. All five sources resolve through `resolvePicture`. The fifth got built rather than dropped: `PreviewRenderer` gained a `rev-<id>` channel that renders a frozen snapshot **with that revision's own asset bytes**.
+
+**The eyes work in-turn, with no upstream change.** As I found before starting, this host registers tools as closures and upstream returns a closure's value unmodified — so `screenshot` returns real content blocks that reach the Anthropic wire intact. The AC3 UAT asserts what the *backend was handed*, driving upstream's real `ToolSet`, `runToolLoop` and `AnthropicWire`.
+
+## Three things worth your attention
+
+**The workerd boundary caught a much bigger problem than I'd scoped.** REQ-146's import-graph test failed the moment `check_fidelity` imported the gate: `gate.ts`, `responsive-diff.ts` and `capture/pipeline.ts` each mixed a pure half with a CLI-command half, and importing any of them dragged `node:fs`, three filesystem stores and Playwright into the Worker. Fixing it meant three splits along the seam `perceptual-core.ts` already established. Notably, `capture/pipeline.ts` defaulted four driver seams to Playwright — the exact rule REQ-155's own comment *names* ("the inject-or-fail rule `driverFactory` needs for the same reason") and never applied. The Node convenience moved up to `capture/index.ts`, the barrel that is Node-only by design, so no existing caller moved.
+
+**Two of my own bugs were caught by tests rather than by me** — `capture_site` retrying three times against a link-local address before the guard stopped it, and my first barrel wrapper quietly launching a real Chromium alongside an injected fake driver (seven capture suites went red on a machine with no Playwright). Both are fixed and both are recorded in the code comments.
+
+**One thing I did not fix, and it is named on the ticket so it isn't mistaken for done:** the durable transcript still holds the capped base64. The manager appends the tool event as a `tool` record, which is a CONTENT kind, so it drains to the session file and rides across a recycle. Upstream redacts images in `turn_start` and has no equivalent for tool records — that's the follow-up, shaped exactly like REQ-111's. The 1024px cap is what keeps it bounded meanwhile.
+
+**Suite state:** workers 203/203. Node 2064 passed, 1 failure — `test_UAT_AC960` (bug32), which names `test_UAT_FC_BUG-42_markdown_rendering.test.ts`, a file this branch doesn't touch. Pre-existing.
+
+I updated three suites belonging to other tickets where this change made their assertions observe something new — REQ-126's and AC1071's author-time validation now validate both declarations (the instance config names both), and AC1058's offered-tool set is the union of the two declarations. Each is still derived from declarations rather than written out, so the property those assertions exist to hold is intact. Worth a look when you review, since they're other tickets' evidence.
+
+The ticket is parked at `free_coded`; promoting to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
