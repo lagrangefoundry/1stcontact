@@ -6,10 +6,10 @@ title: 'Product Ticket Store: The Client''s Material In A Database, Scoped To On
   Account, Standing On The Component''s Own Schema'
 created_by: xgd
 created_at: '2026-09-01T23:56:31.229073+00:00'
-updated_at: '2026-09-01T23:59:10.058275+00:00'
+updated_at: '2026-09-02T00:13:27.933562+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: request-13a5e206
   capability_uid: capability-dfb0a4ff
