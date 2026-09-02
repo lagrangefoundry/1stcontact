@@ -5,7 +5,7 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-09-02T20:50:13.226783+00:00'
+updated_at: '2026-09-02T20:50:27.088283+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -125,8 +125,9 @@ at satisfies none of this ticket.** The point is the eyes.
    reaches the backend; asserting that a key or a URL was returned does not satisfy this.
 4. `compare` of any two sources returns the verdict `1c diff` returns for the equivalent CLI
    invocation.
-5. `check_fidelity` reproduces `1c gate`'s reconciliation, including which of the three causes it
-   names.
+5. `check_fidelity` reproduces `1c gate`'s reconciliation, including which of its five verdicts it
+   names (`pass`, `structural-failure`, `capture-incomplete`, `reproduction-wrong`,
+   `unexplained-disagreement`).
 6. `capture_site` is refused for private address space, over-large responses and redirect loops;
    each refusal is journalled with the URL.
 7. The caretaker is granted the surface and its manual says what it can now do.
@@ -136,54 +137,106 @@ at satisfies none of this ticket.** The point is the eyes.
 
 [[CHAT-27]]. Last of four, and the only one the operator asked for directly; the other three are
 what it stands on.
-
-
 ---
 
-## Field evidence: the scope of "cannot see" is wider than this ticket assumed
+## Decisions (design session, 2026-09-02)
 
-*Appended from [[CHAT-35]], 2026-09-02 — the first client-shaped session run
-against the product.*
+The four tickets this stands on have all landed, and they landed further than this body assumed.
+`apps/control-app/src/shot.ts` already gives the Worker `shotUrl` and `shotPreview` and says in its
+own header that exposing them belongs here; `capture/capture.ts` takes an injected
+{@link ReferenceStore} and `driverFactory` and has no `node:fs` in its import graph;
+`perceptual-core.ts` was split from `perceptual.ts` so the maths imports into an isolate, and
+`png.ts` is a pure-JS codec. So none of the "does this run in workerd" risk is live any more.
 
-This ticket frames looking as a **fidelity** capability: capture a reference,
-shoot the draft, compare, judge. That framing is right and it is not wide
-enough. The session showed the assistant needs to see in order to do ordinary
-authoring work, before any question of fidelity arises.
+### 1. The image reaches the model inside the tool loop, with no upstream change
 
-The operator uploaded a hero image and asked for a placeholder site. The
-assistant placed it as a large standalone block. The operator's objection was
-not about fidelity to a reference — there was no reference — it was that the
-image had been *composed* as a backdrop and was being used as a subject:
+**The transport was already open and the ticket's "settle it first" is answered by reading the
+code rather than by changing it.** This host registers its tools as closures
+(`host-core.ts`, `new lib.Tool(name, …, (input) => box.run(name, input))`), and upstream's
+`ToolSet.run` returns a closure handler's value **unmodified** — only the *Toolbox* path
+stringifies. So a handler that returns an array of Anthropic content blocks has them carried
+straight through `ToolOutcome` → `AnthropicWire.record` → `content: [{type:'image', …}]`.
 
-> "This image was created to be a background image that the hero text would
-> layer on top of... loading up this page it looks weird, even at a
-> three-quarter sized browser window all I see is my background image."
+That is strictly better than the alternative considered — returning a handle and having the host
+attach the image to the *next* turn's user message via the surface upstream REQ-111 widened.
+That alternative works too, but the image would only arrive after the model had already ended its
+turn, so "shoot, look, adjust" would cost a turn per look. Inline keeps the loop inside one turn,
+which is the loop [[DOC-13]] §6 is about.
 
-The judgement required is *backdrop or subject?* — and it is unanswerable from
-`{id, src, kind, onDisk}`, which is all `get_asset` returns. The assistant said
-so itself, and named the two things it would need: what the image looks like,
-and whether it is meant to sit behind something.
+`screenshot` therefore returns **two blocks**: a text block naming what was shot and at what size,
+and an image block carrying the bytes. The text block is what makes a picture self-describing in a
+transcript that no longer holds it (below).
 
-**The capability already exists and is pointed elsewhere.** `describe.ts` runs
-`claude-opus-5` over every uploaded image at ingestion (REQ-163) and writes a
-composition description — *"blue daylight comes through an arched gothic window
-on the right"* — into the **material ticket body** for retrieval. The assistant
-had that description available by search, did not think to look for it, and told
-the operator that its alt text had been written by whoever uploaded the file.
-So there are three distinct failures stacked here, and only the first is this
-ticket's:
+### 2. The cost of inline is transcript weight, and it is bounded by capping the image
 
-1. No image reaches the assistant's context. (This ticket.)
-2. The description that does exist is not attached to the asset, so
-   `get_asset` cannot return it and nothing points from the file to the words
-   about it. Cheap to fix and independent of the fidelity surface.
-3. Nothing prompts the assistant to ask the backdrop-or-subject question when
-   an image arrives.
+The same value the model sees is also yielded as `toolEvent(meta.output)`, and the manager appends
+that as a `tool` record — which is a CONTENT kind, so it is drained to the durable session
+transcript and carried forward on recycle. Upstream redacts images in `turn_start` and has no
+equivalent for tool records, so an uncapped screenshot would put megabytes of base64 into the
+session file and into every recycle's carried context.
 
-**Status note for scheduling.** The operator's reading in the session was that
-this ticket is in progress. It is `draft`, and depends on REQ-154, REQ-155,
-REQ-156 and REQ-149. Meanwhile `describe.ts:107-118` names *this ticket* as one
-of the two places the duplicate vision path gets deleted, so the temporary
-duplication it accepts is currently open-ended. Worth deciding whether (2) above
-should land ahead of the fidelity surface rather than waiting on the dependency
-chain — it would have changed the outcome of this session on its own.
+Two answers, both here rather than upstream:
+
+- **Every image this surface returns is downsampled to a longest edge of 1024px** before it becomes
+  a block, and is refused if it still exceeds a declared byte ceiling. Anthropic downscales above
+  ~1568px anyway, so the cap costs no fidelity the model could have used, and it bounds what any
+  one call can put in the transcript.
+- **`meta.output` is stripped of image data before the event leaves `streamPrompt`**, so the
+  operator's browser is never sent the base64 twice over SSE. The text block survives, so the
+  activity line still says what was shot.
+
+The remaining exposure — capped base64 in the durable transcript — is recorded as the upstream
+follow-up this ticket does not take: a `tool`-record redaction shaped exactly like the one
+REQ-111 already built for `turn_start`.
+
+### 3. Five picture sources, and the fifth is built rather than dropped
+
+Four of the five resolve against what already exists: a URL and a captured reference directly, and
+the draft and edit channels through `shotPreview`, whose `PreviewChannel` is already
+`'draft' | 'edit'`. The fifth — a published revision — had nothing behind it, because
+`PreviewRenderer` reads `loadDraft` and `previewOriginResolver` refuses any channel that is not
+`draft` or `edit`.
+
+It is built here instead of dropped: `SiteStore.readRevision` returns a frozen `StoredSnapshot`,
+so a `rev-<id>` channel renders that snapshot through the same `renderSiteFiles` every other
+channel goes through. **A revision's assets come from the snapshot's own bytes, not the draft's** —
+a revision that pointed at today's logo would not be a picture of that revision.
+
+### 4. The picture source is one declared `param_type`, validated by the declaration
+
+The vocabulary is a single `object` param type with a declared `keys` set, which upstream's
+declaration format already supports end to end: `validateParams` enforces the keys and their
+enums, and `wireProperties` projects them into the tool's JSON schema with
+`additionalProperties: false`. So "one picture source, resolved in one place" is enforced by the
+declaration rather than by a convention each operation re-implements, and the model is *shown* the
+shape rather than refused for guessing it wrong.
+
+### 5. The surface composes as a list, not a second named slot
+
+`createL1Toolbox` takes `knowledgeSurface` as a **named slot**, not the list this body assumed.
+Generalising it to `extraSurfaces: {surface, granted}[]` is the change that makes AC1's "registered
+alongside rather than merged into" true; the knowledge surface becomes the first entry in that list
+and nothing about it changes.
+
+The fidelity grant is **local**, so it is written in `instances.json` beside the L1 grant. The
+knowledge grant travels with its surface because its two scope axes must name the same set; this
+one has no such coupling, and putting it in the same place as every other local grant is what keeps
+it reviewable.
+
+### 6. SSRF is enforced at the driver's request seam, not only on the typed URL
+
+A pre-flight check on the URL the model supplied cannot see a redirect to link-local space, and the
+browser follows redirects itself. `shotPreview` already proves the driver can answer requests
+per-request (`driverFactory({ origin: resolver })`), so that is where the guard belongs: every
+navigation is checked, not just the first. The URL, the viewport and any refusal are journalled
+with the reason.
+
+## Test approach
+
+UATs land in `tests/test_UAT_FC_REQ-157_*.test.ts`, driving the real surface against injected
+seams — a fake browser driver, an in-memory store — with nothing reaching the network.
+The load-bearing ones assert what the *backend was handed*, not what the surface claims: that an
+image content block reaches it (AC3), that a comparison verdict equals `1c diff`'s for the
+equivalent invocation (AC4), that each of `gate`'s verdicts is reproduced (AC5), that a private,
+oversized or looping URL is refused and journalled (AC6), and that no operation on this surface
+moves the site's change counter (AC8).
