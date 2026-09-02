@@ -6,10 +6,10 @@ title: A ticket created through the deployment's own wiring reads back through a
   independently obtained handle
 created_by: xgd
 created_at: '2026-09-01T23:57:34.801558+00:00'
-updated_at: '2026-09-01T23:57:34.801558+00:00'
+updated_at: '2026-09-02T00:13:30.486335+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
