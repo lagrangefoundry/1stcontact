@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:44:16.518403+00:00'
+updated_at: '2026-09-02T00:05:54.844245+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -662,5 +662,11 @@ That makes fault 4 three separable defects, none of which depend on lf BUG-39:
 3. nothing in the surface says registration isn't a precondition for use
 
 I've rewritten fault 4 on BUG-44 with this. Given it's independent of the framework work and it's the one that visibly cost your client, it's probably what to do first — want me to scope it?
+
+<!-- xgd-turn id="91c2c49b-e66d-4636-b733-50f3bad9264f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:05:54.712834+00:00" -->
+#### You
+If 3 is not true, what's the point of registration? Is there any intended semantics to stored, but not registered?
 
 <!-- xgd-chat-end -->
