@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-43
 created_by: xgd
 created_at: '2026-09-01T21:54:36.482890+00:00'
-updated_at: '2026-09-01T23:58:19.272465+00:00'
+updated_at: '2026-09-02T00:01:39.399171+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,27 @@ please complete the free-coding of this ticket
 Blocking details:
 - branch `free-BUG-43` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-43`
 - branch HEAD: `84cc117aa1ee0525b9b615088051db8170e2ed87`
+
+<!-- xgd-turn id="d7b02e70-9446-439e-b7e3-106519249f68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:01:39.336810+00:00" -->
+#### Claude
+The branch cleanup is done, but I've found a problem: **the merge is gone from `xgd-working`.**
+
+Free-coding of BUG-43 is complete.
+
+**Final state**
+- Ticket `bug-360c5a44` — status `free_coded`, `commits: [84cc117aa1ee0525b9b615088051db8170e2ed87]`, `version: 0.2.40`, body describing the implementation as it stands.
+- `84cc117aa1` is reachable from `xgd-working`: the UAT files are tracked at HEAD and `git log -1 -- tools/generate/src/cli/ai/host-core.ts` resolves to it.
+- Branch `free-BUG-43` deleted, worktree at `/Users/martin/.xgd/worktrees/.../free-BUG-43` removed, lock released.
+- Both UAT suites re-run from the main checkout on the merged tree: 9 passed.
+
+**One thing you should know.** While verifying, `git` gave me contradictory answers about whether the merge was on `xgd-working` — `git log --graph` showed a linear history with no merge commit while `merge-base --is-ancestor` said the commit was reachable, and `HEAD` moved from `c994f0ba12` to `97fb85acae` between two adjacent commands. I read that as the merge having been lost, anchored the commit on a temporary `recover-BUG-43` branch, took the `xgd branch lock`, and attempted a re-merge — git answered "Already up to date."
+
+So nothing was actually lost, and I did not create a duplicate merge. But the repository is being mutated concurrently (xgd writes a commit per ticket update), and `git log` output about `xgd-working` is not reliable mid-session. I removed the temporary branch after confirming the content was present. If you want the merge to appear as an explicit merge commit rather than however xgd has folded it in, that's worth a look at the branch history when nothing else is writing.
+
+Two smaller notes, neither mine and neither touched:
+- `/Users/martin/lagrangefoundry/1stcontact/.xgd/merge.lock` holds a stale entry from 2026-07-10 (`ff_push reconcile-BUNDLE-4`, pid 51341), and the main worktree has one from 2026-08-31 (`reconcile-BUNDLE-22`). Neither names BUG-43.
+- `git branch -d` warned `could not lock config file .git/config` before succeeding — a sandbox write restriction, not a repo problem.
 
 <!-- xgd-chat-end -->
