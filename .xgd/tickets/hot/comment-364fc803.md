@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T23:33:38.353454+00:00'
+updated_at: '2026-09-02T23:35:30.053917+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,29 @@ grep -c "async transcript(" /Users/martin/lagrangefoundry/node_modules/@lagrange
 If it keeps failing on the rmtree, `rm -rf /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai` by hand first and then re-run — the install rebuilds it from the tarball, so nothing is lost.
 
 Meanwhile: I still have part **(2)** sitting unblocked and it's the half that caused the reported turn loss. Rather than keep idling on the vendor, I'd like to cut `free-BUG-46` and land it now — say go and I'll start, and (1)/(3) fold in when the store updates.
+
+<!-- xgd-turn id="3c0b5121-c088-41f5-a6b9-77e237d5f2de-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:35:29.721818+00:00" -->
+#### You
+# ((.venv-tests) ) martin@nyx lagrange-framework % bin/install --lang js --component ai --no-deps ; echo "exit=$?" lagrangefoundry component install
+
+repo /Users/martin/lagrangefoundry/lagrange-framework languages js components ai
+
+## Plan — js
+
+target /Users/martin/lagrangefoundry/node_modules requested ai
+
+- deps (none — --no-deps) @lagrangefoundry/ai 0.0.0 from components/ai/js
+
+## Running — js
+
+$ /opt/homebrew/bin/pnpm pack --pack-destination /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/lagrangefoundry-pack-953tqva1 --dir /Users/martin/lagrangefoundry/lagrange-framework/components/ai/js extract lagrangefoundry-ai-0.0.0.tgz (150.1KB packed) → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai --no-deps: third-party dependencies were NOT resolved. --no-deps: skipping the import smoke test.
+
+## Installed
+
+js → /Users/martin/lagrangefoundry @lagrangefoundry/ai 0.0.0 from components/ai/js → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai [473.4KB]
+
+exit=0 ((.venv-tests) ) martin@nyx lagrange-framework %
 
 <!-- xgd-chat-end -->
