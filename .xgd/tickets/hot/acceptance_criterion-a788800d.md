@@ -6,10 +6,10 @@ title: The material store is declared for both the local and the deployed halves
   the configuration, naming the same target in each
 created_by: xgd
 created_at: '2026-09-02T00:17:32.809209+00:00'
-updated_at: '2026-09-02T00:17:32.809209+00:00'
+updated_at: '2026-09-02T00:26:37.437834+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a7a12d81
   kind: behavior
