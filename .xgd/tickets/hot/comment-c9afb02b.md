@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:39:56.379126+00:00'
+updated_at: '2026-09-02T00:42:29.658180+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -791,5 +791,51 @@ Want me to scope (1) now, or go straight at (2)?
 <!-- xgd-chat role="user" ts="2026-09-02T00:39:56.343210+00:00" -->
 #### You
 Right please remove the registry and any code and doc references
+
+<!-- xgd-turn id="2d1fe0b4-978b-40ef-8bde-3f64c96bb74e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:42:29.450243+00:00" -->
+#### Claude
+I'll survey the full blast radius before scoping the ticket.
+
+Stopping before I touch anything — there's a conflict you need to decide.
+
+I haven't written any code. Two things surfaced during the blast-radius survey that you need to rule on first.
+
+## BUG-45 already specifies the opposite, and it's already branched
+
+`BUG-45 — "Chat upload: a file dropped on 'Put it on the site' is unusable to the assistant"` is `status: free_coding` with `free-BUG-45` cut. Its required behaviour:
+
+> 1. **Promotion registers.** … bytes stored, **registry entry created**, `site.json` validated …
+> 2. **The description becomes the alt text.** The material ticket's AI-written title lands **on the registry entry** …
+> 5. … `registered` remains reportable — it is a true fact about the file …
+
+Deleting the registry contradicts 1, 2 and 5 head-on. The good news: `xgd-working..free-BUG-45` carries only ticket commits — **no code written yet**. So it's a specification collision, not a merge problem.
+
+## And a correction to what I told you earlier
+
+I said your client had promoted their logo and it was sitting in the site's asset store. BUG-45 read the live miniflare state before it was reset and found `material-a4932624` with `role: "reference"`, `republishable: false`. `placeOnSite` (router.ts:439) returns at its first line on `role !== 'site'` — so **the logo never reached the site's asset folder at all**. It wasn't an unregistered asset; it wasn't on the site.
+
+The promote-doesn't-register defect is real and confirmed independently. It just isn't what happened to this file, and the entries `list_assets` did show weren't it.
+
+## What the decision actually turns on
+
+BUG-45's behaviour 2 is the one live use for the registry my "the metadata is dead" analysis under-weighted — the AI-written description becoming alt text. That's a good idea.
+
+But **the registry's `alt` is write-only today.** Nothing propagates it to a node: `imageHandles` (edit.ts:1909) maps `listSiteAssets` to `.src` alone, and `imageChoices` receives handles, not entries. Writing the description onto a registry entry puts it in a field no renderer and no picker reads — it would need further plumbing to become visible.
+
+Meanwhile the node already has a **required** `alt` (`l1ImageSchema.alt: z.string()`), that's where the renderer reads it, and the assistant can pull the description via `KnowledgeGet` and set it directly. No plumbing.
+
+## Your options
+
+**A — delete the registry, rewrite BUG-45.** Its intent survives whole: no registry means no unregistered state, so behaviours 1 and 5 are satisfied by the deletion itself; behaviour 2 re-aims at the node's `alt`; behaviours 3, 4, 6 are untouched.
+
+**B — keep the registry, do BUG-45 as written,** plus build the propagation that makes registry `alt` actually reach a node.
+
+**C — both, sequenced.** BUG-45 as written first to unblock the client, deletion later — but that pays for plumbing the deletion then deletes.
+
+**I'd go with A.** It's what your instinct pointed at, it removes a store rather than adding a second home for alt text, and BUG-45 loses nothing real — its behaviour 2 currently targets a dead field, so re-aiming it at the node is a fix, not a concession.
+
+Say the word and I'll rewrite BUG-45's behaviour section, scope BUG-44 with the deletion behaviours, cut the branch, and do it. Worth noting the surface changes too — `registered` disappears from `list_assets`, and `get_asset`'s "Read one *registered* image or font" moves with it — so the AI-facing manual is part of the diff.
 
 <!-- xgd-chat-end -->
