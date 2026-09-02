@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T23:25:53.984046+00:00'
+updated_at: '2026-09-02T23:29:44.256923+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -424,5 +424,54 @@ Say the word and I'll make those three edits. If you'd rather nothing touched th
 we have moved to the consultant term
 2 I don't know?
 I have moved the ticket back to free_coded please update the ticket and your work so everything is complette and consitstent
+
+<!-- xgd-turn id="f3e68eaa-e3e5-4ba9-8758-06116e095633-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:29:43.733250+00:00" -->
+#### Claude
+Let me verify the facts before editing — the ticket state, and what `createL1Toolbox` actually took before this branch.
+
+Question 2 is settled by the code: before this branch, `host-core.ts:214` read `knowledgeSurface?: {...} | null` — a single named slot, not a list. The ticket's claim was wrong; my change is what made it a list. I'll fix that line.
+
+Now let me check how far "caretaker" reaches, and confirm AC7's manual claim.
+
+Good — `caretaker` is dead in code (REQ-174 renamed it; only a read-only legacy alias for old sessions survives). Only REQ-157's body, written before that rename, still uses it. Now let me verify AC7's second half — that the manual actually describes the new surface.
+
+27 UATs, all correctly named. Let me read the five whose behaviour I'm not sure is motivated by body language.
+
+Let me redo that grep properly — zsh globbed the flag last time, so it never actually ran.
+
+Code is clean — `caretaker` survives only in `roles.ts`, which deliberately documents the rename. No code change needed there. Now I'll rebuild the ticket body with targeted edits.
+
+Now pushing the updated body through the CLI (absolute path, per the `--body-file` resolution rule).
+
+All 27 UATs now trace to body language. Let me confirm nothing but the ticket changed, and re-verify the suite is green.
+
+Done. The ticket is `free_coded`, both commits still recorded, and the suite is green.
+
+## What I changed in the ticket body
+
+**1. Restored the CHAT-35 field-evidence section** — verbatim from `e7b09994b6`, with a note saying it was overwritten and reinstated. Its closing status note had gone stale (it said the ticket was `draft` behind four dependencies), so I rewrote just that paragraph: item (1) is now done, **(2) and (3) remain open and are not in this ticket**, and `describe.ts:107-118`'s duplicate vision path is *not* deleted here.
+
+**2. `caretaker` → `consultant`** in the grant bullet, AC7, and the As-built section. I added one parenthetical recording that REQ-174 did the rename, since the body predates it — otherwise a future reader hits "caretaker" in the git history with no explanation. Code needed no change: `caretaker` survives only as `LEGACY_ROLE_NAMES` in `roles.ts`, a deliberate read-only alias so pre-rename sessions can still reopen.
+
+**3. Answered your "I don't know?" from the code.** The claim was wrong. At `11ca5fea9a^`, `host-core.ts:214` read `knowledgeSurface?: {surface, granted} | null` — a single named slot. Generalising it to a list is work this ticket did, not a precondition it inherited. The body now says the knowledge surface is only *half* a precedent and names the generalisation as required.
+
+## The gap I found while checking traceability
+
+Five UATs were asserting behaviour with **no motivating language in the body** — they'd have read as drift at reconciliation. I added a `## Behaviour the build settled` section covering them:
+
+- comparisons crop to the common rectangle and report the `size` actually compared
+- the reference side is read at the viewport the *actual* side asked for
+- a bundle with no ladder member falls back to the full-page shot and the label says so
+- the surface is bound to one site at construction — no `slug` anywhere, stronger than a scope axis
+- each of the five verdicts carries its own next step
+- downsampling averages (box filter) rather than nearest-neighbour sampling
+
+All 27 UATs now trace to body language. `27 passed (27)`, and the commit touched only `.xgd/tickets/hot/request-3f8737f2.md` — no code moved.
+
+## One thing left for you
+
+CHAT-35 items (2) — attach `describe.ts`'s composition description to the asset so `get_asset` can return it — and (3) — prompt the backdrop-or-subject question — are real, cheap, and independent of the fidelity surface. I haven't filed them, since this session is scoped to REQ-157. Say the word and I'll create them; (2) in particular is what would have changed the outcome of that session on its own, and it's what unblocks deleting the duplicate vision path.
 
 <!-- xgd-chat-end -->
