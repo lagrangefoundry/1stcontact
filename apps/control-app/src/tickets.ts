@@ -80,7 +80,7 @@ const MATERIAL_FIELDS = {
    * which recorded WHICH SITE WAS OPEN WHEN THE FILE ARRIVED while every
    * consumer — the Library's `On this site` pill, its `Used on` field, its
    * "used on this site" filter — read it as WHERE THE BYTES ARE. Those are
-   * different facts, so a file dropped on *"Just for you to read"* was badged,
+   * different facts, so a file dropped on *"background information"* was badged,
    * on the very next screen, as being on the site whose own hint had promised
    * seconds earlier that it would never appear there.
    *
