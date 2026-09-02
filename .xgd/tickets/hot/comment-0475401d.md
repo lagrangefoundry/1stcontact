@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T22:28:07.119809+00:00'
+updated_at: '2026-09-02T22:35:36.733088+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -265,5 +265,13 @@ That's the first contact and everything downstream of it, which is the name doin
 And it closes the naming loop: if the product is a front office, the container is a business, because a business is the thing that has one. The v2 multi-site case then reads naturally as *one front office, several doors*.
 
 Two threads left open if you want them: whether per-tenant is the pricing meter, and whether the Account surface is literally the same portal your customers get. Want me to scope any of this into CHAT-36, or keep going in conversation?
+
+<!-- xgd-turn id="27773b79-fda1-46a8-9374-4390ad7b40e1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T22:35:36.537984+00:00" -->
+#### You
+Yes ok lets go with business - you are right it is somewhat more operational than brand - although I have worked in places that has used them relatively interchangably but cool lets go with businesss.
+
+We need to (1) capture this in existing or a new doc - I suspect its best an update of existing content around tenancy - one thing I want to be really clear on is this recursive idea that I am building first contact as a first contact site, and my first contact customers will use the same access controls that their customers will have and will appear in a CRM system just the same way that customer as well and they will be billed from first contact just the way they can bill their customers. It's really important that we get this right it's not just an architectural elegance it is important for leverage otherwise I have to build all those features twice. (2) let's talk about specific changes to what we have today (and what is on deck) that will be needed to realize this new model
 
 <!-- xgd-chat-end -->
