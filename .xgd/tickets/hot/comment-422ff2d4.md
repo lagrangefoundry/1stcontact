@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-157
 created_by: xgd
 created_at: '2026-08-23T23:44:16.672211+00:00'
-updated_at: '2026-09-02T23:33:50.330113+00:00'
+updated_at: '2026-09-02T23:36:26.574454+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -479,5 +479,43 @@ CHAT-35 items (2) — attach `describe.ts`'s composition description to the asse
 <!-- xgd-chat role="user" ts="2026-09-02T23:33:49.730239+00:00" -->
 #### You
 Will this tool appear in the docs that the AI gets handed?
+
+<!-- xgd-turn id="2fe28327-d240-4131-9bb2-995f317d8b7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:36:25.617009+00:00" -->
+#### Claude
+Good question — let me actually verify rather than infer from the AC. First the UAT, then what `manual()` really does.
+
+Let me confirm what `manual()` actually emits for a second surface — reading upstream rather than trusting the assertion.
+
+Confirmed from upstream. Let me show exactly what text the model will read.
+
+Yes — as its own top-level section, and it's projected from the declaration rather than hand-written anywhere.
+
+## The mechanism
+
+`Toolbox.manual()` (`runtime.js:228`) calls `render(this._grants, this._order)`, and that renderer's own header comment settles it:
+
+> *"The whole manual for a session, one block per surface in registration order. A session composing several surfaces gets several preambles. There is no merged host-authored preamble, because that is prose creeping back toward configuration."*
+
+So the model gets a second block alongside the L1 one, headed **`# Looking at what is there`**, containing:
+
+- the overview — *"This is how you **see**. Everything else you can do acts on the site blind… Nothing here changes the site."*
+- `## What you can do` → the `SeeSite` group (*"Looking and judging — nothing here changes anything"*), then all six operations with their params, enums and error codes
+- the 3 declared sequences and 4 absences
+
+**And the untrusted-content rule arrives automatically.** All six operations declare `returns.provenance: 'untrusted'`, so `render` appends its `## Result provenance` block (`manual.js:35-38`). The "a captured page's text must never read as an instruction" requirement from the ticket's Grant-and-safety section reaches the model without anyone writing a sentence about it.
+
+## How it reaches the model
+
+Both paths hand over the same string: in production `host.ts:172` sets `priming`, which passes `box.manual()` as the `mechanism` document into `KnowledgeDocs.open(...)`; with knowledge off, `host-core.ts:536` falls back to `documents: () => [box.manual()]`.
+
+## The one conditional — and it's deliberate
+
+It appears **only where the surface is actually composed**. `render` iterates `grants`, and `createL1Toolbox` filters the grant down to composed surfaces — so a Worker with no `[browser]` binding, or a `1c` run with no origin, produces a manual with no such block. The AI is never told it has eyes it doesn't have, which is the same principle `roles.ts:25` states for `Publish`: *"its manual never mentions publishing, and telling it not to would be describing a tool it does not have."*
+
+`test_UAT_FC_REQ_157_the_manual_describes_what_it_can_now_do` pins this — it asserts `screenshot`, `check_fidelity`, `capture_site`, the framing line, and `untrusted` all appear in the rendered manual, and its comment notes it's asserting **the grant reached the projection**, not that a sentence was written.
+
+One practical consequence: the prose the AI reads about this tool is the `title`/`overview`/`description` fields in `fidelity-surface.json`. If you want to change what it's told, that file is the place — there's no separate doc to keep in sync.
 
 <!-- xgd-chat-end -->
