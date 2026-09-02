@@ -194,7 +194,7 @@ export function workerHost(
       // deployment with no key still opens the session, still replays the
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
-      knowledgeSurface: knowing ? sessionKnowledgeSurface(knowledge) : null,
+      extraSurfaces: knowing ? [sessionKnowledgeSurface(knowledge)] : [],
       priming: knowing ? sessionPriming(knowledge, CARETAKER_PURPOSE) : null,
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus

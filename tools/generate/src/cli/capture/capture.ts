@@ -53,6 +53,15 @@ export interface CapturePageOptions {
   retries?: number
   /** Engine-availability probe passthrough for the multi-viewport pass (tests inject a stub). */
   isEngineAvailable?: (engine: RenderEngine) => Promise<boolean>
+  /**
+   * Per-engine driver factory for the multi-viewport pass (REQ-157).
+   *
+   * Defaults to {@link driverFactory} for every engine, which is what a single
+   * injected driver has always meant here. It exists as its own seam so the Node
+   * barrel can supply Playwright's real per-engine factory without this module
+   * importing one — see `capture/index.ts`.
+   */
+  driverFactoryFor?: (engine: RenderEngine) => BrowserDriverFactory
 }
 
 export interface CapturePageResult {
@@ -89,8 +98,16 @@ export async function cmdCapturePage(
   // so `values-diff --multi-viewport` has a per-width reference to pair against.
   const multiState = await runMultiStateCapture(url, {
     states: ['rest'],
-    driverFactoryFor: opts.driverFactory ? () => opts.driverFactory! : undefined,
-    isEngineAvailable: opts.isEngineAvailable,
+    driverFactoryFor:
+      opts.driverFactoryFor ?? (opts.driverFactory ? () => opts.driverFactory! : undefined),
+    // AN INJECTED DRIVER IS ITSELF THE AVAILABILITY ANSWER (REQ-157). The probe
+    // exists to ask whether a real engine can launch here, which is a question
+    // about Playwright; a caller that supplied its own factory — a fake in a
+    // test, a leased Browser Rendering session in a Worker — has already
+    // answered it, and running the probe would have it answer "no" on a machine
+    // with no Playwright and silently skip the ladder.
+    isEngineAvailable:
+      opts.isEngineAvailable ?? (opts.driverFactory ? async () => true : undefined),
   })
   await writeMultiState(bundle, multiState)
 

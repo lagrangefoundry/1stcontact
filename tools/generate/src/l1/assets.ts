@@ -15,7 +15,11 @@
  * own `/assets/…` path, and anything that cannot resolve is a **reported gap**,
  * never a silent fallback to the origin.
  */
-import type { CaptureAsset } from '../cli/capture'
+// REQ-157 — the deep path, not the `capture` barrel. Even as an `import type`
+// this matters: the barrel re-exports `playwright-driver`, and REQ-154's bundle
+// check follows every local import regardless of whether TypeScript erases it,
+// because a bundler's resolution and a type checker's are not the same thing.
+import type { CaptureAsset } from '../cli/capture/types'
 import type { L1Document, L1Node } from '@1stcontact/site-schema'
 
 /** Asset kinds an L1 document can reference; the rest are page subresources. */

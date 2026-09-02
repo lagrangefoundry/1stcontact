@@ -52,7 +52,12 @@ import {
   type L1TextResponsive,
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
-import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-diff'
+// REQ-157 — from the TABLE, not the command. `responsive-diff.ts` is
+// `1c responsive-diff`: it reads a bundle directory and writes JSON, so importing
+// it here put `node:fs`, the filesystem stores and a loopback server into the
+// graph of everything that folds a capture — including, once REQ-157 arrived, a
+// Worker. The builder this actually uses is pure and now lives on its own.
+import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-table'
 import {
   boxDistance,
   clusterControls,
@@ -61,6 +66,12 @@ import {
   type ControlRow,
   type FoldedForm,
 } from './forms'
+// REQ-157 — the deep path, not the `capture` barrel. That barrel re-exports
+// `playwright-driver` (it says so in its own header, and declines to re-export
+// the Browser Rendering driver for the same reason), so importing it here put
+// Playwright into the graph of everything that folds a capture. The four values
+// this actually uses are all in `values-diff.ts` and none of them wants a
+// browser.
 import {
   colorToHex,
   partitionProbes,
@@ -68,7 +79,7 @@ import {
   type SectionValues,
   type StateProjection,
   type ValueElement,
-} from '../cli/capture'
+} from '../cli/capture/values-diff'
 
 const FONT_SIZE = { min: 1, max: 400 }
 const FONT_WEIGHT = { min: 1, max: 1000 }

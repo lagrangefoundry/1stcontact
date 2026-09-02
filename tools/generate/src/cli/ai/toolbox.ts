@@ -187,15 +187,15 @@ export async function createL1Toolbox(
   // library is: it lives in the shared artifact store and is reached by file
   // URL. The core takes the constructed surface and the grant that travels with
   // it, and never learns where either came from.
-  let knowledgeSurface: { surface: Untyped; granted: Record<string, unknown> } | null = null
+  const extraSurfaces: Array<{ surface: Untyped; granted?: Record<string, unknown> }> = []
   if (knowledge !== null) {
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
-    knowledgeSurface = {
+    extraSurfaces.push({
       surface: new bridge.KnowledgeToolbox(knowledge),
       // `knowledgeInstanceConfig` at the package root; `instanceConfig` is the
       // name inside the module it comes from.
       granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
-    }
+    })
   }
 
   return createL1ToolboxCore(slug, opts, {
@@ -206,6 +206,6 @@ export async function createL1Toolbox(
     lib: resolved,
     store: siteStore,
     extraOps: nodeOperations(slug, editOpts),
-    knowledgeSurface,
+    extraSurfaces,
   })
 }

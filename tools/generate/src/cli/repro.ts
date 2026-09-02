@@ -41,8 +41,6 @@ import { fontResourcesFromTheme } from './capture/capture'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-/** Content-perturbation factor for the robustness probe + structure recovery. */
-const CONTENT_SCALE = 2.5
 
 export interface ReproOptions extends GlobalOptions {
   /** Capture bundle directory (e.g. `storage/references/<host>/<page>`). Required. */
@@ -286,44 +284,12 @@ export async function cmdRefold(bundle: ReferenceBundle): Promise<RefoldResult> 
   return { bundle: bundle.name, nodeCount: countNodes(doc), forms, residuals }
 }
 
-export interface L1GateResult extends ThreeProbeReport {
-  /** Paths of the pinned sibling groups `promoteToFlow` recovered into flow. */
-  promoted: string[]
-  /**
-   * REQ-92 / BUG-6 (B2) — elements the fold could not yet express as L1 leaves
-   * (text-free media/fields, pure-surface panels, geometry-less runs). Kept
-   * separate from the probes' mispairing/fidelity residuals: these name *folder
-   * power* gaps (a leaf kind the fold does not emit yet), not a diff delta.
-   */
-  foldResiduals: FoldResidual[]
-  /**
-   * REQ-93 — the behaviours the fold recovered into L1 slots, with whatever the
-   * capture could not tell us about each. A *derivation* gap (no endpoint, no
-   * recorded input type), deliberately distinct from {@link foldResiduals}: the
-   * form was mounted, so it is not a gap in L1's expressive power.
-   */
-  forms: FoldedForm[]
-}
-
-/**
- * Run the 3-probe acceptance gate against a capture bundle's oracle. Folds the
- * `multistate.json` to the absolute base, applies demand-driven `promoteToFlow`
- * for the envelope probes, and runs {@link threeProbeGate}. The returned report's
- * residuals each name a framework gap (a missing L1 axis, a capture-hint gap, or
- * a region needing promotion) to feed back per the DOC-21 growth loop.
- */
-export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> {
-  const multiState = await readMultiState(bundle)
-  if (!multiState) {
-    throw new Error(
-      `No multistate.json in bundle '${bundle.name}'. The bundle predates multi-state ` +
-        `capture — re-capture with \`1c capture page <url>\` before gating.`,
-    )
-  }
-  const foldResiduals: FoldResidual[] = []
-  const forms: FoldedForm[] = []
-  const base = foldToL1(multiState, { residuals: foldResiduals, forms })
-  const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
-  const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
-  return { ...report, promoted, foldResiduals, forms }
-}
+// REQ-157 — `cmdL1Gate` and its result type MOVED to `gate-core.ts`, and are
+// re-exported here so no caller had to move with them.
+//
+// WHY THEY WENT. The function was always pure — it reads a `ReferenceBundle`
+// through the port and folds what it finds — but this module is not: it writes a
+// reproduction to disk, so importing it for the gate alone pulled `node:fs` into
+// a Worker's graph. `1c l1-gate` still reaches it from here.
+export { cmdL1Gate } from './gate-core'
+export type { L1GateResult } from './gate-core'

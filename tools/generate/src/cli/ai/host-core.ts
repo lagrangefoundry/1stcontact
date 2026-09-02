@@ -53,6 +53,8 @@ import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import { CARETAKER_ROLE, CARETAKER_SYSTEM, caretakerReminder } from './roles'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
+import { fidelitySurfaceFor } from './fidelity-core'
+import type { FidelityDeps } from './fidelity-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -207,11 +209,33 @@ export interface HostDeps {
   apiKey?: string
 
   /**
-   * A pre-built knowledge surface and the grant that travels with it, or null.
-   * Null is an ordinary state: an assistant that knows its tools and not the
-   * design corpus.
+   * Pre-built surfaces to compose alongside the L1 one, each with whatever grant
+   * travels with it. Empty is an ordinary state: an assistant that knows its
+   * tools and not the design corpus.
    */
-  knowledgeSurface?: { surface: Untyped; granted: Record<string, unknown> } | null
+  extraSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
+
+  /**
+   * What the fidelity surface needs, or null where this deployment cannot take
+   * pictures (REQ-157).
+   *
+   * NULL IS ORDINARY, not an error — a Worker with no `[browser]` binding and a
+   * laptop with no Playwright are both real deployments, and both should get an
+   * assistant that can edit a site rather than one that refuses to start. The
+   * surface is simply absent, so its manual never mentions it and the model
+   * cannot propose, apologise for, or probe for an operation it has not got.
+   *
+   * Built HERE rather than by each host because constructing it needs the AI
+   * library, which is this file's to resolve — the hosts supply the store, the
+   * browser and the origin, which are theirs.
+   *
+   * A FACTORY OF THE SLUG, like {@link HostDeps.priming} is a factory of the
+   * Toolbox, because the surface is bound to one site at construction and the
+   * host does not know which site until a manager is built for one. Binding it
+   * at construction is what means no operation declares a `slug` and no picture
+   * can name a site the session is not about.
+   */
+  fidelity?: ((slug: string) => FidelityDeps) | null
 
   /**
    * Builds the role's priming `ContextSource` from the constructed Toolbox.
@@ -434,7 +458,12 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       lib: deps.lib,
       store: deps.store,
       extraOps: deps.extraOps ?? {},
-      knowledgeSurface: deps.knowledgeSurface ?? null,
+      extraSurfaces: [
+        ...(deps.extraSurfaces ?? []),
+        // The fidelity surface, when this deployment has the browser and the
+        // store it needs. No grant travels with it — see `fidelity-core.ts`.
+        ...(deps.fidelity ? [{ surface: await fidelitySurfaceFor(lib, deps.fidelity(slug)) }] : []),
+      ],
     },
   )
 
@@ -686,7 +715,7 @@ export async function* streamPrompt(
   let seen = at
   try {
     for await (const event of manager.promptStream(sessionId, text)) {
-      yield event
+      yield withoutImageData(event)
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
@@ -703,6 +732,56 @@ export async function* streamPrompt(
     // are absorbed rather than reported back to it next turn.
     baselines.set(key, await store.counter(slug))
   }
+}
+
+/**
+ * REQ-157 — the same event, with any image bytes taken out of it.
+ *
+ * WHY. A `screenshot` result is an array of content blocks, and the base64 in it
+ * is there for the MODEL. Upstream's tool loop yields the identical value as
+ * `tool_activity`'s `meta.output`, and this generator's consumer is an SSE
+ * stream to the operator's browser — so without this the picture crosses the
+ * wire twice, once to the provider and once to a pane that renders an activity
+ * line and has no use for the pixels. On a full-page desktop shot that is a
+ * megabyte of base64 per call, per turn, framed as a single `data:` line.
+ *
+ * WHAT SURVIVES. The text block, which is the whole point of `screenshot`
+ * returning two: it says what was shot and at what size, so the activity line
+ * still reads correctly and the placeholder says a picture was there rather
+ * than leaving a hole.
+ *
+ * WHAT THIS DOES NOT FIX, stated because it would otherwise look fixed. The
+ * session manager appends the ORIGINAL event as a `tool` record before this
+ * generator ever sees it, and `tool` is a content kind — so the durable
+ * transcript still holds the base64 and carries it across a recycle. That is
+ * upstream's to redact, shaped exactly like the redaction REQ-111 already built
+ * for `turn_start`; the cap in `fidelity-core.ts` is what keeps it bounded until
+ * then.
+ */
+function withoutImageData(event: {
+  kind: string
+  content: string
+  meta?: Record<string, unknown>
+}): { kind: string; content: string; meta?: Record<string, unknown> } {
+  const output = event.meta?.output
+  if (!Array.isArray(output)) return event
+  let stripped = false
+  const blocks = output.map((block) => {
+    const b = block as { type?: string; source?: { media_type?: string; data?: string } }
+    if (b?.type !== 'image' || typeof b.source?.data !== 'string') return block
+    stripped = true
+    return {
+      type: 'image',
+      source: {
+        ...b.source,
+        // The size is kept and the bytes are not: an operator watching the pane
+        // should be able to see that a picture was taken and how big it was.
+        data: `<${b.source.data.length} bytes of ${b.source.media_type ?? 'image'} elided>`,
+      },
+    }
+  })
+  if (!stripped) return event
+  return { ...event, meta: { ...event.meta, output: blocks } }
 }
 
 /** What the assistant is, and whether it can run — the panel's mount-time check. */

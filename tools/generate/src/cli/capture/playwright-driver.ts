@@ -22,6 +22,7 @@ import type {
   RenderEngine,
   Viewport,
 } from './types'
+import type { EgressGuard } from './egress-guard'
 
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
@@ -54,7 +55,10 @@ class PlaywrightDriver implements BrowserDriver {
     requestedUrls: [],
   }
 
-  constructor(private readonly engine: RenderEngine = 'chromium') {}
+  constructor(
+    private readonly engine: RenderEngine = 'chromium',
+    private readonly guard?: EgressGuard,
+  ) {}
 
   async navigate(url: string, viewport?: Viewport): Promise<void> {
     const playwright = await import('playwright')
@@ -88,6 +92,22 @@ class PlaywrightDriver implements BrowserDriver {
     // failed cross-origin request never becomes a response, so egress cannot be
     // derived from `responses()`; it must be observed at request time.
     this.page.on('request', (req) => this.diag.requestedUrls.push(req.url()))
+
+    // REQ-157 — the same per-request rule the Browser Rendering driver applies,
+    // for the same reason: this is the only point that sees a redirect hop and a
+    // subresource, and `capture_site` takes its URL from a model. A route is
+    // installed only when a guard was supplied, so `1c capture` against a URL an
+    // operator typed keeps exactly the network behaviour it has today.
+    if (this.guard) {
+      const guard = this.guard
+      await this.page.route('**/*', async (route) => {
+        const url = route.request().url()
+        if (guard.allow(url)) return void (await route.continue().catch(() => undefined))
+        await route
+          .fulfill({ status: 403, contentType: 'text/plain; charset=utf-8', body: 'refused by egress policy' })
+          .catch(() => undefined)
+      })
+    }
 
     await this.page.goto(url, { waitUntil: 'networkidle' })
 
@@ -249,6 +269,22 @@ class PlaywrightDriver implements BrowserDriver {
 
 /** The production driver factory: a fresh local Playwright/Chromium driver. */
 export const createPlaywrightDriver: BrowserDriverFactory = async () => new PlaywrightDriver()
+
+/**
+ * REQ-157 — a Playwright factory whose pages are held to an egress policy.
+ *
+ * Separate from {@link createPlaywrightDriver} rather than an optional argument
+ * on it, because the two have different defaults for a reason: a driver reached
+ * from the CLI fetches what the operator asked for, and a driver reached from a
+ * tool surface fetches what a model asked for. Naming them apart makes the
+ * caller state which one it is.
+ */
+export function guardedPlaywrightDriver(
+  guard: EgressGuard,
+  engine: RenderEngine = 'chromium',
+): BrowserDriverFactory {
+  return async () => new PlaywrightDriver(engine, guard)
+}
 
 /**
  * REQ-48 (item 6) — a driver factory bound to a specific engine, so the same
