@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T22:39:42.373464+00:00'
+updated_at: '2026-09-02T23:51:35.048387+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -290,5 +290,11 @@ Still moot, and now doubly so — the badge goes away. But the underlying truth 
 ---
 
 I haven't filed anything for this. Your last message in CHAT-36 asks for exactly *"specific changes to what we have today (and what is on deck)"* — the Library changes are a subset of that, and a ticket from me now would race whatever that produces. Better as one coherent pass once the model is written up. Say the word if you'd rather I file the Library slice separately.
+
+<!-- xgd-turn id="ffe55e5f-a8b4-4462-97e8-5024ad92a0b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T23:51:34.874522+00:00" -->
+#### You
+okk that sounds good can you create a ticket for the changes please
 
 <!-- xgd-chat-end -->
