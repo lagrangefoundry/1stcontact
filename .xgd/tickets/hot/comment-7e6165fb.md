@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T20:46:05.528849+00:00'
+updated_at: '2026-09-02T20:52:18.774872+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,62 @@ A ticket to include the tools documentation in the system kb please - or is this
 The cheapest fix is a coverage assertion — `1c assets` refuses to inline (or at minimum warns loudly) when a doc has no manifest entry. Re-running `1c kb build` fixes today's instance, but the skew will recur because `export` and `build` are separate verbs writing to one tree. <-- I don't understand - are you saying the reason that the test is failing is that we missed a build step?
 
 Just create tickets and update docs here please? Saying which can you bring any docs up to date with these changes
+
+<!-- xgd-turn id="2a3cd673-18be-487a-a25b-026c6a6107c0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:52:18.329897+00:00" -->
+#### Claude
+Let me answer your build-step question precisely first, then gather what I need to write the tickets.
+
+Confirmed: **13/13 tests pass — nothing is failing.** Let me scope the terminology change and find the docs that need updating.
+
+No test is failing — 13/13 pass. Let me answer that properly, then create the tickets.
+
+**On the build step:** the pipeline is correct and tested. `1c kb build` runs `writeProjections()` *then* indexes (`index.ts:793`). What's stale is the artifact in this checkout. `1c assets` inlines `docs` and `index` from **two different places**: `docs` is a directory read, so it picks up new files instantly; `index` is a build artifact that only changes when `1c kb build` runs. The REF files were written Sep 1 11:53 by `1c kb export` (which projects but never indexes); the last actual build was Sep 1 00:57. So yes — a missed build step, but one the toolchain lets you ship silently. That's why it's worth a ticket rather than just a rebuild.
+
+REQ-174 created. Now the parity ticket — the important one.
+
+REQ-157 first — and a correction: its status is `draft`, not in progress.
+
+Now the docs. Let me check what's there before appending.
+
+Done. Consultant it is from here on.
+
+## Your build-step question, first
+
+**No test is failing.** The REQ-165 suite passes 13/13 — I ran it. It builds a corpus in a temp dir and asserts the projections land, and they do. The pipeline is correct.
+
+What's stale is the artifact in this checkout, and yes — a build step was missed. But the reason it's worth a ticket rather than a rebuild is *how* it was missed:
+
+`1c assets` inlines the system KB from **two sources with different clocks**. `docs` is a directory listing, so it picks up new files instantly. `index`/`chunks` are build artefacts that only change when `1c kb build` runs. Nothing compares them.
+
+So: `1c kb build` ran Sep 1 00:57 and indexed the four DOCs. Then `1c kb export` ran Sep 1 11:53 — it calls `writeProjections()` but never indexes — writing the three REF files. Then `1c assets` at Sep 1 17:40 inlined the new docs beside the old index. That's your "half the docs": the four that existed at the last *build* are searchable; the four written after it are shipped as text and invisible to retrieval. `awareness.md` is in the invisible half too, which means the system KB's own landing point wasn't searchable either.
+
+`1c kb build` fixes today. Nothing stops it recurring, and nothing says it happened.
+
+## Tickets created
+
+**REQ-174 — Rename the assistant role: caretaker → consultant** (draft, 5pts)
+~122 occurrences: `roles.ts` (`CARETAKER_SYSTEM`, `CARETAKER_PURPOSE`, `caretakerReminder`, `CARETAKER_ROLE`), `instances.json`, the hosts and toolboxes, `ai.ts`, the UAT and reconciliation suites, DOC-33. I flagged that the system prompt's *"You are the caretaker of a website your user owns"* needs its paragraph rewritten, not just the noun swapped — the surrounding prose describes a custodial posture. Also flagged a real migration question: `role: "caretaker"` is persisted in every archived session header, so the rename must migrate or accept-on-read. Left DOC-4/DOC-5's titles alone as historical record.
+
+**REQ-175 — The consultant gets the whole of L1, and keeps getting it** (draft, 13pts)
+Two halves. The document-level keys — `background`, `textColor`, `widths`, `column`, `resources` — become readable and writable (colour must accept palette refs; reproduction writes `{"ref": "sand"}`). And a **parity test fixtured on `storage/sites/`** that fails when reproduction can write something the surface can't. I made the second half the point of the ticket: without it the next reproduction feature reopens the gap silently. Scope is explicitly open — the document keys are what's been found, the test is what finds the rest.
+
+**BUG-48 — A document in the corpus that is not in the index is a shipped lie** (draft, 5pts)
+Fail (not warn) on skew in `1c assets`, rebuild to fix the instance, and close the hole so `export` and `build` can't disagree.
+
+**REQ-157 — appended, not duplicated.** One correction worth having: its status is `draft`, not in progress, and it depends on REQ-154/155/156/149. I appended the field evidence and separated three failures that were stacked together — (1) no image reaches context, which is this ticket; (2) the ingestion description exists but isn't attached to the asset, so `get_asset` can't return it — cheap and independent; (3) nothing prompts the backdrop-or-subject question. **(2) would have changed this session's outcome on its own and doesn't need the dependency chain.** Worth pulling forward.
+
+## Docs updated
+
+**DOC-30** (L1 Control Surface API) — new section recording the parity rule, the unaddressable document keys, and something worth having written down: `set_l1` **inherits new vocabulary automatically**, because its `node` param is `{"type":"object"}` and Zod is the gate. That's your "automatically get all the new features" — capability-wise it already works. The trap is that the same declaration that makes new fields callable is why the surface names none of them, so automatic capability must be paired with reliable description or it gets reported as absent.
+
+**DOC-39** (Knowledge Management) — new §12. §3.3 defined membership as a build-time filter, which is the *corpus* rule; retrieval reads the index. Also noted that §3.2's "a generated fact cannot go stale" holds for the file on disk and did not hold for the `REF-l1` the assistant could search.
+
+**DOC-17** (Design Lessons Log) — appended lessons D–G, which is what that log is for: the contrast precondition (with the point that a contrast tool wouldn't have caught this one — both values were known, the question was never asked), centred body copy as a template tell, image role as backdrop-vs-subject, and reporting a syntax failure as a platform gap.
+
+**Not done:** DOC-33's four `caretaker` occurrences. Renaming prose while the code still says `caretaker` creates a temporary split — it belongs in REQ-174 so code and docs land together.
+
+Two things I did not do: I didn't re-run `1c kb build` (it needs Workers AI over the network, which this sandbox blocks) and I didn't touch CHAT-35's body, since that's the live transcript.
 
 <!-- xgd-chat-end -->
