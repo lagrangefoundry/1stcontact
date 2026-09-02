@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T20:22:59.974660+00:00'
+updated_at: '2026-09-02T20:27:29.141351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -119,5 +119,101 @@ Ok there is a lot here to address its all important so lets go through it carefu
 1) We reproduced gigabytealchemy.ai with text over the background image - can you look at that and see how its done?
 2) We have the ability to feed images to Claude - is that just not being exposed as a tool?
 3) We are automatically generating tooling documentation that is part of the knowledge base, I believe, how come this is so inadequate?
+
+<!-- xgd-turn id="41a472da-5b92-4804-8286-ba567f341d95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:27:28.842780+00:00" -->
+#### Claude
+Good questions — let me dig into each.
+
+The reproduction does use it — exactly one `backgroundImageUrl` and one `overlay`. Let me extract that node.
+
+The background box has **no children** — the text is layered separately. Let me see how.
+
+Now the vision path and the doc generator.
+
+Decisive findings on all three. Let me confirm the last details.
+
+Correction: `projections()` **is** wired in — my earlier grep ran from a stale working directory. Let me get the membership right.
+
+The system KB *is* bundled (575KB, not null) — so it was mounted. The question is why `REF-l1.md` didn't surface. Note the index is dated **Aug 31 17:58** but the REF docs **Sep 1 11:53**.
+
+Found the root cause of Q3. Let me confirm the ordering bug.
+
+All three answered, and Q3 has a concrete root cause.
+
+## 1. How gigabytealchemy.ai does text-over-image
+
+`storage/sites/gigabytealchemy/draft/pages/home.json`, node `0/6`:
+
+```json
+{ "kind": "box", "id": "section-bg-0",
+  "axes": {
+    "backgroundImageUrl": "/assets/AlchemistLabWithTech.png",
+    "overlay": { "color": { "ref": "slate", "shade": -0.599 }, "opacity": 0.3 }
+  },
+  "geometry": { "keyframes": [ {"at":320,...}, ... {"at":1440,"x":0,"y":0,"width":1440,"height":900} ] } }
+```
+
+So it is `backgroundImageUrl` + a 30% slate `overlay` scrim — the exact pair the caretaker told you didn't exist. **It has zero children.** The hero text is not nested inside it. Children `15`–`18` ("Gigabyte Alchemy", "Intentional Software", the tagline, the body copy) are *siblings* at root, positioned at y=79…448 inside the same 0–900 band, and they paint on top purely by DOM order.
+
+Worth knowing: this whole page is importer output, not authorable-by-caretaker output. 70 flat siblings at root, every one absolutely positioned with geometry keyframes at all six breakpoints, nesting depth zero. It's a captured computed layout. The band structure is three stacked layers — `section-band-0` (solid `surfaceFill`) → `section-bg-0` (image + scrim) → text.
+
+Two consequences:
+
+- The **mechanism** transfers directly and is the fix for site-alpha. And it's simpler for authored pages: put the text *inside* the box as children and let it flow — the renderer paints background/scrim on the box and children land on top without any geometry at all.
+- The **style** doesn't transfer. If a caretaker studied this page as a worked example it would learn "hand-place 70 absolute nodes across 6 breakpoints," which is the wrong lesson. So this is a good source for the field names, a bad one for the idiom.
+
+## 2. Vision — yes, and it's deliberately not exposed
+
+The capability is live: `apps/control-app/src/describe.ts`, `VISION_MODEL = 'claude-opus-5'`, 5MB ceiling, jpeg/png/gif/webp. It ran on your upload — the alt text in the corpus ("dark medieval alchemy laboratory… blue daylight comes through an arched gothic window on the right") is model-generated, not human-written. The caretaker was wrong when it told you otherwise.
+
+It isn't a tool because of a structural seam, and the code says so in as many words (`describe.ts:107-118`):
+
+> The AI component's Worker surface is text-only — `promptStream(ref, text)`, with no image content block anywhere in it — so an image cannot be described through the host this Worker already runs. Rather than widen that surface from here, this calls the SDK directly.
+>
+> That is duplication and is accepted as such… either [[REQ-157]] (the fidelity/"looking" surface) or an image block on the AI component's own surface. Whichever lands, this function is what is deleted.
+
+So this was a known, dated, deliberately-taken debt with a named payoff — REQ-163 (`bundled`) took it; REQ-439cd0c8's body already describes *"the AI component grows eyes"* widening `promptStream`/`prompt`. It's not an oversight, it's a queued consolidation. The gap you felt in the chat is real, but it's one surface change away, not a capability you lack.
+
+Also note the description lands in the **material ticket body** for retrieval, never on the asset. That's why `get_asset` returns `{id, src, kind, onDisk}` and the caretaker concluded it couldn't see — it had the description available by *search* and didn't think to look.
+
+## 3. The documentation is not inadequate — it was never indexed
+
+This is the one to act on. `kb-projection.ts` generates `REF-l1.md` from the Zod schemas by walking the node union and closing over every reachable shape. The output is 477 lines and it contains, verbatim:
+
+```
+- `gapPx` — number, at least 0
+- `objectFit` — `cover` | `contain` | `fill` | `none` | `scale-down`
+- `surfaceFill` — color. The painted fill behind the node's content.
+- `backgroundImageUrl` — text. A background image (scheme-checked by the envelope…)
+- `overlay` — overlay. A full-bleed translucent scrim painted over the background (hero overlay).
+```
+
+Every single thing the caretaker spent two hours guessing at, with the doc-comment prose attached. The generator is right, the design rationale is right, the `writeProjections()`-before-`buildKb()` ordering in `index.ts:793` is right.
+
+**But the shipped index doesn't contain it.** From the bundle at `apps/control-app/src/generated/kb.js`:
+
+```
+docs:              DOC-17, DOC-31, DOC-33, DOC-35, REF-behaviors, REF-l1, REF-surface, awareness
+index manifest:    DOC-17, DOC-31, DOC-33, DOC-35
+chunks manifest:   DOC-17, DOC-31, DOC-33, DOC-35
+```
+
+The three REF projections ship as text and are absent from both the document index and the chunk index. Semantic search can never return them.
+
+The stamps tell the story. `1c kb build` last ran `2026-09-01T00:57:52Z` and indexed the four DOCs. The REF files were written **Sep 1 11:53** — by a later `1c kb export`, which calls `writeProjections()` but does no indexing. Then `1c assets` at **Sep 1 17:40** inlined `docs` and `index` independently: it picked up the new REF files into `docs` and the stale index alongside them.
+
+That also confirms the caretaker's report was accurate rather than lazy. It retrieved DOC-17 fine — DOC-17 *is* indexed, which is why it could quote the design log about overlays reading as expensive. And "the knowledge base doesn't have a detailed schema reference" was literally true of the searchable corpus.
+
+The underlying defect is that nothing checks the index manifest covers `docs`. `1c kb export` can write documents that no build indexes, and `1c assets` will happily ship that skew silently. `awareness.md` is missing from the manifest too.
+
+## What I'd do
+
+The cheapest fix is a coverage assertion — `1c assets` refuses to inline (or at minimum warns loudly) when a doc has no manifest entry. Re-running `1c kb build` fixes today's instance, but the skew will recur because `export` and `build` are separate verbs writing to one tree.
+
+That reorders my earlier recommendation. Improving refusal messages is still worth doing, but it's no longer the main event — the field vocabulary was written, correct, and shipped; it was just unsearchable. Fix the index coverage and most of that session doesn't happen.
+
+Want me to scope this as tickets? I'd suggest: **(a)** index/docs coverage check in `1c assets` + `kb build` — the real bug; **(b)** page `background`/`textColor` as addressable L1 — still genuinely unreachable and unreadable; **(c)** contrast metadata on `get_l1`/`describe_page`, which needs palette refs resolved since `get_l1` returns them unresolved; **(d)** image content block on `promptStream`, which is really just REQ-157 landing. Say which and I'll scope them under CHAT-35 properly.
 
 <!-- xgd-chat-end -->
