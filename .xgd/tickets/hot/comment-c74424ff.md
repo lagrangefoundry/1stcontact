@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-02T20:59:14.990908+00:00'
+updated_at: '2026-09-02T21:01:25.734124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -903,5 +903,62 @@ REQ-160 is the third, and it's the one that makes the assistant actually *use* t
 <!-- xgd-chat role="user" ts="2026-09-02T20:59:14.951215+00:00" -->
 #### You
 Please read the transcript to REQ-168 and help me answer its questions
+
+<!-- xgd-turn id="ab18b73e-91ef-4a81-859b-1c7e68ae4563-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T21:01:25.394964+00:00" -->
+#### Claude
+I'll read REQ-168 and its transcript.
+
+Read the ticket and its transcript, and verified the findings against the code. The investigation is accurate — I confirmed the seven `TENANT_ID` sites, the `CHAT` singleton, `provisionInvite` always minting a fresh account, and that `admit` never touches `tenants.status`. Here are my answers.
+
+## 1. Explicit `Scope` — yes, and drop the discriminant
+
+The env-rewrite isn't a cheaper version of this ticket, it's a different ticket that fails this one's own acceptance test. The body already commits to *"a UAT asserts `env.TENANT_ID` has no remaining reader outside the resolver"*; under the rewrite every reader still reads, so the UAT is unwritable. That settles it before the three arguments in §9 even land.
+
+One correction to the ticket's own snippet: `type Scope = { kind: 'tenant'; id: string }` is a single-variant union, and the same paragraph explains why there will never be a second. Drop the discriminant — `{ accountId: string }`. It keeps the type safety that stops a slug being passed where an account id belongs, without reserving a shape the ticket argues against reserving.
+
+## 2. Key the cache by scope — and check `tenants.status` in the resolver
+
+Yes on both, and they're the same decision.
+
+`router.ts:112` is a genuine cross-tenant leak the moment scope moves, not a refactor risk. `Map<string, Promise<WorkerHost>>` is right, and it partitions upstream for free because `managerKey` already keys off the store object.
+
+On status: don't bound the cache's life to fix it. Put the check in the resolver, where it runs per-request regardless of what's cached. It costs a join on a query `admit` already makes (`memberships` → `tenants WHERE status='active'`), and it restores exactly the property `forTenant` was providing. Bounding the cache instead would buy a weaker guarantee at a higher cost, and it would make the window a tuning parameter nobody can reason about.
+
+Map growth across tenants in one isolate is not a concern — isolates are short-lived and it dies with them.
+
+## 3. Dev-open falls back to `TENANT_ID` — yes, with one constraint
+
+Correct, and it's the honest rule: a loopback dev server has one account and it's the platform's.
+
+The constraint: the fallback lives **inside the resolver**, gated on the *same* `isUnconfiguredLocalDev` predicate that skips the gate. Not a second condition that happens to agree today. Two predicates that can drift is how you get a deployment that resolves a dev scope while enforcing a production gate, or the reverse. One predicate, one branch, and `TENANT_ID` keeps exactly one reader outside `identity.ts`.
+
+## 4. Keep `requestedAccountId`, no transport — and there's a stronger reason than §8 gives
+
+Yes. But the argument is better than "REQ-170 will want it."
+
+`accountFor` (identity.ts:342) resolves to the **first** membership by `granted_at`. One membership is all provisioning creates today, so that's deterministic and fine. The moment REQ-170's time-boxed support grants exist, an admin with a membership on a customer account has *two* — and "whose builder am I in" is answered by insertion order rather than by the request. The comment in that function says as much and calls a nondeterministic answer the worst way to discover it.
+
+So the target parameter isn't speculative plumbing; it's the seam that stops that ambiguity from arriving unhandled. Land the logic, land the refusal UAT (unauthorised target refused, never falling back), leave the transport to whoever needs it.
+
+## 5. Bind to `1stcontact` by migration, not by an `Invite` option
+
+Migration. Idempotent `INSERT ... WHERE NOT EXISTS` seeding your user row plus a membership on the existing tenant, in REQ-168's own migration — it's REQ-168 that breaks the live builder, so the repair belongs in the same change.
+
+Not the `accountId` option on `Invite`. That's the seat capability — a second person joining an existing account — which DOC-40 §9 explicitly leaves undefined, and it would be an unreachable code path with no refusal to get wrong. That's the same YAGNI objection I'd make to inventing a transport in §8; the difference is that §8's parameter carries a *security refusal* worth testing before it has a caller, and this one carries only convenience.
+
+Hardcoding an email in a migration is mildly ugly and entirely honest — it's a fact about this deployment, it's reviewable, it applies to preview and prod alike, and REQ-170 supersedes it.
+
+---
+
+## Two things in the ticket body that are now wrong
+
+Worth fixing before implementation starts, since the UATs trace to this language:
+
+- **"The four reads"** is six. `tickets.ts:422` is missing and it's the one that matters most — since REQ-160/162 the ticket store holds transcripts, uploaded material and the project corpus, so leaving it on `TENANT_ID` *is* the "one site left behind" failure the section's own UAT is written against. `ai.ts:134` should also be corrected: it declares `TENANT_ID` on `WorkerAiEnv` and never reads it, so it's a deletion, not a move.
+- **"Authorisation is re-checked on resume"** describes `chat/<tenant>/<sessionId>.md`, which REQ-160 retired. Two of its three legs already hold (`admit` runs on every request including `/api/ai/prompt`; `slugForSession` resolves through the tenant-scoped store). What's actually missing is only the cached host in §3 — fix that and the requirement is met, and the session doesn't need to record its account because the transcript's location *is* the account.
+
+Want me to update the body with these five decisions and the two corrections?
 
 <!-- xgd-chat-end -->
