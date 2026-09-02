@@ -15,6 +15,7 @@ fields:
   chat_ticket: chat-ded18c49
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-40983376
 ---
 
 # Material description: a digest in the body, the full text in a comment
