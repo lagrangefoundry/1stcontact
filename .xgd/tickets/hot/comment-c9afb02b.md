@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-02T00:07:46.432979+00:00'
+updated_at: '2026-09-02T00:26:23.727826+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -720,5 +720,11 @@ The argument against: `focalPoint` is a genuinely good idea that just never got 
 That's your call, and it's bigger than BUG-44 — I've recorded it as open rather than deciding it. All of the above is now on the ticket.
 
 Want me to scope the `get_asset` fix, or settle the registry question first?
+
+<!-- xgd-turn id="e26307b4-7883-4b1f-82a1-6d4a5f33aa61-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:26:23.119654+00:00" -->
+#### You
+So look we have the tickets which have the metadata and references to the blobs - can we just get rid of the registry and all the code associated with it? Meta data goes in the ticket - if there is a need for "registering" a blob that should be ticket metadata not a separate store, right?
 
 <!-- xgd-chat-end -->
