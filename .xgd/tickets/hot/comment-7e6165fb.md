@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-35
 created_by: xgd
 created_at: '2026-09-02T19:34:08.793362+00:00'
-updated_at: '2026-09-02T23:04:20.267242+00:00'
+updated_at: '2026-09-02T23:08:18.867436+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -299,5 +299,55 @@ Please can you create a doc for me "Build and deployment" - I would like a simpl
 (3) running on CF
 
 For the other two I would like a summary of the commands to be run as a code block and then a per-command description of what its doing and why its needed
+
+<!-- xgd-turn id="b022d13a-28a6-49af-a51a-a62d8d5278d2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T23:08:18.828745+00:00" -->
+#### Claude
+Let me map the actual build and deploy paths before writing this.
+
+Now the "raw" path — let me find what still runs on a non-Cloudflare server.
+
+I have the full picture — and one important correction to your assumption. Let me create the deprecation ticket with the right scope first.
+
+Now the doc itself.
+
+`doc_kind: system_kb` would sweep an operator runbook into the consultant's corpus. Let me check what the other docs use.
+
+Done — **DOC-41 "Build and Deployment"** and **REQ-177**.
+
+## On (1) raw — you're right about hosting, but there's something you're missing
+
+There is exactly one raw server an operator can start: **`1c serve <slug>`**, a `node:http` static file server over rendered output. Nothing deploys through it. It should go, and REQ-177 removes it.
+
+But three things *look* like raw servers and are load-bearing. They bind an ephemeral loopback port inside a test or CLI run and close it again:
+
+| | Used by | If removed |
+|---|---|---|
+| `startServe` | `1c shot`, `1c aligned-crops`, conformance harness | screenshots and conformance lose the origin Playwright points at |
+| `startBuilder` | **42 test files** | the control-app router loses its test transport |
+| the file-backed store | `1c new`/`render`/`publish`, `bin/publish` | the local authoring and reproduction tier |
+
+The screenshot loop is the one that matters: `1c shot` renders to disk, serves that directory on loopback, drives a browser at it. The bytes under test are static render output, not Worker behaviour — moving it to workerd costs speed and buys no fidelity, and **REQ-157 depends on it continuing to work**.
+
+So REQ-177 is scoped to removing the `1c serve` command and its help text, relabelling `serve.ts`/`builder.ts` as capture/test infrastructure in their own headers, and explicitly keeping `startServe` exported. `builder.ts` already says this about itself; `serve.ts` doesn't, which is why it reads as a hosting path. The point of item 2 is that the next person auditing for raw servers reaches this conclusion without re-deriving it.
+
+## What's in the doc
+
+§0 one-time setup, §1 raw/discontinued, §2 local CF simulation, §3 Cloudflare, §4 the system KB, §5 end-to-end ordering. Both environments have the command block then per-command prose, as asked, with credential tables.
+
+A few things worth surfacing from the write-up:
+
+**A gotcha I found while checking.** `1c builder` and `pnpm dev:control` both start `wrangler dev` on the control app, but `1c builder` spawns it with **no `--env-file` flags**. Wrangler falls back to its default `.dev.vars` lookup — so Access is correctly off, and `ANTHROPIC_API_KEY` is never loaded. The builder comes up and the assistant can't take a turn. Documented in §2; worth a small ticket if you want them aligned.
+
+**`1c kb build` is not in `bin/build`.** It needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` for the embedder, so it's a separate manual step — which is the mechanical reason BUG-48 happened. §4 says plainly: run `kb build`, not `kb export`, whenever a KB document changes, then `bin/build` to re-inline. I flagged it as a temporary instruction pending BUG-48.
+
+**The secrets hook logic** is worth knowing before your next deploy: export `ANTHROPIC_API_KEY` only when *setting or rotating*. If it's already in `wrangler secret`, the hook reads the name back and leaves it alone. If it's in neither, the deploy stops before uploading.
+
+**`CLOUDFLARE_API_TOKEN` won't work for `bin/publish --production`** — Access needs the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` pair, and the API token is refused exactly like no credential.
+
+One correction I made after creating it: I'd initially filed DOC-41 as `doc_kind: system_kb`, which would sweep an operator runbook into the consultant's corpus. Changed to `architecture`, matching DOC-30/DOC-39 and DOC-39 §3.1's exclusion.
+
+I have not run `1c kb build` or `bin/build` — both need network the sandbox blocks, and neither was asked for.
 
 <!-- xgd-chat-end -->
