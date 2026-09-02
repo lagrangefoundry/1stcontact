@@ -5,9 +5,9 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-09-02T01:34:00.748431+00:00'
+updated_at: '2026-09-02T01:34:36.152341+00:00'
 completed_at: '2026-09-02T01:34:00.748431+00:00'
-last_field_updated: status
+last_field_updated: result
 status: free_and_reconciled
 fields:
   priority: high
@@ -536,6 +536,7 @@ fields:
   - old_sha: 40a15571cfb3c116a1adb474ac6a80ded261162b
     new_sha: 505323ad56f7ba5ec1fbeec54630b7717d62ae03
   merged_at_commit: 4b43dd9a5c0fd50ed053a33ed3defcb63f7ed8cd
+result: pass
 ---
 
 # The product ticket store: D1 schema, the TypePack, and the material types
