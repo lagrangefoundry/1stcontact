@@ -470,6 +470,13 @@ describe('REQ-126 — the surface documents itself', () => {
     // are things merge cannot express at all (removing a key, moving one) —
     // which is why they arrive with guards attached rather than as a broader
     // version of a write that already existed.
+    //
+    // REQ-175 added `set_page_style`, in `AuthorPages` beside `set_l1`. It is
+    // the first write to reach the page DOCUMENT rather than the elements on it,
+    // and it is in the authoring grant rather than `ManagePages` because
+    // painting a page is authoring — a role that can paint every element on a
+    // page can paint the page, and one that cannot do the first cannot do the
+    // second either.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
@@ -484,6 +491,7 @@ describe('REQ-126 — the surface documents itself', () => {
       'rename_palette_color',
       'set_config',
       'set_l1',
+      'set_page_style',
       'set_palette_color',
       'update_page',
       'write_image',
