@@ -6,9 +6,9 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-08-31T16:46:33.196849+00:00'
+updated_at: '2026-09-02T00:46:47.310538+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -117,6 +117,14 @@ cloud store inside the Workers runtime against real database and object-store bi
 imported into the cloud store assembles to the same validated definition as the store it came
 from, and renders to byte-identical output.
 
+**The deployment declares its bindings twice, and each one names the same target on both sides.**
+A named deployment environment inherits neither variables nor bindings, so every binding the
+application depends on is written out in both halves. The claim that keeps the two honest is made
+**per binding, paired by name**: the database binding names one database across both halves, and
+each object-store binding names one bucket across both halves — with nothing said about how many
+bindings there are. Counting instead of pairing states the same thing only while the application
+declares a single bucket, and stops being true the moment a second binding is correctly added.
+
 ### In scope
 
 - A store that answers every declared storage question with a database and an object store behind
@@ -135,7 +143,8 @@ from, and renders to byte-identical output.
 - One body of storage assertions run against all three stores.
 - The whole structured editing surface completing inside the Workers runtime.
 - The database and object-store bindings declared for both the default and the named deployment
-  environment, and the schema applied by the deploy before the application is uploaded.
+  environment, **each declared binding naming the same target in both halves**, and the schema
+  applied by the deploy before the application is uploaded.
 
 ### Out of scope
 
@@ -159,6 +168,10 @@ from, and renders to byte-identical output.
   bounded unknown.
 - **What a change record contains and what the change count means** — CAP-99's; this story owns
   only that those questions answer over a store with no filesystem.
+- **Which other bindings the same application declares, and what they are for.** The binding
+  criterion here is a *shape* — each declared binding paired across the two halves — and it says
+  nothing about which bindings exist or why. Any other store's bindings, and the reasons its
+  bytes must live apart from this store's, belong to the stories that own them.
 
 ## Technical Context
 
@@ -251,6 +264,23 @@ directly, including the key, the invalidation rule and the bound.
   makes the ceiling irrelevant rather than merely raised. The ticket's first, falsified hypothesis
   — memory exhaustion via the surface's dead render cache — generates no criterion either,
   deliberately.
+
+- **AC-1398's binding claim is stated per binding rather than counted** (decided at
+  reconciliation, 2026-09-01, from REQ-162): the criterion read "both halves name the same
+  database and the same *bucket*", singular, and the evidence behind it counted bucket names
+  across the whole configuration. That stated the same thing while this store's bucket was the
+  only one declared. REQ-162 added a second object-store binding, correctly repeated in both
+  halves and naming a different bucket, and the counted form then *fails* on a correct
+  configuration — so the criterion had become wrong, not merely imprecise. What it was always
+  asserting is that the two halves do not drift apart, binding by binding, so it is now stated
+  that way: pair the halves' declarations by binding name and require each binding to name one
+  target across them, with no claim about how many bindings exist. Nothing else about the
+  criterion moves — the schema-location, apply-before-upload, runnable-step, rehearsal and
+  no-database-binding clauses are untouched — and the new binding's own claims (that it exists,
+  and where its bytes must not live) belong to the story that owns it, not here. Recorded as a
+  decision rather than as a note because the alternative — leaving the count and treating its
+  failure as a REQ-162 defect — would have made a correct deployment configuration
+  unrepresentable.
 
 ## Dependencies
 
