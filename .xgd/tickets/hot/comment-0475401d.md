@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T22:11:59.270975+00:00'
+updated_at: '2026-09-02T22:26:49.145363+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -205,5 +205,19 @@ Two things worth deciding while it's fresh, since both shape work you'd otherwis
 2. **Is the Account tab literally the customer portal?** If yes, that constrains the portal design starting now.
 
 Want me to scope this into CHAT-36 as a design decision, and draft the DOC that supersedes the tenant-wide Library premise?
+
+<!-- xgd-turn id="aa6e0026-1561-44a3-900e-ba5cfdcb3d99-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T22:26:48.688960+00:00" -->
+#### You
+OK, so I think you are saying why I proposed per sight. Let's explore that design for a second. Is the following still possible:
+
+1. Product ecosystem – I think this is a follow on product feature not a short-term goal but in this model what I want to be able to do is, for example, identify the customers who are using product a and product B and those customers using product a and product B and product C and use that information to help me m and extend my product usage. I might also want to do marketing planning at the ecosystem level, or for that matter billing at the ecosystem level. In today's model the simplest way to do this would be to have a single site for the ecosystem then there is no issue. And to be honest this would make sense if I am building such an ecosystem do I really need multiple sites and multiply identities and multiple brands probably not I'm certainly not for the kind of small business customer base that I'm considering that feels like a failure out of the gate. OK I'm talking myself into the idea that this is not really a particularly useful use case to chase. If it comes up again in the future and there is a real custom base clamoring for it one solution would be to allow multiple websites within a single tenant. Rather than building technology that crosses tenants. 
+
+OK, I actually think that resolves my confusion I think there are two levels there is a top level which is a product – business grouping this should be a tenant and an account can own multiple of these. And then within a tenant we could in principle have multiple websites. In the case where we have multiple websites within a business grouping the kind of sharing that you talk about is appropriate. I think this is a V2 plus product when we have seen demand for it and today we should stick with the simpler idea of a business unit, a first contact business that has a single website a single calendar a single marketing and monitoring capability etc. We should build the data model so that the multiple sites within a business unit can be accommodated.
+
+OK, great, I think that's the right model it changes slightly what we build today because I do not want the multi site within a single tenant story. I want multiple tenants within a single account. We need a user facing name for this concept. It is more than site.
+
+In fact in general this is a useful conversation what does First contact provide, I have struggled to provide a succinct description of its capabilities the package makes complete sense to me as a product but I do not know how to capture that story to users. We could consider my use case. I am going to have a business called lagrange foundry with initially two products 1st Contact and XGD. There will be three sites and I believe I need three tenants. But there is only one business. Perhaps the concept I am grasping for here is "brand" these are three brands each one has its own marketing threads its own customers and its own products and of course its own website. Is brand the right idea here?
 
 <!-- xgd-chat-end -->
