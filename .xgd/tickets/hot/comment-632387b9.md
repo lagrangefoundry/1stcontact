@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-34
 created_by: xgd
 created_at: '2026-09-02T18:33:41.218789+00:00'
-updated_at: '2026-09-02T18:35:18.109054+00:00'
+updated_at: '2026-09-02T18:39:11.031282+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,11 @@ Body = the digest. Full text = somewhere the chunk indexer reads and the UI does
 One accepted cost either way: describing documents means an LLM call per document upload, where today only images cost one. Cheap enough — the extraction already ran, so you feed it truncated text rather than the file. The degraded paths need no change; a scanned PDF's *"Scanned document, 14 pages, no extractable text"* is already digest-shaped.
 
 Want me to check the chunk indexer's corpus contract, or go straight to a ticket?
+
+<!-- xgd-turn id="f28dba32-a8ff-4200-9502-7edc2ede71b4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T18:39:10.311077+00:00" -->
+#### You
+The KMS should read comments too. I think the right place to put the full text is in a comment. The body should be a short summary or digest.
 
 <!-- xgd-chat-end -->
