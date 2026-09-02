@@ -38,7 +38,7 @@ import {
   openSession as openSessionWith,
   streamPrompt as streamPromptWith,
 } from '../tools/generate/src/cli/ai/host-core'
-import { CARETAKER_PURPOSE } from '../tools/generate/src/cli/ai/roles'
+import { CONSULTANT_PURPOSE } from '../tools/generate/src/cli/ai/roles'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { says, scriptedClient } from './support/scripted-model-client'
 import type { ModelRequest } from './support/scripted-model-client'
@@ -457,12 +457,12 @@ describe('a conversation is primed with the map and the manual, not the document
       // reach the rest last, so the last thing read is the thing done first.
       expect(priming).toContain('# What exists')
       expect(priming).toContain('# How to search')
-      expect(priming).toContain(CARETAKER_PURPOSE)
-      expect(priming.indexOf('# What exists')).toBeLessThan(priming.indexOf(CARETAKER_PURPOSE))
+      expect(priming).toContain(CONSULTANT_PURPOSE)
+      expect(priming.indexOf('# What exists')).toBeLessThan(priming.indexOf(CONSULTANT_PURPOSE))
       expect(priming.indexOf('## Behaviour modules')).toBeLessThan(
-        priming.indexOf(CARETAKER_PURPOSE),
+        priming.indexOf(CONSULTANT_PURPOSE),
       )
-      expect(priming.indexOf(CARETAKER_PURPOSE)).toBeLessThan(priming.indexOf('# How to search'))
+      expect(priming.indexOf(CONSULTANT_PURPOSE)).toBeLessThan(priming.indexOf('# How to search'))
 
       // The mechanism carries the manual PROJECTED from this session's actual
       // grant, not a sentence written by hand about what it might have: every

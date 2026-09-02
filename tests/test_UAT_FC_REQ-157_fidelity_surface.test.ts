@@ -674,9 +674,9 @@ describe('REQ-157 AC6 — capture_site refuses what it must, and says so', () =>
   })
 })
 
-// ── AC7 — the caretaker is granted it, and told ──────────────────────────────
+// ── AC7 — the consultant is granted it, and told ──────────────────────────────
 
-describe('REQ-157 AC7 — the caretaker has the surface and its manual says so', () => {
+describe('REQ-157 AC7 — the consultant has the surface and its manual says so', () => {
   it('test_UAT_FC_REQ_157_the_manual_describes_what_it_can_now_do', async () => {
     const site = makeMemorySite()
     try {
@@ -714,11 +714,11 @@ describe('REQ-157 AC7 — the caretaker has the surface and its manual says so',
   it('test_UAT_FC_REQ_157_the_grant_is_local_and_lives_beside_the_l1_one', () => {
     // The knowledge grant travels with its surface because its two scope axes
     // must name the same set. This one has no such coupling, so it is an
-    // ordinary entry — and a reviewer looking for what the caretaker can do
+    // ordinary entry — and a reviewer looking for what the consultant can do
     // finds all of it in one file.
-    const caretaker = L1_INSTANCES.caretaker as Record<string, { groups: string[] }>
-    expect(caretaker.fidelity).toEqual({ groups: ['SeeSite'] })
-    expect(caretaker.l1.groups).toContain('AuthorPages')
+    const consultant = L1_INSTANCES.consultant as Record<string, { groups: string[] }>
+    expect(consultant.fidelity).toEqual({ groups: ['SeeSite'] })
+    expect(consultant.l1.groups).toContain('AuthorPages')
   })
 })
 

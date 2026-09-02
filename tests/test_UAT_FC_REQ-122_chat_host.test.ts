@@ -340,7 +340,7 @@ describe('REQ-122 — when the assistant cannot run', () => {
       // mount without opening a session at all.
       const status = await fetch(`${base}api/ai/roles`).then((r) => r.json())
       expect(status.ready).toBe(false)
-      expect(status.roles).toContain('caretaker')
+      expect(status.roles).toContain('consultant')
     } finally {
       if (key !== undefined) process.env.ANTHROPIC_API_KEY = key
     }

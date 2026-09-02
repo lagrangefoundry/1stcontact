@@ -52,10 +52,11 @@
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import {
-  CARETAKER_PURPOSE,
-  CARETAKER_ROLE,
-  CARETAKER_SYSTEM,
-  caretakerReminder,
+  CONSULTANT_PURPOSE,
+  CONSULTANT_ROLE,
+  CONSULTANT_SYSTEM,
+  consultantReminder,
+  LEGACY_ROLE_NAMES,
 } from './roles'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { fidelitySurfaceFor } from './fidelity-core'
@@ -253,7 +254,7 @@ export interface HostDeps {
    * assembly, and names no role.
    *
    * So the ORDER IS THIS HOST'S NOW, and it is stated where the role is built:
-   * the map, then what this caretaker is for, then the projected manual last.
+   * the map, then what this consultant is for, then the projected manual last.
    *
    * `register` is handed the manager's provider registry and the constructed
    * Toolbox, because the mechanism IS the manual and the manual is a projection
@@ -291,7 +292,7 @@ export interface HostDeps {
 
 
 /**
- * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
+ * What the consultant is here to do, for KM's priming (step 2 of the landscape).
  *
  * DECLARED IN `./roles` AND ONLY RE-EXPORTED HERE. It is a statement about the
  * ROLE, so it belongs with the role's other definitions; a second copy on this
@@ -302,7 +303,7 @@ export interface HostDeps {
  * without either of them learning a new import path: node reads it from here in
  * `host.ts`, workerd reads it from `./roles` in `apps/control-app/src/ai.ts`.
  */
-export { CARETAKER_PURPOSE }
+export { CONSULTANT_PURPOSE }
 
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(slug: string): string {
@@ -336,7 +337,7 @@ const managers = new Map<string, Promise<Untyped>>()
  * One name for the whole host: the callback is bound per manager, and a manager
  * is per site, so the name never has to carry a slug.
  */
-const REMINDER_PROVIDER = 'caretaker.reminder'
+const REMINDER_PROVIDER = 'consultant.reminder'
 
 /**
  * The draft change count as it stood at the end of each site's last turn.
@@ -549,7 +550,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // belongs and where a reader can see it:
   //
   //   1. `km.landscape` — the map of what territories exist,
-  //   2. what this caretaker is here to do, so it knows what to look for,
+  //   2. what this consultant is here to do, so it knows what to look for,
   //   3. `km.mechanism` — how to reach the rest, carrying THIS session's manual
   //      as its mechanism, because the last thing read is the thing done first.
   //
@@ -565,20 +566,20 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // shape it got, because both are ordinary priming entries.
   const documents = deps.priming
     ? [
-        new lib.Entry({ name: 'caretaker-landscape', provider: deps.priming.landscape }),
-        new lib.Entry({ name: 'caretaker-purpose', text: CARETAKER_PURPOSE }),
-        new lib.Entry({ name: 'caretaker-mechanism', provider: deps.priming.mechanism }),
+        new lib.Entry({ name: 'consultant-landscape', provider: deps.priming.landscape }),
+        new lib.Entry({ name: 'consultant-purpose', text: CONSULTANT_PURPOSE }),
+        new lib.Entry({ name: 'consultant-mechanism', provider: deps.priming.mechanism }),
       ]
-    : [new lib.Entry({ name: 'caretaker-source-0', text: box.manual() })]
+    : [new lib.Entry({ name: 'consultant-source-0', text: box.manual() })]
 
   const role = new lib.Role({
-    name: CARETAKER_ROLE,
-    priming: [new lib.Entry({ name: 'caretaker', text: CARETAKER_SYSTEM }), ...documents],
+    name: CONSULTANT_ROLE,
+    priming: [new lib.Entry({ name: 'consultant', text: CONSULTANT_SYSTEM }), ...documents],
     // THE ONE ENTRY THAT IS NOT STATIC (REQ-131). The reminder carries the fact
     // that the site moved, which is only known when the turn begins — so it is a
     // provider rather than text, resolved per turn against the baseline this host
     // holds and the counter the store answers with.
-    reminders: [new lib.Entry({ name: 'caretaker-reminder', provider: REMINDER_PROVIDER })],
+    reminders: [new lib.Entry({ name: 'consultant-reminder', provider: REMINDER_PROVIDER })],
   })
 
   // A TRANSCRIPT ARCHIVE, not a session store. Upstream replaced the whole-object
@@ -607,8 +608,24 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // adapters would pass every test in workerd and lose every conversation in
   // production — the precise failure lagrange-framework REQ-103 measured before
   // drawing the port.
+
+  // ONE ROLE, UNDER EVERY NAME IT HAS EVER BEEN WRITTEN AS (REQ-174).
+  //
+  // The manager resolves a resumed session's role by looking its stored name up
+  // in this map and throwing on a miss, and the name is durable in two places a
+  // rename cannot reach — the archived transcript's header and the live
+  // junction's `session_start` record. Every legacy name is therefore an extra
+  // KEY onto the SAME role object, which is what lets a conversation started
+  // before the rename reopen unchanged.
+  //
+  // It is a read path only: `createSession` records {@link CONSULTANT_ROLE} and
+  // {@link aiStatus} reports it alone, so nothing is ever written under a legacy
+  // name and the alias ages out with the sessions that need it.
+  const named: Record<string, Untyped> = { [CONSULTANT_ROLE]: role }
+  for (const legacy of LEGACY_ROLE_NAMES) named[legacy] = role
+
   const manager = new lib.SessionManager(
-    { [CARETAKER_ROLE]: role },
+    named,
     deps.archive,
     deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir },
   )
@@ -663,9 +680,9 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
 async function reminderFor(slug: string, sessionId: string, deps: HostDeps): Promise<string> {
   const delta = deps.delta ? await deps.delta(sessionId) : null
   const before = baselines.get(managerKey(slug, deps))
-  if (before === undefined) return caretakerReminder(slug, undefined, delta)
+  if (before === undefined) return consultantReminder(slug, undefined, delta)
   const at = await deps.store.counter(slug)
-  return caretakerReminder(slug, { at: before, changes: at - before }, delta)
+  return consultantReminder(slug, { at: before, changes: at - before }, delta)
 }
 
 /** The stored transcript, or nothing. A site with no conversation yet is normal. */
@@ -703,7 +720,7 @@ async function attach(manager: Untyped, sessionId: string, slug: string): Promis
     // would fail the same way for the second — so the distinction is made by
     // whether the archive holds it, not by inspecting the error.
     if ((await manager.archive.list()).includes(sessionId)) throw err
-    await manager.createSession(CARETAKER_ROLE, siteBackendName(slug), { sessionId })
+    await manager.createSession(CONSULTANT_ROLE, siteBackendName(slug), { sessionId })
   }
 }
 
@@ -872,7 +889,7 @@ export async function aiStatus(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): Promise<{ roles: string[]; backends: string[]; ready: boolean; error?: string }> {
-  const base = { roles: [CARETAKER_ROLE], backends: [] as string[] }
+  const base = { roles: [CONSULTANT_ROLE], backends: [] as string[] }
   try {
     const lib = await ai(deps)
     // Construction is where a missing prerequisite surfaces, by design — the
