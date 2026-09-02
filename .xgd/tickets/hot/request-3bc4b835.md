@@ -5,9 +5,9 @@ type: request
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: xgd
 created_at: '2026-09-01T00:50:39.990490+00:00'
-updated_at: '2026-09-02T17:48:27.501736+00:00'
+updated_at: '2026-09-02T23:17:43.460392+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: bundled
 fields:
   priority: high
@@ -173,3 +173,19 @@ access on expiry, and time-boxed support memberships. All are [[DOC-40]] §5 and
 §6, and all land on this schema without changing it.
 
 -
+
+
+---
+
+## Note: the account/business split came after this ticket
+
+This ticket landed the model in which **account == tenant**. [[DOC-40]] §2 has
+since split those levels: an account is the payer and may own several
+**businesses**, each of which is a tenant. The rows this ticket created are
+unchanged and were already shaped correctly — `provisionInvite` writes the
+builder user into the platform tenant and the business as a separate `tenants`
+row, which is the recursion [[DOC-40]] §2.1 describes.
+
+What did not survive is the singular: `accountFor()` returns one account and
+`Admission` carries `accountId: string`. [[REQ-178]] makes that a set. Read this
+ticket as the history and [[DOC-40]] as the model.
