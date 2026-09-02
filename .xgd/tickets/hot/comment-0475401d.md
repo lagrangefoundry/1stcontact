@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-36
 created_by: xgd
 created_at: '2026-09-02T21:22:45.844195+00:00'
-updated_at: '2026-09-02T21:34:59.136088+00:00'
+updated_at: '2026-09-02T22:10:20.747658+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,17 @@ So under a global selector, Library wants three-ish states rather than a hard fi
 ---
 
 Want me to write this up as a DOC (it's a scope-model decision that several future REQs will need to cite), or leave it in the transcript for now?
+
+<!-- xgd-turn id="028fc4f2-087a-423f-be59-9480431a5abf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T22:10:20.576485+00:00" -->
+#### You
+Just to work through this:
+**Billing splits -> no billing stays at the account level... There is an important recursion here that needs to be clear. The site owner is a customer of first contact, they have access to a First contact portal that will include the billing information. They in turn can also have a site, with customers, those customers have a billing portal on their site. We are not going to create tenants for our customers' customers => billing is associtate with accounts and it is data stored at the level of the offering site.**
+**The assistant starts cold on site two.** The project KB corpus, the blob prefix (`t/<tenant>/blob/…`) and the knowledge index prefix are all tenant-keyed. Your brand voice, your positioning documents, everything the AI learned about you building 1stcontact would be invisible when you open XGD. <-- this is not a bug it's a feature. I do not want my first contact site discussion polluted by the discussion about XGD they are completely different products to the extent they overlap I can provide background documents but I expect to start from a blank sheet it would be extremely confusing for me not to I think.
+
+**Contacts fragment.** `idx_users_tenant_email` is `(tenant_id, email)`. Two tenants means the same human is two rows with no relationship. <-- this is where it gets complicated for my personal use cases I consider this to be a feature. It is unlikely that I will have customers for both of these tools this is getting into the case that I brought up where there is an ecosystem of tools or products that share customers and markets this is where shared information is of value
+
+**Scheduling double-books you.** How do you know the scheduling is booking me? It could be booking one of my employees, it could be booking the sites real owner and I just happened to pay for the site. Availability for one site does not necessarily mean availability for another. I think the relationship here is much more complicated than you are suggesting this doesn't make it decisive for me.
 
 <!-- xgd-chat-end -->
