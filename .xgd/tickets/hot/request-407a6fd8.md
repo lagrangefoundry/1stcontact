@@ -5,16 +5,24 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-02T23:54:00.985975+00:00'
+updated_at: '2026-09-03T00:02:06.601389+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-be5ca689
+  commits:
+  - working_sha: b1cafc80b7338b7671b80bd8c2aae2efc2062618
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 68db3937779cc56162eb55ec146e81ee8c64ec03
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.51
 ---
 
 # Identity: an account operates several businesses, not one
