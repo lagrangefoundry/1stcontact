@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:30:08.555326+00:00'
+updated_at: '2026-09-03T00:32:04.930796+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -224,5 +224,31 @@ The version bump needed redoing as `0.2.50` because `0.2.49` landed on the *merg
 <!-- xgd-chat role="user" ts="2026-09-03T00:30:08.334542+00:00" -->
 #### You
 Are the new capabilities fully documented?
+
+<!-- xgd-turn id="a23e9563-c0c0-406d-9c08-a448b7d4338d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:32:04.511304+00:00" -->
+#### Claude
+Fair question — let me check the actual documentation surfaces rather than assume.
+
+`REF-surface.md` says **"control surface (version 6)"** — I bumped it to 7. The checked-in projection is stale. Checking how it's built and what it covers:
+
+`kb/system/` is gitignored — it's a build artifact, and regeneration picked up the new ops automatically (now "version 7", `set_page_style` present). Checking the L1 vocabulary projection:
+
+**No — not fully. One of the two projected references has a real hole.**
+
+**What is documented.** `REF-surface.md` — the tool manual the consultant is primed with — is complete. `kb/system/` is gitignored (a build artifact), and `1c kb export` regenerates it from `l1-surface.json`; it now reads "control surface (version 7)" and carries both new operations with their full prose, including the refusal guidance. That layer works exactly as designed: I changed the declaration, the manual followed.
+
+**What is not.** `REF-l1.md` — "The vocabulary a page is written in", the reference an assistant consults to learn field names — has **no section for the page document at all**. `projectL1Vocabulary` (`tools/generate/src/cli/kb-projection.ts:544`) renders three things: the node union, the shapes reachable from it, and `L1_ENVELOPE`'s numeric bounds. It never reads `l1DocumentSchema`. So `widths`, `background`, `textColor`, `column`, `resources` and the `font face` shape appear nowhere, despite now being writable.
+
+Second, smaller: "The limits every page is held to" projects only `L1_ENVELOPE`'s numeric ranges. The two rules I added — a painted family must resolve, a referenced asset must exist — aren't there, so a consultant meets them only as a refusal. That section already omits the other non-numeric rules (unique ids, palette refs resolve, keyframe widths must be ladder members), so it's a pre-existing shape rather than something I broke — but I widened it by two.
+
+**Why this matters more than a docs nit.** It reproduces REQ-175's own failure exactly. The ticket's argument is that a capability the consultant cannot *reach* makes the gap one feature wider; a capability it can reach but cannot *find the field names for* produced the CHAT-35 session verbatim — the assistant concluded background imagery was impossible and told the operator to build what already existed. Shipping a writable page document that the vocabulary reference doesn't mention is that, again.
+
+**Scope judgment.** The ticket explicitly delegates discovery to BUG-48 ("the consultant must be able to *discover* the vocabulary... Neither ticket is sufficient alone"). But BUG-48 is a corpus/index skew bug — a shipped document missing from the index. This is different: a projection that omits a source it claims to generate from. I'd fix it under REQ-175, because I created the omission by making the document writable without teaching its projection to render it, and because BUG-48 as written wouldn't catch it.
+
+That means re-opening REQ-175 (currently `free_coded`), adding ticket-body language for the projection, cutting a second branch, extending `projectL1Vocabulary` to render the document schema, and a UAT asserting the projected vocabulary covers every `L1_DOCUMENT_KEYS` entry — derived, so it stays true.
+
+Want me to proceed on that, or file it against BUG-48 instead? I'd recommend the former; the parity argument that justifies the code applies unchanged to the reference that describes it.
 
 <!-- xgd-chat-end -->
