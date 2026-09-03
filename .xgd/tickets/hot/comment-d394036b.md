@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T02:37:27.990040+00:00'
+updated_at: '2026-09-03T02:40:33.125678+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -361,5 +361,11 @@ Flag me if you'd rather leave `AdmittedBusiness` alone and just be careful in ne
 `published_sites` is keyed by **slug alone, globally** (`0002_revisions.sql:70`) — deliberately, per DOC-12 §7, because `/site/<slug>/` is the public URL grammar and carries no tenant. So published slugs are the one namespace shared across all businesses, and `provisionBusiness` dodges collisions by using the business id as the starter slug. Multiple sites per business, later, will meet that constraint head-on; per-business hostnames (DOC-12 §9) are the stated answer and stay additive. Nothing for REQ-168 to do, but it's the one place the isolation barrier is deliberately not total.
 
 Say go and I'll write the ticket body — the corrected read table, the path-prefix transport, the dev-open exception, first-admissible fallback, per-scope chat host, the `tenants.status` check, and the business/account vocabulary — then cut the branch.
+
+<!-- xgd-turn id="df6e2630-0665-4af8-a0e4-64019c7eec16-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T02:40:32.319940+00:00" -->
+#### You
+go
 
 <!-- xgd-chat-end -->
