@@ -9,6 +9,7 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { BUSINESSES_PATH } from '../apps/control-app/src/router'
+import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -120,6 +121,24 @@ const ask = async (token: string | null, over: Partial<Env> = {}): Promise<Respo
 let seq = 0
 const anEmail = (): string => `req179-${(seq += 1)}@example.test`
 
+/**
+ * An invitee who has also ACCEPTED THE TERMS ([[REQ-169]]).
+ *
+ * Admission stopped being the last check: a person whose `tos_version` does not
+ * match the constant is served the interstitial and refused every API route
+ * until they accept, so an invitee who has not would answer this endpoint with a
+ * plain-text refusal and every case here would fail parsing JSON. Acceptance is
+ * proved in REQ-169's own UATs; here it is setup, and it belongs in one helper so
+ * that the next case added to this file inherits it.
+ */
+async function invite(
+  spec: Parameters<typeof provisionInvite>[1],
+): Promise<Awaited<ReturnType<typeof provisionInvite>>> {
+  const result = await provisionInvite(identityEnv(), spec)
+  await acceptTerms(identityEnv(), result.user.id)
+  return result
+}
+
 /** Push a business's grant into the past — the "card expired" shape. */
 async function lapse(businessId: string): Promise<void> {
   await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
@@ -149,7 +168,7 @@ describe('REQ-179 — the businesses endpoint', () => {
   it('test_UAT_FC_REQ-179_the_endpoint_reports_the_accounts_businesses_and_the_account', async () => {
     stubJwks()
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), {
+    const first = await invite({
       email,
       accountName: 'Salon',
       displayName: 'Sam Salon',
@@ -183,7 +202,7 @@ describe('REQ-179 — the businesses endpoint', () => {
   it('test_UAT_FC_REQ-179_a_lapsed_business_is_listed_and_marked_unselectable', async () => {
     stubJwks()
     const email = anEmail()
-    const live = await provisionInvite(identityEnv(), { email, accountName: 'Live', endsAt: null })
+    const live = await invite({ email, accountName: 'Live', endsAt: null })
     const gone = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Gone',
@@ -208,8 +227,8 @@ describe('REQ-179 — the businesses endpoint', () => {
     stubJwks()
     const mine = anEmail()
     const theirs = anEmail()
-    const own = await provisionInvite(identityEnv(), { email: mine, accountName: 'Mine', endsAt: null })
-    const other = await provisionInvite(identityEnv(), {
+    const own = await invite({ email: mine, accountName: 'Mine', endsAt: null })
+    const other = await invite({
       email: theirs,
       accountName: 'Theirs',
       endsAt: null,
@@ -252,7 +271,7 @@ describe('REQ-179 — the businesses endpoint', () => {
     // a stale page — the same rule every refusal in `index.ts` follows.
     stubJwks()
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, accountName: 'Cacheless', endsAt: null })
+    await invite({ email, accountName: 'Cacheless', endsAt: null })
     const response = await ask(await mint(email))
     expect(response.headers.get('cache-control')).toContain('no-store')
   })
