@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:19:01.275411+00:00'
+updated_at: '2026-09-03T00:20:12.837266+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,45 @@ Once the lock frees I'll merge to `xgd-working`, then `move-to-free-coded`. That
 <!-- xgd-chat role="user" ts="2026-09-03T00:19:00.745006+00:00" -->
 #### You
 What is the implication of the deferred work? is more lagrange-framework work needed?
+
+<!-- xgd-turn id="5d65e0b5-bf39-4502-b888-95ab38e6436f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:20:12.703464+00:00" -->
+#### Claude
+Let me verify the webui-chat claim properly before answering — it's the crux.
+
+Lock's free now. On your question — I need to correct something I said, because it changes the decision.
+
+## What the deferral actually costs
+
+The reported bug is fixed: a reload mid-turn no longer destroys the turn. What's left is narrower but visible.
+
+After a reload during a turn, the panel paints the conversation up to the fold — so the reply is **there, but truncated**, frozen wherever the fold landed. The turn keeps running in the isolate and archives correctly, but that page never learns. To see the finished reply the operator reloads *again*, once the turn is over.
+
+That's strictly better than "the turn is gone", but it has a failure mode of its own worth naming: a truncated reply doesn't announce itself as truncated. It looks like the assistant stopped mid-sentence. The old bug was at least obviously wrong.
+
+## Is more framework work needed — yes for the ideal, no for most of the value
+
+I was too absolute earlier. Two different things got collapsed:
+
+**Live token-by-token resume does need a framework change.** I checked `mountChat`'s entire returned surface. Every streaming path — `send`, `queue`, `interject` — appends a user bubble and then calls `sendPrompt(text)`. `appendMessage` renders a whole message and returns its element with no update path; `getMessages` hands back copies. There is no way to drive an existing assistant bubble from a stream the composer didn't start. That's a genuine gap in `@lagrangefoundry/webui-chat` and would need a ticket there.
+
+**A non-streaming resume needs no framework work at all.** On load, when a turn is live: paint the user message, *skip* the partial assistant turn, tail `/api/ai/reattach`, buffer it, and `appendMessage('assistant', painted + tailed)` when `done` arrives. The operator sees the complete reply land on its own, no second reload. What's lost is watching it stream for that one reattached turn — and only for a turn they reloaded into.
+
+That's entirely in this repo. It needs one thing I deliberately left out: `/api/ai/session` doesn't currently say whether a turn is live. I skipped that flag as speculative when nothing consumed it. This would consume it, and it's cheap — `closedPrefix(records).length !== records.length` over the junction the fold already read.
+
+## What I'd suggest
+
+The ticket's part (3) does say "so a reloaded panel rejoins the turn in progress", so panel behaviour is in scope and I shouldn't leave it at the route. I'd do the non-streaming version now — it closes the visible symptom — and file the webui-chat affordance separately so live resume can be swapped in later without touching the route or the transport, which are already built and tested for it.
+
+Three ways to go, your call:
+
+1. **Do the non-streaming resume now**, in this ticket, on this branch — `live` flag + `chat.js` wiring + UATs. Roughly the size of what's already here for the client side.
+2. **Merge as-is** and take the whole panel question as a follow-up ticket.
+3. **Merge as-is and file the framework ticket** for the affordance, waiting for live resume to do the panel once.
+
+I haven't filed anything — still no ticket created without you saying so, and that covers the Durable Object one from earlier too.
+
+Merge and `move-to-free-coded` are ready to run whichever you pick; the only input I still need is the version, or I'll take the next unclaimed patch after 0.2.46.
 
 <!-- xgd-chat-end -->
