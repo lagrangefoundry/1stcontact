@@ -833,9 +833,39 @@ async function materialTicket(store: TicketStore, uid: string): Promise<Ticket> 
 export async function readMaterial(
   store: TicketStore,
   uid: string,
-): Promise<MaterialRow & { body: string }> {
+): Promise<MaterialRow & { body: string; members: string[] }> {
   const ticket = await materialTicket(store, uid)
-  return { ...rowOf(ticket), body: ticket.body ?? '' }
+  return { ...rowOf(ticket), body: ticket.body ?? '', members: await membersOf(store, ticket) }
+}
+
+/** `meta.member` off an attachment record, or null on one carrying none. */
+function memberOf(attachment: Ticket): string | null {
+  const meta = attachment.fields.meta
+  if (typeof meta !== 'object' || meta === null) return null
+  const value = (meta as Record<string, unknown>).member
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+/**
+ * What a capture holds, by member name — [[REQ-166]].
+ *
+ * ON THE DETAIL AND NEVER ON THE ROW, which is the same trade {@link MaterialRow}
+ * makes about bodies. Listing attachments is a call per ticket, so carrying this
+ * on the list would cost one per row to draw a column of filenames — and the
+ * three things that need it (the screenshot preview, the file count, the
+ * download) are all on the pane the client has actually opened.
+ *
+ * EMPTY FOR ORDINARY MATERIAL, not absent. A `material` is one file and has no
+ * member vocabulary at all, so an empty list is the honest answer and keeps the
+ * caller from having to treat two shapes.
+ */
+async function membersOf(store: TicketStore, ticket: Ticket): Promise<string[]> {
+  if (ticket.type !== 'reference') return []
+  const { attachments } = await store.attachments({ uid: ticket.uid })
+  return attachments
+    .map(memberOf)
+    .filter((member): member is string => member !== null)
+    .sort()
 }
 
 /**
@@ -849,12 +879,24 @@ export async function readMaterial(
 export async function materialFile(
   store: TicketStore,
   uid: string,
+  member?: string,
 ): Promise<{ bytes: Uint8Array; contentType: string; filename: string }> {
   await materialTicket(store, uid)
   const { attachments } = await store.attachments({ uid })
-  const attachment = attachments[0]
+  // ONE MEMBER BY NAME, WHICH IS WHAT A BUNDLE NEEDS ([[REQ-166]]). A capture is
+  // 11–99 attachment records, so `attachments[0]` is an ARBITRARY one of them —
+  // it answered correctly only while every material had exactly one file. Naming
+  // the member is also what lets the Library show a capture's screenshot without
+  // pulling the other 98 members to find it.
+  const attachment = member === undefined
+    ? attachments[0]
+    : attachments.find((a) => memberOf(a) === member)
   if (!attachment) {
-    throw new MaterialRejectedError(`That material has no file attached to it (${uid}).`)
+    throw new MaterialRejectedError(
+      member === undefined
+        ? `That material has no file attached to it (${uid}).`
+        : `That capture holds no member called '${member}' (${uid}).`,
+    )
   }
   return {
     bytes: await readBlob(store, uid, attachment.uid),

@@ -721,7 +721,12 @@ async function routeUncached(
     if (p === '/api/material/file' && method === 'GET') {
       const uid = url.searchParams.get('uid')
       if (!uid) return json(400, { error: 'uid is required' })
-      const file = await materialFile(await openTickets(), uid)
+      // `member` NAMES ONE FILE INSIDE A CAPTURE ([[REQ-166]]). Absent is the
+      // ordinary single-file material and behaves exactly as it always did, so
+      // every existing caller is unaffected; present, it addresses one of a
+      // bundle's 11–99 members without materialising the rest of it.
+      const member = url.searchParams.get('member') ?? undefined
+      const file = await materialFile(await openTickets(), uid, member)
       return new Response(file.bytes as unknown as BodyInit, {
         status: 200,
         headers: {

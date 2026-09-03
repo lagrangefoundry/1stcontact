@@ -70,6 +70,17 @@ const NO_DESCRIPTION =
 const KINDS = ['image', 'document', 'font', 'capture']
 
 /**
+ * The member every capture bundle holds its full-page picture under (REQ-166).
+ *
+ * NAMED HERE AS A CONSTANT rather than discovered from the member list, because
+ * the preview is built SYNCHRONOUSLY and the member list arrives with the
+ * detail's second request. The image's own `error` handler is what covers a
+ * bundle that somehow lacks one, which is the same guard an ordinary material's
+ * preview already relies on.
+ */
+const SCREENSHOT_MEMBER = 'screenshot.full.png'
+
+/**
  * The glyph a row opens with, by `kind` (REQ-176).
  *
  * A TYPE IS A SHAPE BEFORE IT IS A WORD, which is why this replaced the `kind`
@@ -103,6 +114,23 @@ const RIGHTS_FIELDS = [
   { name: 'placed_on', label: 'Used on' },
   { name: 'source_url', label: 'Address' },
 ]
+
+/**
+ * The same block for a capture, minus the one field that cannot mean anything.
+ *
+ * A CAPTURE HAS NO FILENAME because it is 11–99 files (REQ-166, DOC-38 §9), and
+ * the row's `filename` falls back to the TICKET TITLE when the field is absent —
+ * so leaving *File* in place would print the site's name in a row labelled as
+ * its filename. What replaces it is the member count, which is the true answer
+ * to the question *how much of this do we hold*, and it is written beside the
+ * picture rather than in the rights record.
+ */
+const CAPTURE_RIGHTS_FIELDS = RIGHTS_FIELDS.filter((f) => f.name !== 'filename')
+
+/** Whether this row is a capture bundle rather than a single file. */
+function isCapture(row) {
+  return row.kind === 'capture'
+}
 
 /** The role labels, taken from the overlay so the two surfaces cannot disagree. */
 const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
@@ -142,6 +170,31 @@ function paintDescription(host) {
   cell.dataset.markdownPaint = engine
   cell.classList.add('md-body')
   cell.innerHTML = renderSafe(markdown)
+  openLinksAway(cell)
+}
+
+/**
+ * Send every link in a description somewhere that is not this tab (REQ-166).
+ *
+ * WHY IT IS NEEDED AT ALL. A capture's description OPENS with a link to the site
+ * it describes, which is the whole point — the client reads what we made of a
+ * site and can go and look at it. But the Library is a tab inside a single-page
+ * builder, so an ordinary anchor navigates the WHOLE APP away and takes the
+ * client's unsaved editing state with it. The sanitizer keeps anchors and adds
+ * no `target` of its own, so the fix belongs here.
+ *
+ * `rel` AS WELL AS `target`, and not as a formality: these hrefs come from a
+ * page we captured off the public web, and `noopener` is what stops the opened
+ * document reaching back through `window.opener` into the builder.
+ *
+ * APPLIED AFTER EVERY PAINT, because `paintDescription` replaces the cell's
+ * children each time and would otherwise leave the repainted anchors bare.
+ */
+function openLinksAway(cell) {
+  for (const anchor of cell.querySelectorAll('a[href]')) {
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+  }
 }
 
 /**
@@ -330,7 +383,7 @@ export function createLibraryPanel(options = {}) {
     const rights = el('div', 'builder-library__rights')
     view.append(rights)
     fields = mountFields(rights, {
-      schema: RIGHTS_FIELDS,
+      schema: isCapture(row) ? CAPTURE_RIGHTS_FIELDS : RIGHTS_FIELDS,
       values: {
         filename: row.filename,
         kind: row.kind,
@@ -372,6 +425,9 @@ export function createLibraryPanel(options = {}) {
         return
       }
       status.textContent = item.body ? '' : NO_DESCRIPTION
+      // The member list travels on the item and not on the row — see
+      // `membersOf` in `material.ts` for why listing it per row was refused.
+      shown.setMembers(item.members)
       description = mountFields(host, {
         schema: [
           {
@@ -438,9 +494,17 @@ export function createLibraryPanel(options = {}) {
    */
   function preview(row) {
     const wrap = el('div', 'builder-library__preview')
-    const href = transport.fileUrl(row.uid)
+    // A CAPTURE'S BYTES ARE ITS SCREENSHOT (REQ-166). The bare file URL serves
+    // whichever of a bundle's 11–99 records comes back first, so both the
+    // picture and the download name the member explicitly.
+    const href = isCapture(row)
+      ? transport.fileUrl(row.uid, SCREENSHOT_MEMBER)
+      : transport.fileUrl(row.uid)
     let reader = null
-    const kind = row.kind === 'image' ? null : readerKind(row.content_type)
+    // A capture reads no other way: `capture.json` is `application/json`, which
+    // the reader would happily render as text, and a client opening their
+    // Library to see a site they admired should be shown the SITE.
+    const kind = row.kind === 'image' || isCapture(row) ? null : readerKind(row.content_type)
     if (kind) {
       reader = mountReader({
         kind,
@@ -451,7 +515,7 @@ export function createLibraryPanel(options = {}) {
       })
       wrap.append(reader.element)
     }
-    if (row.kind === 'image') {
+    if (row.kind === 'image' || isCapture(row)) {
       const img = document.createElement('img')
       img.className = 'builder-library__image'
       img.src = href
@@ -467,10 +531,31 @@ export function createLibraryPanel(options = {}) {
     const link = document.createElement('a')
     link.className = 'builder-library__download'
     link.href = href
-    link.download = row.filename
-    link.textContent = row.filename
+    // THE SCREENSHOT IS WHAT A CAPTURE OFFERS. `row.filename` on a capture is
+    // the ticket title (the field is absent and the row falls back to it), so
+    // downloading under that name would save a PNG called *Gigabyte Alchemy*.
+    link.download = isCapture(row) ? SCREENSHOT_MEMBER : row.filename
+    link.textContent = isCapture(row) ? SCREENSHOT_MEMBER : row.filename
     wrap.append(link)
-    return { element: wrap, destroy: () => reader?.destroy() }
+
+    // HOW MUCH OF THE SITE WE HOLD, filled in when the detail's own request
+    // lands. It replaces the *File* field rather than joining it: members are
+    // re-extraction machinery and a 99-row list of them would be honest and
+    // useless, but the COUNT is the one thing a client would actually want to
+    // know about a bundle.
+    const count = isCapture(row) ? el('p', 'builder-library__members') : null
+    if (count) wrap.append(count)
+
+    return {
+      element: wrap,
+      destroy: () => reader?.destroy(),
+      /** Say how many files the bundle holds, once the detail knows. */
+      setMembers(members) {
+        if (!count) return
+        const n = Array.isArray(members) ? members.length : 0
+        count.textContent = n === 0 ? '' : `${n} file${n === 1 ? '' : 's'} captured`
+      },
+    }
   }
 
   // --- the component ------------------------------------------------------------

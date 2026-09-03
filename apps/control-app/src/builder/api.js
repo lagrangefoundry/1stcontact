@@ -262,8 +262,13 @@ export async function fetchMaterialItem(uid, fetchImpl = fetch) {
  * browser is better at streaming bytes into one than we are. Same-origin by
  * construction, like {@link previewUrl}.
  */
-export function materialFileUrl(uid) {
-  return `/api/material/file?uid=${encodeURIComponent(uid)}`
+export function materialFileUrl(uid, member) {
+  const base = `/api/material/file?uid=${encodeURIComponent(uid)}`
+  // `member` NAMES ONE FILE INSIDE A CAPTURE (REQ-166). A capture is 11–99
+  // attachment records on one ticket, so the bare URL — which serves whichever
+  // record comes back first — cannot name the screenshot. Absent is unchanged
+  // for every single-file material.
+  return member ? `${base}&member=${encodeURIComponent(member)}` : base
 }
 
 /**
