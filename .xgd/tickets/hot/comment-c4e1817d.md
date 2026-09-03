@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-179
 created_by: xgd
 created_at: '2026-09-03T20:19:44.390119+00:00'
-updated_at: '2026-09-03T21:36:32.216330+00:00'
+updated_at: '2026-09-03T21:38:04.710159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,14 @@ Now the chrome UAT:
 All 11 pass. Now let's run the full suite again to confirm no regressions.
 
 While that runs, let me review the final `app.js` for coherence.
+
+<!-- xgd-turn id="b17cdc6d-d27f-4e0b-ba22-d7f1a39bd350-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T21:38:04.479815+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
