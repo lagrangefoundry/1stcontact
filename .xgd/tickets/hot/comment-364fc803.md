@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:31:02.332782+00:00'
+updated_at: '2026-09-03T01:44:03.792180+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -433,5 +433,11 @@ Two things to know:
 - **BUG-46 now cross-references it** from the other end, including the fallback and the one thing it would need (`/api/ai/session` doesn't report whether a turn is live). Original body intact — 315 lines, both appendices present, nothing overwritten.
 
 Still open and unchanged: whether you want the Durable Object ticket filed, which of the three panel options to take, and the version for `move-to-free-coded`. The merge lock is free, so I can merge and promote as soon as you name a version.
+
+<!-- xgd-turn id="518836bf-c8e0-49d1-8dd9-a0b1e71f9714-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T01:44:03.241169+00:00" -->
+#### You
+It is implemented and installed - can you proceed?
 
 <!-- xgd-chat-end -->
