@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T03:06:55.746833+00:00'
+updated_at: '2026-09-03T03:16:15.129564+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -565,5 +565,11 @@ Typecheck clean (the one error is pre-existing on HEAD). Now the UATs — readin
 `toolbox.ts`'s node wrapper builds its own `extraSurfaces` and silently ignores the argument — that's why the ledger never composed. Switching the test to the core path the Worker actually uses.
 
 Two new failures from my changes. Let me look.
+
+<!-- xgd-turn id="065aeec8-cd06-4deb-bace-cd81ce936dee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T03:16:15.085229+00:00" -->
+#### You
+Please free code it all on one branch
 
 <!-- xgd-chat-end -->
