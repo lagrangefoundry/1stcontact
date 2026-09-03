@@ -5,10 +5,10 @@ type: bug
 title: A document in the corpus that is not in the index is a shipped lie
 created_by: xgd
 created_at: '2026-09-02T20:49:23.510284+00:00'
-updated_at: '2026-09-03T00:39:44.258725+00:00'
+updated_at: '2026-09-03T02:44:26.429777+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
