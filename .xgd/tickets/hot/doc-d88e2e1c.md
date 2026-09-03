@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-09-02T20:51:15.901182+00:00'
+updated_at: '2026-09-03T02:53:59.377763+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -636,3 +636,101 @@ and the argument quietly assumed the file is what the assistant reads. It reads
 the index. A projection is only as fresh as the last build that embedded it, so
 §3.2's guarantee holds for `REF-l1.md` on disk and did not hold for the `REF-l1`
 the assistant could search.
+
+
+### 12.1 Which producer was changed, and why the answer is "none"
+
+*Decided 2026-09-02 ([[BUG-48]]).*
+
+§12 states the rule and leaves open where to enforce it. [[BUG-48]] offered three
+places, and the decision is to take none of them:
+
+- **`kb export` indexes what it writes.** It would cost the verb its only
+  distinguishing property. `kb export` needs no credentials, which is why it can
+  run on a laptop, in a fixture, or in a suite that has no Workers AI token. An
+  export that embeds is `kb build` under a second name.
+- **`kb export` declines to write documents it will not index.** Then it does
+  nothing at all, and the verb exists to write the corpus.
+- **The two verbs stop sharing a tree.** Then an export writes a corpus nobody
+  ships, which is the thing it is for taken away in a different direction.
+
+Each trades a real property for the guarantee, and none of them is where the harm
+happens. **Producing a stale tree is legitimate; shipping one never is.** An
+export on a machine with no embedder is a reasonable thing to run and leaves a
+tree that is honestly incomplete. What made the 2026-09-01 bundle a lie was not
+the export — it was `1c assets` inlining a corpus beside an index that did not
+cover it, and saying nothing.
+
+So the enforcement sits at the shipping step, not at any producing step:
+
+1. **`1c assets` refuses.** Before it writes `src/generated/kb.js` it resolves the
+   bundle's corpus through the same predicate `buildIndex` uses and requires every
+   resolved document to have an entry in both manifests, under the same stamp. A
+   document that is absent, or present under a different version, refuses the
+   build and names itself. Nothing is inlined, and the previously shipped bundle
+   survives untouched.
+2. **`bin/kb-release` makes the order one command.** `1c kb build` then
+   `1c assets`, stopping at the first failure. The ordering `kb build` already
+   enforces internally stops being something the operator has to remember across
+   two invocations.
+
+The refusal is the guarantee and the script is the convenience — that way round,
+because a script is a habit and a habit is not a rule.
+
+**Staleness is a failure, not only absence.** §12's example is documents missing
+from the manifests entirely. The same bundle also held two that were present
+under an *older* stamp, and that is the same lie in a weaker form: retrieval
+finds the document, ranks it by vectors built from text it no longer has, and
+returns it saying something else. §4.1's manifest keys on exactly the stamp that
+detects this, so the check is the one upstream already makes when it decides
+whether to re-embed — any difference at all, not merely an older date.
+
+**The awareness map is exempt, and the exemption is derived.** §4.2 and §6.2 have
+the map injected at priming rather than retrieved, and `buildKb` writes it *after*
+both index passes precisely so a map does not describe its own description — it
+carries the `awareness_report` kind that the component's own `resolveCorpus`
+skips. It therefore cannot be in the manifests and must not be. It is not
+unreachable for being unsearchable: being in every prompt on every turn is a
+stronger guarantee than being findable. The check does not name the file; it asks
+the predicate, so anything else the predicate excludes is exempt for the same
+stated reason, and anything that stops being excluded starts being checked the
+same day. `1c assets` names what it exempted in its report, because an exemption
+nobody can see is indistinguishable from the bug.
+
+### 12.2 A projection is only true if it covers what it says it is generated from
+
+*Added 2026-09-02 ([[BUG-48]]).*
+
+§12's rule catches a document that is complete and unreachable. It cannot catch
+the opposite, and the same file held one: `REF-l1` was **reachable and
+incomplete**. Index it perfectly and it still could not answer the question
+[[CHAT-35]] asked, because `projectL1Vocabulary` rendered the element union, the
+shapes that union reaches, and the numeric envelope — and nothing read
+`l1DocumentSchema`. The page document (`widths`, `background`, `textColor`,
+`column`, `resources`) appeared nowhere in the document that calls itself "the
+vocabulary a page is written in".
+
+§3.2's argument is that a generated fact cannot go stale because it is rebuilt
+from its source every build. That holds only for the part of the source the
+generator actually reads. A projection naming a source it does not fully traverse
+makes its own provenance line untrue, and nothing about being rebuilt fixes it.
+
+So a projection is checked against its declared source, derived rather than
+listed: every element kind in the union, every key of the document shape, every
+envelope bound and every structural rule must appear in the projected body, with
+the expectation computed from those declarations at assertion time. A
+hand-written list of what a document ought to contain is the exact artefact that
+goes stale silently, which is the class of defect this whole section is about.
+
+The same principle produced the second half of the repair. "The limits every page
+is held to" promised *"A page outside these is refused whole; nothing is clamped
+silently"* and then listed only `L1_ENVELOPE`, which holds numeric bounds — so
+every structural refusal a consultant will actually meet (a duplicate node id, a
+palette name that resolves to nothing, a keyframe at an undeclared width, an
+anchor with no column, a font family that paints as the browser default) was
+absent from the section promising completeness. Those rules now live in
+`L1_STRUCTURAL_RULES` beside the bounds, **as the messages the validator emits**,
+so the table cannot become a description of behaviour that has changed, and the
+sentence the reference prints against each one is the doc comment above it. One
+source, two audiences: the rule as a reader meets it, and the same rule as an
+author meets it mid-refusal.
