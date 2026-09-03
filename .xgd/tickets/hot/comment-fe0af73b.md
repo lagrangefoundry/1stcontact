@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T00:08:46.422372+00:00'
+updated_at: '2026-09-03T00:10:26.058028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -409,5 +409,36 @@ I've left the title alone again. It now describes almost none of the ticket; sug
 <!-- xgd-chat role="user" ts="2026-09-03T00:08:46.216924+00:00" -->
 #### You
 I have run bin/install in lagrange-foundry is there more needed to export this content?
+
+<!-- xgd-turn id="907fbb14-842e-475b-b8ff-f5e7feab3fca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:10:25.346002+00:00" -->
+#### Claude
+The install hasn't landed in the shared store. Two separate things needed.
+
+**1. `@lagrangefoundry/ai` is still the old copy.**
+
+- `src/toolbox/manual.js` — 5,430 bytes, no `MANUAL_LEVELS`. The framework source is 11,032 bytes.
+- The two files REQ-113 added — `src/manual_toolbox.js` and `src/manual_surface.json` — aren't there at all.
+
+So it's not a stale cache; the `ai` package wasn't replaced. The source side is fine — REQ-113's commit `4eae08e3` is an ancestor of `xgd-working` in lagrange-framework, so it's in what would be packed.
+
+Most likely `--env`. It defaults to `$LAGRANGE_JS_ENV`, falling back to the repo's parent, which is `/Users/martin/lagrangefoundry` — the right place. If `LAGRANGE_JS_ENV` is set in your shell, the tarballs went somewhere else. Worth an `echo $LAGRANGE_JS_ENV`. Otherwise the run failed on that component, and since `bin/install` echoes every command it runs and prints a closing table of what went where, the output will say — `@lagrangefoundry/ai` should appear in that table.
+
+One-line check:
+
+```
+grep -c MANUAL_LEVELS /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/toolbox/manual.js
+```
+
+`1` means it landed, `0` means it didn't.
+
+**2. Yes — `./bin/1c assets`, and it's needed regardless of the install.**
+
+`apps/control-app/src/generated/` and `apps/control-app/dist-assets/` are both currently missing. Something wiped them; the generated bridges existed earlier in this session. That's the step that type-strips the framework bridges and copies the builder client and webui components across. `1c preflight` is the diagnostic — it reports every shared-store component and exits 6 naming what's absent.
+
+Worth knowing: the bridge files re-export from an *absolute* path into the shared store, so once the store is updated the Worker sees new code without regenerating. But the bridge file has to exist, and right now none do.
+
+**3. Then it's code, not export.** Adopting the summary level means passing `{ level: 'summary' }` at `host.ts`, `session-knowledge.ts` and `system-knowledge.ts`, and granting the manual surface so `DescribeTools` is reachable. That's REQ-171 work under free-coding, and I'd want the store updated first so the UAT can actually exercise it.
 
 <!-- xgd-chat-end -->
