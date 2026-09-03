@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T00:39:43.586485+00:00'
+updated_at: '2026-09-03T00:41:24.966484+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -248,5 +248,54 @@ Once you've picked, I'll update the REQ-168 body — correcting the read table (
 <!-- xgd-chat role="user" ts="2026-09-03T00:39:43.386118+00:00" -->
 #### You
 What are the implications ?
+
+<!-- xgd-turn id="f5cfd118-ef2b-42f0-8258-95e38061987b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:41:24.911241+00:00" -->
+#### Claude
+Two things worth saying first: **the decisions interact** — choosing the transport largely dissolves the last-selection question — and one option I offered turns out to be quietly broken. Here's what I found checking each against the code.
+
+## Q2 implications
+
+**The query param breaks the preview subtree.** `router.ts:1021` matches `/preview/<slug>/<channel>/<rest>` and serves the page's *own asset bytes* from the same route family. `api.js:51`'s comment records how the render emits those references: *"document-relative (`relativizeUrl` drops the leading slash, REQ-109) against the channel root."* So an `<img src="assets/hero.png">` inside a document at `/preview/alpha/draft/?business=acct_x` resolves to `/preview/alpha/draft/assets/hero.png` — **the query string is dropped**. Every image inside every rendered preview would arrive unscoped and fall back. That's the option I recommended last turn; withdraw it.
+
+**The cookie works but is per-origin.** The browser attaches it to relative sub-resource loads inside the iframe, so the preview problem disappears. Two consequences: two builder tabs on two businesses overwrite each other's scope, and the scope becomes ambient. The security worry is smaller than it looks, though — see the note on the target not being a credential below.
+
+**The path prefix is cheaper than I implied.** `routeUncached` does `const p = url.pathname` once and every route matches on `p`. Stripping `/b/<id>` from `p` at the top of `route()` leaves the entire route table untouched — a few lines, not a rewrite. And relative sub-resources inherit a path prefix by construction, so the preview subtree is correct for free. It also makes a deep link carry its own business, which is the case REQ-168's revision names.
+
+Implications of taking it: `api.js`'s URL builders and fetch wrapper gain the prefix; `/builder/*` and `/webui/*` stay unprefixed (they're build artifacts, tenant-independent, and `wrangler.toml`'s `run_worker_first` ordering is unaffected); the `chromeHtml()` document is served at bare `/` and stays static.
+
+## Q3 implications
+
+Checking the "first load" case: `chrome.ts:51` — `chromeHtml()` takes no arguments, and `router.ts` answers `/` at the very top of the route table, *above* `openStore`. The lazy-store comment says so explicitly. So the chrome document is served before any scope is needed, and the first request that actually resolves one is an API call the chrome makes *after* reading localStorage.
+
+**"First load" is not a no-target case.** And if you take the path prefix, "bookmarked deep link" isn't one either — the URL carries it. What's left is a bare API caller, and there is no such caller today.
+
+So:
+
+- **`users.fields`** costs REQ-168 a write path it doesn't currently claim, and there's no selection endpoint to hang it on (REQ-180 owns the listing). The tidy shape — resolution records what it resolved — puts a conditional D1 write on the request path to buy a property that, per the above, nothing currently exercises.
+- **First-admissible** is `businesses.find(b => b.selectable)`. Zero new writes, and the returning-operator property is still delivered — by localStorage, in the browser, which is where REQ-179 already put it.
+
+**Recommendation: path prefix + first-admissible.** Together they're coherent, and Q3 stops being a real question. REQ-168's revision then needs one correction: the fallback is first-admissible, and the "last selection" property belongs to REQ-179's localStorage, not to server-side resolution.
+
+## Implications that hold whichever you choose
+
+**A deactivated business will list as selectable and then 503.** `businessesFor` (`identity.ts:520`) joins `tenants` with no `status` predicate, so a deactivated tenant comes back with `selectable: true` if its grant is live. `storeFor` rethrows `UnknownTenantError` when `reason !== 'unknown'`, so picking it throws to `index.ts`'s catch and answers 503. Today that's invisible — one tenant, always active. REQ-168 makes it a switcher entry that fails when clicked. Either the resolver checks `tenants.status`, or `businessesFor` gains the predicate. The ticket's "`forTenant` is not modified" stays true either way.
+
+**`admit` is N+1 on the request path.** `businessesFor` runs one `bestActiveGrant` query per business. With one business that's 3 D1 queries per request, as today. An agency with twenty businesses pays twenty-one, on every request. That's REQ-178's cost, but REQ-168 is what makes it load-bearing.
+
+**The target is not a credential**, and this is worth stating in the ticket. Access authenticates; the resolver authorises the named target against the admission list on every request. A forged or guessed business id resolves to a refusal, not to someone else's data. That's what makes it safe to put in a URL or a cookie, and it's what the ticket's "an unauthorised target is refused rather than silently falling back" UAT actually proves.
+
+**The chat host singleton becomes the sharpest edge.** `router.ts:112`'s `let CHAT` is per *isolate*. With a switcher it's now stale for the same person, not just across people — switch business, and the next turn runs against the previous business's store, transcripts and KB. Keying it by scope id is the fix; `resetChatHost()` becomes a map clear.
+
+**`TENANT_ID`'s documentation goes stale in three places** — `wrangler.toml:60-63` ("names the account this deployment serves"), `boot-guard.ts:86`, and `store.ts:9-27`'s header, which is the comment the ticket quotes as its own justification. Those are the record of the decision being reversed, so they get rewritten rather than deleted.
+
+**Migration.** Every site today lives in `1stcontact`. Your user row needs a membership onto that business or the builder resolves empty. REQ-178 landed `provisionBusiness`, so this is one call or one seeded row — but it has to happen in the same change, or the live builder goes blank on deploy.
+
+**Test blast radius, now measurable.** 10 whole-Worker suites take the dev-open path and stay green untouched if dev-open reads `TENANT_ID` inside the resolver. 4 suites call `route()` directly and need the new argument. The 2 real-Access suites already `seedIdentity` and import their fixtures over `/api/import`, so they follow the resolved scope self-consistently — `seedIdentity` even creates the `tenants` row already.
+
+---
+
+Say the word on **path prefix + first-admissible** (or tell me you want the cookie) and I'll write the ticket body — read table corrected, transport, dev-open exception, fallback rule, per-scope chat host, tenant-status check — then cut the branch.
 
 <!-- xgd-chat-end -->
