@@ -5,16 +5,24 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-03T03:24:15.136574+00:00'
+updated_at: '2026-09-03T03:28:54.007982+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d394036b
+  commits:
+  - working_sha: b4bc4cb0b62735f7c027f5add333e5e39f858209
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: db107b25a8a723729d97c509e351cdd84d87f79c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.59
 ---
 
 # The tenant comes from the identity, not from the configuration
