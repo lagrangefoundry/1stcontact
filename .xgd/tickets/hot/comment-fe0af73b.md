@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T00:10:26.058028+00:00'
+updated_at: '2026-09-03T00:17:32.383770+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -440,5 +440,28 @@ grep -c MANUAL_LEVELS /Users/martin/lagrangefoundry/node_modules/@lagrangefoundr
 Worth knowing: the bridge files re-export from an *absolute* path into the shared store, so once the store is updated the Worker sees new code without regenerating. But the bridge file has to exist, and right now none do.
 
 **3. Then it's code, not export.** Adopting the summary level means passing `{ level: 'summary' }` at `host.ts`, `session-knowledge.ts` and `system-knowledge.ts`, and granting the manual surface so `DescribeTools` is reachable. That's REQ-171 work under free-coding, and I'd want the store updated first so the UAT can actually exercise it.
+
+<!-- xgd-turn id="551b87ea-a78b-4c0c-807c-894843d88e8a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:17:31.822525+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % grep -c MANUAL_LEVELS /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/toolbox/manual.js
+
+0
+((.venv-working) ) martin@nyx 1stcontact % bin/1c assets
+modules    2 css, 2 client.js → packages/framework/src/modules/module-assets.ts
+builder    22 files
+webui      59 files, 7 import-map entries, 6 stylesheets
+framework  edit-client.js, site-schema-edit.js, site-schema-shade.js
+ai         /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/workers.js
+ticketing  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing/src/index.js
+knowledge  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/knowledge/src/index.js
+bridge     /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge/src/index.js
+kb         8 document(s), 568KB inlined
+out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
