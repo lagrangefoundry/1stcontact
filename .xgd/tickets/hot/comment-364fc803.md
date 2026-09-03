@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:05:32.394556+00:00'
+updated_at: '2026-09-03T00:07:31.160769+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -293,5 +293,29 @@ req115 passes alone too. Rotating failures across runs suggests pre-existing fla
 The `-u` flag stashed the generated assets I'd copied in, invalidating that baseline. Let me verify they're restored and redo it properly:
 
 Baseline confirmed: the clean tree fails the same way (`bug32` consistently, plus a rotating flaky one). My changes add no failures. Restoring and committing:
+
+<!-- xgd-turn id="36bfd42a-46f3-4431-a3bd-2064bfdc171b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:07:31.120487+00:00" -->
+#### You
+# ((.venv-tests) ) martin@nyx lagrange-framework % bin/install --lang js --component ai --no-deps ; echo "exit=$?" lagrangefoundry component install
+
+repo /Users/martin/lagrangefoundry/lagrange-framework languages js components ai
+
+## Plan — js
+
+target /Users/martin/lagrangefoundry/node_modules requested ai
+
+- deps (none — --no-deps) @lagrangefoundry/ai 0.0.0 from components/ai/js
+
+## Running — js
+
+$ /opt/homebrew/bin/pnpm pack --pack-destination /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/lagrangefoundry-pack-953tqva1 --dir /Users/martin/lagrangefoundry/lagrange-framework/components/ai/js extract lagrangefoundry-ai-0.0.0.tgz (150.1KB packed) → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai --no-deps: third-party dependencies were NOT resolved. --no-deps: skipping the import smoke test.
+
+## Installed
+
+js → /Users/martin/lagrangefoundry @lagrangefoundry/ai 0.0.0 from components/ai/js → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai [473.4KB]
+
+exit=0 ((.venv-tests) ) martin@nyx lagrange-framework %
 
 <!-- xgd-chat-end -->
