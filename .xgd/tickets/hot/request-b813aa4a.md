@@ -5,9 +5,9 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-03T21:11:17.186928+00:00'
+updated_at: '2026-09-03T21:11:17.342986+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -93,3 +93,80 @@ serves it. If this lands first it owns a minimal version of that endpoint, on th
 [[REQ-170]]/[[REQ-161]] precedent for `webui-list-detail`: whichever ticket
 arrives first adds it, a UAT asserts it exists either way, and neither ordering
 leaves it out.
+
+
+---
+
+## Implementation scope (added at free-coding time)
+
+The sections above state the intent. These are the behaviours that follow from
+it as technical consequence, recorded here so they are matrix-visible rather
+than discovered by reconciliation.
+
+### The endpoint this ticket owns
+
+`GET /api/businesses` answers, in one call, the two things the chrome needs
+before it can draw anything:
+
+```json
+{ "account": { "name": "...", "email": "..." },
+  "businesses": [ { "id": "acct_...", "name": "...", "selectable": true } ] }
+```
+
+It is the minimal version [[REQ-180]] will grow — the account half is what the
+avatar surface shows, and the businesses half is what the switcher lists. It is
+answered from the request's `Admission` rather than from the store, because the
+admission IS the answer to "which businesses may this account operate"; the
+router is handed it as an injected dependency for the same reason it is handed a
+store. On the unconfigured-local-dev path there is no admission, so the endpoint
+reports the resolved scope as a single selectable business — one entry, which is
+what that path has by construction.
+
+### Selecting a business scopes the requests, not only the chrome
+
+The switcher sets the `/b/<businessId>` prefix [[REQ-168]] already parses, and
+every URL the builder builds — API calls, the preview channel, asset and
+material file URLs — is prefixed through one place in `api.js`. Without that,
+changing the switcher would re-label the chrome while every request still
+resolved to the server's fallback, which is the failure this ticket exists to
+prevent, one layer down.
+
+The site list is re-read after a switch (`/b/<id>/api/sites`) rather than shipped
+inside the businesses payload: the site-per-business relation belongs to the site
+store and the route that serves it is already business-scoped, so asking it again
+costs one round trip and no new query.
+
+### The toolbar's site selector is removed, not duplicated
+
+`siteSelectorAction` and the `site-selector` entry in both render channels'
+`actions` are deleted. Keeping it beside the shell switcher would be the two
+controls that can disagree which `app.js:158` forbids; the rule survives, the
+place changes.
+
+The display panel keeps `setSite`/`getSite` — that is the pane's own display
+state, and the shell scope drives it. What changes is that nothing else reads it
+to discover the scope: the editor, the palette, the Library and the upload path
+all read the shell's scope. That is the layering that makes a per-site selector
+inside the site tab a later addition rather than a later untangling.
+
+### Where it mounts, and an upstream gap
+
+`webui-shell` offers a trailing `actions` slot and no leading one, so the
+switcher is prepended into the shell's own header bar and the avatar is an
+ordinary shell action. The reach into `.shell-bar` is the one place this app
+touches shell-internal markup and is marked as such: when upstream grows a
+leading slot it is a one-line change here.
+
+### Acceptance, in test terms
+
+- `GET /api/businesses` exists and reports the admission's set, lapsed members
+  included and marked unselectable.
+- With several businesses the switcher is a live control in shell chrome, outside
+  every tab panel; with one it renders the name and no control.
+- Changing it moves the scope every surface reads — the pane's site, the Library's
+  site, the palette's site, the upload's site — in one act.
+- No module outside the display panel itself reads `panel.getSite()`.
+- The selection is persisted under the shell's storage namespace and restored on
+  remount; a stored id that is not admissible falls back to the first selectable
+  business and rewrites the stored value.
+- The avatar opens the account surface, and no tab in `TABS` is the account.
