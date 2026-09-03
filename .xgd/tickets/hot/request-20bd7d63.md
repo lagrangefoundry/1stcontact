@@ -5,9 +5,9 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-09-02T23:45:32.023285+00:00'
+updated_at: '2026-09-03T00:06:40.457071+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -209,3 +209,75 @@ and it must not be able to happen quietly.
 - The same URL captured twice leaves ONE `reference` ticket, updated in place.
 - A host with no ticket store captures exactly as before and says no ticket was
   written, rather than failing.
+
+
+## Corrections found while building this
+
+Three things in the sections above did not survive contact with the code. They
+are corrected here rather than edited away, because each was a reasonable belief
+at scoping time and the reason it was wrong is worth keeping.
+
+### The dedup is ours now, and it is stronger than what was asked for
+
+The acceptance above says *"recapturing an unchanged site creates new records but
+no new blobs"*. That was written when the ticketing component CONTENT-ADDRESSED
+attachments. It no longer does: `attach` addresses a blob by the attachment
+record's own uid, because a blob shared between two records cannot be moved to
+the trash without breaking whichever sibling still names it — and moving it is
+what makes deletion actually revoke reach.
+
+So the dedup is done in this ticket instead, against the `sha256` the component
+still records on every attachment: a member whose hash matches the record already
+holding it is left completely alone. **An unchanged recapture therefore creates
+neither a new blob NOR a new record**, which is what the acceptance was reaching
+for. That line is superseded by this one.
+
+A member whose bytes DID change is attached afresh and the superseded record is
+`detach`ed — the trash, not a purge, so replacing a screenshot stays reversible.
+Leaving both would make the attachment set a history of every capture ever taken,
+with no way to ask which `screenshot.full.png` is the current one.
+
+### The identity is the bundle name, not the URL
+
+*"One `reference` ticket per URL"* is slightly wrong and the difference bites.
+`bundleNameFor` slugs the path and drops the query string, so two addresses can
+land in ONE bundle — and keying the ticket on the URL would let a recapture under
+a slightly different address write a second ticket pointing at bytes the first
+one already owns: two rows in the Library, one set of bytes, and no way to tell
+which is current. The ticket is keyed on the BUNDLE NAME, which is what storage
+itself keys on, and carries it in a `bundle` field.
+
+### A bundle that is not a capture is refused by name
+
+Not previously stated, and reachable the moment anything other than
+`capture_site` can name a bundle. A bundle with no `capture.json` is not a
+capture, and saying so beats describing whatever happened to be in it.
+
+## Also true of the finished work
+
+- **A failed write-up never loses the capture.** If adoption raises — the
+  describer is unreachable, the corpus is down — `capture_site` reports the
+  failure and its reason, and the bundle stands complete in the store. Discarding
+  11–23MB of successfully mirrored site over a text generation is the trade
+  [[REQ-163]] already refuses to make when indexing fails.
+- **The description degrades in stages, and the link survives all of them.** With
+  no describer, no screenshot, or a screenshot over the vision ceiling, the body
+  still opens with the link to the site and still carries the palette, the type
+  and the section count read from `capture.json` — facts a vision call should
+  never have been asked to guess. What is lost is the prose about what the
+  business appears to be, and not the entry.
+- **Ordinary material is untouched by all of it.** A `material` is one file and
+  has no member vocabulary, so it reports an empty member list, keeps its *File*
+  field, and its download URL carries no member. Every caller that predates this
+  ticket behaves exactly as it did.
+
+### Acceptance
+
+- Recapturing an unchanged site writes neither a new blob nor a new record.
+- A changed member is replaced and the superseded record detached, leaving one
+  live record per member.
+- Two captures of one bundle leave one ticket, found by bundle name.
+- A bundle with no `capture.json` is refused by name.
+- An adoption that fails leaves the bundle complete and says what went wrong.
+- Ordinary single-file material keeps its filename, its *File* field and its
+  member-less download URL.
