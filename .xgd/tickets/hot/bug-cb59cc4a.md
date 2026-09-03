@@ -14,6 +14,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-2a38a753
 ---
 
 # A document in the corpus that is not in the index is a shipped lie
