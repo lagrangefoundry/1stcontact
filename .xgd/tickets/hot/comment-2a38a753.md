@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-48
 created_by: xgd
 created_at: '2026-09-03T02:32:44.146363+00:00'
-updated_at: '2026-09-03T02:42:38.572895+00:00'
+updated_at: '2026-09-03T03:12:40.358969+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,54 @@ Assuming no instruction otherwise, I'll keep all of (1) and (3)–(6) on BUG-48 
 1. I can give you a key to test it when you complete the coding
    4. I don't understand the consequences if this is about the boundary of which commands do what, I don't care I'm going to have you create a script that runs them all in order
    5. what is the structural prose?
+
+<!-- xgd-turn id="4ac4b985-0130-4e01-b894-af78a309cd5e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:12:40.159744+00:00" -->
+#### Claude
+Answering **5**, then I'll scope and start.
+
+**The structural prose** is the sentence each refusal already carries in `validate.ts`, lifted the same way `definitionOf` lifts a schema field's doc comment. Eight refusals are enforced there and absent from "The limits every page is held to" — these are the actual source sentences, not ones I'd write:
+
+| rule | prose already in `validate.ts` |
+|---|---|
+| unique node `id` | "ids became real DOM ids when links landed, so they must be unique. A duplicate breaks `#anchor` navigation and the `for`↔`id` association the `control` contract relies on" |
+| palette reference resolves | "every palette reference must name an entry the palette actually declares… the only thing standing between a dangling reference and a crashed render is this check" |
+| keyframe `at` is a declared width | `keyframe width N is not one of the document widths [...]` |
+| keyframes ascending | `keyframes must be sorted strictly ascending by 'at'` |
+| `widths` strictly ascending | "the ladder is an ordered set" |
+| `geometry.anchor` needs a `column` | "a column anchor is meaningless without the column it refers to, and silently falling back to the keyframes would hide the dangling reference behind geometry that merely looks plausible" |
+| a painted `fontFamily` resolves | "a stack that names a generic has a declared fallback… a font family with no face paints the browser default" (REQ-175) |
+| a referenced asset is one the site holds | "an image handle with no bytes paints a broken image or nothing at all — accepted, and the author learns what they wrote by looking at the render" (REQ-175) |
+
+Each becomes one bullet beside the numeric bounds. The table in `validate.ts` carries the message fragment the validator emits, so it stays enforced rather than decorative, and the projection reads only the doc comment above it.
+
+On **4**: taking your answer as "the boundary isn't the deliverable, the ordered script is." So I'll leave `kb export` / `kb build` as they are, add `bin/kb-release` running export → projections → index → chunks → map → assets in order, and record in DOC-39 that the shipping step is where skew is refused rather than the producing step. Scoping now.
+
+Ticket scoped, status `free_coding`. Cutting the branch.
+
+Now the implementation. Starting with the skew check in `kb.ts`.
+
+Now the stamp normalisation and the skew check itself.
+
+Now wiring it into `1c assets`:
+
+Now wiring each rule into the message the validator actually emits.
+
+Now the projection: the page-document section and the structural half of the limits section.
+
+Now `documentSection`, placed beside `elementKinds`:
+
+Now the structural half of the envelope section:
+
+Now the UAT tests. First let me verify the projection actually renders through a test harness.
+
+Good — I have what I need. Adding the seam to the coverage check, then writing the UATs.
+
+Now the UAT suites.
+
+Now the wider regression — suites that touch validator messages, plus a typecheck.
+
+Now a broad run to catch anything else, plus the typecheck.
 
 <!-- xgd-chat-end -->
