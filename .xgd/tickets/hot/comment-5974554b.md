@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:10:34.864881+00:00'
+updated_at: '2026-09-03T00:17:59.779114+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -175,5 +175,48 @@ I'm polling for the lock now and will promote the ticket as soon as REQ-178 rele
 <!-- xgd-chat role="user" ts="2026-09-03T00:10:33.979513+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="f25a02fb-b4ee-4cbe-98b3-4d493bbaf324-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:17:59.734194+00:00" -->
+#### Claude
+The lock-wait task was stopped without completing. Checking current state:
+
+All REQ-175 work is present in `xgd-working` HEAD — the merge survived; other tickets landed on top. Now resolving the version claim:
+
+Promoted. Now verifying the work still passes on the current (advanced) `xgd-working` tip, and cleaning up the branch:
+
+Confirmed: REQ-150 was the known `dist-assets wiped mid-suite` artifact — `./bin/1c assets` fixed it. Only the pre-existing `bug32` failure remains. Cleaning up the branch:
+
+Free-coding of REQ-175 is complete.
+
+| Step | State |
+|---|---|
+| Scope ticket | ✅ D1–D6 appended to REQ-175 body, original preserved |
+| Branch | ✅ `free-REQ-175`, cut and now torn down |
+| Code + UATs | ✅ 16 UATs in `tests/test_UAT_FC_REQ-175_document_parity.test.ts` |
+| `[FREE-CODED]` commits | ✅ `18102f7374`, `6cddcbb1c4` |
+| Merge back | ✅ into `xgd-working`; work verified present on the current tip |
+| `status=free_coded` | ✅ `version: 0.2.50`, both SHAs in `fields.commits` |
+| Branch clean / lock | ✅ released |
+
+**What landed**
+
+- **`L1_DOCUMENT_KEYS`** derived from `l1DocumentSchema` — the anchor that makes parity structural rather than promised.
+- **`get_page_style` / `set_page_style`** in `AuthorPages` beside `set_l1`, plus `describe_page` now carrying the document keys, so the discovery arrives through the tool a session already calls first.
+- **Self-validating references** — `danglingFontFamilies` / `danglingAssetReferences`.
+- **Parity test**, both layers: corpus round-trip over `storage/sites/`, and key enumeration from the schema.
+
+**Two findings that changed the design mid-implementation**
+
+The font rule had to be stated on the **stack**, not the primary family — that's what keeps the corpus's own `"Satoshi, Helvetica Neue, Arial, sans-serif"` valid. And the reference rules had to be stated **on the write** rather than on the document: putting them in `validateL1` broke 49 tests including `foldToL1` itself, and since `assembleSite` validates on every read it would have made a reproduced page unopenable. The rule is now *a write may not introduce a dangling reference; it need not repair an inherited one*, keyed by reference value rather than path so a node that merely moves isn't read as a new fault.
+
+**Test state**
+
+Full suite: 2343 passing. One failure, `bug32-webui-scope-rebrand` — pre-existing, confirmed against a stashed baseline before I started, and it flags a BUG-42 test file unrelated to this work. A second intermittent failure (`REQ-150`) was the known `dist-assets wiped mid-suite` artifact; `./bin/1c assets` cleared it.
+
+**Two things I'd flag rather than leave buried**
+
+The version bump needed redoing as `0.2.50` because `0.2.49` landed on the *merge* commit, which the promotion gate reads as someone else's publish — worth knowing for the next merge-back. And the consultant still has `DrawImages` but not `ManageAssets`, so it can bind only faces and images the site already holds; I left that grant where it was, per D6, but with `resources` now writable it's a sharper edge than it was.
 
 <!-- xgd-chat-end -->
