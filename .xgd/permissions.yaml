@@ -11,16 +11,16 @@ directory-spaces:
       comment: The policy governing this very session — must never be self-editable.
     - path: .xgd/surfaces.yaml
       comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
-    - path: ${main}/.xgd/config.yaml
+    - path: ${main}/config.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree (BUG-1194).
-    - path: ${main}/.xgd/quality.yaml
+    - path: ${main}/quality.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree (BUG-1194).
-    - path: ${main}/.xgd/permissions.yaml
+    - path: ${main}/permissions.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree (BUG-1194).
-    - path: ${main}/.xgd/surfaces.yaml
+    - path: ${main}/surfaces.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree (BUG-1194).
     - path: ${dist}/**
@@ -39,30 +39,30 @@ directory-spaces:
       comment: The policy governing this very session — must never be self-editable.
     - path: .xgd/surfaces.yaml
       comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
-    - path: ${main}/.xgd/config.yaml
+    - path: ${main}/config.yaml
       comment: Absolute main-anchored form — protects the home project's real file
         regardless of cwd.
-    - path: ${main}/.xgd/quality.yaml
+    - path: ${main}/quality.yaml
       comment: Absolute main-anchored form — protects the home project's real file
         regardless of cwd.
-    - path: ${main}/.xgd/permissions.yaml
+    - path: ${main}/permissions.yaml
       comment: Absolute main-anchored form — protects the home project's real file
         regardless of cwd.
-    - path: ${main}/.xgd/surfaces.yaml
+    - path: ${main}/surfaces.yaml
       comment: Absolute main-anchored form — protects the home project's real file
         regardless of cwd.
     - path: ${dist}/**
       comment: The entire installed xgd distribution — a fixed package-install path,
         not project-relative (REQ-807).
-    - path: ${each_project.main}/.xgd/config.yaml
+    - path: ${each_project.main}/config.yaml
       comment: Multiplied per OTHER registered project (DOC-981 §12.2) — an all_projects-scoped
         session must not edit any in-scope project's governance files, not just the
         home project's.
-    - path: ${each_project.main}/.xgd/quality.yaml
+    - path: ${each_project.main}/quality.yaml
       comment: Multiplied per OTHER registered project (DOC-981 §12.2).
-    - path: ${each_project.main}/.xgd/permissions.yaml
+    - path: ${each_project.main}/permissions.yaml
       comment: Multiplied per OTHER registered project (DOC-981 §12.2).
-    - path: ${each_project.main}/.xgd/surfaces.yaml
+    - path: ${each_project.main}/surfaces.yaml
       comment: Multiplied per OTHER registered project (DOC-981 §12.2).
   user:
     includes:
@@ -76,16 +76,16 @@ directory-spaces:
       comment: The policy governing this very session — must never be self-editable.
     - path: .xgd/surfaces.yaml
       comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
-    - path: ${main}/.xgd/config.yaml
+    - path: ${main}/config.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree.
-    - path: ${main}/.xgd/quality.yaml
+    - path: ${main}/quality.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree.
-    - path: ${main}/.xgd/permissions.yaml
+    - path: ${main}/permissions.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree.
-    - path: ${main}/.xgd/surfaces.yaml
+    - path: ${main}/surfaces.yaml
       comment: Absolute main-anchored form — protects the real file when this session's
         cwd is a non-main worktree.
     - path: ${dist}/**
