@@ -5,10 +5,10 @@ type: request
 title: 'Capture to ticket: bundles become corpus members'
 created_by: xgd
 created_at: '2026-08-31T21:38:56.541751+00:00'
-updated_at: '2026-09-03T00:06:40.457071+00:00'
+updated_at: '2026-09-03T00:11:53.493873+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -18,6 +18,20 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-97f85575
+  commits:
+  - working_sha: f1a2b408609e7bcec469da28744859f61743a40f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 77250a1a191fbe042206361a43faf49606febd48
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 758e0c71f99fbd0008f6533fcfd5da42bc3c2f08
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0740bf633e7366f6931aaa00462caa122e556a43
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.54
 ---
 
 # Capture → ticket: bundles become corpus members
