@@ -14,6 +14,7 @@ fields:
   story_points: 1
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-76256ec4
 ---
 
 # Terms of service: accepted before the builder loads
