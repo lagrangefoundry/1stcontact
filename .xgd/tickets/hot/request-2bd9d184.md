@@ -5,10 +5,10 @@ type: request
 title: The consultant gets the whole of L1, and keeps getting it
 created_by: xgd
 created_at: '2026-09-02T20:48:58.308743+00:00'
-updated_at: '2026-09-03T00:11:36.533387+00:00'
+updated_at: '2026-09-03T02:34:19.795944+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 13
