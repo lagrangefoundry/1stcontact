@@ -5,7 +5,7 @@ type: bug
 title: A document in the corpus that is not in the index is a shipped lie
 created_by: xgd
 created_at: '2026-09-02T20:49:23.510284+00:00'
-updated_at: '2026-09-03T02:44:26.593029+00:00'
+updated_at: '2026-09-03T03:18:42.878331+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -276,3 +276,61 @@ envelope", so its body must mention every element kind in `l1NodeSchema`, every
 key. The expectation is DERIVED FROM THOSE DECLARATIONS at assertion time, never
 listed: a hand-written expected list is the exact thing that goes stale silently,
 which is the class of lie this whole ticket is about.
+
+
+## Behaviour added as a consequence, recorded before it was written
+
+Four things the six behaviours above require and do not say. Each is here because
+it is a real change to what the product does, not an implementation detail, and a
+UAT covers it.
+
+### C1 — the bundle stamps a document the way the index does
+
+S1 compares a document's version against the manifest entry the index wrote for
+it, and that comparison is only meaningful if the two are the same string. They
+were not. `nodeDocReader` — the reader the index is built through — stamps to
+SECOND precision (`…T00:57:52Z`), and `kbBundle` stamped the same file with its
+milliseconds. So the bundle and the index already disagreed about the version of
+every document whose mtime is not on a whole second, silently, before anything
+compared them.
+
+The bundle therefore stamps as the corpus itself spells it. Without this the
+skew check would report every document as stale on a perfectly current build —
+it would cry wolf once and be turned off — and the property [[REQ-158]] says the
+stamps exist for, that the corpus and the index do not disagree about how recent
+a document is, was not actually being kept.
+
+### C2 — the asset report names what shipped unsearchable
+
+The exemption in S1 is a claim, and a claim nobody can see is indistinguishable
+from the bug it resembles. `1c assets` therefore names the exempt documents on
+its own report line rather than counting them: a count is a number the operator
+cannot check, while the names let them see that the map is the only thing
+shipping unsearchable. An ordinary build says nothing extra, so the clause keeps
+meaning something when it appears.
+
+### C3 — the coverage check is scoped to the section that renders each thing
+
+S6 asks whether the projection covers its declared source. Asked as "does this
+string appear anywhere in the body" the question answers yes for a document that
+is missing the section entirely — `fontSizePx` is named by a text axis whatever
+the limits section says, and every document key is a word that occurs somewhere
+in five hundred lines. So each part of the source is held against the heading
+that is supposed to render it: document keys against the page section, element
+kinds against the kinds section, bounds and structural rules against the limits
+section. Asking the narrower question is asking the one that was actually wrong.
+
+The check also takes the body as a parameter, so it can be shown to fail. A
+coverage assertion nobody has watched fail is indistinguishable from one that
+passes vacuously, and a vacuous check is how `REF-l1` reached the state this
+ticket describes.
+
+### C4 — a reworded refusal keeps the words its callers already read
+
+S5 routes nine validator messages through `L1_STRUCTURAL_RULES`. Those messages
+are a contract: [[DOC-8]] §6 makes them what an AI author self-corrects from, and
+several suites read them. Each rewritten message therefore still carries the
+phrase its existing readers match on — `duplicate node id '<id>'`, `not an
+allowed URL`, `not one of the document widths` — with the rule's own statement in
+front of it. The rule gains a single source; nothing downstream loses a sentence
+it was relying on.
