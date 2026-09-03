@@ -78,6 +78,17 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 const TOOL_ACTIVITY = 'tool_activity'
 
 /**
+ * The rest of that vocabulary, needed once {@link tailSession} projects INTO it.
+ *
+ * Matching one kind was a comparison; producing them is a translation, and the
+ * junction's record kinds (`delta`, `tool`, `turn_end`) are deliberately not
+ * these — one is what a producer writes down, the other is what a subscriber
+ * reads. Naming both sides is what keeps the mapping legible as a mapping.
+ */
+const TEXT = 'text'
+const DONE = 'done'
+
+/**
  * THE SITE MOVED, and the operator is looking at it (BUG-43).
  *
  * WHY THE HOST EMITS THIS AND THE MODEL DOES NOT. `draft` and `edit` render at
@@ -116,6 +127,20 @@ export interface ChatTurn {
 export interface ChatSession {
   sessionId: string
   turns: ChatTurn[]
+  /**
+   * The junction offset {@link turns} was folded from — where a tail resumes.
+   *
+   * Travels with the transcript BECAUSE IT IS ONLY MEANINGFUL WITH IT (BUG-46).
+   * `/api/ai/reattach` continues from exactly this offset, so a client that
+   * painted these turns and then tailed from here sees the rest of an in-flight
+   * turn once: a cursor fetched separately would be a cursor for a different
+   * fold, and the seam between them is precisely the gap-or-repeat this pairing
+   * exists to remove.
+   *
+   * Zero when there is no conversation yet, and zero is a valid cursor — the
+   * beginning of a junction nobody has written to.
+   */
+  cursor: number
   /** False when a turn cannot be run — the panel says so instead of silently failing. */
   ready: boolean
   /** Why, when `ready` is false. Written for an operator, not a developer. */
@@ -587,17 +612,53 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   )
 }
 
-/** The stored transcript, or nothing. A site with no conversation yet is normal. */
-async function storedTurns(manager: Untyped, sessionId: string): Promise<ChatTurn[]> {
+/**
+ * What the panel should paint right now, and the cursor to tail from (BUG-46).
+ *
+ * READS THE JUNCTION, NOT THE ARCHIVE, and that swap is the whole bug. This used
+ * to be `archive.load(sessionId)`, which is the DURABLE copy and lags by a whole
+ * open turn on purpose: `ArchiveSyncer` cuts at `closedPrefix`, because folding
+ * half a turn splits one reply into two stored turns and destroys the whitespace
+ * at the seam (lagrange-framework BUG-19 D1). That fold is correct. Rendering
+ * from its output is not — between `turn_start` and `turn_end` the archive holds
+ * the conversation with that turn missing entirely, so every turn was a window
+ * in which a page load painted a transcript the operator could see was wrong.
+ *
+ * It was invisible for exactly as long as nobody reloaded. The turn is on screen
+ * because it STREAMED, over a channel that never touched storage, so nothing
+ * looks wrong until the page reloads and takes the turn with it — side effects
+ * durable (the tool calls committed), conversation not.
+ *
+ * `transcript` folds the junction and hands back the cursor it consumed, so
+ * {@link openSession} can pass that to a tailer and the tail continues from
+ * exactly where the paint stopped — no gap, no turn painted twice. Where there
+ * is no junction it seeds one from the archive, which is what makes DOC-21 §11's
+ * "one source with no splice" true rather than aspirational. It touches no
+ * backend, which is why it can stay ahead of {@link attach}.
+ *
+ * NULL MEANS "NO CONVERSATION YET", and only that. The blanket `catch { return
+ * [] }` this replaces is what let the bug read as an empty conversation instead
+ * of a failure: every reason a transcript might not load — a broken store, an
+ * unmigrated table — came back looking exactly like a site nobody has talked to.
+ * The discriminator is the archive's own listing rather than the error's message,
+ * which is the same call {@link attach} already makes the same distinction with.
+ */
+async function storedTranscript(
+  manager: Untyped,
+  sessionId: string,
+): Promise<{ turns: ChatTurn[]; cursor: number } | null> {
+  let read: { session: Untyped; cursor: number }
   try {
-    const session = await manager.archive.load(sessionId)
-    return (session.turns as { role: string; content: string }[]).map((turn) => ({
-      role: turn.role === 'user' ? 'user' : 'assistant',
-      markdown: turn.content,
-    }))
-  } catch {
-    return []
+    read = await manager.transcript(sessionId)
+  } catch (err) {
+    if ((await manager.archive.list()).includes(sessionId)) throw err
+    return null
   }
+  const turns = (read.session.turns as { role: string; content: string }[]).map((turn) => ({
+    role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
+    markdown: turn.content,
+  }))
+  return { turns, cursor: read.cursor }
 }
 
 /**
@@ -663,15 +724,21 @@ export async function openSession(
   try {
     manager = await managerFor(slug, opts, deps)
   } catch (err) {
-    return { sessionId, turns: [], ready: false, error: operatorMessage(err) }
+    return { sessionId, turns: [], cursor: 0, ready: false, error: operatorMessage(err) }
   }
-  const turns = await storedTurns(manager, sessionId)
+  // STILL BEFORE `attach`, and now for a second reason as well as the first.
+  // {@link storedTranscript} folds the junction and touches no backend, so the
+  // property this ordering already bought — a deployment with no API key shows
+  // the conversation AND says why it is frozen — survives the swap intact.
+  const read = await storedTranscript(manager, sessionId)
+  const turns = read?.turns ?? []
+  const cursor = read?.cursor ?? 0
   try {
     await attach(manager, sessionId, slug)
   } catch (err) {
-    return { sessionId, turns, ready: false, error: operatorMessage(err) }
+    return { sessionId, turns, cursor, ready: false, error: operatorMessage(err) }
   }
-  return { sessionId, turns, ready: true }
+  return { sessionId, turns, cursor, ready: true }
 }
 
 /**
@@ -753,6 +820,95 @@ export async function* streamPrompt(
     // baseline behind: the assistant's own writes have landed by now, so they
     // are absorbed rather than reported back to it next turn.
     baselines.set(key, await store.counter(slug))
+  }
+}
+
+/**
+ * Rejoin a turn already in flight, from the cursor a transcript was folded at.
+ *
+ * THE OTHER HALF OF {@link openSession} (BUG-46). Reading the junction fixes what
+ * a reload PAINTS — the transcript now carries the turn up to the fold, rather
+ * than dropping it — but the fold is a still frame of something still moving.
+ * Without this the operator gets a reply frozen mid-sentence and no indication it
+ * is still being written; they would be back to reloading, which is how they lost
+ * a turn in the first place.
+ *
+ * A SUBSCRIBER, NEVER A SECOND PRODUCER. `watch` is a cursor over the junction
+ * and the turn is driven by whoever started it, so attaching here cannot disturb
+ * it, cannot start one, and cannot be noticed by the turn or by any other tailer
+ * (DOC-21 §11). That is what makes reattaching safe to do on any page load, and
+ * why a dropped socket on this route costs nothing at all.
+ *
+ * THE PROJECTION IS THIS HOST'S, and it belongs here rather than in `router.ts`
+ * for the reason every other decision about a conversation does: the router is a
+ * transport. `watch` yields junction RECORDS — the producer's vocabulary, with
+ * `delta` for a prose chunk — and the panel reads the STREAM vocabulary the
+ * library defines for `promptStream` (`text` / `tool_activity` / `card` /
+ * `done`). Mapping between them is the same translation {@link streamPrompt}'s
+ * consumer already relies on, so a reattached tail and a live turn are
+ * indistinguishable to the client, which is what lets the pane's existing reader
+ * consume this unchanged.
+ *
+ * ENDS AT THE TURN, not at the session. `turn_end` closes exactly one turn per
+ * subscriber and becomes the `done` that tells a client the reply is whole;
+ * `session_end` ends the conversation and also ends this. Records before the
+ * cursor are the caller's already — that is what the cursor MEANS — so nothing
+ * here replays them, and the concatenation of painted and tailed text is the
+ * reply exactly once.
+ *
+ * A cursor at the end of a quiet junction yields nothing and returns when the
+ * tail's own timeout elapses; there is no turn to rejoin, and saying so by
+ * closing is the honest answer.
+ */
+export async function* tailSession(
+  sessionId: string,
+  cursor: number,
+  opts: GlobalOptions = {},
+  deps: HostDeps,
+): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  const slug = await slugForSession(sessionId, deps)
+  if (!slug) throw new UnknownSessionError(sessionId)
+  // NO `attach`, deliberately — unlike {@link streamPrompt}. Attaching builds
+  // the backend, and a backend is what a turn needs, not what a reader needs.
+  // Keeping it out is what lets a deployment with no API key still rejoin a turn
+  // another isolate is driving, and it is the same reason the transcript read
+  // runs ahead of `attach` in {@link openSession}.
+  const manager = await managerFor(slug, opts, deps)
+  for await (const record of manager.watch(sessionId, { cursor })) {
+    const kind = String(record.kind)
+    if (kind === 'delta') {
+      yield { kind: TEXT, content: String(record.content ?? '') }
+    } else if (kind === 'tool') {
+      // Through the same scrubber a live turn's tool activity goes through
+      // (REQ-157): a replayed `screenshot` result carries the identical base64,
+      // and an SSE frame is no better a place for it the second time.
+      yield withoutImageData({
+        kind: TOOL_ACTIVITY,
+        content: String(record.content ?? ''),
+        meta: (record.meta ?? {}) as Record<string, unknown>,
+      })
+    } else if (kind === 'card') {
+      yield {
+        kind: 'card',
+        content: String(record.content ?? ''),
+        meta: (record.meta ?? {}) as Record<string, unknown>,
+      }
+    } else if (kind === 'turn_end' || kind === 'session_end') {
+      // `turn_end` carries how the turn ENDED — `complete`, `aborted`, `error` —
+      // and it rides along on `done` because a turn that stopped early looks
+      // exactly like a short one to a client that is only told it finished.
+      yield {
+        kind: DONE,
+        content: '',
+        ...(kind === 'turn_end' && record.status
+          ? { meta: { status: String(record.status) } }
+          : {}),
+      }
+      return
+    }
+    // Everything else is structure the fold already accounted for —
+    // `session_start`, `segment_start`, and the `turn_start` whose text the
+    // caller painted from the transcript. Silence is the correct projection.
   }
 }
 

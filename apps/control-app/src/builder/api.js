@@ -196,14 +196,67 @@ export async function openChatSession(slug, fetchImpl = fetch) {
  * transport-agnostic.
  */
 export async function* streamChatPrompt(sessionId, text, fetchImpl = fetch) {
-  const res = await fetchImpl('/api/ai/prompt', {
+  yield* postEventStream(
+    '/api/ai/prompt',
+    { sessionId, text },
+    'the assistant failed',
+    fetchImpl,
+  )
+}
+
+/**
+ * Rejoin a turn already running, from the cursor `/api/ai/session` handed out
+ * (BUG-46).
+ *
+ * WHY THIS EXISTS AT ALL. A page that loads mid-turn now PAINTS that turn — the
+ * origin folds the junction rather than reading the archive, which lags by the
+ * whole open turn — but a fold is a still frame of something still moving. The
+ * operator would see a reply stopped mid-sentence with no sign it was still
+ * being written, and would reload again, which is the loop that lost them a turn
+ * in the first place.
+ *
+ * THE CURSOR IS NOT OPTIONAL AND NOT DEFAULTED. It pairs with the transcript it
+ * came back with: the tail resumes at exactly the offset that transcript was
+ * folded at, so painted-then-tailed is the reply once, with no gap and nothing
+ * repeated. A cursor from anywhere else describes a different fold, and the
+ * origin rejects a missing one rather than replaying the conversation into a
+ * panel that has already drawn it.
+ *
+ * SAME EVENT SHAPE AS {@link streamChatPrompt}, because the origin projects the
+ * junction's records into the same vocabulary — so a consumer cannot tell a
+ * reattached tail from a live turn, and none should have to.
+ */
+export async function* streamChatReattach(sessionId, cursor, fetchImpl = fetch) {
+  yield* postEventStream(
+    '/api/ai/reattach',
+    { sessionId, cursor },
+    'the assistant could not be rejoined',
+    fetchImpl,
+  )
+}
+
+/**
+ * POST `body` and yield the `data: {json}` frames that come back.
+ *
+ * EXTRACTED RATHER THAN COPIED (BUG-46). The framing is the origin's own —
+ * `router.ts` writes `data:` + a blank line, and this is the half that reads it
+ * — so the two ends are one decision in two files, not one decision in three.
+ * A second transcription of the split-on-blank-line parse is how a fix to one
+ * SSE route silently misses the other.
+ *
+ * A NON-OK RESPONSE BECOMES FRAMES, never a throw: the caller is rendering a
+ * conversation, and the honest place to report that the assistant is
+ * unreachable is in the conversation.
+ */
+async function* postEventStream(path, body, failure, fetchImpl) {
+  const res = await fetchImpl(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ sessionId, text }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    yield { kind: 'text', content: `\n\n_${body.error || `the assistant failed (${res.status})`}_` }
+    const parsed = await res.json().catch(() => ({}))
+    yield { kind: 'text', content: `\n\n_${parsed.error || `${failure} (${res.status})`}_` }
     yield { kind: 'done' }
     return
   }

@@ -399,6 +399,17 @@ describe('story-e674c60a builder origin', () => {
         ok: false,
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
+      // The reattach tail (BUG-46), in the same rejection shape and for the same
+      // reason. It matters here more than for its siblings, not less: this route
+      // exists to be called on every page load that lands mid-turn, so a
+      // cacheable answer would hand a reloading operator a stale tail — the
+      // exact failure the route was added to end.
+      {
+        route: '/api/ai/reattach',
+        url: '/api/ai/reattach',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
 
       // Ingestion ([[REQ-163]]). Probed in their REJECTION shape, for the same
       // reason the assistant's POSTs are: the success shape would store a blob
