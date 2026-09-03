@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T00:17:32.383770+00:00'
+updated_at: '2026-09-03T00:19:01.755056+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -463,5 +463,23 @@ out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="551b87ea-a78b-4c0c-807c-894843d88e8a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:19:01.475997+00:00" -->
+#### Claude
+`grep` returned 0 — the install definitively didn't land. `assets` ran clean though, and its output raises something I need to check: `kb 8 document(s)`.
+
+Two corrections, one of them mine.
+
+**The install didn't land.** `grep` returning `0` confirms it: the shared store still has the old `@lagrangefoundry/ai`, and the two files REQ-113 added (`manual_toolbox.js`, `manual_surface.json`) aren't there. The `assets` run doesn't contradict that — it only reports *where* it pointed the `ai` bridge, not what version sits at that path. So `{ level: 'summary' }` still isn't callable here. Worth checking `echo $LAGRANGE_JS_ENV`, and whether `@lagrangefoundry/ai` appeared in the closing table `bin/install` prints.
+
+`assets` itself is now fine — `src/generated/` and `dist-assets/` are rebuilt.
+
+**My corpus claim was wrong.** Five doc tickets carry `doc_kind: system_kb` — DOC-17, DOC-31, DOC-33, DOC-35, DOC-39 — and `kb/system/` holds four of them chunked and indexed, which the `kb 8 document(s), 568KB inlined` line was telling me. I'd queried with `--json --flags frontmatter,fields`, which returns no frontmatter at all; every `doc_kind` came back empty and I read that as "nothing is tagged" rather than "nothing was returned".
+
+That inverts the critical path. DOC-33 and DOC-35 — the two I said were blocking — are exactly what's in the corpus. So the purpose's reading list and the reminder's pointer to the rules of interaction are buildable now, not after an authoring pass. I've corrected the ticket: the section is now "The corpus already carries the playbook", and what's left is a read-through of those two documents against DOC-39 §3.5 — they're retrievable, but DOC-35 still ends in open questions about itself, which isn't how a document addressed to the AI should read. That's a read, not a blocker.
+
+So the only thing actually gating REQ-171's first piece of code is getting REQ-113 into the shared store.
 
 <!-- xgd-chat-end -->
