@@ -12,6 +12,7 @@ import {
   STARTER_HEADING,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import migration from '../db/migrations/0004_identity.sql?raw'
 
@@ -532,7 +533,12 @@ describe('REQ-167 — the request path', () => {
     // A gate that denied everybody would pass every assertion above.
     stubJwks()
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    // ADMISSION IS NO LONGER THE LAST CHECK ([[REQ-169]]). A person who has not
+    // accepted the terms is served the interstitial instead of the builder, so
+    // reaching the builder now means passing both — and this case is about the
+    // second gate letting the right person through, not about the third.
+    await acceptTerms(identityEnv(), invited.user.id)
 
     const response = await worker.fetch(GET(await mint(email)), workerEnv())
 

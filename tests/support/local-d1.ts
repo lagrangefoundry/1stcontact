@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
+import { TERMS_VERSION } from '../../apps/control-app/src/terms'
 
 /**
  * The migrations, applied to the LOCAL D1 that `unstable_dev` hands the Worker
@@ -32,7 +33,7 @@ export function applyLocalD1Schema(repoRoot: string): void {
 }
 
 /**
- * An invited, entitled identity in that same local D1 (REQ-167).
+ * An invited, entitled, agreed identity in that same local D1 (REQ-167, REQ-169).
  *
  * WHY EVERY TEST THAT DRIVES THE REAL WORKER NEEDS THIS NOW. Passing Cloudflare
  * Access stopped being admission: `index.ts` looks the verified email up in
@@ -50,6 +51,24 @@ export function applyLocalD1Schema(repoRoot: string): void {
  * The grant is OPEN-ENDED (`ends_at IS NULL`) deliberately: a suite whose fixture
  * expired would fail at a wall-clock time nobody chose. Expiry is proved where it
  * belongs, in REQ-167's own UATs, against a date the test sets.
+ *
+ * THE SAME LESSON A SECOND TIME ([[REQ-169]]). Admission stopped being the last
+ * check: a person whose `tos_version` does not match the constant is served the
+ * terms instead of anything they asked for, and is refused every asset and every
+ * API route until they accept. So the seeded identity has ACCEPTED — otherwise
+ * every suite that drives the real Worker would be asserting against an
+ * interstitial, and would say "expected 403 to be 200" about a routing bug that
+ * is not there.
+ *
+ * The version is IMPORTED rather than written out. A literal here would be a
+ * second copy of the constant, and its first symptom would be every one of these
+ * suites failing the day somebody bumps the terms — which is precisely the day
+ * they should be the last thing anybody is looking at.
+ *
+ * The stamp is an UPDATE and not part of the `INSERT OR IGNORE`, so a row left
+ * behind by an earlier run — miniflare persists this database under `.wrangler/`
+ * — is brought up to the current version rather than silently kept at whatever it
+ * was seeded with.
  */
 export function seedIdentity(
   repoRoot: string,
@@ -68,6 +87,7 @@ export function seedIdentity(
       `VALUES ('mem_${userId}', '${userId}', '${accountId}', 'owner', 'active', '${now}');`,
     `INSERT OR IGNORE INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, created_at, updated_at) ` +
       `VALUES ('ent_${userId}', '${accountId}', '${email.toLowerCase()}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
+    `UPDATE users SET tos_version = '${TERMS_VERSION}', tos_accepted_at = '${now}' WHERE id = '${userId}';`,
   ].join(' ')
   execFileSync('npx', ['wrangler', 'd1', 'execute', '1stcontact', '--local', '--command', sql], {
     cwd: path.join(repoRoot, 'apps', 'control-app'),
