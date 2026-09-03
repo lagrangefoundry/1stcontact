@@ -45,6 +45,7 @@ import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-sto
 import {
   describe,
   type DescribeImage,
+  type DescribeText,
   type Description,
   type MaterialKind,
 } from './describe'
@@ -302,7 +303,19 @@ export interface IngestDeps {
    */
   index?: IndexMaterial | null
   describeImage?: DescribeImage
+  describeText?: DescribeText
 }
+
+/**
+ * The `kind` marking the comment that holds a document's own text (REQ-173).
+ *
+ * A MARKED KIND, THE WAY `chat_transcript` IS MARKED. The chunk indexer has to be
+ * able to find this comment among a ticket's others without chunking all of them,
+ * which is a different and much larger change; a designated kind keeps it narrow.
+ * `knowledge.ts` selects on it, and the framework's own comment-chunking change
+ * will select on it too.
+ */
+export const MATERIAL_TEXT_KIND = 'material_text'
 
 /** What one ingestion produced. */
 export interface Ingested {
@@ -312,6 +325,11 @@ export interface Ingested {
   description: Description
   /** False when no indexer was wired — the router turns this into a loud log. */
   indexed: boolean
+  /**
+   * The `material_text` comment holding the document's own text, or `null` for
+   * material that has none — an image, a font, a scan (REQ-173).
+   */
+  text: Ticket | null
 }
 
 /** Raised for a file we will not store. Carries a message a client can act on. */
@@ -433,7 +451,7 @@ async function ingest(
       filename: input.filename,
       sourceUrl: input.sourceUrl,
     },
-    { describeImage: deps.describeImage },
+    { describeImage: deps.describeImage, describeText: deps.describeText },
   )
 
   const { ticket } = await store.create({
@@ -471,6 +489,19 @@ async function ingest(
     content_type: contentType,
   })
 
+  // THE DOCUMENT'S OWN TEXT, BESIDE THE TICKET RATHER THAN INSIDE IT (REQ-173).
+  //
+  // BEFORE THE INDEX REFRESH, and that ordering is the whole of the cache
+  // question the split raises. The chunk manifest keys on this ticket's
+  // `updated_at` and assumes what it chunks is a function of it; writing the
+  // comment first means the very first index pass over this material already sees
+  // the text, and a comment nothing ever edits keeps the assumption true
+  // afterwards. Written after `create` because a comment needs a subject.
+  const text = description.fullText
+    ? (await store.comment({ uid: ticket.uid, kind: MATERIAL_TEXT_KIND, body: description.fullText }))
+        .comment
+    : null
+
   // AWAITED, NOT DEFERRED. [[DOC-39]] §5.2's decomposition depends on it: the
   // index refresh is what makes the document searchable the instant this returns,
   // which is what lets the expensive map rebuild run asynchronously behind it. A
@@ -478,7 +509,7 @@ async function ingest(
   // client is waiting to talk about what they just uploaded.
   if (deps.index) await deps.index(ticket.uid)
 
-  return { ticket, attachment, classification, description, indexed: Boolean(deps.index) }
+  return { ticket, attachment, classification, description, indexed: Boolean(deps.index), text }
 }
 
 /** A filename from a URL's last path segment, or the host where it has none. */

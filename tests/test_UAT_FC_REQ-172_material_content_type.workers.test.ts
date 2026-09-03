@@ -41,10 +41,20 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
   }
 }
 
-/** No describer, and an indexer that only counts — nothing here is about either. */
+/**
+ * A stubbed describer, and an indexer that only counts — nothing here is about
+ * either.
+ *
+ * THE DESCRIBER IS NOT OPTIONAL AT INGEST ANY MORE ([[REQ-173]]). A body is a
+ * digest now, so a deployment that cannot reach a model has nothing to write and
+ * the route refuses the upload with a 503 rather than storing a described-by-
+ * nobody row. Supplying a stub is this suite saying "assume a configured
+ * deployment", which is what every claim below is about.
+ */
 function deps(over: Partial<RouterDeps> = {}): RouterDeps {
   return {
     index: async () => async () => {},
+    describeText: async () => ({ text: 'A document.', model: 'stub/digest-1' }),
     ...over,
   }
 }

@@ -20,9 +20,20 @@ import { applySchema } from './support/d1-site-factory'
  * are read back through an independently constructed store rather than off the
  * response envelope, because the durable record is the thing the Library shows.
  *
- * NO DESCRIBER IS WIRED, deliberately. If reading a text file needed a model
- * this test would pass with a stub and the product would still be broken for any
- * deployment without a key. It must pass with nothing configured.
+ * A DESCRIBER IS WIRED, AND THE CLAIM IT USED TO CARRY MOVED ([[REQ-173]]).
+ * This suite ran with nothing configured on purpose: if reading a text file
+ * needed a model it would pass with a stub and the product would still be broken
+ * for a deployment with no key. Since REQ-173 a body is a DIGEST, so the upload
+ * ROUTE refuses a deployment that cannot describe — which makes "nothing
+ * configured" untestable through a request, and would have quietly turned this
+ * file into an assertion about a 503.
+ *
+ * So the claim was not dropped, it was moved to where it can still be made
+ * honestly: the node sibling calls `describe` directly with no describer and
+ * asserts the file is still READ — its own words carried, its declared title
+ * taken, no *"nothing here can read"*. What is left here is the half that needs a
+ * request: the type resolved from the name, and the resolution reaching all three
+ * consumers of it.
  */
 
 const APPLIED = applySchema()
@@ -47,7 +58,11 @@ function routerEnv(): RouterEnv {
   }
 }
 
-const deps: RouterDeps = { index: async () => async () => {} }
+/** A configured deployment — see the module note for why that is now required. */
+const deps: RouterDeps = {
+  index: async () => async () => {},
+  describeText: async () => ({ text: 'A summary of a data pipelines vendor.', model: 'stub/digest-1' }),
+}
 
 beforeAll(async () => {
   await APPLIED
@@ -78,13 +93,23 @@ describe('BUG-41 — a .md dropped on the Library', () => {
     const attachment = body.attachment as Record<string, unknown>
     expect(attachment.content_type).toBe('text/markdown')
 
-    // And the ticket the Library shows carries the file's own words and the
-    // title its front matter declared, read back through a second store.
+    // And the ticket the Library shows carries the title its front matter
+    // declared, read back through a second store.
     const store = await ticketStoreFor(routerEnv())
     const { ticket } = await store.get({ uid: String(body.uid) })
-    expect(ticket.body).toContain('audit trail')
     expect(ticket.body).not.toContain('nothing here can read')
     expect(ticket.title).toBe('Gigabyte Alchemy — positioning summary')
-    expect(ticket.fields.description_model).toBe('text-decode')
+    // The EXTRACTOR is still named, beside the model that wrote the digest: which
+    // reader produced the text is what a later re-extract pass selects on, and
+    // that is the fact this bug was about ([[REQ-173]]).
+    expect(String(ticket.fields.description_model)).toContain('text-decode')
+
+    // THE FILE'S OWN WORDS, in the `material_text` comment ([[REQ-173]]). This is
+    // the assertion that actually proves the file was read rather than
+    // apologised for — it is the same claim it always was, in the place the text
+    // now lives.
+    const { comments } = await store.comments({ uid: String(body.uid) })
+    const text = comments.find((c) => c.fields.kind === 'material_text')
+    expect(text?.body).toContain('audit trail')
   })
 })

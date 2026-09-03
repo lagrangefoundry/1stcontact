@@ -66,6 +66,15 @@ export function mountBuilder(root, options = {}) {
      * observe, rather than a race it has to hope loses.
      */
     markdownReady = defaultMarkdownReady,
+    /**
+     * Whether this deployment can reach a model, and what to say if not (REQ-173).
+     *
+     * `{ai: true}` BY DEFAULT, so every existing host and every test that does
+     * not care about the key mounts exactly the builder it mounted before. The
+     * browser entry supplies the real answer from `/api/status`; see
+     * {@link blockEverything} for what a `false` does.
+     */
+    aiStatus = { ai: true, message: null },
   } = options
 
   const shell = mountShell(root, {
@@ -83,6 +92,30 @@ export function mountBuilder(root, options = {}) {
     },
     ...(storage ? { storage } : {}),
   })
+
+  /**
+   * The unconfigured-deployment banner, and the block that comes with it (REQ-173).
+   *
+   * ONE FACT, STATED ONCE, AT THE TOP. Without a key the assistant cannot take a
+   * turn, an image cannot be looked at and a document cannot be described — so
+   * every surface fails, each in its own local dialect, and an operator is left
+   * assembling a deployment-wide diagnosis out of a frozen chat pane and an
+   * upload that 503s. `/api/status` answers the question once and this says it in
+   * one sentence.
+   *
+   * AND IT BLOCKS, RATHER THAN LETTING THE OPERATOR TRY. A banner over a live
+   * builder invites exactly the sequence it is warning about: the operator reads
+   * it, drops a file anyway, and gets a second error to interpret. So the shell
+   * is made `inert` — one attribute, covering the tabs, the toolbar, the pane,
+   * the assistant and the Library together, with no per-surface disabling to keep
+   * in step as surfaces are added.
+   *
+   * THE BANNER IS OUTSIDE THE INERT SUBTREE, which is the whole reason it is
+   * mounted on `root` rather than inside `shell.element`. A warning a user cannot
+   * select the text of is a warning they cannot paste into a support message.
+   */
+  const banner = aiStatus?.ai === false ? blockEverything(root, shell, aiStatus.message) : null
+  const blocked = banner !== null
 
   const panel = createDisplayPanel({
     storage: shell.storage(STORAGE_KEYS.panel),
@@ -298,6 +331,11 @@ export function mountBuilder(root, options = {}) {
    * what it does not do is put a line in a conversation it was not part of.
    */
   async function receiveFiles(files, role, source) {
+    // BELT AND BRACES BESIDE `inert` (REQ-173). The shell being inert stops a
+    // click, and a drag onto an inert subtree is not something the attribute is
+    // specified to refuse — so the one action with a real origin behind it says
+    // no here too, rather than sending bytes the route will 503.
+    if (blocked) return
     for (const file of files) {
       let result = null
       let failure = null
@@ -345,6 +383,20 @@ export function mountBuilder(root, options = {}) {
     const mine = ++generation
     if (!slug) {
       chat.setSession(null)
+      return
+    }
+    // A SESSION IS NOT OPENED AT ALL WITHOUT A KEY (REQ-173). The origin would
+    // answer `ready: false` with the host's own wording, which is true but
+    // describes the chat route rather than the deployment — and the banner has
+    // already said the deployment-wide thing. So the pane is handed the same
+    // sentence the banner carries, and no request is made.
+    if (blocked) {
+      chat.setSession({
+        sessionId: `unconfigured:${slug}`,
+        turns: [],
+        ready: false,
+        error: aiStatus.message ?? 'The assistant is not available.',
+      })
       return
     }
     try {
@@ -404,7 +456,17 @@ export function mountBuilder(root, options = {}) {
     openPalette,
     library,
     upload,
+    /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
+    banner,
+    /**
+     * What the overlay calls when a drop is committed — named so the refusal on
+     * an unconfigured deployment is provable without simulating a browser
+     * gesture (REQ-173). It is the same function the overlay is handed, not a
+     * second path to it.
+     */
+    receiveFiles,
     destroy() {
+      banner?.remove()
       panel.frame.removeEventListener('load', rebind)
       unbindSite()
       unwatchChat()
@@ -419,6 +481,31 @@ export function mountBuilder(root, options = {}) {
       shell.destroy()
     },
   }
+}
+
+/**
+ * Put the reason at the top and make everything below it unusable (REQ-173).
+ *
+ * `inert` IS THE WHOLE MECHANISM. It removes the subtree from the tab order,
+ * from hit testing and from the accessibility tree in one attribute — so the
+ * block covers every surface the builder has and every surface it grows, with
+ * nothing per-panel to remember. The class beside it is what makes the state
+ * VISIBLE: an app that silently ignores clicks reads as broken, and the banner is
+ * only believed if the thing it is talking about looks disabled.
+ *
+ * @returns the banner element, so the caller can take it away again.
+ */
+function blockEverything(root, shell, message) {
+  const banner = document.createElement('div')
+  banner.className = 'builder-banner'
+  // `alert` rather than `status`: this is not progress, it is the reason nothing
+  // below responds, and a screen reader should reach it without being asked.
+  banner.setAttribute('role', 'alert')
+  banner.textContent = message ?? 'This builder is not configured, so nothing here can run.'
+  root.prepend(banner)
+  shell.element.setAttribute('inert', '')
+  shell.element.classList.add('builder-shell--blocked')
+  return banner
 }
 
 /**

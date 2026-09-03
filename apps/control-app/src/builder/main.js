@@ -1,5 +1,5 @@
 import { mountBuilder } from './app.js'
-import { fetchSites, publishSite } from './api.js'
+import { fetchAiStatus, fetchSites, publishSite } from './api.js'
 import { mountL1EditBridge } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
 import { shadeHex } from '/framework/site-schema-shade.js'
@@ -21,10 +21,15 @@ import { shadeHex } from '/framework/site-schema-shade.js'
  * loads, so no test, bundler or typechecker ever has to resolve them.
  */
 const root = document.getElementById('app')
-const sites = await fetchSites()
+// IN PARALLEL, because neither answer depends on the other and the status call
+// gates what is drawn rather than what is fetched (REQ-173). Serialising them
+// would put a second round trip in front of the first paint for a question whose
+// answer is almost always "yes".
+const [sites, aiStatus] = await Promise.all([fetchSites(), fetchAiStatus()])
 
 mountBuilder(root, {
   sites,
+  aiStatus,
   publish: (slug) => publishSite(slug),
   editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
   shadeHex,

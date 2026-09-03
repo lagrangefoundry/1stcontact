@@ -52,6 +52,31 @@ export function assetUrl(slug, handle) {
   return previewUrl(slug, 'draft') + trimmed.replace(/^\.?\/+/, '')
 }
 
+/**
+ * Whether this deployment can reach a model at all (REQ-173).
+ *
+ * ASKED ONCE, AT BOOT, BEFORE ANYTHING IS OFFERED. Nothing in this product works
+ * without an API key — no conversation, and since REQ-173 no description of the
+ * material a client uploads — so the builder finds out first and says so at the
+ * top of the screen, rather than letting the operator infer a deployment-wide
+ * fact from a frozen chat panel here and a failed upload there.
+ *
+ * A FAILURE TO ASK IS NOT A FAILURE TO WORK. If the status call itself falls
+ * over, the builder mounts unblocked: an origin that cannot answer this question
+ * is a different problem, and refusing to draw the app because of it would turn a
+ * transient blip into a blank page.
+ */
+export async function fetchAiStatus(fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl('/api/status')
+    if (!res.ok) return { ai: true, message: null }
+    const body = await res.json()
+    return { ai: body.ai !== false, message: body.message ?? null }
+  } catch {
+    return { ai: true, message: null }
+  }
+}
+
 /** Every site in the store, newest revision included. */
 export async function fetchSites(fetchImpl = fetch) {
   const res = await fetchImpl('/api/sites')

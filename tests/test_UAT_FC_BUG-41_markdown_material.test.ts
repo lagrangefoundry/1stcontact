@@ -17,11 +17,26 @@ import { kindOf, resolveContentType } from '../apps/control-app/src/material'
  * WHAT THIS FILE PROVES. The repair is a resolution step, and its two halves are
  * asserted separately: that silence is repaired FROM THE NAME, and that a stated
  * type is NOT second-guessed. Then the consequence — the same file, through the
- * real describer, has its own text as its body.
+ * real describer, is READ rather than apologised for.
  *
- * NO DOUBLES. `describe` is called with real bytes and returns a real body; there
- * is no model in any path exercised here, because reading text is code.
+ * WHERE ITS OWN WORDS LIVE NOW ([[REQ-173]]). The body was the file; it is a
+ * digest, and the file's own text comes back as `fullText` for the caller to keep
+ * in a `material_text` comment. The claim this bug is about is unchanged in
+ * substance — the words a client would search by are carried rather than replaced
+ * by *"nothing here can read application/octet-stream"* — so it is asserted where
+ * they now are. The title claims below are untouched, and REQ-173 deliberately
+ * keeps them reachable without a describer: they are about `titleFromText`, not
+ * about whether a model could be called.
+ *
+ * ONE DOUBLE, AND ONLY FOR THE DIGEST. Reading text is still code and is still
+ * exercised for real; a stub stands in for the model that writes the digest,
+ * because no claim here is about how well a document is summarised.
  */
+
+/** The digest describer, doubled: whatever it is told to say. */
+function stubDigest(text: string) {
+  return async () => ({ text, model: 'stub/digest-1' })
+}
 
 const SUMMARY = `---
 title: Gigabyte Alchemy — positioning summary
@@ -72,19 +87,43 @@ suite('BUG-41 — the content type is resolved from the name when nothing states
 })
 
 suite('BUG-41 — the body of a markdown material is the file', () => {
-  it('UAT_FC_BUG-41 the file’s own words become the body, not an apology', async () => {
+  it('UAT_FC_BUG-41 the file’s own words are read, not apologised for', async () => {
+    const described = await describeMaterial(
+      {
+        bytes: new TextEncoder().encode(SUMMARY),
+        kind: 'document',
+        contentType: resolveContentType('', 'gigabyte_alchemy_summary.md'),
+        filename: 'gigabyte_alchemy_summary.md',
+      },
+      { describeText: stubDigest('A positioning summary for a data pipelines vendor.') },
+    )
+    expect(described.status).toBe('ok')
+    // The extractor is still named, beside the model that wrote the digest —
+    // which reader produced the text is what a re-extract pass would select on.
+    expect(described.describer).toContain('text-decode')
+    // The words a client would search by — which is the whole job of the text
+    // ([[DOC-38]] §6) and precisely what the degraded body did not carry. Since
+    // [[REQ-173]] they are in `fullText`, bound for a `material_text` comment and
+    // the chunk index, rather than in the body.
+    expect(described.fullText).toContain('audit trail')
+    expect(described.fullText).toContain('mid-market finance teams')
+    expect(described.body).not.toContain('nothing here can read')
+  })
+
+  it('UAT_FC_BUG-41 a markdown file is read even where no describer can be reached', async () => {
+    // The repair is the RESOLUTION step, and it must not have acquired a
+    // dependency on a model ([[REQ-173]]). With no describer the digest is
+    // honestly missing and the file's own words are still carried — which is the
+    // difference between this bug being fixed and being fixed only when a key is
+    // configured.
     const described = await describeMaterial({
       bytes: new TextEncoder().encode(SUMMARY),
       kind: 'document',
       contentType: resolveContentType('', 'gigabyte_alchemy_summary.md'),
       filename: 'gigabyte_alchemy_summary.md',
     })
-    expect(described.status).toBe('ok')
-    expect(described.describer).toBe('text-decode')
-    // The words a client would search by — which is the whole job of a body
-    // ([[DOC-38]] §6) and precisely what the degraded body did not carry.
-    expect(described.body).toContain('audit trail')
-    expect(described.body).toContain('mid-market finance teams')
+    expect(described.status).toBe('no_describer')
+    expect(described.fullText).toContain('audit trail')
     expect(described.body).not.toContain('nothing here can read')
   })
 
