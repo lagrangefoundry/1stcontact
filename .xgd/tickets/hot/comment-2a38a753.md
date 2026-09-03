@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-48
 created_by: xgd
 created_at: '2026-09-03T02:32:44.146363+00:00'
-updated_at: '2026-09-03T03:16:33.222832+00:00'
+updated_at: '2026-09-03T03:25:07.603252+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,41 @@ Now a broad run to catch anything else, plus the typecheck.
 <!-- xgd-chat role="user" ts="2026-09-03T03:16:31.766321+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="b3bbf6ec-e784-4113-8a40-1764e2e4b0b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:25:07.239096+00:00" -->
+#### Claude
+Identical on baseline — pre-existing. Now the typecheck.
+
+Regression clean (branch failures identical to main's pre-existing set; the one extra was a parallel-run flake that passes in isolation). Now adding the ticket language for behaviour I added as a technical consequence, before committing.
+
+Committing.
+
+Merge back first, as the protocol requires.
+
+BUG-48 is free-coded and merged back into `xgd-working`. 15 UATs, all passing there.
+
+**What landed**
+
+*The skew (1).* `1c assets` now resolves the bundle's corpus through `resolveCorpus` — the same predicate `buildIndex` uses — and requires every resolved document to be in both manifests under the same version. It refuses before writing anything, so a refusal costs a build and never the shipped bundle. Staleness counts too: present-under-an-older-stamp is the same lie in weaker form, and `DOC-17`/`DOC-33` are in exactly that state in your checkout today.
+
+The awareness map is exempt because the predicate excludes it, not because anything names the file — and `1c assets` prints what it exempted, since an exemption nobody can see is indistinguishable from the bug.
+
+*Closing the hole (3).* `bin/kb-release` runs `1c kb build` → `1c assets` → `1c kb status`, stopping at the first failure. DOC-39 §12.1 records why no producing verb changed: producing a stale tree is legitimate, shipping one never is.
+
+*The document (4) and the rules (5).* `REF-l1` gained a `## The page itself` section projected from `l1DocumentSchema` — `widths`, `background`, `textColor`, `column`, `resources`, `root` — and the shapes those keys reach (the font face among them) now ride the walk that already collects the elements'. Nine structural refusals sit beside the numeric bounds, projected from a new `L1_STRUCTURAL_RULES` in `validate.ts` whose **values are the messages the validator emits**, so the table can't rot into a description of behaviour that changed. A UAT provokes every one and checks the refusal carries its words.
+
+*Coverage (6).* `l1VocabularyGaps()` holds each part of the declared source against the section that renders it — derived at check time, and it takes the body as a parameter so it can be shown to fail.
+
+**Two things worth knowing.** I found a latent bug while wiring the check: `kbBundle` stamped documents with milliseconds while the index stamps to the second, so the two halves of every bundle already disagreed about the version of any file whose mtime wasn't on a whole second. Fixed — without it the check would have cried wolf on every build. And I reworded nine validator messages, keeping the phrases existing suites match on (`duplicate node id '<id>'`, `not an allowed URL`, `not one of the document widths`).
+
+**Left for you.** Item (2) — re-running the build to fix the shipped instance — needs the Workers AI credential. When you have it: `bin/kb-release`. Note the guard will refuse until that runs, since this checkout is skewed right now.
+
+Full suite on the branch matched main's pre-existing failure set exactly; the typecheck error in `apps/control-app/src/session-knowledge.ts` also pre-exists on `xgd-working`.
+
+That background job was the version-listing query I started before switching to reading the ticket files directly — it produced no output and is moot. Nothing to act on.
+
+Confirming the outcome stands: BUG-48 holds `0.2.60` and it's the only ticket claiming it. Work is complete and merged.
 
 <!-- xgd-chat-end -->
