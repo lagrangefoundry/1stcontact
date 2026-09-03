@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-48
 created_by: xgd
 created_at: '2026-09-03T02:32:44.146363+00:00'
-updated_at: '2026-09-03T02:36:30.240049+00:00'
+updated_at: '2026-09-03T02:42:38.572895+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,17 @@ I recommend (a). Confirm?
 **5. Item (5) — where the structural prose comes from.** To lift it without authoring a sentence in the projection, I'd add an exported `L1_STRUCTURAL_RULES` table to `validate.ts` whose **values are the message fragments the validator already emits** (so the table is load-bearing for enforcement, not decoration) and whose per-key doc comments are what `definitionOf(declarations, 'L1_STRUCTURAL_RULES', key)` lifts — exactly the `L1_ENVELOPE` mechanism. That means touching the validator's error strings. The alternative is a table only the projection reads, which is one source for the prose but unenforced and free to drift from the checks it claims to describe. I recommend the first. Object?
 
 Assuming no instruction otherwise, I'll keep all of (1) and (3)–(6) on BUG-48 — one branch, several commits — rather than splitting, since the ticket notes they shouldn't be separated by much.
+
+<!-- xgd-turn id="4ac4b985-0130-4e01-b894-af78a309cd5e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T02:42:38.352983+00:00" -->
+#### You
+1 (a) please - the map is a discovery chart of everything else but it cannot map itself either 
+
+2 yes staleness
+
+1. I can give you a key to test it when you complete the coding
+   4. I don't understand the consequences if this is about the boundary of which commands do what, I don't care I'm going to have you create a script that runs them all in order
+   5. what is the structural prose?
 
 <!-- xgd-chat-end -->
