@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:29:01.745509+00:00'
+updated_at: '2026-09-03T00:31:02.332782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -404,5 +404,34 @@ Merge and `move-to-free-coded` are ready to run whichever you pick; the only inp
 <!-- xgd-chat role="user" ts="2026-09-03T00:29:01.531099+00:00" -->
 #### You
 Please create a ticket for the additional framework work needed in that project
+
+<!-- xgd-turn id="a9de1385-2d56-47fc-b927-102aade13ea9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:31:02.075424+00:00" -->
+#### Claude
+Now let me write the ticket body with the exact evidence.
+
+Created as **REQ-114** in the framework store (verified: no stray copy in 1stcontact). Note the push failed on proxy auth — it's committed locally only:
+
+Now cross-referencing it from BUG-46 so the deferred work is traceable from both ends:
+
+Filed **lagrange-framework REQ-114** — *"webui-chat: a panel cannot render a turn it did not start — §11's tail has no destination"* (`request-7b9b7f00`, type `request`, priority medium, status `draft`).
+
+I verified it landed in the framework's ticket store and not this one — `XGD_PROJECT_ROOT` doesn't follow `cd`, so that was worth checking.
+
+**What the ticket says.** The gap is one welded-together function. `send(text)` at `components/webui/chat/js/src/index.js:572` does three things — appends a user bubble, opens an assistant bubble, calls `sendPrompt(text)` — and a reattaching client wants only the third. `queue` and `interject` are the same shape. Nothing else on the surface substitutes: `appendMessage` renders a complete message and returns an element with no update path, `getMessages()` returns copies, and the render loop is private.
+
+I framed it as the last missing link in DOC-21 §11 rather than as a 1stcontact request, because that's what it is. BUG-38 built `transcript()` and `watch()` so a host can answer both "what should I paint" and "what happens next" with no gap. A host can now answer both **and still have nowhere to put the second one**. That's the defect; 1stcontact BUG-46 is just where it surfaced.
+
+The ask is `chat.resume(events, {markdown})` — attach a host-supplied stream to a new assistant message, seeded with what the transcript already painted. I flagged that it should ideally reuse `send`'s own loop factored out rather than a second copy, since a live turn and a resumed turn rendering differently is exactly the bug that substitution would introduce. Three open design questions are listed as open (seed vs. paint-from-zero, what `isStreaming()` reports, interaction with stop/interject) rather than decided by me.
+
+I also stated it as **not blocking**, with the non-streaming fallback described, so whoever picks it up isn't misled into thinking something is broken downstream.
+
+Two things to know:
+
+- **The push failed** — proxy auth refused the connection. The ticket is committed locally to the framework repo (`7ee3c100e8`) but not pushed. That repo has ~11.8k unpushed commits, so this looks like a standing condition rather than something new.
+- **BUG-46 now cross-references it** from the other end, including the fallback and the one thing it would need (`/api/ai/session` doesn't report whether a turn is live). Original body intact — 315 lines, both appendices present, nothing overwritten.
+
+Still open and unchanged: whether you want the Durable Object ticket filed, which of the three panel options to take, and the version for `move-to-free-coded`. The merge lock is free, so I can merge and promote as soon as you name a version.
 
 <!-- xgd-chat-end -->
