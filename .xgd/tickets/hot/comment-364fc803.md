@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T01:44:03.792180+00:00'
+updated_at: '2026-09-03T01:53:08.908009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -439,5 +439,63 @@ Still open and unchanged: whether you want the Durable Object ticket filed, whic
 <!-- xgd-chat role="user" ts="2026-09-03T01:44:03.241169+00:00" -->
 #### You
 It is implemented and installed - can you proceed?
+
+<!-- xgd-turn id="518836bf-c8e0-49d1-8dd9-a0b1e71f9714-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T01:53:08.209533+00:00" -->
+#### Claude
+Let me verify before building on it — same check as last time.
+
+`resume` is there and installed. Let me read its contract — including how they resolved the three open questions:
+
+REQ-114 landed exactly as asked — `driveTurn` is the single shared loop, `resume` seeds and appends no user bubble. Wiring the panel now.
+
+Now the panel:
+
+Now the UATs for the panel half:
+
+Now the panel UAT suite:
+
+Now confirming the panel UATs fail without the wiring:
+
+3 fail without the wiring (the ones asserting the rejoin happens); the other 3 assert *absence* of behaviour, so passing in both states is correct. Running the full suite:
+
+Far more failures than the baseline — something in the environment shifted. Let me diagnose rather than guess:
+
+Every package was reinstalled at 18:37 — not just `webui-chat`. That's a full `bin/install`, which moved `ai`, `knowledge`, `ticketing` and the rest too. Let me establish whether those failures are mine:
+
+Confirmed — fails identically on `xgd-working` in the main checkout, which has none of my work. Let me capture the actual error so it's actionable:
+
+Root cause is clear and unrelated: the newly-installed `@lagrangefoundry/knowledge` added a `KnowledgeChanges` operation to the grant, which 1stcontact's tests pin exactly. Upstream capability drift from the full install. Restoring my work:
+
+Now recording the panel work in the ticket, then committing:
+
+Both commits in. Now merge-back and promotion — let me find an unclaimed version first:
+
+Classic combine-both-sides conflict: `xgd-working` refactored the redactor into a local `scrub`; my branch adds `ctx` and a new route. Let me see what `scrub` is:
+
+Resolution takes `xgd-working`'s hoisted `scrub` — its whole rationale is "every `error:` out of this table is `scrub(...)`", so my new route should use it too — plus my `ctx` and the new route:
+
+The gate needs the version bump inside one of the commits. Let me run the bump:
+
+The bump owns only `package.json`; the rest are your pre-existing local changes, which I'll leave alone.
+
+**BUG-46 is `free_coded` at 0.2.57, merged into `xgd-working`, branch and lock torn down.**
+
+Three commits: `6be7ac96` (origin), `0fadd0f7` (panel), `32db3756` (version). All three verified ancestors of `xgd-working` before promotion.
+
+REQ-114 shipped exactly as specified — `resume(events, {markdown})` seeds one assistant bubble, appends no user bubble, and runs through `driveTurn`, which is `send`'s own loop factored out. So a live turn and a resumed turn cannot render differently. That closes the deferral rather than leaving it outstanding, and all three parts of the fix are now complete end to end.
+
+**What the panel half does.** `ChatSession` gained `live` beside `cursor` — derived in the host via `closedPrefix`, because a client genuinely can't tell a turn that closed a second ago from one still being written (the difference is a `turn_end` record on the junction, not in the projection). When a turn is open, the transcript's trailing assistant turn is *not* appended as a message; it seeds the resumed bubble, so what was said before the reload and what arrives after it are one reply. The rejoin isn't awaited, so `setSession` stays synchronous per that file's existing argument, and it goes through `watchForWrites` so a resumed turn's `site_changed` still reloads the preview — otherwise a reloaded page becomes the one place edits happen invisibly.
+
+Six panel UATs; the three asserting the rejoin happens fail without the wiring.
+
+**Two things you should know.**
+
+The merge hit a real conflict in `router.ts`: `xgd-working` had hoisted the redactor into a local `scrub` ("every `error:` out of this table is `scrub(...)`"), while my branch passed `redactor(secretsOf(env))` and added a route. I took `xgd-working`'s `scrub` for both call sites rather than reintroducing the per-route construction the hoist existed to eliminate — the new route now obeys that rule too. Typecheck and the boundary/origin suites pass on the merged result.
+
+More importantly: **the full `bin/install` broke about twenty unrelated tests, and they are still broken.** Every shared package was replaced at 18:37, not just `webui-chat`, so upstream movement well beyond REQ-114 came with it. The clearest instance is `@lagrangefoundry/knowledge` gaining a `KnowledgeChanges` operation where REQ-158 pins the grant's read set exactly; the knowledge and KB suites fail in that family. I confirmed every one reproduces on `xgd-working` in the main checkout with none of this ticket's work present, so it isn't BUG-46's — but it does mean the suite is currently red for reasons that need their own ticket. I haven't filed one; say the word and I will.
+
+Also still unfiled: the Durable Object ticket for the residual risk (the junction is still `memoryJunctions()`, so an isolate evicted mid-turn still loses that turn). The framework REQ-114 commit is local-only on that side — its push failed on proxy auth, as does 1stcontact's.
 
 <!-- xgd-chat-end -->
