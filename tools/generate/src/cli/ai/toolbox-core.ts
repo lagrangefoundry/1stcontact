@@ -587,6 +587,22 @@ export async function createL1Toolbox(
     if (extra.granted) granted = { ...granted, ...extra.granted }
   }
 
+  // THE SESSION DESCRIBES ITS OWN TOOLS (REQ-171).
+  //
+  // Composed here and not by either host, because it is not a deployment
+  // choice: priming now carries the SUMMARY manual — group prose and one line
+  // per tool — and a summary with no route to the detail moves the failure
+  // rather than fixing it. `DescribeTools` is that route, so it travels with
+  // the manual it completes.
+  //
+  // LAST, so its block renders after the surfaces it describes. Its grant
+  // travels with it for the same reason the knowledge surface's does: what a
+  // session may ask about its own tools is a property of the surface, not a
+  // per-role decision, and an entry in `instances.json` would be one more place
+  // for the two to drift apart.
+  surfaces.push(new lib.ManualToolbox())
+  granted = { ...granted, ...lib.manualInstanceConfig() }
+
   // NARROWED TO THE SURFACES THIS SESSION ACTUALLY COMPOSED (REQ-157).
   //
   // `instances.json` says what the CONSULTANT may do; which surfaces exist is a

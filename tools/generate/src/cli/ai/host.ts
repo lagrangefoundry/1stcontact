@@ -172,7 +172,13 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     priming = async (box: Untyped) =>
       bridge.KnowledgeDocs.open(knowledge, {
         rolePurpose: CONSULTANT_PURPOSE,
-        mechanism: box.manual(),
+        // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k
+        // characters of this site's surface alone and was 98% of the priming
+        // document; the summary is 11k. What it drops — every parameter, return
+        // shape and error code — is what `DescribeTools` fetches for one tool
+        // at the moment it is about to be called, which is the only moment it
+        // is needed.
+        mechanism: box.manual({ level: 'summary' }),
       })
   }
 
