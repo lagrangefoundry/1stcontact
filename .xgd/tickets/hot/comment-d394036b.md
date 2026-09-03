@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T02:36:17.299941+00:00'
+updated_at: '2026-09-03T02:37:27.990040+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -320,5 +320,46 @@ site <-> business <-> tenant
 Account <-* tenants (multiple tenants per account)
 
 In the future (potentially multiple sites per business).
+
+<!-- xgd-turn id="5159b37d-a115-4c3f-be3d-1865f2cd1562-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T02:37:27.933918+00:00" -->
+#### Claude
+Good — worth nailing down before code. Let me check my model against the schema rather than assert it.
+
+Checked it against the schema. Yes — I'm onboard, and your model is the one the code implements. Two places the *naming* lies about it, both of which land exactly where REQ-168 works.
+
+## The model, confirmed
+
+**business = tenant.** Same row (`tenants`, `0001_site_store.sql:16`), two vocabularies. `tenant` is internal — schema columns, R2 keys, store handles; *Business* is what a person reads. REQ-180 §3 already settles this and explicitly keeps `tenant_id` in the schema.
+
+**site lives inside a business.** `sites` is `PRIMARY KEY (tenant_id, slug)`, and `0001`'s header states the barrier: *"a site is an object inside a tenant, selected by slug, and is not a tenant of its own."* So **multiple sites per business is already representable** — several rows sharing a `tenant_id`. It's not a migration, it's a UI question, and REQ-179 has already sequenced it: a site selector belongs *inside* the site tab, subordinate to the business switcher, at which point `panel.getSite()` becomes meaningful again one level down. Nothing in REQ-168 should assume 1:1; the resolver yields a business, and the slug stays a separate axis exactly as it is today.
+
+**account →\* businesses**, via `memberships`. `businessesFor(user.id)` is the admissible set.
+
+## Where the code doesn't match the clean picture
+
+**1. The account is not a row.** There is no `accounts` table — the tables are `tenants`, `sites`, `site_pages`, `site_assets`, `site_changes`, `site_revisions`, `published_sites`, `tickets`, `counters`, `users`, `memberships`, `entitlements`. The account handle is the **user id**: `provisionBusiness(env, { accountUserId, name })` (`identity.ts:365`). So today *account = person*, which is why `platform_admin` sits on `users` and why `provisionInvite` reads "the account is the person and the person already existed."
+
+For REQ-168 this is fine — resolution needs the admissible set, and `businessesFor(user.id)` is exactly that. What it doesn't support is two logins on one account, or billing rollup to a payer (DOC-40's *"invoicing rolls up by payer and the payer is the account"*). That's REQ-180 item 2's decision, not this ticket's, and REQ-168 shouldn't pretend to an account identity that isn't there.
+
+**2. `account_id` holds a business id.** In both `memberships` and `entitlements`. REQ-178's own body says it: *"`account_id` has always held a tenant id."* `provisionBusiness:380` does `const accountId = newId('acct')` and hands it straight to `createTenant({ id: accountId })`. So `AdmittedBusiness.accountId` is a **business** id, and business ids literally read `acct_…`.
+
+That inversion sits precisely on REQ-168's new surface: the ticket's `resolveScope(env, identity, requestedAccountId?)` takes something that is not an account id, and `Scope = { kind: 'tenant'; id }` is correct about the value while the parameter name is wrong about it.
+
+Since the resolver's signature is what REQ-179 and REQ-180 will code against, I'd rather fix the vocabulary now than ship a third ticket's worth of call sites saying "account" when they mean "business":
+
+- **New code says business** — `resolveScope(env, admission, requestedBusinessId?)`.
+- **Rename `AdmittedBusiness.accountId` → `businessId`.** TypeScript-only, no migration, and REQ-178 is one commit old so the blast radius is a handful of lines.
+- **SQL columns stay** — `memberships.account_id`, `entitlements.account_id`, `tenant_id` everywhere. REQ-180 §3 already ruled that renaming a column to match a word buys a migration for nothing, and the same argument covers these.
+- **The `acct_` id prefix stays.** Ids are opaque and permanent and appear in R2 keys; a second prefix for one concept would be worse than one misleading prefix.
+
+Flag me if you'd rather leave `AdmittedBusiness` alone and just be careful in new code — it's the one item here that touches REQ-178's landed surface.
+
+## One coupling worth knowing before I start
+
+`published_sites` is keyed by **slug alone, globally** (`0002_revisions.sql:70`) — deliberately, per DOC-12 §7, because `/site/<slug>/` is the public URL grammar and carries no tenant. So published slugs are the one namespace shared across all businesses, and `provisionBusiness` dodges collisions by using the business id as the starter slug. Multiple sites per business, later, will meet that constraint head-on; per-business hostnames (DOC-12 §9) are the stated answer and stay additive. Nothing for REQ-168 to do, but it's the one place the isolation barrier is deliberately not total.
+
+Say go and I'll write the ticket body — the corrected read table, the path-prefix transport, the dev-open exception, first-admissible fallback, per-scope chat host, the `tenants.status` check, and the business/account vocabulary — then cut the branch.
 
 <!-- xgd-chat-end -->
