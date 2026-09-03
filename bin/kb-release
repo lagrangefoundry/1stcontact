@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+#
+# `bin/kb-release` — build the system knowledge base and inline it, in order (BUG-48).
+#
+# THE ORDER WAS ALREADY RIGHT AND BOUND NOTHING. `1c kb build` exports the
+# corpus, writes the projections, indexes both, and generates the map — in that
+# order, deliberately, with a comment saying why. What it could not do was make
+# anything ELSE respect that order:
+#
+#   `1c kb export` writes documents into the tree and never indexes them.
+#   `1c assets`    reads the corpus as a directory listing and the two manifests
+#                  as build artefacts, and inlines both.
+#
+# Two clocks, and until BUG-48 nothing compared them. A document written after
+# the last index build appeared in the shipped corpus immediately and in the index
+# never — text the assistant carried all session and could not retrieve, and then
+# reported the subject as one its knowledge base did not cover. Which was true of
+# the corpus it could search and false of the corpus it was holding.
+#
+# WHY THIS IS THE FIX RATHER THAN A NARROWER VERB. The three obvious repairs each
+# cost something real: making `kb export` index what it writes takes away the one
+# property it has (it needs no credentials, so it runs anywhere); making it
+# decline to write what it will not index leaves it doing nothing; and splitting
+# the trees takes away the thing it is for. The honest position is that PRODUCING
+# a stale tree is legitimate — an export on a laptop with no Workers AI token is a
+# real thing to want — and SHIPPING one never is. So the ordering stops being
+# something an operator has to remember between two commands and becomes one
+# command; and `1c assets` refuses a corpus its index does not cover, which is the
+# backstop for every path that does not come through here. See [[DOC-39]] §3.3.
+#
+# Usage:
+#   bin/kb-release            # build the KB, then inline it
+#   bin/kb-release --status   # what is built and how current, without building
+#
+# Needs CLOUDFLARE_API_TOKEN for the Workers AI embedder. The map's paragraphs are
+# written by the Claude Code CLI when no ANTHROPIC_API_KEY is set, so it needs no
+# credential of its own.
+#
+# Exit codes: 0 success; anything else is the failing stage's own.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+cd "$repo_root"
+
+for arg in "$@"; do
+  case "$arg" in
+    --status)
+      exec "$repo_root/bin/1c" kb status
+      ;;
+    -h | --help)
+      cat <<'EOF'
+bin/kb-release — build the system KB and inline it into the control app.
+
+  bin/kb-release           `1c kb build` then `1c assets`, stopping at the first failure
+  bin/kb-release --status  `1c kb status` only — what is built, and how current
+
+`1c kb build` exports the corpus, writes the projected reference, builds the
+document and chunk indexes and generates the awareness map. `1c assets` inlines
+the result, and refuses to inline a corpus its index does not cover.
+
+Needs CLOUDFLARE_API_TOKEN for the embedder.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "bin/kb-release: unknown argument '$arg'" >&2
+      exit 1
+      ;;
+  esac
+done
+
+step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+# Both stages, always, and never one of them. Running the first alone is exactly
+# how this checkout reached the state BUG-48 describes: a corpus refreshed at
+# 11:53 beside an index stamped the previous midnight, inlined together at 17:40.
+step "Build the knowledge base"
+"$repo_root/bin/1c" kb build
+
+step "Inline it into the control app"
+"$repo_root/bin/1c" assets
+
+step "What shipped"
+"$repo_root/bin/1c" kb status
+
+printf '\n\033[1mKnowledge base released.\033[0m\n'

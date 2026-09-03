@@ -167,6 +167,27 @@ function regions(source: string): Map<string, string> {
   return found
 }
 
+/**
+ * A DECLARATION's own doc comment, as against one of its fields' (BUG-48).
+ *
+ * {@link definitionOf} answers "what does this field mean"; this answers "what is
+ * this declaration". The two exist for the same reason and read the same comments
+ * — a section that introduces a shape needs the sentence its author already wrote
+ * above it, and inventing one here would put a fact in the reference with no
+ * source, which is the one thing this file may not do.
+ *
+ * Matched against the declaration's own head rather than harvested per region,
+ * because the comment sits ABOVE the `const` and every region begins AT one.
+ */
+export function declarationProse(source: string, name: string): string | undefined {
+  const head = new RegExp(
+    `/\\*\\*((?:[^*]|\\*(?!/))*)\\*/\\s*(?:export\\s+)?const\\s+${name}\\b`,
+  )
+  const found = head.exec(source)
+  if (!found) return undefined
+  return definition(found[1]) || undefined
+}
+
 /** One field's definition, following spreads, or `undefined`. */
 export function definitionOf(
   declarations: Map<string, Declared>,
@@ -543,19 +564,22 @@ function fieldLine(
  */
 export function projectL1Vocabulary(): ProjectedDoc {
   const named = namedSchemas()
-  const declarations = harvestDeclarations(readSource(L1_SCHEMA_SOURCE))
+  const schemaSource = readSource(L1_SCHEMA_SOURCE)
+  const declarations = harvestDeclarations(schemaSource)
 
   const kinds = elementKinds(named)
   const queue: unknown[] = []
   const lines: string[] = []
 
   lines.push(
-    'A page is a tree of typed elements. Everything that is seen — the words, the',
-    'pictures, the boxes that hold them, and every aspect of how they look — is one of',
-    'the elements below, carrying the fields below. There is no other vocabulary: an',
-    'element that is not well-formed in it is refused whole, and nothing outside it',
-    '(markup, a stylesheet, a script) can be expressed at all.',
+    'A page is a document holding a tree of typed elements. Everything that is seen —',
+    'the words, the pictures, the boxes that hold them, and every aspect of how they',
+    'look — is one of the elements below, carrying the fields below, inside the',
+    'document described first. There is no other vocabulary: an element that is not',
+    'well-formed in it is refused whole, and nothing outside it (markup, a stylesheet,',
+    'a script) can be expressed at all.',
     '',
+    ...documentSection(named, declarations, schemaSource, queue),
     '## The kinds of element',
     '',
   )
@@ -594,6 +618,55 @@ export function projectL1Vocabulary(): ProjectedDoc {
     source: 'the L1 element schemas and their validation envelope',
     body: lines.join('\n').trimEnd() + '\n',
   }
+}
+
+/**
+ * The PAGE DOCUMENT — the thing the tree hangs inside (BUG-48).
+ *
+ * NOTHING READ `l1DocumentSchema` BEFORE THIS. The reference rendered the element
+ * union, the shapes that union reaches, and the numeric envelope, and those are
+ * the only three `##` headings it had — so a document that calls itself "the
+ * vocabulary a page is written in" said nothing whatever about the page. An
+ * assistant reading it to learn field names learned that a page has no
+ * background, no text colour, no fonts and no content column.
+ *
+ * That was survivable exactly as long as none of it was writable: a reference
+ * that omits what nothing can set is merely incomplete. [[REQ-175]] made all five
+ * keys writable through `get_page_style` / `set_page_style`, at which point the
+ * omission became the same failure as an unindexed document with the pieces
+ * rearranged — the capability exists, the tool manual says the operation exists,
+ * and the field reference does not say what may be written into it.
+ *
+ * EVERY KEY OF THE SHAPE, which is a superset of `L1_DOCUMENT_KEYS` by exactly
+ * one. That constant is `Object.keys(l1DocumentSchema.shape)` minus `root`, and
+ * the exclusion is about WRITABILITY — `root` is not unreachable through the
+ * control surface, it IS the address `"0"` that `set_l1` has always written. This
+ * is a vocabulary, not a grant, so the tree the document holds belongs in it.
+ * Both lists come from the same `Object.keys` call, so a sixth document key
+ * appears here on the day it is declared, with its type from the schema and its
+ * meaning from the comment above it, and nothing here is told about it.
+ *
+ * The field schemas are pushed onto the caller's `queue`, so the shapes a
+ * document key reaches — the column, the resource table, a font face — are
+ * collected by the same walk that already collects the elements' and described
+ * once, in the section that exists for it.
+ */
+function documentSection(
+  named: Map<unknown, string>,
+  declarations: Map<string, Declared>,
+  schemaSource: string,
+  queue: unknown[],
+): string[] {
+  const shape = objectShape(SiteSchema.l1DocumentSchema, new Map())
+  if (shape === null) return []
+  const intro = declarationProse(schemaSource, 'l1DocumentSchema')
+  const lines = ['## The page itself', '', ...(intro ? [intro, ''] : [])]
+  for (const [field, schema] of Object.entries(shape)) {
+    lines.push(fieldLine(field, schema, named, declarations, 'l1DocumentSchema'))
+    queue.push(schema)
+  }
+  lines.push('')
+  return lines
 }
 
 /**
@@ -678,6 +751,8 @@ function envelopeSection(): string[] {
     '',
     'A page outside these is refused whole; nothing is clamped silently.',
     '',
+    'The bounds:',
+    '',
   ]
   for (const [key, value] of Object.entries(SiteSchema.L1_ENVELOPE)) {
     const bound =
@@ -690,8 +765,40 @@ function envelopeSection(): string[] {
     const meaning = definitionOf(declarations, 'L1_ENVELOPE', key)
     lines.push(`- \`${key}\` — ${bound}${meaning ? `. ${meaning}` : ''}`)
   }
+  lines.push(...structuralRules(declarations))
   lines.push('')
   return lines
+}
+
+/**
+ * The refusals that are not numbers (BUG-48).
+ *
+ * THE SECTION'S PROMISE WAS ONLY HALF KEPT. "A page outside these is refused
+ * whole" was true of the arithmetic and silent about every structural refusal a
+ * consultant is likely to actually meet — a duplicate id, a palette name that
+ * resolves to nothing, a keyframe at a width the document never declared, an
+ * anchor with no column, a font that paints as the browser default. Each of those
+ * refuses a page whole, and none of them is a bound, so none of them could come
+ * from `L1_ENVELOPE`.
+ *
+ * PROJECTED, NOT WRITTEN, like everything else here. The rules are
+ * `L1_STRUCTURAL_RULES` — the validator's own table, whose values ARE the messages
+ * it emits — and the sentence against each one is the doc comment above that
+ * entry, lifted by the same {@link definitionOf} that lifts an envelope bound's.
+ * A rule added to the validator appears here on the day it is added; a rule
+ * removed disappears; and neither costs anybody a document edit.
+ */
+function structuralRules(declarations: Map<string, Declared>): string[] {
+  const rules = Object.keys(SiteSchema.L1_STRUCTURAL_RULES)
+    .map((key) => definitionOf(declarations, 'L1_STRUCTURAL_RULES', key))
+    .filter((prose): prose is string => prose !== undefined)
+  if (rules.length === 0) return []
+  return [
+    '',
+    'The rules that are not numbers — each one refuses a page as whole as a bound does:',
+    '',
+    ...rules.map((prose) => `- ${prose}`),
+  ]
 }
 
 // ── projection 3: the control surface ────────────────────────────────────────
@@ -862,4 +969,94 @@ function operationEntry(op: NonNullable<SurfaceDeclaration['operations']>[number
  */
 export function projections(): ProjectedDoc[] {
   return [projectBehaviorCatalogue(), projectL1Vocabulary(), projectControlSurface()]
+}
+
+/**
+ * What `REF-l1` claims as its source and does not actually render (BUG-48).
+ *
+ * PRESENCE IS NOT COVERAGE, and BUG-48 is the two halves of that sentence. Its
+ * first half was a document complete and unreachable — shipped as corpus text,
+ * absent from the index, caught now by `1c assets` before a bundle carrying it
+ * can leave. Its second half was the opposite and passes that check completely:
+ * `REF-l1` was reachable and INCOMPLETE. It declared its source as "the L1
+ * element schemas and their validation envelope" and never read
+ * `l1DocumentSchema`, so a reference calling itself the vocabulary a page is
+ * written in said nothing about the page — no background, no text colour, no
+ * fonts, no content column. Indexing it perfectly would not have helped.
+ *
+ * DERIVED, NEVER LISTED, and that is the whole difference between this and a
+ * snapshot. The expectation is computed from the same four declarations the
+ * projection renders from, at the moment it is checked. A hand-written list of
+ * what the document ought to contain is precisely the artefact that goes stale
+ * without saying so, and BUG-48 is about that class of lie — writing one here to
+ * guard against one elsewhere would be the joke telling itself.
+ *
+ * Returns the gaps, so a caller can name them. Empty is the healthy state.
+ *
+ * `body` is a seam and not a convenience: a check that can only ever be handed
+ * the real projection cannot be shown to have teeth, and a coverage assertion
+ * nobody has watched fail is indistinguishable from one that passes vacuously.
+ */
+export function l1VocabularyGaps(body: string = projectL1Vocabulary().body): string[] {
+  const gaps: string[] = []
+  const page = section(body, DOCUMENT_HEADING)
+  const kinds = section(body, KINDS_HEADING)
+  const limits = section(body, LIMITS_HEADING)
+
+  const union = def(unwrap(SiteSchema.l1NodeSchema, new Map()))
+  for (const option of (union.options ?? []) as unknown[]) {
+    const shape = objectShape(option, new Map())
+    if (!shape) continue
+    const literal = (def(unwrap(shape.kind, new Map())).values ?? []) as unknown[]
+    if (literal.length && !kinds.includes(`\`${String(literal[0])}\``)) {
+      gaps.push(`element kind ${String(literal[0])}`)
+    }
+  }
+
+  // Through `L1_DOCUMENT_KEYS` rather than through the shape, because that is the
+  // list REQ-175 made writable: every key an assistant can now SET through
+  // `set_page_style` is a key the reference has to say something about, or the
+  // capability exists and the manual for it does not.
+  for (const key of SiteSchema.L1_DOCUMENT_KEYS) {
+    if (!page.includes(`\`${key}\``)) gaps.push(`document key ${key}`)
+  }
+
+  for (const key of Object.keys(SiteSchema.L1_ENVELOPE)) {
+    if (!limits.includes(`\`${key}\``)) gaps.push(`envelope bound ${key}`)
+  }
+
+  // The rule is matched on its PROSE, not its key: the key is an internal
+  // identifier a reader never sees, so a section that printed the keys and
+  // dropped the sentences would satisfy a key-based check and tell a consultant
+  // nothing.
+  const validators = harvestDeclarations(readSource(L1_VALIDATE_SOURCE))
+  for (const key of Object.keys(SiteSchema.L1_STRUCTURAL_RULES)) {
+    const prose = definitionOf(validators, 'L1_STRUCTURAL_RULES', key)
+    if (prose === undefined) gaps.push(`structural rule ${key} has no definition to project`)
+    else if (!limits.includes(prose)) gaps.push(`structural rule ${key}`)
+  }
+
+  return gaps
+}
+
+/** The headings {@link l1VocabularyGaps} holds each part of the source against. */
+const DOCUMENT_HEADING = '## The page itself'
+const KINDS_HEADING = '## The kinds of element'
+const LIMITS_HEADING = '## The limits every page is held to'
+
+/**
+ * One `##` section of a projected body, or `''` when the heading is not there.
+ *
+ * SCOPED RATHER THAN WHOLE-BODY, and the difference is the whole value of the
+ * check. `fontSizePx` appears as a text axis whatever the limits section says, and
+ * every document key is a word that occurs somewhere in a 500-line reference — so
+ * a check asking "does this string appear anywhere" answers yes for a document
+ * missing the section entirely. Asking whether the section that is supposed to
+ * render it does is asking the question that was actually wrong.
+ */
+function section(body: string, heading: string): string {
+  const from = body.indexOf(heading)
+  if (from === -1) return ''
+  const next = body.indexOf('\n## ', from + heading.length)
+  return next === -1 ? body.slice(from) : body.slice(from, next)
 }
