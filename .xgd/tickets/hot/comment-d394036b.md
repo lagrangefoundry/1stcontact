@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T02:40:33.125678+00:00'
+updated_at: '2026-09-03T03:11:09.481832+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -367,5 +367,65 @@ Say go and I'll write the ticket body — the corrected read table, the path-pre
 <!-- xgd-chat role="user" ts="2026-09-03T02:40:32.319940+00:00" -->
 #### You
 go
+
+<!-- xgd-turn id="df6e2630-0665-4af8-a0e4-64019c7eec16-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:11:08.854032+00:00" -->
+#### Claude
+Writing the ticket body first.
+
+The body changed underneath me — it had been rewritten to fold in the earlier findings. Let me read what's actually there now before my append duplicates it.
+
+The body had been rewritten to fold in the earlier findings — better than my append in most places, and it already renamed `Scope` to `{ businessId }`. My append duplicated most of it. Let me reconstruct: keep everything substantive, drop my duplicate, and add only what's genuinely new.
+
+Ticket scoped. Now the branch.
+
+Now the code. Starting with `identity.ts` — the vocabulary fix and the `tenants.status` predicate.
+
+Now the platform-admin lookup that `resolveScope` needs — a business reachable without a membership row.
+
+Now the resolver itself.
+
+Now thread the scope through the four openers.
+
+Now `knowledge.ts` and `session-knowledge.ts`.
+
+Now `ai.ts` (delete the vestigial declaration) and `router.ts` (the big one).
+
+Now `index.ts` — where the scope is actually resolved.
+
+The worktree is cut from a newer main than my reference checkout — BUG-46 has since added `ctx` threading. Let me check what actually applied.
+
+Now `index.ts`, against the current (BUG-46) shape.
+
+Now typecheck to find everything I've broken.
+
+Confirmed pre-existing. Now the Node transport and the remaining callers.
+
+Now the migration that keeps the live builder working.
+
+Now update `wrangler.toml`'s stale claim, then write the UATs.
+
+Now the UATs. Let me check the existing test harness shape first.
+
+Now the REQ-168 UATs.
+
+Now add the rejection eviction to the chat host cache, then write the UATs.
+
+Now the source-level UAT that keeps `TENANT_ID` from reappearing.
+
+Now the workers suite.
+
+All 13 pass. Now the wider suite — the callers I changed.
+
+Many call sites to migrate. Let me look at the helper shapes so I can transform them consistently.
+
+Now the remaining suites — same mechanical transform, scripted.
+
+I removed `TENANT_ID` too broadly — the whole-Worker suites still need it for the dev-open branch. Let me check and restore.
+
+Now the multi-line `route(...)` calls, which the regex pass didn't cover.
+
+Zero regressions in the workers project. Now the node project.
 
 <!-- xgd-chat-end -->
