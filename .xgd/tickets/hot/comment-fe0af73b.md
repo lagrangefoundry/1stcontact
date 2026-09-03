@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-02T23:58:22.894334+00:00'
+updated_at: '2026-09-03T00:08:46.422372+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -403,5 +403,11 @@ REQ-113 is `free_coded` upstream but hasn't reached this repo's shared store, an
 The corpus is still empty — 0 of 40 doc tickets carry `doc_kind: system_kb`. Every "reference it rather than restate it" decision in the ticket is inert until DOC-33 and DOC-35 are in there, and they need an authoring pass first, not a field flip. That's the real critical path.
 
 I've left the title alone again. It now describes almost none of the ticket; suggest *"The session's three texts: product level, role level, reminder"* — say the word.
+
+<!-- xgd-turn id="907fbb14-842e-475b-b8ff-f5e7feab3fca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:08:46.216924+00:00" -->
+#### You
+I have run bin/install in lagrange-foundry is there more needed to export this content?
 
 <!-- xgd-chat-end -->
