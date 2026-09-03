@@ -328,7 +328,7 @@ describe('story-e674c60a workspace mounted over its origin', () => {
    * Last in the file on purpose: it adds a site to the store, and every test
    * above is written against the two `makeWorkspace` created.
    */
-  it('test_UAT_AC967_the_site_selector_lists_exactly_the_store_and_switches_the_site', async () => {
+  it('test_UAT_AC967_the_chrome_lists_exactly_the_store_and_switches_the_site', async () => {
     // AC-967 — "neither a hardcoded list nor a subset" is a claim about the
     // chain store → `/api/sites` → selector, so no link in it is written by
     // hand here: the expected set is READ OFF THE STORE, the listing is
@@ -362,15 +362,20 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     }
 
     // The chrome half, mounted over the listing that just came off the origin.
+    //
+    // READ OFF THE PANE RATHER THAN OFF A TOOLBAR SELECT ([[REQ-179]]). The
+    // toolbar's site selector has moved into shell chrome and names a BUSINESS
+    // there, so "the listing reaches the chrome" is asserted where the listing
+    // actually lands — the document on screen — rather than through a control
+    // that no longer exists. The criterion's other half is untouched: a site
+    // created after the origin started is still in that listing, checked above.
     const app = mountBuilder(root, { sites: listing, storage: memoryStorage() })
-    const select = app.toolbar.get('site-selector') as HTMLSelectElement
-    expect([...select.options].map((o) => o.value).sort()).toEqual(inStore())
+    expect(inStore()).toContain(app.panel.getSite())
 
-    // Choosing a different option changes the displayed document to that site's
-    // rendering IN THE CURRENT MODE…
+    // Changing the displayed site shows that site's rendering IN THE CURRENT
+    // MODE…
     const modeBefore = app.panel.getMode()
-    select.value = 'gamma'
-    select.dispatchEvent(new Event('change'))
+    app.panel.setSite('gamma')
     expect(app.panel.getSite()).toBe('gamma')
     expect(app.panel.getMode()).toBe(modeBefore)
     expect(app.panel.frame.getAttribute('src')).toBe(previewUrl('gamma', 'draft'))

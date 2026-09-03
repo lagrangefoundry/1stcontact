@@ -1,5 +1,5 @@
 import { mountBuilder } from './app.js'
-import { fetchAiStatus, fetchSites, publishSite } from './api.js'
+import { fetchAiStatus, fetchBusinesses, publishSite } from './api.js'
 import { mountL1EditBridge } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
 import { shadeHex } from '/framework/site-schema-shade.js'
@@ -21,14 +21,24 @@ import { shadeHex } from '/framework/site-schema-shade.js'
  * loads, so no test, bundler or typechecker ever has to resolve them.
  */
 const root = document.getElementById('app')
-// IN PARALLEL, because neither answer depends on the other and the status call
-// gates what is drawn rather than what is fetched (REQ-173). Serialising them
-// would put a second round trip in front of the first paint for a question whose
-// answer is almost always "yes".
-const [sites, aiStatus] = await Promise.all([fetchSites(), fetchAiStatus()])
+/**
+ * IN PARALLEL, because neither answer depends on the other and the status call
+ * gates what is drawn rather than what is fetched (REQ-173). Serialising them
+ * would put a second round trip in front of the first paint for a question whose
+ * answer is almost always "yes".
+ *
+ * THE SITE LIST IS NO LONGER ASKED FOR HERE ([[REQ-179]]). It was, and it could
+ * not be: `/api/sites` is business-scoped, and which business is a question this
+ * file cannot answer — the remembered selection lives in the shell's own
+ * namespaced storage, which does not exist until the shell is mounted. So the
+ * builder resolves its own scope and reads the sites of the business it settles
+ * on, which is one round trip in the same place rather than two in two.
+ */
+const [businesses, aiStatus] = await Promise.all([fetchBusinesses(), fetchAiStatus()])
 
 mountBuilder(root, {
-  sites,
+  businesses: businesses.businesses,
+  account: businesses.account,
   aiStatus,
   publish: (slug) => publishSite(slug),
   editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },

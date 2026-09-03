@@ -232,7 +232,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — a live conversation, not a
 // ── the pane follows the displayed site ──────────────────────────────────────
 
 describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — one site, chosen in one place', () => {
-  it('test_UAT_AC1064_changing_site_changes_the_conversation_and_only_the_toolbar_chooses', async () => {
+  it('test_UAT_AC1064_changing_site_changes_the_conversation_and_only_one_control_chooses', async () => {
     const transport = fakeTransport({
       alpha: {
         sessionId: 'site-alpha',
@@ -277,28 +277,33 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — one site, chosen in one pl
     await settle()
     expect(app.chat.getChat().getMessages()).toEqual([{ role: 'user', markdown: 'Alpha question' }])
 
-    // EXACTLY ONE place a site is chosen, scoped to the WHOLE workspace rather
-    // than to the split — the toolbar is the split's sibling, so a narrower
-    // scope would pass while a second selector sat next to the one it found.
-    // The pane offers no control of its own that could disagree with the
-    // toolbar's: asserted as a surface (no `setSite`/`getSite` to call) and as
-    // DOM.
+    // EXACTLY ONE place a scope is chosen, scoped to the WHOLE workspace rather
+    // than to the split — a narrower check would pass while a second selector
+    // sat next to the one it found. The pane offers no control of its own that
+    // could disagree: asserted as a surface (no `setSite`/`getSite` to call) and
+    // as DOM.
     //
     // BY WHAT THE CONTROL OFFERS, NOT BY COUNTING `<select>` ([[REQ-161]]).
     // This read `querySelectorAll('select').length === 1` — a proxy that was
     // exact while the workspace had one dropdown of any kind, and which the
     // Library's role and kind filters break without touching the criterion at
-    // all. What must stay true is that nothing ELSE offers a site to pick, so
-    // that is what is asserted: every other dropdown in the workspace is checked
-    // against the site slugs, and a second site selector would fail it.
+    // all. What must stay true is that nothing offers a site to pick beside
+    // whatever the scope is chosen in, so that is what is asserted: every
+    // dropdown in the workspace is checked against the site slugs.
+    //
+    // THE COUNT IS NOW ZERO, NOT ONE ([[REQ-179]]). The rule the criterion
+    // protects — one place, never two — is unchanged; the place moved out of
+    // this tab's toolbar and into the shell's chrome, where it names a BUSINESS
+    // rather than a site, because a business is what every tab is about. A
+    // toolbar site selector reappearing here would be exactly the second control
+    // this criterion has always forbidden.
     const selectors = [...root.querySelectorAll('select')]
     const slugs = SITES.map((site) => site.slug)
     const siteSelectors = selectors.filter((select) =>
       [...select.options].some((option) => slugs.includes(option.value)),
     )
-    expect(siteSelectors.length).toBe(1)
-    expect(siteSelectors[0].className).toBe('builder-toolbar__site')
-    expect(app.toolbar.element.contains(siteSelectors[0])).toBe(true)
+    expect(siteSelectors.length).toBe(0)
+    expect(app.toolbar.ids()).not.toContain('site-selector')
     expect(app.chat.element.querySelectorAll('select').length).toBe(0)
     expect((app.chat as Record<string, unknown>).setSite).toBeUndefined()
     expect((app.chat as Record<string, unknown>).getSite).toBeUndefined()

@@ -28,6 +28,7 @@ import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { splitBusinessPrefix, type Scope } from './scope'
+import type { Admission } from './identity'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
@@ -304,6 +305,22 @@ export interface RouterDeps {
   describeText?: DescribeText
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
+  /**
+   * Who is asking, for {@link BUSINESSES_PATH} alone ([[REQ-179]]).
+   *
+   * INJECTED RATHER THAN RECOMPUTED. `index.ts` already ran `admit` — ahead of
+   * routing, which is the security property that file is built around — so the
+   * answer to "which businesses may this account operate" exists by the time a
+   * route runs. Asking again here would be a second answer to a question that
+   * must have one, and would need the verified email the router deliberately
+   * never sees.
+   *
+   * OPTIONAL, AND ABSENT IS ORDINARY. The unconfigured-local-dev path skips
+   * `admit` entirely, and the Node transport calls `route()` with no identity at
+   * all; both resolve a scope by other means, and the endpoint reports that
+   * scope rather than pretending to an admission it does not have.
+   */
+  admission?: Admission | null
 }
 
 /**
@@ -405,6 +422,66 @@ function aiConfigured(env: RouterEnv, deps: RouterDeps): boolean {
 
 /** Where the builder asks whether this deployment can do anything (REQ-173). */
 export const AI_STATUS_PATH = '/api/status'
+
+/** Where the chrome asks which businesses it may offer ([[REQ-179]]). */
+export const BUSINESSES_PATH = '/api/businesses'
+
+/**
+ * What {@link BUSINESSES_PATH} answers with.
+ *
+ * TWO THINGS IN ONE CALL, because the chrome needs both before it can draw
+ * anything and they come from one source. The businesses half is the switcher's
+ * list; the account half is what the avatar surface shows — and the account is
+ * the one thing in this product that is NOT business-scoped ([[DOC-40]] §2), so
+ * a second endpoint for it would be a second round trip for a value the first
+ * one already holds.
+ *
+ * LAPSED BUSINESSES ARE RETURNED, MARKED. `admit` returns them deliberately —
+ * "your grant expired" and "that business does not exist" need to look different
+ * to the person who owns both — so the wire keeps the distinction rather than
+ * filtering it out and making a lapsed business indistinguishable from a deleted
+ * one.
+ *
+ * `id` RATHER THAN `businessId`, on the wire only. The chrome has no other kind
+ * of id to confuse it with; the TypeScript name stays explicit where an account
+ * id and a business id are both opaque strings ([[REQ-168]]).
+ */
+export interface BusinessesPayload {
+  account: { name: string | null; email: string } | null
+  businesses: Array<{ id: string; name: string; selectable: boolean }>
+}
+
+/**
+ * Build it from the admission, or from the scope when there is none.
+ *
+ * THE NO-ADMISSION ANSWER IS ONE SELECTABLE BUSINESS, and that is not a
+ * placeholder: on the dev-open path `resolveScope` answers from `TENANT_ID`, so
+ * there IS exactly one business by construction and reporting it is reporting
+ * the truth. Reporting an empty list instead would leave the chrome with nothing
+ * to scope itself to and no way to tell that state apart from a broken one.
+ *
+ * The name falls back to the id there because no `tenants` row has been read —
+ * an opaque label is worse than a human one and better than a guess.
+ */
+export function businessesPayload(
+  admission: Admission | null | undefined,
+  scope: Scope,
+): BusinessesPayload {
+  if (admission?.ok) {
+    return {
+      account: { name: admission.user.display_name, email: admission.user.email },
+      businesses: admission.businesses.map((b) => ({
+        id: b.businessId,
+        name: b.name,
+        selectable: b.selectable,
+      })),
+    }
+  }
+  return {
+    account: null,
+    businesses: [{ id: scope.businessId, name: scope.businessId, selectable: true }],
+  }
+}
 
 /**
  * What the builder is told when it cannot work — one sentence, and an action.
@@ -776,6 +853,24 @@ async function routeUncached(
     if (p === AI_STATUS_PATH && method === 'GET') {
       const ready = aiConfigured(env, deps)
       return json(200, { ai: ready, message: ready ? null : NO_API_KEY_MESSAGE })
+    }
+
+    /**
+     * GET /api/businesses — what the shell's switcher lists ([[REQ-179]]).
+     *
+     * ABOVE THE STORE, for the reason `/api/status` is: this is asked BEFORE the
+     * chrome has chosen a business, so it must not depend on a store handle
+     * scoped to one. It is also the only route whose answer is about the ACCOUNT
+     * rather than about the resolved scope, which is why it reads `deps.admission`
+     * and nothing else does.
+     *
+     * IT IS NOT AN ORACLE. It reports only what this caller already passed
+     * `admit` for, so it discloses nothing a refused visitor could not already
+     * infer — unlike a lookup by id, which is why `scope.ts` refuses one target
+     * with one message.
+     */
+    if (p === BUSINESSES_PATH && method === 'GET') {
+      return json(200, businessesPayload(deps.admission, scope))
     }
 
     if (p === '/api/sites' && method === 'GET') {
