@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T03:16:21.681183+00:00'
+updated_at: '2026-09-03T03:29:26.620453+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -433,5 +433,56 @@ Zero regressions in the workers project. Now the node project.
 <!-- xgd-chat role="user" ts="2026-09-03T03:16:21.614872+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="618ecbcd-95c9-4dac-9fac-46d1ba780080-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:29:26.537431+00:00" -->
+#### Claude
+Picking up where the node run was OOM-killed. Let me re-check state, then run it in batches.
+
+No regressions in either builder-origin suite. Now the config/structural suites that read `wrangler.toml` and the migrations.
+
+Identical. Shards 3 and 4.
+
+All node failures are pre-existing too. Before committing, let me close the gaps between what I built and what the ticket says.
+
+Now the migration UAT — the acceptance criterion I hadn't covered.
+
+15 UATs passing, zero regressions. Committing.
+
+Now step 5 — status and commit SHA on the ticket.
+
+The merge pulled in work that landed while I was coding. Verifying the merged result before promoting.
+
+Same nine pre-existing failures, no new ones. Promoting.
+
+REQ-168 is free-coded and merged. Status `free_coded`, version `0.2.59`, commits `b4bc4cb0b6` + `db107b25a8`, branch cleaned.
+
+## What landed
+
+**`scope.ts`** — the resolver, and the only reader of `env.TENANT_ID` left outside `identity.ts`, where it now means the platform's own business. `resolveScope(env, admission | null, requestedBusinessId?)` authorises the target against REQ-178's admission list, falls back to the first *selectable* business, and answers from `TENANT_ID` only when there is no admission at all.
+
+**The scope is an explicit argument**, not a rewritten env — threaded through `route`, `storeFor`, `ticketStoreFor`, `projectKnowledgeFor`, `sessionKnowledgeFor`. Placed ahead of `deps` so every unmigrated call site became a compile error rather than a positional argument that still type-checked. `TENANT_ID` is gone from `StoreEnv`, `TicketStoreEnv`, `ProjectKnowledgeEnv` and `WorkerAiEnv` (where it was declared and never read).
+
+**The path prefix** `/b/<businessId>/`, stripped once at the top of `route()` so the route table is untouched. The preview finding drove this: `/preview/<slug>/<channel>/` serves the page's own assets and the render emits those document-relative, so a query string would be dropped by every relative sub-resource — one business's page rendered with another's images, silently. A prefix is inherited by construction.
+
+**Two things I found while implementing, both fixed:**
+- The chat host was one per *isolate*, holding a site store, ticket store and opened KB bound to whichever business asked first. Keyed by scope now, and evicted if it fails to build — a rejected promise in the map would otherwise poison one business for the isolate's life.
+- `businessesFor` joined `tenants` without checking `status`, so a deactivated business came back selectable and then 503'd at `forTenant` when picked. Invisible with one tenant; an entry that fails when clicked with a switcher.
+
+**`0005_operator_membership.sql`** binds you to the existing `1stcontact` business. Without it this ticket would have made the live builder come up empty — a correct answer to the wrong question. It seeds the grant as well as the membership, because a membership alone refuses with `no_entitlement`.
+
+**Vocabulary:** `AdmittedBusiness.accountId` → `businessId`, and the same on `InviteResult`/`BusinessResult`. SQL columns and the `acct_` prefix untouched, per REQ-180 §3.
+
+## Verification
+
+15 UATs across two files. `test_UAT_FC_REQ-168_single_reader.test.ts` walks `apps/control-app/src` rather than checking a list — a hand-maintained list is exactly how the original count missed `tickets.ts`.
+
+Full workers project and all four node shards run against a HEAD baseline: **9 workers and 6 node failures, every one of them failing at HEAD too** (the KB/knowledge-index family, the webui-scope test, and the worktree/`dist-assets` artifacts). No regressions. Re-verified after the merge, which pulled in BUG-48 and auto-merged five of my files.
+
+## Two things to know
+
+- `session-knowledge.ts:16` has a pre-existing type error — it imports `SHIPPED_SOURCE` from `./system-knowledge`, which imports but never re-exports it. Present at HEAD, untouched by me, but it means the control-app project does not typecheck clean.
+- I resolved the merge's `package.json` conflict to `xgd-working`'s higher `0.2.60` rather than my `0.2.59`. The ticket still records 0.2.59 (0.2.58 is claimed by REQ-171), which the gate accepted since my commit introduced it.
 
 <!-- xgd-chat-end -->
