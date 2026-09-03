@@ -15,6 +15,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a77a9cac
 ---
 
 # The account surface: the businesses endpoint, the customer portal, and the Business vocabulary
