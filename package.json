@@ -1,6 +1,10 @@
 {
   "name": "1stcontact",
-  "version": "0.2.49",
+<<<<<<< HEAD
+  "version": "0.2.50",
+=======
+  "version": "0.2.48",
+>>>>>>> free-REQ-178
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
