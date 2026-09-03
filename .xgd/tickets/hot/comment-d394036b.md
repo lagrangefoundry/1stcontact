@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T00:31:49.776203+00:00'
+updated_at: '2026-09-03T00:33:52.556629+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,85 @@ REQ-178 has landed
 2. I don;'t understand 
 3. ?
 4. I don;t know please read the code
+
+<!-- xgd-turn id="c10ce70a-d78a-4ae5-9003-5e8e2a34599a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:33:52.341257+00:00" -->
+#### Claude
+Confirmed — `b1cafc80b7 feat(identity): an account operates several businesses, not one [FREE-CODED]` is in the tree. `Admission` is now `{ ok: true; user; businesses: AdmittedBusiness[] }` with no singular `accountId`, and `provisionBusiness` exists. `index.ts:123` still discards the whole admission, and silently — it never read `accountId`, so REQ-178's deliberate "deleting it turns every call site into a compile error" caught nothing here. That's the gap REQ-168 fills.
+
+Now your three questions, from the code.
+
+---
+
+## 2. The transport — what the problem actually is
+
+The switcher has to tell the server which business each request is for. The obvious carrier is an HTTP header, and for most of the surface that's one line: every JSON call goes through `builder/api.js`, ~12 functions, all taking a `fetchImpl` seam. One wrapper covers them all.
+
+It doesn't work for three functions **in that same module**, because they don't fetch anything — they return a URL string the *browser* loads:
+
+| `api.js` | consumer | element |
+|---|---|---|
+| `previewUrl()` :15 | `app.js:105,111` | `<iframe src>` — the preview pane |
+| `assetUrl()` :51 | `image-picker.js:136` | `<img src>` — picker thumbnails |
+| `materialFileUrl()` | `library.js:246` | `<img src>` / `<a href>` — Library files |
+
+A browser will not attach a custom header to an `<iframe src>` or an `<img src>`, and there is no JS hook to make it. So with a header, those three arrive with no target and hit the fallback — and you get a preview of one business rendered inside a chrome showing another. Silent, plausible, wrong.
+
+Three ways out:
+
+- **(a) A cookie.** The browser sends it on iframe and img loads too, so `api.js` doesn't change at all. Costs: it's per-origin, not per-tab, so two builder tabs on two businesses overwrite each other; and it's ambient, which is the shape this codebase repeatedly argues against.
+- **(b) Header for fetches, query param for those three.** Two mechanisms for one fact — the exact failure `router.ts`'s `NO_STORE` comment names: *"a per-HOST restatement is as forgettable as a per-route one."*
+- **(c) A query parameter everywhere.** One line in a fetch wrapper, one line in each of the three URL builders. One mechanism, works in both shapes, per-tab not per-origin, and a deep link carries its own business — which is the case REQ-168's revision explicitly names.
+
+I'd take **(c)**. It's the only one where "which business is this request for" has a single form.
+
+---
+
+## 3. Where the last selection is stored
+
+The two tickets currently specify different systems, and they can't both hold:
+
+- **REQ-168 revision:** a no-target request "resolves to the operator's last selection if it is still admissible."
+- **REQ-179:** the selection "belongs with the existing `STORAGE_KEYS` namespacing" — `config.js:67`, browser localStorage.
+
+A request with no target is *by definition* one where localStorage didn't reach the server. REQ-168's own three examples make that concrete: first load (the chrome document is fetched before any JS has run to read localStorage), a bookmarked deep link, an API caller. The server simply doesn't have the fact.
+
+Two ways to close it:
+
+- **(a) Record it server-side.** `users.fields` is an untyped JSON bag `0004_identity.sql` put there for precisely this — *"a per-user fact that is not worth a column and not worth a migration has somewhere to go."* Selection writes it; localStorage stays the client-side fast path. Costs REQ-168 a write it doesn't currently claim.
+- **(b) Drop "last selection" from the fallback.** No-target → first admissible business. The visible cost is a flash of the wrong business on a cold load, only for accounts with more than one, and only until the chrome reads localStorage and re-scopes.
+
+(a) if you want the property to be real; (b) if you want REQ-168 to stay 3 points. Either way one of the two bodies needs correcting so they stop specifying different mechanisms.
+
+---
+
+## 4. Dev-open — read from the code
+
+`index.ts:118`, `isUnconfiguredLocalDev(env)`, skips **both** `guardAccess` and `admit`. On that path there is no token, no verified email, no `users` row consulted — so no `Admission` and no business list. There is nothing for a resolver to resolve *from*.
+
+Who takes it:
+
+- **10 whole-Worker suites** set `ACCESS_DEV_OPEN: '1'` with both Access vars empty — REQ-145, REQ-146, REQ-148, REQ-149, REQ-158, REQ-160, BUG-36, BUG-37, BUG-38, BUG-43. Each sets its own `TENANT_ID` (`'req145'`, `'req148'`, …) and asserts against data in that tenant.
+- **4 more suites** call `route()` directly and never enter `index.ts` at all — REQ-161, REQ-163, BUG-41, the two-KB suite.
+- **`1c builder`'s Node transport** — `builder.ts:130` sets `TENANT_ID: 'local'` and injects a filesystem store. `envFor` returns a `Proxy` that throws on any D1 access, so `admit` couldn't run there even if it were called.
+
+So the revision's "never to `env.TENANT_ID`" cannot govern this branch — that rule is about the *no-target fallback inside resolution*, where there is a real identity and real memberships and just no target named. Here there's no identity at all.
+
+**My answer: yes, dev-open reads `TENANT_ID`, and it does so inside `resolveScope`.** That keeps the last reader outside `identity.ts` in exactly the place the ticket's UAT permits one — *"no remaining reader outside the resolver."* Nothing changes for the deployed Worker: `isUnconfiguredLocalDev` requires both Access vars empty, and `wrangler.toml:91-92` sets them, so production never reaches that branch — the same two-independent-mistakes guard REQ-147 already put on `ACCESS_DEV_OPEN`.
+
+The thing to watch: a UAT written to the letter of "never" would fail this. The ticket body needs a sentence naming dev-open as the one exception and why it can't open a deployed Worker.
+
+---
+
+## Where that leaves the plan
+
+Settled: REQ-178 has landed, so `admit` produces the set; dev-open reads `TENANT_ID` inside the resolver.
+
+Still yours to call:
+- **(2)** query param everywhere — or cookie?
+- **(3)** last selection in `users.fields`, or first-admissible and drop it?
+
+Once you've picked, I'll update the REQ-168 body — correcting the read table (`tickets.ts` is a fifth read and missing; `ai.ts` reads nothing), adding language for the transport, the dev-open exception, the fallback rule, and the per-scope chat host — and then cut the branch.
 
 <!-- xgd-chat-end -->
