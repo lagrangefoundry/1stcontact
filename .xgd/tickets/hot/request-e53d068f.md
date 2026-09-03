@@ -5,9 +5,9 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-09-02T18:44:15.116380+00:00'
+updated_at: '2026-09-03T00:18:50.261118+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -135,3 +135,91 @@ images cost one. That is accepted: the extraction has already run by that point,
 so the call is fed truncated text rather than the file, and it is one call per
 upload rather than per read. For a long document the digest is written from the
 head of the text plus a sample further in, rather than from the head alone.
+
+
+---
+
+## Resolved in session — what was actually built
+
+### The digest is written by a lightweight session, not a second SDK path
+
+`describe.ts` gains a `DescribeText` seam beside `DescribeImage`, and its
+default implementation does **not** reach for the Anthropic SDK the way
+`anthropicImageDescriber` does. It opens a **lightweight session from the AI
+host's session factory**: the component's `SessionManager` with a describer
+role, no tools, a `NullArchive` and `memoryJunctions()`. One prompt, one reply,
+session closed.
+
+The archive is null on purpose. A describer session that archived would create
+a `chat` ticket per upload — a member of the very corpus this ticket is trying
+to keep clean — and the digest is not a conversation anybody will resume.
+
+The digest is **prose only**. The title keeps the rules it already has: the
+PDF's own declared title, else the first substantial line, else the filename.
+A document usually carries a better title than a model would invent, and the
+image branch's title-plus-body split exists only because a photograph carries
+no title at all.
+
+For a long document the digest is written from the head of the text **plus a
+sample taken further in**, bounded by `DIGEST_SOURCE_CHARS` — an excerpt off
+the top of a PDF is the cover page, which is the least informative part of it.
+
+### No API key is a blocked builder, not a degraded material
+
+The earlier draft of this ticket asked what a document body should be when no
+describer is configured. The answer is that the question should not arise:
+**nothing in this product works without an API key**, so the builder says so
+once, at the top, and blocks rather than quietly storing material it cannot
+describe.
+
+- `GET /api/status` reports whether the deployment is configured.
+- The builder renders a banner across the top of the shell when it is not, and
+  **blocks its actions while the banner is up** — upload, publish, palette
+  write, description save and chat send are all refused with the same reason.
+- The material ingestion routes refuse with `503` rather than storing a file
+  that nothing can describe.
+
+`describe.ts` keeps its `no_describer` branch as defence in depth — it is
+reached only by a caller that bypassed the gate, and a describer that threw
+there would still cost a client their upload.
+
+### The full text lives in a comment on the material ticket
+
+One comment per material, `fields.kind: 'material_text'`, written at ingest
+between the ticket's creation and the index refresh, exactly as [[DOC-33]]
+§3.1/§3.2 has chat keep its transcript.
+
+It carries the **full extracted text**, not the 200,000-character clip that
+bounded the body. Two ceilings guard it, and they are different things:
+
+- `MAX_MATERIAL_BYTES` at the upload boundary is what stops a massive amount of
+  text arriving at all. It bites images and PDFs hardest, which is where the
+  bytes are.
+- `MAX_EXTRACTED_TEXT_CHARS` bounds what one comment row may hold, far above
+  the digest's ceiling and stated in the text when it bites, for the same
+  reason `clipBody` states its own clip: text that stops mid-sentence with no
+  explanation reads as corruption.
+
+`MAX_BODY_CHARS` now bounds only the digest, where it will never bite.
+
+### Deep retrieval keeps working before the framework half lands
+
+The knowledge-component change described above has not landed, and shipping the
+split against today's indexer would move the text somewhere nothing indexes.
+So until it does, `ProjectKnowledge.refreshIndex` hands `buildChunkIndex` a
+**reading view of the store** in which a material's body is its full extracted
+text, while `buildIndex` — the document index the awareness map clusters —
+keeps reading the digest. That is the same division of labour the framework
+change will provide, obtained locally:
+
+- Chunk rows carry the **material's own uid** as `parent_uid`, so a deep hit
+  points at the document rather than at a comment about it.
+- The view costs one extra query per index build, not one per material: the
+  `material_text` comments are read once and mapped by `fields.subject_uid`.
+- The chunk manifest's premise survives. It keys on the parent's `updated_at`
+  and assumes the body is a function of it; the comment is written once, at
+  ingest, before the first index pass ever sees the material, and is never
+  edited afterwards.
+
+This view is **deleted** when the framework change lands. It is named here so
+that deletion is a known task rather than a discovery.
