@@ -5,16 +5,24 @@ type: request
 title: 'Terms of service: accepted before the builder loads'
 created_by: xgd
 created_at: '2026-09-01T00:51:21.466375+00:00'
-updated_at: '2026-09-03T21:55:15.268121+00:00'
+updated_at: '2026-09-03T21:59:08.591828+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 1
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-76256ec4
+  commits:
+  - working_sha: f205968b1950b43a4c27d6e3728a333282801aa0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: fe95f12f061fa5e7bfcda04a7ef3ec48c759d61b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.62
 ---
 
 # Terms of service: accepted before the builder loads
