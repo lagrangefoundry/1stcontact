@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T00:19:01.755056+00:00'
+updated_at: '2026-09-03T01:37:42.815334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -481,5 +481,30 @@ Two corrections, one of them mine.
 That inverts the critical path. DOC-33 and DOC-35 — the two I said were blocking — are exactly what's in the corpus. So the purpose's reading list and the reminder's pointer to the rules of interaction are buildable now, not after an authoring pass. I've corrected the ticket: the section is now "The corpus already carries the playbook", and what's left is a read-through of those two documents against DOC-39 §3.5 — they're retrievable, but DOC-35 still ends in open questions about itself, which isn't how a document addressed to the AI should read. That's a read, not a blocker.
 
 So the only thing actually gating REQ-171's first piece of code is getting REQ-113 into the shared store.
+
+<!-- xgd-turn id="00601050-686e-4496-bc30-803f0e0ba30a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T01:37:42.295518+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % grep -c MANUAL_LEVELS /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/toolbox/manual.js
+
+3
+((.venv-working) ) martin@nyx 1stcontact % bin/1c assets                                                                                             
+modules    2 css, 2 client.js → packages/framework/src/modules/module-assets.ts
+builder    22 files
+webui      59 files, 7 import-map entries, 6 stylesheets
+framework  edit-client.js, site-schema-edit.js, site-schema-shade.js
+ai         /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/workers.js
+ticketing  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing/src/index.js
+knowledge  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/knowledge/src/index.js
+bridge     /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge/src/index.js
+kb         8 document(s), 571KB inlined
+out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Updated
 
 <!-- xgd-chat-end -->
