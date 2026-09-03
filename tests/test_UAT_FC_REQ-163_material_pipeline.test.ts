@@ -95,22 +95,27 @@ suite('REQ-163 — rights come from provenance, never from a question', () => {
 
 suite('REQ-163 — the description is what makes material findable', () => {
   it('UAT_FC_REQ-163 a PDF yields its own text and its own declared title', async () => {
-    const description = await describeMaterial({
-      bytes: minimalPdf('The kitchen opens at six and the bread is baked overnight.'),
-      kind: 'document',
-      contentType: 'application/pdf',
-      filename: 'guidelines.pdf',
-    })
+    const description = await describeMaterial(
+      {
+        bytes: minimalPdf('The kitchen opens at six and the bread is baked overnight.'),
+        kind: 'document',
+        contentType: 'application/pdf',
+        filename: 'guidelines.pdf',
+      },
+      { describeText: async () => ({ text: 'A bakery brand guide.', model: 'stub/digest-1' }) },
+    )
     expect(description.status).toBe('ok')
-    // The words a client would search by are IN THE BODY, which is the only
-    // property that matters: the KB indexes bodies, so this is the difference
-    // between findable and not.
-    expect(description.body).toContain('kitchen')
-    expect(description.body).toContain('bread')
+    // The words a client would search by are CARRIED, which is the only property
+    // that matters: this is the difference between findable and not. [[REQ-173]]
+    // moved them out of the body and into `fullText` — bound for a
+    // `material_text` comment and the chunk index — because a body that is the
+    // whole document is a transcription rather than a description.
+    expect(description.fullText).toContain('kitchen')
+    expect(description.fullText).toContain('bread')
     // The PDF's own `/Title` beats anything derived from its first line — it was
     // written by whoever made the document.
     expect(description.title).toBe('Brand guidelines')
-    expect(description.describer).toBe('unpdf')
+    expect(description.describer).toContain('unpdf')
   })
 
   it('UAT_FC_REQ-163 a scanned PDF is STORED and honestly described, never rejected', async () => {

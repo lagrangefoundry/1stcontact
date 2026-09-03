@@ -53,8 +53,19 @@ function routerEnv(tenantId: string): RouterEnv {
 }
 
 /** No describer; an indexer that only counts. Neither claim below is about them. */
+/**
+ * A stubbed digest describer, alongside whatever else a suite injects.
+ *
+ * INGESTION REQUIRES A DESCRIBER NOW ([[REQ-173]]): a material's body is a digest,
+ * so a deployment that cannot reach a model has nothing to write and the route
+ * refuses with a 503 rather than storing an undescribed row. Every suite that
+ * uploads is therefore asserting about a CONFIGURED deployment, and says so here.
+ */
 function deps(): RouterDeps {
-  return { index: async () => async () => {} }
+  return {
+    index: async () => async () => {},
+    describeText: async () => ({ text: 'A document.', model: 'stub/digest-1' }),
+  }
 }
 
 /**

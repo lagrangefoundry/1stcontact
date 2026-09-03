@@ -26,6 +26,22 @@
  * reads beautifully and never uses the word "kitchen" has failed at the only job
  * it has, so the vision prompt asks for what a thing DEPICTS in the words someone
  * would search by.
+ *
+ * A DESCRIPTION, NEVER A TRANSCRIPTION (REQ-173). The four branches used not to
+ * agree on what a body was: an image and a font were *described* in a few
+ * sentences, and a document was *transcribed* — `clipBody(text)`, the whole
+ * extracted file. So a brand-guidelines PDF arrived in the Library's *"What this
+ * is"* field in full, directly below the REQ-172 reader window already rendering
+ * it properly. Every branch now produces a DIGEST, and the document's own text
+ * comes back as {@link Description.fullText} for the caller to keep beside the
+ * ticket rather than inside it.
+ *
+ * THE TEXT IS NOT DISCARDED, and that is the half that makes the split safe.
+ * `buildChunkIndex` chunking the extracted text is what makes a fact on page 12
+ * of a client's brand book retrievable at all ([[DOC-39]] §7's *"search wide,
+ * read deep"*). Replacing the body with three sentences and stopping there would
+ * silently delete deep retrieval — so this file hands the text back, `material.ts`
+ * writes it to a `material_text` comment, and `knowledge.ts` keeps chunking it.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
@@ -79,7 +95,13 @@ export interface Description {
    * narrow exception it has to rescue with an excerpt.
    */
   title: string
-  /** The body — what the material SAYS, so the KB can index it. */
+  /**
+   * The body — a DIGEST of what the material is (REQ-173).
+   *
+   * A few sentences: what it is, whose it is, roughly when it is from, what
+   * someone would reach for it for. Not the material itself — see
+   * {@link fullText}, and the module note for why the two are different places.
+   */
   body: string
   status: DescriptionStatus
   /**
@@ -89,6 +111,23 @@ export interface Description {
    * scope, the two fields that make it a query rather than a migration are not.
    */
   describer: string | null
+  /**
+   * The material's own extracted text, verbatim — `null` where there is none.
+   *
+   * NOT THE BODY, AND NOT A FIELD EITHER (REQ-173). The caller writes this to a
+   * `material_text` comment on the ticket, which is the precedent [[DOC-33]]
+   * §3.1/§3.2 already sets for chat: the durable, human-scale record in the body,
+   * the bulky verbatim artefact in an append-only comment. The alternatives were
+   * a `fields.extracted_text` — a very large field on a row every index pass
+   * reads — and a second blob beside the original bytes, which puts a retrieval
+   * input somewhere the knowledge component has no reason to look.
+   *
+   * SET EVEN WHERE THE DIGEST FAILED. Extraction and description fail
+   * independently: a deployment with no describer still read the file, and
+   * throwing its text away because a model could not be reached would lose the
+   * one half that was actually obtained.
+   */
+  fullText: string | null
 }
 
 /**
@@ -101,6 +140,49 @@ export type DescribeImage = (
   bytes: Uint8Array,
   contentType: string,
 ) => Promise<{ text: string; model: string }>
+
+/**
+ * The document describer, as a seam (REQ-173).
+ *
+ * ONE ARGUMENT, AND IT IS ALREADY TEXT. By the time this is called the extraction
+ * has run, so the model is fed prose rather than a file — which is what makes the
+ * cost of describing a document acceptable at all (see {@link digestSource}).
+ *
+ * ITS DEFAULT IMPLEMENTATION IS NOT AN SDK CALL. Unlike {@link DescribeImage},
+ * which has to reach the Messages API directly because the AI host's surface
+ * carries no image block, a document digest is text in and text out — so
+ * `ai.ts`'s {@link sessionTextDescriber} opens a lightweight session on the AI
+ * host's own session factory and prompts it once. The seam is here so the UATs do
+ * not reach the network, and so the two describers read alike from this file.
+ */
+export type DescribeText = (prompt: string) => Promise<{ text: string; model: string }>
+
+/**
+ * What the document describer is told to write (REQ-173).
+ *
+ * ASKS FOR THE WORDS SOMEONE WOULD SEARCH BY, for the same reason the vision
+ * prompt does and stated in the same terms: this body is what the document-level
+ * index embeds, and a paragraph of elegant abstraction embeds as a vector of
+ * nothing in particular.
+ *
+ * PROSE ONLY — NO TITLE LINE, which is where it differs from the image prompt. A
+ * document usually carries a real title, written by whoever made it, and
+ * {@link describePdf} prefers the PDF's own `/Title` over anything derived. The
+ * image branch asks for a title because a photograph has none to prefer.
+ *
+ * Exported because `ai.ts` builds the describer role's system prompt from it: the
+ * two prompts this product sends about material belong next to each other, in the
+ * file that decides what a description IS.
+ */
+export const DOCUMENT_DIGEST_SYSTEM =
+  'You write short descriptions of documents so they can be FOUND again by ' +
+  'search. You are given the text of one document, sometimes abridged. Answer ' +
+  'with two to four sentences saying what the document is, whose business it ' +
+  'concerns, roughly when it is from where the text says, and what someone would ' +
+  'reach for it for. Use the ordinary words someone would type looking for it, ' +
+  'and name the specific things it is about. Do not summarise its argument, do ' +
+  'not comment on how it is written, do not preface your answer, and do not ' +
+  'begin with a title line.'
 
 /**
  * The model that looks at images.
@@ -133,8 +215,41 @@ export const VISION_MAX_BYTES = 5 * 1024 * 1024
 /** What the Messages API will accept as an image block. */
 const VISION_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 
-/** How much extracted text goes in the body. Beyond this the tail is dropped. */
+/**
+ * The body's ceiling — which since REQ-173 bounds a DIGEST and will never bite.
+ *
+ * A body is a D1 text column and the corpus reads bodies on every index pass, so
+ * an unbounded one is paid for repeatedly. That argument is why the number
+ * existed; it is kept as the backstop on a body a model wrote, because "the model
+ * returned three sentences" is an assumption rather than a guarantee.
+ */
 export const MAX_BODY_CHARS = 200_000
+
+/**
+ * The ceiling on {@link Description.fullText} — the comment's, not the body's.
+ *
+ * FAR ABOVE THE BODY'S, AND A DIFFERENT KIND OF LIMIT (REQ-173). This one exists
+ * to bound what a single comment row may hold, not to keep an index pass cheap:
+ * the comment is read by the chunk indexer and by nothing else per request. What
+ * actually stops a massive amount of text arriving is `MAX_MATERIAL_BYTES` at the
+ * upload boundary — a ceiling on BYTES, which bites images and PDFs hardest
+ * because that is where the bytes are. This is the second line of that defence,
+ * for the pathological case of a small file that extracts to an enormous amount
+ * of text.
+ *
+ * STATED IN THE TEXT when it bites, for the reason {@link clipBody} states its
+ * own: text that stops mid-sentence with no explanation reads as corruption.
+ */
+export const MAX_EXTRACTED_TEXT_CHARS = 900_000
+
+/**
+ * How much of a document the digest is written from.
+ *
+ * THE HEAD ALONE IS THE COVER PAGE, which is the least informative part of a
+ * brand book. So {@link digestSource} takes the head AND a sample from further
+ * in, and this is the budget the two share.
+ */
+export const DIGEST_SOURCE_CHARS = 12_000
 
 /**
  * Ask the model what an image depicts.
@@ -220,7 +335,7 @@ export interface DescribeInput {
  */
 export async function describe(
   input: DescribeInput,
-  deps: { describeImage?: DescribeImage } = {},
+  deps: { describeImage?: DescribeImage; describeText?: DescribeText } = {},
 ): Promise<Description> {
   try {
     switch (input.kind) {
@@ -229,7 +344,7 @@ export async function describe(
       case 'font':
         return describeFont(input)
       case 'document':
-        return await describeDocument(input)
+        return await describeDocument(input, deps.describeText)
       default:
         return degraded(input, 'unsupported', `${input.kind} material is not described here.`)
     }
@@ -370,6 +485,9 @@ export async function describeCapture(
     body: [head, prose, facts].filter((part) => part !== '').join('\n\n'),
     status,
     describer,
+    // A capture has no extracted text of its own: what it holds is a screenshot
+    // and a structured essence, both of which are already summarised above.
+    fullText: null,
   })
 
   if (!deps.describeImage) {
@@ -416,14 +534,26 @@ export async function describeCapture(
  * The body is still WRITTEN, not left empty, because the Library shows bodies and
  * a blank one reads as a bug rather than as a known limitation. It names the
  * filename and the type so the entry is at least identifiable by what it is.
+ *
+ * IT ALREADY WROTE DIGEST-SHAPED PROSE, which is why REQ-173 left it alone —
+ * *"Scanned document, 14 pages, no extractable text"* is a description of what
+ * the thing is, not a transcription of it. The one thing it gained is
+ * `fullText`: a document whose DIGEST failed may still have been extracted, and
+ * the text is passed through so that half is not thrown away with the other.
  */
-function degraded(input: DescribeInput, status: DescriptionStatus, why: string): Description {
+function degraded(
+  input: DescribeInput,
+  status: DescriptionStatus,
+  why: string,
+  fullText: string | null = null,
+): Description {
   const provenance = `File: ${input.filename || '(unnamed)'} · ${input.contentType} · ${input.bytes.length} bytes`
   return {
     title: input.filename || 'Untitled material',
     body: `${why}\n\n${provenance}${input.sourceUrl ? `\nSource: ${input.sourceUrl}` : ''}`,
     status,
     describer: null,
+    fullText,
   }
 }
 
@@ -471,6 +601,9 @@ async function describeImageMaterial(
     body: body === '' ? head.trim() : `${head.trim()}\n\n${body}`,
     status: 'ok',
     describer: model,
+    // An image has no text of its own. The body IS the description, which is the
+    // shape REQ-173 made every other branch match rather than the other way round.
+    fullText: null,
   }
 }
 
@@ -483,18 +616,21 @@ async function describeImageMaterial(
  * step: class 4b — the background material a client actually hands over — IS
  * PDFs, so a pipeline that cannot read one has a body for every kind of material
  * except the important one.
+ *
+ * EXTRACTION AND DESCRIPTION ARE TWO STEPS NOW (REQ-173). Extraction produces the
+ * text, which goes back as `fullText`; description turns a sample of that text
+ * into the digest that becomes the body. They fail independently and are reported
+ * independently, which is why a document with no describer still carries its text.
  */
-async function describeDocument(input: DescribeInput): Promise<Description> {
-  if (input.contentType === 'application/pdf') return describePdf(input)
+async function describeDocument(
+  input: DescribeInput,
+  describeText?: DescribeText,
+): Promise<Description> {
+  if (input.contentType === 'application/pdf') return describePdf(input, describeText)
   if (isTextual(input.contentType)) {
     const text = new TextDecoder().decode(input.bytes).trim()
     if (text === '') return degraded(input, 'no_text', 'The file is empty.')
-    return {
-      title: titleFromText(text, input.filename),
-      body: clipBody(text),
-      status: 'ok',
-      describer: 'text-decode',
-    }
+    return digested(input, text, titleFromText(text, input.filename), 'text-decode', describeText)
   }
   return degraded(
     input,
@@ -504,7 +640,10 @@ async function describeDocument(input: DescribeInput): Promise<Description> {
   )
 }
 
-async function describePdf(input: DescribeInput): Promise<Description> {
+async function describePdf(
+  input: DescribeInput,
+  describeText?: DescribeText,
+): Promise<Description> {
   // A COPY, because pdf.js takes ownership of the buffer it is handed and
   // detaches it — and these bytes are attached to the ticket afterwards.
   const { text, totalPages } = await extractText(new Uint8Array(input.bytes), { mergePages: true })
@@ -512,7 +651,8 @@ async function describePdf(input: DescribeInput): Promise<Description> {
   if (trimmed === '') {
     // THE SCANNED CASE, and it is not a failure ([[DOC-38]] §10 / REQ-163). No
     // OCR in v1: the honest sentence costs nothing and makes the gap visible,
-    // where a rejection would make the document vanish.
+    // where a rejection would make the document vanish. There is no comment to
+    // write either — a material with no extractable text has no text to keep.
     return degraded(
       input,
       'no_text',
@@ -531,12 +671,112 @@ async function describePdf(input: DescribeInput): Promise<Description> {
     // A PDF with unreadable metadata still has readable text; the title falls
     // back below. Nothing here is worth failing an upload over.
   }
-  return {
-    title: declared !== '' ? clipTitle(declared) : titleFromText(trimmed, input.filename),
-    body: clipBody(trimmed),
-    status: 'ok',
-    describer: 'unpdf',
+  return digested(
+    input,
+    trimmed,
+    declared !== '' ? clipTitle(declared) : titleFromText(trimmed, input.filename),
+    'unpdf',
+    describeText,
+  )
+}
+
+/**
+ * Extracted text plus a title, turned into a digest and its verbatim other half.
+ *
+ * THE ONE PLACE THE SPLIT HAPPENS, shared by the PDF and the plain-text branches
+ * because it is the same decision either way: whatever produced the text, the
+ * body is a description of it and the text itself travels beside.
+ *
+ * THE TITLE IS NOT THE MODEL'S. Both callers already have a better one — the
+ * PDF's declared `/Title`, or the document's own first substantial line — and the
+ * digest prompt is told not to write one. That is the opposite of the image
+ * branch, and for the opposite reason: a photograph has no title to prefer.
+ *
+ * THE DESCRIBER'S OWN FAILURES ARE NOT THE MATERIAL'S. An absent describer, or
+ * one that answers with nothing, degrades the BODY and leaves the extraction
+ * untouched — status says which, and `fullText` is returned in every case, so the
+ * comment is written and the document stays deeply retrievable either way.
+ */
+async function digested(
+  input: DescribeInput,
+  text: string,
+  title: string,
+  extractor: string,
+  describeText?: DescribeText,
+): Promise<Description> {
+  const fullText = clipExtracted(text)
+  // THE DERIVED TITLE SURVIVES A MISSING DESCRIBER, which is why these branches
+  // do not go through {@link degraded}. That function falls back to the filename,
+  // which is right when nothing could be read at all — and wrong here, where the
+  // document WAS read and its own declared title is already in hand. BUG-41's
+  // claim is about `titleFromText`, and it must not become a claim about whether
+  // a model was reachable.
+  const notDescribed = (why: string, status: DescriptionStatus): Description => ({
+    title,
+    body: `${why}\n\nFile: ${input.filename || '(unnamed)'} · ${input.contentType} · ${input.bytes.length} bytes`,
+    status,
+    describer: null,
+    fullText,
+  })
+  if (!describeText) {
+    return notDescribed(
+      'Document stored and read, but not described: no describer is configured, so ' +
+        'nothing has written what it is yet. Its own text is kept and searchable.',
+      'no_describer',
+    )
   }
+  const { text: prose, model } = await describeText(digestSource(text))
+  const digest = prose.trim()
+  if (digest === '') {
+    return notDescribed(
+      'Document stored and read, but the describer returned nothing for it. ' +
+        'Its own text is kept and searchable.',
+      'failed',
+    )
+  }
+  return {
+    title,
+    body: clipBody(digest),
+    status: 'ok',
+    // The MODEL, not the extractor — `description_model` names whoever wrote the
+    // body, and since REQ-173 that is the model for every document with a digest.
+    // The extractor is still recorded, because which reader produced the text is
+    // what a later re-extract pass would select on.
+    describer: `${model} (${extractor})`,
+    fullText,
+  }
+}
+
+/**
+ * What the describer is shown: the head of the document, plus a sample from
+ * further in.
+ *
+ * THE HEAD ALONE IS THE COVER PAGE. A brand book opens with a logo, a client
+ * name and a date, and a digest written from that says the document is a brand
+ * book — which the filename already said. The sample is taken from the middle,
+ * where the document is actually about something.
+ *
+ * TWO PIECES, MARKED AS SUCH. The gap is stated rather than elided, because a
+ * model handed two spans spliced silently together will write about the seam.
+ */
+export function digestSource(text: string): string {
+  if (text.length <= DIGEST_SOURCE_CHARS) return text
+  const head = Math.floor((DIGEST_SOURCE_CHARS * 2) / 3)
+  const tail = DIGEST_SOURCE_CHARS - head
+  const from = Math.floor((text.length - tail) / 2)
+  return (
+    `${text.slice(0, head)}\n\n[…]\n\n` +
+    `[Continues from character ${from} of ${text.length}.]\n\n${text.slice(from, from + tail)}`
+  )
+}
+
+/**
+ * The extracted text, bounded — see {@link MAX_EXTRACTED_TEXT_CHARS} for which
+ * ceiling this is and which one actually does the work.
+ */
+function clipExtracted(text: string): string {
+  if (text.length <= MAX_EXTRACTED_TEXT_CHARS) return text
+  return `${text.slice(0, MAX_EXTRACTED_TEXT_CHARS)}\n\n[Text truncated at ${MAX_EXTRACTED_TEXT_CHARS} characters.]`
 }
 
 /** Content types whose bytes are just text. */
@@ -594,6 +834,9 @@ function describeFont(input: DescribeInput): Description {
     body: lines.join('\n\n'),
     status: 'ok',
     describer: 'sfnt-name-table',
+    // Already three sentences about what the face IS. This branch is one of the
+    // two REQ-173 made the document branch resemble; it had nothing to change.
+    fullText: null,
   }
 }
 
@@ -703,12 +946,14 @@ function clipTitle(text: string): string {
 }
 
 /**
- * The body, bounded.
+ * The body, bounded — a BACKSTOP since REQ-173, no longer a working limit.
  *
  * A body is a D1 text column and the corpus reads bodies on every index pass, so
- * an unbounded one is paid for repeatedly. The clip is STATED IN THE TEXT rather
- * than silent — a description that stops mid-sentence with no explanation reads
- * as corruption.
+ * an unbounded one is paid for repeatedly. That was a live concern while the body
+ * was a whole extracted document; it is now a digest, and this bites only if a
+ * model answers a request for three sentences with two hundred thousand
+ * characters. The clip is STATED IN THE TEXT rather than silent — a description
+ * that stops mid-sentence with no explanation reads as corruption.
  */
 function clipBody(text: string): string {
   if (text.length <= MAX_BODY_CHARS) return text

@@ -14,6 +14,7 @@ import {
 } from './generated/knowledge'
 import type { Ticket, TicketStore, TicketStoreEnv } from './tickets'
 import { ticketStoreFor } from './tickets'
+import { MATERIAL_TEXT_KIND } from './material'
 import KB_CONFIG from '../../../kb/knowledge_bases.json'
 
 /**
@@ -351,14 +352,27 @@ export class ProjectKnowledge {
    * moved keeps its vector and only genuinely changed tickets are re-embedded.
    * That is what makes indexing affordable on every write instead of on a
    * cadence, and it is why `onMaterialWritten` can do it inline.
+   *
+   * THE TWO INDEXES NOW READ THE SAME CORPUS THROUGH DIFFERENT EYES (REQ-173).
+   * The document index reads a material's body, which is its digest — a short,
+   * on-topic paragraph that embeds cleanly and that the awareness map can
+   * usefully cluster a territory from. The chunk index reads
+   * {@link materialTextView}, in which a material's body is its whole extracted
+   * text — which is what makes a fact on page 12 of a client's brand book
+   * retrievable at all. That is precisely the division of labour the two indexes
+   * were built for ([[DOC-39]] §7's *"search wide, read deep"*); before REQ-173
+   * both read one 200,000-character body and neither did its job well.
    */
   async refreshIndex(): Promise<IndexRefresh> {
     const stats = (await buildIndex(this.store, this.kbs, this.index, {
       embedder: this.embedder,
     })) as { total: number; added: number; kept: number }
-    const chunkStats = (await buildChunkIndex(this.store, this.kbs, this.chunks, {
-      embedder: this.embedder,
-    })) as { chunks: number }
+    const chunkStats = (await buildChunkIndex(
+      await materialTextView(this.store),
+      this.kbs,
+      this.chunks,
+      { embedder: this.embedder },
+    )) as { chunks: number }
     return {
       documents: stats.total,
       embedded: stats.added,
@@ -653,4 +667,66 @@ export async function projectKnowledgeFor(
     transcriptChars: opts.transcriptChars,
     enumerateBudget: opts.enumerateBudget,
   })
+}
+
+/**
+ * The store as the CHUNK index should read it: a material's body is its own
+ * extracted text (REQ-173).
+ *
+ * WHY A VIEW AND NOT A CORPUS CHANGE. `buildChunkIndex` chunks `ticket.body` and
+ * only `ticket.body`, so once REQ-173 moved a document's text into a
+ * `material_text` comment there were two ways to keep it retrievable: declare the
+ * comments as corpus members of their own, or let the chunk builder see them as
+ * part of the material they belong to. Declaring them makes a chunk hit's
+ * `parent_uid` the COMMENT's uid — a deep hit that points at *"Comment on
+ * material-x"* rather than at the client's brand book — and puts the comments in
+ * the document index and the awareness map too, which is the transcript-shaped
+ * vector this ticket exists to get rid of. Substituting the body keeps every one
+ * of those properties right and needs no declaration at all.
+ *
+ * IT IS TEMPORARY AND IT IS NAMED AS SUCH. The proper home for this is the
+ * knowledge component: `buildChunkIndex` learning to chunk a designated comment
+ * kind alongside the body, which is a change in `lagrange-framework`. When that
+ * lands, this function and its call site are DELETED — the chunk builder will be
+ * given `this.store` like the document builder, and the behaviour will not
+ * change.
+ *
+ * ONE QUERY, NOT ONE PER MATERIAL. The comments are read once and mapped by
+ * `fields.subject_uid`. Reading them per material would be a scan of every
+ * comment in the store per document, which is quadratic in the corpus on a path
+ * that runs on every upload.
+ *
+ * THE MANIFEST'S PREMISE SURVIVES, which is the one thing about this that is
+ * easy to get silently wrong. The chunk manifest keys on the parent's
+ * `updated_at` and the component says why: everything on a kept row is *"a
+ * function of the body, which by definition has not changed if `updated_at` has
+ * not"*. That holds here because `ingest` writes the comment BEFORE the first
+ * index pass ever sees the material and nothing edits it afterwards — so the
+ * text a given `updated_at` implies is fixed, exactly as a body would be.
+ */
+export async function materialTextView(store: TicketStore): Promise<Untyped> {
+  const { tickets } = await store.query({
+    predicate: `type="comment" AND fields.kind="${MATERIAL_TEXT_KIND}"`,
+    limit: 'all',
+  })
+  const text = new Map<string, string>()
+  for (const comment of tickets) {
+    const subject = String((comment.fields as Record<string, unknown>)?.subject_uid ?? '')
+    if (subject !== '' && comment.body) text.set(subject, comment.body)
+  }
+  // THE STORE ITSELF when there is nothing to substitute, so a deployment with no
+  // documents yet indexes through exactly the object the document index does and
+  // this file adds no code path to a corpus it has nothing to say about.
+  if (text.size === 0) return store
+  return {
+    query: async (args: { predicate?: string; limit?: number | 'all' }) => {
+      const result = await store.query(args)
+      return {
+        ...result,
+        tickets: result.tickets.map((ticket) =>
+          text.has(ticket.uid) ? { ...ticket, body: text.get(ticket.uid) as string } : ticket,
+        ),
+      }
+    },
+  }
 }

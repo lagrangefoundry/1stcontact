@@ -55,12 +55,27 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
 }
 
 /** No describer, and an indexer that only counts — the default for most claims. */
+/**
+ * A stubbed digest describer, alongside whatever else a suite injects.
+ *
+ * INGESTION REQUIRES A DESCRIBER NOW ([[REQ-173]]): a material's body is a digest,
+ * so a deployment that cannot reach a model has nothing to write and the route
+ * refuses with a 503 rather than storing an undescribed row. Every suite that
+ * uploads is therefore asserting about a CONFIGURED deployment, and says so here.
+ */
+/** The digest describer, doubled — no claim here is about how a document reads. */
+const digest: NonNullable<RouterDeps['describeText']> = async () => ({
+  text: 'A note about a bakery, kept for reference.',
+  model: 'stub/digest-1',
+})
+
 function deps(over: Partial<RouterDeps> = {}): RouterDeps & { indexed: string[] } {
   const indexed: string[] = []
   return {
     index: async () => async (uid: string) => {
       indexed.push(uid)
     },
+    describeText: digest,
     ...over,
     indexed,
   }
@@ -273,7 +288,10 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
         deps(),
       ),
     )
-    expect(String(item.body)).toContain('late-night bakery')
+    // THE DIGEST, which is what a body is since [[REQ-173]] — the file's own
+    // extracted text is in its `material_text` comment, and the pane renders it
+    // through the REQ-172 reader window rather than out of this field.
+    expect(String(item.body)).toContain('kept for reference')
 
     // And a second tenant sees none of it — the barrier is the store handle's,
     // and this is the surface that would leak it if it were not.
@@ -376,7 +394,11 @@ describe('REQ-161 — the client corrects the description', () => {
       await upload(
         tenant,
         { bytes: bytesOf('png-ish bytes'), name: 'DSC_4821.jpg', type: 'image/jpeg', role: 'site' },
-        { index, describeImage: undefined },
+        // NO VISION DESCRIBER, but a configured deployment ([[REQ-173]]). The
+        // ingest route refuses a deployment that can describe nothing at all, so
+        // the state this claim is about — an image nothing has LOOKED at — is
+        // expressed by withholding the vision seam alone.
+        { index, describeImage: undefined, describeText: digest },
       ),
     )
     expect(created.description_status).toBe('no_describer')
@@ -426,7 +448,8 @@ describe('REQ-161 — the client corrects the description', () => {
       await upload(
         tenant,
         { bytes: bytesOf('png-ish'), name: 'a.jpg', type: 'image/jpeg', role: 'site' },
-        { index: async () => async () => {}, describeImage: undefined },
+        // As above: the vision seam is withheld, not the deployment's key.
+        { index: async () => async () => {}, describeImage: undefined, describeText: digest },
       ),
     )
     const store = await ticketStoreFor(routerEnv(tenant))
