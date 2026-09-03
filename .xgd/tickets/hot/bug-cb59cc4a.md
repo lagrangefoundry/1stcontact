@@ -5,16 +5,24 @@ type: bug
 title: A document in the corpus that is not in the index is a shipped lie
 created_by: xgd
 created_at: '2026-09-02T20:49:23.510284+00:00'
-updated_at: '2026-09-03T03:18:42.878331+00:00'
+updated_at: '2026-09-03T03:24:13.732765+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-2a38a753
+  commits:
+  - working_sha: f00bf2693537f5ebcad901118e0e584990438d09
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2598245285dcc48672a19130cddce1555dd18a70
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.60
 ---
 
 # A document in the corpus that is not in the index is a shipped lie
