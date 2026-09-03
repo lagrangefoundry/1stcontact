@@ -217,7 +217,8 @@ export function knowledgePriming(runtime: Untyped): Untyped {
     // open.
     register: (providers: Untyped, box: Untyped) =>
       registerKmProviders(providers, () => runtime, {
-        mechanismFor: () => box.manual(),
+        // The summary, not the reference (REQ-171).
+        mechanismFor: () => box.manual({ level: 'summary' }),
         kb: SYSTEM_KB,
       }),
   }

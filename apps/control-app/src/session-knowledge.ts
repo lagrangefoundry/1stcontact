@@ -394,7 +394,9 @@ export function sessionPriming(knowledge: SessionKnowledge): Untyped {
     // assembled-once snapshot could not.
     register: (providers: Untyped, box: Untyped) =>
       registerKmProviders(providers, () => knowledge.composite, {
-        mechanismFor: () => box.manual(),
+        // THE SUMMARY, NOT THE REFERENCE (REQ-171): per-tool detail is what
+        // `DescribeTools` fetches at the moment a tool is about to be called.
+        mechanismFor: () => box.manual({ level: 'summary' }),
         // EXACTLY THE KBs THAT OPENED, and in their insertion order — the same
         // confinement {@link sessionKnowledgeSurface} makes on the search axis,
         // for the same reason. Naming the static pair here instead would declare

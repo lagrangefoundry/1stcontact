@@ -58,6 +58,8 @@ import {
   consultantReminder,
   LEGACY_ROLE_NAMES,
 } from './roles'
+import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
+import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import type { FidelityDeps } from './fidelity-core'
@@ -283,6 +285,17 @@ export interface HostDeps {
    * can name a site the session is not about.
    */
   fidelity?: ((slug: string) => FidelityDeps) | null
+
+  /**
+   * This session's engagement record (REQ-171), or `null` where there is none.
+   *
+   * A FACTORY OVER THE SLUG, exactly like `fidelity` above and for the same
+   * reason: the record belongs to one session, and which session that is falls
+   * out of the site. A deployment with nowhere to keep a record — the `1c` CLI,
+   * whose archive is a file and which has no ticket store — passes `null` and
+   * composes no ledger surface at all, rather than one that fails on first use.
+   */
+  ledger?: ((slug: string) => LedgerDeps) | null
 
   /**
    * The knowledge system's two named priming providers, or null.
@@ -526,6 +539,19 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
         ...(deps.fidelity ? [{ surface: await fidelitySurfaceFor(lib, deps.fidelity(slug)) }] : []),
+        // The engagement record, where this deployment keeps one. Its grant
+        // TRAVELS WITH IT — unlike fidelity's, which is an entry in
+        // `instances.json` — because what a session may do to its own record is
+        // a property of the surface and not a per-role decision, and the
+        // narrowing below removes it wherever it was not composed.
+        ...(deps.ledger
+          ? [
+              {
+                surface: await ledgerSurfaceFor(lib, deps.ledger(slug)),
+                granted: ledgerInstanceConfig(),
+              },
+            ]
+          : []),
       ],
     },
   )
@@ -617,7 +643,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         new lib.Entry({ name: 'consultant-purpose', text: CONSULTANT_PURPOSE }),
         new lib.Entry({ name: 'consultant-mechanism', provider: deps.priming.mechanism }),
       ]
-    : [new lib.Entry({ name: 'consultant-source-0', text: box.manual() })]
+    : [new lib.Entry({ name: 'consultant-source-0', text: box.manual({ level: 'summary' }) })]
 
   const role = new lib.Role({
     name: CONSULTANT_ROLE,

@@ -853,7 +853,8 @@
         "add_page",
         "update_page",
         "remove_page"
-      ]
+      ],
+      "description": "The pages themselves, rather than what is on them — which pages the site has, what each is called, where it sits, and how it describes itself to a search engine. A new page arrives empty; putting something on it is the work of the group above."
     },
     {
       "group": "ManageComponents",
@@ -872,7 +873,8 @@
       "title": "Changing the site's settings",
       "operations": [
         "set_config"
-      ]
+      ],
+      "description": "The settings that belong to the whole site rather than to any one page — how it identifies itself, and the groups of options the site is built from. Writing is always partial: what you do not name is left exactly as it was."
     },
     {
       "group": "ManagePalette",
