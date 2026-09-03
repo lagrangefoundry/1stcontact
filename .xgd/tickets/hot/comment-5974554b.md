@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:17:59.779114+00:00'
+updated_at: '2026-09-03T00:30:08.555326+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -218,5 +218,11 @@ Full suite: 2343 passing. One failure, `bug32-webui-scope-rebrand` — pre-exist
 **Two things I'd flag rather than leave buried**
 
 The version bump needed redoing as `0.2.50` because `0.2.49` landed on the *merge* commit, which the promotion gate reads as someone else's publish — worth knowing for the next merge-back. And the consultant still has `DrawImages` but not `ManageAssets`, so it can bind only faces and images the site already holds; I left that grant where it was, per D6, but with `resources` now writable it's a sharper edge than it was.
+
+<!-- xgd-turn id="a23e9563-c0c0-406d-9c08-a448b7d4338d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:30:08.334542+00:00" -->
+#### You
+Are the new capabilities fully documented?
 
 <!-- xgd-chat-end -->
