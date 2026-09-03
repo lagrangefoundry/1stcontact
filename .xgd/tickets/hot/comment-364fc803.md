@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:07:31.160769+00:00'
+updated_at: '2026-09-03T00:09:29.595243+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -317,5 +317,40 @@ $ /opt/homebrew/bin/pnpm pack --pack-destination /var/folders/27/xt2427c97lzdk20
 js → /Users/martin/lagrangefoundry @lagrangefoundry/ai 0.0.0 from components/ai/js → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai [473.4KB]
 
 exit=0 ((.venv-tests) ) martin@nyx lagrange-framework %
+
+<!-- xgd-turn id="36bfd42a-46f3-4431-a3bd-2064bfdc171b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:09:29.257826+00:00" -->
+#### Claude
+That install is the one that already landed earlier this session — I verified it (`transcript(` went 0→1) and built the whole fix on top of it. My last verification command got killed (exit 137, running two suites plus tsc at once), so let me redo it in smaller pieces and finish.
+
+Green. Committing:
+
+The merge lock is held by another active session (REQ-166, acquired a minute ago). Not abandoned — I'll wait for it rather than clear it.
+
+The commit is in. While the merge lock clears, here's where things stand.
+
+**Landed on `free-BUG-46` as `6be7ac96777c125d2055600deb72f8d03bdcc2c4`** — 8 files, +961/−28.
+
+All three parts of the fix are in:
+
+1. **Render from the junction.** `storedTurns` → `storedTranscript`, over upstream's `transcript()`. It folds the junction, returns the cursor, and seeds from the archive where there's no junction. Stays ahead of `attach` because it touches no backend. The blanket `catch { return [] }` is narrowed to the genuine "no conversation yet" case, discriminated by the archive's own listing rather than by error text — the same call `attach` already makes the same distinction with.
+2. **`ctx.waitUntil`.** Threaded from the fetch handler through `route` into `streamTurn`, both optional so the Node transport degrades to prior behaviour. The comment claiming `waitUntil` was unreachable is corrected.
+3. **`/api/ai/reattach`.** Tails `watch()` from the cursor, framed identically to a live turn. The record→event projection lives in `host-core.ts`, not the router. A missing cursor is a 400, not a silent zero.
+
+Plus the false comment at `ai.ts` — it was restating DOC-21 §1.5, retracted upstream when `closedPrefix` landed.
+
+**Verification.** Six UATs, all failing against the unfixed code and passing with it. Two things worth flagging about them:
+
+- The `waitUntil` test **initially passed against the bug**. Nothing tears an isolate down under vitest, so an unregistered drain just carries on and finishes — "the transcript got archived" is true either way. It now asserts that the route *handed the runtime a promise* (zero before this ticket) and that awaiting only what was registered suffices.
+- The ticket's proof #4 says a keyless `openSession` returns `ready: false`. **It doesn't in workerd** — the backend factory is lazy, so the failure surfaces on the first turn instead. That predates this ticket; REQ-146's equivalent test quietly asserts the same subset for the same reason. I asserted the part BUG-46 owns (full transcript from a keyless cold isolate) and wrote the divergence into the ticket as a finding.
+
+**Full suite:** 2293 passed. Two failures, both pre-existing — I ran a clean-tree baseline to confirm. `bug32-webui-scope-rebrand` fails consistently without my changes; a second failure rotates between runs (`l1-navigation`, `req115-builder-shell`) and each passes in isolation, so that suite is flaky independent of this work. I added one probe to the origin reconciliation test, which requires every declared route to have a cacheability probe.
+
+**One part of (3) is deferred, for a reason outside this repo.** The panel isn't wired to call the reattach route. `chat.js` would need to render a resumed stream into the live assistant bubble, and `@lagrangefoundry/webui-chat` has no affordance for that — every streaming path goes through `send(text)`, which appends a user message first. So a reloaded panel now paints the turn up to the fold (the reported bug, fixed) but doesn't yet resume painting. Route and transport are in place and tested for when that affordance exists.
+
+Two things still open from earlier that I've assumed rather than had confirmed: I did **not** file the Durable Object ticket for part (4) — the residual risk is recorded in the body instead. Say the word if you want it filed. And the webui-chat affordance likely wants a framework ticket, which is equally not mine to create unasked.
+
+Once the lock frees I'll merge to `xgd-working`, then `move-to-free-coded`. That needs a version — tell me which, or I'll take the next unclaimed patch after 0.2.46.
 
 <!-- xgd-chat-end -->
