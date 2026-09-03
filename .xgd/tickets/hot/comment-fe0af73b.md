@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T02:36:53.249278+00:00'
+updated_at: '2026-09-03T03:06:55.746833+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -533,5 +533,37 @@ I can start on the summary adoption the moment you tell me which ticket it belon
 <!-- xgd-chat role="user" ts="2026-09-03T02:36:52.849762+00:00" -->
 #### You
 Please free code it all on one branch
+
+<!-- xgd-turn id="fa29b96b-de58-48d4-adbd-3d024a9165f2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:06:55.546976+00:00" -->
+#### Claude
+Understood — one branch, whole ticket. Let me first check what exists for the ledger piece, since that's the part I've specified but never verified is buildable.
+
+`TicketAppendBody` exists on the ticketing surface, but that surface isn't registered in the session at all — so the ledger needs a narrow host operation rather than handing the consultant a general ticket API. Recording the decisions in the ticket first, since UATs have to trace to its language.
+
+Structure understood. Starting with the summary manual + `ManualToolbox` wiring.
+
+Now implementing. First, composing `ManualToolbox` centrally so both hosts get it.
+
+Now the text restructure. Reading the current system prompt in full.
+
+Now the text split — product-level material into a shared constant, role material staying per-role.
+
+Verifying what's landed so far before moving to the ledger.
+
+Now the ledger. Checking how a session reaches its chat ticket.
+
+The Worker has a `TicketStore`; the node CLI doesn't. That maps onto the fidelity-surface pattern REQ-157 established. Let me use it as the template.
+
+Now building the ledger surface.
+
+Everything I need is on the store. Writing the Worker's ledger.
+
+Typecheck clean (the one error is pre-existing on HEAD). Now the UATs — reading the existing harness first.
+
+`toolbox.ts`'s node wrapper builds its own `extraSurfaces` and silently ignores the argument — that's why the ledger never composed. Switching the test to the core path the Worker actually uses.
+
+Two new failures from my changes. Let me look.
 
 <!-- xgd-chat-end -->
