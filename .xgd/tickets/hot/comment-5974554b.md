@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:01:19.724191+00:00'
+updated_at: '2026-09-03T00:10:34.864881+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -169,5 +169,11 @@ One pre-existing failure remains (`bug32-webui-scope-rebrand`, flagging a BUG-42
 Two follow-ups I'd flag rather than silently absorb: the version bump needed redoing as `0.2.50` because `0.2.49` landed on the *merge* commit, which the promotion gate reads as someone else's publish; and the consultant still has `DrawImages` but not `ManageAssets`, so it can bind only faces and images the site already holds — a grant decision I left where it is, per D6.
 
 I'm polling for the lock now and will promote the ticket as soon as REQ-178 releases it.
+
+<!-- xgd-turn id="f25a02fb-b4ee-4cbe-98b3-4d493bbaf324-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:10:33.979513+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
