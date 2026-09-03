@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T03:16:15.129564+00:00'
+updated_at: '2026-09-03T03:20:54.440987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -571,5 +571,37 @@ Two new failures from my changes. Let me look.
 <!-- xgd-chat role="user" ts="2026-09-03T03:16:15.085229+00:00" -->
 #### You
 Please free code it all on one branch
+
+<!-- xgd-turn id="065aeec8-cd06-4deb-bace-cd81ce936dee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T03:20:54.368069+00:00" -->
+#### Claude
+Picking up where the run was killed. Let me settle whether `reconciliation-l1-navigation` is a real regression or a flake.
+
+`reconciliation-l1-navigation` isn't in the node-project run at all — the earlier failure was an artifact of the combined run that OOM'd. Node project: 6 failing files, exactly the HEAD baseline. No regressions.
+
+Before committing, the ticket says the ledger follows `extraOps`; I built it as a composed surface. Fixing that so the UATs trace to accurate language.
+
+Done — REQ-171 is `free_coded` at `f0724a53`, version 0.2.58, merged back to `xgd-working`, branch and lock cleaned up. 26 UATs pass (18 node, 8 workerd).
+
+**What landed:**
+
+**Priming carries a summary.** All four call sites now pass `{ level: 'summary' }`, and `ManualToolbox` is composed centrally in `createL1Toolbox` so both hosts get `DescribeTools` without either wiring it. The L1 manual goes 43,047 → 10,830 characters. The route to the detail travels with the summary that needs it.
+
+**Product material is written once.** `PRODUCT_SYSTEM` names no role and is asserted to name none, including the retired one — read from `LEGACY_ROLE_NAMES` rather than written out, so it stays true if that list grows. `CONSULTANT_ROLE_TEXT` composes in front of it, role-first.
+
+**Two lines the rename had carried forward are gone.** "They are not technical" is now DOC-35 §9.4's asymmetry rule; "make the smallest change" now applies to adjustments only, with options-that-differ-in-kind at real decisions.
+
+**The purpose names both corpora and the documents to read.** The reminder gained one line carrying the habit that decays plus a pointer to DOC-33, and stays under 600 characters.
+
+**The ledger is written** — a third surface, composed only where there's a ticket store, so the CLI gets a consultant that can't record decisions rather than one that fails to start.
+
+**Three things worth knowing:**
+
+I changed a decision after specifying it. The ticket said the ledger would follow the `extraOps` pattern; `extraOps` supplies host implementations for operations `l1-surface.json` already declares, and the ledger changes no site — putting it there would falsify that document's claim about itself. I built it as a surface and rewrote the ticket's Decisions section to say so before committing, so the UATs trace to accurate language.
+
+`tools/generate/src/cli/ai/toolbox.ts`'s node wrapper accepts no `extraSurfaces` and silently drops the argument. It cost me a debugging cycle. I left it alone — widening it wasn't needed here — but it's a trap for the next caller.
+
+The full combined suite OOM'd and produced one failure (`reconciliation-l1-navigation`) that doesn't reproduce: it passes alone, passes grouped with neighbours, and is absent from a clean `--project node` run. That run shows 6 failing files, exactly the HEAD baseline — all KB-index environmental failures that predate this branch.
 
 <!-- xgd-chat-end -->
