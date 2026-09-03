@@ -5,16 +5,24 @@ type: request
 title: The consultant gets the whole of L1, and keeps getting it
 created_by: xgd
 created_at: '2026-09-02T20:48:58.308743+00:00'
-updated_at: '2026-09-02T23:25:47.567425+00:00'
+updated_at: '2026-09-03T00:11:36.533387+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5974554b
+  commits:
+  - working_sha: 18102f737435788398a4873745f807444b06e098
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6cddcbb1c4fb022c0a7defe8ec10e71faa644472
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.50
 ---
 
 # The consultant gets the whole of L1, and keeps getting it
