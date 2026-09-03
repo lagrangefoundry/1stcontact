@@ -5,7 +5,7 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-03T02:43:11.270969+00:00'
+updated_at: '2026-09-03T03:24:15.136574+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -401,3 +401,53 @@ permanent, and present in R2 keys.
   and 503-ing when it is chosen.
 - The operator's existing `1stcontact` business is still reachable after the
   migration, re-running the migration changes nothing.
+
+
+## What the implementation added, and why
+
+Five things the sections above imply but did not say. They are written down here
+because each one has a UAT against it, and a UAT with no language behind it is
+drift by the time anyone reads it again.
+
+**A target is ignored on the dev-open branch.** That branch has no identity to
+authorise a target against, so honouring one would make the loopback door the
+single place in the system where a business is chosen with nobody checking — a
+shape that reads as a feature and would eventually be relied on. It resolves to
+`TENANT_ID` whether or not the request named a business.
+
+**The openers refuse an empty scope, under a name that is not
+`TenantNotConfiguredError`.** `resolveScope` cannot produce `{ businessId: '' }`
+— every branch either returns an id read out of an admission or throws — so an
+empty one reaching `storeFor` or `ticketStoreFor` means a caller built a scope by
+hand. That is a programming error, and telling an operator to go and check
+`wrangler.toml` for it would send them to fix something that is not broken. It is
+still checked rather than passed through, because `forTenant('')` would look up a
+tenant nobody registered and surface as "unknown tenant", which reads as a missing
+migration. This supersedes [[REQ-162]]'s assertion that an unscoped ticket store
+raises `TenantNotConfiguredError`: the refusal is unchanged and still happens at
+construction, only its name now matches what it means.
+
+**A chat host that fails to build is evicted from the cache.** A rejected promise
+left in the map would poison that business for the isolate's life — a missing
+binding repaired a second later would keep answering with the first failure, and
+only for whichever business happened to ask first. The single `let` had the same
+flaw and could hide it, because one poisoned entry looked like a dead isolate
+rather than like one dead tenant.
+
+**The rename covers every TypeScript field that holds a business id**, not only
+`AdmittedBusiness`. `InviteResult` and `BusinessResult` carry the same value under
+the same wrong name, and leaving two behind would reproduce exactly the confusion
+the rename exists to remove. The SQL columns and the `acct_` prefix are still
+untouched.
+
+**The migration seeds the grant as well as the membership.** [[DOC-40]] §5 makes
+entitlement a separate condition from membership, and `admit` refuses a business
+with no active grant covering now — so a membership on its own would leave the
+operator refused at the door with `no_entitlement` rather than served an empty
+builder, which is a different failure from the one the migration exists to
+prevent and no better. The grant is open-ended: a dated one on the platform's own
+business would expire the operator out of their own deployment at a wall-clock
+time nobody chose. `platform_admin` is deliberately left at 0 — the ambient flag
+is [[DOC-40]] §6 and [[REQ-170]]'s `PLATFORM_ADMINS` var is its seed, and deciding
+that ticket's bootstrapping question from inside a data migration is where nobody
+would look for it.
