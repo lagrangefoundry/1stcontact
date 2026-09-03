@@ -5,7 +5,7 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-02T23:56:28.679042+00:00'
+updated_at: '2026-09-03T02:41:48.729905+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -307,3 +307,192 @@ to "the operator's last selection if still admissible". Nothing stores that
 today. It is a one-column decision ([[REQ-178]]'s user row, or a cookie the
 switcher sets) and it is [[REQ-179]]'s to make; this ticket reads whatever it
 lands on and falls through to the first admissible business until it exists.
+
+
+---
+
+## Revision: the decisions this ticket had left open
+
+Four things were unresolved when the revision above was written — how a target
+reaches the Worker, where the no-target fallback gets its answer, what happens on
+the path that has no identity at all, and what the vocabulary is. They are
+settled here, against the code as [[REQ-178]] left it.
+
+### The read table was wrong in two places
+
+`env.TENANT_ID` is read in **five** places, not four, and one of the four listed
+is not a reader at all:
+
+| Site | What it scopes |
+| --- | --- |
+| `apps/control-app/src/store.ts` | the site store handle |
+| `apps/control-app/src/tickets.ts` | **the ticket store** — transcripts, material, the project corpus |
+| `apps/control-app/src/knowledge.ts` | the project KB's R2 index prefixes |
+| `apps/control-app/src/router.ts` | the tenant handed to `workerHost`, which becomes the audit prefix |
+| `apps/control-app/src/identity.ts` | **the platform tenant — this one stays** |
+
+`ai.ts` was listed and reads nothing: `TENANT_ID` on `WorkerAiEnv` is vestigial
+and is deleted, because `workerHost` already takes `tenantId` as a parameter. The
+transcript archive named there moved into the ticket store with [[REQ-160]]; the
+only surviving tenant-keyed R2 path is `audit/<tenant>/<session>/`.
+
+`tickets.ts` is the omission that matters. Since [[REQ-160]] and [[REQ-162]] the
+ticket store is where chat transcripts, uploaded material and the project corpus
+live, so leaving it reading a var is exactly the one-site-left-behind failure the
+UAT below exists to catch.
+
+`TENANT_ID` is removed from `StoreEnv`, `TicketStoreEnv`, `ProjectKnowledgeEnv`
+and `WorkerAiEnv`, and survives only on `IdentityEnv`. Rewriting the env in place
+(`{...env, TENANT_ID: scope.id}`) would be a smaller diff and is rejected: it
+keeps one-tenant-per-deployment alive in the type system, it makes `identity.ts`'s
+platform lookup read the operated business if identity is ever consulted inside a
+route, and it leaves every reader still reading, so the UAT below could not be
+written.
+
+### The target travels as a path prefix
+
+The switcher sends a business on ordinary requests ([[REQ-179]]), so the Worker
+needs a wire shape for it. It is a **path prefix**, `/b/<businessId>/…`, stripped
+once at the top of `route()` before any route matches.
+
+A header cannot work, and the reason is specific rather than aesthetic. Three of
+`builder/api.js`'s functions do not fetch anything — they return a URL the
+*browser* loads: `previewUrl` into an `<iframe src>`, `assetUrl` into the image
+picker's `<img src>`, `materialFileUrl` into the Library's `<img>`/`<a>`. A
+browser attaches no custom header to those, and there is no hook to make it.
+
+A query parameter fails for a narrower reason that is worse. `/preview/<slug>/<channel>/`
+serves the rendered page AND the page's own asset bytes, and the render emits
+those references document-relative (`relativizeUrl`, [[REQ-109]]). A relative
+sub-resource **drops the query string**, so every image inside every preview
+would arrive unscoped and fall back — a preview of one business rendered inside a
+chrome showing another. A path prefix is inherited by relative sub-resources by
+construction, which is the whole reason it is the answer.
+
+It is also cheap: `routeUncached` takes `url.pathname` once into `p` and every
+route matches on `p`, so stripping the prefix there leaves the route table
+untouched. `/builder/*` and `/webui/*` stay unprefixed — they are build artifacts
+with no tenant, and the assets fall-through must not acquire one.
+
+**The target is not a credential, and the ticket says so out loud.** Access
+authenticates; resolution authorises the named business against the admission
+list on every request. A forged or guessed id resolves to a refusal, never to
+another account's data. That is what makes it safe in a URL, and it is precisely
+what the unauthorised-target UAT proves.
+
+### The no-target fallback is the first admissible business
+
+The revision above said "the operator's last selection". That cannot be served:
+[[REQ-179]] keeps the selection in `STORAGE_KEYS`, which is browser storage, and a
+request with no target is by definition one where browser storage did not reach
+the Worker.
+
+Nor is it needed. `/` is answered at the top of the route table, above the store,
+from a static `chromeHtml()` that takes no arguments — so the first load needs no
+scope at all, and the first request that does need one is an API call the chrome
+makes after reading its own storage. With the prefix above, a bookmarked deep
+link carries its business too. What is left is a bare API caller.
+
+So: **no target resolves to the first admissible business**, and the
+returning-operator property stays where [[REQ-179]] put it, in the browser. Never
+to `env.TENANT_ID` — with one stated exception below.
+
+### The one path with no identity: unconfigured local dev
+
+`index.ts` skips both the Access gate and `admit` when
+`isUnconfiguredLocalDev(env)` holds. On that path there is no token, no verified
+email and no `Admission`, so there is no admissible set for a fallback to choose
+from. Ten whole-Worker suites take it, four more call `route()` directly and never
+enter `index.ts`, and `1c builder`'s Node transport cannot call `admit` at all —
+its `D1Database` is a `Proxy` that throws on every access.
+
+So resolution takes an admission **or nothing**, and answers from `TENANT_ID` when
+there is nothing. This is the last reader of that var outside `identity.ts`, and
+it is inside the resolver, which is where the UAT permits it. It cannot open a
+deployed Worker: `isUnconfiguredLocalDev` requires both Access vars empty and
+`wrangler.toml` sets them, which is the same two-independent-mistakes guard
+[[REQ-147]] put on `ACCESS_DEV_OPEN`.
+
+### The chat host is scoped, and that is a leak fix
+
+`router.ts` holds `CHAT` as one host **per isolate** — a site store, a ticket
+store and an opened project KB, all bound to whichever business made the first
+chat request. That is correct today with one tenant and becomes a cross-business
+data leak the moment scope comes from identity: two customers sharing an isolate
+share the conversation, the transcripts and the corpus. With a switcher it is
+worse still — it goes stale for the *same person*, who switches business and
+takes the next turn against the previous one's store.
+
+It becomes one host **per business**, keyed by scope id. The per-isolate reuse
+that the existing comment argues for is kept within a business and only there;
+`resetChatHost()` clears the map. Nothing upstream changes, because
+`host-core.ts` already keys its `SessionManager` cache by the store's object
+identity, so it partitions as soon as the store does.
+
+This is also the whole of the resume requirement. `admit` already runs on every
+request including `/api/ai/prompt`, so an expired membership is refused on the
+next turn today, and `slugForSession` resolves an id through the tenant-scoped
+store so a session id cannot name another business's site. The session does not
+need to record which business it operates on: since [[REQ-160]] the transcript is
+a ticket in that business's own store, so the business *is* where the transcript
+is. What was missing is only that the turn ran against a cached store rather than
+this request's admission, which scoping the host fixes.
+
+### A deactivated business must not be offered
+
+`businessesFor` joins `tenants` with no `status` predicate, so a deactivated
+business comes back `selectable: true` if its grant is live — and then `forTenant`
+refuses it, `storeFor` rethrows, and the caller gets a 503. Invisible today with
+one always-active tenant; with a switcher it is an entry that fails when clicked.
+The predicate is added, so an inactive business is excluded from the admissible
+set. `forTenant` is still not modified: it remains the structural check, and this
+stops the list from offering something it will refuse.
+
+### Account, business, tenant
+
+**A business is a tenant** — one row, two vocabularies. `tenant` is internal and
+never reaches a screen; *Business* is what a person reads ([[REQ-180]] §3). **A
+site lives inside a business**: `sites` is keyed `(tenant_id, slug)`, so several
+sites per business is already representable and is a later UI question
+([[REQ-179]]), not a migration. Nothing here may assume one site per business.
+**An account holds several businesses**, through `memberships`.
+
+Two things the naming gets wrong, and new code does not repeat them:
+
+- **There is no `accounts` table.** The account handle is the user id —
+  `provisionBusiness(env, { accountUserId, … })` — so an account is a person
+  today. Resolution needs no account row: it needs `businessesFor(user.id)`,
+  which exists. Billing rollup to a payer is [[REQ-180]]'s question.
+- **`account_id` holds a business id**, in `memberships` and in `entitlements`
+  alike, and business ids read `acct_…`. So the drafted parameter name
+  `requestedAccountId` names something that is not an account id.
+
+New code therefore says **business**: `resolveScope(env, admission,
+requestedBusinessId?)`, and `AdmittedBusiness.accountId` is renamed `businessId`
+— a TypeScript rename with no migration behind it. **The SQL columns and the
+`acct_` prefix are left alone**, on [[REQ-180]] §3's own argument: renaming a
+column to match a word buys a migration for nothing, and ids are opaque,
+permanent and present in R2 keys.
+
+`Scope` is unchanged and stays `{ kind: 'tenant'; id: string }` — the value it
+carries has always been a tenant id, and §7's argument against a platform-wide
+variant is untouched.
+
+### Acceptance
+
+- No file outside the resolver and `identity.ts` reads `env.TENANT_ID`; a UAT
+  asserts it over the source so a fifth reader cannot reappear unnoticed.
+- Two businesses held by one person resolve to two different stores: a request
+  under `/b/<A>/` reads A's sites and never B's, and the reverse.
+- A target the caller holds no live membership for is **refused**, not silently
+  resolved to one they do hold.
+- A `platform_admin` resolves a scope for a business with no membership row, and
+  is still refused a business whose entitlement has lapsed.
+- A request with no target resolves to the first admissible business, and to
+  `env.TENANT_ID` only when there is no identity at all (unconfigured local dev).
+- An asset requested from inside a rendered preview is served from the same
+  business as the page that referenced it.
+- Two businesses driven through one isolate get two chat hosts: a turn taken in
+  one appears in neither the other's transcript nor its corpus.
+- A deactivated business is absent from the admissible set rather than present
+  and 503-ing when it is chosen.
