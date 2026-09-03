@@ -14,6 +14,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-2a38a753
   commits:
   - working_sha: f00bf2693537f5ebcad901118e0e584990438d09
     reconcile_sha: b37db7151d5b730af81abc0316d11e5312c01e5d
