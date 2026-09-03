@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-02T23:53:52.098024+00:00'
+updated_at: '2026-09-03T00:01:19.724191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,47 @@ Path-keyed comparison misfires when an inherited node merely moves. Keying on th
 <!-- xgd-chat role="user" ts="2026-09-02T23:53:51.817265+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="38049207-c859-4ed0-a877-c75f1abc656f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:01:18.873821+00:00" -->
+#### Claude
+Work's already done in this session — implemented, UATs written, committed `[FREE-CODED]`. I'm mid merge-back. Let me verify where the conflict resolution actually landed:
+
+Resolution landed correctly in the main checkout. Finishing the merge:
+
+Merged. Verifying on the integration branch before promoting the ticket:
+
+Only the pre-existing `bug32` failure remains (confirmed against a stashed baseline earlier; it flags a BUG-42 test file, unrelated). Promoting the ticket:
+
+Another ticket (REQ-178) grabbed the merge lock. Waiting for it:
+
+No questions — the A–D decisions from our alignment conversation covered everything, and I recorded them in the ticket body before cutting the branch.
+
+**The work is already done in this session.** Status:
+
+| Protocol step | State |
+|---|---|
+| Scope ticket | ✅ Decisions D1–D6 appended to REQ-175 body (preserving the original) |
+| Cut branch | ✅ `free-REQ-175` |
+| Code + UATs | ✅ 16 UATs in `tests/test_UAT_FC_REQ-175_document_parity.test.ts`, all passing |
+| Commit `[FREE-CODED]` | ✅ `18102f7374` |
+| Merge back | ✅ `5d55175455` into `xgd-working`; full suite green |
+| `status=free_coded` | ⏳ blocked — REQ-178 holds the merge lock |
+
+What landed:
+
+- **`L1_DOCUMENT_KEYS`** derived from `l1DocumentSchema` (never hand-listed) — the anchor that makes the parity guarantee structural.
+- **`get_page_style` / `set_page_style`** in `AuthorPages` beside `set_l1`; `describe_page` now carries the document keys, so the discovery arrives through the tool a session already calls first.
+- **Self-validating references** — `danglingFontFamilies` / `danglingAssetReferences`. Two findings shaped these:
+  - the font rule is on the **stack**, not the primary family — a stack naming a generic has a declared fallback and can't fail silently, which is also what keeps the corpus's `"Satoshi, Helvetica Neue, Arial, sans-serif"` valid;
+  - the rule is stated **on the write**, not the document: a write may not *introduce* a dangling reference but needn't repair an inherited one. Putting it in `validateL1` broke 49 tests including `foldToL1` itself — and since `assembleSite` validates on every read, it would have made a reproduced page unopenable.
+- **Parity test**, both layers. Its first run found no further node-level gaps — matching the ticket's own diagnosis that the node half was already reachable and merely unknown.
+
+One pre-existing failure remains (`bug32-webui-scope-rebrand`, flagging a BUG-42 test file); I confirmed it against a stashed baseline before starting — not mine.
+
+Two follow-ups I'd flag rather than silently absorb: the version bump needed redoing as `0.2.50` because `0.2.49` landed on the *merge* commit, which the promotion gate reads as someone else's publish; and the consultant still has `DrawImages` but not `ManageAssets`, so it can bind only faces and images the site already holds — a grant decision I left where it is, per D6.
+
+I'm polling for the lock now and will promote the ticket as soon as REQ-178 releases it.
 
 <!-- xgd-chat-end -->
