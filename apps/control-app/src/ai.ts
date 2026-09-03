@@ -58,7 +58,8 @@ import * as aiLib from './generated/ai-workers.js'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { TicketStore } from './tickets'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
-import { CONSULTANT_PURPOSE } from '../../../tools/generate/src/cli/ai/host-core'
+import { CONSULTANT_PURPOSE, sessionIdFor } from '../../../tools/generate/src/cli/ai/host-core'
+import { chatLedger } from './ledger'
 import {
   bufferedAuditSink,
   type AuditLine,
@@ -302,6 +303,12 @@ export function workerHost(
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
       extraSurfaces: knowing ? [sessionKnowledgeSurface(knowledge)] : [],
+      // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
+      // knowledge wires above: the record does not depend on there being a
+      // corpus, and a session with no knowledge base still decides things worth
+      // keeping. What it does depend on is a ticket store, which this host
+      // always has and the `1c` CLI never does.
+      ledger: (slug: string) => chatLedger(tickets, sessionIdFor(slug)),
       priming: knowing ? sessionPriming(knowledge, CONSULTANT_PURPOSE) : null,
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus

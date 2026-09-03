@@ -365,7 +365,7 @@ export function sessionPriming(
   rolePurpose: string,
 ): (box: Untyped) => Promise<Untyped> {
   return (box: Untyped) =>
-    KnowledgeDocs.open(knowledge.composite, { rolePurpose, mechanism: box.manual() })
+    KnowledgeDocs.open(knowledge.composite, { rolePurpose, mechanism: box.manual({ level: 'summary' }) })
 }
 
 export { PROJECT_KB, SYSTEM_KB, SHIPPED_SOURCE }

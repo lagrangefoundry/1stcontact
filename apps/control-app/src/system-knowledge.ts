@@ -191,5 +191,5 @@ export function knowledgePriming(
   rolePurpose: string,
 ): (box: Untyped) => Promise<Untyped> {
   return (box: Untyped) =>
-    KnowledgeDocs.open(runtime, { rolePurpose, mechanism: box.manual() })
+    KnowledgeDocs.open(runtime, { rolePurpose, mechanism: box.manual({ level: 'summary' }) })
 }

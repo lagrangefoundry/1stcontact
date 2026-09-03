@@ -57,6 +57,8 @@ import {
   consultantReminder,
   LEGACY_ROLE_NAMES,
 } from './roles'
+import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
+import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { fidelitySurfaceFor } from './fidelity-core'
 import type { FidelityDeps } from './fidelity-core'
@@ -284,6 +286,17 @@ export interface HostDeps {
   fidelity?: ((slug: string) => FidelityDeps) | null
 
   /**
+   * This session's engagement record (REQ-171), or `null` where there is none.
+   *
+   * A FACTORY OVER THE SLUG, exactly like `fidelity` above and for the same
+   * reason: the record belongs to one session, and which session that is falls
+   * out of the site. A deployment with nowhere to keep a record — the `1c` CLI,
+   * whose archive is a file and which has no ticket store — passes `null` and
+   * composes no ledger surface at all, rather than one that fails on first use.
+   */
+  ledger?: ((slug: string) => LedgerDeps) | null
+
+  /**
    * Builds the role's priming `ContextSource` from the constructed Toolbox.
    *
    * A FACTORY rather than a value, because the priming contains the tool manual
@@ -321,6 +334,16 @@ export interface HostDeps {
  * told only "you are a consultant" has no basis for choosing between a document
  * about storage and one about typography.
  *
+ * IT NAMES DOCUMENTS (REQ-171). The trigger KM renders immediately after this
+ * section says "pick the territories above that bear on your purpose", and a
+ * purpose naming no territory gives that instruction nothing to bite on. Named
+ * by subject as well as by id, because retrieval matches on words and an id is
+ * not one.
+ *
+ * IT NAMES BOTH CORPORA. This framed only the system's own documents while there
+ * was only one KB; REQ-159 gave the session the client's, and a purpose that
+ * describes half the landscape sends the agent looking in half of it.
+ *
  * IT LIVES ON THE SHARED SIDE (REQ-158) because both hosts prime with it and it
  * is a statement about the ROLE, which is the same role in either runtime. Node
  * reads it in `host.ts`; workerd reads it in `apps/control-app/src/ai.ts`. Two
@@ -328,11 +351,15 @@ export interface HostDeps {
  * Worker's assistant would simply go looking for different things.
  */
 export const CONSULTANT_PURPOSE =
-  'You advise a client who is not technical about their website, and you build it ' +
-  'with them. You will need to know how this system builds and describes sites — ' +
-  'its layout vocabulary, its components, how pages are stored and published, and ' +
-  'the reasoning behind those designs — so you can form a view, act on it, and ' +
-  'explain it plainly.'
+  'You advise a client on their website and build it with them. Your method is ' +
+  'written down and you are expected to read it before you start: the consultation ' +
+  'playbook (DOC-33) for how a consultation runs, personas, modes and registers ' +
+  '(DOC-35) for who you are talking to and how to pitch it, and the ' +
+  'differentiation audit (DOC-31) for what separates work worth paying for from a ' +
+  'template. Beyond those, search for the vocabulary a page is written in and how ' +
+  'this system stores and publishes sites. The corpus your client brings — their ' +
+  'own material, and what earlier sessions already decided — is the other half of ' +
+  'what you search, and none of it is guessable from here.'
 
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(slug: string): string {
@@ -510,6 +537,19 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
         ...(deps.fidelity ? [{ surface: await fidelitySurfaceFor(lib, deps.fidelity(slug)) }] : []),
+        // The engagement record, where this deployment keeps one. Its grant
+        // TRAVELS WITH IT — unlike fidelity's, which is an entry in
+        // `instances.json` — because what a session may do to its own record is
+        // a property of the surface and not a per-role decision, and the
+        // narrowing below removes it wherever it was not composed.
+        ...(deps.ledger
+          ? [
+              {
+                surface: await ledgerSurfaceFor(lib, deps.ledger(slug)),
+                granted: ledgerInstanceConfig(),
+              },
+            ]
+          : []),
       ],
     },
   )
@@ -574,7 +614,9 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // when it has not. Both satisfy the same duck-typed `ContextSource`, so the
     // role is constructed identically either way and nothing downstream branches
     // on which one it got.
-    source: deps.priming ? await deps.priming(box) : { documents: () => [box.manual()] },
+    source: deps.priming
+      ? await deps.priming(box)
+      : { documents: () => [box.manual({ level: 'summary' })] },
     reminder: consultantReminder(slug),
   })
   roles.set(managerKey(slug, deps), role)
