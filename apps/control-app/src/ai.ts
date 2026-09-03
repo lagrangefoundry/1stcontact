@@ -216,10 +216,16 @@ export async function flushAudit(
 /** What the Worker needs to build a host: the store, the bindings, the secret. */
 export interface WorkerAiEnv {
   SITES: R2Bucket
-  TENANT_ID?: string
   /** A `wrangler secret`. Absent is an ordinary state — the panel says so. */
   ANTHROPIC_API_KEY?: string
 }
+
+// `TENANT_ID` WAS DECLARED HERE AND NEVER READ ([[REQ-168]]). It was listed as
+// one of that ticket's four reads on the strength of this declaration alone;
+// {@link workerHost} has always taken `tenantId` as a parameter, so the field
+// bought nothing and would have kept the var alive in a type after every real
+// reader had moved. Deleted rather than left as documentation of an intent the
+// code does not have.
 
 /**
  * The Worker's {@link HostDeps}, plus the audit buffer its route must flush.

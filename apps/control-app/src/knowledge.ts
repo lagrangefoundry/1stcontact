@@ -14,6 +14,7 @@ import {
 } from './generated/knowledge'
 import type { Ticket, TicketStore, TicketStoreEnv } from './tickets'
 import { ticketStoreFor } from './tickets'
+import type { Scope } from './scope'
 import { MATERIAL_TEXT_KIND } from './material'
 import KB_CONFIG from '../../../kb/knowledge_bases.json'
 
@@ -629,11 +630,16 @@ export function projectKb(): Untyped {
  * Open the project KB for this request.
  *
  * Everything it needs is already tenant-bound or derived from the tenant id, so
- * there is one place the account is named and it is `TENANT_ID` — the same
- * single point `ticketStoreFor` uses.
+ * there is one place the business is named and it is the resolved {@link Scope} —
+ * the same single point `ticketStoreFor` takes ([[REQ-168]]). The index prefixes
+ * below are the reason this opener could not simply be left alone: they are
+ * derived from the id rather than bound by a handle, so an unmoved read here
+ * would have searched the platform's corpus on a customer's behalf and returned
+ * answers drawn from someone else's documents.
  */
 export async function projectKnowledgeFor(
   env: ProjectKnowledgeEnv,
+  scope: Scope,
   opts: {
     store?: TicketStore
     embedder?: Untyped
@@ -642,8 +648,8 @@ export async function projectKnowledgeFor(
     enumerateBudget?: number
   } = {},
 ): Promise<ProjectKnowledge> {
-  const store = opts.store ?? (await ticketStoreFor(env))
-  const tenantId = (env.TENANT_ID ?? '').trim()
+  const store = opts.store ?? (await ticketStoreFor(env, scope))
+  const tenantId = scope.businessId
   if (!env.BLOBS) {
     // `ticketStoreFor` already refuses this, so reaching it means a store was
     // injected without one. Named rather than left to throw on `undefined`.

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route } from '../apps/control-app/src/router'
+import type { Scope } from '../apps/control-app/src/scope'
 import type { RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/tickets'
 import { NotACaptureError, adoptCapture, captureRights } from '../apps/control-app/src/capture-material'
@@ -54,10 +55,17 @@ function routerEnv(tenantId = TENANT): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId = TENANT): Scope => ({ businessId })
 
 /** The stubbed describer, plus a count of how often it was reached. */
 function vision(text = 'Gigabyte Alchemy\n\nDark consultancy site with gold accents.') {
@@ -126,11 +134,10 @@ async function stores(tenantId = TENANT): Promise<{
 }> {
   // The ticket store FIRST: it registers the tenant, and the reference store's
   // `forTenant` refuses an unregistered one. That ordering is production's too.
-  const tickets = await ticketStoreFor({
-    DB: env.DB as D1Database,
-    BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
-  })
+  const tickets = await ticketStoreFor(
+    { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
+    { businessId: tenantId },
+  )
   const references = await r2ReferenceStore({
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
@@ -186,6 +193,7 @@ describe('REQ-166 — a completed capture becomes a reference ticket', () => {
         `https://app.test/api/material/file?uid=${adopted.ticket.uid}&member=${SCREENSHOT_MEMBER}`,
       ),
       routerEnv(),
+      scopeOf(),
       {},
     )
     expect(shot.status).toBe(200)
@@ -198,6 +206,7 @@ describe('REQ-166 — a completed capture becomes a reference ticket', () => {
         `https://app.test/api/material/file?uid=${adopted.ticket.uid}&member=${RENDERED_MEMBER}`,
       ),
       routerEnv(),
+      scopeOf(),
       {},
     )
     expect(await html.text()).toBe(result.renderedHtml)
@@ -343,6 +352,7 @@ describe('REQ-166 — a completed capture becomes a reference ticket', () => {
         `https://app.test/api/material/file?uid=${first.ticket.uid}&member=${SCREENSHOT_MEMBER}`,
       ),
       routerEnv(),
+      scopeOf(),
       {},
     )
     expect(new Uint8Array(await shot.arrayBuffer())).toEqual(screenshotBytes(9))

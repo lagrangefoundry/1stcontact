@@ -160,7 +160,6 @@ function workerEnv(): RouterEnv {
     DB: env.DB,
     SITES: env.SITES,
     BLOBS: env.BLOBS,
-    TENANT_ID: TENANT,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
     ACCESS_AUD: '',
@@ -176,6 +175,7 @@ const post = (path: string, body: unknown, deps: RouterDeps): Promise<Response> 
       body: JSON.stringify(body),
     }),
     workerEnv(),
+    { businessId: TENANT },
     deps,
   )
 

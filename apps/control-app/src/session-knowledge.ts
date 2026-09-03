@@ -11,6 +11,7 @@ import {
   searchChunks as kmSearchChunks,
 } from './generated/knowledge'
 import { PROJECT_KB, projectKnowledgeFor, type ProjectKnowledgeEnv } from './knowledge'
+import type { Scope } from './scope'
 import {
   SHIPPED_SOURCE,
   SYSTEM_KB,
@@ -289,6 +290,7 @@ export interface SessionKnowledgeEnv extends ProjectKnowledgeEnv, SystemKnowledg
  */
 export async function sessionKnowledgeFor(
   env: SessionKnowledgeEnv,
+  scope: Scope,
   opts: {
     system?: Untyped | null
     embedder?: Untyped
@@ -301,7 +303,7 @@ export async function sessionKnowledgeFor(
   // map's insertion order that becomes the landscape's section order and the
   // co-ranked merge's tie-break.
   if (opts.embedder !== undefined || env.AI) {
-    const project = await projectKnowledgeFor(env, {
+    const project = await projectKnowledgeFor(env, scope, {
       ...(opts.tickets ? { store: opts.tickets } : {}),
       ...(opts.embedder !== undefined ? { embedder: opts.embedder } : {}),
     })

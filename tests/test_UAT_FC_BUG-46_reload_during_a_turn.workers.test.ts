@@ -169,7 +169,7 @@ const spoken = (frames: Frame[]): string =>
     .join('')
 
 async function store(): Promise<TicketStore> {
-  return ticketStoreFor(workerEnv())
+  return ticketStoreFor(workerEnv(), { businessId: TENANT })
 }
 
 /** The archived session file for `sessionId` — the durable copy, or null. */

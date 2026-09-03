@@ -138,7 +138,6 @@ function workerEnv(): RouterEnv {
     DB: env.DB,
     SITES: env.SITES,
     BLOBS: env.BLOBS,
-    TENANT_ID: TENANT,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
     ACCESS_AUD: '',
@@ -155,6 +154,7 @@ const post = (path: string, body: unknown): Promise<Response> =>
       body: JSON.stringify(body),
     }),
     workerEnv(),
+    { businessId: TENANT },
     deps,
   )
 
@@ -181,7 +181,7 @@ async function seedSite(slug: string): Promise<void> {
   expect(res.status).toBe(200)
 }
 
-const store = (): Promise<TicketStore> => ticketStoreFor(workerEnv())
+const store = (): Promise<TicketStore> => ticketStoreFor(workerEnv(), { businessId: TENANT })
 
 /** A `material` that satisfies [[DOC-38]] §9 — the happy shape. */
 async function upload(title: string, body: string): Promise<Ticket> {
@@ -290,6 +290,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     await upload('The kitchen at dusk', 'A photograph of the restaurant at closing time.')
     const kb = await (await import('../apps/control-app/src/knowledge')).projectKnowledgeFor(
       workerEnv(),
+      { businessId: TENANT },
       { embedder: stubEmbedder() },
     )
     const built = await kb.rebuildMap()

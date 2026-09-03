@@ -52,11 +52,10 @@ import { stubEmbedder } from './support/stub-embedder'
 
 const APPLIED = applySchema()
 
-function knowledgeEnv(tenantId: string): ProjectKnowledgeEnv {
+function knowledgeEnv(): ProjectKnowledgeEnv {
   return {
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
   }
 }
 
@@ -77,7 +76,7 @@ async function openKb(
 }> {
   const embedder = stubEmbedder()
   const deferred: Array<Promise<unknown>> = []
-  const kb = await projectKnowledgeFor(knowledgeEnv(tenantId), {
+  const kb = await projectKnowledgeFor(knowledgeEnv(), { businessId: tenantId }, {
     embedder,
     defer: (work) => {
       deferred.push(work)
