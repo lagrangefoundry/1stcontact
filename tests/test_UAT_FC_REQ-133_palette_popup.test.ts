@@ -678,8 +678,14 @@ describe('REQ-133 the palette popup', () => {
   // ── the toolbar's entry point (AC-1's opener) ─────────────────────────────
 
   it('test_UAT_FC_REQ_133_the_toolbar_action_opens_the_popup_for_the_shown_site', async () => {
-    // One more action spec, not a branch: `create` is handed the panel and
+    // One more action spec, not a branch: `create` is handed its context and
     // returns a control, exactly as every other toolbar action does.
+    //
+    // THE SITE COMES FROM THE SCOPE, NOT FROM THE PANE ([[REQ-179]]). The
+    // action used to call `panel.getSite()`; the shell's switcher is the one
+    // place a scope is chosen now, and the toolbar is handed it. The claim is
+    // unchanged — the popup opens for the site on screen — and the source of
+    // that site moved one level up.
     const opened: string[] = []
     const spec = colorsAction((slug: string) => {
       opened.push(slug)
@@ -687,17 +693,17 @@ describe('REQ-133 the palette popup', () => {
     })
     expect(spec.id).toBe('colors')
 
-    const button = spec.create({ panel: { getSite: () => 'acme' } })
+    const button = spec.create({ getSite: () => 'acme' })
     expect(button.textContent).toBe('Colors')
     button.click()
     expect(opened).toEqual(['acme'])
 
-    // No site shown, nothing to open — a popup bound to no site could only ask
-    // the origin about `undefined`.
+    // No site in scope, nothing to open — a popup bound to no site could only
+    // ask the origin about `undefined`.
     const idle = colorsAction((slug: string) => {
       opened.push(slug)
       return Promise.resolve(null)
-    }).create({ panel: { getSite: () => null } })
+    }).create({ getSite: () => null })
     idle.click()
     expect(opened).toEqual(['acme'])
   })

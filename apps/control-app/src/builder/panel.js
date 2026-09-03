@@ -138,6 +138,21 @@ export function createDisplayPanel(options = {}) {
     setMode,
     setSite,
     restore,
+    /**
+     * Re-derive what the pane shows, without the site or the mode having moved
+     * ([[REQ-179]]).
+     *
+     * A mode's `src()` is a function of more than the state this panel holds:
+     * `previewUrl` now carries the selected business, so switching business
+     * changes the URL for an unchanged slug. Nothing inside the panel can
+     * observe that, and `setSite(sameSlug)` is deliberately a no-op — so
+     * without this a business switch would leave the frame showing the previous
+     * business's page while every other surface had moved.
+     *
+     * It re-derives; it never rebuilds. `refresh` already declines to re-assign
+     * an unchanged `src`, so a caller that did not need this pays nothing.
+     */
+    refresh,
     getModes: () => [...modes.values()],
     getMode: () => activeId,
     getSite: () => site,

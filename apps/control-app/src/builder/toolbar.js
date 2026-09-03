@@ -18,10 +18,32 @@
  * @property {(ctx: ActionContext) => HTMLElement} create
  */
 
-/** @typedef {{ panel: object, api: object, subscribe: (event: string, cb: Function) => Function }} ActionContext */
+/**
+ * @typedef {{
+ *   panel: object,
+ *   getSite: () => string|null,
+ *   api: object,
+ *   subscribe: (event: string, cb: Function) => Function,
+ * }} ActionContext
+ */
+
+/**
+ * The site an action acts on, when the host supplied no `getSite` ([[REQ-179]]).
+ *
+ * A toolbar is a tab's control strip, and an action must never discover the
+ * SCOPE by asking the pane — that is the sideways reach this ticket removed, and
+ * a default that quietly did it would put the pattern back one action at a time.
+ * So the fallback is "no site", which makes an unwired action visibly inert
+ * rather than plausibly wrong: `colors` and `publish` both decline on a null
+ * slug already, so a host that forgot to supply the scope gets buttons that do
+ * nothing instead of buttons that act on whatever the pane happens to show.
+ */
+const NO_SITE = () => null
 
 export function createToolbar(options) {
   const { panel, actions, context = {} } = options
+  // Supplied by the host, which is the module that knows the scope. See NO_SITE.
+  const getSite = context.getSite ?? NO_SITE
 
   const element = document.createElement('div')
   element.className = 'builder-toolbar'
@@ -69,7 +91,7 @@ export function createToolbar(options) {
     for (const id of ids) {
       const spec = registry.get(id)
       if (!spec) throw new Error(`toolbar: mode "${mode?.id}" names unknown action "${id}"`)
-      const el = spec.create({ panel, ...context, toolbar: api, subscribe })
+      const el = spec.create({ panel, ...context, getSite, toolbar: api, subscribe })
       el.dataset.action = id
       mounted.set(id, el)
       element.append(el)
@@ -107,32 +129,25 @@ export function createToolbar(options) {
 // ── the T1 action set ────────────────────────────────────────────────────────
 
 /**
- * Site selector — switches which site's draft the pane shows. Populated from
- * the sites the store actually holds, never a hardcoded list.
+ * THERE IS NO SITE SELECTOR HERE ANY MORE ([[REQ-179]]).
  *
- * `label` is injected rather than written here: it names the same thing the tab
- * names, and that name has exactly one definition (`config.js`). Taking it as a
- * parameter also keeps this module free of app-specific naming.
+ * There was, and it was the one place a site was chosen — which is the right
+ * rule and was the wrong place. A toolbar belongs to one tab, so a scope chosen
+ * in it scopes one tab, and every other tab had to reach sideways into the site
+ * tab's panel to discover what was selected. The business is what everything
+ * belongs to ([[DOC-40]] §2), so its control moved up into the shell's own
+ * chrome, where every tab is already inside it (`business.js`).
+ *
+ * IT WAS DELETED RATHER THAN LEFT BESIDE THE NEW ONE. Two controls that can
+ * disagree about the same scope is precisely what the old rule forbade, and
+ * keeping this one "for now" would have been that state, chosen deliberately.
+ *
+ * A SITE selector will be back, one level down, when a business can hold several
+ * sites — subordinate to the business switcher, inside the site tab, where a
+ * per-tab control is the correct shape. `panel.getSite()` becomes meaningful
+ * again at that point; today it is display state and nothing reads it to
+ * discover a scope.
  */
-export function siteSelectorAction(sites, label) {
-  return {
-    id: 'site-selector',
-    create({ panel }) {
-      const select = document.createElement('select')
-      select.className = 'builder-toolbar__site'
-      select.setAttribute('aria-label', label)
-      for (const { slug } of sites) {
-        const opt = document.createElement('option')
-        opt.value = slug
-        opt.textContent = slug
-        select.append(opt)
-      }
-      if (panel.getSite()) select.value = panel.getSite()
-      select.addEventListener('change', () => panel.setSite(select.value))
-      return select
-    },
-  }
-}
 
 /** View/Edit toggle — one button per registered mode; swaps the render channel. */
 export function modeToggleAction() {
@@ -195,13 +210,13 @@ export function openInNewTabAction() {
 export function colorsAction(openPalette) {
   return {
     id: 'colors',
-    create({ panel }) {
+    create({ getSite }) {
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'builder-toolbar__colors'
       btn.textContent = 'Colors'
       btn.addEventListener('click', () => {
-        const slug = panel.getSite()
+        const slug = getSite()
         if (!slug) return
         // Nothing awaits the answer: manage mode resolves to null by
         // construction, and the caller that DOES want a value is a color
@@ -220,13 +235,13 @@ export function colorsAction(openPalette) {
 export function publishAction(publish) {
   return {
     id: 'publish',
-    create({ panel }) {
+    create({ getSite }) {
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'builder-toolbar__publish'
       btn.textContent = 'Publish'
       btn.addEventListener('click', async () => {
-        const slug = panel.getSite()
+        const slug = getSite()
         if (!slug) return
         btn.disabled = true
         try {

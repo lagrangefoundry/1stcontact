@@ -1251,8 +1251,13 @@ describe('story-4300366a the palette popup', () => {
       })
       .registerMode({ id: 'listing', label: 'Listing', mount: () => {}, actions: [] })
 
+    // `getSite` is the SCOPE, handed to the toolbar by its host ([[REQ-179]]).
+    // The composition passes the shell's selection; here the pane's own site is
+    // that scope, which keeps the "it follows the displayed site" assertions
+    // below driving through `panel.setSite` exactly as they did.
     const toolbar = createToolbar({
       panel,
+      context: { getSite: () => panel.getSite() },
       actions: [
         colorsAction((s: string) => {
           opened.push({ slug: s })

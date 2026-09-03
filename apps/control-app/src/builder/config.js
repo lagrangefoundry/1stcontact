@@ -63,13 +63,59 @@ export const LIBRARY_TAB = { id: 'library', label: 'Library', fill: true }
 /** Every tab the shell mounts, in order. */
 export const TABS = [SITE_TAB, LIBRARY_TAB]
 
-/** Per-instance persistence keys, namespaced by the shell under `APP_ID`. */
+/**
+ * Per-instance persistence keys, namespaced by the shell under `APP_ID`.
+ *
+ * `business` is the one key here that is NOT prefixed with a tab id, and the
+ * asymmetry is the whole of [[REQ-179]]: every other key belongs to one tab's
+ * state, and the selected business belongs to the shell — it applies to every
+ * tab, so naming it after one would be a claim about its reach that is wrong in
+ * exactly the way the toolbar's site selector was.
+ */
 export const STORAGE_KEYS = {
+  business: 'business',
   split: `${SITE_TAB.id}:split`,
   panel: `${SITE_TAB.id}:panel`,
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
 }
+
+/**
+ * The shell's two chrome controls ([[REQ-179]]) — labels, declared here for the
+ * reason every other label is: provisional chrome, addressed by code, changed in
+ * one edit.
+ *
+ * `BUSINESS_LABEL` is the switcher's accessible name. It is a NOUN rather than
+ * an instruction ("Business", not "Choose a business") because the control also
+ * renders when there is nothing to choose — one business is the modal case
+ * ([[DOC-40]] §2.3) and a prompt over a settled fact reads as an unmade choice.
+ *
+ * `BUSINESS_LAPSED_SUFFIX` is what a business the account may no longer enter is
+ * labelled with. It is SHOWN rather than filtered out: "your grant expired" and
+ * "that business is gone" are different facts to the person who owns both, and a
+ * list that omits the lapsed one makes them indistinguishable.
+ */
+export const BUSINESS_LABEL = 'Business'
+export const BUSINESS_LAPSED_SUFFIX = ' (access ended)'
+
+/**
+ * The account surface, behind the avatar and DELIBERATELY NOT A TAB.
+ *
+ * It is the one surface in this product that is not business-scoped
+ * ([[DOC-40]] §2), so a tab for it would be the single place where the shell's
+ * switcher is present and silently does not apply — and a control that is
+ * present and ignored reads as a bug. The tab strip stays uniformly
+ * business-scoped, with no exception to explain.
+ *
+ * `ACCOUNT_ACTION_ID` is the shell action's stable id, which is what code
+ * addresses; the label and the fallback initial are chrome. The avatar itself is
+ * derived from the account (its first letter), so it identifies WHOSE account
+ * this is rather than merely marking where the account lives — which matters the
+ * moment an operator has two browser profiles open.
+ */
+export const ACCOUNT_ACTION_ID = 'account'
+export const ACCOUNT_LABEL = 'Account'
+export const ACCOUNT_INITIAL_FALLBACK = '?'
 
 /**
  * The two drop areas of the upload overlay — REQ-161, and the only question this

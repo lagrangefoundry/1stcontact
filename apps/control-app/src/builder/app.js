@@ -1,7 +1,22 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
-import { APP_FONT, APP_ID, LIBRARY_TAB, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
+import {
+  ACCOUNT_ACTION_ID,
+  ACCOUNT_LABEL,
+  APP_FONT,
+  APP_ID,
+  LIBRARY_TAB,
+  SITE_TAB,
+  STORAGE_KEYS,
+  TABS,
+} from './config.js'
+import {
+  accountAvatar,
+  createBusinessSwitcher,
+  openAccountSurface,
+  resolveBusiness,
+} from './business.js'
 import { mountEditor } from './editor.js'
 import { createLibraryPanel } from './library.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
@@ -14,12 +29,13 @@ import {
   modeToggleAction,
   openInNewTabAction,
   publishAction,
-  siteSelectorAction,
 } from './toolbar.js'
 import {
   fetchPalette,
+  fetchSites,
   openChatSession,
   previewUrl,
+  setBusinessScope,
   uploadMaterial,
   writePalette,
 } from './api.js'
@@ -37,6 +53,31 @@ import {
  */
 export function mountBuilder(root, options = {}) {
   const {
+    /**
+     * The businesses this account may operate ([[REQ-179]]), from
+     * `/api/businesses`. Lapsed members are included and marked — the switcher
+     * shows them, unselectable.
+     *
+     * EMPTY IS ORDINARY AND MEANS "NO IDENTITY BEHIND THIS HOST": the Node
+     * transport, a suite mounting the chrome, an origin that could not answer.
+     * The switcher renders nothing, no business prefix is set, and the origin
+     * resolves every request through its own fallback — which is exactly what
+     * every host did before this existed.
+     */
+    businesses = [],
+    /** Who is signed in, for the avatar and the account surface behind it. */
+    account = null,
+    /**
+     * The sites of the SELECTED business.
+     *
+     * A seam rather than a fetch, for the reason every other transport here is
+     * one: a suite drives the whole switch without an origin. The default asks
+     * the origin — the call is business-scoped by the prefix the switcher sets,
+     * so "the sites of this business" needs no argument beyond the scope that is
+     * already in force. With no businesses there is no second answer to ask for,
+     * so the injected `sites` list stands.
+     */
+    loadSites = null,
     sites = [],
     publish = async () => {},
     storage,
@@ -77,6 +118,25 @@ export function mountBuilder(root, options = {}) {
     aiStatus = { ai: true, message: null },
   } = options
 
+  /**
+   * THE SHELL'S SCOPE ([[REQ-179]]) — one business, applying to every tab.
+   *
+   * Declared before the shell because the account action closes over it, and
+   * kept as two plain values rather than a store because that is all it is: the
+   * business every request is prefixed with, and the site every surface is
+   * about. What a change to either MEANS is `selectBusiness` below, which is the
+   * one place a scope moves.
+   *
+   * `currentSite` is kept by SUBSCRIPTION rather than by asking the pane
+   * (`panel.on('site', …)` further down). The pane reports what it is
+   * displaying; nothing interrogates it. That is the whole of the layering this
+   * ticket is about — when a business can hold several sites, a site selector
+   * goes inside the site tab and `panel.getSite()` becomes meaningful again, one
+   * level down, without anything here having to be untangled first.
+   */
+  let currentBusiness = null
+  let currentSite = null
+
   const shell = mountShell(root, {
     appId: APP_ID,
     // Passed straight through: a TABS entry IS a shell tab spec, and narrowing
@@ -90,6 +150,42 @@ export function mountBuilder(root, options = {}) {
       title: '1st Contact builder',
       body: 'Edit your site on the page itself.',
     },
+    /**
+     * THE ACCOUNT LIVES HERE, IN THE HEADER'S TRAILING SLOT, AND NOT IN THE TAB
+     * STRIP ([[REQ-179]]).
+     *
+     * It is the one surface that is not business-scoped ([[DOC-40]] §2), so a
+     * tab for it would be the single place where the shell's switcher is present
+     * and silently does not apply — and a control that is present and ignored
+     * reads as a bug. The tab strip stays uniformly business-scoped, with no
+     * exception to explain.
+     *
+     * THE SHELL'S OWN TWO CONTROLS ARE RESTATED HERE because `actions` REPLACES
+     * the defaults rather than extending them: omitting them to add a third
+     * would silently remove Theme and About. They are still the shell's
+     * behaviours — each `onClick` receives the shell handle and calls it, so
+     * nothing about theming or the about modal is decided in this file.
+     */
+    actions: [
+      { id: 'theme', content: 'Theme', ariaLabel: 'Toggle color theme', onClick: (s) => s.toggleTheme() },
+      { id: 'about', content: 'About', onClick: (s) => s.openAbout() },
+      {
+        id: ACCOUNT_ACTION_ID,
+        content: accountAvatar(account),
+        title: ACCOUNT_LABEL,
+        ariaLabel: ACCOUNT_LABEL,
+        onClick: () =>
+          openAccountSurface({
+            // Inside the shell root, for the reason every other builder dialog
+            // is: the `--shell-*` tokens and the app font are declared on
+            // `.shell`, and a dialog beside it resolves neither.
+            host: shell.element,
+            account,
+            businesses,
+            selected: currentBusiness,
+          }),
+      },
+    ],
     ...(storage ? { storage } : {}),
   })
 
@@ -117,6 +213,52 @@ export function mountBuilder(root, options = {}) {
   const banner = aiStatus?.ai === false ? blockEverything(root, shell, aiStatus.message) : null
   const blocked = banner !== null
 
+  /**
+   * Where the selection is remembered ([[REQ-179]]).
+   *
+   * Through the shell's own namespaced storage, like everything else that
+   * persists — `STORAGE_KEYS.business` is the one key not named after a tab,
+   * because the selection is not one tab's.
+   */
+  const businessStorage = shell.storage(STORAGE_KEYS.business)
+
+  /**
+   * How the selected business's sites are found.
+   *
+   * WITH BUSINESSES, ASK THE ORIGIN. `/api/sites` is already business-scoped by
+   * the prefix `setBusinessScope` puts on it, so "the sites of this business" is
+   * the call that already exists, asked again — no new route, no new query, and
+   * no site list smuggled into the businesses payload where the site store's own
+   * relation would then have a second home.
+   *
+   * WITHOUT THEM, THE INJECTED LIST STANDS. There is no second business to ask
+   * about and, on the hosts that take this path, frequently no origin to ask.
+   */
+  const loadSitesFor =
+    loadSites ?? (businesses.length > 0 ? () => fetchSites() : async () => sites)
+
+  /**
+   * THE BUSINESS SWITCHER, IN THE SHELL'S OWN HEADER ([[REQ-179]]).
+   *
+   * AND THIS IS THE ONE PLACE THIS APP TOUCHES SHELL-INTERNAL MARKUP.
+   * `webui-shell` offers a trailing `actions` slot — which the account avatar
+   * above uses, exactly as intended — and no LEADING one, so a control that
+   * belongs before the tabs has nowhere declared to go. Prepending into
+   * `.shell-bar` is that gap, made visible rather than hidden behind a helper:
+   * when upstream grows a leading slot this becomes a one-line change, and until
+   * then there is exactly one selector to update rather than a scattering.
+   *
+   * The fallback to the shell root is not defensive dressing — it keeps a
+   * switcher on screen if that markup ever moves, so the failure is a misplaced
+   * control rather than an invisible one.
+   */
+  const switcher = createBusinessSwitcher({
+    businesses,
+    onSelect: (id) => void selectBusiness(id),
+  })
+  const shellBar = shell.element.querySelector('.shell-bar')
+  ;(shellBar ?? shell.element).prepend(switcher.element)
+
   const panel = createDisplayPanel({
     storage: shell.storage(STORAGE_KEYS.panel),
     site: sites[0]?.slug ?? null,
@@ -136,7 +278,7 @@ export function mountBuilder(root, options = {}) {
       id: 'view',
       label: 'View',
       src: ({ site }) => previewUrl(site, 'draft'),
-      actions: ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish'],
+      actions: ['mode-toggle', 'colors', 'open-new-tab', 'publish'],
     })
     .registerMode({
       id: 'edit',
@@ -145,9 +287,27 @@ export function mountBuilder(root, options = {}) {
       // `colors` in BOTH channels: a palette is a property of the site, not of
       // one rendering of it, so there is no mode in which changing it is
       // meaningless (REQ-133).
-      actions: ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish'],
+      actions: ['mode-toggle', 'colors', 'open-new-tab', 'publish'],
     })
     .restore()
+
+  /**
+   * THE REMEMBERED SITE, READ ONCE ([[REQ-179]]).
+   *
+   * This is the scope seeding itself from the pane's own persistence, and it is
+   * the ONLY `panel.getSite()` in this module — everything after it either
+   * subscribes to the pane's `site` event or reads `currentSite`. The
+   * distinction that matters is not the call, it is the direction: a tab
+   * reaching into another tab's panel to discover which scope it is in is what
+   * this ticket removes; a scope reading, at bootstrap, the one value that was
+   * persisted for exactly this purpose is not that.
+   *
+   * It is read AFTER `restore()` rather than subscribed before it, so a reload
+   * opens ONE session: subscribing first would have `restore()` open a session
+   * for the remembered site before a business was even resolved, and
+   * `selectBusiness` would then open the same one again a round trip later.
+   */
+  currentSite = panel.getSite()
 
   /**
    * The palette popup, in the one place that can host it (REQ-133).
@@ -176,8 +336,11 @@ export function mountBuilder(root, options = {}) {
 
   const toolbar = createToolbar({
     panel,
+    // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
+    // the shell's scope names; it does not ask the pane which one that is. See
+    // `NO_SITE` in `toolbar.js` for what an unwired host gets and why.
+    context: { getSite: () => currentSite },
     actions: [
-      siteSelectorAction(sites, SITE_TAB.label),
       modeToggleAction(),
       colorsAction(openPalette),
       openInNewTabAction(),
@@ -188,9 +351,11 @@ export function mountBuilder(root, options = {}) {
   /**
    * The assistant, in the split's secondary (REQ-122).
    *
-   * It follows the panel's site rather than owning a selector of its own: the
-   * toolbar's selector is the one place a site is chosen, and a second control
-   * that could disagree with it is worse than no control at all.
+   * It follows the SHELL'S SCOPE rather than owning a selector of its own
+   * ([[REQ-179]]). The rule is unchanged and was never about the toolbar: a
+   * scope is chosen in exactly ONE place, and a second control that could
+   * disagree with it is worse than no control at all. Only the place changed —
+   * from a toolbar that scoped one tab to the chrome every tab is inside.
    *
    * The transport seam is split the way the calls are (REQ-127): opening a
    * session is this module's, because only this module knows a site; running a
@@ -244,7 +409,7 @@ export function mountBuilder(root, options = {}) {
     const doc = panel.frame.contentDocument
     if (!doc) return
     editor = mountEditor(doc, {
-      slug: panel.getSite(),
+      slug: currentSite,
       bridge: editBridge,
       // INSIDE the shell root, which is where both halves of the modal's
       // appearance are declared: the `--shell-*` tokens and the app font. On
@@ -261,7 +426,7 @@ export function mountBuilder(root, options = {}) {
        * nearly right" a one-gesture fix (REQ-133 §1).
        */
       colors: {
-        open: (value) => openPalette(panel.getSite(), { mode: 'pick', value }),
+        open: (value) => openPalette(currentSite, { mode: 'pick', value }),
         shadeHex,
       },
       // The origin has already re-rendered the edit channel by the time a save
@@ -275,15 +440,19 @@ export function mountBuilder(root, options = {}) {
   /**
    * The Library (REQ-161), in its own tab beside the site.
    *
-   * IT FOLLOWS THE PANEL'S SITE for the badge and the "used on this site" filter,
-   * by the same rule the assistant does: the toolbar's selector is the one place
-   * a site is chosen, and a second control that could disagree with it is worse
-   * than no control. What it does NOT do is scope its list to that site — see
-   * `library.js` for why the badge is a view and never a boundary.
+   * IT FOLLOWS THE SHELL'S SCOPE for the badge and the "used on this site"
+   * filter, by the same rule the assistant does ([[REQ-179]]): a scope is chosen
+   * in exactly one place. What it does NOT do is scope its LIST to that site —
+   * see `library.js` for why the badge is a view and never a boundary.
+   *
+   * The list IS scoped to the business, though, and that is not the same thing:
+   * material is business-wide ([[DOC-38]] §7.7), so a business switch changes
+   * the list itself rather than merely the badge on it, which is why
+   * `selectBusiness` re-reads it rather than only calling `siteChanged()`.
    */
   const library = createLibraryPanel({
     storage: shell.storage(STORAGE_KEYS.library),
-    getSite: () => panel.getSite(),
+    getSite: () => currentSite,
     markdownReady,
     // Where an expanded reader window goes (REQ-172) — inside the shell root,
     // for the reason the segment editor's host above states: the `--shell-*`
@@ -340,7 +509,7 @@ export function mountBuilder(root, options = {}) {
       let result = null
       let failure = null
       try {
-        result = await sendUpload({ file, role, slug: panel.getSite() ?? undefined })
+        result = await sendUpload({ file, role, slug: currentSite ?? undefined })
       } catch (err) {
         failure = err
       }
@@ -369,8 +538,9 @@ export function mountBuilder(root, options = {}) {
    *
    * The chat pane is handed a conversation, not a slug — so the translation has
    * to happen somewhere, and it happens here because here is where a site is
-   * chosen. That is the layering the ticket is about: the toolbar owns the site
-   * selector, `app.js` owns the switch, and everything below holds a session.
+   * chosen. That is the layering the ticket is about: the shell's chrome owns the
+   * switcher ([[REQ-179]]), `app.js` owns the switch, and everything below holds
+   * a session.
    *
    * THE GENERATION TOKEN LIVES HERE NOW, for the reason it ever existed: opening
    * a session is async, so a second switch can start before the first finishes,
@@ -426,16 +596,104 @@ export function mountBuilder(root, options = {}) {
     }
   }
 
-  // Subscribed BEFORE the first call so a `restore()` that has already run and a
-  // change made a second from now take the identical path.
+  /**
+   * The pane REPORTS what it is displaying, and everything that is about a site
+   * follows that report ([[REQ-179]]).
+   *
+   * Nothing interrogates the pane any more. This is the one subscription, and
+   * it is what a site change — from wherever — means: the assistant is a session
+   * per site and is re-opened; the Library's badge and its "used on this site"
+   * filter redraw. The Library's LIST is not re-read here, because a site change
+   * within one business does not change it (`selectBusiness` re-reads it,
+   * because a BUSINESS change does).
+   *
+   * It is also what makes an in-tab site selector a later addition rather than a
+   * later untangling: when a business can hold several sites, that control calls
+   * `panel.setSite` and everything below already follows.
+   */
   const unbindSite = panel.on('site', (slug) => {
+    currentSite = slug
     void showSite(slug)
-    // The badge and the "used on this site" filter are about the CURRENT site,
-    // so they redraw with it. The list itself is tenant-wide and is not re-read.
     library.siteChanged()
   })
-  void showSite(panel.getSite())
-  void library.refresh().catch(() => {})
+
+  /**
+   * THE ONE PLACE A SCOPE MOVES ([[REQ-179]]).
+   *
+   * Every surface the builder has is business-scoped, and each of them used to
+   * find out separately: the assistant followed the pane's `site` event, the
+   * Library asked the pane on every draw, the uploads asked it per file. That
+   * worked while a site was the widest thing anything cared about. It does not
+   * survive the tab set the product is growing into ([[DOC-40]] §2) — a person's
+   * job crosses tabs, and a scope re-set per tab makes the common path the
+   * painful one.
+   *
+   * So the switch happens HERE, once, in the module that knows all of them —
+   * the same layering `showSite` already followed, widened by one level.
+   *
+   * FIVE THINGS MOVE TOGETHER, and the order is what makes them agree:
+   *   1. the URL prefix, so every request after this line is about the new
+   *      business — set FIRST, because the site read below is one of them;
+   *   2. the remembered selection, so a reload lands here rather than back at
+   *      the first admissible business;
+   *   3. the pane's site, and its frame — `panel.refresh()` because the URL
+   *      changed even when the slug did not (the prefix is part of it);
+   *   4. the assistant, which is a session per site and must be re-opened;
+   *   5. the Library, whose list is business-wide and is therefore genuinely a
+   *      different list — not merely a redrawn badge.
+   *
+   * THE REMEMBERED SITE SURVIVES A SWITCH THAT STILL OFFERS IT. Slugs are unique
+   * per business rather than globally, so the same slug in two businesses is two
+   * different sites and the scoped URL already tells them apart. Dropping to the
+   * first site of the new business regardless would throw away a selection for
+   * no reason on the one path a returning operator takes.
+   */
+  async function selectBusiness(businessId) {
+    currentBusiness = businessId ?? null
+    setBusinessScope(currentBusiness)
+    businessStorage.setItem('id', currentBusiness ?? '')
+    switcher.set(currentBusiness)
+
+    // A failure to list is not a failure to run: the pane keeps what it had, and
+    // the operator sees an unchanged builder rather than an empty one.
+    const list = await loadSitesFor(currentBusiness).catch(() => [])
+    const slug = list.some((entry) => entry.slug === currentSite)
+      ? currentSite
+      : (list[0]?.slug ?? null)
+
+    if (slug === currentSite) {
+      // SAME SLUG, DIFFERENT BUSINESS — and `setSite` is deliberately a no-op on
+      // an unchanged slug, so the subscription above will not fire and the two
+      // things it does have to be done here instead. This is the case that makes
+      // "the scope moved" and "the site changed" genuinely different events: a
+      // reload, or two businesses that happen to name a site the same way.
+      void showSite(slug)
+      library.siteChanged()
+    } else {
+      panel.setSite(slug)
+    }
+    currentSite = slug
+    // An unchanged slug under a changed business is still a changed URL — the
+    // prefix is part of it. See `panel.refresh`.
+    panel.refresh()
+
+    // ALWAYS RE-READ, unlike the site case above: material is business-wide
+    // ([[DOC-38]] §7.7), so this is a different list rather than the same list
+    // with a different badge on it.
+    await library.refresh().catch(() => {})
+  }
+
+  /**
+   * Which business this mount opens on.
+   *
+   * The remembered id is a HINT — `resolveBusiness` falls back silently when the
+   * account can no longer operate it, which is the state browser storage
+   * outliving a grant produces. With no businesses at all it resolves to null,
+   * which sets no prefix and leaves every URL exactly as it was.
+   */
+  const initialBusiness = resolveBusiness(businesses, businessStorage.getItem('id'))
+  switcher.set(initialBusiness)
+  void selectBusiness(initialBusiness)
 
   return {
     shell,
@@ -443,6 +701,21 @@ export function mountBuilder(root, options = {}) {
     panel,
     toolbar,
     chat,
+    /**
+     * The shell's scope, and the only way to move it ([[REQ-179]]).
+     *
+     * Exposed so a suite can drive a business switch the way an operator does —
+     * and so a host that grows a second entry point to the same act (a deep link
+     * carrying a business, say) reaches THIS function rather than reimplementing
+     * the five steps it sequences.
+     */
+    scope: {
+      getBusiness: () => currentBusiness,
+      getSite: () => currentSite,
+      setBusiness: (id) => selectBusiness(id),
+    },
+    /** The switcher itself, for the chrome assertions. */
+    switcher,
     /**
      * The palette popup's second entry point (REQ-133 §1).
      *
@@ -469,6 +742,7 @@ export function mountBuilder(root, options = {}) {
       banner?.remove()
       panel.frame.removeEventListener('load', rebind)
       unbindSite()
+      switcher.destroy()
       unwatchChat()
       unwatchLibrary()
       upload.destroy()

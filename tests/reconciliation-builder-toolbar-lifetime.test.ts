@@ -35,7 +35,7 @@ const SITES = [
  * property of the site, not of one rendering of it, so there is no channel in
  * which changing it is meaningless.
  */
-const DECLARED = ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish']
+const DECLARED = ['mode-toggle', 'colors', 'open-new-tab', 'publish']
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded
@@ -229,30 +229,33 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     expect(stripEl.isConnected).toBe(true)
 
     // A control whose content depends on the site follows the site on screen —
-    // here, a change made PROGRAMMATICALLY, with the selector never touched.
-    expect((app.toolbar.get('site-selector') as HTMLSelectElement).value).toBe('beta')
+    // here, a change made PROGRAMMATICALLY. The "open in new tab" link points at
+    // exactly the URL the frame loads, so it carries the site in its href and is
+    // the control that proves the strip was re-derived against the CURRENT site
+    // rather than merely rebuilt.
+    //
+    // IT USED TO BE THE SITE SELECTOR ([[REQ-179]]). That control has moved out
+    // of this toolbar and into the shell's chrome, where it names a business;
+    // the property this criterion is about — a site change re-derives the whole
+    // strip against the state current at that moment — is unchanged and is now
+    // read off a control that is still here.
+    expect((app.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href')).toContain(
+      'beta',
+    )
     expect(app.panel.getSite()).toBe('beta')
-
-    // ── the same, when the selector itself is what changed the site ─────────
-    const selector = app.toolbar.get('site-selector') as HTMLSelectElement
-    selector.value = 'alpha'
-    selector.dispatchEvent(new Event('change'))
-
-    expect(app.panel.getSite()).toBe('alpha')
-    expect(app.toolbar.get('site-selector')).not.toBe(selector)
-    expect((app.toolbar.get('site-selector') as HTMLSelectElement).value).toBe('alpha')
 
     // ── and when the workspace RESTORES a remembered site ───────────────────
     // The first mount persisted its site; a fresh mount over the same storage
     // restores it, and the strip must show the restored site rather than the
     // store's first entry.
-    app.panel.setSite('beta')
     const secondRoot = document.createElement('div')
     document.body.append(secondRoot)
     const restored = mountBuilder(secondRoot, { sites: SITES, storage })
 
     expect(restored.panel.getSite()).toBe('beta')
-    expect((restored.toolbar.get('site-selector') as HTMLSelectElement).value).toBe('beta')
+    expect(
+      (restored.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href'),
+    ).toContain('beta')
 
     // ── asking for what is already displayed re-derives nothing ─────────────
     const settled = DECLARED.map((id) => restored.toolbar.get(id))
