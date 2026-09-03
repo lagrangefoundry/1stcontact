@@ -39,7 +39,8 @@ dashboard:
     cheaper to fix the details in a working system than it is to try to get them all right
     upfront, provided the general shape is correct'
     investigate_extra: ''
-    complete_extra: ''
+    complete_extra: 'Please be aware that in this current chat environment, background
+      jobs die. Please be sure to run any tests in the foreground.'
 dispatcher:
   bundle_untangle_gap_commits: 50
   costs:
