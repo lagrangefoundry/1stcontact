@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:20:12.837266+00:00'
+updated_at: '2026-09-03T00:29:01.745509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -398,5 +398,11 @@ Three ways to go, your call:
 I haven't filed anything — still no ticket created without you saying so, and that covers the Durable Object one from earlier too.
 
 Merge and `move-to-free-coded` are ready to run whichever you pick; the only input I still need is the version, or I'll take the next unclaimed patch after 0.2.46.
+
+<!-- xgd-turn id="a9de1385-2d56-47fc-b927-102aade13ea9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:29:01.531099+00:00" -->
+#### You
+Please create a ticket for the additional framework work needed in that project
 
 <!-- xgd-chat-end -->
