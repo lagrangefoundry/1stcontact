@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-03T00:09:29.595243+00:00'
+updated_at: '2026-09-03T00:19:01.275411+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -352,5 +352,11 @@ Plus the false comment at `ai.ts` — it was restating DOC-21 §1.5, retracted u
 Two things still open from earlier that I've assumed rather than had confirmed: I did **not** file the Durable Object ticket for part (4) — the residual risk is recorded in the body instead. Say the word if you want it filed. And the webui-chat affordance likely wants a framework ticket, which is equally not mine to create unasked.
 
 Once the lock frees I'll merge to `xgd-working`, then `move-to-free-coded`. That needs a version — tell me which, or I'll take the next unclaimed patch after 0.2.46.
+
+<!-- xgd-turn id="5d65e0b5-bf39-4502-b888-95ab38e6436f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:19:00.745006+00:00" -->
+#### You
+What is the implication of the deferred work? is more lagrange-framework work needed?
 
 <!-- xgd-chat-end -->
