@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T02:34:50.425172+00:00'
+updated_at: '2026-09-03T02:36:17.299941+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -309,5 +309,16 @@ Lets go with your recommendations
 <!-- xgd-chat role="assistant" ts="2026-09-03T02:34:50.349266+00:00" -->
 #### Claude
 Recommendations it is. Scoping the ticket first.
+
+<!-- xgd-turn id="5159b37d-a115-4c3f-be3d-1865f2cd1562-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T02:36:17.246521+00:00" -->
+#### You
+But before you implement I want to check that you are completely onboard with 
+site <-> business <-> tenant
+
+Account <-* tenants (multiple tenants per account)
+
+In the future (potentially multiple sites per business).
 
 <!-- xgd-chat-end -->
