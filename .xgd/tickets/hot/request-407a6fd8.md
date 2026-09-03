@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-03T00:02:11.069791+00:00'
+updated_at: '2026-09-03T00:02:29.031659+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -209,3 +209,18 @@ tests, two updated for the new shape) and the whole `workers` vitest project
 (26 files, 217 tests). The full suite has one pre-existing unrelated failure,
 `tests/bug32-webui-scope-rebrand.test.ts`, which fails identically on the base
 commit.
+
+
+### A second commit: repairing a raced merge
+
+`68db393777` is not part of the design above. Merging `free-REQ-178` into
+`xgd-working` conflicted only on `package.json`'s version scalar, and another
+session's `git commit` landed inside that conflicted merge — committing it
+(as `6cddcbb1c4`, labelled for a different ticket) with the conflict markers
+still in the file, which made `package.json` unparseable on `xgd-working`.
+
+The repair resolves it to `0.2.51`, above both sides rather than either: the two
+version bumps were independent, so neither is a superset of the other. It is
+recorded on this ticket because this ticket's merge is what surfaced it and
+there is no other commit for it to belong to; it changes no behaviour and needs
+no UAT.
