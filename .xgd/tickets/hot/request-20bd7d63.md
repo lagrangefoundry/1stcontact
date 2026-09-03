@@ -35,6 +35,7 @@ fields:
     reconcile_sha: c44ffa3adb8e65ce0af3c60fe199179ff1f719c6
     main_sha: null
     working_sha_history: []
+  version: 0.2.54
 ---
 
 # Capture → ticket: bundles become corpus members
