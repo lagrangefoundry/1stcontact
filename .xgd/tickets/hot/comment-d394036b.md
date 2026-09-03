@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-03T00:33:52.556629+00:00'
+updated_at: '2026-09-03T00:39:43.586485+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -242,5 +242,11 @@ Still yours to call:
 - **(3)** last selection in `users.fields`, or first-admissible and drop it?
 
 Once you've picked, I'll update the REQ-168 body — correcting the read table (`tickets.ts` is a fifth read and missing; `ai.ts` reads nothing), adding language for the transport, the dev-open exception, the fallback rule, and the per-scope chat host — and then cut the branch.
+
+<!-- xgd-turn id="f5cfd118-ef2b-42f0-8258-95e38061987b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:39:43.386118+00:00" -->
+#### You
+What are the implications ?
 
 <!-- xgd-chat-end -->
