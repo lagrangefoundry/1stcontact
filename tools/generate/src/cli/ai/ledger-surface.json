@@ -1,0 +1,89 @@
+{
+  "surface": "ledger",
+  "version": 1,
+  "surface_version": 1,
+  "title": "The record of what you decided",
+  "call_type": "inproc",
+  "overview": "A conversation is not a record. Everything you and your client work out — what the business is, who it is for, why the site looks the way it does, what you tried and rejected — is said once and then buried under everything said after it. This is where it stops being buried.\n\nThe ledger is the engagement written down: each decision, the reasoning behind it, and what was considered and set aside. It is not a summary of the conversation and it is not a transcript. A transcript is already kept for you and you never have to write one. What you write here is the part a reader could act on months later without reading a word of what was said.\n\n**It is also how the next session knows anything.** A later conversation about this site is primed from what has been written down, not from what was said. A decision you did not record is a decision the next session will re-open, re-argue, and quite possibly reverse — in front of the same client, who will remember settling it.\n\n**Write for someone searching, not someone reading.** Name the business, the trade, the town, the audience, the colours, in the words your client would use. A ledger that reads beautifully and never names what the business actually is cannot be found by anyone looking for it, and being found is most of its job.",
+  "param_types": {},
+  "shapes": {
+    "ledger": {
+      "entries": "how many decisions the ledger now holds",
+      "title": "what this engagement is currently called"
+    }
+  },
+  "errors": {
+    "NO_LEDGER": {
+      "message": "this conversation has no ledger to write to yet. Nothing is lost — say what you decided in your reply, and record it when the ledger exists."
+    },
+    "CONFLICT": {
+      "message": "the ledger moved while you were writing. Read it and write your entry again; nothing was lost."
+    },
+    "SCHEMA_INVALID": {
+      "message": "the entry was not well-formed. Nothing was written, and the ledger is exactly as it was."
+    }
+  },
+  "operations": [
+    {
+      "op": "record_decision",
+      "tool": "record_decision",
+      "effect": "write",
+      "summary": "Write one settled decision, and why, into the record of this engagement.",
+      "description": "Call this when something is **settled**, not when it is raised. A decision locks when your client agrees to it, or when you make it yourself and would defend it — those are both decisions and both belong here.\n\nOne call is one decision. Do not batch a session's worth at the end: the reasoning is sharpest when the decision is fresh, and a conversation that ends unexpectedly takes the unrecorded ones with it.\n\nSay what was decided, why it was decided, and what was considered and rejected. The rejected options matter as much as the chosen one — without them the next session cannot tell a deliberate choice from an accident, and will re-propose exactly what you already ruled out.",
+      "params": {
+        "decision": {
+          "type": "string",
+          "required": true,
+          "description": "What was settled, in one or two plain sentences. Name the thing it is about — the business, the page, the colour — rather than referring to it as \"this\"."
+        },
+        "because": {
+          "type": "string",
+          "required": true,
+          "description": "Why. The reasoning a later reader needs in order to know whether the decision still holds when something changes."
+        },
+        "rejected": {
+          "type": "string",
+          "description": "What else was considered and set aside, and why it lost. Leave it out only when there genuinely was no alternative."
+        },
+        "open": {
+          "type": "boolean",
+          "description": "True when this is settled for now but expected to be revisited. Defaults to false — a decision recorded without this is a decision that holds."
+        }
+      },
+      "returns": {
+        "shape": "ledger"
+      },
+      "errors": ["NO_LEDGER", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "name_engagement",
+      "tool": "name_engagement",
+      "effect": "write",
+      "summary": "Name this engagement, once you know whose it is.",
+      "description": "A conversation starts named after itself — an identifier, meaning nothing to anyone. Rename it as soon as you know what the business is.\n\nThe name is what somebody scanning a list of every engagement sees, and what a search matches against first, so it should say the business and what the work is: the trade, the town, what is being built. \"Website for a Bristol furniture restorer\" finds itself; \"New site\" does not.\n\nSafe to call again if the picture changes."
+      ,
+      "params": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "What this engagement should be called. Lead with the business, in the words its owner would use."
+        }
+      },
+      "returns": {
+        "shape": "ledger"
+      },
+      "errors": ["NO_LEDGER", "SCHEMA_INVALID"]
+    }
+  ],
+  "groups": [
+    {
+      "group": "KeepLedger",
+      "effect": "write",
+      "title": "Keeping the record",
+      "description": "What you and your client settle, written down so it survives the conversation. Nothing here touches the site.",
+      "operations": ["record_decision", "name_engagement"]
+    }
+  ],
+  "sequences": [],
+  "absences": []
+}
