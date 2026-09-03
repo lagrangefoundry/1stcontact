@@ -29,7 +29,15 @@ dashboard:
   default_port: 8888
   idle_timeout: NEVER
   prompts:
-    free_code_extra: ''
+    free_code_extra: 'Please make sure you have clarity on the user interaction
+    model and the core design. That you understand the API contracts, what you should
+    be built from scratch and when code must be reused. We try to minimise external 
+    dependencies and maximise code reuse because the cost of code is not just in its creation
+    but its maintenance.
+
+    Please do make implementation decisions and low level UI decisions yourself. It is generally 
+    cheaper to fix the details in a working system than it is to try to get them all right
+    upfront, provided the general shape is correct'
     investigate_extra: ''
     complete_extra: ''
 dispatcher:
@@ -52,6 +60,7 @@ merge_back:
     auto_merge_back: true
   regression:
     auto_merge_back: true
+  max_repeated_head_cycles: 2
 notifications:
   backends:
   - ntfy
