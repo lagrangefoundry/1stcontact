@@ -5,9 +5,9 @@ type: bug
 title: A document in the corpus that is not in the index is a shipped lie
 created_by: xgd
 created_at: '2026-09-02T20:49:23.510284+00:00'
-updated_at: '2026-09-03T02:44:26.429777+00:00'
+updated_at: '2026-09-03T02:44:26.593029+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -181,3 +181,98 @@ assertion. Worth re-pointing before it is picked up. Splitting is reasonable —
 (1)–(3) fix a shipped bundle and (4)–(6) fix a shipped document — but they should
 not be separated by much, because either alone still leaves an assistant that
 cannot find out how to paint a page.
+
+
+## Scoped behaviour (agreed with the operator before coding)
+
+Six behaviours land. Each numbered item above becomes one of them.
+
+### S1 — `1c assets` refuses a bundle whose corpus and index disagree
+
+Before `1c assets` inlines the system KB into `apps/control-app/src/generated/kb.js`
+it compares the bundle's three parts. Every document in `docs` must have an entry
+in BOTH the document index manifest and the chunk index manifest, and that entry's
+stamp must not be older than the document's own `updated_at`. A bundle failing
+either test is refused, not warned about: nothing is written, `1c assets` exits
+non-zero, and the error names every offending document, says for each whether it is
+MISSING from the manifests or STALE in them, and names `1c kb build` as the fix.
+
+**Staleness is a failure, not only absence.** A document present in the manifest
+under an older stamp ships new text against old vectors — retrieval finds it and
+ranks it on content it no longer has. That is the same lie as an unindexed document
+in weaker form, and the manifest already keys on exactly the stamp that detects it.
+This checkout is in that state today: `DOC-17` and `DOC-33` carry file stamps newer
+than the `2026-09-01T00:57:52Z` the manifests claim for them.
+
+**The awareness map is exempt, and the exemption is recorded rather than assumed.**
+`awareness.md` cannot be in the manifests and must not be: `buildKb` writes it AFTER
+both index passes, and it carries `type: system` where the corpus store is bound
+`{ type: 'doc' }` — it is held out of the corpus it describes, deliberately, so the
+map does not map itself. It is reachable by a different route entirely: DOC-39 §6
+injects it at priming, into every session, every turn. A document in every prompt is
+not unreachable for being unsearchable. The check therefore skips the awareness map
+BY THE PROPERTY THAT EXEMPTS IT — a corpus document the corpus predicate excludes —
+and not by filename, so a second such document is exempt for the same stated reason
+rather than by a second special case.
+
+### S2 — the instance is fixed by rebuilding
+
+`REF-l1`, `REF-surface`, `REF-behaviors` are indexed and chunked, and `REF-l1` is
+retrievable by search. This needs Workers AI credentials and is run by the operator
+against a key; S1 is what makes its absence impossible to ship past unnoticed.
+
+### S3 — one ordered command runs the release, and the shipping step is where skew is refused
+
+The hole is that the ordering `kb build` enforces internally binds nothing else:
+`kb export` writes documents into a tree whose index it does not update, and
+`1c assets` reads the corpus as a directory listing and the manifests as build
+artefacts. Rather than change what either verb may do — which trades one
+useful property (`kb export` needs no credentials) for another — the ordering
+becomes a thing an operator can run rather than a thing they must remember:
+`bin/kb-release` runs export, projections, both indexes, the map and `1c assets`
+in that order and stops at the first failure. The skew is refused at the point it
+would be SHIPPED (S1) rather than at the point it is produced, because producing a
+stale tree is legitimate — `kb export` on a machine with no credentials is a real
+thing to want — and shipping one never is. DOC-39 records this and why the other
+three options were declined.
+
+### S4 — `REF-l1` projects the page document, not only its element tree
+
+`projectL1Vocabulary` renders a section for the L1 DOCUMENT — `widths`,
+`background`, `textColor`, `column`, `resources` — the way it renders an element
+kind: one field line per key, the type words from the schema and the prose from
+the schema's own doc comment. The key list comes from `L1_DOCUMENT_KEYS`, which
+is computed from `Object.keys(l1DocumentSchema.shape)`, so a sixth document key
+documents itself the day it is declared. The shapes those keys reach — the font
+face among them — are seeded into the same reachability walk that already
+collects the element fields' shapes, so they are described once, in the section
+that already exists for that purpose, rather than duplicated.
+
+### S5 — the structural refusals are projected beside the numeric bounds
+
+"The limits every page is held to" promises "A page outside these is refused whole;
+nothing is clamped silently" and currently keeps that promise only for the numbers
+in `L1_ENVELOPE`. The refusals that are prose rather than bounds are projected
+beside them: a unique node `id`, a palette reference that names a declared entry,
+a keyframe `at` that is one of the document's `widths`, keyframes ascending,
+`widths` strictly ascending, `geometry.anchor` requiring a declared `column`, a
+painted `fontFamily` that resolves to a served face or names a generic, and an
+asset reference the site holds.
+
+No sentence is authored in the projection. `validate.ts` gains an exported
+`L1_STRUCTURAL_RULES` table whose VALUES ARE THE MESSAGE FRAGMENTS THE VALIDATOR
+EMITS — so the table is load-bearing for enforcement and cannot rot into
+decoration — and whose per-key doc comments are the prose, lifted by the same
+`definitionOf` machinery that already lifts `L1_ENVELOPE`'s. One source per fact,
+and the fact's source is the code that enforces it.
+
+### S6 — a projection is asserted to cover its declared source
+
+S1 asserts every document in the corpus is in the index, which this second defect
+passes. What is missing is that a projection COVERS WHAT IT SAYS IT IS GENERATED
+FROM. `REF-l1` declares its source as "the L1 element schemas and their validation
+envelope", so its body must mention every element kind in `l1NodeSchema`, every
+`L1_DOCUMENT_KEYS` entry, every `L1_ENVELOPE` key and every `L1_STRUCTURAL_RULES`
+key. The expectation is DERIVED FROM THOSE DECLARATIONS at assertion time, never
+listed: a hand-written expected list is the exact thing that goes stale silently,
+which is the class of lie this whole ticket is about.
