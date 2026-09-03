@@ -25,6 +25,20 @@ import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cl
  * {@link admit} selects rather than reads. That is what lets trials,
  * subscriptions and a warning period land later without touching this schema or
  * this query's shape.
+ *
+ * AN ACCOUNT OPERATES SEVERAL BUSINESSES, NOT ONE ([[DOC-40]] §2). The *account*
+ * is the payer — a `users` row in the platform's own tenant. A *business* is the
+ * tenant, and the hard information barrier. `memberships (user_id, account_id)`
+ * has always been a join and `account_id` has always held a tenant id, so the
+ * schema carried this from the first migration; what did not was this module,
+ * which resolved one membership and reported it singular. {@link admit} now
+ * returns the SET ({@link AdmittedBusiness}), and {@link provisionBusiness} is
+ * the sibling of {@link provisionInvite} that adds one to an account that
+ * already exists.
+ *
+ * `ok` IS A PROPERTY OF THE PERSON; ACCESS IS A PROPERTY OF THE BUSINESS. A
+ * single lapsed grant used to refuse the person, which with several businesses
+ * turns one expired card into a lockout from every other business they run.
  */
 
 /** Everything this module needs from the Worker's environment. */
@@ -90,6 +104,11 @@ export interface EntitlementRow {
  * to anyone who can pass a one-time PIN, which is anyone. The distinction still
  * has to exist — an operator debugging a customer's "it says no" needs it — so it
  * exists here and reaches the log rather than the wire.
+ *
+ * `no_membership` AND `no_entitlement` ARE ACCOUNT-LEVEL, NOT BUSINESS-LEVEL.
+ * They mean *none of them* — no live membership at all, or no live membership
+ * that carries a grant. A single lapsed business among several is not a refusal;
+ * it comes back in the admission marked unselectable ({@link AdmittedBusiness}).
  */
 export type DenialReason =
   | 'no_email'
@@ -98,8 +117,48 @@ export type DenialReason =
   | 'no_membership'
   | 'no_entitlement'
 
+/**
+ * One business this account may operate, as a switcher needs it.
+ *
+ * THE ENTITLEMENT HANGS HERE, not off the admission, because [[DOC-40]] §5's
+ * grant is per business: an account running three businesses holds three grants
+ * and three meters, and receives one invoice, because invoicing rolls up by
+ * payer and the payer is the account.
+ *
+ * A LAPSED BUSINESS IS STILL RETURNED — `entitlement` null, `selectable` false.
+ * Dropping it from the list would make "your grant expired" and "this business
+ * was deleted" the same observation, which is the wrong thing to show someone
+ * who is one payment away from getting back in.
+ *
+ * THE NAME IS CARRIED BECAUSE THE ID CANNOT BE SHOWN. {@link newId} is
+ * deliberately opaque and permanent — it appears in R2 keys — so `tenants.name`
+ * is the only thing there is to label a business with.
+ */
+export interface AdmittedBusiness {
+  /** The tenant id. Opaque and permanent; never a label. */
+  accountId: string
+  /** `tenants.name` — the human label, which may change. */
+  name: string
+  /** The best active grant covering now, or null when nothing covers it. */
+  entitlement: EntitlementRow | null
+  /** Whether this business may be entered. False exactly when there is no grant. */
+  selectable: boolean
+}
+
+/**
+ * ADMISSION CARRIES THE SET, and there is no singular `accountId` on it.
+ *
+ * The field was removed rather than kept beside the list, deliberately. A caller
+ * left reading it would serve whichever business sorted first to a person who
+ * had selected the second — a silent, plausible, wrong answer. Deleting it turns
+ * every such call site into a compile error instead.
+ *
+ * `businesses` is non-empty on an `ok` admission and holds at least one
+ * selectable member; that pair of conditions IS the admission decision.
+ * Which one is being operated is [[REQ-168]]'s question, not this one's.
+ */
 export type Admission =
-  | { ok: true; user: UserRow; accountId: string; entitlement: EntitlementRow }
+  | { ok: true; user: UserRow; businesses: AdmittedBusiness[] }
   | { ok: false; reason: DenialReason; email: string | null }
 
 /** The one thing a refused visitor is told. */
@@ -157,9 +216,51 @@ export interface InviteResult {
   /** False when the email was already known — see below. */
   created: boolean
   user: UserRow
+  /**
+   * The business this call provisioned, or — when the person already existed
+   * with businesses — the first one they hold.
+   *
+   * SINGULAR HERE AND PLURAL ON {@link Admission}, and the asymmetry is the
+   * point. An invite provisions ONE business ([[DOC-40]] §4), so reporting one
+   * id is reporting what happened. Admission answers a different question —
+   * which businesses may be operated — and a singular answer there would be a
+   * guess.
+   */
   accountId: string
-  /** The starter site's slug, on a fresh invite. */
+  /** The starter site's slug, when this call provisioned a business. */
   siteSlug: string | null
+}
+
+/** What provisioning one business is told. */
+export interface BusinessSpec {
+  /**
+   * The account that will own it — a `users` row in the PLATFORM's tenant,
+   * which is what [[DOC-40]] §2.1 means by 1st Contact being its own tenant.
+   */
+  accountUserId: string
+  /** The business's human label, which `tenants.name` holds and may change. */
+  name: string
+  /**
+   * The address the grant was made to. [[DOC-40]] §5's entitlement carries both
+   * an account and an email: the email is the claim key for a grant made before
+   * an account exists, and the audit record of who it was made to.
+   */
+  email?: string | null
+  /** A plan name, not a capability set ([[DOC-40]] §5). */
+  plan?: string
+  /** When the grant begins. Defaults to now. */
+  startsAt?: string
+  /** When it ends. Omit for an open-ended grant. */
+  endsAt?: string | null
+  grantedBy?: string
+  note?: string
+}
+
+/** The business one call provisioned. */
+export interface BusinessResult {
+  accountId: string
+  name: string
+  siteSlug: string
 }
 
 /**
@@ -174,74 +275,136 @@ export const STARTER_HEADING = 'Your 1stcontact site'
 /**
  * Create the whole set: person, account, membership, grant, and a site.
  *
- * TRANSACTIONALLY WHERE D1 ALLOWS. The three identity rows go in one
- * `DB.batch()`, which D1 runs as a single transaction, so an account can never
- * exist with a user and no membership. The tenant row and the starter site are
- * separate writes because they go through the site store's own port rather than
- * through raw SQL — the failure that leaves is an account with no site, which an
- * operator can see and re-run, rather than a half-built membership graph that
- * nothing would report.
+ * THE BUSINESS IS {@link provisionBusiness}'S JOB, NOT THIS FUNCTION'S. An
+ * invite is a person plus their first business, and a second business is the
+ * same rows minus the person ([[DOC-40]] §4) — so the rows live in one place and
+ * both entry points call it. Inlining them here is what would let the two paths
+ * drift into provisioning differently-shaped businesses, which is a divergence
+ * nothing would report until a self-serve business behaved unlike an invited
+ * one.
+ *
+ * TRANSACTIONALLY WHERE D1 ALLOWS, AND THE BATCH IS NOW THE BUSINESS. Membership
+ * and grant go in one `DB.batch()`, so a business can never exist that nobody
+ * may operate or that carries no access. The user row is written first and
+ * separately, because it belongs to the person rather than to any one business.
+ * The failure that leaves is a person with no business — visible, because they
+ * are refused `no_membership`, and REPAIRABLE, because re-inviting them
+ * provisions one (below).
  *
  * RE-INVITING AN EXISTING EMAIL IS NOT A SECOND ACCOUNT. `idx_users_tenant_email`
  * would refuse it, and a constraint violation surfacing out of an admin console
  * as `UNIQUE constraint failed` is a worse answer than the true one. So the
  * existing user is looked up first and REPORTED — `created: false` — with the
- * account they already own.
+ * business they already hold. A re-invite of someone holding NO live business
+ * provisions one, which is the repair above; it is not a second account, because
+ * the account is the person and the person already existed.
  */
 export async function provisionInvite(env: IdentityEnv, invite: Invite): Promise<InviteResult> {
   const platformTenant = requirePlatformTenant(env)
   const email = normaliseEmail(invite.email)
   if (email === '') throw new Error('An invite needs an email address.')
 
+  const spec = (accountUserId: string): BusinessSpec => ({
+    accountUserId,
+    name: invite.accountName ?? email,
+    email,
+    plan: invite.plan,
+    startsAt: invite.startsAt,
+    endsAt: invite.endsAt,
+    grantedBy: invite.grantedBy,
+    note: invite.note,
+  })
+
   const existing = await findUser(env, platformTenant, email)
   if (existing) {
-    const accountId = await accountFor(env, existing.id)
-    return { created: false, user: existing, accountId: accountId ?? '', siteSlug: null }
+    const held = await businessesFor(env, existing.id)
+    if (held.length > 0) {
+      return { created: false, user: existing, accountId: held[0].accountId, siteSlug: null }
+    }
+    const repaired = await provisionBusiness(env, spec(existing.id))
+    return { created: false, user: existing, accountId: repaired.accountId, siteSlug: repaired.siteSlug }
   }
 
   const now = new Date().toISOString()
   const userId = newId('usr')
+
+  await env.DB.prepare(
+    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_admin, ' +
+      'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
+  )
+    .bind(userId, platformTenant, email, 'active', invite.displayName ?? null, now, now, now, '{}')
+    .run()
+
+  const business = await provisionBusiness(env, spec(userId))
+
+  const user = await findUser(env, platformTenant, email)
+  if (!user) throw new Error('The invited user was not readable back after provisioning.')
+  return { created: true, user, accountId: business.accountId, siteSlug: business.siteSlug }
+}
+
+/**
+ * Add one business to an account that already exists ([[DOC-40]] §4).
+ *
+ * THE SAME ROWS AN INVITE WRITES, MINUS THE PERSON: a `tenants` row, a
+ * membership joining them, an entitlement, and one site to edit. That is the
+ * whole of what a second business is, which is why it needs no schema it does
+ * not already have — and why {@link provisionInvite} calls this rather than
+ * writing its own copy.
+ *
+ * SELF-SERVE CREATION IS A SECOND ENTRY POINT ONTO THIS FUNCTION, not new logic
+ * — the same property [[DOC-40]] §4 claims for just-in-time provisioning. A
+ * business created from the builder and a business created by an invite must be
+ * indistinguishable afterwards, because everything downstream reads them the
+ * same way.
+ *
+ * ROLE IS `owner` AND NOT A PARAMETER. Every business this function creates is
+ * created for the person who will own it; a `support` membership ([[DOC-40]] §6)
+ * is granted against an EXISTING business and is therefore a different
+ * operation, not an argument to this one.
+ */
+export async function provisionBusiness(
+  env: IdentityEnv,
+  spec: BusinessSpec,
+): Promise<BusinessResult> {
+  if (spec.accountUserId.trim() === '') throw new Error('A business needs an account to belong to.')
+  const name = spec.name.trim()
+  if (name === '') throw new Error('A business needs a name.')
+
+  const now = new Date().toISOString()
   const accountId = newId('acct')
-  const root = d1r2SiteStore(env)
 
   // The tenant first: `forTenant` refuses an unregistered one, so a membership
-  // pointing at an account the registry has never heard of would be a row that
-  // can never be used.
-  await root.createTenant({ id: accountId, name: invite.accountName ?? email })
+  // pointing at a business the registry has never heard of would be a row that
+  // can never be used — and `businessesFor`'s join drops it, so the switcher
+  // would not even show what went wrong.
+  await d1r2SiteStore(env).createTenant({ id: accountId, name })
 
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO users (id, tenant_id, email, status, display_name, platform_admin, ' +
-        'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
-    ).bind(userId, platformTenant, email, 'active', invite.displayName ?? null, now, now, now, '{}'),
-    env.DB.prepare(
       'INSERT INTO memberships (id, user_id, account_id, role, status, granted_by, granted_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).bind(newId('mem'), userId, accountId, 'owner', 'active', invite.grantedBy ?? null, now),
+    ).bind(newId('mem'), spec.accountUserId, accountId, 'owner', 'active', spec.grantedBy ?? null, now),
     env.DB.prepare(
       'INSERT INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, ' +
         'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
       newId('ent'),
       accountId,
-      email,
-      invite.plan ?? 'pro',
+      spec.email ?? null,
+      spec.plan ?? 'pro',
       'admin_grant',
       'active',
-      invite.startsAt ?? now,
-      invite.endsAt ?? null,
-      invite.grantedBy ?? null,
-      invite.note ?? null,
+      spec.startsAt ?? now,
+      spec.endsAt ?? null,
+      spec.grantedBy ?? null,
+      spec.note ?? null,
       now,
       now,
     ),
   ])
 
   const siteSlug = await createStarterSite(env, accountId)
-
-  const user = await findUser(env, platformTenant, email)
-  if (!user) throw new Error('The invited user was not readable back after provisioning.')
-  return { created: true, user, accountId, siteSlug }
+  return { accountId, name, siteSlug }
 }
 
 /**
@@ -305,13 +468,16 @@ export async function admit(
   // is the one refusal that is about the PERSON rather than about their account.
   if (user.status !== 'active') return { ok: false, reason: 'user_inactive', email: normalised }
 
-  const accountId = await accountFor(env, user.id, stamp)
-  if (!accountId) return { ok: false, reason: 'no_membership', email: normalised }
+  // Every business, then the decision — not the first business, then the
+  // decision. The two orders differ exactly when an account holds several and
+  // one of them has lapsed, which is the case this ticket exists for.
+  const businesses = await businessesFor(env, user.id, stamp)
+  if (businesses.length === 0) return { ok: false, reason: 'no_membership', email: normalised }
+  if (!businesses.some((business) => business.selectable)) {
+    return { ok: false, reason: 'no_entitlement', email: normalised }
+  }
 
-  const entitlement = await bestActiveGrant(env, accountId, stamp)
-  if (!entitlement) return { ok: false, reason: 'no_entitlement', email: normalised }
-
-  return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, accountId, entitlement }
+  return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, businesses }
 }
 
 /** The person, by the identity the index decides ([[DOC-40]] §2). */
@@ -326,31 +492,51 @@ async function findUser(
 }
 
 /**
- * The account this person may operate.
+ * Every business this person may operate, each with its own access.
  *
- * REVOKED AND EXPIRED REFUSE INDEPENDENTLY OF EACH OTHER. `revoked_at` is a
+ * REVOKED AND EXPIRED EXCLUDE INDEPENDENTLY OF EACH OTHER. `revoked_at` is a
  * withdrawal someone made and holds whatever the dates say; `expires_at` is what
  * a time-boxed support grant ([[DOC-40]] §6) will use and holds whatever the
- * status says. Checking only one of them would make the other decorative.
+ * status says. Checking only one of them would make the other decorative. Both
+ * remove the business from the list ENTIRELY rather than marking it
+ * unselectable: a withdrawn membership is not a lapsed grant, and showing it
+ * would tell a former employee which businesses they used to be able to reach.
  *
- * `ORDER BY granted_at` so a person holding two memberships resolves
- * deterministically rather than to whatever the query planner returned first.
- * One membership is the only shape provisioning creates today; several is what an
- * agency account will be, and a nondeterministic answer to "whose builder am I
- * in" is the worst possible way to discover that.
+ * THE JOIN ONTO `tenants` IS ALSO AN INTEGRITY GUARD. A membership pointing at a
+ * business the registry has never heard of is a row `forTenant` would refuse
+ * anyway, so an inner join drops it here rather than producing a switcher entry
+ * that throws when it is picked.
+ *
+ * `ORDER BY granted_at, id` so the list is stable across calls rather than being
+ * whatever the query planner returned first. Order is presentation, not
+ * selection — nothing downstream may read `[0]` as "the" business.
  */
-async function accountFor(
+async function businessesFor(
   env: IdentityEnv,
   userId: string,
   now: string = new Date().toISOString(),
-): Promise<string | null> {
-  const row = await env.DB.prepare(
-    'SELECT account_id FROM memberships WHERE user_id = ? AND status = ? AND revoked_at IS NULL ' +
-      'AND (expires_at IS NULL OR expires_at > ?) ORDER BY granted_at, id LIMIT 1',
+): Promise<AdmittedBusiness[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT m.account_id AS account_id, t.name AS name FROM memberships m ' +
+      'JOIN tenants t ON t.id = m.account_id ' +
+      'WHERE m.user_id = ? AND m.status = ? AND m.revoked_at IS NULL ' +
+      'AND (m.expires_at IS NULL OR m.expires_at > ?) ' +
+      'ORDER BY m.granted_at, m.id',
   )
     .bind(userId, 'active', now)
-    .first<{ account_id: string }>()
-  return row?.account_id ?? null
+    .all<{ account_id: string; name: string }>()
+
+  const businesses: AdmittedBusiness[] = []
+  for (const row of results ?? []) {
+    const entitlement = await bestActiveGrant(env, row.account_id, now)
+    businesses.push({
+      accountId: row.account_id,
+      name: row.name,
+      entitlement,
+      selectable: entitlement !== null,
+    })
+  }
+  return businesses
 }
 
 /**
