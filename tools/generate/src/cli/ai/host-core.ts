@@ -141,6 +141,22 @@ export interface ChatSession {
    * beginning of a junction nobody has written to.
    */
   cursor: number
+  /**
+   * True when a turn is OPEN at {@link cursor} — the panel should reattach.
+   *
+   * WHY THE CLIENT CANNOT WORK THIS OUT ITSELF. A transcript ending in an
+   * assistant turn looks identical whether that turn finished a second ago or is
+   * still being written; the difference is a `turn_end` record, which is on the
+   * junction and not in the projection. So it is answered here, where the fold
+   * happened, by the same rule the archive uses to decide what it may store:
+   * `closedPrefix` is shorter than the record stream exactly when a turn is open.
+   *
+   * WHY IT IS WORTH A FIELD. Tailing unconditionally would be correct and
+   * wasteful — a client that reattaches to a quiet junction holds a request open
+   * until the tail's own timeout elapses, having rejoined nothing. This is the
+   * cheap question that says whether the expensive one is worth asking.
+   */
+  live: boolean
   /** False when a turn cannot be run — the panel says so instead of silently failing. */
   ready: boolean
   /** Why, when `ready` is false. Written for an operator, not a developer. */
@@ -646,7 +662,8 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
 async function storedTranscript(
   manager: Untyped,
   sessionId: string,
-): Promise<{ turns: ChatTurn[]; cursor: number } | null> {
+  deps: HostDeps,
+): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean } | null> {
   let read: { session: Untyped; cursor: number }
   try {
     read = await manager.transcript(sessionId)
@@ -658,7 +675,14 @@ async function storedTranscript(
     role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
     markdown: turn.content,
   }))
-  return { turns, cursor: read.cursor }
+  // A SECOND READ OF THE SAME LOG, and cheap enough to be worth its clarity:
+  // this is a memory junction in the Worker and a small file on Node, and
+  // `transcript` has already guaranteed one exists (it seeds when it must). The
+  // alternative is upstream returning the records it folded, which would widen
+  // its contract for one caller's benefit.
+  const [records] = manager.logFor(sessionId).readFrom(0)
+  const live = deps.lib.closedPrefix(records).length !== records.length
+  return { turns, cursor: read.cursor, live }
 }
 
 /**
@@ -724,21 +748,29 @@ export async function openSession(
   try {
     manager = await managerFor(slug, opts, deps)
   } catch (err) {
-    return { sessionId, turns: [], cursor: 0, ready: false, error: operatorMessage(err) }
+    return {
+      sessionId,
+      turns: [],
+      cursor: 0,
+      live: false,
+      ready: false,
+      error: operatorMessage(err),
+    }
   }
   // STILL BEFORE `attach`, and now for a second reason as well as the first.
   // {@link storedTranscript} folds the junction and touches no backend, so the
   // property this ordering already bought — a deployment with no API key shows
   // the conversation AND says why it is frozen — survives the swap intact.
-  const read = await storedTranscript(manager, sessionId)
+  const read = await storedTranscript(manager, sessionId, deps)
   const turns = read?.turns ?? []
   const cursor = read?.cursor ?? 0
+  const live = read?.live ?? false
   try {
     await attach(manager, sessionId, slug)
   } catch (err) {
-    return { sessionId, turns, cursor, ready: false, error: operatorMessage(err) }
+    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err) }
   }
-  return { sessionId, turns, cursor, ready: true }
+  return { sessionId, turns, cursor, live, ready: true }
 }
 
 /**

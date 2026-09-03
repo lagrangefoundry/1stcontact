@@ -41,7 +41,7 @@
  */
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
-import { streamChatPrompt } from './api.js'
+import { streamChatPrompt, streamChatReattach } from './api.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
 // `app.js`'s job, not this file's — see the header on why this pane is synchronous.
@@ -97,14 +97,16 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  *
  * @param {object} [options]
  * @param {Storage} [options.storage]   per-instance draft persistence
- * @param {object}  [options.transport] `{streamPrompt}` — injected by tests
+ * @param {object}  [options.transport] `{streamPrompt, streamReattach}` — injected
+ *   by tests. A transport with no `streamReattach` simply never rejoins, which
+ *   is what keeps every existing caller working unchanged.
  * @param {(meta: {at?: number, changes?: number}) => void} [options.onSiteChanged]
  *   Called each time the turn reports a write — see {@link watchForWrites}.
  */
 export function createChatPanel(options = {}) {
   const {
     storage,
-    transport = { streamPrompt: streamChatPrompt },
+    transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
     onSiteChanged = () => {},
   } = options
 
@@ -130,7 +132,13 @@ export function createChatPanel(options = {}) {
    *
    * `null` empties the pane, for a host with no site selected.
    *
+   * `live` and `cursor` are what make a reload during a turn survivable
+   * (BUG-46): `live` says a turn is still being written, and `cursor` is where
+   * the transcript stopped, so the rejoin resumes at exactly the offset the
+   * paint reached. They are consumed together or not at all.
+   *
    * @param {{sessionId: string, turns?: {role: string, markdown: string}[],
+   *          cursor?: number, live?: boolean,
    *          ready?: boolean, error?: string} | null} session
    */
   function setSession(session) {
@@ -152,11 +160,47 @@ export function createChatPanel(options = {}) {
       sendPrompt: (text) => watchForWrites(transport.streamPrompt(id, text), onSiteChanged),
     })
 
-    for (const turn of session.turns ?? []) chat.appendMessage(turn.role, turn.markdown)
+    // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
+    // (BUG-46). When the origin says a turn is open, the transcript's last
+    // assistant turn is the half of a reply that had been written when this page
+    // loaded — it is not a finished message, and appending it as one would leave
+    // the operator looking at a reply that stopped mid-sentence. It seeds the
+    // resumed bubble instead, so the half already said and the half still coming
+    // are ONE message rather than two.
+    const turns = session.turns ?? []
+    const resuming = session.live === true && typeof transport.streamReattach === 'function'
+    const seed = resuming && turns.at(-1)?.role === 'assistant' ? turns.at(-1) : null
+    for (const turn of seed ? turns.slice(0, -1) : turns) {
+      chat.appendMessage(turn.role, turn.markdown)
+    }
     // `ready` is independent of the transcript: a builder with no API key still
     // has every earlier conversation, and the operator is owed both the history
     // and the reason it is frozen.
     if (session.ready === false) note(session.error || 'The assistant is not available.')
+    if (!resuming) return
+
+    // NOT AWAITED, and this function stays synchronous. `resume` runs for as
+    // long as the turn does, and the argument in this file's header — that a
+    // synchronous swap is what removes the race — is exactly as true here: the
+    // pane must be able to be handed the next conversation without waiting for
+    // this one's turn to end. A rejoin is fire-and-forget for the same reason
+    // `mountChat` drives `sendPrompt` without the caller awaiting it.
+    //
+    // THROUGH `watchForWrites`, because a resumed turn writes to the site just
+    // like a live one does. Its `site_changed` signals are the operator's only
+    // notice that the preview moved (BUG-43) — dropping them here would make a
+    // reloaded page the one place edits happen invisibly, which is the failure
+    // that had them reloading in the first place.
+    Promise.resolve(
+      chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), onSiteChanged), {
+        markdown: seed?.markdown ?? '',
+      }),
+    ).catch(() => {
+      // A rejoin that fails costs the live tail and nothing else: the transcript
+      // is painted, the turn is unaffected — `watch` is a reader — and it lands
+      // in the archive either way. Reporting it would be telling the operator
+      // about a request they did not make.
+    })
   }
 
   return {
