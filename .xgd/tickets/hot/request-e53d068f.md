@@ -5,10 +5,10 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-09-03T01:34:28.194971+00:00'
+updated_at: '2026-09-03T01:38:18.380230+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -16,6 +16,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-40983376
+  commits:
+  - working_sha: 0504c1139fee525ef0e4c42919a918291f621788
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: af50fe677ec89b98c55ad1cb9138aae1c1fdb1e9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.56
 ---
 
 # Material description: a digest in the body, the full text in a comment
