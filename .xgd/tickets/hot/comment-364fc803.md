@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-46
 created_by: xgd
 created_at: '2026-09-02T01:08:06.409281+00:00'
-updated_at: '2026-09-02T23:35:30.053917+00:00'
+updated_at: '2026-09-03T00:05:32.394556+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -215,5 +215,83 @@ $ /opt/homebrew/bin/pnpm pack --pack-destination /var/folders/27/xt2427c97lzdk20
 js → /Users/martin/lagrangefoundry @lagrangefoundry/ai 0.0.0 from components/ai/js → /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai [473.4KB]
 
 exit=0 ((.venv-tests) ) martin@nyx lagrange-framework %
+
+<!-- xgd-turn id="3c0b5121-c088-41f5-a6b9-77e237d5f2de-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:05:32.327835+00:00" -->
+#### Claude
+Install verified — the store is now byte-identical to the framework's `xgd-working`:
+
+| probe | before | now |
+|---|---|---|
+| `async transcript(` in `manager.js` | 0 | **1** |
+| `manager.js` lines / bytes | 823 / 33526 | **872 / 36203** |
+| `archive.js` BUG-38 doc comment | 0 | **1** |
+| `README.md` bytes | 8393 | **10773** |
+| vs framework `xgd-working` | differed | **identical** |
+
+Parts (1), (2) and (3) are all unblocked. Cutting the branch now.
+
+Now I have what I need. Let me read the panel before writing.
+
+Everything I need is confirmed. Writing the code now, starting with the host read.
+
+Now the tailer in the host, so the router stays a pure transport.
+
+Now the router — `ctx` threading, `waitUntil`, and the reattach route.
+
+Now `streamTurn` — the `waitUntil` fix and the comment that says it's unreachable.
+
+Now `streamTail` itself, beside `streamTurn`:
+
+Now the worker entry point passes `ctx`:
+
+Now the false comment in `ai.ts` that the ticket calls out:
+
+Now the client transport, and a typecheck to catch anything I've broken.
+
+Typecheck is clean — the one error is pre-existing on `xgd-working` in files I haven't touched (`SHIPPED_SOURCE` isn't re-exported). Now the client transport:
+
+Now the UATs. Let me study how the existing chat tests drive a paced backend.
+
+36 call sites pass two args. Making `ctx` optional matches `route`'s own optionality and avoids mechanical churn:
+
+The wire-protocol double is deliberately single-sourced, so the paced variant goes beside it rather than forking it:
+
+Now the UAT suite:
+
+5 of 6 pass. The failure is a genuine finding, not a broken test — let me confirm it's pre-existing before adjusting.
+
+Confirmed pre-existing: the REQ-146 suite covers the same scenario and deliberately asserts only the id and turns — never `ready: false`. In workerd the backend factory is lazy, so a missing key isn't detected at open time. That's untouched by my change, so I'll assert what's actually in BUG-46's scope and flag the gap.
+
+All 6 pass. Now the essential check — do they actually fail against the unfixed code?
+
+Restoring the fix. The revert was deliberate and it surfaced something important:
+
+The `waitUntil` test passed even without the fix — vitest never tears the isolate down, so the drain finished anyway. It needs a structural assertion:
+
+Now re-verify all six fail without the fix:
+
+All six fail without the fix and pass with it. Now checking for regressions across the related suites:
+
+Two failures. One is mine — a new route needs a cacheability probe. Let me check the other:
+
+`bug32` fails on a clean tree — pre-existing and unrelated. The route-probe failure is mine:
+
+All green. Now the ticket body — the protocol requires every UAT to trace to language in it, and I added behaviour the body doesn't yet cover.
+
+Original preserved, section appended. Final review of the diff before committing:
+
+A different second failure this run — let me check whether it's flaky or mine:
+
+`l1-navigation` passes alone with and without my changes; it failed only in one full run and passed in another. Re-running the full suite to confirm flakiness:
+
+Different failures again. Let me check whether these are the `dist-assets` artifact I built earlier:
+
+req115 passes alone too. Rotating failures across runs suggests pre-existing flakiness — let me establish the baseline with a full run on a clean tree:
+
+The `-u` flag stashed the generated assets I'd copied in, invalidating that baseline. Let me verify they're restored and redo it properly:
+
+Baseline confirmed: the clean tree fails the same way (`bug32` consistently, plus a rotating flaky one). My changes add no failures. Restoring and committing:
 
 <!-- xgd-chat-end -->
