@@ -5,9 +5,9 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-09-03T00:19:08.710162+00:00'
+updated_at: '2026-09-03T01:34:28.194971+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -223,3 +223,62 @@ change will provide, obtained locally:
 
 This view is **deleted** when the framework change lands. It is named here so
 that deletion is a known task rather than a discovery.
+
+
+### What the implementation settled that the plan did not
+
+**The describer seam is `DescribeText`, and its default is `ai.ts`'s
+`sessionTextDescriber`.** It takes a prompt and returns prose plus the model id.
+The lightweight session is asserted rather than assumed: the model is offered no
+tools, its system prompt is `DOCUMENT_DIGEST_SYSTEM` and nothing else — no
+landscape, no toolbox manual — a session is created and closed per document so
+two documents never share a conversation, and the close happens on the failing
+path too. The Anthropic client is injectable for that evidence, through the same
+seam the chat host's double already uses (BUG-39).
+
+**`description_model` names the model AND the extractor** — `"<model> (unpdf)"`,
+`"<model> (text-decode)"`. Whoever wrote the body is the model now; which reader
+produced the text is still what a later re-extract pass would select on, so both
+are kept rather than one being lost to the other.
+
+**The derived title survives a degraded digest.** A document whose describer
+could not be reached still gets the title extraction already found — the PDF's
+declared `/Title`, or the first substantial line. Falling back to the filename
+there would make [[BUG-41]]'s repair conditional on a key being configured, which
+it is not: reading text is code.
+
+**A scan makes no model call.** There is nothing to describe, so paying for a call
+to be told so would be a cost with no product.
+
+**`aiConfigured` counts an injected describer as configured.** The question the
+gate asks is *"can a description be written here"*, and a host that handed one in
+has answered it; the key is only how the Worker's own default obtains one.
+
+**One scrubber for the whole route table.** `redactor(secretsOf(env))` was built
+per catch block — three declarations of one thing, and three places for the next
+route to forget one. It is hoisted, so REQ-146 AC4's rule has a single subject.
+
+**The envelope carries `text_comment`.** The uid of the `material_text` comment,
+or `null`. The body no longer carries the text, so a caller that wants it has to
+know there is a comment to ask for.
+
+### Where the relocated claims went
+
+Two existing UATs asserted the behaviour this ticket reverses, and neither claim
+was dropped — both moved to where they can still be made honestly.
+
+- [[BUG-41]]'s *"the file's own words become the body, not an apology"* is now
+  *"the file's own words are read, not apologised for"*, asserted against
+  `fullText`. Its workers half ran with NOTHING configured on purpose; the upload
+  route now refuses that deployment, which would have turned the file into an
+  assertion about a 503 — so the no-key half moved to the node sibling, which
+  calls `describe` directly and proves the file is still read with no describer
+  at all.
+- [[REQ-163]]'s *"a PDF yields its own text"* asserts the same words in the same
+  place, against `fullText` rather than the body, and its ingestion suite now
+  additionally asserts the comment is written, holds the whole document, and is
+  named on the envelope.
+
+Suites that upload now supply a describer, because ingestion requires one. The
+two that withheld a describer to reach a `no_describer` image withhold the VISION
+seam alone, which is the state those claims were always about.
