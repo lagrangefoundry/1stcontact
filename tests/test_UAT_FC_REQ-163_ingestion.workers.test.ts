@@ -9,6 +9,7 @@ import {
   promoteToSiteAsset,
 } from '../apps/control-app/src/material'
 import { storeFor } from '../apps/control-app/src/store'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 import { bytesOf, minimalPdf } from './support/material-fixtures'
@@ -54,11 +55,18 @@ function routerEnv(tenantId = TENANT, over: Partial<RouterEnv> = {}): RouterEnv 
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId = TENANT): Scope => ({ businessId })
 
 /** The stubbed describer, plus a count of how often it was reached. */
 function vision(text: string) {
@@ -104,6 +112,7 @@ async function upload(
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(TENANT, envOver),
+    scopeOf(TENANT),
     d,
   )
 }
@@ -169,7 +178,7 @@ describe('REQ-163 — a file arriving through the Worker', () => {
 
     // And the description really is in the ticket's body, read back through a
     // second, independently constructed store — not from the response envelope.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.type).toBe('material')
     expect(ticket.title).toBe('Brand guidelines')
@@ -203,9 +212,9 @@ describe('REQ-163 — a file arriving through the Worker', () => {
     // is retrievable and that the old one's vector was not recomputed — which is
     // what "without a full reindex" means mechanically.
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(), scopeOf(), { embedder, defer: () => {} })
 
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     await store.create({
       type: 'material',
       title: 'An older note',
@@ -274,7 +283,7 @@ describe('REQ-163 — a file arriving through the Worker', () => {
     // one is addressed to someone who has just dragged their brand book onto the
     // page, and it is checked BEFORE the material ticket is created so nothing is
     // left behind.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const before = (await store.list({ type: 'material', limit: 'all' })).tickets.length
 
     const response = await upload(
@@ -312,7 +321,7 @@ describe('REQ-163 — a degraded description is still material', () => {
     expect(body.description_status).toBe('no_describer')
     expect(body.description_model).toBeNull()
 
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     // VISIBLE and HONEST: the body says what is missing rather than being empty,
     // which in the Library reads as a bug rather than a known limitation.
@@ -361,7 +370,7 @@ describe('REQ-163 — the index seam', () => {
 
     // Stored regardless. Losing the client's file to a problem the operator has
     // to fix would be the wrong trade.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     expect((await store.get({ uid: String(body.uid) })).ticket.title).toBeTruthy()
   })
 })
@@ -381,6 +390,7 @@ describe('REQ-163 — fetched material', () => {
         body: JSON.stringify({ url: 'https://example.com/a' }),
       }),
       routerEnv(),
+      scopeOf(),
       { ...deps(), fetch: stub },
     )
     expect(response.status).toBe(200)
@@ -393,7 +403,7 @@ describe('REQ-163 — fetched material', () => {
   })
 
   it('UAT_FC_REQ-163 an address the guard refuses never becomes material', async () => {
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const before = (await store.list({ type: 'material', limit: 'all' })).tickets.length
     const response = await route(
       new Request('https://app.test/api/material/fetch', {
@@ -401,6 +411,7 @@ describe('REQ-163 — fetched material', () => {
         body: JSON.stringify({ url: 'http://169.254.169.254/latest/meta-data/' }),
       }),
       routerEnv(),
+      scopeOf(),
       deps(),
     )
     expect(response.status).toBe(400)
@@ -418,7 +429,7 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // and its record write. What must hold afterwards is that no record names
     // absent bytes — the failure nothing can heal — while the reverse, a blob
     // nothing names, is fine because the sweep collects it.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const bytes = bytesOf('a file whose attachment record never landed')
     const { ticket } = await store.create({
       type: 'material',
@@ -456,8 +467,8 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // because it publishes third-party copyright under the client's own domain.
     // The check reads the MATERIAL'S OWN RECORD rather than an argument, so a
     // caller cannot assert its way past it.
-    const tickets = await ticketStoreFor(routerEnv())
-    const sites = await storeFor(routerEnv())
+    const tickets = await ticketStoreFor(routerEnv(), scopeOf())
+    const sites = await storeFor(routerEnv(), scopeOf())
     await sites.createDraft('gate')
 
     const { ticket } = await tickets.create({
@@ -494,8 +505,8 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // resolve would mean handing the public Worker a binding on the private
     // bucket. Promotion is therefore a real act — private becomes publishable —
     // and the byte copy is that act made honest.
-    const tickets = await ticketStoreFor(routerEnv())
-    const sites = await storeFor(routerEnv())
+    const tickets = await ticketStoreFor(routerEnv(), scopeOf())
+    const sites = await storeFor(routerEnv(), scopeOf())
     // A REAL SITE, not a bare draft (BUG-45). Promotion now registers the asset
     // in `site.json` rather than only storing its bytes, so it needs a site
     // definition to register into — which every provisioned site has, because
@@ -544,8 +555,8 @@ describe('REQ-163 — the index prefix is the tenant’s', () => {
     // new one could be breached: the material row is tenant-scoped by the ticket
     // store, and the vectors derived from it sit under a tenant-derived prefix.
     const embedder = stubEmbedder()
-    const mine = await projectKnowledgeFor(routerEnv(TENANT), { embedder, defer: () => {} })
-    const theirs = await projectKnowledgeFor(routerEnv('req163-other'), {
+    const mine = await projectKnowledgeFor(routerEnv(TENANT), scopeOf(TENANT), { embedder, defer: () => {} })
+    const theirs = await projectKnowledgeFor(routerEnv('req163-other'), scopeOf('req163-other'), {
       embedder,
       defer: () => {},
     })

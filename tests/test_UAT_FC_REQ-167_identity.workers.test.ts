@@ -196,11 +196,11 @@ describe('REQ-167 — the invite provisions the account', () => {
     const membership = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ?')
       .bind(user!.id)
       .first<{ account_id: string; role: string; status: string }>()
-    expect(membership?.account_id).toBe(result.accountId)
+    expect(membership?.account_id).toBe(result.businessId)
     expect(membership?.role).toBe('owner')
 
     const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE account_id = ?')
-      .bind(result.accountId)
+      .bind(result.businessId)
       .first<{ plan: string; source: string; status: string; email: string }>()
     expect(grant?.plan).toBe('pro')
     expect(grant?.source).toBe('admin_grant')
@@ -213,7 +213,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     // `forTenant` refuses an unregistered one, so a membership pointing at an
     // account the registry has never heard of could never be used.
     const tenant = await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
-      .bind(result.accountId)
+      .bind(result.businessId)
       .first<{ status: string }>()
     expect(tenant?.status).toBe('active')
   })
@@ -225,14 +225,14 @@ describe('REQ-167 — the invite provisions the account', () => {
     const result = await provisionInvite(identityEnv(), { email: anEmail(), endsAt: null })
 
     const { results } = await env.DB.prepare('SELECT slug FROM sites WHERE tenant_id = ?')
-      .bind(result.accountId)
+      .bind(result.businessId)
       .all<{ slug: string }>()
     expect((results ?? []).map((r) => r.slug)).toEqual([result.siteSlug])
 
     const page = await env.DB.prepare(
       'SELECT page FROM site_pages WHERE tenant_id = ? AND slug = ? AND name = ?',
     )
-      .bind(result.accountId, result.siteSlug, 'home.json')
+      .bind(result.businessId, result.siteSlug, 'home.json')
       .first<{ page: string }>()
     expect(page?.page).toContain(STARTER_HEADING)
 
@@ -240,7 +240,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     // naming preference: `published_sites` claims a slug GLOBALLY, so a starter
     // site called `home` for everybody would be refused for the second account
     // that published, for a reason its owner could do nothing about.
-    expect(result.siteSlug).toBe(result.accountId)
+    expect(result.siteSlug).toBe(result.businessId)
   })
 
   it('test_UAT_FC_REQ-167_the_account_id_is_opaque_and_not_a_function_of_the_invite', async () => {
@@ -262,8 +262,8 @@ describe('REQ-167 — the invite provisions the account', () => {
       endsAt: null,
     })
 
-    expect(first.accountId).not.toBe(second.accountId)
-    for (const id of [first.accountId, second.accountId]) {
+    expect(first.businessId).not.toBe(second.businessId)
+    for (const id of [first.businessId, second.businessId]) {
       expect(id).toMatch(/^acct_[0-9a-f]{32}$/)
       expect(id.toLowerCase()).not.toContain('sarah')
       expect(id.toLowerCase()).not.toContain('chen')
@@ -271,7 +271,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     }
     // The human label is kept where it CAN change.
     const tenant = await env.DB.prepare('SELECT name FROM tenants WHERE id = ?')
-      .bind(first.accountId)
+      .bind(first.businessId)
       .first<{ name: string }>()
     expect(tenant?.name).toBe('Sarah Chen Catering')
   })
@@ -286,7 +286,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     const again = await provisionInvite(identityEnv(), { email, endsAt: null })
 
     expect(again.created).toBe(false)
-    expect(again.accountId).toBe(first.accountId)
+    expect(again.businessId).toBe(first.businessId)
     expect(again.user.id).toBe(first.user.id)
 
     const { results } = await env.DB.prepare(
@@ -348,7 +348,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // into the list, one entry per business the account may operate. An invited
     // person holds exactly one, so the shape is a one-element list rather than
     // an id.
-    expect(result.ok && result.businesses.map((b) => b.accountId)).toEqual([invited.accountId])
+    expect(result.ok && result.businesses.map((b) => b.businessId)).toEqual([invited.businessId])
     expect(result.ok && result.businesses[0].entitlement?.plan).toBe('pro')
 
     const first = await env.DB.prepare('SELECT first_seen_at, last_seen_at FROM users WHERE id = ?')
@@ -379,7 +379,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     expect((await admit(identityEnv(), email)).ok, 'a live grant did not admit').toBe(true)
 
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(new Date(Date.now() - 1_000).toISOString(), invited.accountId)
+      .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
       .run()
 
     const refused = await admit(identityEnv(), email)
@@ -394,7 +394,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE account_id = ?')
-      .bind(new Date(Date.now() + 86_400_000).toISOString(), invited.accountId)
+      .bind(new Date(Date.now() + 86_400_000).toISOString(), invited.businessId)
       .run()
 
     expect((await admit(identityEnv(), email)).ok).toBe(false)
@@ -406,7 +406,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
-      .bind('revoked', invited.accountId)
+      .bind('revoked', invited.businessId)
       .run()
 
     const refused = await admit(identityEnv(), email)
@@ -430,7 +430,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     expect(!refused.ok && refused.reason).toBe('no_membership')
     // The grant is untouched — the account still has access; this person does not.
     const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+      .bind(invited.businessId)
       .first<{ status: string }>()
     expect(grant?.status).toBe('active')
   })
@@ -453,7 +453,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).bind(
         newId('ent'),
-        invited.accountId,
+        invited.businessId,
         'lapsed',
         'admin_grant',
         'active',
@@ -465,7 +465,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
       env.DB.prepare(
         'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
-      ).bind(newId('ent'), invited.accountId, 'open', 'admin_grant', 'active', now, now, now),
+      ).bind(newId('ent'), invited.businessId, 'open', 'admin_grant', 'active', now, now, now),
     ])
 
     const result = await admit(identityEnv(), email)
@@ -508,7 +508,7 @@ describe('REQ-167 — the request path', () => {
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(new Date(Date.now() - 1_000).toISOString(), invited.accountId)
+      .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
       .run()
     const expired = await worker.fetch(GET(await mint(email)), workerEnv())
 

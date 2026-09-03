@@ -27,6 +27,7 @@ import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
+import { splitBusinessPrefix, type Scope } from './scope'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
@@ -99,7 +100,7 @@ const PREVIEW_CHANNELS: PreviewChannel[] = ['draft', 'edit']
 const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
 
 /**
- * The chat host, ONE PER ISOLATE, and deliberately not per request (REQ-146).
+ * The chat host, ONE PER BUSINESS PER ISOLATE (REQ-146, scoped by [[REQ-168]]).
  *
  * Every other route builds its store per request, because `forTenant` performs
  * the tenant check and a cached handle would carry a check made against a row
@@ -108,19 +109,35 @@ const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
  * store per request is a new manager per request — the conversation would reset
  * on every turn and the junction would be empty every time.
  *
- * So the chat host holds its own store for the life of the isolate. The tenant
- * is still checked, once, when it is built; what is given up is re-checking a
- * deactivation mid-isolate, on these two routes only. That is the right way
- * round here and the wrong way round everywhere else, which is why it is stated
- * rather than shared.
+ * IT WAS ONE PER ISOLATE, FULL STOP, AND THAT BECAME A LEAK. A single module
+ * `let` held a site store, a ticket store and an opened project KB, all bound to
+ * whichever tenant made the FIRST chat request in that isolate. With one
+ * configured tenant that was harmless. With the scope coming from the caller's
+ * identity it is a cross-business leak: a second caller sharing the isolate takes
+ * their turn against the first caller's store, transcripts and KB vectors. Under
+ * [[DOC-40]] §2 it does not even take two people — one operator switching between
+ * two of their own businesses straddles the same isolate, so it is reachable in
+ * ordinary single-user use.
+ *
+ * KEYED BY SCOPE, which keeps the property the paragraph above needs and
+ * partitions it. Reuse stays per-isolate WITHIN a business and cannot cross one.
+ * Nothing upstream changes: `host-core.ts` already keys its manager cache by the
+ * store's object identity, so it partitions for free as soon as the store does.
+ *
+ * The map is not bounded, and does not need to be: isolates are short-lived and
+ * it dies with them. What is given up is unchanged — re-checking a deactivation
+ * mid-isolate, on these two routes only — and `resolveScope` now checks
+ * `tenants.status` per request ahead of this, which is what makes that
+ * acceptable rather than merely stated.
  */
-let CHAT: Promise<WorkerHost> | null = null
+const CHATS = new Map<string, Promise<WorkerHost>>()
 
-function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
-  if (!CHAT) {
-    CHAT = (async () => {
-      const tenantId = (env.TENANT_ID ?? '').trim()
-      const store = await (deps.store ?? storeFor)(env)
+function chatHost(env: RouterEnv, scope: Scope, deps: RouterDeps): Promise<WorkerHost> {
+  let host = CHATS.get(scope.businessId)
+  if (!host) {
+    host = (async () => {
+      const tenantId = scope.businessId
+      const store = await (deps.store ?? storeFor)(env, scope)
       // THE TICKET STORE IS THE TRANSCRIPT'S HOME NOW ([[REQ-160]]), so it is
       // held for the isolate's life exactly as the site store above is, and for
       // the same reason: `TicketSessionArchive` caches the chat ticket's uid and
@@ -128,7 +145,7 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
       // cache are full store scans (upstream BUG-29). A store per request would
       // be an archive per request, so every turn would pay the scan that only a
       // session's first turn should.
-      const tickets = await (deps.tickets ?? ticketStoreFor)(env)
+      const tickets = await (deps.tickets ?? ticketStoreFor)(env, scope)
       // Opened HERE and not inside `workerHost`, for the reason the store above
       // is: this is the one place per isolate where the expensive things are
       // built, and the KB is one of them — `KnowledgeRuntime.open` decodes the
@@ -142,16 +159,24 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
       // the injection point about the one KB a test has any business replacing:
       // the project corpus is the tenant's real D1 store either way.
       const system = await (deps.knowledge ?? systemKnowledge)(env)
-      const knowledge = await sessionKnowledgeFor(env, { system, tickets })
+      const knowledge = await sessionKnowledgeFor(env, scope, { system, tickets })
       return workerHost(env, store, tenantId, tickets, knowledge)
     })()
+    // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
+    // poison that business for the isolate's life: a missing binding repaired a
+    // second later would keep answering with the first failure, and only for the
+    // business unlucky enough to have asked first. The single `let` had the same
+    // flaw and could hide it, because one failure looked like a dead isolate
+    // rather than like one dead tenant.
+    host.catch(() => CHATS.delete(scope.businessId))
+    CHATS.set(scope.businessId, host)
   }
-  return CHAT
+  return host
 }
 
-/** Drop the cached chat host. For tests that rebuild bindings per case. */
+/** Drop every cached chat host. For tests that rebuild bindings per case. */
 export function resetChatHost(): void {
-  CHAT = null
+  CHATS.clear()
 }
 
 /**
@@ -251,9 +276,9 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv {
  */
 export interface RouterDeps {
   /** The store this request reads and writes through. */
-  store?: (env: RouterEnv) => Promise<TenantSiteStore>
+  store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
   /** The ticket store the ingestion routes write material into ([[REQ-163]]). */
-  tickets?: (env: RouterEnv) => Promise<TicketStore>
+  tickets?: (env: RouterEnv, scope: Scope) => Promise<TicketStore>
   /**
    * The system knowledge base the chat session searches ([[REQ-158]]).
    *
@@ -272,7 +297,7 @@ export interface RouterDeps {
    * a claim that would otherwise need an embedder, an R2 index and a real
    * Workers AI binding to make.
    */
-  index?: (env: RouterEnv) => Promise<IndexMaterial | null>
+  index?: (env: RouterEnv, scope: Scope) => Promise<IndexMaterial | null>
   /** The vision seam, so ingestion UATs describe an image without a network. */
   describeImage?: DescribeImage
   /** The digest seam, so a document is described without a network (REQ-173). */
@@ -327,9 +352,9 @@ function secretsOf(env: RouterEnv): Array<string | undefined> {
  * wrong here: an upload that 500s because nothing can embed it would lose the
  * client's file to a problem the operator has to fix.
  */
-async function defaultIndexer(env: RouterEnv): Promise<IndexMaterial | null> {
+async function defaultIndexer(env: RouterEnv, scope: Scope): Promise<IndexMaterial | null> {
   if (!env.AI) return null
-  const knowledge = await projectKnowledgeFor(env)
+  const knowledge = await projectKnowledgeFor(env, scope)
   return async () => knowledge.onMaterialWritten()
 }
 
@@ -546,23 +571,51 @@ export interface RouteContext {
   waitUntil(promise: Promise<unknown>): void
 }
 
+/**
+ * THE SCOPE IS AN ARGUMENT, NOT SOMETHING THIS FILE DERIVES ([[REQ-168]]).
+ *
+ * It arrives already authorised: `index.ts` resolves it from the caller's
+ * admission before any route is examined, in the same place and for the same
+ * reason the Access gate and `admit` sit there. A route table that resolved its
+ * own scope would be a second authorisation path beside the one in `fetch`, and
+ * the interesting question about two authorisation paths is only ever when they
+ * begin to disagree.
+ *
+ * REQUIRED, AND AHEAD OF `deps`. Both are deliberate. An optional scope would
+ * need a default, and the only available default is the deployment's own
+ * business — which is precisely the value this ticket exists to stop routes
+ * reading. Putting it ahead of `deps` makes every existing call site a compile
+ * error rather than letting one slide through on a positional argument that
+ * still type-checks.
+ */
 export async function route(
   request: Request,
   env: RouterEnv,
+  scope: Scope,
   deps: RouterDeps = {},
   ctx?: RouteContext,
 ): Promise<Response> {
-  return uncacheable(await routeUncached(request, env, deps, ctx))
+  return uncacheable(await routeUncached(request, env, scope, deps, ctx))
 }
 
 async function routeUncached(
   request: Request,
   env: RouterEnv,
+  scope: Scope,
   deps: RouterDeps = {},
   ctx?: RouteContext,
 ): Promise<Response> {
   const url = new URL(request.url)
-  const p = url.pathname
+  // THE BUSINESS PREFIX IS STRIPPED ONCE, HERE, and the route table below is
+  // untouched by it. Every route matches on `p`, so one rewrite at the top scopes
+  // all of them — including `/preview/<slug>/<channel>/…`, whose relative
+  // sub-resources inherit the prefix from the document that referenced them,
+  // which is the property `scope.ts` chose a path over a query string for.
+  //
+  // The id is DISCARDED here rather than re-read: `index.ts` already resolved and
+  // authorised it. Reading it a second time would be a second answer to "which
+  // business", and the whole point of the resolver is that there is one.
+  const p = splitBusinessPrefix(url.pathname).path
   const method = request.method
 
   // ONE SCRUBBER FOR THE WHOLE TABLE (REQ-146 AC4). It was built per catch block,
@@ -613,7 +666,7 @@ async function routeUncached(
       // registered, so a builder nobody had published to could not be read at
       // all. `storeFor` registers the configured tenant itself now, and there is
       // one opener again.
-      const store = await (deps.store ?? storeFor)(env)
+      const store = await (deps.store ?? storeFor)(env, scope)
       await store.createDraft(payload.slug)
       const write = payloadToWrite(payload)
       await store.write(payload.slug, write)
@@ -661,7 +714,7 @@ async function routeUncached(
    */
   let opening: Promise<TenantSiteStore> | null = null
   const openStore = (): Promise<TenantSiteStore> => {
-    opening ??= (deps.store ?? storeFor)(env)
+    opening ??= (deps.store ?? storeFor)(env, scope)
     return opening
   }
   // `actor: 'client'` — REQ-131. A write arriving on these routes is the
@@ -675,7 +728,7 @@ async function routeUncached(
   // handle.
   let tickets: Promise<TicketStore> | null = null
   const openTickets = (): Promise<TicketStore> => {
-    tickets ??= (deps.tickets ?? ticketStoreFor)(env)
+    tickets ??= (deps.tickets ?? ticketStoreFor)(env, scope)
     return tickets
   }
 
@@ -701,7 +754,7 @@ async function routeUncached(
    * require an embedder, an R2 index and a Workers AI binding to make.
    */
   const ingestDeps = async () => ({
-    index: deps.index ? await deps.index(env) : await defaultIndexer(env),
+    index: deps.index ? await deps.index(env, scope) : await defaultIndexer(env, scope),
     describeImage: deps.describeImage ?? defaultDescriber(env),
     describeText: deps.describeText ?? defaultTextDescriber(env),
   })
@@ -1037,7 +1090,7 @@ async function routeUncached(
       if (typeof slug !== 'string' || slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const host = await chatHost(env, deps)
+      const host = await chatHost(env, scope, deps)
       const session = await openSession(slug, {}, host.deps)
       // Opening can run a tool-free turn's worth of policy — nothing to audit
       // yet in practice, but flushed for the same reason the prompt route
@@ -1056,7 +1109,7 @@ async function routeUncached(
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
       }
-      const host = await chatHost(env, deps)
+      const host = await chatHost(env, scope, deps)
       return streamTurn(host, sessionId, text, scrub, ctx)
     }
 
@@ -1097,7 +1150,7 @@ async function routeUncached(
       if (typeof cursor !== 'number' || !Number.isFinite(cursor) || cursor < 0) {
         return json(400, { error: 'cursor is required' })
       }
-      const host = await chatHost(env, deps)
+      const host = await chatHost(env, scope, deps)
       return streamTail(host, sessionId, cursor, scrub)
     }
 

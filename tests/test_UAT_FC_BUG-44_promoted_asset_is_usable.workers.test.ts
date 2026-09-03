@@ -6,6 +6,7 @@ import { NotRepublishableError, promoteToSiteAsset } from '../apps/control-app/s
 import { storeFor } from '../apps/control-app/src/store'
 import { editAssetGet, editAssetList } from '../tools/generate/src/cli/edit'
 import type { SiteAsset } from '../tools/generate/src/cli/edit'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { bytesOf } from './support/material-fixtures'
 import { siteSeed } from './support/site-seed'
@@ -40,14 +41,21 @@ function routerEnv(tenantId = TENANT): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
 
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId = TENANT): Scope => ({ businessId })
+
 /** A site that actually exists — draft plus the scaffolder's own definition. */
 async function realSite(slug: string) {
-  const sites = await storeFor(routerEnv())
+  const sites = await storeFor(routerEnv(), scopeOf())
   const seed = siteSeed({ slug })
   await sites.createDraft(seed.slug)
   await sites.write(seed.slug, {
@@ -59,7 +67,7 @@ async function realSite(slug: string) {
 
 /** One uploaded image, classified exactly as the "Put it on the site" area does. */
 async function uploadedImage(opts: { title: string; filename: string; bytes: string }) {
-  const tickets = await ticketStoreFor(routerEnv())
+  const tickets = await ticketStoreFor(routerEnv(), scopeOf())
   const { ticket } = await tickets.create({
     type: 'material',
     title: opts.title,
@@ -203,7 +211,7 @@ describe('BUG-44 — a promoted upload is an ordinary, usable asset', () => {
     // A refusal that left bytes behind would be worse than the original bug: the
     // site would hold a third-party picture it has no right to publish.
     const { sites, slug } = await realSite('refused')
-    const tickets = await ticketStoreFor(routerEnv())
+    const tickets = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await tickets.create({
       type: 'material',
       title: "A competitor's hero image",

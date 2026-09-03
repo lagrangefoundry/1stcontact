@@ -135,8 +135,19 @@ export type DenialReason =
  * is the only thing there is to label a business with.
  */
 export interface AdmittedBusiness {
-  /** The tenant id. Opaque and permanent; never a label. */
-  accountId: string
+  /**
+   * The business's tenant id. Opaque and permanent; never a label.
+   *
+   * NAMED `businessId` THOUGH THE COLUMN IS `account_id` ([[REQ-168]]). The
+   * column has always held a tenant id, and the ids themselves read `acct_…`,
+   * so the SQL says "account" and means "business" throughout. The column and
+   * the prefix are left alone — they are opaque, permanent and present in R2
+   * keys, and renaming either buys a migration for nothing ([[REQ-180]] §3) —
+   * but nothing in TypeScript repeats the mistake, because an account id and a
+   * business id are both opaque strings and the type system is the only place
+   * that confusion can be caught.
+   */
+  businessId: string
   /** `tenants.name` — the human label, which may change. */
   name: string
   /** The best active grant covering now, or null when nothing covers it. */
@@ -225,8 +236,10 @@ export interface InviteResult {
    * id is reporting what happened. Admission answers a different question —
    * which businesses may be operated — and a singular answer there would be a
    * guess.
+   *
+   * Named for what it holds ([[REQ-168]]) — see {@link AdmittedBusiness.businessId}.
    */
-  accountId: string
+  businessId: string
   /** The starter site's slug, when this call provisioned a business. */
   siteSlug: string | null
 }
@@ -258,7 +271,7 @@ export interface BusinessSpec {
 
 /** The business one call provisioned. */
 export interface BusinessResult {
-  accountId: string
+  businessId: string
   name: string
   siteSlug: string
 }
@@ -319,10 +332,10 @@ export async function provisionInvite(env: IdentityEnv, invite: Invite): Promise
   if (existing) {
     const held = await businessesFor(env, existing.id)
     if (held.length > 0) {
-      return { created: false, user: existing, accountId: held[0].accountId, siteSlug: null }
+      return { created: false, user: existing, businessId: held[0].businessId, siteSlug: null }
     }
     const repaired = await provisionBusiness(env, spec(existing.id))
-    return { created: false, user: existing, accountId: repaired.accountId, siteSlug: repaired.siteSlug }
+    return { created: false, user: existing, businessId: repaired.businessId, siteSlug: repaired.siteSlug }
   }
 
   const now = new Date().toISOString()
@@ -339,7 +352,7 @@ export async function provisionInvite(env: IdentityEnv, invite: Invite): Promise
 
   const user = await findUser(env, platformTenant, email)
   if (!user) throw new Error('The invited user was not readable back after provisioning.')
-  return { created: true, user, accountId: business.accountId, siteSlug: business.siteSlug }
+  return { created: true, user, businessId: business.businessId, siteSlug: business.siteSlug }
 }
 
 /**
@@ -371,25 +384,25 @@ export async function provisionBusiness(
   if (name === '') throw new Error('A business needs a name.')
 
   const now = new Date().toISOString()
-  const accountId = newId('acct')
+  const businessId = newId('acct')
 
   // The tenant first: `forTenant` refuses an unregistered one, so a membership
   // pointing at a business the registry has never heard of would be a row that
   // can never be used — and `businessesFor`'s join drops it, so the switcher
   // would not even show what went wrong.
-  await d1r2SiteStore(env).createTenant({ id: accountId, name })
+  await d1r2SiteStore(env).createTenant({ id: businessId, name })
 
   await env.DB.batch([
     env.DB.prepare(
       'INSERT INTO memberships (id, user_id, account_id, role, status, granted_by, granted_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).bind(newId('mem'), spec.accountUserId, accountId, 'owner', 'active', spec.grantedBy ?? null, now),
+    ).bind(newId('mem'), spec.accountUserId, businessId, 'owner', 'active', spec.grantedBy ?? null, now),
     env.DB.prepare(
       'INSERT INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, ' +
         'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
       newId('ent'),
-      accountId,
+      businessId,
       spec.email ?? null,
       spec.plan ?? 'pro',
       'admin_grant',
@@ -403,8 +416,8 @@ export async function provisionBusiness(
     ),
   ])
 
-  const siteSlug = await createStarterSite(env, accountId)
-  return { accountId, name, siteSlug }
+  const siteSlug = await createStarterSite(env, businessId)
+  return { businessId, name, siteSlug }
 }
 
 /**
@@ -419,9 +432,9 @@ export async function provisionBusiness(
  * cannot happen; per-tenant hostnames ([[DOC-12]] §9) are the readable answer and
  * are purely additive to this.
  */
-async function createStarterSite(env: IdentityEnv, accountId: string): Promise<string> {
-  const store = await d1r2SiteStore(env).forTenant(accountId)
-  const slug = accountId
+async function createStarterSite(env: IdentityEnv, businessId: string): Promise<string> {
+  const store = await d1r2SiteStore(env).forTenant(businessId)
+  const slug = businessId
   await store.createDraft(slug)
   await store.write(slug, {
     siteJson: starterSiteJson(slug),
@@ -507,6 +520,15 @@ async function findUser(
  * anyway, so an inner join drops it here rather than producing a switcher entry
  * that throws when it is picked.
  *
+ * `t.status = 'active'` IS THE SAME GUARD, ONE STEP FURTHER ([[REQ-168]]). A
+ * DEACTIVATED business would otherwise come back `selectable: true` whenever its
+ * grant is still live — and then `forTenant` refuses it, `storeFor` rethrows,
+ * and the caller gets a 503 from a switcher entry that looked ordinary. That was
+ * invisible while there was one always-active tenant; with a set it is an entry
+ * that fails when it is clicked. The predicate belongs in the same query rather
+ * than in a check beside it, so the admissible set cannot offer something the
+ * store will refuse. `forTenant` is unchanged and stays the structural check.
+ *
  * `ORDER BY granted_at, id` so the list is stable across calls rather than being
  * whatever the query planner returned first. Order is presentation, not
  * selection — nothing downstream may read `[0]` as "the" business.
@@ -521,22 +543,57 @@ async function businessesFor(
       'JOIN tenants t ON t.id = m.account_id ' +
       'WHERE m.user_id = ? AND m.status = ? AND m.revoked_at IS NULL ' +
       'AND (m.expires_at IS NULL OR m.expires_at > ?) ' +
+      'AND t.status = ? ' +
       'ORDER BY m.granted_at, m.id',
   )
-    .bind(userId, 'active', now)
+    .bind(userId, 'active', now, 'active')
     .all<{ account_id: string; name: string }>()
 
   const businesses: AdmittedBusiness[] = []
   for (const row of results ?? []) {
     const entitlement = await bestActiveGrant(env, row.account_id, now)
     businesses.push({
-      accountId: row.account_id,
+      businessId: row.account_id,
       name: row.name,
       entitlement,
       selectable: entitlement !== null,
     })
   }
   return businesses
+}
+
+/**
+ * One business by id, WITHOUT consulting membership — the admin bypass's half.
+ *
+ * [[DOC-40]] §6's `platform_admin` is ambient by design: it has to work before
+ * any membership row exists, or the flag could not be used to repair the system
+ * that grants it. So the bypass needs a way to reach a business that
+ * {@link businessesFor} will never return, and this is it.
+ *
+ * IT BYPASSES MEMBERSHIP AND NOTHING ELSE. The tenant must still be registered
+ * and ACTIVE, and the grant is still selected the ordinary way — an administrator
+ * operating an expired account should see exactly what the customer sees, which
+ * is the only way the support call ends with the right answer. `selectable` is
+ * therefore computed here identically to the membership path rather than forced
+ * true, so a lapsed business refuses an admin for the same reason and through the
+ * same field it refuses its owner.
+ *
+ * `null` FOR AN UNKNOWN OR DEACTIVATED BUSINESS, which the caller turns into the
+ * same refusal an unauthorised target gets. Distinguishing them on the wire would
+ * make this an existence oracle over every business in the system, held open by
+ * whoever most recently had the flag.
+ */
+export async function admissibleBusiness(
+  env: IdentityEnv,
+  businessId: string,
+  now: string = new Date().toISOString(),
+): Promise<AdmittedBusiness | null> {
+  const row = await env.DB.prepare('SELECT id, name FROM tenants WHERE id = ? AND status = ?')
+    .bind(businessId, 'active')
+    .first<{ id: string; name: string }>()
+  if (!row) return null
+  const entitlement = await bestActiveGrant(env, businessId, now)
+  return { businessId: row.id, name: row.name, entitlement, selectable: entitlement !== null }
 }
 
 /**
@@ -557,7 +614,7 @@ async function businessesFor(
  */
 async function bestActiveGrant(
   env: IdentityEnv,
-  accountId: string,
+  businessId: string,
   now: string,
 ): Promise<EntitlementRow | null> {
   return env.DB.prepare(
@@ -566,7 +623,7 @@ async function bestActiveGrant(
       'AND (ends_at IS NULL OR ends_at > ?) ' +
       'ORDER BY (ends_at IS NULL) DESC, ends_at DESC, starts_at DESC, id LIMIT 1',
   )
-    .bind(accountId, 'active', now, now)
+    .bind(businessId, 'active', now, now)
     .first<EntitlementRow>()
 }
 

@@ -30,6 +30,7 @@ import { projectKnowledgeFor } from '../apps/control-app/src/knowledge'
 import { loadIndex } from '../apps/control-app/src/generated/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { MATERIAL_TEXT_KIND } from '../apps/control-app/src/material'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 import { bytesOf } from './support/material-fixtures'
@@ -41,11 +42,18 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 const DIGEST = 'A supplier handbook for a bakery.'
 
@@ -68,6 +76,7 @@ async function upload(
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(tenant),
+    scopeOf(tenant),
     d,
   )
 }
@@ -107,7 +116,7 @@ describe('REQ-173 — the full text lands in one marked comment', () => {
 
     // Read back through a second, independently constructed store: the durable
     // record is the thing, not the response envelope.
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { ticket } = await store.get({ uid: String(body.uid) })
     // THE BODY IS THE DIGEST — the field the Library labels "What this is".
     expect(ticket.body).toBe(DIGEST)
@@ -136,7 +145,7 @@ describe('REQ-173 — the full text lands in one marked comment', () => {
     const body = (await response.json()) as Record<string, unknown>
     expect(body.text_comment).toBeNull()
 
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { comments } = await store.comments({ uid: String(body.uid) })
     expect(comments.filter((c) => c.fields.kind === MATERIAL_TEXT_KIND)).toHaveLength(0)
   })
@@ -146,7 +155,7 @@ describe('REQ-173 — the two indexes read the same corpus through different eye
   it('test_UAT_FC_REQ_173_the_chunk_index_reads_the_full_text_and_the_document_index_the_digest', async () => {
     const tenant = 'req173-index'
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(tenant), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(tenant), scopeOf(tenant), { embedder, defer: () => {} })
 
     const response = await upload(
       tenant,
@@ -208,6 +217,7 @@ describe('REQ-173 — a deployment that cannot describe refuses the upload', () 
         body: JSON.stringify({ url: 'https://example.com/a.pdf' }),
       }),
       routerEnv('req173-nokey'),
+      scopeOf('req173-nokey'),
       { index: async () => async () => {} },
     )
     expect(response.status).toBe(503)
@@ -221,6 +231,7 @@ describe('REQ-173 — a deployment that cannot describe refuses the upload', () 
     const off = await route(
       new Request('https://app.test/api/status'),
       routerEnv('req173-status'),
+      scopeOf('req173-status'),
       {},
     )
     expect(off.status).toBe(200)
@@ -231,6 +242,7 @@ describe('REQ-173 — a deployment that cannot describe refuses the upload', () 
     const on = await route(
       new Request('https://app.test/api/status'),
       routerEnv('req173-status', { ANTHROPIC_API_KEY: 'sk-test-not-a-real-key-000000' }),
+      scopeOf('req173-status'),
       {},
     )
     const onBody = (await on.json()) as Record<string, unknown>

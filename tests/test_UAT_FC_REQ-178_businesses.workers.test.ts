@@ -63,15 +63,15 @@ describe('REQ-178 — admission returns the set', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
-    expect(result.businesses.map((b) => b.accountId).sort()).toEqual(
-      [first.accountId, second.accountId].sort(),
+    expect(result.businesses.map((b) => b.businessId).sort()).toEqual(
+      [first.businessId, second.businessId].sort(),
     )
     expect(result.businesses.map((b) => b.name).sort()).toEqual(['Salon', 'Studio'])
     // Each grant belongs to the business it was made against — the meter is per
     // business even though the invoice is per account ([[DOC-40]] §5).
     for (const business of result.businesses) {
       expect(business.entitlement, `${business.name} carried no grant`).toBeTruthy()
-      expect(business.entitlement?.account_id).toBe(business.accountId)
+      expect(business.entitlement?.account_id).toBe(business.businessId)
       expect(business.selectable).toBe(true)
     }
   })
@@ -105,7 +105,7 @@ describe('REQ-178 — denial is per business', () => {
       name: 'Lapsed',
       email,
     })
-    await lapse(dead.accountId)
+    await lapse(dead.businessId)
 
     const result = await admit(identityEnv(), email)
     expect(result.ok, 'a lapsed second business refused the whole person').toBe(true)
@@ -114,13 +114,13 @@ describe('REQ-178 — denial is per business', () => {
     // The lapsed business is PRESENT and marked, not dropped. A business that
     // simply vanishes from the switcher is indistinguishable from one that was
     // deleted, which is the wrong thing to tell someone whose card expired.
-    const byId = new Map(result.businesses.map((b) => [b.accountId, b]))
-    expect(byId.get(dead.accountId), 'the lapsed business vanished').toBeTruthy()
-    expect(byId.get(dead.accountId)?.selectable).toBe(false)
-    expect(byId.get(dead.accountId)?.entitlement).toBeNull()
-    expect(byId.get(dead.accountId)?.name).toBe('Lapsed')
+    const byId = new Map(result.businesses.map((b) => [b.businessId, b]))
+    expect(byId.get(dead.businessId), 'the lapsed business vanished').toBeTruthy()
+    expect(byId.get(dead.businessId)?.selectable).toBe(false)
+    expect(byId.get(dead.businessId)?.entitlement).toBeNull()
+    expect(byId.get(dead.businessId)?.name).toBe('Lapsed')
 
-    expect(byId.get(live.accountId)?.selectable).toBe(true)
+    expect(byId.get(live.businessId)?.selectable).toBe(true)
   })
 
   it('test_UAT_FC_REQ-178_every_business_lapsed_is_refused_with_no_entitlement', async () => {
@@ -134,8 +134,8 @@ describe('REQ-178 — denial is per business', () => {
       name: 'Second',
       email,
     })
-    await lapse(first.accountId)
-    await lapse(second.accountId)
+    await lapse(first.businessId)
+    await lapse(second.businessId)
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(false)
@@ -161,16 +161,16 @@ describe('REQ-178 — denial is per business', () => {
     })
 
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE account_id = ?')
-      .bind(new Date().toISOString(), revoked.accountId)
+      .bind(new Date().toISOString(), revoked.businessId)
       .run()
     await env.DB.prepare('UPDATE memberships SET expires_at = ? WHERE account_id = ?')
-      .bind(new Date(Date.now() - 1_000).toISOString(), expired.accountId)
+      .bind(new Date(Date.now() - 1_000).toISOString(), expired.businessId)
       .run()
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.businesses.map((b) => b.accountId)).toEqual([kept.accountId])
+    expect(result.businesses.map((b) => b.businessId)).toEqual([kept.businessId])
   })
 
   it('test_UAT_FC_REQ-178_person_level_refusals_are_decided_before_any_business', async () => {
@@ -239,12 +239,12 @@ describe('REQ-178 — provisioning a second business', () => {
       return { tenant, membership, grant, page }
     }
 
-    expect(await shapeOf(added.accountId)).toEqual(await shapeOf(invited.accountId))
+    expect(await shapeOf(added.businessId)).toEqual(await shapeOf(invited.businessId))
 
     // And the pieces that are per-business by construction still differ, so the
     // comparison above is not passing because both sides are empty.
-    expect(added.accountId).not.toBe(invited.accountId)
-    expect(added.siteSlug).toBe(added.accountId)
+    expect(added.businessId).not.toBe(invited.businessId)
+    expect(added.siteSlug).toBe(added.businessId)
   })
 
   it('test_UAT_FC_REQ-178_a_second_business_is_immediately_operable', async () => {
@@ -263,7 +263,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
     const business = result.ok
-      ? result.businesses.find((b) => b.accountId === added.accountId)
+      ? result.businesses.find((b) => b.businessId === added.businessId)
       : undefined
     expect(business?.selectable).toBe(true)
     expect(business?.name).toBe('Second')
@@ -271,7 +271,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const page = await env.DB.prepare(
       'SELECT name FROM site_pages WHERE tenant_id = ? AND slug = ?',
     )
-      .bind(added.accountId, added.siteSlug)
+      .bind(added.businessId, added.siteSlug)
       .first<{ name: string }>()
     expect(page?.name).toBe('home.json')
   })
@@ -303,11 +303,11 @@ describe('REQ-178 — provisioning a second business', () => {
 
     const again = await provisionInvite(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
-    expect(again.accountId).not.toBe(invited.accountId)
-    expect(again.siteSlug).toBe(again.accountId)
+    expect(again.businessId).not.toBe(invited.businessId)
+    expect(again.siteSlug).toBe(again.businessId)
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
-    expect(result.ok && result.businesses.map((b) => b.accountId)).toEqual([again.accountId])
+    expect(result.ok && result.businesses.map((b) => b.businessId)).toEqual([again.businessId])
   })
 })

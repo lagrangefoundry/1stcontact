@@ -57,10 +57,21 @@ directory = "./dist-assets"
 binding = "ASSETS"
 run_worker_first = true
 
-# TENANT_ID names the account this deployment serves (REQ-145). There is no
-# default: `d1r2SiteStore` refuses an unknown tenant at construction, and a
-# well-known fallback name would let a misconfigured Worker read and WRITE into
-# whichever tenant happened to carry it.
+# TENANT_ID names the PLATFORM's own business (REQ-168). It used to name the
+# account this deployment serves (REQ-145); it no longer answers "whose site am I
+# editing", because that comes from the caller's identity now — `scope.ts`
+# resolves it from the businesses their memberships admit them to. What is left is
+# the business `users` rows for builder users live in, and where the admin console
+# operates.
+#
+# It is still read on exactly one request path: unconfigured local dev, where
+# there is no Access token and therefore no identity to resolve from. That read is
+# inside `resolveScope` and is gated on the same predicate that skips the gate, so
+# it cannot apply to a deployment that has ACCESS_TEAM_DOMAIN / ACCESS_AUD set.
+#
+# There is still no default: `d1r2SiteStore` refuses an unknown tenant at
+# construction, and a well-known fallback name would let a misconfigured Worker
+# read and WRITE into whichever tenant happened to carry it.
 #
 # ACCESS_DEV_OPEN is LOCAL ONLY and is declared at the top level DELIBERATELY.
 # `wrangler dev` reads [vars]; `wrangler deploy --env production` reads

@@ -49,24 +49,39 @@ const MIGRATIONS = [
   // REQ-167 — users, memberships and entitlements. After 0001 because the
   // account an invite provisions is a `tenants` row, and that table is 0001's.
   () => import('../../db/migrations/0004_identity.sql?raw'),
+  // REQ-168 — the operator's membership on the platform business. A DATA
+  // migration rather than a schema one, and it is in this list for the reason
+  // the others are: a suite that applied only the schema would prove a database
+  // production does not have. It is idempotent, so re-applying it across suites
+  // in one persisted local D1 is a no-op.
+  () => import('../../db/migrations/0005_operator_membership.sql?raw'),
 ]
 
-export async function applySchema(): Promise<void> {
+/**
+ * Run one migration's SQL.
+ *
+ * EXPORTED so a suite can re-apply a single migration ([[REQ-168]]) — the
+ * idempotence of a DATA migration is a property worth proving, and proving it by
+ * calling `applySchema` twice would prove the memo below instead.
+ *
+ * Comments are stripped BEFORE splitting on the terminator, not after: the
+ * migration's prose explains a design and prose contains semicolons, so splitting
+ * first cuts a comment in half and feeds SQLite the remainder.
+ */
+export async function runMigration(sql: string): Promise<void> {
   const { DB } = storeEnv()
-  for (const load of MIGRATIONS) {
-    const sql = (await load()).default as string
-    // Comments are stripped BEFORE splitting on the terminator, not after: the
-    // migration's prose explains a design and prose contains semicolons, so
-    // splitting first cuts a comment in half and feeds SQLite the remainder.
-    const statements = sql
-      .split('\n')
-      .filter((line) => !line.trim().startsWith('--'))
-      .join('\n')
-      .split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    for (const statement of statements) await DB.prepare(statement).run()
-  }
+  const statements = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  for (const statement of statements) await DB.prepare(statement).run()
+}
+
+export async function applySchema(): Promise<void> {
+  for (const load of MIGRATIONS) await runMigration((await load()).default as string)
 }
 
 /** The tenant every fixture belongs to unless a test names another. */
