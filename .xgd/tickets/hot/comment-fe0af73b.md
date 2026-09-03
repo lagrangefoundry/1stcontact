@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T01:37:42.815334+00:00'
+updated_at: '2026-09-03T01:38:37.832366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -506,5 +506,26 @@ out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
 ```
 
 Updated
+
+<!-- xgd-turn id="00601050-686e-4496-bc30-803f0e0ba30a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T01:38:37.518754+00:00" -->
+#### Claude
+Verified against the delivered store — `ManualToolbox` and `manualInstanceConfig` are exported, and the numbers hold exactly:
+
+| | manual | priming document |
+|---|---|---|
+| `full` (today) | 43,047 | 43,732 |
+| `summary` | 10,830 | 11,515 |
+
+The blocker's gone, so the summary adoption is ready to code: pass `{ level: 'summary' }` at `host.ts`, `session-knowledge.ts` and `system-knowledge.ts`, register `ManualToolbox` alongside the L1 and knowledge surfaces, and grant it via `manualInstanceConfig()` so `DescribeTools` is reachable. Plus the two missing group descriptions in `l1-surface.json`, which only matter once the summary renders.
+
+**One process question before I cut a branch**, and it's the scope-split item already open on the ticket.
+
+REQ-171 currently holds three things: the summary adoption (ready now), the three-part restructure (blocked on your answer below), and the ledger (a write path, a trigger and a title rename). If I free-code all of it on one branch, nothing lands until the last piece does. If the summary adoption gets its own ticket it completes cleanly today — but I won't create one unless you say so.
+
+**And the question the restructure is waiting on:** where does product-level material physically live? Either a role-independent system prompt that every role shares, or a new priming section owned by KM. The first keeps it in the highest-attention position the model reads; the second keeps one assembler and one ordering. Everything else in the restructure follows from that choice, so I don't want to guess it.
+
+I can start on the summary adoption the moment you tell me which ticket it belongs to.
 
 <!-- xgd-chat-end -->
