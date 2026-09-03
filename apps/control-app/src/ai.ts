@@ -269,9 +269,32 @@ export function workerHost(
       store,
       archive: sessionArchive(tickets),
       // The in-memory junction, per REQ-103's Cloudflare packaging. Its cost is
-      // stated rather than hidden: an eviction mid-turn loses the turn in
-      // flight, because `ArchiveSyncer` drains continuously and everything
-      // before it is already durable.
+      // stated rather than hidden — and until BUG-46 it was stated WRONG, which
+      // is worse than not stating it, so what the exposure actually is:
+      //
+      // AN EVICTION MID-TURN LOSES THE WHOLE TURN, not a partial one. This used
+      // to say the loss was bounded because `ArchiveSyncer` "drains continuously
+      // and everything before it is already durable" — restating DOC-21 §15.4,
+      // which restated §1.5's "long-term storage is updated continuously as we
+      // go, exactly as the browser is". THAT STOPPED BEING TRUE when
+      // lagrange-framework BUG-19 added `closedPrefix`: the archive now cuts at
+      // the last boundary where no turn is open, deliberately, because folding
+      // half a turn splits one reply in two and destroys the whitespace at the
+      // seam. So between `turn_start` and `turn_end` the durable copy has that
+      // turn missing ENTIRELY. §1.5, §11 and §15.4 have since been corrected
+      // upstream; this is what they now say.
+      //
+      // The two obligations that follow are both discharged: the host renders
+      // from the junction rather than the archive (`host-core.ts`), and the
+      // end-of-turn drain is held open past a client disconnect by
+      // `ctx.waitUntil` (`router.ts`). Together those make a COMPLETED turn
+      // durable under a reload and a reload mid-turn non-destructive.
+      //
+      // WHAT REMAINS, because it is a property of this line and not of those
+      // fixes: the junction is RAM scoped to one isolate, so an isolate evicted
+      // mid-turn still loses that turn. DOC-21 §15.4 names a Durable Object as
+      // the route back — single writer per session, synchronous SQLite, and it
+      // fits this `Junctions` port with no library change.
       junctions: lib.memoryJunctions(),
       audit: audit.sink,
       // Absent is fine and must stay fine: the backend's factory is lazy, so a

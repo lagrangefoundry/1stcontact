@@ -113,8 +113,32 @@ function denied(admission: Extract<Admission, { ok: false }>): Response {
   })
 }
 
+/**
+ * `ctx` IS TAKEN AND PASSED ON (BUG-46), and this is the only place it exists.
+ *
+ * `ExecutionContext` is given to the fetch handler and to nothing else, so a
+ * route that needs to outlive its response can only get it by being handed it
+ * from here. `/api/ai/prompt` needs exactly that: a turn's last act is to append
+ * `turn_end` and drain the junction to D1, and an operator who reloads mid-reply
+ * cancels the SSE while that drain is still going. Before this it died with the
+ * request — the tool calls had committed, so the site changed and the
+ * conversation did not.
+ *
+ * It is threaded rather than reached for because there is nothing to reach for:
+ * the router has hosts with no execution context at all (the Node transport in
+ * `builder.ts`), which is why `route` takes it optionally and degrades to the
+ * old behaviour without it.
+ *
+ * OPTIONAL HERE TOO, for the same reason and one more. workerd always supplies
+ * it, so in production this is never absent; but this handler is also called
+ * directly by the suites, and a required parameter would make every one of them
+ * construct a context to exercise a route that has nothing to do with one. The
+ * tests that care about the drain pass a real one and assert on it — which is
+ * the distinction worth keeping visible, rather than burying it in ceremony at
+ * three dozen call sites that do not.
+ */
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     try {
       if (!isUnconfiguredLocalDev(env)) {
         const gate = await guardAccess(request, env)
@@ -124,7 +148,7 @@ export default {
         if (!admission.ok) return denied(admission)
       }
 
-      return await route(request, env)
+      return await route(request, env, {}, ctx)
     } catch (err) {
       // Anything reaching here escaped the router's own handler, or the
       // admission check ahead of it — a store that could not be constructed, an

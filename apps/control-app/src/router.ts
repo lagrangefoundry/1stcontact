@@ -20,6 +20,7 @@ import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-sto
 import {
   openSession,
   streamPrompt,
+  tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
@@ -526,18 +527,39 @@ function uncacheable(response: Response): Response {
   })
 }
 
+/**
+ * The runtime's promise to keep this isolate alive past the response (BUG-46).
+ *
+ * A FOURTH PARAMETER AND NOT A {@link RouterDeps} FIELD, because it is not a
+ * dependency this route table chooses — it is per-request state the runtime
+ * hands the fetch handler, exactly like `request` and `env`, and it is a
+ * different object on every invocation.
+ *
+ * OPTIONAL, because `route()` has hosts that have no such thing: the Node
+ * transport in `builder.ts` calls it directly, and a Node process does not end
+ * when a response does, so there is nothing there to extend. Every use below is
+ * therefore a graceful degradation rather than a requirement — absent, the work
+ * still runs, it just runs with only the client's attention holding it open,
+ * which is the behaviour that predates this and is correct off-Worker.
+ */
+export interface RouteContext {
+  waitUntil(promise: Promise<unknown>): void
+}
+
 export async function route(
   request: Request,
   env: RouterEnv,
   deps: RouterDeps = {},
+  ctx?: RouteContext,
 ): Promise<Response> {
-  return uncacheable(await routeUncached(request, env, deps))
+  return uncacheable(await routeUncached(request, env, deps, ctx))
 }
 
 async function routeUncached(
   request: Request,
   env: RouterEnv,
   deps: RouterDeps = {},
+  ctx?: RouteContext,
 ): Promise<Response> {
   const url = new URL(request.url)
   const p = url.pathname
@@ -1035,7 +1057,48 @@ async function routeUncached(
         return json(400, { error: 'text is required' })
       }
       const host = await chatHost(env, deps)
-      return streamTurn(host, sessionId, text, scrub)
+      return streamTurn(host, sessionId, text, scrub, ctx)
+    }
+
+    /**
+     * POST /api/ai/reattach — rejoin a turn already in flight (BUG-46).
+     *
+     * THE THIRD CALL THIS SURFACE HAS, and the first that is a pure READ of a
+     * conversation. `/api/ai/session` says what to paint, `/api/ai/prompt`
+     * starts a turn, and neither lets a page that loaded DURING a turn catch up:
+     * the transcript is a still frame, correct as of the fold, of something
+     * still being written. Without this the operator watches a reply frozen
+     * mid-sentence and reloads again — which is the loop that cost them a turn
+     * to begin with.
+     *
+     * IT TAKES THE CURSOR `/api/ai/session` HANDED OUT, and that pairing is the
+     * point. The tail resumes at exactly the offset the transcript was folded
+     * at, so painted-then-tailed reads as one reply with no gap and nothing
+     * shown twice (DOC-21 §11). A cursor invented anywhere else is a cursor for
+     * a different fold.
+     *
+     * NO `ctx.waitUntil`, unlike the prompt route, and the asymmetry is the
+     * whole distinction between the two. Tailing produces nothing durable —
+     * there is no `turn_end` to append, no `sync` to drain, no audit to flush —
+     * so a client that walks away leaves nothing behind that needs finishing.
+     * The turn it was watching is driven by whoever started it and is entirely
+     * unaffected either way.
+     */
+    if (p === '/api/ai/reattach' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId, cursor } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      // A MISSING CURSOR IS NOT ZERO. Defaulting it would silently replay the
+      // whole conversation into a panel that has already painted it, which is
+      // the exact duplication the cursor exists to prevent — and it would look
+      // like the feature working.
+      if (typeof cursor !== 'number' || !Number.isFinite(cursor) || cursor < 0) {
+        return json(400, { error: 'cursor is required' })
+      }
+      const host = await chatHost(env, deps)
+      return streamTail(host, sessionId, cursor, scrub)
     }
 
     /**
@@ -1215,9 +1278,26 @@ async function routeUncached(
  *
  *   - it is inside the stream, so it happens while the response is still open
  *     and the isolate is still alive. A Worker may be torn down the moment the
- *     response completes, and `ctx.waitUntil` is not reachable from here;
+ *     response completes;
  *   - it is in a `finally`, so an abandoned or failed turn still records what it
  *     managed to do. An audit that only survives success is not an audit.
+ *
+ * AND THE `finally` IS NOW HELD OPEN BY `ctx.waitUntil` (BUG-46). This comment
+ * used to say `ctx.waitUntil` was not reachable from here, which was true of
+ * the code and not of the runtime — nothing had threaded the `ExecutionContext`
+ * this far. It cost an operator a turn. A reload aborts the SSE, the next
+ * `controller.enqueue` throws on the cancelled stream, that runs the generator's
+ * `finally` — where the library appends `turn_end` and awaits `sync()` — and
+ * that drain is a multi-round-trip D1 sequence starting AFTER the client has
+ * gone, with nothing left holding the request open. The turn's tool calls had
+ * already committed; only the transcript died. Registering the stream's
+ * completion means the drain and this audit flush both outlive the client that
+ * walked away, which is what makes a COMPLETED turn durable under a reload race.
+ *
+ * It does not make an in-flight turn durable — that is the junction's business,
+ * and in this Worker the junction is RAM (`ai.ts`), so an isolate evicted
+ * mid-turn still loses it. Rendering from the junction is what narrows the
+ * window; only a Durable Object would close it.
  *
  * AN ERROR MID-TURN BECOMES A FRAME, not a torn connection. The status line went
  * out with the first byte, so there is no status code left to change — the panel
@@ -1229,13 +1309,39 @@ function streamTurn(
   sessionId: string,
   text: string,
   scrub: (text: string) => string,
+  ctx?: RouteContext,
 ): Response {
   const encoder = new TextEncoder()
   const frame = (event: unknown): Uint8Array =>
     encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
 
+  // WHAT `waitUntil` IS GIVEN, and why it is a promise of its own rather than
+  // whatever `start` returns. The runtime needs one promise that settles when
+  // the WORK is done, and it must never reject: a rejected `waitUntil` is an
+  // invocation error, and every failure worth reporting here has already been
+  // sent to the client as a frame or deliberately swallowed below.
+  let settle = (): void => {}
+  const drained = new Promise<void>((resolve) => {
+    settle = resolve
+  })
+  ctx?.waitUntil(drained)
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      // ENQUEUEING ONTO A STREAM THE CLIENT MAY HAVE ABANDONED THROWS, and that
+      // throw is load-bearing on the happy path — it is how an aborted SSE stops
+      // the turn, and the library records the result as `aborted` rather than
+      // discarding it. So it is caught where it must not propagate (the error
+      // path, and the close below) and left to propagate where it must (the
+      // loop). What changed in BUG-46 is only who is holding the isolate open
+      // while the resulting drain runs.
+      const tell = (event: unknown): void => {
+        try {
+          controller.enqueue(frame(event))
+        } catch {
+          // The reader is gone. Nothing to say and nobody to say it to.
+        }
+      }
       try {
         for await (const event of streamPrompt(sessionId, text, {}, host.deps)) {
           controller.enqueue(frame(event))
@@ -1249,8 +1355,8 @@ function streamTurn(
               : String(err)
         // The backend is the one component here that holds the credential, so
         // this is the error path most likely to carry it — AC4.
-        controller.enqueue(frame({ kind: 'text', content: `\n\n_${scrub(message)}_` }))
-        controller.enqueue(frame({ kind: 'done' }))
+        tell({ kind: 'text', content: `\n\n_${scrub(message)}_` })
+        tell({ kind: 'done' })
       } finally {
         // Durable before the response ends. A failure to write the audit must
         // not also fail the turn the operator already had — the records are
@@ -1260,7 +1366,15 @@ function streamTurn(
         } catch {
           // Deliberately swallowed; see above.
         }
-        controller.close()
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client; closing it again is not an error
+          // worth failing the drain over.
+        }
+        // LAST, unconditionally. Everything above has either finished or been
+        // swallowed, so this is the moment the isolate is genuinely free to go.
+        settle()
       }
     },
   })
@@ -1271,6 +1385,70 @@ function streamTurn(
       'content-type': 'text/event-stream; charset=utf-8',
       // The turn is generated as it goes; a proxy holding it back would turn a
       // streaming answer into a long silence and then a wall of text.
+      'x-content-type-options': 'nosniff',
+    },
+  })
+}
+
+/**
+ * The tail from `cursor`, as the SAME `data: {json}` frames {@link streamTurn}
+ * sends (BUG-46).
+ *
+ * SAME FRAMING BECAUSE IT IS THE SAME CONVERSATION. `host-core.ts` projects the
+ * junction's records into the library's stream vocabulary, so what arrives here
+ * is already what a live turn yields — which is what lets the pane's existing
+ * SSE reader consume a reattach with no idea it is one. A second frame shape
+ * would be a second parser to keep in step for no gain.
+ *
+ * A SHORTER `finally` THAN THE PROMPT ROUTE'S, and deliberately so: there is no
+ * audit to flush and no drain to protect, because a subscriber writes nothing.
+ * Closing the controller is the whole of it.
+ */
+function streamTail(
+  host: WorkerHost,
+  sessionId: string,
+  cursor: number,
+  scrub: (text: string) => string,
+): Response {
+  const encoder = new TextEncoder()
+  const frame = (event: unknown): Uint8Array =>
+    encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const event of tailSession(sessionId, cursor, {}, host.deps)) {
+          controller.enqueue(frame(event))
+        }
+      } catch (err) {
+        const message =
+          err instanceof UnknownSessionError
+            ? 'That conversation is no longer open — reload the builder to start it again.'
+            : err instanceof Error
+              ? err.message
+              : String(err)
+        try {
+          // Scrubbed on the same grounds the prompt route scrubs (AC4): this is
+          // a different route but the same secrets and the same operator.
+          controller.enqueue(frame({ kind: 'text', content: `\n\n_${scrub(message)}_` }))
+          controller.enqueue(frame({ kind: 'done' }))
+        } catch {
+          // The reader is gone; a reattach nobody is reading needs no epilogue.
+        }
+      } finally {
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client.
+        }
+      }
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
       'x-content-type-options': 'nosniff',
     },
   })

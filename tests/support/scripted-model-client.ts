@@ -102,3 +102,65 @@ export const calls =
     },
     { type: 'content_block_stop', index: 0 },
   ]
+
+/** A scripted client whose answer stops half-way until the test lets it finish. */
+export interface PacedClient extends ScriptedClient {
+  /** Resolves once the first half has been streamed and consumed. */
+  reached: Promise<void>
+  /** Release the second half. */
+  release(): void
+}
+
+/**
+ * A client that streams `first`, WAITS, then streams `rest` (BUG-46).
+ *
+ * WHY PACING IS THE WHOLE TEST APPARATUS HERE. The defect is a state that exists
+ * only between `turn_start` and `turn_end` — the archive is missing the open
+ * turn by design, so what a page load paints mid-turn is a different answer from
+ * what it paints afterwards. A double that answers instantly never produces that
+ * state, so a suite built on {@link scriptedClient} alone could assert the fix
+ * and still pass against the bug. Holding the model open is what makes "during a
+ * turn" a thing a test can be inside of.
+ *
+ * IT EXTENDS THE SHARED DOUBLE RATHER THAN FORKING IT, for the reason that
+ * module's header gives at length: the streaming shape here is a transcription
+ * of Anthropic's wire protocol, and the last time there were four copies of it,
+ * three fell behind and their turns silently completed having seen no text. This
+ * is a fifth USE of that protocol and must not become a fifth transcription — so
+ * it emits the same three event types {@link says} does, in the same order, and
+ * differs only in where it pauses.
+ *
+ * `reached` resolves when the consumer comes back for the event AFTER the first
+ * delta, which is the point at which that delta is durably in the junction —
+ * appended by `promptStream` before it yields. Waiting on it is therefore
+ * waiting for "the turn has said something", not for a timer.
+ */
+export function pacedClient(first: string, rest: string): PacedClient {
+  const seen: ModelRequest[] = []
+  let release = (): void => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let arrive = (): void => {}
+  const reached = new Promise<void>((resolve) => {
+    arrive = resolve
+  })
+  return {
+    seen,
+    reached,
+    release: () => release(),
+    messages: {
+      create: async (req: ModelRequest) => {
+        seen.push(req)
+        return (async function* () {
+          yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
+          yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: first } }
+          arrive()
+          await gate
+          yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: rest } }
+          yield { type: 'content_block_stop', index: 0 }
+        })()
+      },
+    },
+  }
+}
