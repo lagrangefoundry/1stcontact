@@ -1358,3 +1358,88 @@ body {
   opacity: 0.45;
   filter: grayscale(0.6);
 }
+
+/* ── the shell's scope chrome ([[REQ-179]]) ────────────────────────────────────
+   The switcher sits before the tabs in the shell's own header bar; the avatar
+   is an ordinary shell action. Both are chrome, so both take their colour from
+   the `--shell-*` tokens rather than declaring any of their own — a theme
+   switch has to move them with everything else, and a hardcoded hex would
+   quietly stop following. */
+
+.builder-business {
+  display: inline-flex;
+  align-items: center;
+  /* The bar is `align-items: stretch` under the underline tab style, so without
+     this the control would be drawn the full height of the header. */
+  align-self: center;
+  /* It must not squeeze the tabs when a business has a long name — the tab
+     strip is navigation and wins. */
+  max-width: 22ch;
+  font: inherit;
+}
+
+.builder-business__select {
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-bg, #fff);
+  color: var(--shell-fg, #18181b);
+  font: inherit;
+}
+
+/*
+ * THE ONE-BUSINESS CASE IS A NAME, NOT A CONTROL, and this is where that reads
+ * as a settled fact rather than an unmade choice: no border, no chevron, no
+ * affordance suggesting there is something to open.
+ */
+.builder-business__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--shell-fg, #18181b);
+  font-weight: 600;
+}
+
+.builder-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--shell-accent, #7c3aed);
+  color: var(--shell-bg, #fff);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.builder-account__heading {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.builder-account__who {
+  margin: 0 0 14px;
+  color: var(--shell-muted, #71717a);
+}
+
+.builder-account__businesses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.builder-account__business[data-current='true'] {
+  font-weight: 600;
+}
+
+/* Lapsed is stated in the label as well as shown here — colour alone is never
+   the whole of a status (the switcher's own option carries the suffix too). */
+.builder-account__business[data-lapsed='true'] {
+  color: var(--shell-muted, #71717a);
+}

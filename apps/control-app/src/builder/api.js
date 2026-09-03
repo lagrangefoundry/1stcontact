@@ -8,12 +8,63 @@
  */
 
 /**
+ * WHICH BUSINESS EVERY URL BELOW IS ABOUT ([[REQ-179]]).
+ *
+ * ONE PLACE, MODULE-SCOPED, SET BY THE SHELL'S SWITCHER. `scope.ts` parses a
+ * `/b/<businessId>` path prefix and `router.ts` strips it before the route table
+ * ever sees a path, so scoping the whole builder is a matter of every URL this
+ * module builds carrying it — and every URL the builder uses is built here,
+ * which is what makes "one place" true rather than aspirational.
+ *
+ * A MODULE VARIABLE RATHER THAN A PARAMETER, and the reason is the three
+ * functions that return a URL instead of fetching one: `previewUrl` into an
+ * `<iframe src>`, `assetUrl` into the picker's `<img src>`, `materialFileUrl`
+ * into the Library's `<img>`/`<a>`. Their callers are components that know a
+ * slug and have no business knowing a business id; threading one through them
+ * would put the scope in a dozen call sites, each free to forget it. The browser
+ * runs one builder against one selection at a time, so a module variable is
+ * exactly as wide as the thing it describes.
+ *
+ * NULL IS ORDINARY AND MEANS "UNSCOPED". Before the switcher has resolved a
+ * selection — and on every host that has no businesses at all — the URLs are
+ * what they were, and `resolveScope` answers them from its own fallback. That is
+ * what lets this land without every existing caller changing.
+ */
+let businessScope = null
+
+/** Point every subsequent URL at this business. Pass `null` to unscope. */
+export function setBusinessScope(businessId) {
+  const next = String(businessId ?? '').trim()
+  businessScope = next === '' ? null : next
+  return businessScope
+}
+
+/** The business every URL below is currently about, or null. */
+export function getBusinessScope() {
+  return businessScope
+}
+
+/**
+ * Prefix a same-origin path with the current business.
+ *
+ * Deliberately NOT applied to `/api/status` or `/api/businesses`: both are asked
+ * BEFORE a business is chosen and neither is about one. Everything else is.
+ */
+function scoped(path) {
+  return businessScope === null ? path : `/b/${encodeURIComponent(businessScope)}${path}`
+}
+
+/**
  * The URL a rendered channel is served at. Same-origin by construction: a
  * relative path, so the iframe is never cross-origin and "open in new tab"
  * lands on the identical document (DOC-28 §10).
+ *
+ * The business prefix is inherited by the page's own relative sub-resources,
+ * which is precisely why `scope.ts` chose a path over a query string — a
+ * relative asset reference drops a query string and would arrive unscoped.
  */
 export function previewUrl(slug, channel) {
-  return `/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`
+  return scoped(`/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`)
 }
 
 /**
@@ -77,9 +128,36 @@ export async function fetchAiStatus(fetchImpl = fetch) {
   }
 }
 
+/**
+ * Which businesses this account may operate, and who the account is ([[REQ-179]]).
+ *
+ * ASKED FIRST, AND UNSCOPED. It is the call whose answer DECIDES the scope, so
+ * it cannot carry one — and it is about the account, which is the one thing in
+ * this product that is not business-scoped ([[DOC-40]] §2).
+ *
+ * A FAILURE TO ASK IS NOT A FAILURE TO WORK, by the same rule
+ * {@link fetchAiStatus} follows: an origin that cannot answer this leaves the
+ * builder with no switcher and an unscoped session, which is exactly what it had
+ * before this existed. Refusing to draw the app over it would turn a blip into a
+ * blank page.
+ */
+export async function fetchBusinesses(fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl('/api/businesses')
+    if (!res.ok) return { account: null, businesses: [] }
+    const body = await res.json()
+    return {
+      account: body?.account ?? null,
+      businesses: Array.isArray(body?.businesses) ? body.businesses : [],
+    }
+  } catch {
+    return { account: null, businesses: [] }
+  }
+}
+
 /** Every site in the store, newest revision included. */
 export async function fetchSites(fetchImpl = fetch) {
-  const res = await fetchImpl('/api/sites')
+  const res = await fetchImpl(scoped('/api/sites'))
   if (!res.ok) throw new Error(`GET /api/sites → ${res.status}`)
   return res.json()
 }
@@ -93,7 +171,7 @@ export async function fetchSites(fetchImpl = fetch) {
  * asset browser mode is the same store shown as a tab, and it calls this.
  */
 export async function fetchAssets(slug, fetchImpl = fetch) {
-  const res = await fetchImpl(`/api/assets?slug=${encodeURIComponent(slug)}`)
+  const res = await fetchImpl(scoped(`/api/assets?slug=${encodeURIComponent(slug)}`))
   if (!res.ok) throw new Error(`GET /api/assets → ${res.status}`)
   return res.json()
 }
@@ -133,7 +211,7 @@ export async function fetchCopy(target, fetchImpl = fetch) {
   const q = new URLSearchParams({ slug: target.slug, page: target.page, path: target.path })
   if (target.module) q.set('module', target.module)
   if (target.slot) q.set('slot', target.slot)
-  return copyEnvelope(await fetchImpl(`/api/copy?${q}`))
+  return copyEnvelope(await fetchImpl(scoped(`/api/copy?${q}`)))
 }
 
 /**
@@ -147,7 +225,7 @@ export async function fetchCopy(target, fetchImpl = fetch) {
  */
 export async function saveCopy(target, values, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl('/api/copy', {
+    await fetchImpl(scoped('/api/copy'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...target, values }),
@@ -164,7 +242,7 @@ export async function saveCopy(target, values, fetchImpl = fetch) {
  * even offered — is stated in the count.
  */
 export async function fetchPalette(slug, fetchImpl = fetch) {
-  return copyEnvelope(await fetchImpl(`/api/palette?slug=${encodeURIComponent(slug)}`))
+  return copyEnvelope(await fetchImpl(scoped(`/api/palette?slug=${encodeURIComponent(slug)}`)))
 }
 
 /**
@@ -182,7 +260,7 @@ export async function fetchPalette(slug, fetchImpl = fetch) {
  */
 export async function writePalette(body, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl('/api/palette', {
+    await fetchImpl(scoped('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -199,7 +277,7 @@ export async function writePalette(body, fetchImpl = fetch) {
  * reason it is frozen rather than instead of one or the other.
  */
 export async function openChatSession(slug, fetchImpl = fetch) {
-  const res = await fetchImpl('/api/ai/session', {
+  const res = await fetchImpl(scoped('/api/ai/session'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ slug }),
@@ -222,7 +300,7 @@ export async function openChatSession(slug, fetchImpl = fetch) {
  */
 export async function* streamChatPrompt(sessionId, text, fetchImpl = fetch) {
   yield* postEventStream(
-    '/api/ai/prompt',
+    scoped('/api/ai/prompt'),
     { sessionId, text },
     'the assistant failed',
     fetchImpl,
@@ -253,7 +331,7 @@ export async function* streamChatPrompt(sessionId, text, fetchImpl = fetch) {
  */
 export async function* streamChatReattach(sessionId, cursor, fetchImpl = fetch) {
   yield* postEventStream(
-    '/api/ai/reattach',
+    scoped('/api/ai/reattach'),
     { sessionId, cursor },
     'the assistant could not be rejoined',
     fetchImpl,
@@ -303,7 +381,7 @@ async function* postEventStream(path, body, failure, fetchImpl) {
 
 /** Snapshot the draft into a new revision and render it (DOC-12 §5). */
 export async function publishSite(slug, fetchImpl = fetch) {
-  const res = await fetchImpl('/api/publish', {
+  const res = await fetchImpl(scoped('/api/publish'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ slug }),
@@ -321,14 +399,14 @@ export async function publishSite(slug, fetchImpl = fetch) {
  * `placed_on` on each row, never a request the origin filters.
  */
 export async function fetchMaterial(fetchImpl = fetch) {
-  const res = await fetchImpl('/api/material')
+  const res = await fetchImpl(scoped('/api/material'))
   if (!res.ok) throw new Error(`GET /api/material → ${res.status}`)
   return res.json()
 }
 
 /** One piece of material with its description — the row plus the body. */
 export async function fetchMaterialItem(uid, fetchImpl = fetch) {
-  const res = await fetchImpl(`/api/material/item?uid=${encodeURIComponent(uid)}`)
+  const res = await fetchImpl(scoped(`/api/material/item?uid=${encodeURIComponent(uid)}`))
   if (!res.ok) throw new Error(`GET /api/material/item → ${res.status}`)
   return res.json()
 }
@@ -341,7 +419,7 @@ export async function fetchMaterialItem(uid, fetchImpl = fetch) {
  * construction, like {@link previewUrl}.
  */
 export function materialFileUrl(uid, member) {
-  const base = `/api/material/file?uid=${encodeURIComponent(uid)}`
+  const base = scoped(`/api/material/file?uid=${encodeURIComponent(uid)}`)
   // `member` NAMES ONE FILE INSIDE A CAPTURE (REQ-166). A capture is 11–99
   // attachment records on one ticket, so the bare URL — which serves whichever
   // record comes back first — cannot name the screenshot. Absent is unchanged
@@ -373,7 +451,7 @@ export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
   form.append('file', file)
   form.append('role', role)
   if (slug) form.append('slug', slug)
-  return copyEnvelope(await fetchImpl('/api/material', { method: 'POST', body: form }))
+  return copyEnvelope(await fetchImpl(scoped('/api/material'), { method: 'POST', body: form }))
 }
 
 /**
@@ -385,7 +463,7 @@ export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
  */
 export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl('/api/material/description', {
+    await fetchImpl(scoped('/api/material/description'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ uid, body }),

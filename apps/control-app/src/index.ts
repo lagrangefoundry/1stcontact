@@ -195,7 +195,13 @@ export default {
       }
 
       const scope = await resolveScope(env, admission, requested)
-      return await route(request, env, scope, {}, ctx)
+      // THE ADMISSION TRAVELS WITH THE SCOPE, and only one route reads it
+      // ([[REQ-179]]). `/api/businesses` answers a question about the ACCOUNT —
+      // which businesses may be operated — and that is the question `admit`
+      // already answered here, ahead of routing. Handing the answer down is what
+      // keeps it a single answer; asking again inside the router would need the
+      // verified email the router is deliberately never given.
+      return await route(request, env, scope, { admission }, ctx)
     } catch (err) {
       // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
       // they may not operate: an answer about them, not a configuration failure

@@ -207,14 +207,21 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
     expect(link().target).toBe('_blank')
   })
 
-  it('test_UAT_FC_REQ-115_site_selector_switches_the_displayed_site', () => {
+  it('test_UAT_FC_REQ-115_the_displayed_site_comes_from_the_store_listing', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
-    const select = app.toolbar.get('site-selector') as HTMLSelectElement
 
-    // AC 6 — options come from the store listing, not a hardcoded set.
-    expect([...select.options].map((o) => o.value)).toEqual(['alpha', 'beta'])
-    select.value = 'beta'
-    select.dispatchEvent(new Event('change'))
+    // AC 6 — what the pane shows comes from the store listing, not a hardcoded
+    // set: the first entry of the injected listing is what is on screen.
+    //
+    // IT WAS READ OFF A TOOLBAR SELECT UNTIL [[REQ-179]]. That control moved
+    // into shell chrome and names a business now, so the listing reaches the
+    // pane through the scope rather than through a dropdown beside it. What the
+    // criterion is about — the store decides, nothing here does — is unchanged,
+    // and is now asserted against the thing the operator actually sees.
+    expect(app.panel.getSite()).toBe('alpha')
+    expect(app.panel.frame.getAttribute('src')).toBe('/preview/alpha/draft/')
+
+    app.panel.setSite('beta')
     expect(app.panel.getSite()).toBe('beta')
     expect(app.panel.frame.getAttribute('src')).toBe('/preview/beta/draft/')
   })
@@ -228,11 +235,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
       id: 'assets',
       label: 'Assets',
       mount: (host: HTMLElement) => host.append(document.createTextNode('assets')),
-      actions: ['site-selector', 'mode-toggle'],
+      actions: ['colors', 'mode-toggle'],
     })
     const toolbarEl = app.toolbar.element
     app.panel.setMode('assets')
-    expect(app.toolbar.ids()).toEqual(['site-selector', 'mode-toggle'])
+    expect(app.toolbar.ids()).toEqual(['colors', 'mode-toggle'])
     expect(app.toolbar.get('open-new-tab')).toBeNull()
     // The toolbar itself is never rebuilt out of the layout.
     expect(app.toolbar.element).toBe(toolbarEl)

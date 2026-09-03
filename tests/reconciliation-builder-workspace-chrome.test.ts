@@ -232,17 +232,22 @@ describe('story-e674c60a naming', () => {
 
     if (!WEBUI_INSTALLED) {
       console.warn(
-        `story-e674c60a: the rendered tab label and site-selector accessible name are ` +
-          `NOT VERIFIED here — ${WEBUI_SKIP_REASON}`,
+        `story-e674c60a: the rendered tab label is NOT VERIFIED here — ${WEBUI_SKIP_REASON}`,
       )
       return
     }
 
-    // Both places the name is shown read from that single declaration.
-    const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
+    // The place the name is shown reads from that single declaration.
+    //
+    // THERE USED TO BE TWO ([[REQ-179]]). The site selector borrowed the tab's
+    // label for its accessible name, which is what made "exactly one definition"
+    // a claim worth checking across two surfaces. That control has moved into
+    // shell chrome and names a BUSINESS now, so it takes its own label from
+    // `config.js` rather than this one — the rule (a user-visible name has one
+    // definition) is unchanged and is checked above, against the source, which
+    // is where it was always the stronger half of this criterion.
+    mountBuilder(root, { sites: SITES, storage: memoryStorage() })
     expect(root.textContent).toContain(SITE_TAB.label)
-    const select = app.toolbar.get('site-selector') as HTMLSelectElement
-    expect(select.getAttribute('aria-label')).toBe(SITE_TAB.label)
   })
 })
 
@@ -289,7 +294,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a display panel modes', () => {
       id: 'contributed',
       label: 'Contributed',
       src: ({ site }: { site: string }) => `/preview/${site}/published/`,
-      actions: ['site-selector', 'publish'],
+      actions: ['mode-toggle', 'publish'],
     })
 
     // It is offered among the selectable modes…
@@ -303,7 +308,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a display panel modes', () => {
     expect(app.panel.getSrc()).toBe('/preview/alpha/published/')
 
     // …and the toolbar renders exactly the controls it named.
-    expect(app.toolbar.ids()).toEqual(['site-selector', 'publish'])
+    expect(app.toolbar.ids()).toEqual(['mode-toggle', 'publish'])
 
     // The mode's own source function is honoured as state changes.
     app.panel.setSite('beta')
@@ -323,27 +328,22 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
       id: 'documentish',
       label: 'Documentish',
       src: () => '/preview/alpha/draft/',
-      actions: ['site-selector', 'mode-toggle', 'open-new-tab', 'publish'],
+      actions: ['colors', 'mode-toggle', 'open-new-tab', 'publish'],
     })
     app.panel.registerMode({
       id: 'not-a-document',
       label: 'Assets',
       mount: (host: HTMLElement) => host.append(document.createTextNode('assets')),
-      actions: ['site-selector', 'mode-toggle'],
+      actions: ['colors', 'mode-toggle'],
     })
 
     app.panel.setMode('documentish')
     // AC-970 — exactly the declared list, no more and no fewer.
-    expect(app.toolbar.ids()).toEqual([
-      'site-selector',
-      'mode-toggle',
-      'open-new-tab',
-      'publish',
-    ])
+    expect(app.toolbar.ids()).toEqual(['colors', 'mode-toggle', 'open-new-tab', 'publish'])
 
     app.panel.setMode('not-a-document')
     // Re-derived on the mode change: the strip's contents are REPLACED.
-    expect(app.toolbar.ids()).toEqual(['site-selector', 'mode-toggle'])
+    expect(app.toolbar.ids()).toEqual(['colors', 'mode-toggle'])
     // A mode showing something other than a document does not get "open in a
     // new tab", so the strip never assumes a document beneath it.
     expect(app.toolbar.get('open-new-tab')).toBeNull()
@@ -357,7 +357,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
       id: 'bad',
       label: 'Bad',
       src: () => '/preview/alpha/draft/',
-      actions: ['site-selector', 'no-such-control'],
+      actions: ['mode-toggle', 'no-such-control'],
     })
     expect(() => app.panel.setMode('bad')).toThrow(/unknown action "no-such-control"/)
   })
