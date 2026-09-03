@@ -1,6 +1,7 @@
 import { guardAccess, type AccessEnv } from './access'
 import { admit, DENIED_MESSAGE, type Admission, type IdentityEnv } from './identity'
 import { route, type RouterEnv } from './router'
+import { resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 
 /**
  * `app.1stcontact.io` — the control app, and the builder itself (REQ-145).
@@ -30,6 +31,17 @@ import { route, type RouterEnv } from './router'
  * second check is `admit`, and it sits in exactly the same place and for exactly
  * the same reason: before a store handle exists, before a path is examined, so no
  * route can be reached by someone who was merely able to receive an email.
+ *
+ * AND ADMISSION IS NOT YET A SCOPE (REQ-168). `admit` answers *which businesses
+ * may be operated*; `resolveScope` answers *which one this request operates on*,
+ * and those are different questions the moment an account holds more than one
+ * ([[DOC-40]] §2). They were the same value for exactly as long as there was one
+ * business per account — which is why this handler used to call `admit`, check
+ * `ok`, and then hand `route` an env and no scope at all, leaving every read in
+ * the system on the deployment's own `TENANT_ID`.
+ *
+ * THE THIRD STEP SITS WHERE THE OTHER TWO DO, for the third time for the same
+ * reason: before a store handle exists and before a path is examined.
  */
 
 export interface Env extends AccessEnv, RouterEnv, IdentityEnv {
@@ -114,6 +126,30 @@ function denied(admission: Extract<Admission, { ok: false }>): Response {
 }
 
 /**
+ * The refusal a caller who named someone else's business receives.
+ *
+ * THE SAME ONE MESSAGE, for the reason {@link denied} states: "no such business",
+ * "you are not a member" and "that grant lapsed" need different fixes and would
+ * be genuinely more useful stated apart — and stating them apart turns this into
+ * an existence oracle over every business in the system, to anyone who can pass a
+ * one-time PIN, which is anyone. The reason goes to the invocation log, where the
+ * operator is, and not to the wire, where the visitor is.
+ */
+function refused(err: ScopeRefusedError): Response {
+  console.warn(
+    JSON.stringify({ event: 'scope_refused', reason: err.reason, business: err.businessId }),
+  )
+  return new Response(DENIED_MESSAGE, {
+    status: 403,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex',
+    },
+  })
+}
+
+/**
  * `ctx` IS TAKEN AND PASSED ON (BUG-46), and this is the only place it exists.
  *
  * `ExecutionContext` is given to the fetch handler and to nothing else, so a
@@ -140,16 +176,33 @@ function denied(admission: Extract<Admission, { ok: false }>): Response {
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     try {
+      // The business the caller is ASKING for. Whether they may have it is
+      // `resolveScope`'s question, and asking it here rather than in the router
+      // is what keeps authorisation ahead of routing.
+      const requested = splitBusinessPrefix(new URL(request.url).pathname).businessId
+
+      // `admit`, OR NOTHING — gated on the SAME predicate that skips the gate,
+      // not on a second condition that happens to agree with it today. Two
+      // predicates that can drift is how a deployment ends up resolving a
+      // loopback scope while enforcing a production gate, or the reverse.
+      let admission: Admission | null = null
       if (!isUnconfiguredLocalDev(env)) {
         const gate = await guardAccess(request, env)
         if (!gate.ok) return gate.response
 
-        const admission = await admit(env, gate.email)
+        admission = await admit(env, gate.email)
         if (!admission.ok) return denied(admission)
       }
 
-      return await route(request, env, {}, ctx)
+      const scope = await resolveScope(env, admission, requested)
+      return await route(request, env, scope, {}, ctx)
     } catch (err) {
+      // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
+      // they may not operate: an answer about them, not a configuration failure
+      // an operator can act on. Dressing it as one would invite a retry that
+      // fails identically forever, and would put someone else's business id in
+      // front of an operator as though it were theirs to fix.
+      if (err instanceof ScopeRefusedError) return refused(err)
       // Anything reaching here escaped the router's own handler, or the
       // admission check ahead of it — a store that could not be constructed, an
       // identity table that is not migrated, most likely a missing binding or an

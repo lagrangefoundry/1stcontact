@@ -3,47 +3,46 @@ import {
   UnknownTenantError,
   type TenantSiteStore,
 } from '../../../tools/generate/src/store/d1r2-store'
+import { UnscopedError, type Scope } from './scope'
 
 /**
  * The Worker's store handle (REQ-145).
  *
- * ONE TENANT, NAMED IN CONFIGURATION. `d1r2SiteStore` hands back a root that can
- * do nothing until `forTenant` is called, and the tenant is *checked* there — an
- * unknown or inactive one is refused at construction rather than yielding a
- * handle that silently reads nothing. So the tenant has to come from somewhere,
- * and for now it comes from a var.
+ * ONE TENANT, CHOSEN BY THE CALLER'S IDENTITY (REQ-168). `d1r2SiteStore` hands
+ * back a root that can do nothing until `forTenant` is called, and the tenant is
+ * *checked* there — an unknown or inactive one is refused at construction rather
+ * than yielding a handle that silently reads nothing. So the tenant has to come
+ * from somewhere, and it comes from {@link Scope}.
  *
- * WHY A VAR AND NOT THE ACCESS IDENTITY. Deriving the tenant from the verified
- * Access claims is where this ends up — the gate already proves who the caller
- * is (`access.ts`) — but that mapping is a piece of account modelling with no
- * second account to model against yet. A var is the honest interim: it says
- * "this deployment serves one tenant" out loud, in the file an operator reads,
- * instead of implying a multi-tenant routing decision that nothing implements.
- * Cross-tenant admin arrives with the ticket that needs it.
+ * IT USED TO COME FROM A VAR, and the argument for that is worth keeping because
+ * this file made it: with one account to model against, `TENANT_ID` said "this
+ * deployment serves one tenant" out loud, in the file an operator reads, instead
+ * of implying a multi-tenant routing decision that nothing implemented. The
+ * prediction it ended on has now happened — [[REQ-167]] supplied the second
+ * account, [[REQ-178]] supplied the set, and `scope.ts` is the mapping this
+ * comment said would arrive with the ticket that needed it.
  *
- * FAIL LOUD ON A MISSING TENANT. An unset `TENANT_ID` is a deployment that
- * cannot serve anything, and it must say so. Defaulting to a well-known name
- * would be worse than useless: it would let a misconfigured Worker read and
- * WRITE into whichever tenant happened to carry that name.
+ * NO DEFAULT, AND NO READ OF `TENANT_ID` LEFT HERE. The scope is a required
+ * argument rather than an optional one with a fallback, because a fallback is
+ * how one call site gets left behind reading the platform's own business and
+ * serving its data into a customer's session. `scope.ts` is the single place
+ * that var is still read, and only on the branch that has no identity at all.
  */
 
 export interface StoreEnv {
   DB: D1Database
   SITES: R2Bucket
-  /** The account this deployment serves. No default — see above. */
-  TENANT_ID?: string
 }
 
-export class TenantNotConfiguredError extends Error {
-  readonly name = 'TenantNotConfiguredError'
-  constructor() {
-    super(
-      'TENANT_ID is not configured. This Worker serves one tenant and cannot ' +
-        'infer which — set it in apps/control-app/wrangler.toml, under [vars] for ' +
-        '`wrangler dev` and again under [env.production.vars], which does not inherit it.',
-    )
-  }
-}
+/**
+ * Kept as a re-export because it is thrown on this file's behalf, one layer up.
+ *
+ * `TENANT_ID`'s absence is still a refusal and still says the same sentence — it
+ * just belongs to the resolver now, which is the only thing that reads the var.
+ * Exporting it from here as well keeps `router.ts`'s existing `instanceof` and
+ * two UATs pointing at one class rather than at two that happen to agree.
+ */
+export { TenantNotConfiguredError } from './scope'
 
 /**
  * The store for this request, with the configured tenant made to exist.
@@ -59,11 +58,16 @@ export class TenantNotConfiguredError extends Error {
  * openers that disagreed about whether it existed.
  *
  * They are one opener now, and the registration is the read path's too. This is
- * not a widening of what a Worker may create: `tenantId` comes from the
- * deployment's own `TENANT_ID`, so this can name exactly the account the
- * configuration already names and can reach no other. That was always the
- * argument for putting it on the import route; it is the same argument, applied
- * where its absence was the outage.
+ * not a widening of what a Worker may create: `tenantId` comes from the resolved
+ * {@link Scope}, which `resolveScope` authorised against this caller's admission,
+ * so it can name exactly the business they may already operate and can reach no
+ * other. That was always the argument for putting it on the import route; it is
+ * the same argument, applied where its absence was the outage.
+ *
+ * THE TENANT IS THE SCOPE'S, so this can name exactly the business the caller was
+ * authorised for and can reach no other — which is the same argument the var
+ * version made, resting on an authorisation check instead of on a deployment
+ * having one tenant.
  *
  * ONLY ON `unknown`, NEVER ON `inactive`. A deactivated tenant is a decision
  * someone made, and self-healing past it would turn account suspension into a
@@ -82,9 +86,9 @@ export class TenantNotConfiguredError extends Error {
  * indexed lookup by primary key; caching it would trade a real guarantee for a
  * saving nobody measured.
  */
-export async function storeFor(env: StoreEnv): Promise<TenantSiteStore> {
-  const tenantId = (env.TENANT_ID ?? '').trim()
-  if (tenantId === '') throw new TenantNotConfiguredError()
+export async function storeFor(env: StoreEnv, scope: Scope): Promise<TenantSiteStore> {
+  const tenantId = scope.businessId
+  if (tenantId === '') throw new UnscopedError('storeFor')
   const root = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
   try {
     return await root.forTenant(tenantId)

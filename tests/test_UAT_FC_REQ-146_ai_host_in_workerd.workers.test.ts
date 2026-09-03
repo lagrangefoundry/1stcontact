@@ -376,7 +376,7 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // raises on `load` — it does not come back as an empty conversation, which
     // is the failure that would let `attach` start a new one over the top of a
     // real transcript it merely failed to find.
-    const archive = sessionArchive(await ticketStoreFor(workerEnv()))
+    const archive = sessionArchive(await ticketStoreFor(workerEnv(), { businessId: TENANT }))
     expect(await archive.list()).not.toContain('site-absent')
     await expect(archive.load('site-absent')).rejects.toThrow()
   })

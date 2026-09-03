@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
+import type { Scope } from '../apps/control-app/src/scope'
 import { projectKnowledgeFor, PROJECT_KB } from '../apps/control-app/src/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { CLIENT_DESCRIBER } from '../apps/control-app/src/material'
@@ -48,11 +49,18 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /** No describer, and an indexer that only counts — the default for most claims. */
 /**
@@ -93,6 +101,7 @@ async function upload(
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(tenant),
+    scopeOf(tenant),
     d,
   )
 }
@@ -227,7 +236,7 @@ describe('REQ-161 — "put it on the site" means the bytes are on the site', () 
     expect(await site.store.listAssets(site.slug)).toHaveLength(before)
 
     // And asked for directly, the gate answers 403 — forbidden, not malformed.
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { ticket } = await store.get({ uid: String(placed.uid) })
     expect(ticket.fields.republishable).toBe(false)
     expect(ticket.fields.role).toBe('reference')
@@ -256,7 +265,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     )
 
     const listed = await body(
-      await route(new Request('https://app.test/api/material'), routerEnv(tenant), deps()),
+      await route(new Request('https://app.test/api/material'), routerEnv(tenant), scopeOf(tenant), deps()),
     )
     const rows = listed.material as Array<Record<string, unknown>>
     expect(rows).toHaveLength(2)
@@ -285,6 +294,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
       await route(
         new Request(`https://app.test/api/material/item?uid=${positioning.uid}`),
         routerEnv(tenant),
+        scopeOf(tenant),
         deps(),
       ),
     )
@@ -296,7 +306,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     // And a second tenant sees none of it — the barrier is the store handle's,
     // and this is the surface that would leak it if it were not.
     const other = await body(
-      await route(new Request('https://app.test/api/material'), routerEnv('req161-other'), deps()),
+      await route(new Request('https://app.test/api/material'), routerEnv('req161-other'), scopeOf('req161-other'), deps()),
     )
     expect(other.material).toHaveLength(0)
   })
@@ -314,6 +324,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     const file = await route(
       new Request(`https://app.test/api/material/file?uid=${created.uid}`),
       routerEnv(tenant),
+      scopeOf(tenant),
       deps(),
     )
     expect(file.status).toBe(200)
@@ -328,7 +339,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     // awareness map through a surface built for material. 404 and not 403, so the
     // route is not an oracle for which uids exist in the tenant.
     const tenant = 'req161-scope'
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { ticket } = await store.create({
       type: 'brief',
       title: 'The brief',
@@ -343,6 +354,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
       const response = await route(
         new Request(`https://app.test${path}`),
         routerEnv(tenant),
+        scopeOf(tenant),
         deps(),
       )
       expect(response.status, path).toBe(404)
@@ -355,6 +367,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
         body: JSON.stringify({ uid: ticket.uid, body: 'rewritten from outside' }),
       }),
       routerEnv(tenant),
+      scopeOf(tenant),
       deps(),
     )
     expect(written.status).toBe(404)
@@ -370,7 +383,7 @@ describe('REQ-161 — the client corrects the description', () => {
     // unindexed document is INVISIBLE rather than merely stale.
     const tenant = 'req161-correct'
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(tenant), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(tenant), scopeOf(tenant), { embedder, defer: () => {} })
     const index = async () => async () => void (await kb.onMaterialWritten())
 
     // A DISTRACTOR FIRST, so the claim below is about RANKING and not merely
@@ -424,6 +437,7 @@ describe('REQ-161 — the client corrects the description', () => {
           }),
         }),
         routerEnv(tenant),
+        scopeOf(tenant),
         { index },
       ),
     )
@@ -452,7 +466,7 @@ describe('REQ-161 — the client corrects the description', () => {
         { index: async () => async () => {}, describeImage: undefined, describeText: digest },
       ),
     )
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const backlog = async () =>
       (await store.list({ type: 'material', limit: 'all' })).tickets.filter(
         (t) => t.fields.description_status === 'no_describer',
@@ -466,6 +480,7 @@ describe('REQ-161 — the client corrects the description', () => {
         body: JSON.stringify({ uid: created.uid, body: 'The old shopfront, before the repaint.' }),
       }),
       routerEnv(tenant),
+      scopeOf(tenant),
       deps(),
     )
 
@@ -490,6 +505,7 @@ describe('REQ-161 — the client corrects the description', () => {
         body: JSON.stringify({ uid: created.uid, body: '   ' }),
       }),
       routerEnv(tenant),
+      scopeOf(tenant),
       deps(),
     )
     expect(response.status).toBe(400)

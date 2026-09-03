@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
+import type { Scope } from '../apps/control-app/src/scope'
 import { promoteToSiteAsset } from '../apps/control-app/src/material'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { applySchema, makeD1Site } from './support/d1-site-factory'
@@ -47,10 +48,17 @@ function routerEnv(tenantId: string): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /** No describer; an indexer that only counts. Neither claim below is about them. */
 /**
@@ -86,6 +94,7 @@ async function upload(
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(tenant),
+    scopeOf(tenant),
     deps(),
   )
   return (await response.json()) as Record<string, unknown>
@@ -96,6 +105,7 @@ async function row(tenant: string, uid: string): Promise<Record<string, unknown>
   const response = await route(
     new Request('https://app.test/api/material'),
     routerEnv(tenant),
+    scopeOf(tenant),
     deps(),
   )
   const listed = (await response.json()) as { material: Array<Record<string, unknown>> }
@@ -191,7 +201,7 @@ describe('BUG-47 — placement is where the bytes went', () => {
     })
     const uid = String(uploaded.uid)
 
-    const tickets = await ticketStoreFor(routerEnv(tenant))
+    const tickets = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     await promoteToSiteAsset(tickets, second.store, { uid, slug: second.slug, name: 'logo.svg' })
     // The same site again — the repeat a client makes by accident.
     await promoteToSiteAsset(tickets, first.store, { uid, slug: first.slug, name: 'logo.svg' })

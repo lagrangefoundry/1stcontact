@@ -67,11 +67,10 @@ async function tenantStores(tenantId: string): Promise<{
   references: ReferenceStore
 }> {
   await ensureTenant(tenantId)
-  const tickets = await ticketStoreFor({
-    DB: env.DB as D1Database,
-    BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
-  })
+  const tickets = await ticketStoreFor(
+    { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
+    { businessId: tenantId },
+  )
   const references = await r2ReferenceStore(refEnv()).forTenant(tenantId)
   return { tickets, references }
 }

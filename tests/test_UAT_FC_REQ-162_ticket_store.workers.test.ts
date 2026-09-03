@@ -2,12 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import {
   BlobsNotConfiguredError,
-  TenantNotConfiguredError,
   productTypePack,
   ticketStoreFor,
   type TicketStore,
   type TicketStoreEnv,
 } from '../apps/control-app/src/tickets'
+import { UnscopedError, type Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -32,12 +32,20 @@ import { applySchema } from './support/d1-site-factory'
 const TENANT_A = 'req162-a'
 const TENANT_B = 'req162-b'
 
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`. It is an argument now, because the
+ * business comes from the caller's identity rather than from the deployment —
+ * so these cases name it the same way a request does, explicitly and per call.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
+
 /** The Worker's own bindings, as a ticket-store env. */
 function storeEnv(overrides: Partial<TicketStoreEnv> = {}): TicketStoreEnv {
   return {
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: TENANT_A,
     ...overrides,
   }
 }
@@ -65,7 +73,7 @@ describe('REQ-162 — the schema and the wiring', () => {
     // independently-constructed handle reads it back. Two handles rather than
     // one, because a store that only round-tripped through its own instance
     // would pass with an in-memory cache and no working schema at all.
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     const { ticket } = await store.create({
       type: 'material',
       title: 'Brand guidelines',
@@ -74,7 +82,7 @@ describe('REQ-162 — the schema and the wiring', () => {
     })
     expect(ticket.uid).toBeTruthy()
 
-    const fresh = await ticketStoreFor(storeEnv())
+    const fresh = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     const { ticket: read } = await fresh.get({ uid: ticket.uid })
     expect(read.title).toBe('Brand guidelines')
     expect(read.type).toBe('material')
@@ -87,7 +95,7 @@ describe('REQ-162 — the schema and the wiring', () => {
     // tenant as it must, and a freshly migrated database has an empty registry —
     // which is exactly how the builder came to be dead on arrival last time.
     // A tenant nothing has ever registered must still yield a working handle.
-    const store = await ticketStoreFor(storeEnv({ TENANT_ID: 'req162-never-seen' }))
+    const store = await ticketStoreFor(storeEnv(), scopeOf('req162-never-seen'))
     const { ticket } = await store.create({
       type: 'brief',
       title: 'Decisions',
@@ -103,19 +111,24 @@ describe('REQ-162 — the schema and the wiring', () => {
     // wrong for this host, where a deployment whose material has nowhere to go
     // is simply misconfigured. Both refusals are awaited before any op is
     // called, which is the claim: the failure is construction-time.
-    await expect(ticketStoreFor(storeEnv({ BLOBS: undefined }))).rejects.toBeInstanceOf(
-      BlobsNotConfiguredError,
-    )
-    await expect(ticketStoreFor(storeEnv({ TENANT_ID: '' }))).rejects.toBeInstanceOf(
-      TenantNotConfiguredError,
-    )
+    await expect(
+      ticketStoreFor(storeEnv({ BLOBS: undefined }), scopeOf(TENANT_A)),
+    ).rejects.toBeInstanceOf(BlobsNotConfiguredError)
+    // THE SAME REFUSAL, UNDER THE NAME IT NOW DESERVES ([[REQ-168]]). This used
+    // to be `TenantNotConfiguredError` because the tenant came from `TENANT_ID`
+    // and an empty one meant an unconfigured deployment. It comes from the
+    // resolved scope now, which is never empty, so an empty one means a caller
+    // built a scope by hand — a programming error, and pointing an operator at
+    // `wrangler.toml` for it would send them to fix something that is not broken.
+    // The claim is unchanged: the store refuses at CONSTRUCTION, before any op.
+    await expect(ticketStoreFor(storeEnv(), scopeOf(''))).rejects.toBeInstanceOf(UnscopedError)
   })
 })
 
 describe('REQ-162 — the tenant barrier', () => {
   it('UAT_FC_REQ-162 a handle for tenant A cannot read tenant B rows', async () => {
-    const a = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_A }))
-    const b = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_B }))
+    const a = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
+    const b = await ticketStoreFor(storeEnv(), scopeOf(TENANT_B))
 
     const { ticket } = await a.create({
       type: 'material',
@@ -135,8 +148,8 @@ describe('REQ-162 — the tenant barrier', () => {
   })
 
   it('UAT_FC_REQ-162 a handle for tenant A cannot write over tenant B rows', async () => {
-    const a = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_A }))
-    const b = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_B }))
+    const a = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
+    const b = await ticketStoreFor(storeEnv(), scopeOf(TENANT_B))
 
     const { ticket } = await a.create({
       type: 'material',
@@ -158,7 +171,7 @@ describe('REQ-162 — attachments', () => {
   const bytes = new TextEncoder().encode('%PDF-1.7 brand guidelines')
 
   it('UAT_FC_REQ-162 attachment ops work through the wired store', async () => {
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     const { ticket } = await store.create({
       type: 'material',
       title: 'Guidelines with bytes',
@@ -182,7 +195,7 @@ describe('REQ-162 — attachments', () => {
     // and this still wrong, and the consequence of it being wrong is a client's
     // confidential document reachable from a public URL — which is why it is
     // checked against the real buckets rather than argued from the config.
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     const { ticket } = await store.create({
       type: 'material',
       title: 'Confidential',
@@ -216,8 +229,8 @@ describe('REQ-162 — attachments', () => {
     // tenant's blob is unreachable from another tenant's prefix. `sha256` is
     // still asserted equal because identical content must still hash identically
     // — it is an integrity field now rather than the address.
-    const a = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_A }))
-    const b = await ticketStoreFor(storeEnv({ TENANT_ID: TENANT_B }))
+    const a = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
+    const b = await ticketStoreFor(storeEnv(), scopeOf(TENANT_B))
     const shared = new TextEncoder().encode('the same file, uploaded twice')
 
     const mk = async (store: TicketStore) => {
@@ -251,7 +264,7 @@ describe('REQ-162 — the material types', () => {
   })
 
   it('UAT_FC_REQ-162 material and reference validate the DOC-38 §9 fields', async () => {
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     for (const type of ['material', 'reference']) {
       const { ticket } = await store.create({
         type,
@@ -270,7 +283,7 @@ describe('REQ-162 — the material types', () => {
   })
 
   it('UAT_FC_REQ-162 a bad rights or kind value is rejected', async () => {
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     await expect(
       store.create({ type: 'material', title: 'Bad rights', fields: material({ rights: 'borrowed' }) }),
     ).rejects.toMatchObject({ code: 'validation' })
@@ -286,7 +299,7 @@ describe('REQ-162 — the material types', () => {
     // DOC-38 §4.2: the two invert between a client's own site and a third-party
     // reference, so no rule derives either from `rights` — and a DEFAULT would be
     // such a rule. The refusal is the mechanism that makes "explicit" true.
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     for (const omitted of ['republishable', 'exportable']) {
       const fields = material()
       delete (fields as Record<string, unknown>)[omitted]
@@ -306,7 +319,7 @@ describe('REQ-162 — the material types', () => {
   })
 
   it('UAT_FC_REQ-162 captured and fetched material must say where it came from', async () => {
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     for (const origin of ['captured', 'fetched']) {
       await expect(
         store.create({
@@ -327,7 +340,7 @@ describe('REQ-162 — the material types', () => {
   })
 
   it('UAT_FC_REQ-162 a brief names its site and carries its decisions', async () => {
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     await expect(
       store.create({ type: 'brief', title: 'Homeless', body: 'Decisions.' }),
     ).rejects.toMatchObject({ code: 'validation' })
@@ -351,7 +364,7 @@ describe('REQ-162 — the material types', () => {
     // `fields.session_id`, the transcript is a `chat_transcript` comment on it,
     // and the BODY is left alone because that is the summary's home — not the
     // transcript's. This is the merge REQ-162 exists to make possible.
-    const store = await ticketStoreFor(storeEnv())
+    const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     const { ticket } = await store.create({
       type: 'chat',
       title: 'Building the landing page',

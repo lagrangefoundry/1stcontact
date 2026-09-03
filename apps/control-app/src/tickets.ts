@@ -12,6 +12,7 @@ import {
   AWARENESS_REPORT_TYPE,
   KB_FIELD,
 } from './generated/knowledge'
+import { UnscopedError, type Scope } from './scope'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -401,20 +402,10 @@ export interface TicketStoreEnv {
    * asset.
    */
   BLOBS?: R2Bucket
-  /** The account this deployment serves. No default — see `store.ts`. */
-  TENANT_ID?: string
 }
 
-export class TenantNotConfiguredError extends Error {
-  readonly name = 'TenantNotConfiguredError'
-  constructor() {
-    super(
-      'TENANT_ID is not configured. This Worker serves one tenant and cannot ' +
-        'infer which — set it in apps/control-app/wrangler.toml, under [vars] for ' +
-        '`wrangler dev` and again under [env.production.vars], which does not inherit it.',
-    )
-  }
-}
+/** Re-exported for the reason `store.ts` gives — one class, not two that agree. */
+export { TenantNotConfiguredError } from './scope'
 
 export class BlobsNotConfiguredError extends Error {
   readonly name = 'BlobsNotConfiguredError'
@@ -454,18 +445,24 @@ export class BlobsNotConfiguredError extends Error {
  * suspension into a suggestion. The read is one indexed lookup by primary key;
  * the write runs once in a database's life.
  *
- * The tenant can only ever be this deployment's own `TENANT_ID`, so this widens
- * nothing: it names exactly the account the configuration already names and can
- * reach no other. That is the argument `store.ts` makes for the site store, and
- * it is the same argument here.
+ * The tenant can only ever be the resolved {@link Scope}'s, so this widens
+ * nothing: it names exactly the business `resolveScope` authorised this caller
+ * for and can reach no other. That is the argument `store.ts` makes for the site
+ * store, and it is the same argument here.
+ *
+ * THIS OPENER WAS MISSING FROM [[REQ-168]]'s FIRST COUNT OF THE READS, and it is
+ * the one that mattered most: since [[REQ-160]] and [[REQ-162]] the ticket store
+ * is where chat transcripts, uploaded material and the project corpus live, so a
+ * ticket store left on the var would have served a customer the platform's
+ * conversations while every other read moved correctly.
  *
  * Constructed per request rather than memoised: `forTenant` performs the
  * registry check, and a handle cached across requests would carry a check made
  * against a tenant row that may since have been deactivated.
  */
-export async function ticketStoreFor(env: TicketStoreEnv): Promise<TicketStore> {
-  const tenantId = (env.TENANT_ID ?? '').trim()
-  if (tenantId === '') throw new TenantNotConfiguredError()
+export async function ticketStoreFor(env: TicketStoreEnv, scope: Scope): Promise<TicketStore> {
+  const tenantId = scope.businessId
+  if (tenantId === '') throw new UnscopedError('ticketStoreFor')
   if (!env.BLOBS) throw new BlobsNotConfiguredError()
 
   const base = new MultiTenantTicketStore(new Accessor(env.DB), productTypePack(), {

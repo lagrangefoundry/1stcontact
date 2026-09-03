@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -53,10 +54,17 @@ function routerEnv(): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: TENANT,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId = TENANT): Scope => ({ businessId })
 
 /** A configured deployment — see the module note for why that is now required. */
 const deps: RouterDeps = {
@@ -78,6 +86,7 @@ describe('BUG-41 — a .md dropped on the Library', () => {
     const response = await route(
       new Request('https://app.test/api/material', { method: 'POST', body: form }),
       routerEnv(),
+      scopeOf(),
       deps,
     )
     expect(response.status).toBe(200)
@@ -95,7 +104,7 @@ describe('BUG-41 — a .md dropped on the Library', () => {
 
     // And the ticket the Library shows carries the title its front matter
     // declared, read back through a second store.
-    const store = await ticketStoreFor(routerEnv())
+    const store = await ticketStoreFor(routerEnv(), scopeOf())
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.body).not.toContain('nothing here can read')
     expect(ticket.title).toBe('Gigabyte Alchemy — positioning summary')

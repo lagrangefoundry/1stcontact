@@ -24,6 +24,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
+import type { Scope } from '../apps/control-app/src/scope'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { applySchema } from './support/d1-site-factory'
 import { bytesOf } from './support/material-fixtures'
@@ -35,11 +36,18 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]).
+ *
+ * It used to ride on the env as `TENANT_ID`; the business comes from the
+ * caller's identity now, so it is an argument the way a request supplies it.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /**
  * A stubbed describer, and an indexer that only counts — nothing here is about
@@ -69,6 +77,7 @@ async function upload(
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(tenant),
+    scopeOf(tenant),
     deps(),
   )
   return (await response.json()) as Record<string, unknown>
@@ -78,6 +87,7 @@ async function listed(tenant: string): Promise<Array<Record<string, unknown>>> {
   const response = await route(
     new Request('https://app.test/api/material'),
     routerEnv(tenant),
+    scopeOf(tenant),
     deps(),
   )
   const payload = (await response.json()) as { material: Array<Record<string, unknown>> }
@@ -143,7 +153,7 @@ describe('REQ-172 — the list carries what the bytes are, because `kind` cannot
     })
 
     const [row] = await listed(tenant)
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { attachments } = await store.attachments({ uid: String(created.uid) })
 
     expect(row.content_type).toBe('text/markdown')
@@ -154,6 +164,7 @@ describe('REQ-172 — the list carries what the bytes are, because `kind` cannot
     const file = await route(
       new Request(`https://app.test/api/material/file?uid=${created.uid}`),
       routerEnv(tenant),
+      scopeOf(tenant),
       deps(),
     )
     expect(file.headers.get('content-type')).toBe('text/markdown')
@@ -184,7 +195,7 @@ describe('REQ-172 — the list carries what the bytes are, because `kind` cannot
     // Written through the store directly, because that is what "created before
     // the field existed" IS: a valid material ticket without it.
     const tenant = 'req172-legacy'
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     await store.create({
       type: 'material',
       title: 'Positioning notes',

@@ -3,6 +3,7 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { route, type RouterDeps, type RouterEnv } from '../../../../apps/control-app/src/router'
+import type { Scope } from '../../../../apps/control-app/src/scope'
 import type { SiteStore, StoreContext } from '../store'
 import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
@@ -121,6 +122,19 @@ function depsFor(ctx: StoreContext): RouterDeps {
 }
 
 /**
+ * The business this transport operates on ([[REQ-168]]).
+ *
+ * A CONSTANT, AND NOT A RESOLVED ONE. `resolveScope` reads an admission, and this
+ * transport has no identity to produce one from: there is no Access gate in front
+ * of a Node process on loopback, and `envFor`'s `DB` is a Proxy that throws, so
+ * `admit` could not run even if something called it. The store is injected whole
+ * through {@link depsFor}, so the id names the one workspace this process was
+ * started in and reaches nothing else — the same thing `TENANT_ID: 'local'` said
+ * before the scope became an argument.
+ */
+const LOCAL_SCOPE: Scope = { businessId: 'local' }
+
+/**
  * The env the router reads. There are no Cloudflare bindings in Node, and the
  * ones the router would use are replaced by {@link depsFor} — so these are the
  * unreachable stubs, not a local implementation of D1.
@@ -132,7 +146,6 @@ function envFor(ctx: StoreContext): RouterEnv {
   return {
     DB: new Proxy({}, { get: unavailable('D1') }) as D1Database,
     SITES: new Proxy({}, { get: unavailable('R2') }) as R2Bucket,
-    TENANT_ID: 'local',
     ASSETS: assetsFetcher(ctx),
   }
 }
@@ -364,7 +377,7 @@ export async function handleBuilderRequest(
   }
 
   // ── everything else: the one route table ─────────────────────────────────
-  await send(res, await route(await toRequest(req), envFor(ctx), depsFor(ctx)))
+  await send(res, await route(await toRequest(req), envFor(ctx), LOCAL_SCOPE, depsFor(ctx)))
 }
 
 /** Start the builder's Node transport. Resolves once it is listening. */
