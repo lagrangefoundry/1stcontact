@@ -154,6 +154,20 @@ export function fidelityDeps(
   origin: string,
   slug: string,
   deps: ShotDeps = {},
+  /**
+   * What turns a finished bundle into a findable `reference` ([[REQ-166]]).
+   *
+   * A PARAMETER, AND OPTIONAL, because it needs the ticket store and this
+   * function is handed the *reference* store. Passing the tickets in here would
+   * make every caller that only wants pictures construct a corpus it never
+   * touches; passing the already-bound adoption instead keeps the two stores
+   * from meeting in a signature. `router.ts` binds it to
+   * {@link adoptCapture} over the request's own ticket store.
+   *
+   * Omitted, a capture still stores perfectly and `capture_site` says the bundle
+   * was not written up — see `fidelity-core.ts`.
+   */
+  adoptCapture?: (bundle: string) => Promise<{ uid: string; created: boolean }>,
 ): FidelityDeps {
   // Named `launcher`, not `launch`: this module's top-level `launch` is
   // `@cloudflare/puppeteer`'s, and shadowing it here would read as a call to it.
@@ -168,5 +182,9 @@ export function fidelityDeps(
     // else's site, and handing it our own resolver would let a captured page
     // that happened to name our host be answered out of our own store.
     guardedDriver: (guard) => leasedDriverFactory(launcher, { guard }),
+    // Spread rather than set to `undefined`: `FidelityDeps` declares the key
+    // optional, and an explicit `undefined` would satisfy the type while making
+    // `deps.adoptCapture ? …` read false in a way that looks like a bug.
+    ...(adoptCapture ? { adoptCapture } : {}),
   }
 }

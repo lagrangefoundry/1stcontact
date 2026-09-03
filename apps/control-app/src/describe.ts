@@ -240,6 +240,177 @@ export async function describe(
 }
 
 /**
+ * What a capture describer is given — [[REQ-166]].
+ *
+ * THE STRUCTURED ESSENCE AND THE PICTURE, which is what [[DOC-38]] §9 asks the
+ * body to be written from. They answer different halves of the question and
+ * neither answers both: `capture.json` knows the palette to the hex and the
+ * type ramp to the pixel and cannot tell you what the business IS; the
+ * screenshot shows a bakery at a glance and cannot tell you its accent colour.
+ */
+export interface DescribeCaptureInput {
+  /** The bundle's `capture.json`. */
+  capture: CaptureEssence
+  /** `screenshot.full.png`, or null when the bundle holds none. */
+  screenshot: Uint8Array | null
+}
+
+/**
+ * As much of `Capture` as describing one needs.
+ *
+ * STRUCTURALLY TYPED RATHER THAN IMPORTED. `Capture` is `tools/generate`'s and
+ * carries the whole L1 vocabulary behind it; this module is reached from the
+ * Worker's ingest path and has no business pulling the capture pipeline's type
+ * graph in to read six fields off a JSON object it was handed.
+ */
+export interface CaptureEssence {
+  url: string
+  host: string
+  title?: string
+  theme?: {
+    colors?: { hex: string; usage: string; freq: number }[]
+    fonts?: { family: string; role: string }[]
+  }
+  sections?: unknown[]
+  assets?: unknown[]
+}
+
+/** The most-painted colours, most-used first, as `#rrggbb` — at most `n`. */
+function palette(input: DescribeCaptureInput, n: number): string[] {
+  const colors = input.capture.theme?.colors ?? []
+  return [...colors]
+    .sort((a, b) => b.freq - a.freq)
+    .map((c) => c.hex)
+    .filter((hex, i, all) => all.indexOf(hex) === i)
+    .slice(0, n)
+}
+
+/** The families the page actually set, heading first, deduplicated. */
+function families(input: DescribeCaptureInput): string[] {
+  const fonts = input.capture.theme?.fonts ?? []
+  const ordered = [...fonts].sort((a, b) => (a.role === 'heading' ? -1 : b.role === 'heading' ? 1 : 0))
+  return ordered.map((f) => f.family).filter((fam, i, all) => fam !== '' && all.indexOf(fam) === i)
+}
+
+/**
+ * The facts the capture holds exactly, as a line of prose.
+ *
+ * DERIVED, NEVER ASKED OF THE MODEL. A vision call can be talked out of a hex
+ * code and cannot count a page's sections at all, while `capture.json` knows
+ * both to the pixel — so the model is asked what only looking can answer and
+ * the capture supplies what only measuring can. That division is also what
+ * keeps the body useful when there is no describer configured at all.
+ */
+function measured(input: DescribeCaptureInput): string {
+  const parts: string[] = []
+  const hexes = palette(input, 5)
+  if (hexes.length > 0) parts.push(`Palette: ${hexes.join(', ')}.`)
+  const fams = families(input)
+  if (fams.length > 0) parts.push(`Type: ${fams.join(', ')}.`)
+  const sections = input.capture.sections?.length ?? 0
+  if (sections > 0) parts.push(`${sections} section${sections === 1 ? '' : 's'} down the page.`)
+  const assets = input.capture.assets?.length ?? 0
+  if (assets > 0) parts.push(`${assets} image${assets === 1 ? '' : 's'} and font${assets === 1 ? '' : 's'} mirrored.`)
+  return parts.join(' ')
+}
+
+/**
+ * The name a captured site goes by — [[REQ-166]].
+ *
+ * THE PAGE'S OWN `<title>`, WHICH IS WHAT THE CLIENT SAW IN THEIR BROWSER TAB.
+ * Not a phrase a model invented: this is somebody's real, externally-existing
+ * site, and naming it something other than its name would make the Library row
+ * unrecognisable to the one person who asked for it to be captured.
+ *
+ * The host is the fallback, and the ONLY one. A page that declares no title
+ * still has an address, so there is no case left over needing "Untitled".
+ */
+export function captureTitle(capture: CaptureEssence): string {
+  const declared = (capture.title ?? '').trim()
+  return clipTitle(declared === '' ? capture.host : declared)
+}
+
+/**
+ * The first line of every capture description — [[REQ-166]].
+ *
+ * A LINK, AND ALWAYS THE FIRST THING. The body is prose ABOUT a site that exists
+ * on the public web, and a description of a place you cannot get to from is a
+ * dead end: the client reads what we thought of the site and then has to go and
+ * find it themselves. It is markdown because the Library renders the body as
+ * markdown, so this arrives as a link the client can follow rather than as an
+ * address they have to copy.
+ */
+function link(capture: CaptureEssence): string {
+  return `[${captureTitle(capture)}](${capture.url})`
+}
+
+/**
+ * Describe a captured site — [[REQ-166]], [[DOC-38]] §9.
+ *
+ * NEVER THROWS, for exactly the reason {@link describe} does not: a capture whose
+ * description failed is still a complete bundle, and turning "the model was
+ * unreachable" into "your capture failed" would discard 11–23MB of successfully
+ * mirrored site over a text generation.
+ *
+ * THE LINK AND THE MEASURED FACTS SURVIVE EVERY DEGRADED PATH. What a missing
+ * describer costs is the prose — what the business appears to be, the tone of the
+ * copy — and not the entry itself. A capture with no describer is still findable
+ * by its address, its palette and its type; a capture with no BODY would not be
+ * findable at all, and the whole ticket exists to stop bundles being invisible.
+ */
+export async function describeCapture(
+  input: DescribeCaptureInput,
+  deps: { describeImage?: DescribeImage } = {},
+): Promise<Description> {
+  const title = captureTitle(input.capture)
+  const head = link(input.capture)
+  const facts = measured(input)
+  const withFacts = (prose: string, status: DescriptionStatus, describer: string | null) => ({
+    title,
+    body: [head, prose, facts].filter((part) => part !== '').join('\n\n'),
+    status,
+    describer,
+  })
+
+  if (!deps.describeImage) {
+    return withFacts(
+      'Captured but not described: no describer is configured, so nothing has looked ' +
+        'at this site yet. It can be found by its address and its palette, not by what ' +
+        'the business does.',
+      'no_describer',
+      null,
+    )
+  }
+  if (!input.screenshot || input.screenshot.length === 0) {
+    return withFacts(
+      'Captured but not described: this bundle holds no screenshot, so there was ' +
+        'nothing to look at. Its structure and palette were still read.',
+      'no_text',
+      null,
+    )
+  }
+  if (input.screenshot.length > VISION_MAX_BYTES) {
+    return withFacts(
+      `Captured but not described: the screenshot is ${input.screenshot.length} bytes, above ` +
+        `the ${VISION_MAX_BYTES}-byte ceiling for looking at an image. The bundle is kept whole.`,
+      'too_large',
+      null,
+    )
+  }
+  try {
+    const { text, model } = await deps.describeImage(input.screenshot, 'image/png')
+    const prose = text.trim()
+    if (prose === '') {
+      return withFacts('Captured, but the describer returned nothing for this site.', 'failed', null)
+    }
+    return withFacts(prose, 'ok', model)
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err)
+    return withFacts(`Captured, but the describer failed: ${why}`, 'failed', null)
+  }
+}
+
+/**
  * A description that says what is missing.
  *
  * The body is still WRITTEN, not left empty, because the Library shows bodies and

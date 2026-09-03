@@ -233,6 +233,16 @@ export interface RawSignals {
   /** BUG-27 — the page's own base fill (`<body>`'s painted background colour). What
    *  shows through wherever no band paints; captured all along but never carried. */
   bodyBackground: string
+  /**
+   * REQ-166 — the page's own `<title>`, trimmed; `''` when it has none.
+   *
+   * WHAT THE VISITOR SAW IN THEIR TAB, and the one name for a captured site that
+   * nobody had to invent. It is read here rather than parsed out of
+   * `rendered.html` later because re-extraction reads `capture.json` FIRST and
+   * would never see a title that lived only in the HTML — two paths that
+   * disagreed about what a site is called is precisely the drift this avoids.
+   */
+  title: string
 }
 
 export const EXTRACT_SCRIPT = `(() => {
@@ -1493,5 +1503,11 @@ export const EXTRACT_SCRIPT = `(() => {
     containerMaxWidthPx: containerMaxWidthPx,
     images: images,
     bodyBackground: bodyBg,
+    // REQ-166 - the document title is what the browser tab showed. Trimmed
+    // because a padded title is still a title, and the empty string is the
+    // honest answer for a page that declares none (callers fall back to host).
+    // NO BACKTICKS ANYWHERE IN HERE: this whole script is a template literal,
+    // so one in a comment ends the string and the rest becomes TypeScript.
+    title: (document.title || '').trim(),
   };
 })()`

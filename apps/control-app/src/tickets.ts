@@ -182,6 +182,26 @@ const MATERIAL_FIELDS = {
    * the mapping this field is a cache of.
    */
   content_type: { type: 'string' },
+
+  /**
+   * Which bundle in the `ReferenceStore` this ticket describes — [[REQ-166]].
+   *
+   * THE JOIN KEY, AND THE IDENTITY THAT MAKES RECAPTURE IDEMPOTENT. [[DOC-38]]
+   * §9 gives one `reference` ticket per bundle, and `bundleNameFor` derives a
+   * bundle's name from the captured host and path — so a recapture must find the
+   * ticket that already describes that bundle rather than create a second one.
+   *
+   * NOT `source_url`, WHICH LOOKS LIKE IT WOULD DO. Two addresses can land in
+   * ONE bundle (`bundleNameFor` slugs the path and ignores the query string), so
+   * keying on the URL would let a recapture under a slightly different address
+   * write a second ticket pointing at the bundle the first one already owns —
+   * two rows in the Library, one set of bytes, and no way to tell which is
+   * current. The bundle name is what storage actually keys on, so it is what
+   * this keys on.
+   *
+   * Only captures have one, so it is not required.
+   */
+  bundle: { type: 'string' },
 }
 
 /**
@@ -496,6 +516,15 @@ export interface TicketStore {
     meta?: Record<string, unknown>
   }): Promise<{ attachment: Ticket }>
   attachments(a: { uid: string }): Promise<{ attachments: Ticket[] }>
+  /**
+   * Move one attachment to the trash — [[REQ-166]].
+   *
+   * NAMED HERE because a recapture has to be able to supersede a member. It is
+   * the component's `archive` under an attachment-specific name, so the bytes
+   * stay recoverable and the retention sweep is what eventually reclaims them:
+   * replacing a screenshot must not be a destructive act.
+   */
+  detach(a: { uid: string }): Promise<{ attachment: Ticket }>
   /**
    * The tenant-bound blob handle, for reading an attachment's bytes back.
    *

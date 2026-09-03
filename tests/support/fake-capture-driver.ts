@@ -98,6 +98,11 @@ export function signalsFor(width: number): RawSignals {
     spacingScalePx: [40],
     containerMaxWidthPx: null,
     images: [],
+    // REQ-166 — the page's own title, which the extractor now reads and the
+    // capture carries. Set here so the two capture UATs that assert on a
+    // reference's NAME are asserting on the real path rather than on the
+    // host fallback that an absent title would take.
+    title: 'Fixture Site',
   }
 }
 

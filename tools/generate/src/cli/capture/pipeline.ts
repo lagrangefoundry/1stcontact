@@ -217,6 +217,10 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
       url,
       host: u.hostname,
       path: u.pathname,
+      // REQ-166 — omitted rather than stored empty when the page declares no
+      // title, so `capture.json` never carries a name that is not a name and
+      // every reader reaches its own fallback by the same route.
+      ...(signals.title ? { title: signals.title } : {}),
       capturedAt: new Date().toISOString(),
       viewport: signals.viewport,
       theme: buildTheme(signals, fontFilesByFamily),
