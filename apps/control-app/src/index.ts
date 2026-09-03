@@ -2,6 +2,7 @@ import { guardAccess, type AccessEnv } from './access'
 import { admit, DENIED_MESSAGE, type Admission, type IdentityEnv } from './identity'
 import { route, type RouterEnv } from './router'
 import { resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
+import { guardTerms } from './terms'
 
 /**
  * `app.1stcontact.io` — the control app, and the builder itself (REQ-145).
@@ -42,6 +43,15 @@ import { resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
  *
  * THE THIRD STEP SITS WHERE THE OTHER TWO DO, for the third time for the same
  * reason: before a store handle exists and before a path is examined.
+ *
+ * AND A FOURTH, BETWEEN ADMISSION AND SCOPE (REQ-169). Being admitted is not the
+ * same as having agreed to the terms under which the account is operated
+ * ([[DOC-40]] §4), and the agreement is a property of the PERSON — so it is
+ * checked once `admit` has produced one and before `resolveScope` has chosen a
+ * business, because refusing over a business the caller has not yet been shown
+ * would be answering the wrong question. It is in `fetch` for the same reason the
+ * other three are: a session that has not accepted must be refused every asset
+ * and every API route, not merely un-navigated-to.
  */
 
 export interface Env extends AccessEnv, RouterEnv, IdentityEnv {
@@ -192,6 +202,12 @@ export default {
 
         admission = await admit(env, gate.email)
         if (!admission.ok) return denied(admission)
+
+        // Terms LAST of the identity checks, and inside this block rather than
+        // after it: the dev-open branch has no admission at all, so there is no
+        // person to have accepted anything and nothing to check.
+        const terms = await guardTerms(request, env, admission)
+        if (terms) return terms
       }
 
       const scope = await resolveScope(env, admission, requested)
