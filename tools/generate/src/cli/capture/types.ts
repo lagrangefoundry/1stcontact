@@ -564,6 +564,15 @@ export interface Capture {
   url: string
   host: string
   path: string
+  /**
+   * REQ-166 — the captured page's own `<title>`, when it declared one.
+   *
+   * OPTIONAL, so every bundle written before this field existed still parses —
+   * the same rule the multi-viewport and values-diff fields above are optional
+   * under. A reader that needs a name falls back to {@link host}, which is why
+   * nothing here invents one.
+   */
+  title?: string
   capturedAt: string
   viewport: Viewport
   theme: Theme

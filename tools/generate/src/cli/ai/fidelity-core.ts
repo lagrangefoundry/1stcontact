@@ -194,6 +194,23 @@ export interface FidelityDeps extends PictureDeps {
    * builds a new one per call and hands its refusals back.
    */
   guardedDriver(guard: ReturnType<typeof egressGuard>): BrowserDriverFactory
+
+  /**
+   * Make a completed bundle findable — [[REQ-166]].
+   *
+   * OPTIONAL, AND ITS ABSENCE IS AN ORDINARY DEPLOYMENT rather than a
+   * misconfiguration. Writing a `reference` ticket needs a ticket store, which
+   * is the Worker's D1; the `1c` CLI has none, and [[REQ-155]] deliberately
+   * removed `node:fs` from the capture module's import graph rather than let
+   * storage decisions leak into it. So the host that HAS a store supplies this
+   * and the host that does not omits it — the same conditional-composition rule
+   * this whole surface is registered under.
+   *
+   * The bundle is named rather than passed: the store the capture just wrote
+   * into is `deps.references`, and handing a second handle to the same bundle
+   * would be two ways to name one thing.
+   */
+  adoptCapture?(bundle: string): Promise<{ uid: string; created: boolean }>
 }
 
 /**
@@ -262,6 +279,39 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
     return { a: cropRaster(ra, w, h), b: cropRaster(rb, w, h), w, h }
   }
 
+  /**
+   * Adopt a bundle, and answer for what happened either way ([[REQ-166]]).
+   *
+   * A FAILURE HERE DOES NOT LOSE THE CAPTURE, which is the same trade
+   * [[REQ-163]] makes when indexing fails: the bundle is written, complete, and
+   * re-adoptable by capturing again or by a later pass. Raising would turn "the
+   * describer was unreachable" into "your capture failed" and discard 11–23MB of
+   * successfully mirrored site over a text generation.
+   */
+  async function adopt(
+    name: string,
+  ): Promise<{ adopted: boolean; uid: string | null; created: boolean; why: string | null }> {
+    if (!deps.adoptCapture) {
+      return {
+        adopted: false,
+        uid: null,
+        created: false,
+        why: 'this deployment keeps no corpus, so the bundle was stored but not indexed',
+      }
+    }
+    try {
+      const { uid, created } = await deps.adoptCapture(name)
+      return { adopted: true, uid, created, why: null }
+    } catch (err) {
+      return {
+        adopted: false,
+        uid: null,
+        created: false,
+        why: err instanceof Error ? err.message : String(err),
+      }
+    }
+  }
+
   return {
     capture_site: async (p) => {
       const url = String(p.url)
@@ -288,11 +338,21 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           driverFactoryFor: () => guarded,
         })
         refusals = guard.refusals
+        // ADOPTED AFTER THE BUNDLE IS WHOLE, never before: the ticket describes
+        // what was captured, so it cannot be written until there is a capture to
+        // describe. A failure here is reported rather than raised — see below.
+        const adopted = await adopt(result.name)
         return {
           bundle: result.name,
           url: result.capture.url,
           pages: result.multiState.projections.length,
           assets: result.capture.assets.length,
+          // SAID EVERY TIME, not only when it worked ([[REQ-166]]). A bundle
+          // nothing can find is the failure that ticket exists to remove, and a
+          // capture that stored perfectly but was never adopted looks identical
+          // to a successful one unless this says otherwise — the same reason
+          // [[REQ-163]]'s ingestion reports whether it indexed.
+          reference: adopted,
           // Reported ALWAYS, not only on failure. A capture that quietly skipped
           // a third of a page's images is the exact input that makes a later
           // fidelity verdict wrong, and it is invisible unless it is said here.
