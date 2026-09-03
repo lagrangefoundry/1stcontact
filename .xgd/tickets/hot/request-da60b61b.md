@@ -5,9 +5,9 @@ type: request
 title: 'Terms of service: accepted before the builder loads'
 created_by: xgd
 created_at: '2026-09-01T00:51:21.466375+00:00'
-updated_at: '2026-09-03T21:59:13.102372+00:00'
+updated_at: '2026-09-03T21:59:26.583958+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -173,3 +173,5 @@ visible rather than inferred.
 Regression scope: `REQ-167`, `REQ-168` (both suites), `REQ-147`, `REQ-178`,
 `REQ-145`, `BUG-49`, `naming`, plus the whole `workers` and `node` vitest
 projects.
+
+-
