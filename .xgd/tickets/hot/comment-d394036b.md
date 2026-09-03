@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-168
 created_by: xgd
 created_at: '2026-09-02T20:24:25.288422+00:00'
-updated_at: '2026-09-02T23:33:08.188713+00:00'
+updated_at: '2026-09-03T00:31:49.776203+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,14 @@ The revision explicitly says "the four reads and the UAT covering them are unaff
 4. Confirm the dev-open branch may read `TENANT_ID` inside the resolver.
 
 Once those are settled I'll update the ticket body — correcting the read table and adding language for the transport, the fallback rule and the chat-host scoping — before cutting the branch.
+
+<!-- xgd-turn id="c10ce70a-d78a-4ae5-9003-5e8e2a34599a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:31:49.392613+00:00" -->
+#### You
+REQ-178 has landed
+2. I don;'t understand 
+3. ?
+4. I don;t know please read the code
 
 <!-- xgd-chat-end -->
