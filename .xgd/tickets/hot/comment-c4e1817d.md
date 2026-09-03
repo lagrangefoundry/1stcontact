@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-179
 created_by: xgd
 created_at: '2026-09-03T20:19:44.390119+00:00'
-updated_at: '2026-09-03T21:38:04.710159+00:00'
+updated_at: '2026-09-03T21:43:59.898940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,33 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="b17cdc6d-d27f-4e0b-ba22-d7f1a39bd350-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T21:43:59.561389+00:00" -->
+#### Claude
+Baseline confirms: all 30 failures are pre-existing (KB index not built in this environment), identical on `xgd-working`. My changes introduce none. Let me review the diff before committing.
+
+Implementation is complete and coherent. Verifying the new UATs and the touched suites:
+
+Now lock and merge back into `xgd-working`:
+
+Free-coding of REQ-179 is complete.
+
+**Landed** — `6d25bf25ba`, merged into `xgd-working`, version `0.2.61`, ticket at `free_coded`.
+
+**What the commit does**
+
+The site selector was an action in the site tab's toolbar, so it scoped one tab and every other tab reached sideways for it through `panel.getSite()`. It now lives in the shell's header as a business switcher, with the account behind an avatar on the right and a tab strip that stays uniformly business-scoped.
+
+- **`GET /api/businesses`** (`router.ts`) answers the account and its admissible businesses in one call, built from the `Admission` that `index.ts` already computed and now injects as a router dep rather than recomputing. Lapsed businesses are returned and marked unselectable. The no-admission dev path reports the resolved scope as one selectable business.
+- **`api.js`** carries a module-scoped `/b/<id>` prefix applied to every URL it builds — fetches and the three URL-returning functions (`previewUrl`, `assetUrl`, `materialFileUrl`) — so a switch moves the *requests*, not just the chrome. `/api/status` and `/api/businesses` are deliberately unprefixed.
+- **`business.js`** (new) is the switcher and account surface: a `<select>` above one business, a plain name at one, nothing at zero; `resolveBusiness` is pure and exported so the stored-id-no-longer-admissible fallback is provable without a DOM.
+- **`selectBusiness`** in `app.js` is the single place a scope moves — prefix, stored selection, pane site + `panel.refresh()`, assistant session, Library list.
+- **`siteSelectorAction`** and both `site-selector` entries are deleted; no module outside the display panel reads `panel.getSite()` any more (one bootstrap read, commented).
+
+**Tests** — two new UAT files (11 tests: endpoint shape/lapsed marking/no-admission path, and chrome placement, switch propagation, persistence, fallback, avatar-not-a-tab). Seven existing suites updated for the moved selector. Full suite: 2413 passed, 30 failed — all 30 are pre-existing knowledge-base index and webui-scope failures, verified identical on `xgd-working` before the change.
+
+The ticket body already carries an "Implementation scope" section written at design time covering the endpoint, the URL prefixing, the toolbar deletion, the `.shell-bar` reach and its upstream gap, and the acceptance criteria — so every UAT is motivated by ticket language. Story points raised 2 → 3.
 
 <!-- xgd-chat-end -->
