@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:32:04.930796+00:00'
+updated_at: '2026-09-03T00:38:40.318052+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -250,5 +250,11 @@ Second, smaller: "The limits every page is held to" projects only `L1_ENVELOPE`'
 That means re-opening REQ-175 (currently `free_coded`), adding ticket-body language for the projection, cutting a second branch, extending `projectL1Vocabulary` to render the document schema, and a UAT asserting the projected vocabulary covers every `L1_DOCUMENT_KEYS` entry — derived, so it stays true.
 
 Want me to proceed on that, or file it against BUG-48 instead? I'd recommend the former; the parity argument that justifies the code applies unchanged to the reference that describes it.
+
+<!-- xgd-turn id="3d43774e-4d49-4eaa-8c02-0b69e9d8bd5c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T00:38:40.154256+00:00" -->
+#### You
+Please update BUG-48 so it knows what to do
 
 <!-- xgd-chat-end -->
