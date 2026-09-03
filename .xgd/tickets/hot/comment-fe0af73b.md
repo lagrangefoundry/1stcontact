@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-171
 created_by: xgd
 created_at: '2026-09-01T21:52:08.245526+00:00'
-updated_at: '2026-09-03T01:38:37.832366+00:00'
+updated_at: '2026-09-03T02:36:53.249278+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -527,5 +527,11 @@ REQ-171 currently holds three things: the summary adoption (ready now), the thre
 **And the question the restructure is waiting on:** where does product-level material physically live? Either a role-independent system prompt that every role shares, or a new priming section owned by KM. The first keeps it in the highest-attention position the model reads; the second keeps one assembler and one ordering. Everything else in the restructure follows from that choice, so I don't want to guess it.
 
 I can start on the summary adoption the moment you tell me which ticket it belongs to.
+
+<!-- xgd-turn id="fa29b96b-de58-48d4-adbd-3d024a9165f2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-03T02:36:52.849762+00:00" -->
+#### You
+Please free code it all on one branch
 
 <!-- xgd-chat-end -->
