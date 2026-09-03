@@ -22,7 +22,7 @@ import {
   streamPrompt,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
-import { workerHost, type WorkerHost } from './ai'
+import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
@@ -30,7 +30,7 @@ import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
 import { sessionKnowledgeFor } from './session-knowledge'
-import { anthropicImageDescriber, type DescribeImage } from './describe'
+import { anthropicImageDescriber, type DescribeImage, type DescribeText } from './describe'
 import { FetchRefusedError } from './fetch-guard'
 import {
   ingestFetch,
@@ -274,6 +274,8 @@ export interface RouterDeps {
   index?: (env: RouterEnv) => Promise<IndexMaterial | null>
   /** The vision seam, so ingestion UATs describe an image without a network. */
   describeImage?: DescribeImage
+  /** The digest seam, so a document is described without a network (REQ-173). */
+  describeText?: DescribeText
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
 }
@@ -342,6 +344,55 @@ function defaultDescriber(env: RouterEnv): DescribeImage | undefined {
 }
 
 /**
+ * The document describer, or nothing (REQ-173).
+ *
+ * Its absence is no longer an ordinary state the way the image describer's was:
+ * {@link aiConfigured} refuses the upload before this is reached, so nothing
+ * should ever ingest a document with no digest on a real deployment. It stays
+ * optional because `describe.ts` must not throw on a caller that got past the
+ * gate — losing a client's file to a missing key would be the worse failure by
+ * the same margin [[DOC-38]] §10 measures everywhere else in this pipeline.
+ */
+function defaultTextDescriber(env: RouterEnv): DescribeText | undefined {
+  return env.ANTHROPIC_API_KEY ? sessionTextDescriber(env.ANTHROPIC_API_KEY) : undefined
+}
+
+/**
+ * Can this deployment reach a model at all? (REQ-173)
+ *
+ * NOTHING IN THIS PRODUCT WORKS WITHOUT A KEY. The assistant cannot take a turn,
+ * an image cannot be looked at, and since REQ-173 a document cannot be described
+ * either. The builder used to discover that one surface at a time — a frozen chat
+ * panel here, a body reading *"no describer is configured"* there — which asks an
+ * operator to infer a deployment-wide fact from a scattering of local symptoms.
+ * So it is one question, asked once, answered at {@link AI_STATUS_PATH}, and the
+ * routes that genuinely need a model refuse rather than half-succeed.
+ *
+ * AN INJECTED DESCRIBER COUNTS AS CONFIGURED, and that is not a test affordance
+ * smuggled into production logic. The question this predicate asks is *"can a
+ * description be written here"*, and a host that handed in a describer has
+ * answered it — the key is merely how the Worker's own default obtains one.
+ */
+function aiConfigured(env: RouterEnv, deps: RouterDeps): boolean {
+  return Boolean(env.ANTHROPIC_API_KEY || deps.describeImage || deps.describeText)
+}
+
+/** Where the builder asks whether this deployment can do anything (REQ-173). */
+export const AI_STATUS_PATH = '/api/status'
+
+/**
+ * What the builder is told when it cannot work — one sentence, and an action.
+ *
+ * ADDRESSED TO WHOEVER CAN FIX IT. The client cannot set a `wrangler secret`, so
+ * this does not ask them to; it says what is not working and names the thing that
+ * is missing, which is what an operator reading a client's screenshot needs.
+ */
+export const NO_API_KEY_MESSAGE =
+  'This builder has no Anthropic API key, so nothing that needs the assistant ' +
+  'can run — no conversation, and no describing the material you upload. Set ' +
+  'ANTHROPIC_API_KEY on the deployment and reload.'
+
+/**
  * Say, loudly, that an upload landed where nothing can find it.
  *
  * ONCE PER AFFECTED UPLOAD, naming the uid and the binding. [[DOC-39]] §4's
@@ -373,6 +424,7 @@ function materialEnvelope(ingested: {
   attachment: { uid: string; fields: Record<string, unknown> }
   description: { status: string }
   indexed: boolean
+  text?: { uid: string } | null
 }): Record<string, unknown> {
   return {
     uid: ingested.ticket.uid,
@@ -397,6 +449,10 @@ function materialEnvelope(ingested: {
       content_type: ingested.attachment.fields.content_type,
     },
     indexed: ingested.indexed,
+    // WHERE THE DOCUMENT'S OWN TEXT WENT (REQ-173). Echoed because the body no
+    // longer carries it: a caller that wants the verbatim text now has to know
+    // there is a comment to ask for, and the uid is the honest way to say so.
+    text_comment: ingested.text ? ingested.text.uid : null,
   }
 }
 
@@ -487,6 +543,13 @@ async function routeUncached(
   const p = url.pathname
   const method = request.method
 
+  // ONE SCRUBBER FOR THE WHOLE TABLE (REQ-146 AC4). It was built per catch block,
+  // which is three declarations of the same thing and, more to the point, three
+  // places for the next route to forget one. Hoisting it makes "every `error:`
+  // value out of this table is `scrub(...)`" a rule with a single subject —
+  // which is the rule the boundary UAT actually checks for.
+  const scrub = redactor(secretsOf(env))
+
   if (p === '/' || p === '/index.html') {
     return new Response(chromeHtml(), {
       status: 200,
@@ -541,7 +604,6 @@ async function routeUncached(
       // Applied here too, though this route never touches a credential: a path
       // that scrubs and a path that does not is an invitation to add a third
       // that does not, and the cost when there is nothing to scrub is nil.
-      const scrub = redactor(secretsOf(env))
       if (err instanceof CommandError) {
         return json(400, { error: scrub(err.message), ...err.toEnvelope() })
       }
@@ -619,9 +681,28 @@ async function routeUncached(
   const ingestDeps = async () => ({
     index: deps.index ? await deps.index(env) : await defaultIndexer(env),
     describeImage: deps.describeImage ?? defaultDescriber(env),
+    describeText: deps.describeText ?? defaultTextDescriber(env),
   })
 
   try {
+    /**
+     * GET /api/status — can this deployment do anything at all? (REQ-173)
+     *
+     * ABOVE THE STORE AND ABOVE THE TENANT CHECK, deliberately, and the same
+     * reasoning the lazy store above records applies with more force here: this
+     * is the question the builder asks BEFORE it decides whether to offer the
+     * operator anything, so answering it must not depend on the parts of the
+     * deployment that may themselves be unconfigured.
+     *
+     * IT REPORTS A CAPABILITY, NOT A SECRET. The key's presence is the answer;
+     * the key never appears in it, and `redactor` guards the rest of the table
+     * for the case where one leaks into a message.
+     */
+    if (p === AI_STATUS_PATH && method === 'GET') {
+      const ready = aiConfigured(env, deps)
+      return json(200, { ai: ready, message: ready ? null : NO_API_KEY_MESSAGE })
+    }
+
     if (p === '/api/sites' && method === 'GET') {
       // `latest` is the live revision — the highest id in the log, derived and
       // never stored (REQ-149). It read `null` for every site while the store
@@ -779,6 +860,15 @@ async function routeUncached(
      * the fetch, because its whole input is one address.
      */
     if (p === '/api/material' && method === 'POST') {
+      // REFUSED BEFORE THE BYTES ARE READ (REQ-173). Storing a document nothing
+      // can describe used to be the degraded-but-honest path, and it was the
+      // right one while a body was the extracted text: the material was still
+      // findable by its own words. It is not right now. The body is a digest, so
+      // a deployment with no describer produces material with no description at
+      // all — and the Library would fill up with rows saying why, one per upload,
+      // for a fact that is true of the whole deployment and is stated once at the
+      // top of the screen instead.
+      if (!aiConfigured(env, deps)) return json(503, { error: scrub(NO_API_KEY_MESSAGE) })
       const form = await request.formData()
       // CAST BECAUSE `@cloudflare/workers-types` DECLARES `get` TOO NARROWLY —
       // `get(name): string | null`, with no `File` in the union, even though the
@@ -834,12 +924,15 @@ async function routeUncached(
           siteSlug,
           openTickets,
           openStore,
-          redactor(secretsOf(env)),
+          scrub,
         )),
       })
     }
 
     if (p === '/api/material/fetch' && method === 'POST') {
+      // The same gate as the upload route, for the same reason: both entry points
+      // converge on `ingest`, so a guard on one of them is not a guard.
+      if (!aiConfigured(env, deps)) return json(503, { error: scrub(NO_API_KEY_MESSAGE) })
       const body = await readJsonBody(request)
       if (typeof body.url !== 'string' || body.url === '') {
         return json(400, { error: 'url is required' })
@@ -942,7 +1035,7 @@ async function routeUncached(
         return json(400, { error: 'text is required' })
       }
       const host = await chatHost(env, deps)
-      return streamTurn(host, sessionId, text, redactor(secretsOf(env)))
+      return streamTurn(host, sessionId, text, scrub)
     }
 
     /**
@@ -1052,7 +1145,6 @@ async function routeUncached(
     // misconfigured" to "the server broke on your request".
     if (err instanceof TenantNotConfiguredError || err instanceof UnknownTenantError) throw err
 
-    const scrub = redactor(secretsOf(env))
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })
     }

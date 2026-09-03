@@ -70,6 +70,7 @@ import {
   type SessionKnowledge,
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
+import { DOCUMENT_DIGEST_SYSTEM, type DescribeText } from './describe'
 
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -97,6 +98,89 @@ const lib = aiLib as unknown as Untyped
  */
 export function sessionArchive(tickets: TicketStore): Untyped {
   return new lib.TicketSessionArchive(tickets)
+}
+
+/** The describer's role and backend names — one pair, registered once per key. */
+export const DESCRIBER_ROLE = 'material_describer'
+export const DESCRIBER_BACKEND = 'material_describer'
+
+/**
+ * The document describer, as a **lightweight session** on this host (REQ-173).
+ *
+ * THROUGH THE SESSION FACTORY, NOT THROUGH THE SDK. `describe.ts`'s image
+ * describer reaches the Messages API directly, and says at length why: the AI
+ * host's surface carries no image content block, so an image genuinely cannot be
+ * described through the host this Worker already runs. A document digest has no
+ * such excuse — it is text in and text out — so it goes through the same
+ * `SessionManager` a conversation goes through, and this Worker keeps ONE path to
+ * a model rather than acquiring a second by default.
+ *
+ * WHAT MAKES IT LIGHTWEIGHT is everything the consultant session has that a
+ * digest does not need:
+ *
+ *   - **No tools.** The describer is given text and asked for text. A toolbox
+ *     would hand a describer the ability to write to the client's site, which is
+ *     an authority nothing about this task calls for.
+ *   - **No corpus and no priming.** The document is the whole context. Priming
+ *     the describer with the landscape would spend a large prompt teaching it
+ *     about material it is not being asked about.
+ *   - **A {@link NullArchive}.** THE LOAD-BEARING ONE. `TicketSessionArchive`
+ *     homes a session in a `chat` ticket, so an archiving describer would create
+ *     one chat ticket per upload — members of the very corpus this ticket is
+ *     trying to keep to material a client would recognise. A digest is not a
+ *     conversation and nobody will resume it.
+ *   - **A session per document, closed after it.** Two documents share no
+ *     context: carrying one into the other's turn would let the first colour the
+ *     second's description, which is a subtle failure with no symptom.
+ *
+ * The junction is `memoryJunctions()` for the same reason the chat host's is —
+ * `node:fs` under `nodejs_compat` is a per-isolate shim that passes every test in
+ * workerd and loses everything in production.
+ */
+export function sessionTextDescriber(
+  apiKey: string,
+  // THE SAME SEAM THE CHAT HOST'S DOUBLE USES (BUG-39). The Anthropic client is
+  // the one boundary these suites may fake — it is the network — and faking it
+  // here rather than the whole describer is what lets a UAT assert the things
+  // this function actually decides: no tools, a null archive, one session per
+  // document, closed after it.
+  { client = null }: { client?: unknown } = {},
+): DescribeText {
+  // ONE BACKEND OBJECT, held so its `model` can be reported as the describer.
+  // `registerBackend` is an idempotent overwrite and the adapter is stateless
+  // between segments, so one instance serves every document this request
+  // describes — the per-document isolation that matters is the SESSION's.
+  const backend = new lib.ClaudeAPIBackend({
+    apiKey,
+    tools: [],
+    ...(client ? { client } : {}),
+  })
+  lib.registerBackend(DESCRIBER_BACKEND, () => backend)
+
+  const role = new lib.Role({
+    name: DESCRIBER_ROLE,
+    system: DOCUMENT_DIGEST_SYSTEM,
+    // The duck-typed `ContextSource`, empty. See above: the document is the
+    // context, and there is nothing else this role should know.
+    source: { documents: () => [] },
+  })
+  const manager = new lib.SessionManager({ [DESCRIBER_ROLE]: role }, new lib.NullArchive(), {
+    junctions: lib.memoryJunctions(),
+  })
+
+  return async (prompt: string) => {
+    const sessionId = `describe-${crypto.randomUUID()}`
+    await manager.createSession(DESCRIBER_ROLE, DESCRIBER_BACKEND, { sessionId })
+    try {
+      const response = await manager.prompt(sessionId, prompt)
+      return { text: String(response.text ?? ''), model: String(backend.model) }
+    } finally {
+      // ALWAYS, INCLUDING ON THE FAILING PATH. The junction is in memory and the
+      // isolate outlives the request; a session left open per failed description
+      // is a leak that only shows up under load.
+      await manager.closeSession(sessionId)
+    }
+  }
 }
 
 /**

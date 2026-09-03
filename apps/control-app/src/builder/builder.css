@@ -1332,3 +1332,29 @@ body {
   opacity: 0;
   pointer-events: none;
 }
+
+/*
+ * The unconfigured-deployment banner, and the shell it disables (REQ-173).
+ *
+ * ABOVE THE SHELL RATHER THAN OVER IT. An overlay would have to be dismissed to
+ * read what is behind it, and this is not a modal — the operator cannot act on
+ * the app until someone sets a key, so the banner takes its own strip and the
+ * app moves down.
+ *
+ * THE DIMMING IS THE POINT OF THE CLASS. `inert` stops the interaction and shows
+ * nothing; a builder that ignores every click while looking perfectly normal
+ * reads as broken software rather than as a deployment that is switched off.
+ */
+.builder-banner {
+  padding: 0.75rem 1rem;
+  font: inherit;
+  line-height: 1.4;
+  color: #3d2b00;
+  background: #ffdf9e;
+  border-bottom: 1px solid #d9a93a;
+}
+
+.builder-shell--blocked {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}

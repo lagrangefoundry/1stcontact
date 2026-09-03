@@ -72,7 +72,13 @@ function vision(text: string) {
   }
 }
 
-/** Deps with both model seams stubbed and the indexer counted. */
+/** The digest describer, doubled — see the module note's argument for the vision one. */
+const digest: NonNullable<RouterDeps['describeText']> = async () => ({
+  text: 'A bakery brand guide, kept for reference.',
+  model: 'stub/digest-1',
+})
+
+/** Deps with all three model seams stubbed and the indexer counted. */
 function deps(over: Partial<RouterDeps> = {}): RouterDeps & { indexed: string[] } {
   const indexed: string[] = []
   return {
@@ -80,6 +86,7 @@ function deps(over: Partial<RouterDeps> = {}): RouterDeps & { indexed: string[] 
       indexed.push(uid)
     },
     describeImage: vision('A thing\n\nSomething depicted.').describeImage,
+    describeText: digest,
     ...over,
     indexed,
   }
@@ -166,9 +173,26 @@ describe('REQ-163 — a file arriving through the Worker', () => {
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.type).toBe('material')
     expect(ticket.title).toBe('Brand guidelines')
-    expect(ticket.body).toContain('kitchen')
+    // A DIGEST, not the document ([[REQ-173]]). The body says what the material
+    // IS; what it SAYS is in the `material_text` comment below.
+    expect(ticket.body).toContain('bakery brand guide')
+    expect(ticket.body).not.toContain('kitchen')
     expect(ticket.fields.filename).toBe('guidelines.pdf')
-    expect(ticket.fields.description_model).toBe('unpdf')
+    // The model that wrote the digest, and the extractor that produced the text.
+    expect(String(ticket.fields.description_model)).toContain('unpdf')
+
+    // AND THE DOCUMENT'S OWN TEXT IS KEPT, verbatim, in one comment on the
+    // material ([[REQ-173]]). This is the half that makes a fact on page 12 of a
+    // brand book retrievable at all — the chunk index reads it, and dropping it
+    // in favour of three sentences would silently delete deep retrieval.
+    const { comments } = await store.comments({ uid: String(body.uid) })
+    const kept = comments.filter((c) => c.fields.kind === 'material_text')
+    expect(kept).toHaveLength(1)
+    expect(kept[0].body).toContain('kitchen')
+    expect(kept[0].body).toContain('bread')
+    // Echoed on the envelope, because the body no longer carries the text and a
+    // caller that wants it has to know there is a comment to ask for.
+    expect(body.text_comment).toBe(kept[0].uid)
   })
 
   it('UAT_FC_REQ-163 is searchable immediately, without a full reindex', async () => {
@@ -276,8 +300,12 @@ describe('REQ-163 — a degraded description is still material', () => {
     // so this asserts the predicate actually selects it.
     const response = await upload(bytesOf('png-ish bytes'), 'logo.png', 'image/png', {
       index: async () => async () => {},
-      // No describer at all — the deployment has no key.
+      // NO VISION DESCRIBER, on a deployment that is otherwise configured
+      // ([[REQ-173]]). The route refuses an upload where nothing at all can
+      // describe, so the state this claim is about — an image nothing has LOOKED
+      // at — is expressed by withholding the vision seam alone.
       describeImage: undefined,
+      describeText: digest,
     })
     expect(response.status).toBe(200)
     const body = (await response.json()) as Record<string, unknown>
@@ -315,8 +343,12 @@ describe('REQ-163 — the index seam', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const response = await upload(bytesOf('unindexed'), 'lost.txt', 'text/plain', {
       // The production default with no `AI` binding on the env — resolved by the
-      // router, not injected here, so this is the real absence.
+      // router, not injected here, so this is the real absence. The describer is
+      // supplied because [[REQ-173]]'s gate is about the KEY and this claim is
+      // about the INDEX: the two absences are unlike, which is the whole point
+      // the loud log makes.
       describeImage: undefined,
+      describeText: digest,
     })
     expect(response.status).toBe(200)
     const body = (await response.json()) as Record<string, unknown>
