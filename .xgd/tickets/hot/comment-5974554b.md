@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-175
 created_by: xgd
 created_at: '2026-09-02T22:39:47.319566+00:00'
-updated_at: '2026-09-03T00:38:40.318052+00:00'
+updated_at: '2026-09-03T00:40:03.942373+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -256,5 +256,29 @@ Want me to proceed on that, or file it against BUG-48 instead? I'd recommend the
 <!-- xgd-chat role="user" ts="2026-09-03T00:38:40.154256+00:00" -->
 #### You
 Please update BUG-48 so it knows what to do
+
+<!-- xgd-turn id="3d43774e-4d49-4eaa-8c02-0b69e9d8bd5c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-03T00:40:03.445695+00:00" -->
+#### Claude
+BUG-48 is about index skew; what I found is a different defect in the same document. Let me verify one more thing before writing it up:
+
+`REF-surface` is self-contained — it defines `page_style`. Only `REF-l1` has the hole. Appending the finding to BUG-48:
+
+BUG-48 updated. Original body preserved intact; the finding is appended as a distinct section with items 4–6 continuing their numbering.
+
+**What I told it.** BUG-48's existing diagnosis is about a document that is *complete and unreachable* — the REF files ship in the corpus text but not in the index manifests. What I found is the mirror case in the same file: `REF-l1` is also *reachable and incomplete*. `projectL1Vocabulary` (`kb-projection.ts:544`) renders exactly three things — the `l1NodeSchema` union, the shapes reachable from it, and `L1_ENVELOPE`'s numeric bounds. Those are the only three `##` headings in its 477 lines, and **nothing reads `l1DocumentSchema`**. So `widths`, `background`, `textColor`, `column`, `resources` and the `font face` shape appear nowhere in the document that calls itself "the vocabulary a page is written in".
+
+The load-bearing point for BUG-48 is that **its own fix cannot detect this**. Item (1) asserts every corpus document has an index entry; this defect passes that check cleanly — the document is indexed, retrievable, and wrong by omission.
+
+I also recorded a second omission in the same projection: `envelopeSection()` iterates `L1_ENVELOPE`, which is numeric bounds only, so every *structural* refusal is absent — unique ids, palette refs resolving, keyframe `at` being a ladder member, `geometry.anchor` needing a `column`, and REQ-175's two new ones. The section promises "A page outside these is refused whole"; it currently keeps that for the numbers and breaks it for everything else.
+
+Items added: **(4)** project the document from `L1_DOCUMENT_KEYS`, which REQ-175 already derived from the schema, so a sixth key documents itself; **(5)** project the structural rules from the validator's doc comments via the `definitionOf` mechanism the file already uses, keeping one source; **(6)** guard *coverage of the declared source*, not just presence in the index — derived from the schema, since a hand-written expected list is the exact class of silent staleness this ticket is about.
+
+Two things worth your call rather than mine:
+
+This roughly doubles the ticket — it's pointed at 5, and (4)–(6) are a new projection section, a second prose source and a coverage assertion. I flagged that in the body but left `story_points` alone; re-pointing is yours.
+
+And it was only survivable to omit the document while nothing could write it. REQ-175 changed that, so the gap is live now: the tool manual says `set_page_style` exists, and the field reference says a page has no background. That's CHAT-35 with the pieces rearranged, which is why I'd not let (4)–(6) drift far from (1)–(3).
 
 <!-- xgd-chat-end -->
