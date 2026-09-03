@@ -77,6 +77,54 @@ export const L1_ENVELOPE = {
 } as const
 
 /**
+ * The envelope's other half — the refusals that are not numbers (BUG-48).
+ *
+ * {@link L1_ENVELOPE} holds bounds, and a bound is only one kind of limit. Every
+ * rule below is a refusal an author will actually meet, enforced in this file for
+ * as long as the checks under it have existed, and none of it could be projected
+ * into the reference because there was nowhere derived to project it FROM: a
+ * numeric range is data, while "an id must be unique" was a sentence in a comment
+ * beside the loop that enforces it. So the reference promised "A page outside
+ * these is refused whole; nothing is clamped silently" and then listed only the
+ * arithmetic — true about the numbers, and a lie by omission about everything a
+ * consultant is likely to be refused for.
+ *
+ * THE VALUE IS THE MESSAGE THE VALIDATOR EMITS, and that is what keeps this from
+ * becoming decoration. A table of rule statements that only a document generator
+ * read would be a second copy of the validator's behaviour, free to describe a
+ * rule that was relaxed two releases ago — which is the exact class of stale
+ * claim BUG-48 was filed about. Each entry is instead the opening clause of the
+ * real refusal, so a rule that stops being enforced stops having a caller, and a
+ * rule whose statement changes changes what an author is told.
+ *
+ * THE PROSE IS THE DOC COMMENT, lifted by the reference projection through the
+ * same `definitionOf` that lifts a schema field's — see `kb-projection.ts`. Each
+ * comment's first sentence is the rule as a reader meets it; the message value is
+ * the same rule as an author meets it, mid-refusal, with the offending value
+ * appended. One source, two audiences.
+ */
+export const L1_STRUCTURAL_RULES = {
+  /** The viewport ladder is an ordered set, so a document's `widths` ascend strictly and repeat nothing. */
+  ascendingWidths: 'widths must be strictly ascending',
+  /** A responsive track is read left to right across the ladder, so its keyframes ascend strictly by `at`. */
+  ascendingKeyframes: "keyframes must be sorted strictly ascending by 'at'",
+  /** A keyframe is a value AT a declared viewport, so its `at` must be one of the document's own widths and not an arbitrary number. */
+  declaredKeyframeWidth: 'a keyframe width must be one of the document widths',
+  /** A colour that names a palette entry must name one the palette declares, because a reference that resolves to nothing has no render-time fallback to fall back to. */
+  declaredPaletteEntry: 'a palette reference must name an entry the palette declares',
+  /** A column anchor is meaningless without the column it is measured against, so a document that uses one must declare a `column`. */
+  anchorNeedsColumn: 'geometry.anchor requires the document to declare a `column`',
+  /** A node `id` becomes a real DOM id, so it must be unique across the page: a duplicate breaks `#anchor` navigation and the `for`/`id` association a control's accessible name is built from. */
+  uniqueNodeIds: 'a node id must be unique',
+  /** Every URL a page paints from must be a served asset or an http(s) address, because the value is emitted into markup and into a stylesheet where a smuggled scheme would be live. */
+  allowedUrlScheme: 'a URL must be http/https or site-relative',
+  /** A painted font family must resolve to a face the page serves or name a generic every browser has, or it silently paints the browser default rather than anything chosen. */
+  servedFontFamily: 'a painted font family must resolve to a served face or name a generic',
+  /** An asset a page references must be one the site actually holds, or the page renders a broken image and says nothing about why. */
+  heldAssetReference: 'an asset reference must name an asset the site holds',
+} as const
+
+/**
  * Characters a URL may never carry *raw*, because the value is later emitted
  * into an HTML attribute **and** into a CSS `url("…")` string. A newline (or any
  * control character) terminates a CSS string, after which a `}` closes the rule
@@ -123,14 +171,14 @@ function checkGeometry(
     if (kf.at <= prevAt) {
       errors.push({
         path: `${path}/keyframes/${i}/at`,
-        message: `keyframes must be sorted strictly ascending by 'at' (got ${kf.at} after ${prevAt})`,
+        message: `${L1_STRUCTURAL_RULES.ascendingKeyframes} (got ${kf.at} after ${prevAt})`,
       })
     }
     prevAt = kf.at
     if (!widths.includes(kf.at)) {
       errors.push({
         path: `${path}/keyframes/${i}/at`,
-        message: `keyframe width ${kf.at} is not one of the document widths [${widths.join(', ')}]`,
+        message: `${L1_STRUCTURAL_RULES.declaredKeyframeWidth} — keyframe width ${kf.at} is not one of the document widths [${widths.join(', ')}]`,
       })
     }
     for (const [k, v] of Object.entries({ x: kf.x, y: kf.y, width: kf.width, height: kf.height })) {
@@ -204,14 +252,14 @@ function checkScalarTrack(
     if (kf.at <= prevAt) {
       errors.push({
         path: `${path}/keyframes/${i}/at`,
-        message: `keyframes must be sorted strictly ascending by 'at' (got ${kf.at} after ${prevAt})`,
+        message: `${L1_STRUCTURAL_RULES.ascendingKeyframes} (got ${kf.at} after ${prevAt})`,
       })
     }
     prevAt = kf.at
     if (!widths.includes(kf.at)) {
       errors.push({
         path: `${path}/keyframes/${i}/at`,
-        message: `keyframe width ${kf.at} is not one of the document widths [${widths.join(', ')}]`,
+        message: `${L1_STRUCTURAL_RULES.declaredKeyframeWidth} — keyframe width ${kf.at} is not one of the document widths [${widths.join(', ')}]`,
       })
     }
     if (!inRange(kf.value, range.min, range.max)) {
@@ -573,7 +621,7 @@ function walk(
       if (kf.at <= prevAt) {
         errors.push({
           path: `${path}/responsiveLayout/keyframes/${i}/at`,
-          message: `keyframes must be sorted strictly ascending by 'at' (got ${kf.at} after ${prevAt})`,
+          message: `${L1_STRUCTURAL_RULES.ascendingKeyframes} (got ${kf.at} after ${prevAt})`,
         })
       }
       prevAt = kf.at
@@ -600,7 +648,7 @@ function walk(
   if (node.kind === 'image' && !isSafeUrl(node.src)) {
     errors.push({
       path: `${path}/src`,
-      message: `image src '${node.src}' is not an allowed URL (http/https or relative only)`,
+      message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: image src '${node.src}' is not an allowed URL`,
     })
   }
 
@@ -643,8 +691,8 @@ export function checkPaletteRefs(
       errors.push({
         path: `${basePath}${path}/ref`,
         message: palette
-          ? `palette reference '${ref.ref}' is not declared by the palette [${Object.keys(palette).join(', ')}]`
-          : `palette reference '${ref.ref}' cannot resolve: the site declares no palette`,
+          ? `${L1_STRUCTURAL_RULES.declaredPaletteEntry}: '${ref.ref}' is not among [${Object.keys(palette).join(', ')}]`
+          : `${L1_STRUCTURAL_RULES.declaredPaletteEntry}: '${ref.ref}' cannot resolve, the site declares no palette`,
       })
     }
   }
@@ -782,9 +830,9 @@ export function danglingFontFamilies(
           path: `${path}/axes/fontFamily`,
           value: family,
           message:
-            `font family '${family}' resolves to nothing: no face is served for it and the stack ` +
-            `names no generic family, so it would paint the browser default rather than anything ` +
-            `chosen. ` +
+            `${L1_STRUCTURAL_RULES.servedFontFamily}. '${family}' resolves to nothing: no face is served for it ` +
+            `and the stack names no generic family, so it would paint the browser default rather ` +
+            `than anything chosen. ` +
             (declared.length
               ? `This page serves: [${declared.join(', ')}]. `
               : 'This page serves no font faces. ') +
@@ -852,7 +900,7 @@ export function danglingAssetReferences(
     out.push({
       path,
       value,
-      message: `'${value}' is not an asset this site holds, so it would render as a broken image. ${catalogue}`,
+      message: `${L1_STRUCTURAL_RULES.heldAssetReference}. '${value}' is not one, so it would render as a broken image. ${catalogue}`,
     })
   }
   const walk = (v: unknown, path: string): void => {
@@ -903,7 +951,7 @@ export function validateL1(
     if (doc.widths[i] <= doc.widths[i - 1]) {
       errors.push({
         path: `/widths/${i}`,
-        message: `widths must be strictly ascending (got ${doc.widths[i]} after ${doc.widths[i - 1]})`,
+        message: `${L1_STRUCTURAL_RULES.ascendingWidths} (got ${doc.widths[i]} after ${doc.widths[i - 1]})`,
       })
     }
   }
@@ -916,7 +964,7 @@ export function validateL1(
     if (!isSafeUrl(font.src)) {
       errors.push({
         path: `/resources/fonts/${i}/src`,
-        message: `font src '${font.src}' is not an allowed URL (http/https or relative only)`,
+        message: `${L1_STRUCTURAL_RULES.allowedUrlScheme}: font src '${font.src}' is not an allowed URL`,
       })
     }
     if (
@@ -944,7 +992,7 @@ export function validateL1(
     for (const path of dangling) {
       errors.push({
         path: `${path}/geometry/anchor`,
-        message: 'geometry.anchor requires the document to declare a `column`',
+        message: L1_STRUCTURAL_RULES.anchorNeedsColumn,
       })
     }
   }
@@ -960,7 +1008,7 @@ export function validateL1(
       if (first !== undefined) {
         errors.push({
           path: `${path}/id`,
-          message: `duplicate node id '${node.id}' (first declared at ${first}) — a DOM id must be unique`,
+          message: `${L1_STRUCTURAL_RULES.uniqueNodeIds} — duplicate node id '${node.id}' (first declared at ${first})`,
         })
       } else {
         seenIds.set(node.id, path)

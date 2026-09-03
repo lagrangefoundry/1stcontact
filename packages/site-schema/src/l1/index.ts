@@ -34,6 +34,7 @@ export {
   danglingFontFamilies,
   isSafeUrl,
   L1_ENVELOPE,
+  L1_STRUCTURAL_RULES,
 } from './validate'
 export type { L1DanglingReference, ValidateL1Options } from './validate'
 // REQ-93 — the slot inventory a page's behavior modules bind against.

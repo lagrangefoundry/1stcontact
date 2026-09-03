@@ -640,6 +640,21 @@ function ticketing(): Promise<Untyped> {
   return ticketingNode
 }
 
+let ticketingRoot: Promise<Untyped> | null = null
+/**
+ * Its Worker-safe root — `DocDirStore` and `bundleDocReader`.
+ *
+ * A SECOND ENTRY POINT RATHER THAN A SECOND IMPORT of the one above, because the
+ * component splits precisely here: `./node` holds the filesystem seams and the
+ * root holds everything a Worker may load. {@link kbSkew} reads a bundle, which
+ * is a map of strings and has no directory behind it, so it takes the reader
+ * that reads a map — the same one the Worker itself uses.
+ */
+function ticketingLib(): Promise<Untyped> {
+  if (!ticketingRoot) ticketingRoot = import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
+  return ticketingRoot
+}
+
 /** The corpus store, the KB, and the source map — what every step below needs. */
 export interface KbBinding {
   store: Untyped
@@ -670,7 +685,7 @@ export async function bindKb(root: string = kbRoot()): Promise<KbBinding> {
   if (!existsSync(dir)) {
     throw new Error(`No corpus at ${dir} — run \`1c kb build\` to create it.`)
   }
-  const { DocDirStore } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
+  const { DocDirStore } = await ticketingLib()
   const store = new DocDirStore(nodeDocReader(dir), { type: CORPUS_TYPE })
 
   ensureConfig(root)
@@ -1143,10 +1158,199 @@ export async function kbBundle(root: string = kbRoot()): Promise<KbBundle | null
   const text = readCorpusDir(dir) as Record<string, string>
   const docs: KbBundle['docs'] = {}
   for (const [rel, body] of Object.entries(text)) {
-    docs[rel] = { text: body, updated_at: statSync(path.join(dir, rel)).mtime.toISOString() }
+    docs[rel] = { text: body, updated_at: corpusStamp(statSync(path.join(dir, rel)).mtimeMs) }
   }
 
   return { index: await files(INDEX_DIR), chunks: await files(CHUNKS_DIR), docs }
+}
+
+/**
+ * A file's mtime as the corpus itself spells it — SECOND PRECISION, no fraction.
+ *
+ * THE FORMAT IS NOT COSMETIC, and getting it wrong is what would make
+ * {@link kbSkew} useless. `nodeDocReader` — the reader the index is actually
+ * built through — stamps `new Date(mtimeMs).toISOString().replace(/\.\d{3}Z$/, 'Z')`,
+ * and `buildIndex` writes exactly that string into the manifest as the document's
+ * version. A bundle that stamped the same file with its milliseconds would carry
+ * a stamp that never equals the manifest's for any file whose mtime is not on a
+ * whole second — so every document would read as skewed, the check would cry wolf
+ * on a perfectly current build, and it would be turned off.
+ *
+ * It was already wrong before anything compared them, which is how a bug like
+ * this survives: two stamps for one file, disagreeing by under a second, in a
+ * bundle whose whole reason for carrying stamps ({@link KbBundle}) is that the
+ * corpus and the index must not disagree about how recent a document is.
+ */
+function corpusStamp(mtimeMs: number): string {
+  return new Date(mtimeMs).toISOString().replace(/\.\d{3}Z$/, 'Z')
+}
+
+/**
+ * The three parts of a bundle, checked against each other (BUG-48).
+ *
+ * A DOCUMENT IN THE CORPUS THAT IS NOT IN THE INDEX IS A SHIPPED LIE. `1c assets`
+ * inlines `docs` as a DIRECTORY LISTING and the two manifests as BUILD ARTEFACTS,
+ * and those are two different clocks: a document written after the last index
+ * build appears in the corpus text immediately and in the index never. Retrieval
+ * searches the index, so the assistant carries the document in its own bundle for
+ * the whole session and cannot see it — and then reports the subject as one the
+ * knowledge base does not cover, which is true of the corpus it can search and
+ * false of the corpus it is holding.
+ *
+ * `1c kb build` runs the producers and the indexes in the right order,
+ * deliberately, with a comment saying why. The defect this closes is that the
+ * order is enforced only INSIDE that verb: `1c kb export` writes documents and
+ * never indexes, and `1c assets` inlines whatever it finds. So the ordering
+ * stops being something an operator has to remember and becomes something the
+ * shipping step refuses to ship without.
+ */
+export interface KbSkew {
+  /** Corpus documents with no entry in the document index, the chunk index, or either. */
+  missing: string[]
+  /**
+   * Corpus documents whose manifest entry names a different version.
+   *
+   * The weaker form of the same lie, and worth failing on for the same reason.
+   * The document is retrievable, so nothing looks broken — but the vectors it is
+   * ranked by were built from text it no longer has, so it is found for what it
+   * used to say and returned saying something else. The test is INEQUALITY rather
+   * than "older than", because that is upstream's own freshness test
+   * (`manifest[uid] === ticket.updated_at` decides whether to re-embed): any
+   * difference at all means the index was built against a different document.
+   */
+  stale: string[]
+  /**
+   * Documents the corpus predicate excludes — present as text, indexed never.
+   *
+   * The awareness map, and anything that arrives beside it. Reported rather than
+   * silently dropped, because "exempt" is a claim that deserves to be visible,
+   * but not failed on: the map is written AFTER both index passes and carries the
+   * `awareness_report` kind that upstream's own `resolveCorpus` skips, so it is
+   * held out of the corpus it describes on purpose — a map that mapped itself
+   * would be describing its own description. It is not unreachable for being
+   * unsearchable: DOC-39 §6 injects it at priming, into every session, on every
+   * turn, which is a stronger guarantee than being findable by search.
+   *
+   * DERIVED FROM THE PREDICATE, NOT FROM THE FILENAME. This list is whatever
+   * `resolveCorpus` declined to return, so a second such document is exempt for
+   * the same stated reason rather than by a second special case — and a document
+   * that stops being exempt starts being checked the same day.
+   */
+  exempt: string[]
+}
+
+/**
+ * Compare a bundle's corpus against the two indexes shipping with it.
+ *
+ * THE CORPUS IS RESOLVED THROUGH THE PREDICATE, not listed from the map, and that
+ * is what makes the exemption honest rather than a special case. `resolveCorpus`
+ * is the same function `buildIndex` calls to decide what to embed, run here over
+ * the bundle's own text through `bundleDocReader` — so the question this asks is
+ * exactly "did the index get everything the index was supposed to get", and it
+ * cannot drift from what indexing actually does.
+ */
+export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise<KbSkew> {
+  const lib = await km()
+  const { DocDirStore, bundleDocReader } = await ticketingLib()
+
+  const kbs = lib.parseKbConfig(readFileSync(ensureConfig(root), 'utf8'))
+  const kb = kbs.get(SYSTEM_KB)
+  if (kb === undefined) {
+    throw new Error(`${configPath(root)} declares no knowledge base '${SYSTEM_KB}'.`)
+  }
+
+  const store = new DocDirStore(bundleDocReader(bundle.docs), { type: CORPUS_TYPE })
+  const corpus = (await lib.resolveCorpus(store, kb)) as Array<{ uid: string; updated_at: string }>
+
+  const manifest = (part: Record<string, string>): Record<string, string> => {
+    try {
+      return JSON.parse(part[lib.MANIFEST_FILE] || '{}') as Record<string, string>
+    } catch {
+      // An unreadable manifest indexes nothing, which is what the caller is
+      // about to be told. Throwing here would report a parse error where the
+      // operator needs to read a document list.
+      return {}
+    }
+  }
+  const docIndex = manifest(bundle.index)
+  const chunkIndex = manifest(bundle.chunks)
+
+  const missing: string[] = []
+  const stale: string[] = []
+  for (const doc of corpus) {
+    const inDocs = docIndex[doc.uid]
+    const inChunks = chunkIndex[doc.uid]
+    if (inDocs === undefined || inChunks === undefined) missing.push(doc.uid)
+    else if (inDocs !== doc.updated_at || inChunks !== doc.updated_at) stale.push(doc.uid)
+  }
+
+  const indexed = new Set(corpus.map((doc) => doc.uid))
+  const exempt = Object.keys(bundle.docs)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => name.slice(0, -'.md'.length))
+    .filter((uid) => !indexed.has(uid))
+
+  return { missing: missing.sort(), stale: stale.sort(), exempt: exempt.sort() }
+}
+
+/**
+ * The refusal a skewed bundle earns, or `null` when the three parts agree.
+ *
+ * REFUSE, NOT WARN, and the message is the reason why. The failure mode of
+ * shipping this is an assistant that answers badly — it reports a subject as
+ * uncovered, or ranks a document by text it no longer holds — and nobody
+ * attributes either to a stale index. A warning in a build log is read once, by
+ * the person who already knows; there is no later moment at which anyone
+ * connects a bad answer back to a line that scrolled past weeks ago.
+ *
+ * NAMES THE DOCUMENTS AND THE FIX, because "the index is stale" is a diagnosis an
+ * operator cannot act on. Which documents, in which of the two states, and the
+ * one command that repairs both.
+ */
+export function kbSkewError(skew: KbSkew): string | null {
+  if (skew.missing.length === 0 && skew.stale.length === 0) return null
+  const lines = [
+    'The system KB corpus and its index disagree, so this bundle would ship ' +
+      'documents the assistant cannot retrieve.',
+  ]
+  if (skew.missing.length > 0) {
+    lines.push(
+      '',
+      `  MISSING from the index (${skew.missing.length}) — shipped as text, ` +
+        'searchable never:',
+      ...skew.missing.map((uid) => `    ${uid}`),
+    )
+  }
+  if (skew.stale.length > 0) {
+    lines.push(
+      '',
+      `  STALE in the index (${skew.stale.length}) — ranked by vectors built ` +
+        'from text they no longer have:',
+      ...skew.stale.map((uid) => `    ${uid}`),
+    )
+  }
+  lines.push('', 'Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order).')
+  return lines.join('\n')
+}
+
+/** {@link kbSkewError} as a throw, carrying the finding for a caller that wants it. */
+export class KbSkewError extends Error {
+  constructor(public skew: KbSkew) {
+    super(kbSkewError(skew) ?? 'The system KB bundle is skewed.')
+    this.name = 'KbSkewError'
+  }
+}
+
+/**
+ * Refuse a skewed bundle, or return the corpus that agrees with its index.
+ *
+ * The one call `1c assets` makes, so the check cannot be half-applied: there is
+ * no path that computes the skew and then decides what to do about it.
+ */
+export async function requireCoherentKb(bundle: KbBundle, root: string = kbRoot()): Promise<KbSkew> {
+  const skew = await kbSkew(bundle, root)
+  if (skew.missing.length > 0 || skew.stale.length > 0) throw new KbSkewError(skew)
+  return skew
 }
 
 // ── the command ──────────────────────────────────────────────────────────────

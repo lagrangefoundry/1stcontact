@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { buildModuleAssets, type ModuleAssetBuild } from './module-assets'
-import { kbBundle } from './kb'
+import { kbBundle, requireCoherentKb } from './kb'
 import {
   WEBUI_PACKAGES,
   WEBUI_SCOPE,
@@ -459,7 +459,17 @@ export async function writeKbModule(
   generatedDir: string,
   repoRoot: string,
 ): Promise<KbAssetReport> {
-  const bundle = await kbBundle(path.join(repoRoot, 'kb'))
+  const kbDir = path.join(repoRoot, 'kb')
+  const bundle = await kbBundle(kbDir)
+  // BEFORE ANYTHING IS WRITTEN (BUG-48). The corpus arrives here as a directory
+  // listing and the two manifests as build artefacts — two clocks, and nothing
+  // until now required them to agree. A bundle whose corpus holds documents its
+  // index does not is refused rather than inlined, because what it produces is an
+  // assistant that carries a document all session and reports the subject as one
+  // it has nothing on. Refused HERE, at the last moment the operator can still
+  // fix it, and before the staged tree is swapped in — so a refusal costs a build
+  // and never a shipped one.
+  const skew = bundle === null ? null : await requireCoherentKb(bundle, kbDir)
   const body =
     bundle === null
       ? 'export const KB = null\n'
@@ -482,11 +492,12 @@ export async function writeKbModule(
     ].join('\n'),
   )
   return bundle === null
-    ? { built: false, documents: 0, bytes: fs.statSync(file).size }
+    ? { built: false, documents: 0, bytes: fs.statSync(file).size, exempt: [] }
     : {
         built: true,
         documents: Object.keys(bundle.docs).length,
         bytes: fs.statSync(file).size,
+        exempt: skew?.exempt ?? [],
       }
 }
 
@@ -496,6 +507,21 @@ export interface KbAssetReport {
   built: boolean
   documents: number
   bytes: number
+  /**
+   * Documents inlined as text that the corpus predicate excludes from the index.
+   *
+   * The awareness map, today and probably always. Named in the report rather than
+   * left implicit because "this document ships unsearchable" is exactly the claim
+   * BUG-48 was filed over, and the difference between this one and the three that
+   * caused it is that this one is deliberate. An exemption nobody can see is
+   * indistinguishable from the bug.
+   *
+   * OPTIONAL, because {@link kbLine} is called on hand-built reports as well as on
+   * the one {@link writeKbModule} returns, and a report line that throws on a
+   * field it only ever decorates with would turn a formatting detail into a failed
+   * build. The producer always sets it.
+   */
+  exempt?: string[]
 }
 
 /** Build every control-app asset. `repoRoot` is the checkout to read and write in. */
@@ -621,8 +647,17 @@ export function formatAssetReport(report: AssetBuildReport): string {
  * fix it.
  */
 export function kbLine(kb: KbAssetReport): string {
-  return kb.built
-    ? `kb         ${kb.documents} document(s), ${Math.round(kb.bytes / 1024)}KB inlined`
-    : 'kb         *** NOT BUILT — the assistant will ship with no system knowledge. ' +
-        'Run `1c kb build`. ***'
+  if (!kb.built) {
+    return (
+      'kb         *** NOT BUILT — the assistant will ship with no system knowledge. ' +
+      'Run `1c kb build`. ***'
+    )
+  }
+  // The exempt documents are named, not counted (BUG-48). A count would say a
+  // number the operator cannot check; the names are three words and let them see
+  // that the map is the only thing shipping unsearchable, which is the whole
+  // claim the exemption makes.
+  const exempt = kb.exempt ?? []
+  const held = exempt.length > 0 ? `, ${exempt.join(', ')} primed not indexed` : ''
+  return `kb         ${kb.documents} document(s), ${Math.round(kb.bytes / 1024)}KB inlined${held}`
 }
