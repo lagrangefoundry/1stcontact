@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Unreadable source prose costs a reference a sentence, never an entry
 created_by: xgd
 created_at: '2026-09-04T02:27:27.419920+00:00'
-updated_at: '2026-09-04T02:27:27.419920+00:00'
+updated_at: '2026-09-04T02:41:24.188926+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0d7d3aad
   kind: behavior
