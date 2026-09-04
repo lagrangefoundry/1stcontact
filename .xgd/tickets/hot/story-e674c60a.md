@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-31T17:00:43.703407+00:00'
+updated_at: '2026-09-04T05:29:52.623509+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -95,8 +95,16 @@ the surface where an operator *sees* the site instead.
   system renames the scope, this repository moves with it in one step and the
   previous name is removed outright: there is no second scope to fall back to and
   nothing detects which one is present.
-- **One tab, filling the window.** The workspace opens on a single tab hosting
-  the display panel. The displayed site tracks the browser window's height and
+- **One panel per declared tab, filling the window.** The workspace's tab chrome
+  is read from its own declaration: exactly one panel per declared tab and no
+  undeclared panel beside them, each addressed by a stable identifier that never
+  changes when its visible name does. The **first** declared tab is the one that
+  opens, and it is the site tab, which hosts the display panel inside its content
+  area rather than beside or outside the tab chrome. Every property a tab
+  declares — not only its identity and its name, but options such as the
+  viewport-filling behaviour — reaches the mounted chrome intact, so adding an
+  option to a declaration needs no change to the mounting step and no declared
+  option is silently discarded. The displayed site tracks the browser window's height and
   follows a live resize, and the workspace page itself never scrolls — a frame
   that collapses to a few lines tall is the failure this exists to prevent, and
   a page-level scrollbar is the visible sign that the height chain has leaked
@@ -519,6 +527,34 @@ the surface where an operator *sees* the site instead.
   existed. It is a one-off patch of production state, is no longer load-bearing,
   and asserting it would document an operator action rather than a behaviour of
   the system.
+
+*Recorded 2026-09-03, reconciling BUNDLE-23 (bundle-203b1dc2), item 13.*
+
+- **Two chrome criteria were expressed through proxies that were exact only while
+  the workspace had one tab, and are restated against the declaration rather than
+  archived.** The intent names them itself (REQ-161, "Existing acceptance criteria
+  this supersedes"): the tab-count criterion asserted *exactly one tab*, and the
+  declared-options criterion asserted that every declared tab is the active one.
+  Both were correct readings of a one-tab builder and both are now ambiguous
+  between the claim they were making and an accident of there being one of the
+  thing being counted. Restated: **one panel per declared tab and no undeclared
+  panel**, which is the claim the count was always making and is now the only way
+  to make it; and **the first declared tab is the one that opens**, which is what
+  a per-tab active assertion meant while there was one tab.
+  *Rationale:* the criteria are unchanged in subject — an undeclared panel
+  appearing is still the failure the first one guards, and a silently dropped
+  declaration is still the failure the second one guards. Only the expression
+  moves, from a literal count to the declaration the chrome is mounted from.
+  Archiving them would drop two properties the code still has; leaving them as
+  written would hold the matrix against a second declared tab.
+- **The second declared tab is named as a fact of the chrome, not described
+  here.** What that tab contains — the tenant-wide material list, its detail pane
+  and its filters — is documented by its own story, and this story's criteria
+  read the declaration rather than enumerating what is in it, so a third tab
+  changes nothing here.
+  *Rationale:* absorbing the Library into the workspace chrome story would state
+  one capability in two places and make this story's criteria re-fail on every
+  future surface.
 
 ## Dependencies
 
