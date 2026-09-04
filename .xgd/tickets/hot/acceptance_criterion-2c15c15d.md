@@ -6,10 +6,10 @@ title: The rights record is shown and cannot be altered here; the description is
   one editable thing
 created_by: xgd
 created_at: '2026-09-04T04:26:59.869631+00:00'
-updated_at: '2026-09-04T04:26:59.869631+00:00'
+updated_at: '2026-09-04T04:45:38.627693+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
