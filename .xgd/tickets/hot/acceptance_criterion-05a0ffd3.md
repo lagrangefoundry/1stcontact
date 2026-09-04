@@ -6,10 +6,10 @@ title: 'A file arriving with no answer keeps the rights its provenance already d
   the answer narrows, never widens'
 created_by: xgd
 created_at: '2026-09-04T04:52:11.478991+00:00'
-updated_at: '2026-09-04T04:52:11.478991+00:00'
+updated_at: '2026-09-04T05:01:58.886027+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
