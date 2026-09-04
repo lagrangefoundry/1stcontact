@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T05:18:22.423295+00:00'
+updated_at: '2026-09-04T05:31:45.859055+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -461,7 +461,7 @@ fields:
       them binding — no new capability bucket appears, and the Library tab itself
       is documented by item 9 rather than absorbed into the workspace chrome or the
       assistant pane.
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     - story-7f437d57
