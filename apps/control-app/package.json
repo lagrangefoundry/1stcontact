@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --port 8788",
     "build": "tsc --noEmit",
     "deploy": "wrangler deploy --env production"
   },

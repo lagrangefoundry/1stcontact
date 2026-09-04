@@ -11,6 +11,8 @@ import {
   type GlobalOptions,
 } from './commands'
 import { spawn } from 'node:child_process'
+import { devEnvLayering } from './dev-env'
+import { repoRoot } from './webui'
 import { cmdAssets, formatAssetReport } from './assets'
 import { pushSite } from './push'
 import { bundleDir, fsReferenceBundle, fsReferenceStore, fsSiteStore } from '../store'
@@ -128,6 +130,8 @@ export {
   WEBUI_SCOPE,
   MissingWebuiComponentError,
 } from './webui'
+export { devEnvLayering } from './dev-env'
+export type { DevEnvFile, DevEnvLayering } from './dev-env'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export {
@@ -710,8 +714,18 @@ export async function run(argv: string[]): Promise<void> {
       // The Node transport survives as a test harness only (`startBuilder`),
       // over that same route table. It is not started here.
       const port = typeof flags.port === 'string' ? flags.port : '8788'
-      const appDir = path.join(process.cwd(), 'apps', 'control-app')
-      const args = ['wrangler', 'dev', '--port', port]
+      // REPO-ANCHORED, NOT CWD-ANCHORED (BUG-50). This derived `apps/control-app`
+      // from the working directory, so the command only worked when typed at the
+      // repo root — and `dev:control` now calls it, which would have made that
+      // requirement a silent dependency of a package script rather than an
+      // operator's own mistake to notice.
+      const appDir = path.join(repoRoot(), 'apps', 'control-app')
+      // THE SAME LAYERING `pnpm dev:control` ONCE COMPOSED ITSELF (BUG-50).
+      // That script is now a caller rather than a second author of it; see
+      // `dev-env.ts` for why half of this layering is not a smaller version of
+      // it but a different and broken thing.
+      const devEnv = devEnvLayering({ appDir })
+      const args = ['wrangler', 'dev', '--port', port, ...devEnv.args]
       // `--remote` edits the DEPLOYED database from a laptop. Local is the
       // default because a dev loop that writes to production by default is one
       // keystroke from losing a site; `bin/publish` seeds the local one.
@@ -722,6 +736,12 @@ export async function run(argv: string[]): Promise<void> {
           `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
           '  seed it with `bin/publish`\n',
       )
+      // AFTER the banner and BEFORE wrangler's own output, which is where an
+      // operator is still reading. A warning, never a refusal: a missing key is
+      // an ordinary runtime state here — the Worker opens, serves and explains
+      // itself without one ([[REQ-173]]) — so the only defect is not saying so.
+      for (const warning of devEnv.warnings) console.warn(warning)
+      if (devEnv.warnings.length) console.warn('')
       const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
       await new Promise<void>((resolve, reject) => {
         child.on('error', reject)
