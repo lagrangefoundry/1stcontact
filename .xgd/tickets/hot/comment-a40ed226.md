@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:52:24.228509+00:00'
+updated_at: '2026-09-04T23:53:54.975761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -728,5 +728,11 @@ Needs 1 and 2 for a lapsed member to reach it at all. **But it isn't ready to st
 Separately: **REQ-170 is still 3 story points**, set before membership editing came into scope. That's likely low now.
 
 Pushes are still failing on the proxy auth error — everything from this session is committed locally only.
+
+<!-- xgd-turn id="9358468b-8169-4bd6-bcd0-d9b63bc9b993-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:53:52.560468+00:00" -->
+#### You
+What can be done in parallel though
 
 <!-- xgd-chat-end -->
