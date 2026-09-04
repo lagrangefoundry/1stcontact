@@ -6,15 +6,17 @@ title: 'Material Blob Storage: The Client''s Attached Bytes, In A Store The Publ
   Site Has No Reach Into'
 created_by: xgd
 created_at: '2026-09-02T00:16:45.252755+00:00'
-updated_at: '2026-09-04T05:18:22.106103+00:00'
+updated_at: '2026-09-04T05:18:22.257025+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: request-13a5e206
   capability_uid: capability-dfb0a4ff
   story_kind: upgrade
   story_points: 2
+  updated_by:
+  - bundle-203b1dc2
 ---
 
 ## Story
