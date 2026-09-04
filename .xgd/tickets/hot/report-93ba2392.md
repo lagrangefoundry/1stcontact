@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T02:16:39.392215+00:00'
+updated_at: '2026-09-04T02:28:00.594534+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -86,7 +86,7 @@ fields:
       that the assistant can say what a module supports, what an L1 term means and
       what it may change, from documents that cannot go stale — a hole that only opened
       once DOC-39 §3.1 excluded the architecture documents.
-    story_uid: null
+    story_uid: story-0d7d3aad
   - index: 3
     component: System Knowledge Base — bundle-importable artefact
     item_type: upgrade
