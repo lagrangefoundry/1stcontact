@@ -6,10 +6,10 @@ title: A Library surface sits beside the site surface in the workspace, listing 
   account's material with a detail area beside it
 created_by: xgd
 created_at: '2026-09-04T04:26:22.029572+00:00'
-updated_at: '2026-09-04T04:26:22.029572+00:00'
+updated_at: '2026-09-04T04:45:39.258254+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
