@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T05:31:45.859055+00:00'
+updated_at: '2026-09-04T05:53:38.219158+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -511,7 +511,7 @@ fields:
       bucket that the gate''s story cannot absorb without changing what it is about,
       and expiry is the single most likely silent failure here: the code path that
       never runs during the alpha is the one that was promised.'
-    story_uid: null
+    story_uid: story-e7871ed7
   - index: 15
     component: Operator Access Gate — the gate's verdict, and admission behind it
     item_type: upgrade
