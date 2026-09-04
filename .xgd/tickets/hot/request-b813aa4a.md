@@ -5,9 +5,9 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-04T23:43:07.891576+00:00'
+updated_at: '2026-09-04T23:57:46.609050+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: depends_on
 status: draft
 fields:
   priority: high
@@ -20,6 +20,8 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.61
+  depends_on:
+  - REQ-178
 ---
 
 # The business selector is shell chrome, not a tab's toolbar
