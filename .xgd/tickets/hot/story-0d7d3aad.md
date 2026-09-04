@@ -6,10 +6,10 @@ title: 'Projected reference: the product''s own facts reach the assistant genera
   from their source, never authored'
 created_by: xgd
 created_at: '2026-09-04T02:25:23.331501+00:00'
-updated_at: '2026-09-04T02:25:23.331501+00:00'
+updated_at: '2026-09-04T02:41:23.387004+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-45acba5e
