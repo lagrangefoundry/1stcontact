@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T00:23:38.127127+00:00'
+updated_at: '2026-09-04T01:39:55.638293+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,11 @@ Done — merged back to `xgd-working`, promoted to `free_coded` at 0.2.63, workt
 **The portal ticket isn't filed.** Your "ok" covered confirming the reading; I didn't want to read it as authorisation to create a ticket. Say the word and I'll file it — the scope is portal login on `apps/public-site` plus the plan/invoices/details surface through the site pipeline.
 
 **Test-suite state, unchanged by this work:** 11 files fail on `xgd-working` (knowledge-index and webui resolution). I baselined them on the main checkout before and after — same 11, same 30 failures. A 12th, `reconciliation-l1-navigation`, failed once in a full run and passes in isolation in both trees; it's a flake, not a regression.
+
+<!-- xgd-turn id="9e55d362-0d2a-437f-b9ad-bcbb9c8d50fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T01:39:55.590555+00:00" -->
+#### You
+Please file a portal ticket
 
 <!-- xgd-chat-end -->
