@@ -6,10 +6,10 @@ title: One declaration of the knowledge base's name, source and corpus type is r
   by the half that builds it and the half that searches it
 created_by: xgd
 created_at: '2026-09-04T02:46:27.403376+00:00'
-updated_at: '2026-09-04T02:46:27.403376+00:00'
+updated_at: '2026-09-04T02:58:22.758222+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
