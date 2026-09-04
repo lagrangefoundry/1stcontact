@@ -6,10 +6,10 @@ title: Several files given to one answer at once each become their own record, r
   separately and in order
 created_by: xgd
 created_at: '2026-09-04T04:51:59.604504+00:00'
-updated_at: '2026-09-04T04:51:59.604504+00:00'
+updated_at: '2026-09-04T05:01:59.638324+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
