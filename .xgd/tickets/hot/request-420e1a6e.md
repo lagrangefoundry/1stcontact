@@ -5,9 +5,9 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-04T23:27:05.295754+00:00'
+updated_at: '2026-09-04T23:57:59.291646+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: depends_on
 status: draft
 fields:
   priority: high
@@ -15,6 +15,8 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a40ed226
+  depends_on:
+  - REQ-184
 ---
 
 # The admin console: users, entitlements, and the invite that provisions an account
