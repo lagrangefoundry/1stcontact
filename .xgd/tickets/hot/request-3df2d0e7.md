@@ -6,9 +6,9 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-04T23:41:39.054323+00:00'
+updated_at: '2026-09-04T23:43:40.335222+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -169,3 +169,85 @@ The rule is enforced by a guard rather than by an audit, because the audit passe
 ### D1 addendum — the portal ticket is [[REQ-183]]
 
 Filed 2026-09-03. It carries the surface D1 confirmed and deliberately did not build, and it opens with the origin question (`app.1stcontact.io` versus `1stcontact.io`) that has to be settled before any of it exists. The prohibitions this ticket landed — no plan/billing/invoice route in the builder, the avatar surface bounded to facts about the session, no self-serve add-a- business — are constraints ON that ticket, not work it supersedes.
+
+---
+
+## Reopened 2026-09-04: three amendments from [[DOC-42]]
+
+Moved back to `draft` from `ready_to_reconcile` to take these before the work
+reconciles. **The commits above stand** and no endpoint changes shape — what
+changes is the rationale behind D2's gate, the reachability of D4's lapse, and
+the extent of D5's rule. [[DOC-42]] is the model these come from, and it was
+written out of the discussion that produced this section.
+
+### A1. D2's gate is product fulfilment, not administration
+
+`POST /api/admin/businesses` is right and stays exactly as it is. What is wrong
+is the reason given for it.
+
+D2 gates it on `platform_admin` — a flag, i.e. on *being an administrator*.
+[[DOC-42]] §7 gives the reason it is actually gated: **provisioning a business is
+1st Contact filling an order.** It is our product-fulfilment action, and it needs
+privilege because it writes a `tenants` row, not because the caller holds a
+badge. Stated as two conditions:
+
+1. **you are an owner of this business** — uniform; a customer is the owner of
+   theirs
+2. **this business's product is businesses** — which is what confines the control
+   to 1st Contact
+
+Today those two select exactly the set `platform_admin` selects, so **nothing
+built here has to change**. What changes is that the next hand does not read the
+flag as "admins get extra pages" and build a generic privileged-surface
+mechanism — which is [[DOC-40]] §2.1 rule 1's failure mode, and which
+[[REQ-170]] would be the first to inherit.
+
+`PLATFORM_ADMINS` keeps the role [[DOC-40]] §6 argues for: a break-glass seed
+that works before any row exists and cannot lock its holder out. [[DOC-42]] §10.3
+records that the **column** carries two separable capabilities — ownership of the
+1st Contact business, which is `memberships.role` and not special, and entry into
+a business without a membership (`scope.ts:237`), which is genuinely special
+because 1st Contact hosts the others. Splitting them is its own ticket and is
+not owed by this one.
+
+### A2. D4's lapse does not reach the person it was written for
+
+D4 says it plainly — **IT REACHES THE PERSON** — and it half does. `admit`
+refuses when *no* business is selectable, so an account with one live and one
+expired business sees the expired one's reason, and an account whose businesses
+have **all** lapsed is refused at the door and sees nothing. The `expired` reason
+carrying the date access ended is precisely what someone in that state is owed,
+and it is exactly they who cannot get to it.
+
+[[REQ-178]]'s reopen is the fix: membership admits, `no_entitlement` becomes a
+state inside an admitted session rather than a refusal. This ticket's acceptance
+— *"the account surface states each lapsed business's reason in words"* — becomes
+satisfiable rather than vacuous for the all-lapsed case.
+
+No change to the lapse values, their derivation, or the rule that a lapse is
+present exactly when `selectable` is false.
+
+### A3. D5 extends from the word to the concept
+
+D5 forbids the **string** "tenant" in the builder client and the public site, and
+exempts SQL and deployment vocabulary. All of that stands, including the
+exemption for `TENANT_ID` and `wrangler.toml` — [[DOC-42]] §2 relies on it.
+
+What D5 does not yet forbid is the **model concept**. §2 of this ticket says a
+customer of ours is *"a `users` row in the platform tenant"*. There is no platform
+tenant. There is the **1st Contact business**, which owns the 1c site and whose
+users are its customers — the same sentence a customer would say about theirs.
+The behaviour described is correct; the phrase names a kind of tenant that does
+not exist, and once it is in the vocabulary the code follows it into
+platform-only capability.
+
+So the rule gains a second half ([[DOC-42]] §2): **no predicate meaning "is this
+the platform's own tenant"** outside `TENANT_ID`'s two readers, `identity.ts` and
+`scope.ts` ([[REQ-168]]). The guard-rather-than-audit approach D5 already chose
+is the right instrument for it.
+
+### What this does not reopen
+
+D1 and D3 are untouched. The portal reading, the prohibition on plan/billing/
+invoice views as builder routes, and business-and-tenant-as-one-operation all
+stand exactly as decided — [[DOC-42]] §5 and §7 depend on them.
