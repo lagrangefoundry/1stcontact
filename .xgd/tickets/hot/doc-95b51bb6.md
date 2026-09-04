@@ -5,9 +5,9 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-04T23:45:11.223380+00:00'
+updated_at: '2026-09-04T23:46:03.764146+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
@@ -238,10 +238,10 @@ answer"*. §5 above gives it a stronger reason than product preference.
 
 ### 10.2 `entitlements.account_id` holds a business
 
-**Unowned — needs its own ticket.** [[REQ-167]] wrote the schema and is
-`bundled`, so it cannot take this; nothing among the reopened three owns the
-table. It constrains [[REQ-170]]'s entitlement editor in the meantime, which must
-not be built as though the subject were always a business.
+**Owned by [[REQ-184]]**, filed 2026-09-04. [[REQ-167]] wrote the schema and is
+`bundled`, so it could not take this. It constrains [[REQ-170]]'s entitlement
+editor in the meantime, which must not be built as though the subject were always
+a business.
 
 [[DOC-40]] §5 says so plainly: *"`account_id` here is a business"*. Under §6 the
 subject is the account and the business is the object, so the column that says
