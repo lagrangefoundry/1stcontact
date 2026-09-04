@@ -5,7 +5,7 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-04T23:46:03.764146+00:00'
+updated_at: '2026-09-04T23:52:06.627098+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -213,7 +213,8 @@ lives is recorded with it.
 
 [[REQ-178]], [[REQ-179]] and [[REQ-180]] were moved back to `draft` from
 `ready_to_reconcile` on 2026-09-04 to take these before their work reconciles;
-their commits stand and the amendments are deltas on top of them. [[DOC-40]]
+their commits stand — they are already on `working` — and the amendments are
+deltas on top of them. [[DOC-40]]
 carries the same four corrections in an appended section, its own §2/§5/§6 left
 as written because in-flight tickets cite them as rationale.
 
@@ -251,8 +252,8 @@ Rename to `business_id` when the subject column lands, rather than twice.
 
 ### 10.3 `users.platform_admin` bundles two capabilities
 
-**Rationale amended in [[REQ-180]]** A1; the column split itself is unowned and
-needs a ticket. [[REQ-170]] does not depend on it — §7's two conditions select
+**Rationale amended in [[REQ-180]]** A1; the column split itself is
+**[[REQ-185]]**, filed 2026-09-04. [[REQ-170]] does not depend on it — §7's two conditions select
 exactly the set the flag selects today, so the gate can be modelled correctly
 without the column changing.
 
