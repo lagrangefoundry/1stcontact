@@ -6,15 +6,17 @@ title: 'Material Types: The Vocabulary Of What A Site Is Made From, With Rights 
   Provenance Stated Rather Than Inferred'
 created_by: xgd
 created_at: '2026-09-02T00:29:48.930229+00:00'
-updated_at: '2026-09-04T05:08:24.342839+00:00'
+updated_at: '2026-09-04T05:08:24.496061+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: request-13a5e206
   capability_uid: capability-dfb0a4ff
   story_kind: upgrade
   story_points: 3
+  updated_by:
+  - bundle-203b1dc2
 ---
 
 ## Story
