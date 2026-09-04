@@ -106,7 +106,12 @@ function stubJwks(): void {
 
 interface Payload {
   account: { name: string | null; email: string } | null
-  businesses: Array<{ id: string; name: string; selectable: boolean }>
+  businesses: Array<{
+    id: string
+    name: string
+    selectable: boolean
+    lapse: { reason: string; endedAt: string | null } | null
+  }>
 }
 
 const ask = async (token: string | null, over: Partial<Env> = {}): Promise<Response> =>
@@ -259,7 +264,13 @@ describe('REQ-179 — the businesses endpoint', () => {
     expect(response.status).toBe(200)
     const body = (await response.json()) as Payload
 
-    expect(body.businesses).toEqual([{ id: PLATFORM, name: PLATFORM, selectable: true }])
+    // `lapse: null` because it is selectable ([[REQ-180]] §1 added the pairing:
+    // a reason is present exactly when one is missing). Asserted as the whole
+    // object rather than field by field, so a field appearing on this path
+    // without anyone deciding it should fails here.
+    expect(body.businesses).toEqual([
+      { id: PLATFORM, name: PLATFORM, selectable: true, lapse: null },
+    ])
     // No admission means no account to report, and saying so is better than
     // inventing one.
     expect(body.account).toBeNull()

@@ -154,6 +154,59 @@ export interface AdmittedBusiness {
   entitlement: EntitlementRow | null
   /** Whether this business may be entered. False exactly when there is no grant. */
   selectable: boolean
+  /**
+   * Why it may not be entered — present EXACTLY when `selectable` is false.
+   *
+   * The pair is computed from one answer ({@link bestActiveGrant} returning
+   * null) rather than from two queries that could disagree, so there is no state
+   * where a business is unselectable for no stated reason or carries a reason it
+   * does not need. See {@link BusinessLapse}.
+   */
+  lapse: BusinessLapse | null
+}
+
+/**
+ * Why a business lapsed ([[REQ-180]] §1) — and why saying so is not a leak.
+ *
+ * `DenialReason` IS THE OPPOSITE CASE, and the contrast is the whole argument.
+ * That one never reaches the wire, because it answers "does an account exist for
+ * this email" to anyone who can pass a one-time PIN — which is anyone. This one
+ * is only ever computed for a business the caller ALREADY HOLDS A LIVE MEMBERSHIP
+ * ON: `businessesFor` joins through `memberships`, so a business the caller has
+ * nothing to do with is not in the answer to carry a reason. The reason is a fact
+ * about the caller's own business, it is owed to them, and it discloses nothing
+ * about anybody else's.
+ *
+ * WITHOUT IT, "your grant expired" AND "your grant was withdrawn" ARE THE SAME
+ * SCREEN. [[REQ-179]] made a lapsed business distinguishable from a deleted one,
+ * which is the first half; this is the second. One of those two states is fixed
+ * by paying and the other by talking to us, and a person who cannot tell which
+ * they are in will do neither.
+ */
+export type LapseReason =
+  /** A grant covered this business and its end has passed. */
+  | 'expired'
+  /** A grant exists and was withdrawn — `status` is no longer `active`. */
+  | 'revoked'
+  /** A grant is written and has not started yet. */
+  | 'not_yet'
+  /** No grant was ever made against this business. */
+  | 'never_granted'
+
+export interface BusinessLapse {
+  reason: LapseReason
+  /**
+   * When access ended — set for `expired` and null for everything else.
+   *
+   * ONE DATE FIELD AND NOT THREE. The date is load bearing for exactly one
+   * reason: "your access ended" is a different sentence from "your access ended
+   * on 1 August", and only the second one lets someone check it against what they
+   * thought they had bought. `revoked` has no meaningful date to give — a
+   * withdrawal is an act, and the row records no time for it — and `not_yet` and
+   * `never_granted` have nothing that has ended. Carrying nullable fields for the
+   * cases that do not have them would be three ways to render nothing.
+   */
+  endedAt: string | null
 }
 
 /**
@@ -493,6 +546,32 @@ export async function admit(
   return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, businesses }
 }
 
+/**
+ * The account an operator named, by the address it logs in with ([[REQ-180]]).
+ *
+ * IT EXISTS SO THAT NOTHING OUTSIDE THIS MODULE HAS TO KNOW WHERE ACCOUNTS LIVE.
+ * "The platform's own tenant" is `TENANT_ID`, and [[REQ-168]] deliberately left
+ * that variable exactly two readers — this file and `scope.ts` — because a third
+ * one is how the platform's data ends up in a customer's session. An operator
+ * route that looked the account up itself would be that third reader, so the
+ * lookup is offered here instead and the caller passes an email.
+ *
+ * BY EMAIL AND NOT BY ID, because the operator has an email. The id is
+ * `newId('usr')` — opaque by construction and never shown — so a route keyed on
+ * it would be one nobody could use without first running a query this module does
+ * not expose.
+ *
+ * NULL RATHER THAN A THROW. "No account with that address" is an ordinary answer
+ * to an operator who mistyped one, and it is not a disclosure: reaching this
+ * function at all requires `platform_admin`.
+ */
+export async function findAccount(env: IdentityEnv, email: string): Promise<UserRow | null> {
+  const platformTenant = requirePlatformTenant(env)
+  const normalised = normaliseEmail(email)
+  if (normalised === '') return null
+  return findUser(env, platformTenant, normalised)
+}
+
 /** The person, by the identity the index decides ([[DOC-40]] §2). */
 async function findUser(
   env: IdentityEnv,
@@ -551,15 +630,90 @@ async function businessesFor(
 
   const businesses: AdmittedBusiness[] = []
   for (const row of results ?? []) {
-    const entitlement = await bestActiveGrant(env, row.account_id, now)
-    businesses.push({
-      businessId: row.account_id,
-      name: row.name,
-      entitlement,
-      selectable: entitlement !== null,
-    })
+    businesses.push(await admittedBusiness(env, row.account_id, row.name, now))
   }
   return businesses
+}
+
+/**
+ * One business's access, as the switcher and the account surface read it.
+ *
+ * THE THREE FIELDS ARE ONE DECISION, and this function is where it is made once.
+ * `selectable` and `lapse` are both derived from whether {@link bestActiveGrant}
+ * found anything, so a business cannot be unselectable with no reason or
+ * selectable with one — the states that would make the account surface contradict
+ * the switcher. Both entry points into the admissible set ({@link businessesFor}
+ * and {@link admissibleBusiness}) go through here rather than assembling the
+ * literal themselves, because the admin path showing a different answer from the
+ * owner's is exactly the bug the support call cannot survive.
+ *
+ * THE LAPSE COSTS A QUERY THAT IS ONLY RUN WHEN IT IS NEEDED. A selectable
+ * business has nothing to explain, so {@link lapseFor} is not called for one —
+ * which is every business in the ordinary case.
+ */
+async function admittedBusiness(
+  env: IdentityEnv,
+  businessId: string,
+  name: string,
+  now: string,
+): Promise<AdmittedBusiness> {
+  const entitlement = await bestActiveGrant(env, businessId, now)
+  return {
+    businessId,
+    name,
+    entitlement,
+    selectable: entitlement !== null,
+    lapse: entitlement === null ? await lapseFor(env, businessId, now) : null,
+  }
+}
+
+/**
+ * Why a business with no covering grant has none.
+ *
+ * IT ASKS THE SAME TABLE {@link bestActiveGrant} ASKED, WITHOUT THE FILTERS. That
+ * is the point: the filters are what turned four distinguishable situations into
+ * one `null`, so the reason is recovered by looking at what the filters excluded
+ * rather than by recording it somewhere at write time. Nothing has to be kept in
+ * step, and a grant written by a path that does not exist yet is still explained.
+ *
+ * THE ORDER OF THE BRANCHES IS THE ORDER OF USEFULNESS TO THE PERSON READING IT.
+ * A grant that has not started outranks one that has ended, because an account
+ * holding both is one whose access is COMING BACK, and "your access ended" would
+ * be true, unhelpful and the opposite of the news. A withdrawal outranks nothing:
+ * it is what is left when no dated grant explains the state.
+ *
+ * THE LATEST `ends_at` IS THE ONE REPORTED, not the first. An account whose grant
+ * was renewed twice has three expired rows and only the last one is the date its
+ * access actually stopped; reporting an earlier one would be a true row and a
+ * false answer.
+ */
+async function lapseFor(
+  env: IdentityEnv,
+  businessId: string,
+  now: string,
+): Promise<BusinessLapse> {
+  const { results } = await env.DB.prepare(
+    'SELECT status, starts_at, ends_at FROM entitlements WHERE account_id = ?',
+  )
+    .bind(businessId)
+    .all<{ status: string; starts_at: string; ends_at: string | null }>()
+  const grants = results ?? []
+  if (grants.length === 0) return { reason: 'never_granted', endedAt: null }
+
+  const active = grants.filter((g) => g.status === 'active')
+  if (active.some((g) => g.starts_at > now)) return { reason: 'not_yet', endedAt: null }
+
+  const ended = active
+    .map((g) => g.ends_at)
+    .filter((endsAt): endsAt is string => endsAt !== null && endsAt <= now)
+  if (ended.length > 0) {
+    return { reason: 'expired', endedAt: ended.reduce((a, b) => (a > b ? a : b)) }
+  }
+
+  // Every grant this business has is non-`active`. There is no fourth shape:
+  // an `active` grant that neither starts in the future nor has ended is a
+  // covering grant, and `bestActiveGrant` would have returned it.
+  return { reason: 'revoked', endedAt: null }
 }
 
 /**
@@ -576,7 +730,10 @@ async function businessesFor(
  * is the only way the support call ends with the right answer. `selectable` is
  * therefore computed here identically to the membership path rather than forced
  * true, so a lapsed business refuses an admin for the same reason and through the
- * same field it refuses its owner.
+ * same field it refuses its owner. That is not a resemblance maintained by hand:
+ * both paths end in {@link admittedBusiness}, so the administrator and the owner
+ * read one function's answer ([[REQ-180]]) — including the lapse reason, which is
+ * the sentence the support call is about.
  *
  * `null` FOR AN UNKNOWN OR DEACTIVATED BUSINESS, which the caller turns into the
  * same refusal an unauthorised target gets. Distinguishing them on the wire would
@@ -592,8 +749,7 @@ export async function admissibleBusiness(
     .bind(businessId, 'active')
     .first<{ id: string; name: string }>()
   if (!row) return null
-  const entitlement = await bestActiveGrant(env, businessId, now)
-  return { businessId: row.id, name: row.name, entitlement, selectable: entitlement !== null }
+  return admittedBusiness(env, row.id, row.name, now)
 }
 
 /**
