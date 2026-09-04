@@ -6,10 +6,10 @@ title: A Library-route upload puts no line in the conversation, whether or not o
   is open
 created_by: xgd
 created_at: '2026-09-04T04:52:18.428347+00:00'
-updated_at: '2026-09-04T04:52:18.428347+00:00'
+updated_at: '2026-09-04T05:01:58.399138+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
