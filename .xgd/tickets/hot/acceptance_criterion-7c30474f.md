@@ -6,10 +6,10 @@ title: An invitation creates the person, the account, the ownership and the gran
   as one operation
 created_by: xgd
 created_at: '2026-09-04T05:52:20.399974+00:00'
-updated_at: '2026-09-04T05:52:20.399974+00:00'
+updated_at: '2026-09-04T06:00:23.545660+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e7871ed7
   kind: behavior
