@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:29:28.681345+00:00'
+updated_at: '2026-09-04T23:32:39.702591+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -575,5 +575,11 @@ So: **REQ-170 can't be implemented yet either**, even though its ticket is edita
 2. **Does REQ-170 wait, or ship a first slice that avoids `identity.ts`/`scope.ts`?**
 
 I've changed nothing since your message. Say which way on those two and I'll execute Phase 0 and whatever you want of Phase 1.
+
+<!-- xgd-turn id="7e422d83-4d2b-4cea-81a1-139bef99edd1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:32:39.143093+00:00" -->
+#### You
+168-180 can be reopened the easiest thing would be to move them back to draft which I think you can do and then update them. 161,167 are too late
 
 <!-- xgd-chat-end -->
