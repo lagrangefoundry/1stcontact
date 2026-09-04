@@ -6,10 +6,10 @@ title: The bytes come back as themselves — original type and name, presented f
   — from the account's private store and never the public site host
 created_by: xgd
 created_at: '2026-09-04T04:27:54.333812+00:00'
-updated_at: '2026-09-04T04:27:54.333812+00:00'
+updated_at: '2026-09-04T04:45:37.563582+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
