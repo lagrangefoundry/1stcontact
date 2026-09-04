@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:32:39.702591+00:00'
+updated_at: '2026-09-04T23:35:34.898844+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -581,5 +581,53 @@ I've changed nothing since your message. Say which way on those two and I'll exe
 <!-- xgd-chat role="user" ts="2026-09-04T23:32:39.143093+00:00" -->
 #### You
 168-180 can be reopened the easiest thing would be to move them back to draft which I think you can do and then update them. 161,167 are too late
+
+<!-- xgd-turn id="7e422d83-4d2b-4cea-81a1-139bef99edd1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:35:34.248176+00:00" -->
+#### Claude
+Before I reopen five tickets, let me verify the mechanism and check which of them actually need changes.
+
+Important finding — let me confirm what's actually in flight.
+
+Key finding: the only thing actively reconciling is **BUNDLE-23** (the knowledge-base cluster — REQ-164/159/165/163/161), and it's stalled in `error` at 73%. `reconcile_queued: 0`, no develop worktrees. So **REQ-168/169/178/179/180 are `ready_to_reconcile` but unstarted** — nothing would be yanked out from under a running process. Your read is right.
+
+Let me check whether all five actually need changes.
+
+Nothing in flight touches the five — BUNDLE-23 is the knowledge-base cluster and it's stalled in `error`. Here's the revised plan.
+
+## The reopen set is three, not five
+
+**REQ-168** — *"The tenant comes from the identity, not from the configuration."* DOC-42 §2 **endorses** this ticket rather than amending it: identity-derived tenancy is the thesis, and `TENANT_ID`-as-deployment-config is the exemption both it and REQ-180 D5 already carve out. Zero "platform tenant" occurrences in its body. **No change.**
+
+**REQ-169** — *Terms of service, accepted before the builder loads.* Its gate is aligned; ToS acceptance is a fact about the person and applies to everyone uniformly. But it surfaced one thing worth recording:
+
+> it blocks every route — *"no route can be reached by a session that has not accepted"*, assets and API 403.
+
+Under DOC-42 §5 that means a re-versioned ToS blocks an existing member from their Portal, including their delete button — i.e. conditioning a data-rights request on accepting revised terms. Unlike the entitlement lockout this one has a self-service remedy (accept and you're through), so it isn't the same severity. **No change to REQ-169** — the constraint belongs on REQ-183, which is draft and owns the Portal.
+
+## The three that do need reopening
+
+| | version | what changes |
+|---|---|---|
+| **REQ-178** | 0.2.51 | Owns `admit`. §10.1: membership admits; "no selectable business" becomes a session state, not a refusal. §10.3: reframe the `platform_admin` rationale. |
+| **REQ-179** | 0.2.61 | The switcher must render for a member with no live grant — currently unreachable for an all-lapsed account. §10.1. |
+| **REQ-180** | 0.2.63 | D2's gate rationale → owner-of-this-business + what-this-business-sells (§7/§10.3), env var retained as seed. D4's *"it reaches the person"* is only half-true per §10.1. D5 extends from "no string says tenant" to "no model concept called the platform tenant" (§2); 1 occurrence in body. |
+
+All three get a `[[DOC-42]]` link. In each case the **endpoints and code shapes don't have to change** — what changes is the rationale and the acceptance criteria, plus the delta that §10.1 implies for REQ-178/179.
+
+## The one thing I'm unsure about
+
+Each carries `commits` and `version`. There's no `reopen` verb — the mechanism is `xgd ticket update --fields '{"status":"draft"}'`, as you said. My intent is to **leave `commits` and `version` intact**, since they record what was actually built and clearing them would lose that; the delta then gets free-coded on top. If your workflow expects a reopened ticket to come back with those cleared, tell me and I'll do that instead — I'd rather not guess at bookkeeping that reconciliation reads.
+
+## Order
+
+1. Reopen and amend REQ-178, REQ-179, REQ-180 (bodies append-only, same idiom as REQ-170's revision).
+2. REQ-183 (already draft): the §10.1 dependency, the membership-derived portal, and the REQ-169 ToS interaction.
+3. DOC-40: append-only amendment section pointing at DOC-42 — no in-place edits to §2/§5/§6.
+4. Soften DOC-42 §10 to amendment framing rather than "this is wrong."
+5. F1–F4 follow-on tickets are **no longer needed** — reopening absorbs F1/F3/F4's ticket half. **F2 (entitlement subject column) still needs its own ticket**, since REQ-167 is too late and nothing in the reopened three owns the schema.
+
+Confirm the `commits`/`version` question and I'll run 1–5.
 
 <!-- xgd-chat-end -->
