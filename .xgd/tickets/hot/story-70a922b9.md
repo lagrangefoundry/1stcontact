@@ -6,10 +6,10 @@ title: 'Ingestion: a file the client gives us, or one we fetch for them, becomes
   kept, understood, immediately findable record'
 created_by: xgd
 created_at: '2026-09-04T03:51:25.275303+00:00'
-updated_at: '2026-09-04T03:54:41.134833+00:00'
+updated_at: '2026-09-04T04:08:21.292982+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-ccac1bb4
