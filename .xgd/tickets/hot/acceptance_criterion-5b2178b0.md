@@ -6,10 +6,10 @@ title: How a description turned out, and what produced it, are queryable on ever
   material
 created_by: xgd
 created_at: '2026-09-04T04:12:49.508947+00:00'
-updated_at: '2026-09-04T04:12:49.508947+00:00'
+updated_at: '2026-09-04T04:23:05.529570+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-724e4e8c
   kind: behavior
