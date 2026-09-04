@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T22:30:40.937606+00:00'
+updated_at: '2026-09-04T23:07:53.387468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -352,5 +352,11 @@ Multi-user accounts stay cheap to leave open: today the subject id happens to eq
 ---
 
 If (b) is agreed, I'll write REQ-170 up: the uniform tab; membership and entitlement as two orthogonal columns per person with membership as the primary one (deleting the *Not in scope* exclusion, against `0005:14`); the portal as membership-derived rather than granted; the 1c-only controls as product-fulfilment; and two noted dependencies — the `admit` change and the DOC-40 §5 subject/object amendment — as things REQ-170 makes reachable rather than owns.
+
+<!-- xgd-turn id="77b37c0c-a82c-4f82-9957-c67a55c4c3fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:07:53.158988+00:00" -->
+#### You
+I don't think we should talk about a platform tenant - there is a 1stcontact tenant - that owns the 1c site
 
 <!-- xgd-chat-end -->
