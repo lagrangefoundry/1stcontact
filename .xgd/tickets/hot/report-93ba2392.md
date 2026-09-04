@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T03:55:08.966540+00:00'
+updated_at: '2026-09-04T04:13:18.523962+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -295,7 +295,7 @@ fields:
       plumbing') and because the degraded-description contract — visible, honestly
       described, selectable by predicate for a later pass — is a user-visible promise
       independent of how the bytes arrived.
-    story_uid: null
+    story_uid: story-724e4e8c
   - index: 9
     component: Builder Library Tab — the client's material, seen
     item_type: feature
