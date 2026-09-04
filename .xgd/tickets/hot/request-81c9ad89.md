@@ -15,6 +15,7 @@ fields:
   chat_ticket: chat-ded18c49
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-0faf11b8
 ---
 
 # Library under one-site-per-business: badge the exception, not the rule
