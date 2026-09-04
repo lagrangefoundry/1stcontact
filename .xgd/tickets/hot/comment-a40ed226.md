@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T20:50:37.448328+00:00'
+updated_at: '2026-09-04T20:52:41.916346+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -119,5 +119,61 @@ Because this is the 1c site admin console, in addition to the controls available
 The key point is not about language it is about the idea that I see what Alice sees with some additions.
 
 And I agree this isn't a portal it is the User tab of the 1c application
+
+<!-- xgd-turn id="0e60c63f-532b-4af8-9153-0a224b0e8c10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T20:52:41.794659+00:00" -->
+#### Claude
+Let me check two load-bearing claims in the model against the schema and DOC-40 before I agree with it.
+
+Your model is right, and it checks out against the schema rather than just against the prose. Three confirmations, then the consequences I think you haven't drawn yet.
+
+**Bob's invisibility to you is structural, not a filter.** `users.tenant_id` (`identity.ts:71`); Bob is a row in Alice's Plumbing's tenant, Alice is a row in the platform tenant — `provisionInvite` writes her there explicitly (`identity.ts:398`). Your User tab reads off the scoped handle for the current business, so it *cannot* return Bob; there's no rule to enforce and none to forget. DOC-40 §2.1 rule 2 backs it from the other side: the recursion is exactly two deep, Bob never becomes a tenant.
+
+**"I see what Alice sees plus additions" is §2.1 rule 1**, and it's a better framing than the one I gave you last turn. I reached for an extension seam; you don't need one. It's one tab, one tenancy, and some controls that render for `platform_admin`. A seam is a parameter at most.
+
+**The level is relative, not absolute** — and this is the sharpening worth keeping. "I only see level-one users" and "I see the people of my business" are the same sentence; you see level 1 because you're level 0, Alice sees level 2 because she's level 1. That gives a falsifiable test for the model: **if any code ever needs to know a person's level, the model has been broken.** No `level` column, no `is_platform_user` predicate. Today only `tenant_id` is consulted, so we're clean.
+
+## The consequence you haven't drawn: the CRM tab and the User tab are one population
+
+DOC-40's *Contacts are users*: a contact is a `users` row in that tenant **with no authentication fields set** — explicitly *not a second table*, with `(tenant_id, email)` unique as the one place identity is decided. And §2.1's table runs: capture a visitor as a contact → see them in the CRM → invite them into a portal.
+
+So across your example, uniformly:
+
+- a CRM row and a User row are the same row, differing by whether auth fields are set
+- **the invite is the verb that moves someone from one to the other**
+- your CRM is prospects who landed on 1stcontact.io; your Users are the ones you invited, who became accounts. Alice's CRM is people her contact form captured; her Users are the ones she gave portal logins.
+
+That bears directly on REQ-170: **the User tab must not create its own population.** If it reads "users who have accounts" as a distinct kind while the CRM reads "contacts", they'll disagree the first time someone is both — which is the exact failure DOC-40 says the single unique index exists to prevent. The tab is a facet over one list. One tab with a filter, or two tabs over one query, is open; two lists is ruled out.
+
+## What actually characterises "the additions"
+
+They're not admin-only because they're powerful. **They're admin-only because they write outside the tenant the tab is scoped to.** Provisioning a business writes a `tenants` row; a grant writes an `entitlements` row keyed to *Alice's* business, not yours. Everything else in the tab — for you and Alice alike — reads and writes inside one tenant.
+
+That gives a test for any future control: does it stay inside the current business? Then it's in the shared half. Does it leave? Then it's an addition, and it's reached *through* the person's row rather than being an operation on it.
+
+## Two flags
+
+**"Billing and payments UI" as a tab** collides with something REQ-180 already landed as an asserted prohibition: *no plan, billing or invoice view exists as a builder route*. It isn't a real conflict — your example contains two different billing surfaces, and they're uniform across levels:
+
+- Alice's billing *with 1c* → her User portal (REQ-183), reached from the avatar. This is what the prohibition covers.
+- Alice billing *Bob* → a business tool, legitimately a tab. Yours is the same tab pointed at Alice.
+
+The risk is that someone builds "Billing" as a tab and it quietly grows Alice's own plan view, tripping REQ-180's guard. Worth writing down which one the tab is.
+
+**"provision new business for customers (or remove them)."** Provision exists — `POST /api/admin/businesses`, gated at `router.ts:964`, no UI yet; REQ-170 is the console that calls it. **Remove does not, and is far bigger than the parenthesis suggests**: DOC-37 is an entire document on it, REQ-183 §4.1 explicitly ships a delete *button* without a delete *mechanism*, and its open question 3 is precisely "does delete mean the account or its businesses." I'd keep removal out of REQ-170 rather than let it in on a parenthetical.
+
+## The one real gap the model exposes
+
+You describe the tab as managing *users' site access*, uniformly. But the two levels don't yet have the same mechanism:
+
+- Alice's access to 1c is `memberships` + `entitlements`.
+- Bob's access to Alice's portal is neither. He holds no membership — he's not an operator — and `entitlements.account_id` holds a *tenant* id, which Bob doesn't have.
+
+So the shared half of the tab is only half-shared today: your case works, Alice's has nothing behind it. That doesn't block REQ-170 — but it's exactly how the tab would end up platform-only by accident, which is the thing the model exists to prevent. It should be named as a known gap with a ticket, not discovered when Alice's tab is built.
+
+---
+
+Want me to write this into REQ-170 — the uniform statement of the tab, the no-`level`-column test, the CRM/User one-population constraint, the "additions are the writes that leave the tenant" rule, and the level-2 access gap as a noted dependency?
 
 <!-- xgd-chat-end -->
