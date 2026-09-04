@@ -261,6 +261,11 @@ suite('REQ-163 — the fetch guard', () => {
       'fd00::1',
       'fe80::1',
       '::ffff:127.0.0.1',
+      // The NORMALISED spellings of the two above it. These are what the URL
+      // parser emits; the dotted form is a spelling a caller can write but the
+      // production path can never hand to the predicate.
+      '::ffff:7f00:1',
+      '::ffff:a9fe:a9fe',
       'db.internal',
       'printer.local',
     ]) {
@@ -268,6 +273,19 @@ suite('REQ-163 — the fetch guard', () => {
     }
     for (const host of ['example.com', '93.184.216.34', '8.8.8.8', '2606:2800::1']) {
       expect(isPrivateHost(host), host).toBe(false)
+    }
+
+    // THROUGH `assertFetchable`, not `isPrivateHost` — the level at which the
+    // predicate-only assertions above are blind. `new URL` rewrites an
+    // IPv4-mapped host into compressed hex, so a check that only ever sees the
+    // dotted literal exercises a string no caller can produce and proves nothing
+    // about the guard as wired into `POST /api/material/fetch`.
+    for (const raw of [
+      'https://[::ffff:127.0.0.1]/',
+      'https://[::ffff:169.254.169.254]/',
+      'https://[0:0:0:0:0:ffff:a9fe:a9fe]/',
+    ]) {
+      expect(() => assertFetchable(raw), raw).toThrow(FetchRefusedError)
     }
   })
 

@@ -47,7 +47,7 @@ import {
   type Description,
   type MaterialKind,
 } from './describe'
-import { guardedFetch, tooBig } from './fetch-guard'
+import { FetchRefusedError, guardedFetch, tooBig } from './fetch-guard'
 import type { Ticket, TicketStore } from './tickets'
 
 /**
@@ -237,8 +237,17 @@ export interface Ingested {
 /** Raised for a file we will not store. Carries a message a client can act on. */
 export class MaterialRejectedError extends Error {
   readonly name = 'MaterialRejectedError'
-  constructor(message: string) {
+  /**
+   * Was this refused for SIZE? The router answers 413 rather than 400 when it
+   * was, and the flag is how it knows. Carried on the error deliberately: the
+   * router used to re-derive this by substring-matching the prose {@link tooBig}
+   * writes, so rewording a client-facing sentence — the exact edit that message
+   * invites — silently downgraded every over-size rejection to 400.
+   */
+  readonly tooLarge: boolean
+  constructor(message: string, opts: { tooLarge?: boolean } = {}) {
     super(message)
+    this.tooLarge = opts.tooLarge === true
   }
 }
 
@@ -265,7 +274,9 @@ export async function ingestUpload(
   deps: IngestDeps = {},
 ): Promise<Ingested> {
   if (file.bytes.length > MAX_MATERIAL_BYTES) {
-    throw new MaterialRejectedError(tooBig(file.bytes.length, MAX_MATERIAL_BYTES))
+    throw new MaterialRejectedError(tooBig(file.bytes.length, MAX_MATERIAL_BYTES), {
+      tooLarge: true,
+    })
   }
   if (file.bytes.length === 0) {
     throw new MaterialRejectedError('That file is empty, so there is nothing to store.')
@@ -302,7 +313,15 @@ export async function ingestFetch(
 ): Promise<Ingested> {
   const fetched = await guardedFetch(url, MAX_MATERIAL_BYTES, { fetch: deps.fetch })
   if (fetched.bytes.length === 0) {
-    throw new MaterialRejectedError('That address returned an empty document, so there is nothing to store.')
+    // A FETCH REFUSAL, not a material one, because it is a fact about an ADDRESS
+    // and the client needs to be told which. `FetchRefusedError` carries the url
+    // through to the response; `MaterialRejectedError` has nowhere to put it, so
+    // the same refusal one hop earlier (a 404 from `guardedFetch`) named the
+    // address and this one did not.
+    throw new FetchRefusedError(
+      'That address returned an empty document, so there is nothing to store.',
+      url,
+    )
   }
   return ingest(
     store,
@@ -630,7 +649,23 @@ export class NotMaterialError extends Error {
 }
 
 async function materialTicket(store: TicketStore, uid: string): Promise<Ticket> {
-  const { ticket } = await store.get({ uid })
+  let ticket: Ticket
+  try {
+    ;({ ticket } = await store.get({ uid }))
+  } catch (err) {
+    // A UID NAMING NOTHING IS ANSWERED EXACTLY AS A UID NAMING ANOTHER KIND
+    // ([[REQ-161]]). Both raise the same {@link NotMaterialError} and therefore
+    // the same 404 with the same body, because answering them differently — a
+    // 500 here and a 404 below — is what turns these read routes into an oracle
+    // for which identifiers the account holds.
+    //
+    // `not_found` ONLY. A store that is down, or an argument the component
+    // rejects, is a server failure and has to keep saying so; collapsing every
+    // lookup error into "no such material" would report an outage as an empty
+    // Library.
+    if ((err as { code?: string } | null)?.code === 'not_found') throw new NotMaterialError(uid)
+    throw err
+  }
   // CHECKED RATHER THAN ASSUMED. Every route below takes a uid off the wire, and
   // without this a caller could read a `chat` body or rewrite an awareness map
   // through a surface that is supposed to reach material and nothing else. The

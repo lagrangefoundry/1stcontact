@@ -123,7 +123,20 @@ export function isPrivateHost(hostname: string): boolean {
     // fc00::/7 unique-local, fe80::/10 link-local, and the IPv4-mapped forms,
     // which would otherwise smuggle 127.0.0.1 past the check above.
     if (/^f[cd]/.test(host) || /^fe[89ab]/.test(host)) return true
-    if (host.startsWith('::ffff:')) return isPrivateHost(host.slice('::ffff:'.length))
+    // `::ffff:127.0.0.1` and `::ffff:7f00:1` are the same address. The WHATWG URL
+    // parser, which is the only thing `assertFetchable` ever hands us, serialises
+    // an IPv6 host in compressed hex and NEVER in the dotted-quad form — so
+    // decoding the hex pair back to a quad is what actually guards the mapped
+    // range. A dotted-form check alone reads well and never fires.
+    if (host.startsWith('::ffff:')) {
+      const mapped = host.slice('::ffff:'.length)
+      const hex = mapped.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+      if (hex) {
+        const [hi, lo] = [parseInt(hex[1], 16), parseInt(hex[2], 16)]
+        return isPrivateHost(`${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`)
+      }
+      return isPrivateHost(mapped)
+    }
     return false
   }
   return false
@@ -175,7 +188,17 @@ export async function guardedFetch(
       }
       // Resolved against the hop it came from, because a `Location` may be
       // relative — and then re-validated from scratch, which is the point.
-      url = assertFetchable(new URL(location, url).toString())
+      try {
+        url = assertFetchable(new URL(location, url).toString())
+      } catch (err) {
+        // The refusal NAMES THE ADDRESS THE CALLER ASKED FOR, as every other
+        // refusal in this loop does. `assertFetchable` can only name what it was
+        // given, which here is a hop the client never typed and cannot act on.
+        // The message still names the refused host, so nothing diagnosable is
+        // lost — only the `url` field is restored to the one they recognise.
+        if (err instanceof FetchRefusedError) throw new FetchRefusedError(err.message, raw)
+        throw err
+      }
       continue
     }
     if (!response.ok) {

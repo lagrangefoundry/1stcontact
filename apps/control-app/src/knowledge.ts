@@ -334,7 +334,13 @@ export class ProjectKnowledge {
    */
   async search(query: string, { topK = 5 }: { topK?: number } = {}): Promise<KnowledgeHit[]> {
     return (await kmSearch(query, {
-      source: this.index,
+      // `indexes`, KEYED BY THE SOURCE THE KB DECLARES. The component resolves a
+      // KB's corpus through its declared source name and `project` declares none,
+      // so the name defaults to the KB's own — which is why the key is
+      // `PROJECT_KB` rather than a second constant that could drift from it. The
+      // older single-`source` spelling silently supplied no index at all, so
+      // every search raised `KnowledgeConfigError` instead of answering.
+      indexes: { [PROJECT_KB]: this.index },
       store: this.store,
       kbs: this.kbs,
       kb: PROJECT_KB,

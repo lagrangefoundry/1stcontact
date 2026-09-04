@@ -1058,8 +1058,13 @@ async function routeUncached(
     // request is perfectly well formed: it is forbidden. That distinction is the
     // whole of [[DOC-38]] §5 — the most damaging single action available in the
     // system is refused as a matter of RIGHTS, not of syntax.
+    //
+    // 413-vs-400 is read off `tooLarge`, which the thrower sets, and NOT off the
+    // wording of the message. The message is client-facing prose written to be
+    // reworded; sniffing a substring of it made every over-size rejection one
+    // copy edit away from silently becoming a 400.
     if (err instanceof MaterialRejectedError) {
-      return json(err.message.includes('the limit is') ? 413 : 400, { error: scrub(err.message) })
+      return json(err.tooLarge ? 413 : 400, { error: scrub(err.message) })
     }
     if (err instanceof FetchRefusedError) {
       return json(400, { error: scrub(err.message), url: err.url })
