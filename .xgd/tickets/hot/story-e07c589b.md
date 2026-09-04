@@ -6,14 +6,14 @@ title: 'Material Types: The Vocabulary Of What A Site Is Made From, With Rights 
   Provenance Stated Rather Than Inferred'
 created_by: xgd
 created_at: '2026-09-02T00:29:48.930229+00:00'
-updated_at: '2026-09-02T00:42:22.867844+00:00'
+updated_at: '2026-09-04T05:07:35.215106+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: request-13a5e206
   capability_uid: capability-dfb0a4ff
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -23,11 +23,12 @@ fields:
 belongs to somebody else,
 **I want** every piece of that material recorded as one of a small, named set of kinds, each
 carrying an explicit statement of who owns it, where it came from, whether it may be published
-again and whether it may leave the platform — with a record that states none of those refused
-outright,
+again, whether it may leave the platform, what I said it was for, and what the platform has managed
+to make of it — with a record that states none of the required ones refused outright,
 **so that** the assistant building my site can tell at a glance what it is allowed to do with each
-piece, a competitor's brochure is never mistaken for my own brand guide, and nothing is quietly
-assumed on my behalf about material whose rights nobody ever wrote down.
+piece, a competitor's brochure is never mistaken for my own brand guide, nothing is quietly assumed
+on my behalf about material whose rights nobody ever wrote down, and material the platform could not
+read is something I can be shown rather than something that quietly disappears.
 
 ## Description
 
@@ -61,6 +62,30 @@ means anything. They are true-or-false answers, so the text a web form would sub
 **Material that came from somewhere must say where.** Something captured or fetched has an address
 it came from; something a client uploaded does not, and is not asked for one.
 
+**The same block also carries what the client said the file is for.** Provenance answers where the
+bytes came from and the file sort is read off the bytes themselves, so between them the platform
+knows everything about a file except the one thing that decides what may be done with it: whether it
+is for the site or for the assistant to read. Identical bytes under opposite intentions have
+opposite rights, so the answer is a field of its own rather than a reading of the republish flag —
+a capture of the client's own previous site is republishable and yet plainly reference material.
+Unlike the two permission flags it is *not* required, because the paths that ingest material without
+a client present were never in a position to ask; but where it is given, an answer outside the two
+permitted ones is refused rather than coerced or dropped, since both silent outcomes are wrong in a
+way nobody would notice.
+
+**And the block carries what the platform managed to make of the file.** A material's body is the
+readable shadow of what its file says, and it is not always a real one — some files carry no
+extractable text, some are of a sort nothing here can read, some are too large to look at, and an
+attempt can be made and fail. Rather than leaving an empty body to mean all of those at once, the
+record states how the description went, as one of a closed set of answers; what produced it, as free
+text, because a describer names itself and a closed set would make every new describer a change to
+the vocabulary; and the name the file arrived under, so a listing shows a name per entry without a
+second lookup and so there is a handle a client recognises for material the platform could not read.
+All three are optional, because a reference created by a capture has none of them at the moment its
+bundle lands. Declaring them rather than letting them be a convention is the point: it makes
+revisiting undescribed material a query over the account's records rather than a sweep through
+every one of them.
+
 **A brief names its site and says something.** A site is not an account and an account may own
 several, so the site is named on the record. The body is the document itself and must be present —
 an empty brief is not a brief, and unlike a material there is no later extraction that fills it in.
@@ -73,14 +98,17 @@ restated here, so they cannot drift from the code that depends on them; the atta
 taken the same way, under the name that component gives it.
 
 In scope: the set of kinds a client's material may be recorded as; the rights and provenance record
-carried by material and references and the refusals that enforce it; what a brief must state; and
-that conversations and attachments share the same vocabulary so one store serves both.
+carried by material and references and the refusals that enforce it; what the client said a file is
+for and the refusal that keeps that answer honest; how a description went, what produced it and the
+name a file arrived under; what a brief must state; and that conversations and attachments share the
+same vocabulary so one store serves both.
 
 Out of scope: creating any of these records — ingestion is not defined here and this story defines
-only what a valid record looks like; any surface that lists, searches or displays them (the
-Library); the knowledge base and corpus predicate built over these kinds; the assistant's
-conversation behaviour, which is owned elsewhere and is unchanged by this story; and moving existing
-conversations into this store.
+only what a valid record looks like; how a description is produced or how a role is *asked for*,
+both of which belong to the ingestion and browser surfaces; any surface that lists, searches or
+displays them (the Library); the knowledge base and corpus predicate built over these kinds; the
+assistant's conversation behaviour, which is owned elsewhere and is unchanged by this story; and
+moving existing conversations into this store.
 
 ## Technical Context
 
@@ -103,10 +131,18 @@ conversations into this store.
   specification names six fields and no lifecycle, and a status vocabulary invented here would be a
   lifecycle nothing implements and every later story would have to honour. The component already
   ships the one lifecycle these need, and it is not a status. Stated as part of AC-1491.
+- **The four optional fields are the vocabulary only, never the mechanism.** What the client said a
+  file is for is *asked* by the browser upload surface and *narrows* the rights that provenance
+  infers; how a description went is *decided* by the description pipeline; the name a file arrived
+  under is *read* by the material listing. None of those behaviours is claimed here. This story
+  claims only that the vocabulary declares the four answers, carries them identically on both kinds
+  that hold the rights statement, refuses a value outside a closed set, and accepts their absence.
 - **No contradiction between intent and code in this item.** The intent's two open questions —
   whether a reference stays its own kind, and whether a brief is a kind or a well-known record of
   another kind — are settled in the intent body itself, both in favour of a kind of its own, and the
-  landed code matches. Nothing here needs a code fix.
+  landed code matches. The four field additions are likewise stated in the intent (REQ-163's fifth
+  recorded departure, and REQ-161's "the role is a new field"), including that all of them are
+  optional and that a malformed role is refused rather than coerced. Nothing here needs a code fix.
 
 ## Reconciliation Decisions
 
@@ -133,11 +169,39 @@ conversations into this store.
   is left for a summary. Formalized as AC-1499, because "merged into the pack" is a statement about a
   file and the reason the merge was wanted is that sessions can be stored; without the consequence
   asserted, the claim is unobservable.
+- **An absent role is an ordinary record and not a refusal** (decided at reconciliation, 2026-09-03):
+  REQ-161 states that the role narrows the inferred rights and that a malformed one is refused, and
+  says the field is not required, but does not say what a record carrying no role *is*. The landed
+  vocabulary accepts it, and REQ-161's own reason — the programmatic entry points that predate the
+  question must behave exactly as they did — only holds if such a record is valid. Formalized as the
+  first property of the new role criterion, because a reading in which absence were a refusal would
+  make every pre-existing ingestion path invalid, which is the opposite of what the intent asks for.
+- **A value that differs from a permitted role only in capitalisation is a non-member** (decided at
+  reconciliation, 2026-09-03): REQ-161 requires the refusal of a malformed role but does not enumerate
+  what malformed covers. The landed vocabulary matches members exactly, so a differently-cased value
+  is refused like any other non-member. Formalized because case-insensitive acceptance is the most
+  likely accidental widening, and it would widen precisely into the answer that publishes things.
+- **The three description fields are optional together, and each may stand alone** (decided at
+  reconciliation, 2026-09-03): REQ-163 states all three are optional and gives the reason — a capture
+  has no description when its bundle lands — but does not say whether they travel as a set. The landed
+  vocabulary declares them independently, so a record may state an outcome with no describer named, or
+  a name with neither. Formalized as part of the new description criterion, because the alternative
+  reading would make the trio a compound field, which is not what the store validates.
+- **An empty body does not encode the pre-description state; the fields do** (decided at
+  reconciliation, 2026-09-03): the intent is silent on how "nothing has described this yet" is told
+  apart from "something looked and found nothing to say", and before these fields existed an empty body
+  had to mean both. The landed vocabulary distinguishes them — no stated outcome versus a stated one —
+  so AC-1497 is extended to say that rather than leaving the empty body carrying the whole claim. This
+  is a sharpening of an existing criterion, not a new one: the state it describes is the same state.
 
 ## Dependencies
 
 - Plan item 1 — STORY-126 (Product Ticket Store), for the account-scoped store these records are
   created through and validated by.
+- Plan items 8 and 10 of the BUNDLE-23 reconciliation — the description pipeline and the browser
+  upload surface, which are the producers of the four answers this vocabulary declares. Neither
+  behaviour is claimed here; both are ordered ahead of this item so the vocabulary is stated once
+  its two writers are documented.
 
 ## Story Points
 
