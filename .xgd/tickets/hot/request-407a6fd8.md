@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-04T23:41:42.130314+00:00'
+updated_at: '2026-09-04T23:42:50.049848+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -171,3 +171,81 @@ Regression scope: `tests/test_UAT_FC_REQ-167_identity.workers.test.ts` (19 tests
 `68db393777` is not part of the design above. Merging `free-REQ-178` into `xgd-working` conflicted only on `package.json`'s version scalar, and another session's `git commit` landed inside that conflicted merge — committing it (as `6cddcbb1c4`, labelled for a different ticket) with the conflict markers still in the file, which made `package.json` unparseable on `xgd-working`.
 
 The repair resolves it to `0.2.51`, above both sides rather than either: the two version bumps were independent, so neither is a superset of the other. It is recorded on this ticket because this ticket's merge is what surfaced it and there is no other commit for it to belong to; it changes no behaviour and needs no UAT.
+
+---
+
+## Reopened 2026-09-04: admission is membership, not entitlement ([[DOC-42]])
+
+Moved back to `draft` from `ready_to_reconcile` to take this amendment before the
+work reconciles. **The commits above stand** — what is written here is a delta on
+top of them, not a repudiation of them. [[DOC-42]] is the model this comes from.
+
+### The amendment extends this ticket's own argument by one step
+
+*Denial becomes per business* already says it:
+
+> an account whose second business has lapsed must still reach the first
+>
+> a business that simply vanishes from the switcher is indistinguishable from one
+> that was deleted, which is the wrong thing to tell someone whose card expired
+
+[[DOC-42]] §4 and §5 carry that one step further. **Membership means the person
+may log in; entitlement means their account has been granted access to some
+thing.** They are orthogonal, and this ticket's code already splits them —
+`businessesFor` joins `memberships`, `selectable` is `entitlement !== null`. What
+remains joined is the refusal at the door.
+
+So the acceptance criterion *"an account with every business lapsed is refused
+with `no_entitlement`"* is the one line that has to change, along with the UAT
+driving it.
+
+### What replaces it
+
+- **`no_membership` stays a refusal.** No membership anywhere is no relationship
+  with anything, and there is nothing to admit someone to.
+- **`no_entitlement` stops being a refusal** and becomes a state inside an
+  admitted session: the person is logged in, no business is selectable, and the
+  reason is [[REQ-180]] D4's lapse.
+
+`ok` staying a property of the person, which this ticket already establishes, is
+what makes the change small: the set simply comes back with nothing selectable in
+it, and callers that consult `selectable` already handle that shape.
+
+### Why it is not a preference
+
+A lapsed account refused at the door cannot reach the surface where they would
+see what they were charged, cannot reach the page where they would **pay** —
+which is the only act that would restore the grant — and cannot reach their
+delete button, which [[DOC-37]] makes an obligation rather than a feature. The
+refusal removes the remedy along with the access.
+
+[[DOC-40]] §5 anticipates the product half of this — *"for the alpha an expired
+grant denies with a message; read-only access to one's own site is the better
+product answer"* — and treats it as deferred. [[DOC-42]] §5 supplies the reason it
+cannot wait: the Portal is what membership **is**, not something granted, so
+membership alone has to admit.
+
+### Consequences for what was implemented
+
+- The `every business lapsed → no_entitlement` UAT inverts: two lapsed
+  businesses now **admit**, with both present and neither selectable.
+- `DenialReason` keeps `no_entitlement` as a value — an operator debugging
+  "it says no" still needs the distinction, and [[DOC-40]] §5's rule that the
+  distinction reaches the log and never the wire is unchanged. What changes is
+  that it no longer produces `ok: false`.
+- The person-level refusals keep their order and precedence exactly as written:
+  `no_email`, `no_user`, `user_inactive`, all decided before any business is
+  looked at.
+- **What a session with nothing selectable may reach** is not settled here.
+  This ticket owns admission; the surface that such a session lands on is
+  [[REQ-183]]'s, and [[REQ-170]] is what creates lapsed members in the first
+  place.
+
+### Vocabulary
+
+*The gap* says `provisionInvite` writes the builder user into the "platform
+tenant". [[DOC-42]] §2: there is no platform tenant, there is the **1st Contact
+business**, which owns the 1c site and whose users are its customers. The
+behaviour described is correct; the phrase names a kind of tenant that does not
+exist. `TENANT_ID` is untouched and stays — it is deployment configuration
+([[REQ-180]] D5), not a model concept.
