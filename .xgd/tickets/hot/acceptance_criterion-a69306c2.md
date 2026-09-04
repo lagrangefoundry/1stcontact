@@ -6,10 +6,10 @@ title: That turn reports what went wrong — a failed upload, an unplaced file, 
   nothing can search yet — rather than reading as added
 created_by: xgd
 created_at: '2026-09-04T04:52:13.637644+00:00'
-updated_at: '2026-09-04T04:52:13.637644+00:00'
+updated_at: '2026-09-04T05:01:58.574195+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
