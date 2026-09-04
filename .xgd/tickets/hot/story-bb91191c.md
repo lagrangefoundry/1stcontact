@@ -6,10 +6,10 @@ title: 'The client''s own knowledge: a private, tenant-scoped corpus the assista
   can search'
 created_by: xgd
 created_at: '2026-09-04T03:18:34.083583+00:00'
-updated_at: '2026-09-04T03:18:34.083583+00:00'
+updated_at: '2026-09-04T03:32:03.516015+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-7cf24564
