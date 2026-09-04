@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T04:13:18.523962+00:00'
+updated_at: '2026-09-04T04:29:07.668817+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -325,7 +325,7 @@ fields:
       not a library over the tenant's material. Nothing in the matrix says the client
       can see what they have given us or correct what the system thinks it is. The
       correction reaching retrieval, not merely the screen, is the load-bearing half.
-    story_uid: null
+    story_uid: story-f775289b
   - index: 10
     component: Upload Overlay & Promotion — putting a byte in from the browser
     item_type: feature
