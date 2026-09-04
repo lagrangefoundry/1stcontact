@@ -6,9 +6,9 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-08-31T18:03:18.408552+00:00'
+updated_at: '2026-09-04T06:05:02.471568+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -57,6 +57,21 @@ The same identity is accepted however it arrives: on the header the gateway
 attaches, in the cookie a browser holds, and as an automation service identity
 that carries a machine name instead of a person's address.
 
+**The gate's verdict is who the caller is, not whether they may be here.** A
+caller the gate verifies is reported *as that identity* — a person's email
+address, or the machine name of an automation service identity, with no email
+address at all for the latter — rather than as a bare yes-or-no. The verdict
+carries the identity because something behind the gate needs it: the identity
+gateway's policy proves an email address and nothing more, so verifying a token
+is the start of the admission decision and not the end of it, and recovering the
+caller's address by verifying the same token a second time would cost a second
+signature check and a second consultation of the gateway's published keys per
+request for a value the gate already holds. What the second check *does* with
+that identity — which account it binds to, whether the grant covering it is
+still live, and how it refuses without saying which check failed — belongs to
+the identity and entitlement story, not here. This story's claim is exactly what
+it always was about: a caller the gate verifies is not stopped **by the gate**.
+
 **And a granted automation identity can actually present itself.** A gate that
 admits a service identity nobody can produce a credential for is shut to
 everyone, which is the state this surface was in: the copy-a-site-up command
@@ -87,21 +102,24 @@ verify them are recorded in the repository, because a policy that lives only in
 a dashboard is one nobody can review — and the granted automation identity is a
 row in that same record, with its reason, and without its secret.
 
-**In scope**: the refusal and admission behaviour of the gate; what a granted
-automation caller presents to it and how it is told when it is refused; the
-provisioning of that automation identity; the deployment configuration that
-leaves one door; the repository record of who is granted and why.
+**In scope**: the refusal and admission behaviour of the gate; the identity the
+gate reports when it verifies one; what a granted automation caller presents to
+it and how it is told when it is refused; the provisioning of that automation
+identity; the deployment configuration that leaves one door; the repository
+record of who is granted and why.
 
-**Out of scope**: what lies *behind* the gate. This story requires only that an
-admitted identity reaches the surface and receives whatever it currently
-answers — not that the builder works. Asserting an edit or a model turn here
-would make the gate depend on the builder while the builder depends on the gate.
-The automation criteria hold to the same line: they assert what is presented and
-what a refusal says, never what the import behind the gate then does with the
-site — that belongs to the store's copy path. Also out of scope: customer
-sign-in to a tenant's own builder (a different product surface, belonging with
-the tenancy model), and the public site's link-private draft addressing, which
-this story does not revisit.
+**Out of scope**: what lies *behind* the gate. This story requires only that a
+caller the gate verifies is not stopped by the gate — not that the builder
+works, and no longer that such a caller is served. Asserting an edit or a model
+turn here would make the gate depend on the builder while the builder depends on
+the gate; asserting a served response would now be asserting the *entitlement*
+check that sits behind the gate, which is the identity story's. The automation
+criteria hold to the same line: they assert what is presented and what a refusal
+says, never what the import behind the gate then does with the site — that
+belongs to the store's copy path. Also out of scope: customer sign-in to a
+tenant's own builder (a different product surface, belonging with the tenancy
+model), and the public site's link-private draft addressing, which this story
+does not revisit.
 
 ## Technical Context
 
@@ -117,6 +135,13 @@ acceptance criteria previously pinned the pre-gate behaviour that *any* caller
 reaches the origin; the property each is about is unchanged for an **admitted**
 caller, and their qualification by this gate is carried by the Builder Workspace
 Origin item, not here.
+
+The *entitlement* check behind the gate — the user record, the account, the
+membership and the grant that decide whether a verified identity is served, and
+the single refusal that never says which of them failed — is STORY-136 (The
+invitation provisions the account, and every login binds a verified email to a
+grant that is still live). This story hands that check the identity and asserts
+nothing about its verdict.
 
 **REQ-147 AC2 is not assertable in this repository, and no criterion below
 tries.** "An identity not on the
@@ -144,6 +169,32 @@ into. The one thing that needed a live gate — that the pair is in fact admitte
 real push against the real Access gate landed a site into production storage).
 
 ## Reconciliation Decisions
+
+- **A verified identity is the gate's verdict, not admission to the surface**
+  (decided at reconciliation, 2026-09-03, following REQ-167): REQ-167 states the
+  request path plainly — the gate produces a verified email, and a second check
+  looks up the user, the membership and a grant that is still live before
+  anything is served. Three criteria here were written when passing the gate and
+  being served were the same event, and asserted the second as evidence of the
+  first: AC-1375 ("receives the response of the surface behind the gate"),
+  AC-1376 (a service identity "is admitted") and AC-1380 (a rotated key's
+  identity "is admitted"). All three are now false as stated — a service token
+  in particular carries no email, so it passes the gate and is refused behind it
+  — while the claim each was making is untouched. Each is restated as *the gate
+  did not stop this caller*: not an authorisation failure, not the gate's
+  refusal body. The end-to-end admitted path (real grant, chrome served) is
+  STORY-136's, where there is a database to be entitled in.
+
+- **The gate reports the identity it verified, and reports a missing email as
+  missing** (decided at reconciliation, 2026-09-03): REQ-167 says the second
+  check runs "after `access.ts` has produced a verified email" and that the gate
+  should not be asked to verify twice, but states no criterion for the shape of
+  what it hands on. The landed code reports the identity always and the email
+  separately, null for an automation identity, because the identity and the
+  email are not the same claim and the one admission turns on is the one that
+  can be absent. Formalized as a new criterion on this story rather than on
+  STORY-136: it is a property of the gate's own output, which is this story's
+  surface, and it is what makes a single verification per request possible.
 
 - **Signing-key rotation is survived without a restart** (decided at
   reconciliation, 2026-08-31): REQ-147 is silent on key rotation — it names
@@ -252,6 +303,8 @@ provable against the Worker as it stands, and the surface behind it depends on
 the gate rather than the other way round. The automation-credential criteria are
 likewise independent — they are properties of what a caller sends and of what
 the operator scripts refuse, not of what the builder does once a caller is in.
+The entitlement check the gate now hands its verdict to is STORY-136's, and this
+story asserts nothing about it, so it does not become a dependency either.
 
 ## Story Points
 
