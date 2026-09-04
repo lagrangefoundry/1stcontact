@@ -6,10 +6,10 @@ title: The entitlement's subject is the account, and the column that says so hol
   a business
 created_by: xgd
 created_at: '2026-09-04T23:45:54.614655+00:00'
-updated_at: '2026-09-04T23:55:23.650795+00:00'
+updated_at: '2026-09-04T23:58:19.272584+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   story_points: 2
