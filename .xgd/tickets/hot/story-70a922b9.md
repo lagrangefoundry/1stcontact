@@ -6,9 +6,9 @@ title: 'Ingestion: a file the client gives us, or one we fetch for them, becomes
   kept, understood, immediately findable record'
 created_by: xgd
 created_at: '2026-09-04T03:51:25.275303+00:00'
-updated_at: '2026-09-04T03:51:25.275303+00:00'
+updated_at: '2026-09-04T03:54:41.134833+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-203b1dc2
@@ -104,37 +104,31 @@ criterion because it describes something the system does not do.
   2026-09-03): the intent names only the 25MB ceiling and is silent about the other end of the
   range. The landed code refuses zero bytes with the same kind of message, because a record whose
   description is derived from no content is a record that can never be found by its contents and
-  never repaired by re-describing it. Formalized as part of AC "A file the platform cannot hold is
-  refused in words the client can act on, and nothing is left behind".
+  never repaired by re-describing it. Formalized as part of AC-1542.
 
 - **A retrieved document records the address it finally came from** (decided at reconciliation,
   2026-09-03): the intent requires every redirect hop to be re-validated but is silent on which
   address is recorded as provenance. The landed code records the last hop, not the one the client
   typed, because a provenance record naming an address we were redirected away from is quietly
-  wrong. Formalized in AC "Material retrieved on the client's behalf is recorded against the
-  address the bytes finally came from".
+  wrong. Formalized as AC-1537.
 
 - **An unrecognised file is stored as a document rather than refused** (decided at reconciliation,
   2026-09-03): the intent says the kind comes from the content type, and is silent on a type that
   matches nothing. The landed code files it as a document, which costs an honest "we could not read
-  this" and keeps the file — the trade this pipeline makes everywhere else. Formalized in AC "What
-  kind of thing a file is is decided from the bytes, with the name as a fallback, and nothing is
-  refused for being unrecognisable".
+  this" and keeps the file — the trade this pipeline makes everywhere else. Formalized as AC-1539.
 
 - **The answer to an upload says whether the file is findable** (decided at reconciliation,
   2026-09-03): the intent asks only that the platform *log* when no indexer is wired. The landed
   code also reports it to the caller, because the surface has to be able to show "stored, but
   nothing has read it" without a second request, and a client watching an upload succeed deserves
-  to be told that what they uploaded cannot yet be found. Formalized in AC "A deployment that
-  cannot index still stores the file, says so to the caller, and says so loudly to its operator".
+  to be told that what they uploaded cannot yet be found. Formalized as AC-1541.
 
 - **A refusal of rights is distinguishable from a refusal of the request** (decided at
   reconciliation, 2026-09-03): the intent asks for messages a non-technical client can act on and
   is silent on how a calling surface tells the cases apart. The landed code answers a
   too-large file, a malformed request and a forbidden publication as three distinguishable
   outcomes, because a surface that cannot tell "try a smaller file" from "this may never go on your
-  site" will offer the client the wrong next step. Formalized in the ceiling AC and in AC
-  "Material that may not be republished can never reach a site's asset library".
+  site" will offer the client the wrong next step. Formalized as part of AC-1542 and AC-1547.
 
 ## Dependencies
 
