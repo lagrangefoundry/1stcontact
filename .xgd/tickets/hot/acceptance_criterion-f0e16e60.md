@@ -6,10 +6,10 @@ title: Material nothing has read yet is still listed, and says in plain words th
   it cannot be found by its contents
 created_by: xgd
 created_at: '2026-09-04T04:27:38.101632+00:00'
-updated_at: '2026-09-04T04:27:38.101632+00:00'
+updated_at: '2026-09-04T04:45:37.870120+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
