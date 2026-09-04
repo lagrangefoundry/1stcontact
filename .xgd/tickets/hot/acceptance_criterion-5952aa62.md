@@ -6,10 +6,10 @@ title: The client's search index is stored privately, per account, and where not
   can serve it
 created_by: xgd
 created_at: '2026-09-04T03:19:44.569728+00:00'
-updated_at: '2026-09-04T03:19:44.569728+00:00'
+updated_at: '2026-09-04T03:32:05.266357+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-bb91191c
   kind: behavior
