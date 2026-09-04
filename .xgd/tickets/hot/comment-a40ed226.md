@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T01:56:29.709313+00:00'
+updated_at: '2026-09-04T20:50:37.448328+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -93,5 +93,31 @@ A customer's contact and our account share email, created, name, and almost noth
 I'd keep it as one ticket, incidentally: the seam is a parameter, and splitting would put the surface in one ticket and its only current reason to exist in another.
 
 Say which way you want A and B and I'll write the outcome into REQ-170.
+
+<!-- xgd-turn id="0e60c63f-532b-4af8-9153-0a224b0e8c10-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T20:50:37.317438+00:00" -->
+#### You
+So I'm more worried about ensuring that the model is correct that splitting hairs on vocabulary.
+
+Let me state it again and try to cement concepts and vocabulary with an example.
+
+Alice is a first contact customer and user (Level 1 user/customer)
+She has a site Alice's plumbing
+Bob is a customer of Alice's plumbing (Level 2 user/customer)
+
+Bob can go to Alice's Plumbing and log in to a "User portal" it shows him his billing and payments history with Alice, perhaps other details including the ability to delete his private info.
+
+Now Alice is a user of 1stcontact (which is a first contact website). She can log in to 1st contact and see her "User portal" which shows her billing and payment history with 1c.
+
+Logging in to 1c website also gives her access to the 1c application. This shows her the tabs we have been building - the Site builder, the library, the CRM, the billing any payments UI etc. One of those tabs is what you are building - lets call it the "User" tab, it allows the site owner (admin) to view and manage users site access.
+
+I am the owner and admin for 1c. When I log into 1c I can get access to the 1c app with the tenancy set to the 1c site. So far my view is similar to Alices view - I see Alice as one of my customers - I do not see Bob (I only see level one users).
+
+Because this is the 1c site admin console, in addition to the controls available to Alice (site controls everyone sees) there are additional 1c app controls that only I see - these allow me to provision new business for customers (or remove them).
+
+The key point is not about language it is about the idea that I see what Alice sees with some additions.
+
+And I agree this isn't a portal it is the User tab of the 1c application
 
 <!-- xgd-chat-end -->
