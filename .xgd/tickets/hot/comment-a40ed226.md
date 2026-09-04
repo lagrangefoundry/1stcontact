@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:27:19.939119+00:00'
+updated_at: '2026-09-04T23:27:58.578241+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -501,5 +501,11 @@ Done. Both tickets are updated locally.
 **`story_points: 3` is now probably low.** That estimate predates membership editing being in scope. I left it alone — that's your call, not a consequence of the model.
 
 Still outstanding as the explicit follow-ups I said I wouldn't fold in: DOC-40's four amendments, REQ-183's blocking dependency on §10.1, the REQ-179/180 lapse-reason reachability note, and the four new tickets.
+
+<!-- xgd-turn id="bb557da3-bce9-429c-9693-9b8a52eddd77-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:27:54.004501+00:00" -->
+#### You
+Be careful, some of the tickets that you are proposing to modify are under reconciliation right now. We will need to create follow on tickets to modify what they built instead - before you change anything else can you make a plan please?
 
 <!-- xgd-chat-end -->
