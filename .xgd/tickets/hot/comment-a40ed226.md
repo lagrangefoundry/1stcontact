@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:55:52.328108+00:00'
+updated_at: '2026-09-04T23:57:01.282735+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -788,5 +788,11 @@ REQ-178 and REQ-184 share `identity.ts` but touch disjoint functions with nothin
 **The builder shell is the real serialisation point.** REQ-179 changes the switcher and avatar; REQ-170 adds a tab. That's the only genuine conflict in the whole set. If you want REQ-170 moving sooner, its API half (routes, membership/entitlement endpoints) doesn't touch the shell at all and could run in wave 2 alongside REQ-179 — leaving only its client half for wave 3.
 
 Max useful parallelism is **three branches**. Beyond that you're queueing on `identity.ts` and the shell.
+
+<!-- xgd-turn id="44e420b3-f65d-450f-bf4f-b16426d4aa31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:57:00.579883+00:00" -->
+#### You
+Can you put the dependencies on the tickets please
 
 <!-- xgd-chat-end -->
