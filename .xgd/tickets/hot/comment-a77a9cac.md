@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-03T21:53:39.721715+00:00'
+updated_at: '2026-09-04T00:01:51.467140+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,14 @@ Three strings say "tenant" outside code comments: the boot guard's `TENANT_ID`/`
 I'd draw the line at **product copy** — builder client strings, the account surface, wire-facing messages a customer can see — and exempt deployment/configuration diagnostics, then enforce it with a guard test in the `naming.test.ts` idiom so a fourth one can't appear quietly. Object if you'd rather the guard be absolute (which would mean renaming the var).
 
 Answer 1–4 and I'll cut the branch and implement.
+
+<!-- xgd-turn id="890505f2-c2d6-4c10-905c-23bd54f25d81-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T00:01:51.418064+00:00" -->
+#### You
+1. ok
+   2. The key toi the model is business == tenant - do we have add tenant? they must go together.
+   3. We are pre-billing and pre-proper access control - there should be no self-serve "add a business" button - I (admin) will add businesses - it needs to be possible but it could be completely manual. Ideally what I want is when I create an account I can also provision a business for that account
+   4. users see the web app/site only
 
 <!-- xgd-chat-end -->
