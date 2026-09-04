@@ -6,7 +6,7 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-02T23:16:55.211566+00:00'
+updated_at: '2026-09-04T00:05:31.552592+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -117,3 +117,123 @@ portal reading is confirmed, item 2 is worth its own ticket and this one keeps 1
 and 3; if it is rejected, that rejection needs recording against [[DOC-40]] §2.1
 because it costs the leverage argument that section is built on. Either way the
 decision comes first — it is cheap now and expensive after the surface exists.
+
+
+---
+
+## Decisions — 2026-09-03
+
+The three questions §2 and *Splitting* hold open are answered here. Everything
+above stands as written; this section says which way each went and what that
+makes buildable now.
+
+### D1. The portal reading is CONFIRMED
+
+The account surface is the customer portal of the 1st Contact site, not a
+builder page. [[DOC-40]] §2.1's leverage argument holds, and the named failure
+mode — the bespoke admin billing page — is the thing this decision refuses.
+
+**But confirming the reading is not building the portal, and this ticket does
+not build it.** `apps/public-site` has no identity, no Access gate and no
+session; a portal rendered through the site pipeline against the platform
+business needs all three, plus a surface for plan and invoices when there are no
+invoices to show and one plan to show them under ([[DOC-40]] §5 defers payment).
+That is its own ticket, and *Splitting* is taken: this ticket keeps 1 and 3.
+
+What the decision binds NOW is a prohibition, and it is testable: **no plan,
+billing or invoice view exists as a builder route.** The avatar surface
+([[REQ-179]]) stays what its own doc comment says it is — who is signed in and
+which businesses that identity reaches — and grows no portal capability. It is
+chrome that will link out; it is not the surface.
+
+### D2. There is NO self-serve "add a business"
+
+Reversing the fourth bullet of §2. We are pre-billing and pre-proper access
+control, so a customer-facing control that mints a live `pro` grant is an
+unbounded free-plan mint ([[DOC-40]] §9 item 4). **The operator adds businesses.**
+No button, no customer-reachable route.
+
+The API question §2 raised — `POST /api/businesses` on `provisionBusiness` — is
+answered: not as a self-serve endpoint. What lands instead is the operator's
+path, which may be entirely manual:
+
+- `POST /api/admin/businesses` — refused to anyone whose admission does not
+  carry `platform_admin` ([[DOC-40]] §6), and refused with the same single
+  message every other refusal uses. It names an existing account by email and
+  calls [[REQ-178]]'s `provisionBusiness` and nothing else.
+- Driven by hand by the operator against their own logged-in session. There is
+  no console around it: [[REQ-170]] owns the admin console and this is the
+  contract it will call rather than reimplement.
+- **Creating an account already provisions its first business.**
+  `provisionInvite` calls `provisionBusiness`, so the account-creation path and
+  the add-a-business path write identically-shaped businesses. That property is
+  asserted rather than assumed.
+
+### D3. A BUSINESS AND ITS TENANT ARE ONE OPERATION
+
+The model's load-bearing identity is *business == tenant*, so the two must be
+incapable of coming into existence apart. They already are:
+`provisionBusiness` is the only path that creates a business, and it writes the
+`tenants` row, the `owner` membership, the grant and the starter site together.
+
+The one place a `tenants` row appears without a business is `storeFor`'s
+self-heal, which registers an unknown tenant rather than 503ing a fresh
+deployment. It cannot mint an orphan for a customer: an admission-derived scope
+came out of a query that joins `tenants`, so the row already exists by the time
+`storeFor` sees it, and the self-heal is reachable only for the `TENANT_ID`
+platform business on the dev-open path. **That reachability is the invariant,
+and it is asserted.**
+
+### D4. The lapse reason is what item 1 still owes
+
+[[REQ-179]] landed `GET /api/businesses` — the set, the account, lapsed members
+marked, not an oracle, uncacheable. What §1 asks for and it does not yet carry is
+*why* a lapsed business lapsed.
+
+So an unselectable business reports a **lapse**: `expired` (a grant covered it
+and its end has passed — with the date, which its owner is owed), `revoked` (a
+grant was withdrawn), `not_yet` (a grant is written and has not started), or
+`never_granted` (no grant was ever made). A selectable business reports none —
+the lapse is present exactly when `selectable` is false, so the two cannot
+disagree.
+
+**IT SAYS NOTHING ABOUT ANYBODY ELSE.** The caller holds a live membership on
+every business in the answer, so the reason is a fact about their own business;
+it is owed to them, and the answer for a business they do not hold is unchanged,
+which is that it is not in the list at all.
+
+**IT REACHES THE PERSON.** A reason computed and not rendered is not a reason, so
+the account surface states it in words beside the business it belongs to. The
+switcher keeps the short suffix — an `<option>` is a label and cannot carry a
+sentence.
+
+### D5. Where the vocabulary rule bites
+
+Users see **the web app and the site**, so that is where §3's rule is enforced:
+no string literal in the builder client or in `public-site` says "tenant".
+
+Exempt, and the exemption is a rule rather than a list: **SQL**, and
+**deployment vocabulary** — a string naming `TENANT_ID` or `wrangler.toml` is
+addressed to whoever edits the deployment, and is reachable only when the app has
+failed to start. Renaming a configuration variable to match a word on a screen is
+the migration §3 declines to buy, in the one place the word is the operator's own.
+
+The rule is enforced by a guard rather than by an audit, because the audit passes
+today: every "tenant" in the two apps is a comment or a query. The failure this
+protects against is the next one, written by someone who did not read §3.
+
+## Acceptance — as decided
+
+- An unselectable business carries a lapse saying why, and a selectable one
+  carries none.
+- An expired lapse carries the date access ended.
+- The account surface states each lapsed business's reason in words.
+- Adding a business is refused to a caller without `platform_admin`, and goes
+  through `provisionBusiness` when it is allowed.
+- Creating an account provisions its first business through that same function.
+- A business cannot be created without its tenant; the only path that registers a
+  tenant alone is unreachable for an admission-derived scope.
+- No string literal in the builder client or the public site says "tenant",
+  excepting SQL and strings naming `TENANT_ID` or `wrangler.toml`.
+- No plan, billing or invoice view exists as a builder route.
+- `tenant_id` is untouched in the schema.
