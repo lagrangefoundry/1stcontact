@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T03:37:17.656139+00:00'
+updated_at: '2026-09-04T03:55:08.966540+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -266,7 +266,7 @@ fields:
       put a byte into the system at all. The two routes, the ordering guarantee, the
       provenance-derived rights, the ceiling and the fetch guard are all new observable
       behaviour with no existing criterion to extend.
-    story_uid: null
+    story_uid: story-70a922b9
   - index: 8
     component: Material Description — making a file findable by its contents
     item_type: feature
