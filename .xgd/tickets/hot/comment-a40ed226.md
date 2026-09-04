@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T22:29:23.496545+00:00'
+updated_at: '2026-09-04T22:30:40.937606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -308,5 +308,49 @@ Provision a business <-- create it new role in the db
 entitle user <-- actually this is incorrect this should be entitle account (right now we have one user one account but I want to leave the door open to multi-user accounts in the future.) Give account access to something.
 
 So, modeling question: membership is ability to login, Membership implies access to the User Portal. That could be modeled as a free, automatic entitlement - or it could just be what membership gives you...what do you think?
+
+<!-- xgd-turn id="6e4070dc-d46c-46bc-a3f1-452677be98ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T22:30:40.804729+00:00" -->
+#### Claude
+## On the question: make the portal what membership *is*, not a free entitlement
+
+Recommendation is (b), and the deciding argument is the lockout loop from last turn.
+
+A free automatic entitlement is a row that is always created and never revoked — a constant modelled as data. Constants modelled as data can go missing: a failed insert, a partial provision, a migration that misses a backfill. And the failure mode here is specifically that someone can log in but cannot reach the surface where they'd see their payment history or press their delete button. DOC-37 makes that surface a compliance obligation, so it must not depend on a row that could be absent. Under (b) it can't be: member ⇒ portal, structurally, the same way Bob's invisibility to you is structural rather than a filter.
+
+It also stops a control existing that shouldn't. If portal access is a grant, someone will build "revoke portal access" because the machinery is right there — and that's close to blocking a person's erasure request.
+
+The secondary argument is that (a) makes the entitlement table lie about itself. DOC-40 §5's design is that grants *accumulate* and *expire*, and effective access is "the best active grant covering now." A grant that is always present and never expires is a degenerate row that every such query has to skip over.
+
+The cost of (b) is two gate mechanisms in code instead of one. I think that's honest rather than regrettable — they answer two different questions — and it gives you a sharp test for which one applies:
+
+> **Is it a fact about this person's relationship with this business?** → membership, no grant. Their payments, their details, their delete button.
+> **Is it something the business provides?** → entitlement. The 1c app; Alice's paywalled pages.
+
+That line falls exactly where REQ-183 and REQ-170 already sit, which is a decent sign it's the real one.
+
+**One dependency this creates.** Choosing (b) makes last turn's `admit` problem load-bearing rather than theoretical: membership alone must admit, so `no_entitlement` (`identity.ts:542`) has to stop being a refusal and become a state inside an admitted session. Nothing else in (b) works until it does. Revoking a login stays expressible without entitlements — `memberships.revoked_at` is already there for it (0004: *"a withdrawal that refuses independently of any date"*).
+
+## On "entitle the account" — this collides with the column name
+
+You've answered my pair question and corrected it in the same move: subject = account, object = the thing. But note what the schema holds today. DOC-40 §5:
+
+> `account_id` here is a **business** (§2)
+
+So `entitlements.account_id` holds a **tenant id** — it is the *object* wearing the *subject's* name, and the account (payer) is derived by joining memberships. Under your model the table needs both, and the column that says `account_id` is the one that isn't.
+
+That name will produce a bug: someone will put a user id in `account_id` because the name tells them to, and it will half-work. I'd rename it to `business_id` when the subject column lands rather than run two migrations.
+
+**Two things it also lets me flag as still true, not broken by this:**
+
+- Per-business capacity and per-account access are genuinely different grants, not one generalised. "Alice's Plumbing has pro" must not require re-granting every member on join. So the subject column is an addition, not a replacement.
+- **"Account" is relative to the business, like "level" was.** Bob is an account *of Alice's Plumbing*. If account gets defined as "a `users` row in the platform tenant," it becomes platform-only vocabulary and §2.1 rule 1 breaks the first time Alice needs to bill two people at one address — which is your multi-user case, one level down.
+
+Multi-user accounts stay cheap to leave open: today the subject id happens to equal a user id, as long as nothing asserts that it *is* one.
+
+---
+
+If (b) is agreed, I'll write REQ-170 up: the uniform tab; membership and entitlement as two orthogonal columns per person with membership as the primary one (deleting the *Not in scope* exclusion, against `0005:14`); the portal as membership-derived rather than granted; the 1c-only controls as product-fulfilment; and two noted dependencies — the `admit` change and the DOC-40 §5 subject/object amendment — as things REQ-170 makes reachable rather than owns.
 
 <!-- xgd-chat-end -->
