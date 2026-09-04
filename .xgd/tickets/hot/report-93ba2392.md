@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T05:53:38.219158+00:00'
+updated_at: '2026-09-04T06:05:54.310758+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -532,7 +532,7 @@ fields:
       the gate''s own checks, refusal shapes and configuration rules are unchanged,
       and no parallel gate is introduced. The identity model it defers to is item
       14 rather than being folded in here.'
-    story_uid: null
+    story_uid: story-182e8cb9
     target_story_ids:
     - story-182e8cb9
     intent_delta_summary: A verified token is the gate's verdict and yields the caller's
