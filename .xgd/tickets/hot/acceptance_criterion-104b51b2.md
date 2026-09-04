@@ -6,10 +6,10 @@ title: A file the client hands the platform is kept as a described record, and t
   same request says what was created
 created_by: xgd
 created_at: '2026-09-04T03:53:25.009460+00:00'
-updated_at: '2026-09-04T03:53:25.009460+00:00'
+updated_at: '2026-09-04T04:08:23.771474+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-70a922b9
   kind: behavior
