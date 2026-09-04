@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T02:47:05.789602+00:00'
+updated_at: '2026-09-04T03:04:22.011950+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -158,7 +158,7 @@ fields:
       false. This is explicit supersession of existing intent by later intent, not
       a new capability — the assistant''s knowledge behaviour is unchanged; the set
       of hosts on which it holds is what changed.'
-    story_uid: null
+    story_uid: story-a58a0974
     target_story_ids:
     - story-a58a0974
     intent_delta_summary: 'The deployed host stops being definitionally corpus-less:
