@@ -6,10 +6,10 @@ title: 'The Library: everything I have given you, shown as itself, with the one 
   I may correct'
 created_by: xgd
 created_at: '2026-09-04T04:26:00.412868+00:00'
-updated_at: '2026-09-04T04:28:47.005003+00:00'
+updated_at: '2026-09-04T04:45:36.568070+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-54651ef2
