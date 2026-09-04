@@ -5,9 +5,9 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-04T01:50:45.188481+00:00'
+updated_at: '2026-09-04T23:44:15.249733+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -269,3 +269,83 @@ credential layer and a different tenant, which is the whole claim of
    serves a placeholder at the apex, held back "until the marketing site exists".
    A portal that is a page of a site nobody has built is reachable but has no
    surroundings — which may be fine, and should be a decision.
+
+---
+
+## Amendment 2026-09-04: what [[DOC-42]] binds on this ticket
+
+[[DOC-42]] is the model written out of the [[REQ-170]] discussion. It confirms
+this ticket's §1 reading and adds one dependency that has to be settled before
+the surface is built, plus two corrections of detail. §8's open questions are
+untouched except where noted.
+
+### B1. The Portal is what membership IS. This is a dependency, and it blocks §4
+
+[[DOC-42]] §5: a member reaches their Portal by virtue of being a member. There
+is no free automatic entitlement standing behind it, and there must not be — a
+constant modelled as data can go missing, and the failure mode is a person who
+can log in but cannot reach the surface where they would fix anything.
+
+**Today they cannot.** `admit` refuses when no business is selectable
+(`identity.ts:542`), so an account whose grants have all lapsed is turned away at
+the door. That puts §4's whole argument in jeopardy:
+
+- the **Delete account** control — the one capability §4 says disappears if it is
+  scheduled behind the others, and the one [[DOC-37]] attaches a deadline to that
+  is not ours to set — is unreachable for exactly the population most likely to
+  want it
+- so is the payment history, and so is the page where they would pay, which is
+  the only act that would restore the grant
+
+A compliance surface gated on being paid up is worse than a missing one, for the
+same reason §4.2 gives about the button's copy: it converts a missing feature
+into a false position, on the one subject where being caught in one is
+unrecoverable.
+
+**[[REQ-178]]'s reopen is the fix** — membership admits, `no_entitlement` becomes
+a state inside an admitted session — and [[REQ-179]]'s reopen keeps the avatar
+and its link out present when nothing is selectable. **This ticket should not be
+implemented before both land**, because the surface it builds would be
+unreachable for the case that justifies it.
+
+### B2. Terms of service can gate this surface too, and that needs a decision
+
+[[REQ-169]] blocks **every** route until the terms are accepted — *"no route can
+be reached by a session that has not accepted"*, assets and API 403 alike. That
+is right for the builder and it is the correct direction for a gate to fail in.
+
+Applied to this surface it means a **re-versioned** ToS blocks an existing member
+from their own delete button until they accept the new terms — conditioning a
+data-rights request on accepting a contract. Unlike B1 it is not a dead end: the
+interstitial is served and accepting clears it. But whether erasure may sit
+behind it at all is a question for [[DOC-37]], and the copy in §4.2 cannot be
+written without an answer.
+
+Added to §8 as a sixth open question rather than decided here.
+
+### B3. §6's line against the admin console holds, and here is the sharper reason
+
+§6 draws the line on scope, authority and population, and all three stand.
+[[DOC-42]] §7 supplies what §6 states as a preference: the controls only 1st
+Contact sees are **its product-fulfilment actions** — provisioning a business is
+us filling an order — rather than administrative privilege. That is why "one
+surface with a privilege check in it" is the wrong shortcut: the check is not
+about privilege.
+
+Two details in §6 to carry forward rather than repeat as written:
+
+- *"the admin console's left list is accounts"* — true of the 1st Contact
+  business specifically. [[DOC-42]] §7: the tab lists **the people of whichever
+  business you are in**, and ours happen to be accounts. [[REQ-170]] is retitled
+  accordingly and is no longer "the admin console".
+- *"the portal reads and never grants"* stands unchanged and is the load-bearing
+  half.
+
+### B4. §8 question 3 gains a constraint
+
+*Does "delete account" mean the account or its businesses?* — still open, but
+[[DOC-42]] §6 narrows it: **"account" is relative to the business**, as "level"
+is. Bob is an account of Alice's Plumbing. So the answer cannot be phrased in
+terms of "the platform's account holders" without becoming platform-only
+vocabulary, and whatever is decided has to read correctly one level down, where
+the account has no businesses at all.
