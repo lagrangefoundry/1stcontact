@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:25:36.247618+00:00'
+updated_at: '2026-09-04T23:27:19.939119+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -474,5 +474,32 @@ Want me to apply the REQ-170 edits now? That's the one this session owns; the DO
 <!-- xgd-chat role="user" ts="2026-09-04T23:25:35.824438+00:00" -->
 #### You
 Go ahead
+
+<!-- xgd-turn id="401cd136-460b-409a-ac79-435b459a0243-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:27:17.429775+00:00" -->
+#### Claude
+Done. Both tickets are updated locally.
+
+## DOC-42 — created
+`doc-95b51bb6`, `doc_kind: architecture`, status draft. Ten sections, each with a falsifier; §10 carries the three amendments the model forces on what's already written.
+
+## REQ-170 — updated
+
+**Retitled** from *"The admin console: users, entitlements, and the invite that provisions an account"* to *"The User tab: the people of a business, their membership and their grants."* The old title was the platform-only framing in its most visible position, and it contradicted the new body. I did this on the strength of "the route and the name both change" — easy to revert if you meant only the route.
+
+**Two in-place corrections**, everything else preserved verbatim:
+- *Not in scope* — "Editing memberships" removed (it contradicted `0005_operator_membership.sql:14`), "removing a business" added in its place with the DOC-37 reason, and both changes annotated so the deletion is visible rather than silent.
+- The one "platform tenant" phrase → "the 1st Contact business".
+
+**Appended** a 2026-09-04 revision with nine subsections: the tab rather than `/admin`; membership and entitlement as two orthogonal columns with membership primary; the entitlement editor constrained against assuming a business subject (with the paywall as the breaking case); the CRM one-population rule plus the UAT that enforces it; the gate as owner-of-this-business + what-this-business-sells, including the asset-gate dissolution and an explicit *don't borrow the support bypass*; provisioning called rather than reimplemented; no extension framework; and the three DOC-42 §10 dependencies recorded as reachable-but-not-owned.
+
+## Two things to note
+
+**The DOC-42 push failed** — proxy auth error, local commits are fine. Both tickets need a manual push.
+
+**`story_points: 3` is now probably low.** That estimate predates membership editing being in scope. I left it alone — that's your call, not a consequence of the model.
+
+Still outstanding as the explicit follow-ups I said I wouldn't fold in: DOC-40's four amendments, REQ-183's blocking dependency on §10.1, the REQ-179/180 lapse-reason reachability note, and the four new tickets.
 
 <!-- xgd-chat-end -->
