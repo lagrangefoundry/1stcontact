@@ -440,19 +440,17 @@ export function mountBuilder(root, options = {}) {
   /**
    * The Library (REQ-161), in its own tab beside the site.
    *
-   * IT FOLLOWS THE SHELL'S SCOPE for the badge and the "used on this site"
-   * filter, by the same rule the assistant does ([[REQ-179]]): a scope is chosen
-   * in exactly one place. What it does NOT do is scope its LIST to that site —
-   * see `library.js` for why the badge is a view and never a boundary.
+   * IT IS SCOPED TO THE BUSINESS AND KNOWS NOTHING OF THE SITE ([[REQ-181]]).
+   * It is handed no `getSite` because it asks no question a site could answer:
+   * a business holds one site in v1, so material is either this business's or it
+   * is not, and there is no second site for a badge to distinguish.
    *
-   * The list IS scoped to the business, though, and that is not the same thing:
-   * material is business-wide ([[DOC-38]] §7.7), so a business switch changes
-   * the list itself rather than merely the badge on it, which is why
-   * `selectBusiness` re-reads it rather than only calling `siteChanged()`.
+   * That makes a business switch a DIFFERENT LIST rather than the same list
+   * redrawn — `selectBusiness` clears it and re-reads it, and a site change does
+   * nothing to it at all.
    */
   const library = createLibraryPanel({
     storage: shell.storage(STORAGE_KEYS.library),
-    getSite: () => currentSite,
     markdownReady,
     // Where an expanded reader window goes (REQ-172) — inside the shell root,
     // for the reason the segment editor's host above states: the `--shell-*`
@@ -600,12 +598,14 @@ export function mountBuilder(root, options = {}) {
    * The pane REPORTS what it is displaying, and everything that is about a site
    * follows that report ([[REQ-179]]).
    *
-   * Nothing interrogates the pane any more. This is the one subscription, and
-   * it is what a site change — from wherever — means: the assistant is a session
-   * per site and is re-opened; the Library's badge and its "used on this site"
-   * filter redraw. The Library's LIST is not re-read here, because a site change
-   * within one business does not change it (`selectBusiness` re-reads it,
-   * because a BUSINESS change does).
+   * Nothing interrogates the pane any more. This is the one subscription, and it
+   * is what a site change — from wherever — means: the assistant is a session per
+   * site and is re-opened.
+   *
+   * THE LIBRARY IS NOT HERE ([[REQ-181]]). It was, for a badge and a filter that
+   * were about the open site; both are gone, and the list itself is the
+   * business's rather than the site's. A site change is nothing to it. A BUSINESS
+   * change is everything, and `selectBusiness` is where that is handled.
    *
    * It is also what makes an in-tab site selector a later addition rather than a
    * later untangling: when a business can hold several sites, that control calls
@@ -614,7 +614,6 @@ export function mountBuilder(root, options = {}) {
   const unbindSite = panel.on('site', (slug) => {
     currentSite = slug
     void showSite(slug)
-    library.siteChanged()
   })
 
   /**
@@ -639,8 +638,9 @@ export function mountBuilder(root, options = {}) {
    *   3. the pane's site, and its frame — `panel.refresh()` because the URL
    *      changed even when the slug did not (the prefix is part of it);
    *   4. the assistant, which is a session per site and must be re-opened;
-   *   5. the Library, whose list is business-wide and is therefore genuinely a
-   *      different list — not merely a redrawn badge.
+   *   5. the Library, whose list is the BUSINESS's material and is therefore
+   *      genuinely a different list — cleared before the re-read, so no row from
+   *      the business being left behind can survive a re-read that fails.
    *
    * THE REMEMBERED SITE SURVIVES A SWITCH THAT STILL OFFERS IT. Slugs are unique
    * per business rather than globally, so the same slug in two businesses is two
@@ -663,12 +663,11 @@ export function mountBuilder(root, options = {}) {
 
     if (slug === currentSite) {
       // SAME SLUG, DIFFERENT BUSINESS — and `setSite` is deliberately a no-op on
-      // an unchanged slug, so the subscription above will not fire and the two
-      // things it does have to be done here instead. This is the case that makes
-      // "the scope moved" and "the site changed" genuinely different events: a
-      // reload, or two businesses that happen to name a site the same way.
+      // an unchanged slug, so the subscription above will not fire and what it
+      // does has to be done here instead. This is the case that makes "the scope
+      // moved" and "the site changed" genuinely different events: a reload, or
+      // two businesses that happen to name a site the same way.
       void showSite(slug)
-      library.siteChanged()
     } else {
       panel.setSite(slug)
     }
@@ -677,9 +676,12 @@ export function mountBuilder(root, options = {}) {
     // prefix is part of it. See `panel.refresh`.
     panel.refresh()
 
-    // ALWAYS RE-READ, unlike the site case above: material is business-wide
-    // ([[DOC-38]] §7.7), so this is a different list rather than the same list
-    // with a different badge on it.
+    // CLEARED, THEN ALWAYS RE-READ ([[REQ-181]]). This is a different business's
+    // material rather than the same list under a different badge — and because
+    // the re-read is allowed to fail, the rows are dropped first. Leaving the
+    // previous business's material on screen under a header naming this one is
+    // the one outcome a failure here may not produce.
+    library.clear()
     await library.refresh().catch(() => {})
   }
 

@@ -16,8 +16,8 @@
  *      outside every tab panel, and stays on screen when the active tab changes.
  *      That is what makes it apply to every tab rather than to one.
  *   2. CHANGING IT RE-SCOPES EVERY MOUNTED TAB, IN ONE ACT — the pane's site and
- *      the URL it loads, the assistant's session, the Library's list and badge,
- *      and the site an upload is placed on. Each of these used to find out
+ *      the URL it loads, the assistant's session, the Library's list, and the
+ *      site an upload is placed on. Each of these used to find out
  *      separately; the failure this guards is one of them left behind, which
  *      would put one business's material in front of another business's site.
  *   3. IT SCOPES THE REQUESTS, NOT ONLY THE CHROME. Every URL carries
@@ -258,8 +258,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — one act re-scopes every tab', () 
     expect(app.panel.getSite()).toBe('studio-site')
     // …the assistant, which is a session per site
     expect(asked.sessions).toEqual(['salon-site', 'studio-site'])
-    // …the Library, whose list is business-wide and is therefore a DIFFERENT
-    // list rather than the same list with a different badge on it
+    // …the Library, whose list is the BUSINESS's material and is therefore a
+    // DIFFERENT list rather than the same list redrawn ([[REQ-181]])
     expect(asked.lists).toBeGreaterThan(listsBefore)
 
     // …and the uploads, which name the site a file is placed on.
