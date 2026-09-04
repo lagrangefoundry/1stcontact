@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T03:20:52.441376+00:00'
+updated_at: '2026-09-04T03:37:17.656139+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -238,7 +238,7 @@ fields:
       claims are independently provable and together exceed a single story's size;
       the failure this documents (running both clocks off one trigger) is invisible
       in item 5's criteria.
-    story_uid: null
+    story_uid: story-0fb17a68
   - index: 7
     component: Material Ingestion — from bytes to an indexed ticket
     item_type: feature
