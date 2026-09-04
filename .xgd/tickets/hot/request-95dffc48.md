@@ -15,6 +15,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-134dbb7f
 ---
 
 # The entitlement's subject is the account, and the column that says so holds a business
