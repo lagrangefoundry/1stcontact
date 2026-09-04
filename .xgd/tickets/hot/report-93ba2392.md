@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T04:53:07.122943+00:00'
+updated_at: '2026-09-04T05:08:24.666621+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -381,7 +381,7 @@ fields:
       same declared vocabulary in place; no new capability bucket appears — the material
       record is still one record type with a declared field block, and `role` is deliberately
       declared beside the rights block it narrows rather than as a parallel mechanism.
-    story_uid: null
+    story_uid: story-e07c589b
     target_story_ids:
     - story-e07c589b
     intent_delta_summary: The declared material vocabulary gains what the file is
