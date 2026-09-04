@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:27:58.578241+00:00'
+updated_at: '2026-09-04T23:29:28.681345+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -507,5 +507,73 @@ Still outstanding as the explicit follow-ups I said I wouldn't fold in: DOC-40's
 <!-- xgd-chat role="user" ts="2026-09-04T23:27:54.004501+00:00" -->
 #### You
 Be careful, some of the tickets that you are proposing to modify are under reconciliation right now. We will need to create follow on tickets to modify what they built instead - before you change anything else can you make a plan please?
+
+<!-- xgd-turn id="bb557da3-bce9-429c-9693-9b8a52eddd77-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:29:26.580066+00:00" -->
+#### Claude
+Good catch — let me get the actual statuses before planning anything.
+
+No in-flight ticket has been touched — the only edits so far were REQ-170 (`draft`) and the new DOC-42. Here's the picture and the plan.
+
+## Status of everything in scope
+
+| Ticket | Status | Safe to edit? |
+|---|---|---|
+| REQ-170 | `draft` | ✅ already done |
+| REQ-183 | `draft` | ✅ |
+| DOC-42 | `draft` | ✅ mine |
+| DOC-40 | `open`, no commits | ⚠️ append-only — see below |
+| REQ-168 | `ready_to_reconcile` v0.2.59 | ❌ frozen |
+| REQ-169 | `ready_to_reconcile` v0.2.62 | ❌ frozen |
+| REQ-178 | `ready_to_reconcile` v0.2.51 | ❌ frozen |
+| REQ-179 | `ready_to_reconcile` v0.2.61 | ❌ frozen |
+| REQ-180 | `ready_to_reconcile` v0.2.63 | ❌ frozen |
+| REQ-161, REQ-167 | `bundled` | ❌ historical |
+
+So four of the seven follow-ups I listed last turn were aimed at frozen tickets. Those become follow-ons.
+
+## A risk I'd want to handle before anything else
+
+**DOC-42 asserts that three things currently under reconciliation are wrong.** §10.1 targets `admit` (REQ-178/179), §10.2 targets the entitlements schema (REQ-167), §10.3 targets `platform_admin` (REQ-167/178/180). If a reconciler reads docs as intent, a live document saying "what you built is incorrect" is a drift generator aimed at five in-flight tickets.
+
+Two mitigations, and I'd take both:
+- **Keep DOC-42 in `draft`** until the in-flight set clears. It's already there; the point is not to promote it yet.
+- **Reframe §10 as forward-looking.** It currently reads as "this is wrong." It should read as "this is correct for what was asked at the time, and here is the amendment it now needs" — which is also more accurate. That's an edit to my own draft, not to anyone's ticket.
+
+Same logic for **DOC-40**: it has no commits so nothing reconciles against it, but it's cited as rationale by every frozen ticket. I'd make the amendments **append-only** — one new section pointing at DOC-42 — and leave §2/§5/§6 untouched in place until the in-flight set lands.
+
+## Plan
+
+**Phase 0 — now, zero risk**
+1. Soften DOC-42 §10 to amendment framing; add a note that it is draft pending the in-flight set.
+2. REQ-183 (draft): add the §10.1 dependency — its delete button is unreachable for a lapsed member — plus the membership-derived-portal statement.
+3. Nothing else edited.
+
+**Phase 1 — file the follow-ons now, as `draft`, blocked**
+
+They can be written and reviewed immediately; only their *branches* need to wait.
+
+- **F1 — Admission requires membership, not entitlement.** `admit`'s `no_entitlement` (`identity.ts:542`) stops refusing and becomes an admitted session with nothing selectable; deny copy; `firstAdmissible` in `scope.ts`. **Absorbs the lapse-reachability point** — REQ-180 D4's reasons are currently invisible to anyone whose businesses have *all* lapsed, and F1 is the fix, so it's an acceptance criterion here rather than its own ticket. Carries the DOC-37 compliance edge. *Blocked on REQ-178, REQ-179.*
+- **F2 — Entitlement subject column.** Add the account subject; rename `account_id` → `business_id`. Migration + every entitlement reader. Amends DOC-40 §5. *Blocked on REQ-178, REQ-179; needs F1's shape settled first.*
+- **F3 — Split `users.platform_admin`.** Ownership half → `memberships.role`; hosting/support half stays at `scope.ts:237`; `PLATFORM_ADMINS` env var retained as the seed. *Blocked on REQ-178, REQ-179, REQ-180.* **REQ-170 does not depend on this** — it models the gate correctly without the column changing.
+- **F4 — "Platform tenant" sweep + guard.** `identity.ts` (12 occurrences, mostly comments and the `platformTenant` local), DOC-40 (8), on REQ-180 D5's guard-not-audit precedent. Leave the bundled tickets historical. *Code half blocked; the DOC-40 half is not.*
+
+**Phase 2 — after the in-flight set reconciles**
+
+Unblock F1 → F2 → F3 in that order, then F4's code half. And REQ-170's own implementation, which is where the sequencing actually bites (below).
+
+## The sequencing problem worth deciding now
+
+`identity.ts` and `scope.ts` are touched by four frozen tickets *and* by F1–F4 *and* by REQ-170. Cutting a free-coded branch on any of them before reconciliation completes will collide.
+
+So: **REQ-170 can't be implemented yet either**, even though its ticket is editable. Unless you want to scope its first slice to the parts that don't touch those two files — the tab, the list, `mountFields` — and leave the gate reading `platform_admin` as-is, which F3 corrects later. That's a real option and it keeps REQ-170 moving.
+
+## Two things I need from you
+
+1. **Do the follow-ons get filed now as blocked drafts, or after the in-flight set lands?** Filing now captures the reasoning while it's fresh; the cost is four more open tickets. I'd file them now.
+2. **Does REQ-170 wait, or ship a first slice that avoids `identity.ts`/`scope.ts`?**
+
+I've changed nothing since your message. Say which way on those two and I'll execute Phase 0 and whatever you want of Phase 1.
 
 <!-- xgd-chat-end -->
