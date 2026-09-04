@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:19:15.833322+00:00'
+updated_at: '2026-09-04T23:21:40.832606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -410,5 +410,63 @@ Updated write-up for REQ-170, if you want it: the uniform tab; membership and en
 Good can you capture this model in a way that will be really clear - I think its probably worth a new doc just for this. It can be short but its complicated - it took us a long time to work through the kinks.
 
 Please create the doc first and the list the ticket updates that it drives
+
+<!-- xgd-turn id="5619f9d5-6e86-4509-ae60-3dbf8caf74e5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:21:40.713887+00:00" -->
+#### Claude
+Docs aren't code, so no free-coding branch needed. Let me check the ticket CLI and the DOC numbering first.
+
+Next is DOC-42. Writing the doc.
+
+Created **DOC-42** (`doc-95b51bb6`), status draft. Let me size the vocabulary sweep before listing.
+
+**DOC-42** is created (`doc-95b51bb6`, draft, `doc_kind: architecture`) — 10 sections, each with a falsifier, and §10 records the three things the model says are currently wrong. The local commit landed; the push failed on a proxy auth error, so it'll need a manual push.
+
+Here are the updates it drives.
+
+## REQ-170 — this session's ticket, the largest set
+
+1. **Reframe the surface.** `/admin` becomes the **User tab**: the people of the business you're in. The route and the name both change — `/admin` names the extension rather than the surface, which is what would ossify the platform-only reading. (§7)
+2. **Delete "Editing memberships" from *Not in scope*.** It contradicts `0005_operator_membership.sql:14` — *"joining an existing business — which DOC-40 §9 leaves undefined and REQ-170 owns"* — and under §4/§7 membership is the *primary* thing the tab manages, since "manage users' site access" is exactly the login relation.
+3. **Replace the gate.** Currently `PLATFORM_ADMINS` gating the page. Becomes: owner of this business **+** this business's product is businesses. `PLATFORM_ADMINS` survives as the break-glass seed (§10.3), not as the model. Consequence: "the gate is checked before any admin asset is served" mostly dissolves — the surface is generic, so the gate that matters is at the API, where REQ-180 already put it.
+4. **Constrain the entitlement editor.** The revision note says entitlements are edited against a business. True today, but it must not be baked in — subject is the account, object is the thing (§6), or Alice's paywall rebuilds the editor.
+5. **The list is the CRM's population.** Not a separate "users who have accounts" query (§9).
+6. **Strip "platform tenant"** — one occurrence, "a `users` row in the platform tenant (the account)".
+7. **Keep "remove a business" out of scope** — DOC-37 territory, and REQ-183 §4.1 already ships a delete button without a delete mechanism.
+8. Link `[[DOC-42]]`.
+
+## REQ-183 — customer portal (draft)
+
+1. **Add §10.1 as a blocking dependency.** Its headline capability is a Delete-account button that DOC-37 makes an obligation — and today a lapsed member can't log in at all, so that surface is gated on payment. Its open-questions list doesn't cover this.
+2. **Record that the portal is membership-derived, not entitlement-gated** (§5).
+3. Its §6 line against the admin console stays right; point it at §7 for *why* — product fulfilment, not privilege.
+
+## DOC-40 — the parent, four amendments
+
+1. §2/§2.1 — "platform tenant" → the 1st Contact business (8 occurrences).
+2. §5 — record the subject/object correction and the `account_id` → `business_id` rename (§10.2).
+3. §5 — amend *"the check runs at login; an expired grant denies"* per §10.1.
+4. §6 — split `platform_admin`: env var stays as the seed, the column's ownership half becomes `memberships.role` (§10.3).
+5. Pointer to `[[DOC-42]]`.
+
+## REQ-179 / REQ-180 — a reachability note
+
+REQ-180 D4 landed lapse reasons and insists *"IT REACHES THE PERSON."* It half-does: `admit` refuses when *no* business is selectable, so someone with a mix sees their expired one's reason and someone with **all** businesses lapsed — the person the feature was written for — never gets in to see any of it. Worth noting against whichever of the two you want carrying it; §10.1 is the fix.
+
+## REQ-167 / REQ-178 — vocabulary only
+
+3 occurrences in REQ-167, and `identity.ts` has 12 (`platformTenant`, and `accountFor`'s *"the platform's own tenant"*). `accountFor` already delegates to `findUser(env, tenant, email)`, so it's generic and only the naming is special. REQ-178 is `ready_to_reconcile`, so a note rather than a rewrite.
+
+## New tickets this implies — not created, session is scoped to REQ-170
+
+- **`admit` requires membership, not entitlement** (§10.1). The largest and the one with a compliance edge.
+- **Entitlement subject column + `business_id` rename** (§10.2).
+- **`users.platform_admin` → `memberships.role`** (§10.3), env var retained.
+- **"Platform tenant" guard**, on REQ-180 D5's guard-not-audit precedent.
+
+---
+
+Want me to apply the REQ-170 edits now? That's the one this session owns; the DOC-40 and REQ-183 amendments I'd rather do as explicit follow-ups than fold in silently.
 
 <!-- xgd-chat-end -->
