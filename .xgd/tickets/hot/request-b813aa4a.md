@@ -5,9 +5,9 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-04T23:41:34.502702+00:00'
+updated_at: '2026-09-04T23:43:07.891576+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -117,3 +117,53 @@ The display panel keeps `setSite`/`getSite` — that is the pane's own display s
 - The selection is persisted under the shell's storage namespace and restored on remount; a stored id that is not admissible falls back to the first selectable business and rewrites the stored value.
 
 - The avatar opens the account surface, and no tab in `TABS` is the account.
+
+---
+
+## Reopened 2026-09-04: the switcher must render for a lapsed account ([[DOC-42]])
+
+Moved back to `draft` from `ready_to_reconcile` to take this amendment before the
+work reconciles. **The commits above stand**; this is a delta on top of them.
+
+### The gap this closes
+
+The acceptance says *"a stored selection for a business the account cannot
+operate falls back silently to an admissible one"* — which assumes an admissible
+one exists. When none does, the account is refused at the door today
+([[REQ-178]], `no_entitlement`), so the switcher never renders at all for exactly
+the person whose businesses have all lapsed.
+
+[[REQ-178]]'s reopen removes that refusal: membership admits, and a session may
+now legitimately hold **zero selectable businesses**. This ticket owns what the
+chrome does in that state, and it presently has no answer.
+
+### What the switcher does with nothing selectable
+
+- **It renders.** The businesses are the person's own and they are entitled to
+  see that they exist; an empty switcher and a missing switcher say different
+  things, which is the same argument this ticket's *Acceptance* already makes for
+  the one-business case.
+- **Every entry is present and unselectable**, carrying [[REQ-180]] D4's lapse.
+  An `<option>` is a label and cannot hold a sentence, so the switcher keeps the
+  short suffix and the sentence is stated elsewhere — D4 already settles this.
+- **The fallback has nothing to fall back to.** "Falls back silently to an
+  admissible one" needs a stated behaviour when the admissible set is empty,
+  rather than whatever `firstAdmissible` happens to do.
+
+### What must stay reachable in that state
+
+Not this ticket's surface to build, but its constraint to honour: a member with
+no live grant still reaches the chrome that links to their own account
+([[REQ-183]]), because that is where they would see what they were charged, pay,
+or ask for erasure ([[DOC-37]]). [[DOC-42]] §5 — the Portal is what membership
+**is**, not something granted.
+
+So the avatar and its link out remain present and functional when nothing is
+selectable. The tabs are what become unavailable, not the chrome.
+
+### Where the boundary sits
+
+The tab strip is the entitled product; the chrome is not. That line is the same
+one [[DOC-42]] §5 draws between *a fact about this person's relationship with this
+business* and *something the business provides*, and it is what decides which
+parts of the shell survive an empty selectable set.
