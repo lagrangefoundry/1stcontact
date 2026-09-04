@@ -6,10 +6,10 @@ title: 'The description: material is found by what it says or shows, and says ho
   when it cannot be read'
 created_by: xgd
 created_at: '2026-09-04T04:11:22.325267+00:00'
-updated_at: '2026-09-04T04:11:22.325267+00:00'
+updated_at: '2026-09-04T04:23:04.511201+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-ccac1bb4
