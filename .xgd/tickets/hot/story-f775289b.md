@@ -6,9 +6,9 @@ title: 'The Library: everything I have given you, shown as itself, with the one 
   I may correct'
 created_by: xgd
 created_at: '2026-09-04T04:26:00.412868+00:00'
-updated_at: '2026-09-04T04:26:00.412868+00:00'
+updated_at: '2026-09-04T04:28:47.005003+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-203b1dc2
@@ -68,7 +68,7 @@ an image — it is a field editor, not a library.
 - The bytes are served **through the builder origin from the private material store**, never from
   the public site origin: the public Worker deliberately has no binding on the material bucket
   ([[DOC-38]] §7.1), and giving it one to save a hop is exactly the disclosure that boundary exists
-  to prevent. Depends on item 12's correction to blob addressing — the bytes are reached through the
+  to prevent. Depends on this bundle's blob-addressing correction — the bytes are reached through the
   record that owns them.
 - **The rights record is inferred, never asserted.** [[DOC-38]] §10.1 derives rights,
   republishability and exportability from provenance precisely so the client is never put in front of
@@ -80,6 +80,9 @@ an image — it is a field editor, not a library.
 - The correction must reach the index. [[DOC-39]] §4 is explicit that retrieval sees the index and
   not the stored text: a corrected description that was never re-embedded would leave the Library
   showing the client's words while search kept answering with ours.
+- The workspace chrome criteria this second surface makes false as written — the ones that counted
+  panels and dropdowns while the builder had exactly one of each — are restated by this bundle's
+  workspace-chrome upgrade item against [[CAP-85]] and [[CAP-91]], not here.
 
 ## Reconciliation Decisions
 
@@ -88,18 +91,21 @@ an image — it is a field editor, not a library.
   landed surface also narrows by typed text against the material's name, conjunctively with the
   other three. Intent is silent rather than contradictory — a generic "filter" is what it asked
   for — and a library of a client's own files is unusable at any real size without name search.
-  Formalized as an AC rather than left as undocumented behaviour.
+  Formalized as part of AC-1560 rather than left as undocumented behaviour.
 - **Material nothing has read yet says so on this surface** (decided at reconciliation,
   2026-09-03): STORY-133 promises material with no usable description is *stored whole and honestly
   described as unfindable by its contents*; REQ-161 does not say what that looks like in the
   Library. The landed pane says it in the client's own terms and invites the correction. This is
   the visible half of a promise the matrix already carries, so it is formalized here rather than
-  left to the pipeline story, which has no surface to show it on.
+  left to the pipeline story, which has no surface to show it on. Formalized as AC-1567.
 - **Every kind of material is reachable as a file, not only images** (decided at reconciliation,
   2026-09-03): the intent says the detail shows "the blob itself, not just its name" and names the
   preview; it does not say what a font or a PDF looks like. The landed pane renders images and
-  offers everything else by its own name to open. Formalized so that "shown as itself" is not read
-  as "images only".
+  offers everything else by its own name to open. Formalized as part of AC-1561 so that "shown as
+  itself" is not read as "images only".
+
+No contradiction between intent and the landed code was found for this plan item: every behaviour
+above is either what REQ-161's acceptance states or a case it did not reach.
 
 ## Dependencies
 
