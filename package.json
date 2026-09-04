@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.2.63",
+  "version": "0.2.64",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -n public,control -c blue,magenta \"pnpm dev:public\" \"pnpm dev:control\"",
     "dev:public": "pnpm --filter @1stcontact/public-site dev",
-    "dev:control": "pnpm --filter @1stcontact/control-app dev",
+    "dev:control": "./bin/1c builder",
     "build": "pnpm -r build",
     "test": "vitest run",
     "validate:surface": "vitest run tests/test_UAT_FC_REQ-126_l1_surface.test.ts",
