@@ -6,10 +6,10 @@ title: A document with no extractable text is kept and honestly described rather
   refused
 created_by: xgd
 created_at: '2026-09-04T04:12:30.058878+00:00'
-updated_at: '2026-09-04T04:12:30.058878+00:00'
+updated_at: '2026-09-04T04:23:06.614398+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-724e4e8c
   kind: behavior
