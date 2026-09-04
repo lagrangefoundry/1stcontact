@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:53:54.975761+00:00'
+updated_at: '2026-09-04T23:55:52.328108+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -734,5 +734,59 @@ Pushes are still failing on the proxy auth error — everything from this sessio
 <!-- xgd-chat role="user" ts="2026-09-04T23:53:52.560468+00:00" -->
 #### You
 What can be done in parallel though
+
+<!-- xgd-turn id="9358468b-8169-4bd6-bcd0-d9b63bc9b993-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:55:50.735503+00:00" -->
+#### Claude
+Parallelism here is really "which branches touch the same code". Let me check the actual regions rather than guess.
+
+Checking one thing that changes the answer — the same naming bug exists in a second table.
+
+`memberships.account_id` has the same bug — a tenant id under an account name, with two indexes on it. REQ-184 as I wrote it only covers entitlements. Fixing that first.
+
+REQ-184 now covers both tables. Here's the parallelism picture.
+
+## What actually collides
+
+| file | REQ-178 | REQ-184 | REQ-185 | REQ-179 | REQ-170 |
+|---|---|---|---|---|---|
+| `identity.ts` | `admit` 511–567 | 89, 450/454, 621–633, 696, 777 | 76, 398, 566, 722 | — | — |
+| `scope.ts` | — | — | 237 | — | — |
+| `router.ts` | — | — | 954–964 | maybe | new routes |
+| builder shell | — | — | — | **switcher, avatar** | **new tab** |
+| `db/migrations/` | — | **0006** | **0007** | — | — |
+| UAT files | own | own | own | own | own |
+
+UATs never collide — the `test_UAT_FC_REQ-<id>_*` convention guarantees it.
+
+## Waves
+
+**Wave 1 — three branches at once**
+- **REQ-178** — `admit`, identity.ts 511–567
+- **REQ-184** — the rename, both tables, migration `0006`
+- **REQ-180 A3** — the vocabulary guard, its own file
+
+REQ-178 and REQ-184 share `identity.ts` but touch disjoint functions with nothing closer than ~50 lines. Genuinely parallel.
+
+**Wave 2 — two branches, after wave 1 merges back**
+- **REQ-179** — needs REQ-178, or its UATs have no state to assert against
+- **REQ-185** — needs REQ-184's rename, since it writes a new `memberships` row; migration `0007`
+
+**Wave 3 — REQ-170.** After REQ-179 (they share the builder shell) and after 184/185 (gate and editor written once).
+
+**Wave 4 — REQ-183.** After its open questions.
+
+## The thing you can start right now, in parallel with all of it
+
+**REQ-183's three open questions are design work, not code**: §3's origin (`app.` vs apex), §4.2's button shape, and B2 (may erasure sit behind ToS re-acceptance). REQ-183 is the longest pole and it cannot start until those are settled — so settling them runs alongside waves 1–3 for free and is probably the highest-value parallel track.
+
+## Two things that will bite if you don't handle them
+
+**Pre-assign the migration numbers.** REQ-184 and REQ-185 will both reach for `0006` and one will have to be renumbered after the fact — which is a rewritten filename in a merged branch. Assign `0006` to REQ-184 and `0007` to REQ-185 before either branch is cut.
+
+**The builder shell is the real serialisation point.** REQ-179 changes the switcher and avatar; REQ-170 adds a tab. That's the only genuine conflict in the whole set. If you want REQ-170 moving sooner, its API half (routes, membership/entitlement endpoints) doesn't touch the shell at all and could run in wave 2 alongside REQ-179 — leaving only its client half for wave 3.
+
+Max useful parallelism is **three branches**. Beyond that you're queueing on `identity.ts` and the shell.
 
 <!-- xgd-chat-end -->
