@@ -6,9 +6,9 @@ title: The invitation provisions the account, and every login binds a verified e
   to a grant that is still live
 created_by: xgd
 created_at: '2026-09-04T05:50:56.737635+00:00'
-updated_at: '2026-09-04T05:50:56.737635+00:00'
+updated_at: '2026-09-04T05:53:09.173005+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-203b1dc2
@@ -98,45 +98,44 @@ becomes once an account is resolved.
   (tenant, email) and stops there. The landed code casefolds on the way in, because the
   index itself is byte-exact, so `Sarah@example.com` and `sarah@example.com` would otherwise
   be two people and two accounts, and the second would be created by an invite that appeared
-  to succeed. Formalised as AC "an email that differs only in letter case is the same
-  person".
+  to succeed. Formalised as AC-1594.
 
 - **The arrival is recorded even when the visit is refused** (decided at reconciliation,
   2026-09-03): REQ-167 places the arrival stamp at step 2, ahead of the account and grant
   checks, but never states the consequence. The consequence is the point — an operator
   asking "did the customer whose grant expired ever try to get in?" is asking about a
-  refused visit. Formalised as part of the arrival-record AC.
+  refused visit. Formalised as part of AC-1597.
 
 - **An unconfigured platform tenant refuses rather than guesses** (decided at
   reconciliation, 2026-09-03): REQ-167 does not mention configuration failure. The landed
   code refuses both operations with an actionable message naming what to set and where,
   rather than defaulting to some tenant — guessing here would file real people into the
-  wrong tenant, which the unique index would then make permanent. Formalised as its own AC.
+  wrong tenant, which the unique index would then make permanent. Formalised as AC-1595.
 
 - **"Best grant" means the one that keeps access longest** (decided at reconciliation,
   2026-09-03): REQ-167 says "the best grant for that account" without defining best. The
   landed code orders open-ended grants ahead of bounded ones and later ends ahead of earlier
   ones. There is no plan ranking because there is one plan; this is the definition that will
-  need revisiting when billing introduces several. Formalised as its own AC so the ordering
-  is a stated promise rather than an artefact of a query.
+  need revisiting when billing introduces several. Formalised as AC-1600, so the ordering is
+  a stated promise rather than an artefact of a query.
 
 - **A withdrawn ownership and a suspended person refuse too** (decided at reconciliation,
   2026-09-03): REQ-167 states that revocation refuses independently of dates only for the
   grant. The landed code applies the same rule to the ownership record and additionally
   refuses a suspended person. Checking only the grant would make the other two decorative.
-  Formalised into the withdrawal AC.
+  Formalised into AC-1599.
 
 - **The refusal is not cacheable and not indexable** (decided at reconciliation,
   2026-09-03): REQ-167 specifies what the deny page says, not how it is transported. One
   cached refusal would become everybody's answer, including the entitled, and an indexed one
-  would publish the existence of the surface. Formalised into the single-refusal AC.
+  would publish the existence of the surface. Formalised into AC-1602.
 
 - **The starter site's address is the account's own identifier** (decided at reconciliation,
   2026-09-03): REQ-167 defers the starter site's content and is silent on its address. A
   published address is claimed globally, so a starter site called `home` for everybody would
   work until the second account published and then be refused for a reason its owner could
-  do nothing about. Formalised into the starter-site AC as a collision property, stated
-  without naming the scheme.
+  do nothing about. Formalised into AC-1592 as a collision property, stated without naming
+  the scheme.
 
 No contradiction between REQ-167 and the landed code was found: every behaviour the ticket
 names — the three record types, provisioning as one operation, login as pure lookup, the
