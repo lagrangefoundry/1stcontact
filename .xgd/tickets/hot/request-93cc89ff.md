@@ -5,9 +5,9 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-09-04T23:51:48.220142+00:00'
+updated_at: '2026-09-04T23:57:52.054672+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: depends_on
 status: draft
 fields:
   priority: medium
@@ -15,6 +15,8 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a924b82f
+  depends_on:
+  - REQ-184
 ---
 
 # `platform_admin` is two capabilities wearing one flag
