@@ -2,13 +2,13 @@
 uid: acceptance_criterion-6f87920c
 id: AC-959
 type: acceptance_criterion
-title: Workspace opens as a single tab hosting the display panel, addressed by a stable
-  id
+title: One panel per declared tab and no undeclared panel, the first declared tab
+  opens, and the display panel is hosted inside it
 created_by: xgd
 created_at: '2026-08-07T01:43:46.576788+00:00'
-updated_at: '2026-09-04T05:30:44.006836+00:00'
+updated_at: '2026-09-04T05:31:01.660992+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-e674c60a
