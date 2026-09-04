@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T01:39:55.638293+00:00'
+updated_at: '2026-09-04T01:42:19.868541+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -133,5 +133,27 @@ Done — merged back to `xgd-working`, promoted to `free_coded` at 0.2.63, workt
 <!-- xgd-chat role="user" ts="2026-09-04T01:39:55.590555+00:00" -->
 #### You
 Please file a portal ticket
+
+<!-- xgd-turn id="9e55d362-0d2a-437f-b9ad-bcbb9c8d50fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T01:42:19.010226+00:00" -->
+#### Claude
+Everything I need. Filing it.
+
+Filed as **REQ-183** — *The customer portal: the account's own surface, rendered by the site pipeline* (draft, 8 points). REQ-180 now carries a D1 addendum pointing at it.
+
+**What it says**
+
+It opens by naming the thing being avoided — DOC-40 §2.1 rule 1's bespoke admin billing page — and makes that the test for every decision in the ticket: not "does this work for 1st Contact" but "is this the thing a customer's customer will use".
+
+The architectural claim is that the portal is **a site page + a behaviour module + an authenticated API** — the shape `contact-form` already has (REQ-93, DOC-25/26). That's what makes "rendered through the site pipeline" buildable rather than aspirational: pages authored in the platform business's site, edited in the builder, rendered by the shared renderer. If the ticket finds itself adding a rendering path, the reading has been abandoned and that needs recording against DOC-40 §2.1.
+
+**The decision it opens with is the origin**, because the two candidates have opposite properties: `app.1stcontact.io` has Access-verified identity, full methods and `no-store`; `apps/public-site` is 448 lines whose every property is public, cacheable, GET-only — and one cached copy of a portal page is everybody's answer. I recommended `app.1stcontact.io` with the pages still coming from the site pipeline, on the grounds that DOC-40 §3 already says the credential layer is the rented half — `users`/`memberships`/`entitlements` don't change when the magic link replaces Access, so a portal built against `admit` moves origins without being rewritten. That's exactly the "no second implementation" property REQ-180 owed it. I also flagged that if that's taken, it has to be written down that *the origin is provisional and the pages are not*, or the next hand reads it as "the portal is a builder feature after all".
+
+It draws the line against REQ-170 on three axes (scope, authority, population), carries REQ-180's prohibitions forward as constraints, and states the three properties that must hold for the level-2 portal to be this one with a different credential layer.
+
+**Three open questions** are recorded rather than guessed: the origin; whether the charges surface lands at all in v1 given there's nothing to put in it (no `subscriptions` table, payments deferred by DOC-40 §5); and whether the 1st Contact marketing site is a prerequisite, since `public-site` still serves a placeholder at the apex.
+
+One note: the ticket store's `git push` failed — the sandbox blocks network access. The ticket is committed locally and will go up with your next push.
 
 <!-- xgd-chat-end -->
