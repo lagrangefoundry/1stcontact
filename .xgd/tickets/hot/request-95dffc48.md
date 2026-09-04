@@ -6,7 +6,7 @@ title: The entitlement's subject is the account, and the column that says so hol
   a business
 created_by: xgd
 created_at: '2026-09-04T23:45:54.614655+00:00'
-updated_at: '2026-09-04T23:51:58.750649+00:00'
+updated_at: '2026-09-04T23:55:23.650795+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -51,6 +51,21 @@ data errors.
 The blast radius is small and known: `EntitlementRow`, `bestActiveGrant`,
 `businessesFor`, `admissibleBusiness`, `provisionBusiness`, the two indexes at
 `0004:117-118`, and `0005_operator_membership.sql:85`'s seed insert.
+
+### `memberships.account_id` has the same bug and is fixed in the same migration
+
+`memberships (user_id, account_id)` also holds a **tenant id** under an account
+name (`0004:68`), with two indexes on it (`0004:76-77`). It is the same error for
+the same reason: a membership joins a **person** to a **business**, so the subject
+is `user_id` and the object is the business.
+
+Splitting the two renames across two migrations would leave the codebase saying
+`account_id` in one table and `business_id` in the other for however long
+separates them, which is worse than either name used consistently. Both tables,
+one migration.
+
+This also settles an ordering question: [[REQ-185]] writes a new `memberships`
+row, so it must run **after** this rename rather than beside it.
 
 ### The subject column can wait for a consumer, and should say so
 
