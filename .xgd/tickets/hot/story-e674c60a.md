@@ -6,16 +6,18 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-09-04T05:31:45.217588+00:00'
+updated_at: '2026-09-04T05:31:45.363743+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-15c1f647
   capability_uid: capability-a994b8f3
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-78f4e2fe
+  updated_by:
+  - bundle-78f4e2fe
+  - bundle-203b1dc2
   sprint_uid: sprint-a864c33e
   uat_coverage: fail
 ---
