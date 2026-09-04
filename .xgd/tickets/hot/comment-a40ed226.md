@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T21:07:29.166855+00:00'
+updated_at: '2026-09-04T21:18:06.360753+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,15 @@ So the migration already assigns it here and the ticket disclaims it. That needs
 ---
 
 Shall I write into REQ-170: the uniform statement of the tab, entitlements as a general mechanism with the subject-vs-payer distinction called out as a DOC-40 §5 amendment, the seam as 1c product-fulfilment rather than generic admin, and resolve the memberships scope contradiction against `0005`?
+
+<!-- xgd-turn id="d50d5db7-ba4e-4216-98dd-16c430b9e1d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T21:18:06.264848+00:00" -->
+#### You
+I don't understand your statements about membership. Let me clarify how I was using the word, I don't see an ambiguity.
+
+"Bob is a member of Alice's Plumbing" means exactly: Bob can login and get access to pages that require login (specifically right now this is the User Portal but someday there could be other things)
+
+There is no membership fee today - that is an entitlement please keep then separate - it just means Bob can log in. As Admin I can provision business and "entitle" users to have access to them - soimeday that will be done automatically when they pay.
 
 <!-- xgd-chat-end -->
