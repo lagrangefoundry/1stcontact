@@ -6,10 +6,10 @@ title: Keeping the index current costs only what changed, and a new record is se
   off that pass
 created_by: xgd
 created_at: '2026-09-04T03:19:49.447378+00:00'
-updated_at: '2026-09-04T03:19:49.447378+00:00'
+updated_at: '2026-09-04T03:32:05.115347+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-bb91191c
   kind: behavior
