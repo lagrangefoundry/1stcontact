@@ -5,10 +5,10 @@ type: bundle
 title: REQ-164 + REQ-159 + REQ-165 + REQ-163 + REQ-161 + 2 more
 created_by: xgd
 created_at: '2026-09-02T17:48:26.715962+00:00'
-updated_at: '2026-09-02T17:49:27.440973+00:00'
+updated_at: '2026-09-04T07:31:55.495647+00:00'
 completed_at: null
 last_field_updated: status
-status: reconciling
+status: error
 fields:
   commits:
   - working_sha: 858d63202fae2badbaf3e8495363244f8bd3a9fd
@@ -826,6 +826,7 @@ fields:
     new_sha: 2b9bdc544b2f324235d0684ed99d4448fe808762
   - old_sha: c2f6c582ad88ff1bf872907a8297bfe2c4a4b91e
     new_sha: 547434dd44286e083450e6bad3b515015e0e3afa
+result: fail
 ---
 
 # Bundle
