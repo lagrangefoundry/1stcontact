@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-50
 created_by: xgd
 created_at: '2026-09-04T00:03:02.394090+00:00'
-updated_at: '2026-09-04T01:28:24.530991+00:00'
+updated_at: '2026-09-04T01:39:16.368064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -139,5 +139,11 @@ One pre-existing typecheck error surfaced and is unrelated: `apps/control-app/sr
 ## Still open, as flagged
 
 Whether `.dev.vars` becomes tracked. Nothing here settles it — the CLI now names the file when it's missing and says Access won't be open on loopback, so the fresh-clone trap announces itself either way. DOC-41 records it as open. If you want it committed, that's a small follow-up and I'd need to know whether the working-tree `.gitignore` addition (also uncommitted) should be reverted rather than landed.
+
+<!-- xgd-turn id="86a4d9a6-eb28-4e2b-b545-0a84a96ba7db-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T01:39:16.323369+00:00" -->
+#### You
+you tell me shoudl it be?
 
 <!-- xgd-chat-end -->
