@@ -6,10 +6,10 @@ title: Conversation growth moves the index only; the published landscape is unto
   by talking
 created_by: xgd
 created_at: '2026-09-04T03:36:36.076296+00:00'
-updated_at: '2026-09-04T03:36:36.076296+00:00'
+updated_at: '2026-09-04T03:46:51.325240+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0fb17a68
   kind: behavior
