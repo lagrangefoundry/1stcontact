@@ -6,9 +6,9 @@ title: Every document left out of the corpus is named individually, never counte
   and never silent
 created_by: xgd
 created_at: '2026-08-20T04:16:46.169184+00:00'
-updated_at: '2026-08-20T04:37:26.737010+00:00'
+updated_at: '2026-09-04T02:15:23.540698+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c4f329d3
@@ -18,10 +18,10 @@ fields:
 
 ## Criterion
 
-Every document left out of the corpus is reported individually, by its human id, and the report says why they are out — that they carry no opt-in. It is never a bare count, and never silence.
+Every document left out of the corpus is reported individually, by its human id, and the report says why they are out — naming the membership marker they do not carry, both the field and the value it would have to hold. It is never a bare count, and never silence.
 
 When nothing was left out, no such line appears at all.
 
 ## Verification
 
-Export against a store holding a mixture of opted-in and opted-out documents; assert that each excluded document's id appears in the reported set of exclusions and that the set equals exactly the excluded documents. Assert that the reported exclusions and the reported exports are disjoint and together account for every document in the store, and that an export with nothing excluded reports no exclusion line.
+Export against a store holding a mixture of documents that carry the membership kind and documents that do not; assert that each excluded document's id appears in the reported set of exclusions and that the set equals exactly the excluded documents. Assert the exclusion line names the marker field and its required value rather than saying only that something was skipped. Assert that the reported exclusions and the reported exports are disjoint and together account for every document in the store, and that an export with nothing excluded reports no exclusion line.
