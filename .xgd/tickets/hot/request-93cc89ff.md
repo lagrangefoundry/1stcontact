@@ -5,10 +5,10 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-09-04T23:57:52.054672+00:00'
+updated_at: '2026-09-04T23:58:13.760581+00:00'
 completed_at: null
-last_field_updated: depends_on
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   story_points: 2
