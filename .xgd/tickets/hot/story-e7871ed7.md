@@ -6,10 +6,10 @@ title: The invitation provisions the account, and every login binds a verified e
   to a grant that is still live
 created_by: xgd
 created_at: '2026-09-04T05:50:56.737635+00:00'
-updated_at: '2026-09-04T05:53:09.173005+00:00'
+updated_at: '2026-09-04T06:00:20.832433+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-07f08dcf
