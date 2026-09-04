@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:50:39.818646+00:00'
+updated_at: '2026-09-04T23:52:24.228509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -685,5 +685,48 @@ Can you create a ticket for the gap.
 Nothing is waiting for reconcile we work on working
 
 Can you give me an implementation order please?
+
+<!-- xgd-turn id="ef485e3b-51cd-4976-821d-e2d381bd3423-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:52:21.629052+00:00" -->
+#### Claude
+Two corrections taken: work happens on `working`, so nothing is branch-blocked — only logically ordered. Let me file the gap ticket and fix the wrong ordering claim I put in REQ-184.
+
+REQ-185 filed. Now fixing the wrong ordering claim in REQ-184 and pointing DOC-42 §10.3 at REQ-185.
+
+**REQ-185** filed for the gap. REQ-184's ordering claim and DOC-42's §10.2/§10.3 pointers are corrected.
+
+## Implementation order
+
+Nothing is blocked. The ordering below is about **writing each thing once** — every pair below exists because doing them the other way means touching the same code twice.
+
+### 1. REQ-178 — admission takes membership, not entitlement
+Smallest change, highest leverage. `no_entitlement` stops producing `ok: false`; one acceptance criterion and its UAT invert. Everything about lapsed members is unreachable until this lands, so it goes first.
+
+### 2. REQ-179 — the chrome with nothing selectable
+Directly consumes 1 — the state it describes doesn't exist until REQ-178 creates it. Switcher renders with every entry unselectable; avatar and link-out survive.
+
+### 3. REQ-184 — rename `account_id` → `business_id`
+**Before REQ-170**, not after. REQ-170's entitlement editor adds readers of that column; renaming afterwards means writing them twice. Mechanical and small. Defer the subject column unless the migration is being written anyway.
+
+### 4. REQ-185 — split `platform_admin`
+**Before REQ-170** for the same reason: REQ-170's gate is written once against `memberships.role` instead of against the flag and then rewritten. Strictly optional — DOC-42 §7's two conditions select today's `platform_admin` set exactly — but the rework is real if you skip it. The bootstrapping property in its acceptance is the part to get right.
+
+### 5. REQ-180's A3 — extend the D5 guard
+The only code in REQ-180's reopen; A1 and A2 are rationale and a note. Small, independent, can ride with 4.
+
+### 6. REQ-170 — the User tab
+Now it writes its gate and its editor once. This is the big one, and it's what the whole model discussion was for.
+
+### 7. REQ-183 — the customer portal
+Needs 1 and 2 for a lapsed member to reach it at all. **But it isn't ready to start** regardless — three open questions have to be answered first: §3's origin (`app.` vs apex), §4.2's button shape, and the new B2 (may erasure sit behind ToS re-acceptance). Worth settling those before it reaches the front of the queue.
+
+## The one call to make
+
+**3 and 4 before 6, or 6 first?** Your session is scoped to REQ-170 and it's the thing you actually want. Doing it first costs a second pass over the gate and the entitlement editor; doing 3+4 first costs roughly a day of small mechanical work before the interesting part. I'd do 3 and 4 first — they're both under 2 points and they're exactly the rework REQ-170 would otherwise absorb.
+
+Separately: **REQ-170 is still 3 story points**, set before membership editing came into scope. That's likely low now.
+
+Pushes are still failing on the proxy auth error — everything from this session is committed locally only.
 
 <!-- xgd-chat-end -->
