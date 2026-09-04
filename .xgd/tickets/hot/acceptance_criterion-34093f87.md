@@ -6,10 +6,10 @@ title: A corrected description is what search answers with afterwards, not only 
   the screen shows
 created_by: xgd
 created_at: '2026-09-04T04:27:14.571473+00:00'
-updated_at: '2026-09-04T04:27:14.571473+00:00'
+updated_at: '2026-09-04T04:45:38.331038+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
