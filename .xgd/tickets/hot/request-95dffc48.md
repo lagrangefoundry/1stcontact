@@ -6,9 +6,9 @@ title: The entitlement's subject is the account, and the column that says so hol
   a business
 created_by: xgd
 created_at: '2026-09-04T23:45:54.614655+00:00'
-updated_at: '2026-09-04T23:45:54.614655+00:00'
+updated_at: '2026-09-04T23:51:58.750649+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -76,10 +76,14 @@ generalises in the wrong direction:
 
 ## Ordering
 
-**Blocked until [[REQ-178]] and [[REQ-179]] reconcile.** Both are reopened and
-carry uncommitted deltas against `identity.ts`, which is where every entitlement
-reader lives. Cutting a branch onto it before they land buys a conflict for no
-benefit — nothing here is urgent in the way [[DOC-42]] §10.1 is.
+**Not blocked — ordered.** Work lands on `working`, where [[REQ-178]]'s and
+[[REQ-179]]'s free-coded commits already sit, so there is no branch to wait for.
+What matters is only that this precedes anything that writes new readers of the
+column.
+
+**It should come before [[REQ-170]]'s entitlement editor.** That editor adds
+readers; renaming afterwards means writing them twice. The rename is small and
+mechanical, so paying it first is cheap.
 
 ## Not in scope
 
