@@ -6,10 +6,10 @@ title: A placement that fails is reported alongside a kept file, never as an upl
   that did not arrive
 created_by: xgd
 created_at: '2026-09-04T04:52:02.915918+00:00'
-updated_at: '2026-09-04T04:52:02.915918+00:00'
+updated_at: '2026-09-04T05:01:59.189040+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
