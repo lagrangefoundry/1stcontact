@@ -6,10 +6,10 @@ title: 'Every refusal is the same refusal: one uncacheable, unindexable message 
   the reason, with the reason available to the operator'
 created_by: xgd
 created_at: '2026-09-04T05:52:45.162910+00:00'
-updated_at: '2026-09-04T05:52:45.162910+00:00'
+updated_at: '2026-09-04T06:00:21.907422+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e7871ed7
   kind: behavior
