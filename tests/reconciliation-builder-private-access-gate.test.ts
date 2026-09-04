@@ -4,8 +4,9 @@
  *
  * The entry point under test is the control app's exported `fetch` handler —
  * the same function workerd calls — driven with real `Request` objects. Nothing
- * reaches into `guardAccess` or `verifyAccessJwt` directly: every claim below is
- * about a `Response` a caller would actually receive.
+ * reaches into `verifyAccessJwt`: every claim below is about a `Response` a
+ * caller would actually receive, with one deliberate exception noted at AC-1604,
+ * whose subject is the shape of the gate's own verdict.
  *
  * THE JWTs ARE MINTED, NEVER FIXTURES. A fixture token expires, and a test that
  * pins expiry by freezing a fixture proves the freezing. Minting also makes the
@@ -13,12 +14,21 @@
  * not the team's, so the refusal comes from `crypto.subtle.verify` rather than
  * from a string comparison no real attacker would be subject to.
  *
+ * PASSING THE GATE IS NOT BEING SERVED, and that distinction is why several
+ * assertions below are negative. The Access policy is identity-only, so a
+ * verified email is the START of the admission decision: `admit` looks up the
+ * user, the membership and a live grant behind the gate, and refuses a verified
+ * caller who has none (STORY-136). This file therefore asserts exactly what this
+ * story claims — **the gate did not stop this caller** — and never that the
+ * caller was served, which would be asserting the entitlement check that sits
+ * behind it.
+ *
  * THE ONLY THING STUBBED IS THE TEAM'S KEY PUBLICATION — `globalThis.fetch`,
  * which is the network and nothing this repository owns. The store bindings and
  * the assets binding are supplied as TRIPWIRES rather than as stubs of a
  * collaborator: they record that they were touched. That is what makes "refused
  * before anything behind the gate was reached" an observation instead of an
- * assumption, and the same tripwires are shown firing for an admitted caller so
+ * assumption, and the same tripwires are shown firing for a verified caller so
  * that an empty record cannot mean "the tripwire was never armed".
  *
  * The live-origin half of this capability — that the deployed hostname
@@ -31,7 +41,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 import worker, { type Env } from '../apps/control-app/src/index'
-import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
+import { certsUrl, guardAccess, resetJwksCache } from '../apps/control-app/src/access'
 import { readWranglerConfig } from './support/wrangler-toml'
 
 const REPO = path.resolve(import.meta.dirname, '..')
@@ -39,8 +49,19 @@ const CONTROL_APP = path.join(REPO, 'apps', 'control-app')
 const TEAM = 'https://uat-team.cloudflareaccess.com'
 const AUD = 'a'.repeat(64)
 
+const OPERATOR = 'martin-github@westhead.me'
+const MACHINE = 'deploy-bot.access'
+
 /** The gate's own refusal shape — plain text, never the surface's HTML. */
 const REFUSAL_CONTENT_TYPE = /text\/plain/
+
+/**
+ * The two refusals the GATE produces, by the words only it uses.
+ *
+ * Everything else — including the 403 an unentitled caller gets from `admit` —
+ * is produced behind the gate and is deliberately not pinned here.
+ */
+const GATE_REFUSAL = /Cloudflare Access (rejected this request|is not configured)/
 
 let signing: CryptoKeyPair
 let attacker: CryptoKeyPair
@@ -93,19 +114,37 @@ interface GateEnv {
   env: Env
   /** Every binding behind the gate that was touched, in order. */
   touched: string[]
+  /** Every statement the identity lookup behind the gate bound and ran. */
+  queries: { sql: string; args: unknown[] }[]
 }
 
 /**
  * A configured gate whose bindings are tripwires.
  *
- * `DB`/`SITES` are getters because `storeFor` reads both the moment a route asks
- * for a store handle, so reading the property IS "the store was opened". `ASSETS`
- * records the fall-through that serves the builder's bytes. Neither is a stand-in
- * for behaviour any assertion below depends on — only for the fact of being
- * reached at all.
+ * `DB`/`SITES` are getters because both `admit` and `storeFor` read them the
+ * moment anything behind the gate wants one, so reading the property IS "the
+ * store was opened". `ASSETS` records the fall-through that serves the builder's
+ * bytes.
+ *
+ * `DB` additionally RECORDS what was bound. That is not a stand-in for the
+ * entitlement check — it answers `null` to everything, so no caller is ever
+ * entitled here and STORY-136's decision is not being re-tested — it is what
+ * makes "the gate handed the verified email onward, and not the token" an
+ * observation rather than a claim about source code.
  */
 function gateEnv(overrides: Partial<Record<string, unknown>> = {}): GateEnv {
   const touched: string[] = []
+  const queries: { sql: string; args: unknown[] }[] = []
+  const db = {
+    prepare(sql: string) {
+      return {
+        bind(...args: unknown[]) {
+          queries.push({ sql, args })
+          return { first: async () => null, run: async () => ({ success: true }) }
+        },
+      }
+    },
+  }
   const env = {
     TENANT_ID: 'uat-tenant',
     ACCESS_TEAM_DOMAIN: TEAM,
@@ -121,7 +160,7 @@ function gateEnv(overrides: Partial<Record<string, unknown>> = {}): GateEnv {
     },
     get DB() {
       touched.push('DB')
-      return {} as unknown
+      return db as unknown
     },
     get SITES() {
       touched.push('SITES')
@@ -129,14 +168,26 @@ function gateEnv(overrides: Partial<Record<string, unknown>> = {}): GateEnv {
     },
     ...overrides,
   }
-  return { env: env as unknown as Env, touched }
+  return { env: env as unknown as Env, touched, queries }
 }
 
 const GET = (pathname = '/', headers: Record<string, string> = {}) =>
   new Request(`https://app.1stcontact.io${pathname}`, { headers })
 
-/** Paths that reach something behind the gate when the caller is admitted. */
+/** Paths that reach something behind the gate when the caller is not refused. */
 const BEHIND_THE_GATE = ['/api/sites', '/webui/shell.js']
+
+/**
+ * The claim this story actually makes about an admitted caller: the GATE did not
+ * stop them. Not that they were served — what answers is decided behind the gate,
+ * by the entitlement check that owns that decision.
+ */
+async function passedTheGate(response: Response, what: string): Promise<string> {
+  const body = await response.text()
+  expect(response.status, `${what}: the gate answered with an authorisation failure`).not.toBe(401)
+  expect(body, `${what}: the response is one of the gate's own refusals`).not.toMatch(GATE_REFUSAL)
+  return body
+}
 
 beforeAll(async () => {
   const params = {
@@ -153,45 +204,59 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   resetJwksCache()
 })
 
 /**
- * AC-1375 — a granted identity is admitted and gets the surface's own response.
+ * AC-1375 — a currently-valid identity PASSES the gate, and what happens next is
+ * decided behind it.
  *
- * The claim is that the gate is NOT what stops the builder working, so what the
- * surface answers is deliberately not pinned beyond being ITS answer: a success
- * status, its content type and its body — not the gate's plain-text refusal.
+ * Stated as a negative on purpose. This criterion used to assert that such a
+ * caller received the surface's own HTML, which was the same event while passing
+ * Access and being admitted were one thing. They are not: `admit` now refuses a
+ * verified caller with no live grant, and asserting a served response here would
+ * be asserting that second check rather than this one. So what is observed is
+ * that the gate produced NEITHER of its refusals — and, positively, that the
+ * request reached the thing behind the gate at all.
  */
-it('test_UAT_AC1375_a_granted_identity_receives_the_response_of_the_surface_behind_the_gate', async () => {
+it('test_UAT_AC1375_a_currently_valid_identity_passes_the_gate_and_what_follows_is_decided_behind_it', async () => {
   publishKeys()
-  const { env } = gateEnv()
-  const token = await mint({ email: 'martin-github@westhead.me' })
+  const { env, touched } = gateEnv()
+  const token = await mint({ email: OPERATOR })
 
   const response = await worker.fetch(GET('/', { 'cf-access-jwt-assertion': token }), env)
-  const body = await response.text()
+  const body = await passedTheGate(response, 'a freshly issued, correctly addressed identity')
 
-  expect(response.status, 'a granted identity was not admitted').toBe(200)
-  // The response is the SURFACE's, not the gate's: HTML the builder produced,
-  // rather than the plain-text shape every refusal in this file carries.
-  expect(response.headers.get('content-type')).toContain('text/html')
-  expect(response.headers.get('content-type')).not.toMatch(REFUSAL_CONTENT_TYPE)
-  expect(body).toContain('1st Contact builder')
-  expect(body).not.toMatch(/Cloudflare Access (rejected|is not configured)/)
+  // Not the authorisation failure, and not the unconfigured-gate refusal either —
+  // the two shapes this story owns. Spelled out separately from `passedTheGate`
+  // because the AC names both by name.
+  expect(response.status, 'the gate refused a valid identity as unauthorised').not.toBe(401)
+  expect(body, 'the caller met the unverifiable-caller refusal').not.toContain(
+    'Cloudflare Access rejected this request',
+  )
+  expect(body, 'the caller met the unconfigured-gate refusal').not.toContain(
+    'Cloudflare Access is not configured',
+  )
+
+  // Positively: the gate is not what stopped it. Something behind the gate ran —
+  // which is the whole content of "the gate is not what stops the builder
+  // working". What that thing then decided is not asserted here.
+  expect(touched, 'a valid identity reached nothing behind the gate').not.toEqual([])
 })
 
 /**
  * AC-1376 — one identity, three ways of arriving, and the header wins.
  *
  * "Header wins" is asserted at the boundary rather than by reading the extractor:
- * a good token in the header beside a bad one in the cookie is ADMITTED, and the
- * reverse arrangement is REFUSED. Only a gate that reads the header first
- * produces both answers.
+ * a good token in the header beside a bad one in the cookie PASSES the gate, and
+ * the reverse arrangement is REFUSED by it. Only a gate that reads the header
+ * first produces both answers.
  */
-it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_service_identity', async () => {
+it('test_UAT_AC1376_the_identity_is_verified_from_the_header_the_cookie_or_a_service_identity', async () => {
   publishKeys()
-  const human = await mint({ email: 'martin-github@westhead.me' })
-  const machine = await mint({ common_name: 'deploy-bot.access', email: undefined })
+  const human = await mint({ email: OPERATOR })
+  const machine = await mint({ common_name: MACHINE })
 
   const arrivals = [
     { what: 'the header Access attaches', headers: { 'cf-access-jwt-assertion': human } },
@@ -205,22 +270,36 @@ it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_ser
   for (const arrival of arrivals) {
     const { env } = gateEnv()
     const response = await worker.fetch(GET('/', arrival.headers), env)
-    expect(response.status, `a valid identity on ${arrival.what} was refused`).toBe(200)
-    expect(await response.text()).toContain('1st Contact builder')
+    await passedTheGate(response, `a valid identity on ${arrival.what}`)
   }
 
-  // A service identity carries a machine name instead of an email, and is
-  // admitted on exactly the same terms — so it must not have been let in by some
-  // laxer path: the same token with a stale audience is still refused.
-  const misaddressed = await mint({ common_name: 'deploy-bot.access', aud: ['b'.repeat(64)] })
-  expect((await worker.fetch(GET('/', { 'cf-access-jwt-assertion': misaddressed }), gateEnv().env)).status).toBe(401)
+  // A service identity is admitted on exactly the same terms as a human one — so
+  // it must not have been let through by some laxer path: the same token with a
+  // stale audience is still refused, by the gate, as an authorisation failure.
+  const misaddressed = await mint({ common_name: MACHINE, aud: ['b'.repeat(64)] })
+  const wrongApp = await worker.fetch(
+    GET('/', { 'cf-access-jwt-assertion': misaddressed }),
+    gateEnv().env,
+  )
+  expect(wrongApp.status, 'a service identity for another application passed the gate').toBe(401)
+
+  // The machine name is what the gate reports for it, and it reports NO email —
+  // the claim that separates an automation identity from a person.
+  const verdict = await guardAccess(GET('/', { 'cf-access-jwt-assertion': machine }), gateEnv().env)
+  expect(verdict.ok, 'a valid service identity did not pass the gate').toBe(true)
+  if (verdict.ok) {
+    expect(verdict.identity, 'the service identity is not named by its machine name').toContain(
+      MACHINE,
+    )
+    expect(verdict.email, 'an automation identity was reported with an email address').toBeNull()
+  }
 
   // Header first: the gateway attaches it, the cookie is the client's copy.
   const headerWins = await worker.fetch(
     GET('/', { 'cf-access-jwt-assertion': human, cookie: 'CF_Authorization=stale-and-invalid' }),
     gateEnv().env,
   )
-  expect(headerWins.status, 'the stale cookie was used in place of the header').toBe(200)
+  await passedTheGate(headerWins, 'a valid header beside a stale cookie')
 
   const headerLoses = await worker.fetch(
     GET('/', { 'cf-access-jwt-assertion': 'stale-and-invalid', cookie: `CF_Authorization=${human}` }),
@@ -228,6 +307,81 @@ it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_ser
   )
   expect(headerLoses.status, 'the cookie was used when the header was present').toBe(401)
   expect(await headerLoses.text()).toMatch(/three-part/)
+
+  // What an automation caller PRESENTS to reach this point is the client-id /
+  // client-secret pair, never the assertion header the gateway forwards inward.
+  // That claim is AC-1450's and is asserted against the client that sends it, in
+  // reconciliation-builder-private-access-automation.test.ts.
+})
+
+/**
+ * AC-1604 — the gate's verdict is WHO the caller is, so nothing behind it
+ * verifies the same token twice.
+ *
+ * DRIVEN AT `guardAccess`, deliberately. The verdict is this criterion's whole
+ * subject and `index.ts` consumes it without echoing the identity onto the wire,
+ * so there is no response header or body that carries it — asserting the shape
+ * requires holding the value. `guardAccess` is the gate's own entry point: it
+ * takes the real `Request` and the real `Env`, exactly as the Worker hands them
+ * over. The consequences of the verdict are then checked at the Worker boundary,
+ * where the verified email — and not the token — is what reaches behind the gate.
+ */
+it('test_UAT_AC1604_the_gate_reports_the_identity_it_verified_so_nothing_behind_it_verifies_twice', async () => {
+  const net = publishKeys()
+  const human = await mint({ email: OPERATOR })
+  const machine = await mint({ common_name: MACHINE })
+
+  // ── A person: named by the email in the token, and the email is reported. ──
+  const person = await guardAccess(GET('/', { 'cf-access-jwt-assertion': human }), gateEnv().env)
+  expect(person.ok, 'a valid human identity did not pass the gate').toBe(true)
+  if (!person.ok) throw new Error('unreachable')
+  expect(person.identity, 'the verdict does not name the caller by their email').toBe(OPERATOR)
+  expect(person.email, 'the verified email is not reported').toBe(OPERATOR)
+
+  // ── A machine: named by the machine name, with NO email at all. Absence is
+  //    reported as absence rather than as an empty or invented address, because
+  //    the email is what a later decision binds an account to and it is the one
+  //    that can be missing. ──
+  const automation = await guardAccess(
+    GET('/', { 'cf-access-jwt-assertion': machine }),
+    gateEnv().env,
+  )
+  expect(automation.ok, 'a valid service identity did not pass the gate').toBe(true)
+  if (!automation.ok) throw new Error('unreachable')
+  expect(automation.identity, 'the verdict does not name the machine').toContain(MACHINE)
+  expect(automation.email, 'a machine was reported with an email address').toBeNull()
+  expect(automation.email, 'a missing email was reported as an empty address').not.toBe('')
+  expect(automation.identity, 'a machine name was reported as an email address').not.toContain('@')
+
+  // ── A caller it cannot verify: a refusal, carrying no identity. There is
+  //    nothing verified to report. ──
+  const refused = await guardAccess(GET('/'), gateEnv().env)
+  expect(refused.ok, 'an unverifiable caller passed the gate').toBe(false)
+  if (refused.ok) throw new Error('unreachable')
+  expect('identity' in refused, 'a refusal carries an identity').toBe(false)
+  expect('email' in refused, 'a refusal carries an email').toBe(false)
+  expect(refused.response.status, 'the refusal is not the response sent instead of serving').toBe(401)
+
+  // ── The caller is named FROM THE VERDICT ALONE. Observed at the Worker
+  //    boundary: the identity lookup behind the gate is driven with the email the
+  //    gate verified, and the token itself never reaches it. ──
+  const { env, queries } = gateEnv()
+  const verify = vi.spyOn(crypto.subtle, 'verify')
+  const readsBefore = net.calls.length
+
+  await worker.fetch(GET('/api/sites', { 'cf-access-jwt-assertion': human }), env)
+
+  expect(queries.length, 'nothing behind the gate was driven with the verdict').toBeGreaterThan(0)
+  expect(queries[0].args, 'the verified email did not reach behind the gate').toContain(OPERATOR)
+  expect(
+    JSON.stringify(queries),
+    'the token was carried behind the gate — the verdict was not enough',
+  ).not.toContain(human)
+
+  // ONE signature check and no second consultation of the published keys: the
+  // token is not presented, parsed or verified again to recover who sent it.
+  expect(verify, 'the token signature was checked more than once for one request').toHaveBeenCalledTimes(1)
+  expect(net.calls.length, 'the published keys were consulted twice for one request').toBe(readsBefore)
 })
 
 /**
@@ -236,8 +390,8 @@ it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_ser
  *
  * Each case is run against a path that opens the store and a path that serves
  * bytes, so "nothing behind the gate was consulted" is checked on both kinds of
- * thing there are to consult. The final block arms the same tripwires with an
- * admitted caller: without it an empty record would be indistinguishable from a
+ * thing there are to consult. The final block arms the same tripwires with a
+ * verified caller: without it an empty record would be indistinguishable from a
  * tripwire that never worked.
  */
 it('test_UAT_AC1377_an_unverifiable_caller_is_refused_and_reaches_nothing_behind_the_gate', async () => {
@@ -296,12 +450,12 @@ it('test_UAT_AC1377_an_unverifiable_caller_is_refused_and_reaches_nothing_behind
     }
   }
 
-  // The tripwires are real — an admitted caller trips every one of them.
-  const admitted = await mint({ email: 'martin-github@westhead.me' })
+  // The tripwires are real — a caller the gate verifies trips them.
+  const verified = await mint({ email: OPERATOR })
   for (const pathname of BEHIND_THE_GATE) {
     const { env, touched } = gateEnv()
-    await worker.fetch(GET(pathname, { 'cf-access-jwt-assertion': admitted }), env)
-    expect(touched, `nothing behind the gate is reachable at ${pathname} even when admitted`).not.toEqual([])
+    await worker.fetch(GET(pathname, { 'cf-access-jwt-assertion': verified }), env)
+    expect(touched, `nothing behind the gate is reachable at ${pathname} even when verified`).not.toEqual([])
   }
 })
 
@@ -314,7 +468,7 @@ it('test_UAT_AC1377_an_unverifiable_caller_is_refused_and_reaches_nothing_behind
  */
 it('test_UAT_AC1378_an_incompletely_configured_gate_refuses_everything_naming_the_missing_setting', async () => {
   publishKeys()
-  const valid = await mint({ email: 'martin-github@westhead.me' })
+  const valid = await mint({ email: OPERATOR })
 
   const cases = [
     { what: 'the team identifier is empty', overrides: { ACCESS_TEAM_DOMAIN: '' }, names: ['ACCESS_TEAM_DOMAIN'] },
@@ -358,7 +512,7 @@ it('test_UAT_AC1379_unobtainable_signing_keys_deny_rather_than_admit', async () 
     resetJwksCache()
     publishKeys(kase.options)
     const { env, touched } = gateEnv()
-    const valid = await mint({ email: 'martin-github@westhead.me' })
+    const valid = await mint({ email: OPERATOR })
 
     const response = await worker.fetch(GET('/api/sites', { 'cf-access-jwt-assertion': valid }), env)
 
@@ -376,29 +530,36 @@ it('test_UAT_AC1379_unobtainable_signing_keys_deny_rather_than_admit', async () 
  * on the same running gate. Without the refresh every valid identity would be
  * refused for the cache lifetime, and "valid identity, refused" is an outage
  * that reads to an operator like a break-in.
+ *
+ * "Honoured" is again the gate's own verdict rather than a served response: what
+ * answers once the gate has passed it is decided behind the gate.
  */
 it('test_UAT_AC1380_a_newly_published_signing_key_is_honoured_without_a_restart', async () => {
   const net = publishKeys()
 
-  // Admit one request, so the gate has read and retained the current key set.
+  // Pass one request, so the gate has read and retained the current key set.
   const warm = await worker.fetch(
-    GET('/', { 'cf-access-jwt-assertion': await mint({ email: 'martin-github@westhead.me' }) }),
+    GET('/', { 'cf-access-jwt-assertion': await mint({ email: OPERATOR }) }),
     gateEnv().env,
   )
-  expect(warm.status, 'the gate did not admit before the rotation').toBe(200)
+  await passedTheGate(warm, 'an identity presented before the rotation')
   const readsBefore = net.calls.length
   expect(readsBefore).toBeGreaterThan(0)
 
   // The gateway begins publishing an additional key, and issues an identity
-  // signed by it. No restart, no redeploy, no configuration change.
+  // signed by it. No restart, no redeploy, no configuration change, and no
+  // waiting out a cache interval.
   const rotated = await crypto.subtle.exportKey('jwk', attacker.publicKey)
   jwks = { keys: [...jwks.keys, { ...rotated, kid: 'uat-key-2', alg: 'RS256', use: 'sig' }] }
-  const token = await mint({ email: 'martin-github@westhead.me' }, { key: attacker, kid: 'uat-key-2' })
+  const token = await mint({ email: OPERATOR }, { key: attacker, kid: 'uat-key-2' })
 
   const response = await worker.fetch(GET('/', { 'cf-access-jwt-assertion': token }), gateEnv().env)
+  const body = await passedTheGate(response, 'an identity signed by a newly published key')
 
-  expect(response.status, 'an identity signed by a newly published key was refused').toBe(200)
-  expect(await response.text()).toContain('1st Contact builder')
+  // Specifically not refused as naming a key the gateway does not publish.
+  expect(body, 'the rotated key was refused as unpublished').not.toMatch(
+    /no Access signing key matches kid/,
+  )
   // It was honoured by re-reading the publication, not by having never cached.
   expect(net.calls.length, 'the gate did not re-read the key set').toBeGreaterThan(readsBefore)
 
