@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T01:48:43.894391+00:00'
+updated_at: '2026-09-04T01:51:05.206535+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -163,5 +163,29 @@ One note: the ticket store's `git push` failed — the sandbox blocks network ac
 It should start with one thing a "delete account" button.
 
 We have had design discussions on this. implementing the button is outside of the scope of the ticket - but it can show one
+
+<!-- xgd-turn id="b662dc18-587a-4a0f-af27-eacfb4c7b7c5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T01:51:05.138185+00:00" -->
+#### Claude
+Let me check what the prior discussion recorded, so I reference it rather than reinvent it.
+
+DOC-37 is the discussion — *Data Deletion & Retention — erasure as identity severance*. That changes the ticket's shape rather than adding to it, so I'm rewriting the body (preserving the sections that still hold verbatim).
+
+REQ-183 is rewritten. §1–3, §6 and §7 are preserved verbatim; §4 onward is new.
+
+**What changed**
+
+v1 is now **one page with one button**. The argument for that ordering: everything else an account surface shows is a convenience whose absence is an inconvenience — this one's absence is a compliance gap, and it's the only capability with a deadline that isn't ours to set. It's also the only one buildable now (charges need the `subscriptions` table DOC-40 §5 defers; deletion needs no new data, because the account already exists), and it's the smallest slice that proves the pipeline reading end-to-end — so if §3's origin decision is wrong, it fails cheaply, before a surface exists that would have to be rebuilt.
+
+I found the design discussion you meant: **DOC-37, *Data Deletion & Retention — erasure as identity severance***. Two things in it bear directly on "show the button but don't implement it":
+
+**DOC-37 §6.2 turns out to be a constraint on this ticket rather than a later one.** It says *"delete all my data" is not a promise we can keep, and offering it is worse than offering the accurate thing*. A **Delete account** button that doesn't delete is exactly that inaccurate promise — it converts a missing feature into a lie, on the one subject where being caught in one is unrecoverable. So I've made the button's *shape* an explicit decision with three candidates and a recommendation: present and live, opening DOC-37 §6.1's explanation and ending in "get in touch". The control then does exactly what it says, what it says is true today, and the explanation is copy the built version uses unchanged. The acceptance holds whichever you pick: no copy on the surface claims anything the system doesn't do — plus a UAT asserting the account still exists afterwards, so a later hand can't read the button as evidence the machinery is there.
+
+**DOC-37 §8 makes your ordering argument from the other end** — *registry at limb one*. The surface arriving before the mechanism means the mechanism has somewhere to land instead of a retrofit across five limbs.
+
+**One question the docs don't answer**, now open question 3: does "delete account" mean the account or its businesses? DOC-40 §2 separates them and an account may hold several; DOC-37 §4 is written about *tenant* deletion, which is the business — but the portal control sits on the **account**, which is the payer. An account holding three businesses pressing one button is undefined, and the copy can't be written until it is.
+
+Dropped to 5 points. The origin decision and the pipeline work are now the bulk; the payload is one control.
 
 <!-- xgd-chat-end -->
