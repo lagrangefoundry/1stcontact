@@ -5,10 +5,10 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-04T23:20:47.206764+00:00'
+updated_at: '2026-09-04T23:45:11.223380+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: open
 fields:
   doc_kind: architecture
 ---
@@ -204,12 +204,24 @@ One tab with a facet, or two tabs over one query, is open. Two lists is not.
 **Falsifier:** a User list and a CRM list that can disagree about a person who is
 both.
 
-## 10. What this model says is currently wrong
+## 10. Amendments this model owes to what is already written
 
-Three things, none owned by this document. Each is reachable from the User tab,
-which is why they are recorded here.
+Three of them, and none is a mistake by the ticket that landed it — each was
+correct for what was asked at the time and became an amendment only once the
+model above was worked out. None is owned by this document. Where each one now
+lives is recorded with it.
+
+[[REQ-178]], [[REQ-179]] and [[REQ-180]] were moved back to `draft` from
+`ready_to_reconcile` on 2026-09-04 to take these before their work reconciles;
+their commits stand and the amendments are deltas on top of them. [[DOC-40]]
+carries the same four corrections in an appended section, its own §2/§5/§6 left
+as written because in-flight tickets cite them as rationale.
 
 ### 10.1 Admission requires an entitlement, and should require a membership
+
+**Owned by [[REQ-178]]** (the refusal) and [[REQ-179]] (what the chrome does with
+nothing selectable). **Blocks [[REQ-183]] §4**, whose delete control is otherwise
+unreachable for the population most likely to want it.
 
 `admit` refuses when no business is selectable (`identity.ts:542`,
 `no_entitlement`). Under §5 that is a lockout loop: a lapsed customer cannot
@@ -226,6 +238,11 @@ answer"*. §5 above gives it a stronger reason than product preference.
 
 ### 10.2 `entitlements.account_id` holds a business
 
+**Unowned — needs its own ticket.** [[REQ-167]] wrote the schema and is
+`bundled`, so it cannot take this; nothing among the reopened three owns the
+table. It constrains [[REQ-170]]'s entitlement editor in the meantime, which must
+not be built as though the subject were always a business.
+
 [[DOC-40]] §5 says so plainly: *"`account_id` here is a business"*. Under §6 the
 subject is the account and the business is the object, so the column that says
 `account_id` is the one that is not. The name will produce a bug — someone will
@@ -233,6 +250,11 @@ write a user id into it because the name tells them to, and it will half-work.
 Rename to `business_id` when the subject column lands, rather than twice.
 
 ### 10.3 `users.platform_admin` bundles two capabilities
+
+**Rationale amended in [[REQ-180]]** A1; the column split itself is unowned and
+needs a ticket. [[REQ-170]] does not depend on it — §7's two conditions select
+exactly the set the flag selects today, so the gate can be modelled correctly
+without the column changing.
 
 - **owner of the 1st Contact business** — not special; `memberships.role='owner'`,
   which exists.
