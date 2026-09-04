@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:57:01.282735+00:00'
+updated_at: '2026-09-04T23:59:56.607371+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -794,5 +794,50 @@ Max useful parallelism is **three branches**. Beyond that you're queueing on `id
 <!-- xgd-chat role="user" ts="2026-09-04T23:57:00.579883+00:00" -->
 #### You
 Can you put the dependencies on the tickets please
+
+<!-- xgd-turn id="44e420b3-f65d-450f-bf4f-b16426d4aa31-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:59:55.257631+00:00" -->
+#### Claude
+Requests use human IDs. Setting the hard edges.
+
+Now the prose note on REQ-170 for the soft ordering I deliberately didn't encode.
+
+Dependencies are set. But REQ-184 and REQ-185 have moved to `free_coding` — let me check whether the dispatcher picked them up.
+
+Both new tickets flipped from `draft` to `free_coding` — and it was my own field updates that did it (`79694d410c` on REQ-185 shows `-status: draft / +status: free_coding`). Not intended.
+
+Branches were cut for both. Checking whether anything was actually committed.
+
+Dependencies are recorded. But I need to flag a side effect I caused.
+
+## Dependency graph as set
+
+| ticket | `depends_on` |
+|---|---|
+| REQ-178 | — |
+| REQ-184 | — |
+| REQ-180 | — |
+| REQ-179 | REQ-178 |
+| REQ-185 | REQ-184 |
+| REQ-170 | REQ-184 |
+| REQ-183 | REQ-178, REQ-179 |
+
+Requests use human IDs (not UIDs like goals do), and `--fields` merged cleanly — `commits`, `version` and everything else survived on the three reopened tickets.
+
+**Two edges I deliberately left out**, with the reasons written into REQ-170's body so they aren't rediscovered as omissions: REQ-170→REQ-179 is a builder-shell merge conflict, and REQ-170→REQ-185 is a write-once preference. Recording either as a real edge would block readiness for something that isn't a blocker. The note also records that REQ-170's API half can run alongside REQ-179 if you want it moving sooner.
+
+## The side effect
+
+Creating REQ-184 and REQ-185 — and my subsequent field updates — flipped them from `draft` to `free_coding`, and **`xgd` cut branches for both**: `free-REQ-184` and `free-REQ-185` now exist as worktrees.
+
+Both are **empty** — zero commits ahead of `xgd-working`, no code written, no agent running (`develop_queued: 0`, `0 running`). So nothing has been built and nothing is in flight. But it wasn't what I intended, and you should decide what to do with them:
+
+- **`free-REQ-184`** — harmless, arguably useful. It's in wave 1 anyway.
+- **`free-REQ-185`** — worth cleaning. It's wave 2, it depends on REQ-184, and its branch is cut from a base that predates REQ-184's rename. When REQ-184 lands, this branch would need re-cutting regardless, so an empty branch from the wrong base is pure liability.
+
+I haven't touched either — deleting branches is your call. `xgd branch clean` is the verb if you want REQ-185's reverted to `draft` and its worktree removed.
+
+Everything else from this session is committed locally; the pushes are still failing on the proxy auth error.
 
 <!-- xgd-chat-end -->
