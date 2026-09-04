@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:46:37.275033+00:00'
+updated_at: '2026-09-04T23:50:39.818646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -675,5 +675,15 @@ All five steps done. Everything is committed locally.
 **Nothing here is implementable yet.** BUNDLE-23 is stalled in `error` at 73%, and REQ-170, REQ-183 and REQ-184 all queue behind REQ-178/179 reconciling — they share `identity.ts` and `scope.ts`. The BUNDLE-23 error is unrelated to any of this (knowledge-base cluster) but it's holding the queue.
 
 **Pushes are still failing** on the proxy auth error — every commit from this session is local only.
+
+<!-- xgd-turn id="ef485e3b-51cd-4976-821d-e2d381bd3423-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:50:37.603519+00:00" -->
+#### You
+Can you create a ticket for the gap.
+
+Nothing is waiting for reconcile we work on working
+
+Can you give me an implementation order please?
 
 <!-- xgd-chat-end -->
