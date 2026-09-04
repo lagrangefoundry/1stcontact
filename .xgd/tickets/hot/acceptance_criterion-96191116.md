@@ -6,10 +6,10 @@ title: The list narrows by what the material is for, by its kind, by whether it 
   used on the open site, and by name — and every narrowing is reversible
 created_by: xgd
 created_at: '2026-09-04T04:26:40.839093+00:00'
-updated_at: '2026-09-04T04:26:40.839093+00:00'
+updated_at: '2026-09-04T04:45:38.946880+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-f775289b
   kind: behavior
