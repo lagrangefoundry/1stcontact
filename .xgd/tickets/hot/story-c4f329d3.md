@@ -6,15 +6,17 @@ title: 'System knowledge base: build the assistant''s domain knowledge from our 
   documents, with each document deciding whether it is in'
 created_by: xgd
 created_at: '2026-08-20T04:15:05.992521+00:00'
-updated_at: '2026-09-04T02:16:39.031497+00:00'
+updated_at: '2026-09-04T02:16:39.204872+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-45acba5e
   story_kind: upgrade
   story_points: 3
+  updated_by:
+  - bundle-203b1dc2
 ---
 
 ## Story
