@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A small corpus is listed in full, says it is complete, and emphasises nothing
 created_by: xgd
 created_at: '2026-09-04T03:36:42.624249+00:00'
-updated_at: '2026-09-04T03:36:42.624249+00:00'
+updated_at: '2026-09-04T03:46:51.163582+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0fb17a68
   kind: behavior
