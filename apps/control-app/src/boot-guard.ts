@@ -28,6 +28,15 @@
  * IT NEVER HIDES A WORKING BUILDER. Every path checks that `#app` is still empty
  * immediately before writing, so a slow-but-successful mount is never replaced
  * by an error panel it raced.
+ *
+ * ITS MATCHERS SAY `tenant` AND ITS SENTENCES SAY *business* ([[REQ-180]] §3),
+ * and the mismatch is deliberate rather than a half-finished rename. `hintFor`
+ * matches against `UnknownTenantError`'s own text — a string the STORE owns,
+ * internal vocabulary, which must keep matching what is actually thrown or the
+ * hint silently stops appearing. What it renders is read by a person, and
+ * `tenant` never reaches one. The remaining `TENANT_ID` hint is exempt for the
+ * opposite reason: it names a configuration variable the operator types, and §3
+ * declines to buy a migration to rename one.
  */
 
 /** How long to let the module graph mount before concluding it will not. */
@@ -80,7 +89,7 @@ export const BOOT_GUARD = `(function () {
       return 'An asset the builder imports is missing. Run <code>1c assets</code>, then restart the builder — the assets manifest is read at startup.';
     }
     if (/no tenant/i.test(api || '')) {
-      return 'The store has no tenant yet. Run <code>bin/publish &lt;slug&gt;</code> to import a site, which registers it.';
+      return 'The store has no business registered yet. Run <code>bin/publish &lt;slug&gt;</code> to import a site, which registers one.';
     }
     if (/TENANT_ID/.test(api || '')) {
       return 'TENANT_ID is not configured for this deployment. See apps/control-app/wrangler.toml.';

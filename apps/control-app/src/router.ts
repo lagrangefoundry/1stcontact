@@ -28,7 +28,13 @@ import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { splitBusinessPrefix, type Scope } from './scope'
-import type { Admission } from './identity'
+import {
+  findAccount,
+  provisionBusiness,
+  type Admission,
+  type BusinessLapse,
+  type IdentityEnv,
+} from './identity'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
@@ -427,6 +433,40 @@ export const AI_STATUS_PATH = '/api/status'
 export const BUSINESSES_PATH = '/api/businesses'
 
 /**
+ * Where the OPERATOR adds a business to an account ([[REQ-180]]).
+ *
+ * `/api/admin/` AND NOT `/api/businesses`, and the prefix is the decision rather
+ * than the tidying. [[REQ-180]] answers §2's fourth bullet the other way: there
+ * is no self-serve "add a business", because we are pre-billing and
+ * pre-entitlement-control and a customer-reachable creation route mints a live
+ * `pro` grant to whoever asks. Hanging the operator's path off the same path the
+ * chrome reads would make the two one keystroke apart in every future diff; a
+ * separate prefix makes "is this reachable by a customer" answerable by looking
+ * at the URL.
+ */
+export const ADMIN_BUSINESSES_PATH = '/api/admin/businesses'
+
+/**
+ * What an operator-only route says to everybody else.
+ *
+ * 404 AND NOT THE 403 EVERY OTHER REFUSAL USES, and the difference is the point.
+ * `identity.ts` and `scope.ts` answer 403 because their caller asked a question
+ * about themselves and is owed the fact that the answer is no. This caller asked
+ * whether an administrative surface exists, and 403 answers that question with
+ * *yes* — which is a fact about the system rather than about them, and one they
+ * have no use for except to come back at it. So the route reports what an
+ * unprivileged caller should be able to observe, which is nothing.
+ *
+ * IT IS WRITTEN RATHER THAN FALLEN THROUGH TO. Letting the path drop past the
+ * route table into `env.ASSETS` would produce a more perfectly identical 404 —
+ * and would make the refusal depend on a binding that some hosts do not have, so
+ * the one place it is missing answers 500 and says by contrast that something is
+ * there. A refusal that is uniform everywhere beats one that is indistinguishable
+ * in most places.
+ */
+const ADMIN_ONLY_MESSAGE = 'Not found.'
+
+/**
  * What {@link BUSINESSES_PATH} answers with.
  *
  * TWO THINGS IN ONE CALL, because the chrome needs both before it can draw
@@ -448,7 +488,22 @@ export const BUSINESSES_PATH = '/api/businesses'
  */
 export interface BusinessesPayload {
   account: { name: string | null; email: string } | null
-  businesses: Array<{ id: string; name: string; selectable: boolean }>
+  /**
+   * `lapse` IS PRESENT EXACTLY WHEN `selectable` IS FALSE ([[REQ-180]] §1).
+   *
+   * Marked is not the same as explained. [[REQ-179]] made a lapsed business
+   * distinguishable from a deleted one, which is what stops the list lying; this
+   * carries the sentence that tells its owner which of "pay us" and "talk to us"
+   * is the fix. It is a fact about a business the caller holds a live membership
+   * on — the payload contains no others — so it discloses nothing about anybody
+   * else, unlike `DenialReason`, which is why that one never leaves the log.
+   */
+  businesses: Array<{
+    id: string
+    name: string
+    selectable: boolean
+    lapse: BusinessLapse | null
+  }>
 }
 
 /**
@@ -474,12 +529,13 @@ export function businessesPayload(
         id: b.businessId,
         name: b.name,
         selectable: b.selectable,
+        lapse: b.lapse,
       })),
     }
   }
   return {
     account: null,
-    businesses: [{ id: scope.businessId, name: scope.businessId, selectable: true }],
+    businesses: [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }],
   }
 }
 
@@ -871,6 +927,80 @@ async function routeUncached(
      */
     if (p === BUSINESSES_PATH && method === 'GET') {
       return json(200, businessesPayload(deps.admission, scope))
+    }
+
+    /**
+     * POST /api/admin/businesses — the operator adds a business ([[REQ-180]]).
+     *
+     * THERE IS NO SELF-SERVE COUNTERPART, and its absence is the ticket's
+     * decision rather than an omission to be filled in later. `provisionBusiness`
+     * writes a live `pro` grant, so a customer-reachable route onto it is an
+     * unbounded free-plan mint until billing exists ([[DOC-40]] §9). Adding a
+     * business is therefore an operator action, done by hand, and this is the
+     * whole of the mechanism.
+     *
+     * IT CALLS `provisionBusiness` AND NOTHING ELSE. A business is a tenant, a
+     * membership, a grant and a starter site, and the ONE thing this route must
+     * not do is write some of them: a `tenants` row without a membership is a
+     * business nobody may operate and `businessesFor`'s join silently drops it,
+     * so the operator would see a successful response and an unchanged switcher.
+     * The rows live in one function ([[REQ-178]]) and both the invite path and
+     * this one go through it, which is also what keeps an invited business and an
+     * added one indistinguishable afterwards.
+     *
+     * ABOVE THE STORE, like the two routes before it, because provisioning
+     * REGISTERS the tenant a store handle would need to already exist.
+     *
+     * THE ADMISSION IS THE ONLY THING CONSULTED. `platform_admin` is ambient by
+     * design ([[DOC-40]] §6) — it works before any membership row exists, which
+     * is what lets the flag repair the system that grants it — so the check is
+     * against the person and not against the resolved scope. On the dev-open path
+     * there is no admission and therefore no administrator, and the route is
+     * refused: a loopback door onto account provisioning is a shape that reads as
+     * a feature and would eventually be relied upon.
+     */
+    if (p === ADMIN_BUSINESSES_PATH && method === 'POST') {
+      const admission = deps.admission
+      if (!admission?.ok || !admission.user.platform_admin) {
+        console.warn(
+          JSON.stringify({
+            event: 'admin_route_refused',
+            path: p,
+            email: admission?.ok ? admission.user.email : null,
+          }),
+        )
+        return text(404, ADMIN_ONLY_MESSAGE)
+      }
+
+      const body = await readJsonBody(request)
+      const accountEmail = typeof body.accountEmail === 'string' ? body.accountEmail : ''
+      const name = typeof body.name === 'string' ? body.name : ''
+      if (accountEmail.trim() === '' || name.trim() === '') {
+        return json(400, { error: 'accountEmail and name are required' })
+      }
+
+      // `env` is structurally an `IdentityEnv` — it carries the same `DB` and
+      // `SITES` — and this cast is the whole of the coupling. The router never
+      // names `TENANT_ID`: where the platform's accounts live is `identity.ts`'s
+      // knowledge, kept there so [[REQ-168]]'s two readers stay two.
+      const identityEnv = env as unknown as IdentityEnv
+      const account = await findAccount(identityEnv, accountEmail)
+      // Reported plainly, because the caller is an administrator who typed the
+      // address and is owed the difference between "no such account" and "done".
+      // The oracle argument that silences every other refusal does not apply to
+      // someone who already holds the flag that would answer the question anyway.
+      if (!account) return json(404, { error: 'No account with that email address.' })
+
+      const business = await provisionBusiness(identityEnv, {
+        accountUserId: account.id,
+        name,
+        email: account.email,
+        plan: typeof body.plan === 'string' ? body.plan : undefined,
+        endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,
+        grantedBy: admission.user.email,
+        note: typeof body.note === 'string' ? body.note : undefined,
+      })
+      return json(200, business)
     }
 
     if (p === '/api/sites' && method === 'GET') {

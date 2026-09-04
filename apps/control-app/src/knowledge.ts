@@ -655,7 +655,7 @@ export async function projectKnowledgeFor(
     // injected without one. Named rather than left to throw on `undefined`.
     throw new Error(
       'The project knowledge index needs the BLOBS binding: it is where the ' +
-        "tenant's vectors live, and it is deliberately not SITES.",
+        "business's vectors live, and it is deliberately not SITES.",
     )
   }
   let embedder = opts.embedder
