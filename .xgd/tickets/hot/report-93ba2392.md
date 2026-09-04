@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T04:29:07.668817+00:00'
+updated_at: '2026-09-04T04:53:07.122943+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -359,7 +359,7 @@ fields:
       and together exceed a single story; the promotion gate's first real caller lives
       here, and 'put it on the site means the bytes are on the site' is a promise
       item 9's criteria cannot carry.
-    story_uid: null
+    story_uid: story-1144410d
   - index: 11
     component: Client Material Store — the vocabulary grows
     item_type: upgrade
