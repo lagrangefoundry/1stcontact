@@ -281,7 +281,6 @@ async function detailFor(uid: string, over: Record<string, unknown> = {}) {
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport: transportOver(),
-    getSite: () => 'alpha',
     ...over,
   })
   root.append(panel.element)

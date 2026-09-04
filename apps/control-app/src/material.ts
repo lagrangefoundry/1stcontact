@@ -813,19 +813,20 @@ function rowOf(ticket: Ticket): MaterialRow {
 }
 
 /**
- * Everything the tenant has given us, newest first ([[REQ-161]]).
+ * Everything the business has given us, newest first ([[REQ-161]]).
  *
- * TENANT-WIDE, NEVER SITE-SCOPED, and that is a decision rather than an
- * omission. [[DOC-38]] §7.7 allows one blob to back two sites and [[DOC-10]]
- * §4.1 makes shared knowledge across a client's sites deliberate — their second
- * site should not start as cold as their first. So `placed_on` travels on the
- * row as something to BADGE and FILTER BY, and the store is never asked to hide
+ * SCOPED BY THE TENANT AND BY NOTHING ELSE ([[REQ-181]]). The store handle is
+ * already one business's, and a business holds one site in v1 — so there is no
+ * narrower scope for this to take and no wider one it could reach. It is not
+ * site-filtered because there is nothing to filter against, and if a business
+ * ever holds several sites the material still belongs to the business.
+ *
+ * IT IS PLACEMENT, NOT UPLOAD CONTEXT (BUG-47). `placed_on` says the bytes are
+ * on a site, so it is written by `promoteToSiteAsset` when the copy lands and by
+ * nothing else — a row whose promotion failed, or whose file was dropped on
+ * *"just for you to read"*, carries no placement at all. The pane reads it to
+ * WARN about the first of those ([[REQ-181]]); the store is never asked to hide
  * anything on the strength of it.
- *
- * IT IS PLACEMENT, NOT UPLOAD CONTEXT (BUG-47). The badge this feeds says the
- * bytes are on a site, so it is written by `promoteToSiteAsset` when the copy
- * lands and by nothing else — a row whose promotion failed, or whose file was
- * dropped on *"just for you to read"*, carries no placement at all.
  *
  * TWO LISTS RATHER THAN ONE PREDICATE, because `list` takes a type and the
  * predicate language is the component's rather than ours; two calls that cannot

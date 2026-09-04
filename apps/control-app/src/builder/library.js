@@ -13,20 +13,26 @@
  * three host-injected functions it asks for — how a row looks, what a detail
  * contains, and what the filter means.
  *
- * TENANT-WIDE, WITH THE SITE AS A BADGE AND NEVER A BOUNDARY. DOC-38 §7.7 lets
- * one blob back two sites and DOC-10 §4.1 makes shared knowledge across a
- * client's sites deliberate — their second site should not start as cold as
- * their first. So `placed_on` decides a badge and a filter the client can turn
- * on, and the origin is never asked to hide anything on the strength of it.
+ * BUSINESS-SCOPED, AND THE SITE IS NOT A DIMENSION OF IT (REQ-181). A business
+ * holds ONE site in v1, so "on this site" and "on the site" are the same
+ * sentence and there is no other site for a material to be on. The Library is
+ * therefore about the business the header names, and nothing here reads which
+ * site is open — that this module can no longer ask is the check on the scope
+ * model, not an omission. A business switch is a DIFFERENT LIST rather than the
+ * same list redrawn, which is why the host clears and re-reads rather than
+ * re-filtering.
  *
- * ONE FACT, READ BY ALL THREE (BUG-47). The pill, the `Used on` field and the
- * `Used on this site` checkbox are three statements about the same thing, so
- * they read the same field and can no longer disagree with each other. That
- * field is `placed_on` — WHERE THE BYTES WENT — and it replaced `site_slug`,
- * which held WHICH SITE WAS OPEN WHEN THE FILE ARRIVED. Reading upload context
- * as placement is what put the pill on a file dropped on *"just for you to
- * read"*, whose own hint had promised seconds earlier that it would not appear
- * on the site.
+ * `placed_on` IS WHERE THE BYTES WENT (BUG-47), and it replaced `site_slug`,
+ * which held WHICH SITE WAS OPEN WHEN THE FILE ARRIVED. Two things read it and
+ * cannot disagree: the `Placed on` row in the rights record, and the warning
+ * below. It is never read to hide anything.
+ *
+ * THE ACCENT IS SPENT ON THE EXCEPTION, NOT THE RULE (REQ-181). A pill saying
+ * "on this site" fired on nearly every site-role row and said nothing, because
+ * placement is what the role already promised. What a client actually needs to
+ * be told is the case that pill was silent about: they asked for a file to go on
+ * their site and the bytes never got there. `placeOnSite` fails softly and keeps
+ * the material, so without this the row looks exactly like one that worked.
  *
  * THE DETAIL REUSES THE EDITORS WE ALREADY HAVE. Both halves are `mountFields`:
  * the §9 rights block read-only, and the description as one editable field. A
@@ -103,6 +109,12 @@ const KIND_ICON = { document: '\u{1F4C4}', image: '\u{1F5BC}', font: '\u{1F524}'
 /** Everything the map does not name, including `capture`. */
 const KIND_ICON_FALLBACK = '\u{1F4CE}'
 
+/** The warning badge (REQ-181) — its glyph, its words, and the full sentence. */
+const WARN_GLYPH = '\u26A0'
+const UNPLACED_LABEL = 'Not on the site'
+const UNPLACED_HINT =
+  "You asked for this to go on your site and it did not get there. It is still here — try adding it again."
+
 /** The §9 rights block, shown read-only. The client's own record of what we hold. */
 const RIGHTS_FIELDS = [
   { name: 'filename', label: 'File' },
@@ -111,7 +123,7 @@ const RIGHTS_FIELDS = [
   { name: 'origin', label: 'Where it came from' },
   { name: 'rights', label: 'Rights' },
   { name: 'republishable', label: 'Can appear on the site', type: 'boolean' },
-  { name: 'placed_on', label: 'Used on' },
+  { name: 'placed_on', label: 'Placed on' },
   { name: 'source_url', label: 'Address' },
 ]
 
@@ -202,16 +214,29 @@ function openLinksAway(cell) {
  *
  * TOLERANT OF ABSENCE, so a row that predates `placed_on` — or one the origin
  * has not filled in — reads as "placed nowhere" rather than as a third state
- * every caller has to guard. The three consumers below then ask exactly one
- * question of it and cannot come apart from one another.
+ * every caller has to guard. That is also what makes the warning below safe: an
+ * absent field and an empty one are the same answer.
+ *
+ * STILL A LIST UNDER ONE SITE PER BUSINESS (REQ-181), because the multiplicity
+ * is the store's and v2 restores it. Collapsing it to a scalar here would be a
+ * migration to undo rather than an invariant held.
  */
 function placedList(row) {
   return Array.isArray(row.placed_on) ? row.placed_on : []
 }
 
-/** Whether this material's bytes are on the site currently open. */
-function placedHere(row, site) {
-  return placedList(row).includes(site)
+/**
+ * A file the client asked us to put on their site, that never got there.
+ *
+ * THE TWO FACTS ARE ALREADY CORRELATED BY CONSTRUCTION, which is what makes this
+ * one predicate rather than two. `classify` writes `republishable: role !==
+ * 'reference'`, `promoteToSiteAsset` refuses anything not republishable, and
+ * `placeOnSite` returns early unless the role is `site` — so background
+ * information can never be placed, and an empty `placed_on` on a site-role row
+ * is a failure rather than a category.
+ */
+function unplaced(row) {
+  return row.role === 'site' && placedList(row).length === 0
 }
 
 function el(tag, className, text) {
@@ -227,14 +252,12 @@ function el(tag, className, text) {
  * @param {object} [options]
  * @param {Storage} [options.storage]  the shell's namespaced handle
  * @param {object}  [options.transport] `{list, item, save, fileUrl}` — injected by tests
- * @param {() => string|null} [options.getSite] the site the "used here" badge is about
  * @param {Promise<void>} [options.markdownReady] when the markdown engines have
  *   settled (BUG-42); injected by tests so the cold-load repaint is observable.
  * @param {() => Element|null} [options.getModalHost] where an expanded reader
  *   window is appended (REQ-172). A FUNCTION rather than an element, because the
- *   Library is constructed before the shell hands out its root — the same reason
- *   `getSite` is one. Defaults to `document.body`, which is what a suite driving
- *   the tab against a bare document has.
+ *   Library is constructed before the shell hands out its root. Defaults to
+ *   nothing, which is what a suite driving the tab against a bare document has.
  */
 export function createLibraryPanel(options = {}) {
   const {
@@ -245,16 +268,15 @@ export function createLibraryPanel(options = {}) {
       save: saveMaterialDescription,
       fileUrl: materialFileUrl,
     },
-    getSite = () => null,
     markdownReady = defaultMarkdownReady,
     getModalHost = () => null,
   } = options
 
   const element = el('div', 'builder-library')
 
-  /** Everything the tenant has. The filter narrows this; it never re-fetches. */
+  /** Everything the business has. The filter narrows this; it never re-fetches. */
   let all = []
-  const filter = { text: '', role: '', kind: '', hereOnly: false }
+  const filter = { text: '', role: '', kind: '' }
 
   // --- the filter, in the list header's own slot --------------------------------
   const controls = el('div', 'builder-library__filter')
@@ -277,12 +299,7 @@ export function createLibraryPanel(options = {}) {
   kindSelect.append(new Option('Any kind', ''))
   for (const kind of KINDS) kindSelect.append(new Option(kind, kind))
 
-  const hereLabel = el('label', 'builder-library__here')
-  const here = document.createElement('input')
-  here.type = 'checkbox'
-  hereLabel.append(here, el('span', null, 'Used on this site'))
-
-  controls.append(search, roleSelect, kindSelect, hereLabel)
+  controls.append(search, roleSelect, kindSelect)
 
   search.addEventListener('input', () => {
     filter.text = search.value.trim().toLowerCase()
@@ -296,26 +313,24 @@ export function createLibraryPanel(options = {}) {
     filter.kind = kindSelect.value
     apply()
   })
-  here.addEventListener('change', () => {
-    filter.hereOnly = here.checked
-    apply()
-  })
 
   /**
    * Which rows survive the filter.
    *
-   * ALL FOUR ARE CONJUNCTIVE and all four are computed here rather than asked of
-   * the origin. The list is one tenant's material — tens to low hundreds of rows
-   * — so filtering in the browser is instant and, more usefully, keeps "used on
-   * this site" a VIEW of a tenant-wide list rather than a query that would make
-   * it look like a scope.
+   * ALL THREE ARE CONJUNCTIVE and all three are computed here rather than asked
+   * of the origin. The list is one business's material — tens to low hundreds of
+   * rows — so filtering in the browser is instant, and the fetch stays a single
+   * request the host can re-issue when the scope moves.
+   *
+   * THE FOURTH IS GONE (REQ-181). "Used on this site" degenerated, under one site
+   * per business, to "site assets whose promotion worked" — which is the role
+   * filter for the rule and the warning below for the exception, both said
+   * better elsewhere.
    */
   function visible() {
-    const site = getSite()
     return all.filter((row) => {
       if (filter.role && row.role !== filter.role) return false
       if (filter.kind && row.kind !== filter.kind) return false
-      if (filter.hereOnly && (!site || !placedHere(row, site))) return false
       if (!filter.text) return true
       return `${row.title} ${row.filename}`.toLowerCase().includes(filter.text)
     })
@@ -346,12 +361,18 @@ export function createLibraryPanel(options = {}) {
         el('span', 'builder-library__badge builder-library__badge--role', ROLE_LABEL[row.role] ?? row.role),
       )
     }
-    // THE BADGE THE TICKET ASKS FOR. Present only when it is true, because a
-    // "not used on this site" badge on every other row would be noise about the
-    // majority to say something about the few.
-    const site = getSite()
-    if (site && placedHere(row, site)) {
-      meta.append(el('span', 'builder-library__badge builder-library__badge--here', 'On this site'))
+    // THE EXCEPTION, BADGED (REQ-181). Not a recoloured pill: this is rare, it is
+    // actionable, and it is the only thing on the row a client would want to be
+    // told. It says its meaning IN WORDS and carries the glyph as decoration —
+    // colour and shape are both redundant, so a screen reader and a monochrome
+    // display each get the whole fact.
+    if (unplaced(row)) {
+      const warn = el('span', 'builder-library__badge builder-library__badge--unplaced')
+      const glyph = el('span', 'builder-library__warn-glyph', WARN_GLYPH)
+      glyph.setAttribute('aria-hidden', 'true')
+      warn.append(glyph, el('span', null, UNPLACED_LABEL))
+      warn.title = UNPLACED_HINT
+      meta.append(warn)
     }
     wrap.append(meta)
     return wrap
@@ -391,10 +412,12 @@ export function createLibraryPanel(options = {}) {
         origin: row.origin,
         rights: row.rights,
         republishable: row.republishable,
-        // JOINED, BECAUSE PLACEMENT IS PLURAL. `mountFields` reads a scalar, and
-        // a material may be on two of the client's sites (DOC-38 §7.7) — so the
-        // list is rendered as one, and an unplaced material shows nothing rather
-        // than an empty bracket.
+        // JOINED, BECAUSE THE FIELD IS A LIST. `mountFields` reads a scalar, and
+        // `placed_on` holds one slug in v1 and several when a business may hold
+        // several sites — so the list is rendered as one, and an unplaced
+        // material shows nothing rather than an empty bracket. Labelled `Placed
+        // on` rather than `Used on` (REQ-181): it says where the bytes went, and
+        // a draft asset is not yet in use by anyone.
         placed_on: placedList(row).join(', '),
         source_url: row.source_url ?? '',
       },
@@ -576,7 +599,7 @@ export function createLibraryPanel(options = {}) {
     emptyDetail: EMPTY_DETAIL,
   })
 
-  /** Re-read the tenant's material and redraw. Called after every upload. */
+  /** Re-read the business's material and redraw. Called after every upload. */
   async function refresh() {
     const { material } = await transport.list()
     all = Array.isArray(material) ? material : []
@@ -584,14 +607,27 @@ export function createLibraryPanel(options = {}) {
     return all
   }
 
+  /**
+   * Forget everything on screen (REQ-181).
+   *
+   * FOR THE SCOPE MOVING, AND FOR NOTHING ELSE. A business switch makes this a
+   * different business's list, and the host's re-read is allowed to fail — so
+   * the rows are dropped BEFORE the fetch rather than left standing until one
+   * succeeds. A moment of "nothing yet" is honest; another business's material
+   * under a header naming this one is not.
+   */
+  function clear() {
+    all = []
+    apply()
+  }
+
   return {
     element,
     listDetail,
     refresh,
+    clear,
     /** Everything currently shown, for a host that wants to report a count. */
     getRows: () => visible(),
-    /** The site changed under us: the badge and the "used here" filter follow it. */
-    siteChanged: () => apply(),
     destroy() {
       listDetail.destroy()
       element.remove()

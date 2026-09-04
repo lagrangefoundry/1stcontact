@@ -1,23 +1,23 @@
 // @vitest-environment jsdom
 /**
- * BUG-47 — **the pill, the field and the filter say the same thing**.
+ * BUG-47 — **the surface reads placement, never upload context**.
  *
  * WHAT THIS FILE PROVES, and what its sibling proves instead. The origin half —
  * that `placed_on` is written by the promotion and only where the bytes landed —
  * is `test_UAT_FC_BUG-47_placement.workers.test.ts`. This is the surface: that
- * the three consumers which used to read `site_slug` now read one fact, and
- * therefore cannot disagree with each other or with what the client was told at
- * the moment they dropped the file.
+ * what the pane says about a material is decided by where the BYTES went, not by
+ * which site happened to be open when the file was dropped.
  *
- * THE THREE WERE ALWAYS ONE STATEMENT. `On this site`, the `Used on` row in the
- * rights block, and the `Used on this site` checkbox are three renderings of
- * "the bytes are on the site you have open". They were three separate readings
- * of a field that meant something else, so all three were wrong together — which
- * is why they are asserted together here rather than one per test.
+ * THE BUG WAS THAT UPLOAD CONTEXT WAS READ AS PLACEMENT. A note dropped on *"just
+ * for you to read"* was sent with the open site's slug, stored it as `site_slug`,
+ * and came back claiming to be on the site its own hint had promised seconds
+ * earlier it would stay off.
  *
- * AND PLACEMENT IS PLURAL. DOC-38 §7.7 lets one blob back two of a client's
- * sites, so the fixture holds a logo on both and the suite switches sites to
- * check that each one badges it. A scalar could not have expressed that at all.
+ * TWO READERS NOW, NOT THREE ([[REQ-181]]). The `On this site` pill and the
+ * `Used on this site` checkbox are gone — under one site per business they said
+ * nothing — so what remains is the `Placed on` row in the rights record and the
+ * warning that fires when a site asset was never placed. Both still read this one
+ * field and still cannot disagree with each other.
  */
 
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -66,8 +66,13 @@ function material(over: Record<string, unknown>): Record<string, unknown> {
  *
  * THE SECOND ROW IS THE BUG. It was uploaded while `alpha` was open — so the
  * overlay sent `alpha` with it — and dropped on *"just for you to read"*. Under
- * the old field it carried `site_slug: 'alpha'` and was badged as being on the
+ * the old field it carried `site_slug: 'alpha'` and was reported as being on the
  * site the client had just been promised it would stay off.
+ *
+ * THE FOURTH IS KEPT THOUGH V1 CANNOT PRODUCE IT. `placed_on` is a list because
+ * the store's multiplicity outlives the one-site-per-business invariant
+ * ([[REQ-181]]), and a fixture that only ever held one slug could not tell a
+ * rendered list from a rendered scalar.
  */
 const MATERIAL = [
   material({
@@ -141,70 +146,60 @@ beforeEach(() => {
   document.body.append(root)
 })
 
-/** A mounted Library over the fixture. `site` is read on every draw. */
-async function library(initial = 'alpha') {
-  let site = initial
+/** A mounted Library over the fixture. */
+async function library() {
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport: transportOver(),
-    getSite: () => site,
   })
   root.append(panel.element)
   await panel.refresh()
-  return { panel, setSite: (s: string) => void (site = s) }
+  return { panel }
 }
 
 const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
 const titles = (el: Element) => rowsIn(el).map((r) => r.textContent)
 
-/** The rows currently wearing the pill. */
-function badged(el: Element): string[] {
-  return [...el.querySelectorAll('.builder-library__badge--here')].map(
+/** The rows carrying the "never got there" warning ([[REQ-181]]). */
+function warned(el: Element): string[] {
+  return [...el.querySelectorAll('.builder-library__badge--unplaced')].map(
     (b) => b.closest('.list-detail-row')!.textContent ?? '',
   )
 }
 
-describe.skipIf(!WEBUI_INSTALLED)('BUG-47 — the badge marks placement, not upload context', () => {
-  it('test_UAT_FC_BUG-47_a_file_kept_for_reading_is_not_badged_as_being_on_the_site', async () => {
-    const { panel } = await library('alpha')
+describe.skipIf(!WEBUI_INSTALLED)('BUG-47 — the surface reads placement, not upload context', () => {
+  it('test_UAT_FC_BUG-47_a_file_kept_for_reading_is_not_marked_as_being_on_the_site', async () => {
+    const { panel } = await library()
 
-    // ALL FOUR ARE LISTED — the Library is tenant-wide and the site is a badge,
-    // never a boundary (DOC-38 §7.7, DOC-10 §4.1).
+    // ALL FOUR ARE LISTED — the Library is the business's material and placement
+    // is never a boundary ([[REQ-181]]).
     expect(rowsIn(panel.element)).toHaveLength(4)
 
-    // AND EXACTLY THE PLACED ONES ARE BADGED. The note the client asked us only
-    // to read, and the picture whose promotion did not land, carry no pill —
-    // under the old field both did, because both uploads named the open site.
-    const here = badged(panel.element)
-    expect(here).toHaveLength(2)
-    expect(here.join(' ')).toContain('The wordmark')
-    expect(here.join(' ')).toContain('The logo')
-    expect(here.join(' ')).not.toContain('Positioning note')
-    expect(here.join(' ')).not.toContain('The old shopfront')
+    // THE NOTE SAYS NOTHING ABOUT THE SITE, in either direction. Under the old
+    // field it claimed to be ON the site because the upload named one; it must
+    // not now swing to claiming it FAILED to get there — it was never going.
+    expect(titles(panel.element).join(' ')).toContain('Positioning note')
+    expect(warned(panel.element).join(' ')).not.toContain('Positioning note')
+
+    // AND THE ONE THAT WAS GOING, AND DID NOT ARRIVE, IS THE ONE MARKED.
+    const warnings = warned(panel.element)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('The old shopfront')
   })
 
-  it('test_UAT_FC_BUG-47_the_filter_and_the_used_on_field_agree_with_the_pill', async () => {
-    const { panel } = await library('alpha')
+  it('test_UAT_FC_BUG-47_the_placed_on_field_agrees_with_the_warning', async () => {
+    const { panel } = await library()
 
-    // THE FILTER. "Used on this site" narrows to exactly the badged rows, because
-    // it now asks the same field the badge does.
-    const here = panel.element.querySelector('.builder-library__here input') as HTMLInputElement
-    here.checked = true
-    here.dispatchEvent(new Event('change'))
-    expect(titles(panel.element)).toHaveLength(2)
-    expect(titles(panel.element).join(' ')).not.toContain('Positioning note')
-
-    // THE `Used on` FIELD. The row the client was promised would stay off the
+    // THE `Placed on` FIELD. The row the client was promised would stay off the
     // site says so in its own rights record — it named `alpha` before.
-    here.checked = false
-    here.dispatchEvent(new Event('change'))
     panel.listDetail.select('kept-for-reading')
     await settle()
     const rights = panel.element.querySelector('.builder-library__rights')!
-    const usedOn = rights.querySelector('.fields-row[data-field="placed_on"]')!
-    expect(usedOn.textContent).not.toContain('alpha')
+    const placedOn = rights.querySelector('.fields-row[data-field="placed_on"]')!
+    expect(placedOn.textContent).not.toContain('alpha')
 
-    // …and the row that IS on two sites names both, because placement is plural.
+    // …and a row with placement names it, from the same field the warning reads,
+    // rendered as a list because that is what the field holds.
     panel.listDetail.select('on-both-sites')
     await settle()
     const both = panel.element
@@ -214,20 +209,4 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-47 — the badge marks placement, not upl
     expect(both.textContent).toContain('beta')
   })
 
-  it('test_UAT_FC_BUG-47_a_material_on_two_sites_is_badged_on_both_of_them', async () => {
-    // THE SHAPE A SCALAR COULD NOT HOLD. One blob backs two of the client's sites
-    // (DOC-38 §7.7), so switching site re-decides the badge from the same row —
-    // the material did not change, only which site is asking.
-    const { panel, setSite } = await library('alpha')
-    expect(badged(panel.element).join(' ')).toContain('The logo')
-
-    setSite('beta')
-    await panel.refresh()
-
-    const here = badged(panel.element)
-    expect(here).toHaveLength(1)
-    expect(here[0]).toContain('The logo')
-    // The wordmark is on `alpha` only, so `beta` does not claim it.
-    expect(here.join(' ')).not.toContain('The wordmark')
-  })
 })

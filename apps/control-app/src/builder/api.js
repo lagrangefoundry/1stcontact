@@ -391,12 +391,12 @@ export async function publishSite(slug, fetchImpl = fetch) {
 }
 
 /**
- * Everything the client has given us, tenant-wide (REQ-161).
+ * Everything the client has given us, for the business in scope (REQ-161).
  *
- * NO SLUG. The Library is deliberately not site-scoped — DOC-38 §7.7 lets one
- * blob back two sites, and DOC-10 §4.1 makes shared knowledge across a client's
- * sites deliberate. "Used on this site" is a badge the list computes from
- * `placed_on` on each row, never a request the origin filters.
+ * NO SLUG, AND NOTHING FOR ONE TO NARROW (REQ-181). The scope is carried by the
+ * URL prefix `scoped()` writes, and a business holds one site in v1 — so a slug
+ * here could only ever repeat what the prefix already says. Material belongs to
+ * the business, not to one of its sites.
  */
 export async function fetchMaterial(fetchImpl = fetch) {
   const res = await fetchImpl(scoped('/api/material'))

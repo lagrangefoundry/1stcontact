@@ -189,7 +189,6 @@ async function detailFor(uid: string, over: Record<string, unknown> = {}) {
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport: transportOver(),
-    getSite: () => 'alpha',
     ...over,
   })
   root.append(panel.element)
@@ -291,7 +290,6 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-166 — a capture in the Library', () => 
     const panel = createLibraryPanel({
       storage: memoryStorage(),
       transport: transportOver(),
-      getSite: () => 'alpha',
     })
     root.append(panel.element)
     await panel.refresh()
