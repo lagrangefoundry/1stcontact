@@ -6,10 +6,10 @@ title: A conversation is re-indexed in batches, measured from a durable mark kep
   off the conversation
 created_by: xgd
 created_at: '2026-09-04T03:36:34.590590+00:00'
-updated_at: '2026-09-04T03:36:34.590590+00:00'
+updated_at: '2026-09-04T03:46:51.486116+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0fb17a68
   kind: behavior
