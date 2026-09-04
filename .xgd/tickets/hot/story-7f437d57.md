@@ -6,14 +6,14 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-08-16T04:42:15.609875+00:00'
+updated_at: '2026-09-04T05:30:17.474101+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-44a04848
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
   uat_coverage: pass
 ---
@@ -39,8 +39,10 @@ In scope:
   visible alongside what it said.
 - **Following the displayed site.** The conversation on screen is always the one about
   the site the display panel is showing. The site is chosen in exactly one place in the
-  workspace; the pane offers no second control of its own that could disagree with it.
-  Changing the site changes both halves together.
+  workspace: exactly one control anywhere in the workspace offers the store's sites to
+  pick from, however many other dropdowns the workspace has for other purposes, and the
+  pane offers no control of its own that could disagree with it. Changing the site
+  changes both halves together.
 - **Replay.** On first open and on every switch, the pane shows what that site's
   conversation already contains, so the assistant never answers from context the
   operator cannot see. One site's conversation never appears under another's.
@@ -98,6 +100,31 @@ Out of scope:
 - **Known upstream gaps, not claimed here.** Markdown and sanitiser engines load behind
   the component's own seams and are designed to degrade: without them the pane renders
   escaped text rather than failing. No criterion asserts rendered markdown.
+
+## Reconciliation Decisions
+
+*Recorded 2026-09-03, reconciling BUNDLE-23 (bundle-203b1dc2), item 13.*
+
+- **The single-site-selector criterion is restated by what the control offers rather
+  than by counting dropdowns.** REQ-161 names this supersession itself: the criterion
+  was verified by asserting that the workspace held exactly one dropdown of any kind,
+  which was exact while it did, and which the Library's role and kind filters break
+  without touching what the criterion is about. Restated: **exactly one control in the
+  workspace offers the store's sites**, and it is the toolbar's; every other dropdown
+  in the workspace is checked against the store's site slugs and must offer none of
+  them, so a second site selector still fails.
+  *Rationale:* the property that matters is that nothing but the toolbar offers a site
+  to pick — a second control that could disagree with it is worse than no control at
+  all. The count was a proxy for that, and the proxy now has a false failure mode while
+  the property is unchanged. The scope stays the **whole workspace** rather than the
+  split, because the toolbar is the split's sibling and a narrower scope would pass
+  while a second selector sat beside the one it found.
+- **The pane's own absence of a site control is kept as part of the same criterion.**
+  It is asserted both as a surface — the pane exposes nothing to set or read a site —
+  and as chrome, so the guarantee does not rest on a DOM query alone.
+  *Rationale:* the two halves fail independently, and the criterion's subject is that
+  there is no second opinion about which site is displayed, not merely that no second
+  dropdown is drawn.
 
 ## Dependencies
 
