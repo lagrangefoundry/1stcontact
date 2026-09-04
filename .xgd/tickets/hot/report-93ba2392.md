@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T02:28:00.594534+00:00'
+updated_at: '2026-09-04T02:47:05.789602+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -113,7 +113,7 @@ fields:
       reporting are the story's existing subject. The 'always written, null when absent'
       rule and the loud report are new claims about that build's output and have no
       AC today.
-    story_uid: null
+    story_uid: story-c4f329d3
     target_story_ids:
     - story-c4f329d3
     intent_delta_summary: The build gains a fourth output — the corpus and both indexes
