@@ -1443,3 +1443,19 @@ body {
 .builder-account__business[data-lapsed='true'] {
   color: var(--shell-muted, #71717a);
 }
+
+/* The row becomes two lines only when there is a second thing to say. A grid
+   row per business would reserve the space on every line of the ordinary case,
+   where nothing has lapsed and there is nothing to reserve it for. */
+.builder-account__business {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The reason (REQ-180). Smaller than the name it explains, because it is a
+   subordinate clause and must not compete with the thing being named. It is not
+   dimmed further: the row is already muted by [data-lapsed], and muting the one
+   sentence that says what to do about it would be exactly backwards. */
+.builder-account__business-lapse {
+  font-size: 12px;
+}

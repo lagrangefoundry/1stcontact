@@ -99,6 +99,36 @@ export const BUSINESS_LABEL = 'Business'
 export const BUSINESS_LAPSED_SUFFIX = ' (access ended)'
 
 /**
+ * WHY a business lapsed, in words ([[REQ-180]] §1).
+ *
+ * THE SUFFIX ABOVE MARKS; THIS EXPLAINS, and the split is where each one can be
+ * read. The suffix goes on an `<option>`, which is a label and cannot carry a
+ * sentence; the account surface has a row per business and room for one. So the
+ * switcher says a business is unavailable and the account surface says why —
+ * neither is the other's abbreviation, and the person who wants the reason knows
+ * where the reason is.
+ *
+ * TWO SENTENCES, NOT ONE, because they have different fixes. "Ended" is settled
+ * by paying; "withdrawn" is settled by talking to us. A person told only that
+ * their access is gone will do neither, which is the failure the whole reason
+ * exists to prevent.
+ *
+ * Keyed by the wire's `reason`, and `lapseSentence` falls back to the bare
+ * suffix for a reason this build has never heard of — a Worker ahead of the
+ * client it is serving is an ordinary state during a deploy, and an unrecognised
+ * key must degrade to less information rather than to `undefined` on screen.
+ */
+export const BUSINESS_LAPSE_SENTENCES = {
+  expired: 'Access ended.',
+  revoked: 'Access was withdrawn.',
+  not_yet: 'Access has not started yet.',
+  never_granted: 'No access has been granted.',
+}
+
+/** What an `expired` lapse says when the wire carried the date it ended. */
+export const BUSINESS_LAPSE_EXPIRED_ON = (date) => `Access ended on ${date}.`
+
+/**
  * The account surface, behind the avatar and DELIBERATELY NOT A TAB.
  *
  * It is the one surface in this product that is not business-scoped

@@ -20,6 +20,8 @@ import {
   ACCOUNT_LABEL,
   BUSINESS_LABEL,
   BUSINESS_LAPSED_SUFFIX,
+  BUSINESS_LAPSE_EXPIRED_ON,
+  BUSINESS_LAPSE_SENTENCES,
 } from './config.js'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
 
@@ -53,6 +55,38 @@ export function resolveBusiness(businesses, storedId) {
   if (stored && stored.selectable !== false) return stored.id
   const first = list.find((b) => b.selectable !== false)
   return first ? first.id : null
+}
+
+/**
+ * The sentence a lapsed business is explained with ([[REQ-180]] §1).
+ *
+ * PURE, AND EXPORTED, so every branch is provable without a DOM — including the
+ * two that only occur against a Worker this client was not built alongside.
+ *
+ * A MISSING OR UNRECOGNISED LAPSE DEGRADES TO NULL, and the caller renders
+ * nothing rather than a placeholder. Both states are ordinary rather than
+ * defensive: a Worker that predates this ticket sends `selectable: false` with no
+ * `lapse` at all, and one that outlives this client can send a reason it has
+ * never heard of. In both cases the business is still marked unavailable by
+ * {@link BUSINESS_LAPSED_SUFFIX} — so the answer degrades to less information,
+ * never to a wrong one and never to the word `undefined` on a screen.
+ *
+ * THE DATE IS THE WIRE'S OWN, TRUNCATED TO THE DAY, and deliberately not
+ * localised. `ends_at` is a timestamp and the fact worth stating is which day
+ * access stopped; rendering the time as well invites the reader to reason about a
+ * timezone this string does not carry, and `toLocaleDateString` would make the
+ * sentence depend on the machine it is read on, which is the wrong property for
+ * something a customer may quote back to us.
+ *
+ * @param {{reason?: string, endedAt?: string|null}|null|undefined} lapse
+ * @returns {string|null}
+ */
+export function lapseSentence(lapse) {
+  const reason = lapse && typeof lapse.reason === 'string' ? lapse.reason : null
+  if (!reason) return null
+  const endedAt = typeof lapse.endedAt === 'string' ? lapse.endedAt.slice(0, 10) : ''
+  if (reason === 'expired' && endedAt !== '') return BUSINESS_LAPSE_EXPIRED_ON(endedAt)
+  return BUSINESS_LAPSE_SENTENCES[reason] ?? null
 }
 
 /**
@@ -141,17 +175,30 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  * surface that is not business-scoped, and a tab for it would be the single
  * place where the shell's switcher is present and does not apply.
  *
- * WHAT IT SHOWS IS DELIBERATELY THIN. [[REQ-180]] owns the customer portal this
- * grows into — plan, invoices, details — and it is the portal of the 1st Contact
- * *site*, rendered by the code that will render the portal our customers give
- * their own customers ([[DOC-40]] §2.1). Sketching those surfaces here would be
- * building them twice, so this states what is true today and nothing more: who
- * is signed in, and which businesses that identity reaches.
+ * IT DOES NOT GROW INTO THE PORTAL — IT LINKS TO IT. [[REQ-180]] settled the
+ * question this comment used to leave open: the surface showing an account its
+ * plan, its invoices and its details is the customer portal of the 1st Contact
+ * *site*, rendered through the site pipeline by the code that will render the
+ * portal our customers give their own customers ([[DOC-40]] §2.1). Building any
+ * of it here would be the named failure mode of §2.1 rule 1 — the bespoke admin
+ * billing page — and would guarantee the portal gets built a second time by
+ * someone reverse-engineering what this one decided.
+ *
+ * SO WHAT THIS DIALOG MAY EVER HOLD IS BOUNDED, and the bound is the useful part
+ * of the decision: who is signed in, and which businesses that identity reaches.
+ * Both are facts about the SESSION, which is the one thing a portal rendered on
+ * another origin cannot state. Plan, invoices and details are not thin here
+ * pending more work; they are absent because they belong somewhere else.
+ *
+ * ADDING A BUSINESS IS NOT HERE EITHER, and for a different reason ([[REQ-180]]
+ * D2). It is an operator action while we are pre-billing — `provisionBusiness`
+ * writes a live grant — so it lives behind `platform_admin` on
+ * `/api/admin/businesses` and has no control in the product at all.
  *
  * @param {object} spec
  * @param {Element} [spec.host] inside the shell root — see `modal.js`
  * @param {{name: string|null, email: string}|null} [spec.account]
- * @param {Array<{id: string, name?: string, selectable?: boolean}>} [spec.businesses]
+ * @param {Array<{id: string, name?: string, selectable?: boolean, lapse?: object|null}>} [spec.businesses]
  * @param {string|null} [spec.selected]
  */
 export function openAccountSurface({ host = null, account = null, businesses = [], selected = null } = {}) {
@@ -177,7 +224,26 @@ export function openAccountSurface({ host = null, account = null, businesses = [
     row.className = 'builder-account__business'
     if (b.id === selected) row.dataset.current = 'true'
     if (b.selectable === false) row.dataset.lapsed = 'true'
-    row.textContent = `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
+
+    const label = document.createElement('span')
+    label.className = 'builder-account__business-name'
+    label.textContent = `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
+    row.append(label)
+
+    // THE REASON GOES BESIDE THE BUSINESS IT BELONGS TO, and this is the one
+    // place in the product it is stated ([[REQ-180]] §1). An account operating
+    // three businesses can have two of them lapsed for different reasons, so a
+    // single banner over the list would have to pick one and be wrong about the
+    // other. It is rendered ONLY for a lapsed business: a selectable one carries
+    // no lapse — the server computes the pair from one answer — and a row saying
+    // why access is fine would be noise on every line of the ordinary case.
+    const sentence = b.selectable === false ? lapseSentence(b.lapse) : null
+    if (sentence) {
+      const why = document.createElement('span')
+      why.className = 'builder-account__business-lapse'
+      why.textContent = sentence
+      row.append(why)
+    }
     list.append(row)
   }
   modal.panel.append(list)
