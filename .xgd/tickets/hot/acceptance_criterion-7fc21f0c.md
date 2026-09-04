@@ -6,10 +6,10 @@ title: A file given to 'put it on the site' with a site open is on that site whe
   the answer returns, under a name it states
 created_by: xgd
 created_at: '2026-09-04T04:52:00.692864+00:00'
-updated_at: '2026-09-04T04:52:00.692864+00:00'
+updated_at: '2026-09-04T05:01:59.488212+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
