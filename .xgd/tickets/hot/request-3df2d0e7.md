@@ -6,9 +6,9 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-04T00:23:08.757092+00:00'
+updated_at: '2026-09-04T01:42:05.162534+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -245,3 +245,13 @@ protects against is the next one, written by someone who did not read §3.
   excepting SQL and strings naming `TENANT_ID` or `wrangler.toml`.
 - No plan, billing or invoice view exists as a builder route.
 - `tenant_id` is untouched in the schema.
+
+
+### D1 addendum — the portal ticket is [[REQ-183]]
+
+Filed 2026-09-03. It carries the surface D1 confirmed and deliberately did not
+build, and it opens with the origin question (`app.1stcontact.io` versus
+`1stcontact.io`) that has to be settled before any of it exists. The
+prohibitions this ticket landed — no plan/billing/invoice route in the builder,
+the avatar surface bounded to facts about the session, no self-serve add-a-
+business — are constraints ON that ticket, not work it supersedes.
