@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:35:34.898844+00:00'
+updated_at: '2026-09-04T23:41:55.628557+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -629,5 +629,11 @@ Each carries `commits` and `version`. There's no `reopen` verb — the mechanism
 5. F1–F4 follow-on tickets are **no longer needed** — reopening absorbs F1/F3/F4's ticket half. **F2 (entitlement subject column) still needs its own ticket**, since REQ-167 is too late and nothing in the reopened three owns the schema.
 
 Confirm the `commits`/`version` question and I'll run 1–5.
+
+<!-- xgd-turn id="4aee6ade-faef-4b1a-8e65-eb0307068cf1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:41:55.477967+00:00" -->
+#### You
+I have moved them all to draft, proceed
 
 <!-- xgd-chat-end -->
