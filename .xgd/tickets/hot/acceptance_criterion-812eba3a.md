@@ -6,10 +6,10 @@ title: After either route the new material is in the Library without a reload, s
   what was recorded rather than what was sent
 created_by: xgd
 created_at: '2026-09-04T04:52:19.498622+00:00'
-updated_at: '2026-09-04T04:52:19.498622+00:00'
+updated_at: '2026-09-04T05:01:58.241244+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
