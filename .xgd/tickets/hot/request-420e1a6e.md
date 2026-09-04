@@ -5,9 +5,9 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-04T23:57:59.291646+00:00'
+updated_at: '2026-09-04T23:58:14.207595+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -256,3 +256,26 @@ Recorded so they are not discovered from inside the implementation.
   constraint above.
 - **[[DOC-42]] §10.3 — `users.platform_admin` carries two capabilities.** This
   ticket models the gate correctly without needing the column changed.
+
+### Ordering — one edge recorded, two preferences not
+
+`depends_on` carries **[[REQ-184]]** only. That one is real: this ticket's
+entitlement editor adds readers of the column [[REQ-184]] renames, so building it
+first means writing them twice.
+
+Two others are ordering preferences and are deliberately **not** recorded as
+edges, because they would block readiness for something that is not actually a
+blocker:
+
+- **[[REQ-179]]** — both touch the builder shell (its switcher and avatar, this
+  ticket's new tab). That is a merge conflict to schedule around, not a
+  dependency. If this ticket needs to move sooner, its API half — the routes and
+  the membership/entitlement endpoints — touches no shell file and can run
+  alongside [[REQ-179]], leaving only the client half to follow it.
+- **[[REQ-185]]** — the gate reads more cleanly against `memberships.role` than
+  against the flag, but [[DOC-42]] §7's two conditions select exactly the set
+  `platform_admin` selects today, so this can ship either way. Landing
+  [[REQ-185]] first just means writing the check once.
+
+Work lands on `working`, where [[REQ-178]]'s, [[REQ-179]]'s and [[REQ-180]]'s
+free-coded commits already sit, so none of this is waiting on reconciliation.
