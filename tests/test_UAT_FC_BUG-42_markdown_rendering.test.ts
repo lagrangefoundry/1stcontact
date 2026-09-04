@@ -269,7 +269,6 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-42 — "What this is" is prose, not sourc
     const panel = createLibraryPanel({
       storage: memoryStorage(),
       transport,
-      getSite: () => 'alpha',
       markdownReady,
     })
     root.append(panel.element)

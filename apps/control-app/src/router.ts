@@ -1074,11 +1074,12 @@ async function routeUncached(
      * corpus to draw a column of filenames. So the list is rows, the item adds
      * the body, and the bytes are their own response with their own content type.
      *
-     * TENANT-WIDE, and the `slug` the Library also holds is never sent here.
-     * [[DOC-38]] §7.7 lets one blob back two sites and [[DOC-10]] §4.1 makes
-     * shared knowledge across a client's sites deliberate — so "used on this
-     * site" is a badge the client filters by, decided in the browser from
-     * `placed_on` on the row, and never a boundary this route enforces.
+     * SCOPED BY THE TENANT AND BY NOTHING ELSE ([[REQ-181]]). No slug is sent
+     * here and none would mean anything: a business holds one site in v1, so
+     * material is the business's and there is no narrower scope to ask for.
+     * `placed_on` still travels on each row — the pane reads it to WARN about a
+     * promotion that did not land — but it is never a boundary this route
+     * enforces.
      */
     if (p === '/api/material' && method === 'GET') {
       return json(200, { material: await listMaterial(await openTickets()) })

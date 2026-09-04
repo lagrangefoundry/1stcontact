@@ -132,11 +132,10 @@ beforeEach(() => {
   document.body.append(root)
 })
 
-async function library(site = 'alpha') {
+async function library() {
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport: transportOver(),
-    getSite: () => site,
   })
   root.append(panel.element)
   await panel.refresh()
@@ -191,24 +190,24 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-176 — the Library row', () => {
     expect(icon.getAttribute('aria-label')).toBe('font')
   })
 
-  it('test_UAT_FC_REQ_176_no_row_carries_a_kind_pill_and_the_other_pills_remain', async () => {
+  it('test_UAT_FC_REQ_176_no_row_carries_a_kind_pill_and_the_role_pill_remains', async () => {
     const panel = await library()
     expect(panel.element.querySelectorAll('.builder-library__badge--kind')).toHaveLength(0)
 
     // The icon REPLACED the kind pill; it did not replace the row's meta. The
-    // role pill and the placement badge are still the row's other two facts.
+    // role pill is still there and is what an ordinary row still says in words.
+    // (The placement pill that used to sit beside it is gone — see [[REQ-181]].)
     const placed = await (async () => {
       const p = createLibraryPanel({
         storage: memoryStorage(),
         transport: transportOver([material({ uid: 'here', title: 'Logo', filename: 'l.png', placed_on: ['alpha'] })]),
-        getSite: () => 'alpha',
       })
       root.append(p.element)
       await p.refresh()
       return p
     })()
     expect(placed.element.querySelectorAll('.builder-library__badge--role')).toHaveLength(1)
-    expect(placed.element.querySelectorAll('.builder-library__badge--here')).toHaveLength(1)
+    expect(placed.element.querySelectorAll('.builder-library__badge--here')).toHaveLength(0)
   })
 })
 

@@ -6,8 +6,13 @@
  * (`…_material_surface.workers.test.ts`) and the way in
  * (`…_upload_overlay.test.ts`). This is the tab: that it is the shared
  * components CONFIGURED rather than a bespoke browser rebuilt beside them, that
- * the list is the whole tenant with the site as a badge, and that the one thing
- * a client may change about a piece of material is what it SAYS.
+ * the list is the whole BUSINESS's material, and that the one thing a client may
+ * change about a piece of material is what it SAYS.
+ *
+ * WHAT MOVED OUT (REQ-181). The placement pill and the "used on this site"
+ * filter were asserted here; both are gone, and what replaced the pill — a
+ * warning on a promotion that did not land — belongs to the ticket that
+ * introduced it.
  *
  * MOUNTED AGAINST THE ACTUALLY-INSTALLED COMPONENTS, on the pattern the REQ-122
  * and REQ-127 panel suites established: a mocked `list-detail` would assert the
@@ -42,12 +47,12 @@ function memoryStorage() {
 }
 
 /**
- * The tenant's material, as `/api/material` answers.
+ * The business's material, as `/api/material` answers.
  *
- * DELIBERATELY SPANS TWO SITES AND NEITHER. [[DOC-38]] §7.7 lets one blob back
- * two sites and [[DOC-10]] §4.1 makes shared knowledge across a client's sites
- * deliberate, so a fixture that only ever bound material to the current site
- * could not tell a badge from a boundary.
+ * PLACED AND UNPLACED, WHICH IS THE ONLY DISTINCTION LEFT ([[REQ-181]]). A
+ * business holds one site, so a fixture cannot spread material across two — what
+ * it can still show is a site asset whose bytes landed beside background
+ * information whose never will.
  */
 const MATERIAL = [
   {
@@ -98,8 +103,9 @@ const MATERIAL = [
     republishable: true,
     exportable: false,
     origin: 'uploaded',
-    // Another site of the SAME tenant — present in the list, badged differently.
-    placed_on: ['beta'],
+    // Placed, like the wordmark — this row is here for its description, which
+    // nothing has written ([[REQ-172]]), not for its placement.
+    placed_on: ['alpha'],
     source_url: null,
     description_status: 'no_describer',
     description_model: null,
@@ -161,12 +167,11 @@ beforeEach(() => {
 })
 
 /** A mounted Library over the fixture, already loaded. */
-async function library(site: string | null = 'alpha') {
+async function library() {
   const transport = transportOver()
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport,
-    getSite: () => site,
   })
   root.append(panel.element)
   await panel.refresh()
@@ -214,25 +219,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the tab is the shared components,
   })
 })
 
-describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — tenant-wide, with the site as a badge', () => {
-  it('test_UAT_FC_REQ-161_the_list_is_the_whole_tenant_and_marks_what_is_on_this_site', async () => {
-    const { panel } = await library('alpha')
+describe.skipIf(!WEBUI_INSTALLED)("REQ-161 — the whole of the business's material", () => {
+  it('test_UAT_FC_REQ-161_the_list_is_everything_the_business_has_given_us', async () => {
+    const { panel } = await library()
 
-    // ALL THREE, including the one bound to the client's OTHER site and the one
-    // bound to none. A Library that showed only the current site's material would
-    // make their second site start as cold as their first.
+    // ALL THREE, including the background information the site will never carry.
+    // A Library that listed only what is on the site would be an asset picker,
+    // which is REQ-132 and already exists one click away from an image.
     expect(rowsIn(panel.element)).toHaveLength(3)
     expect(panel.element.textContent).toContain('The old shopfront')
-
-    // The badge is on the row for THIS site, and only that one — a "not used
-    // here" badge on the majority would be noise to say something about the few.
-    const badges = [...panel.element.querySelectorAll('.builder-library__badge--here')]
-    expect(badges).toHaveLength(1)
-    expect(badges[0].closest('.list-detail-row')!.textContent).toContain('The wordmark')
+    expect(panel.element.textContent).toContain('Brand guidelines')
   })
 
-  it('test_UAT_FC_REQ-161_the_filter_narrows_by_role_by_kind_and_by_this_site', async () => {
-    const { panel } = await library('alpha')
+  it('test_UAT_FC_REQ-161_the_filter_narrows_by_role_and_by_kind', async () => {
+    const { panel } = await library()
     const select = (cls: string) => panel.element.querySelector(cls) as HTMLSelectElement
     const change = (el: HTMLElement) => el.dispatchEvent(new Event('change'))
 
@@ -251,24 +251,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — tenant-wide, with the site as a b
     change(select('.builder-library__kind'))
     expect(rowsIn(panel.element)).toHaveLength(2)
 
-    // AND BY THIS SITE, which is a view the client turns on rather than a scope
-    // the origin imposed — the same list, narrowed here.
-    const here = panel.element.querySelector('.builder-library__here input') as HTMLInputElement
-    here.checked = true
-    change(here)
-    expect(rowsIn(panel.element).map((r) => r.textContent)).toEqual([
-      expect.stringContaining('The wordmark'),
+    // BOTH AT ONCE, because the axes are conjunctive — and `getRows` reports
+    // what the client is actually looking at rather than what was fetched.
+    select('.builder-library__role').value = 'site'
+    change(select('.builder-library__role'))
+    expect(panel.getRows().map((row: { uid: string }) => row.uid)).toEqual([
+      'material-1',
+      'material-3',
     ])
-
-    // Switching site re-decides the badge and the filter without re-reading the
-    // list: the material did not change, only which of it is in use here.
-    expect(panel.getRows().map((row: { uid: string }) => row.uid)).toEqual(['material-1'])
   })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the detail reuses the editors we already have', () => {
   it('test_UAT_FC_REQ-161_selecting_a_row_shows_the_blob_and_the_rights_record_read_only', async () => {
-    const { panel } = await library('alpha')
+    const { panel } = await library()
     panel.listDetail.select('material-1')
     await settle()
 
@@ -301,7 +297,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the detail reuses the editors we 
   })
 
   it('test_UAT_FC_REQ-161_the_client_can_correct_the_description_and_the_correction_is_written', async () => {
-    const { panel, transport } = await library('alpha')
+    const { panel, transport } = await library()
     // The material nothing has read — the case the correction exists for.
     panel.listDetail.select('material-3')
     await settle()

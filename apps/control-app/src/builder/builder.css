@@ -934,15 +934,6 @@ body {
   padding: 3px 4px;
 }
 
-.builder-library__here {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85em;
-  color: var(--shell-fg-muted);
-  white-space: nowrap;
-}
-
 /*
  * ONE LINE: icon, title, then whatever the row still has to say (REQ-176).
  *
@@ -1001,13 +992,29 @@ body {
 }
 
 /*
- * "Used on this site" is the one badge that is not merely descriptive — it is
- * the answer to a question the client asked by switching sites — so it is the
- * one that carries the accent.
+ * THE ACCENT IS SPENT ON THE EXCEPTION (REQ-181). The badge this replaced said
+ * "on this site" — which, under one site per business, was true of nearly every
+ * site-role row and therefore coloured the majority to say nothing. This one
+ * fires on the case the client would actually want to be told about: a file they
+ * asked us to put on their site whose bytes never got there.
+ *
+ * NOT COLOUR ALONE. The badge carries its meaning in words and the glyph is
+ * decoration, so this rule can be ignored entirely — by a monochrome display, a
+ * forced-colours mode, or a screen reader — without the fact being lost.
+ *
+ * `--shell-danger` with a literal fallback, matching `.builder-modal__error`:
+ * the shell does not declare the token yet and `fields.css` already asks for it.
  */
-.builder-library__badge--here {
-  color: var(--shell-accent);
-  border-color: var(--shell-accent);
+.builder-library__badge--unplaced {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--shell-danger, #b91c1c);
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+.builder-library__warn-glyph {
+  line-height: 1;
 }
 
 .builder-library__detail {
