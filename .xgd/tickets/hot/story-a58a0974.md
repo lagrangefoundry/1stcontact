@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-31T17:40:56.028131+00:00'
+updated_at: '2026-09-04T03:03:01.532254+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -25,9 +25,9 @@ fields:
 continuing conversation with an assistant about that one site — still there when
 I come back tomorrow, able to change the site only through the operations it has
 been granted, able to look up how this system works through that same granted
-surface, and honest with me when it cannot run — **so that** I can ask for
-changes in my own words and be certain that what changes is my site and nothing
-else.
+surface wherever the conversation is being served, and honest with me when it
+cannot run — **so that** I can ask for changes in my own words and be certain
+that what changes is my site and nothing else.
 
 ## Description
 
@@ -62,7 +62,15 @@ In scope:
   as a change to the site is, rather than reaching the model by a second route.
   That grant is read-only, and it names the system knowledge base on both scope
   axes — what may be searched and what may be read — from one declaration, so the
-  two cannot come to mean different things.
+  two cannot come to mean different things. The surface and the priming are wired
+  as a pair: a session is never primed with the map of a corpus it was not
+  granted, nor granted one it was never told about.
+- **The corpus travels with the host, on either host** — the shipped corpus is a
+  release artefact, so the deployed host carries it in the artifact it was
+  released with and searches it without reaching a filesystem at all, exactly as
+  the operator's own host searches the one on its disk. Which host is answering
+  does not decide whether the assistant can look something up; only whether a
+  corpus was built into what is running does.
 - **Continuity** — one conversation per site, stored **through the store the site
   belongs to** rather than beside a directory on one machine, replayed after the
   host that served it is gone, and never sacrificed to report an unrelated
@@ -111,10 +119,15 @@ Out of scope:
   can name it.
 - **Building the knowledge base.** The corpus export, the document and chunk
   indexes, the generated awareness map, the operator commands that produce them,
-  and the rule by which a document is a member of the corpus are their own
-  capability (STORY-117 / story-c4f329d3). This story claims only what a *built*
-  knowledge base does when it reaches a conversation, and what a conversation
-  does without one.
+  the emission of that corpus and its indexes as an importable artefact carried
+  in the deployed bundle, and the rule by which a document is a member of the
+  corpus are their own capability (STORY-117 / story-c4f329d3). This story claims
+  only what a *built* knowledge base does when it reaches a conversation, on
+  whichever host is serving it, and what a conversation does without one.
+- **The client's own corpus.** A knowledge base over a tenant's uploads,
+  captures and transcripts is a different corpus with a different residency rule
+  and a different lifetime, and is deliberately not wired into this session. This
+  story's knowledge claims are about the shipped corpus alone.
 - **Retrieval quality.** Ranking, chunking and clustering belong to the knowledge
   library. Nothing here claims a particular answer is the best available one —
   only that the corpus is reachable through declared operations and that priming
@@ -148,16 +161,31 @@ Out of scope:
   so a session's priming never mentions a capability it does not have, and the
   map is generated from the corpus rather than written by hand. Neither document
   is hand-authored prose about the tools.
+- **The two hosts open the same knowledge base from different places, through the
+  same seams.** The operator's host opens it from two directories on a disk; the
+  deployed host opens it from values carried in the released artifact. Neither the
+  corpus resolution, the ranking nor the tool surface above them can tell which it
+  got, which is why the query path can be held to reaching no filesystem on the
+  deployed side without the two becoming different products. The same embedding
+  model is used to build the index and to run a query against it — vectors from
+  two models are not comparable, and the failure mode is plausible-looking
+  nonsense rather than an error.
 - **Degradation is not failure, and the two are distinguished.** No knowledge base
   built is the pre-knowledge assistant — tools but no documents — and is reported
   to nobody, because nothing is wrong. A knowledge base that was built and then
   fails to open (most often because the embedding credentials are absent) is
   reported to the operator on the origin's error output while the conversation
   still opens, because the two situations have very different fixes and must not
-  look the same. The deployed edge runtime is a third instance of the *ordinary*
-  state: the corpus bridge is bound to the operator's filesystem, so a
-  conversation there runs on its site operations alone, silently, exactly as one
-  on a workspace that never built a corpus does.
+  look the same. On the deployed host the *ordinary* state has two causes rather
+  than one: a release built without a corpus, or a deployment with no embedding
+  binding for the query side. Both are silent, and neither is a boot failure —
+  which is what makes it safe for the generated corpus module to be written
+  unconditionally, carrying nothing when nothing was built.
+- **The corpus is opened once per serving host, not once per turn.** Decoding a
+  bundled index into vectors is the expensive part of opening it, and the artefact
+  cannot change while the host lives, so it is opened beside the store that host
+  holds. This is a cost property rather than a promise to a caller, and it is
+  recorded here rather than claimed as a criterion.
 - **Intent supersession within the bundle that created this story.** REQ-122
   specified a turn carrying `{slug, text}` and a site identity held by the
   browser. REQ-127 withdrew that, and also withdrew its own earlier clause making
@@ -192,18 +220,21 @@ Out of scope:
   establish at all. Losing the cache costs the host, never the conversation.
   This is what lets "the same session model on either host" hold in a runtime
   where two requests are not promised the same process.
-- **The system knowledge base sits above tenancy, and this repo has no tenancy
-  yet.** REQ-123 records the design a later store ticket inherits — the corpus is
-  a release artefact that takes the scope parameters and does not vary by them,
-  so identical query text yields identical results for everyone. Recorded here
-  because it is why per-tenant knowledge bases can be added later without
-  revisiting this wiring; nothing tenant-scoped is claimed or built by this story.
+- **The system knowledge base sits above the tenancy barrier.** REQ-123 records
+  the design a later store ticket inherits — the corpus is a release artefact that
+  takes the scope parameters and does not vary by them, so identical query text
+  yields identical results for everyone, and nothing on the path from a
+  conversation to a corpus hit names an account. Recorded here because it is why a
+  per-tenant knowledge base can be added later without revisiting this wiring;
+  nothing tenant-scoped is claimed, opened or searched by this story.
 - **Recorded caveat on evidence.** The session-side behaviour is proven over a
   real corpus, a real index and the real granted surface, with a stand-in
   embedding model at the single model boundary. A knowledge base built against
   the production embedding credentials was never opened by a session in the
   authoring session itself, so what is asserted is the wiring and the shape of
-  priming, not retrieval quality against the real corpus.
+  priming, not retrieval quality against the real corpus. The same stand-in is
+  used on the deployed side, because the runtime's test harness proxies the
+  embedding binding to the live account and has no local equivalent.
 - **The turn in the edge runtime is evidenced against a doubled model, not a live
   one.** It runs inside the real runtime against the real database and object
   store, with the model client as the single double — one that speaks the
@@ -288,6 +319,49 @@ Decisions taken on **2026-08-31** while reconciling BUNDLE-21 (BUG-38).
   the assistant having tried and failed — holds in both, while the criterion was
   previously written as though only the first origin existed.
 
+Decisions taken on **2026-09-03** while reconciling BUNDLE-23 (REQ-158).
+
+- **The deployed host stops being definitionally corpus-less, and AC-1320 is
+  corrected rather than reinterpreted.** REQ-158's declared goal is that "the
+  builder AI can search its own design documentation" on the deployed host, which
+  AC-1320 had stated was impossible by nature — "the corpus is reachable only from
+  the operator's own machine and so is simply absent". That sentence is now false
+  of the shipped code and is replaced. What the criterion was protecting — that an
+  absent corpus is an ordinary silent state and never a boot failure — is kept and
+  is now the *only* thing it claims about the deployed host.
+- **The absent case keeps its two causes, and both are formalised as silent.** The
+  intent, written earlier, argued the opposite for one of them: an absent `[ai]`
+  binding "is not degradation — every search throws on `undefined`", which was the
+  argument for declaring the binding twice. The binding now exists and is pinned
+  by its own regression, so the sentence describes a hazard the intent removed
+  rather than a behaviour it chose; the intent is silent on what should happen if
+  it were removed again. This reconciliation decides, now, that both an unbuilt
+  corpus and an absent embedding binding are ordinary silent states, because the
+  intent's own governing rule for this path — "a missing corpus degrades to no
+  knowledge tools, never to a boot failure" — applies to both, and the two are
+  indistinguishable to the person holding the conversation.
+- **"Reaches no filesystem" is a criterion about the shipped artifact, not about a
+  passing turn**, for the reason already established for the archive: the
+  filesystem module resolves in that runtime and hands back per-instance scratch
+  space, so a file-backed corpus would pass a turn and be empty in production. The
+  intent names this ("must not reach `node:fs` transitively"), and it is carried as
+  an observable over the artifact rather than folded into the search criteria.
+- **The pairing of the surface and the priming is claimed here, on the session
+  side.** The intent states it as a mechanism ("search the AI never learns to reach
+  for is the same failure as no search at all"). The observable — the two arrive
+  together or neither does — belongs to what a conversation is offered, which this
+  story owns, whereas producing the artefact they are built from belongs to
+  STORY-117.
+- **AC-1318 is untouched.** The grant is filled from the same single declaration on
+  both hosts and still names the shipped corpus alone. REQ-159 declared a second,
+  tenant-scoped knowledge base in the same file, but it is deliberately not wired
+  into this session, so nothing about this story's grant has changed.
+- **Not claimed here: what the release build emits.** That the corpus and its
+  indexes are emitted as an importable module, that the module is written on every
+  build carrying nothing when no corpus exists, and that a build with no corpus
+  says so in its report, are claims about the build and belong to STORY-117. This
+  story consumes that artefact and claims only what a conversation does with it.
+
 ## Dependencies
 
 The declared control surface the assistant acts through, and the browser pane
@@ -295,8 +369,10 @@ that renders the conversation, are related work that must not be re-derived here
 The store the transcript and audit are written through is the site-store
 capability (capability-c4c7a854), and the origin that hosts the routes is CAP-85
 (story-e674c60a). The knowledge half additionally depends on the system knowledge
-base having been built (STORY-117 / story-c4f329d3) — but only for its knowledge
-criteria; every other criterion holds with no knowledge base present at all.
+base having been built *and*, for the deployed host, on that build having emitted
+it as an artefact the release can carry (STORY-117 / story-c4f329d3) — but only
+for its knowledge criteria; every other criterion holds with no knowledge base
+present at all.
 
 ## Story Points
 
