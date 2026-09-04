@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-50
 created_by: xgd
 created_at: '2026-09-04T00:03:02.394090+00:00'
-updated_at: '2026-09-04T01:19:12.408178+00:00'
+updated_at: '2026-09-04T01:28:24.530991+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,53 @@ Three questions before I write anything: commit `.dev.vars` or not; shape A or B
 <!-- xgd-chat role="user" ts="2026-09-04T01:19:12.369313+00:00" -->
 #### You
 Sure lets do A
+
+<!-- xgd-turn id="f5f6b2de-4f3c-4250-afb1-c63be822aa16-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T01:28:23.959824+00:00" -->
+#### Claude
+Shape A it is. Let me scope the ticket first — the body needs the three corrections plus language motivating each UAT.
+
+Now the single definition of the layering:
+
+Now wire it into the `builder` command:
+
+Now the package scripts — one caller, no second author:
+
+Now the UATs:
+
+Now the DOC-41 update and a regression pass:
+
+The merge-back is blocked by unrelated dirt in the standing main worktree — a whitespace-only YAML reflow of `.xgd/config.yaml` that isn't mine. I'll stash it (recoverable) rather than discard:
+
+Shape A is landed and merged into `xgd-working`.
+
+## What changed
+
+**`tools/generate/src/cli/dev-env.ts`** (new) — `devEnvLayering()` is now the only place that knows the layering. It composes `--env-file .dev.vars --env-file <secrets>` in load order, resolves the secrets path as `ONECONTACT_SECRETS || $HOME/Documents/secrets/1c.dev.env` (empty override falls back, matching `:-`), and returns a warning line per absent file. Both flags are always passed — wrangler tolerates a named `--env-file` that doesn't exist, so existence is checked only to produce the message.
+
+**`case 'builder'`** — spreads those args, prints the warnings after the banner and before wrangler's output, and derives `appDir` from `repoRoot()` instead of `process.cwd()`. That last one mattered once `dev:control` became a caller: the old cwd dependency would have turned into a package script's silent precondition.
+
+**Package scripts** — root `dev:control` is now `./bin/1c builder`; `apps/control-app`'s own `dev` script is deleted, so there's no third place holding half the layering.
+
+**DOC-41 §2** — the *"Gotcha: `1c builder` is not `pnpm dev:control`"* subsection is gone, replaced by a short note on `--remote`, the one flag that still differs. The false claim that `.dev.vars` is committed is corrected to describe what a fresh clone actually gets.
+
+**Ticket body** — rewritten with the three investigation corrections, and every UAT traces to language now in it.
+
+## Verification
+
+6 UATs in `tests/test_UAT_FC_BUG-50_builder_env_files.test.ts`, driven through `run(['builder'])` with only `spawn` replaced (via `importOriginal` + spread, since `kb.ts` needs `execFileSync` from that module). They cover both flags in load order, the `$HOME` default and both override forms, the missing-secrets warning plus a present-file counter-test, the `.dev.vars` warning, and `--remote` + cwd-invariance. All 6 pass, plus 28 in four CLI-adjacent suites as a regression check. Commit `a922dac72f`, version 0.2.64, ticket at `free_coded`, branch merged and cleaned.
+
+One pre-existing typecheck error surfaced and is unrelated: `apps/control-app/src/session-knowledge.ts` imports `SHIPPED_SOURCE` from `./system-knowledge`, which doesn't export it.
+
+## Two things I did to your working tree
+
+**Stashed your uncommitted `apps/control-app/package.json` edit** — `stash@{0}`, the `--env-file` line you'd added to `dev`. It blocked the merge, and it's the half-fix this ticket supersedes: that script no longer exists. Drop it when you're happy.
+
+**Could not clean `.xgd/config.yaml`** in the standing main worktree. A whitespace-only YAML reflow is sitting there uncommitted, not from this work, and the sandbox denies writing that path — so `xgd merge-back` refused and I merged by hand via `xgd branch lock` + `git merge` (the path its own error message suggests). Worth clearing before the next merge-back.
+
+## Still open, as flagged
+
+Whether `.dev.vars` becomes tracked. Nothing here settles it — the CLI now names the file when it's missing and says Access won't be open on loopback, so the fresh-clone trap announces itself either way. DOC-41 records it as open. If you want it committed, that's a small follow-up and I'd need to know whether the working-tree `.gitignore` addition (also uncommitted) should be reverted rather than landed.
 
 <!-- xgd-chat-end -->
