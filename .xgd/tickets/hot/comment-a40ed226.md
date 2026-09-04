@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:07:53.387468+00:00'
+updated_at: '2026-09-04T23:09:13.276122+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,49 @@ If (b) is agreed, I'll write REQ-170 up: the uniform tab; membership and entitle
 <!-- xgd-chat role="user" ts="2026-09-04T23:07:53.158988+00:00" -->
 #### You
 I don't think we should talk about a platform tenant - there is a 1stcontact tenant - that owns the 1c site
+
+<!-- xgd-turn id="77b37c0c-a82c-4f82-9957-c67a55c4c3fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:09:13.078494+00:00" -->
+#### Claude
+Agreed, and it's a model point rather than a naming one — "platform tenant" names a *kind* of tenant, and there isn't one. There's the 1stcontact tenant, it owns the 1c site, and its users are its customers. Same sentence Alice says about theirs.
+
+What's actually distinguished about it is three facts about what that business *does*, none of which is a kind:
+
+- the app is deployed against it (`TENANT_ID`) — a deployment fact, and REQ-180 D5 already classified `TENANT_ID` as deployment vocabulary for exactly this reason
+- it hosts the others, so support access into them is possible at all
+- **its product is other businesses**, so `provisionBusiness` is its fulfilment action
+
+## The structural consequence: `platform_admin` is two things
+
+Dropping the platform-tenant idea splits a flag that's currently one column:
+
+- **owner/admin of the 1stcontact business.** Not special. Alice is owner of Alice's Plumbing; you are owner of 1stcontact. That's `memberships.role = 'owner'`, which exists already.
+- **may enter a business without holding a membership** — `scope.ts:237`'s bypass. Genuinely special, and special because 1stcontact *hosts* the others, not because of level.
+
+DOC-40 §6 defends the flag on bootstrapping grounds — *"it works before any membership row exists, and it cannot lock its holder out of the system that grants it."* That defence holds for the **env var**, which is a break-glass seed. It doesn't carry the **column**, which is a persistent model fact and is precisely the shape §2.1 rule 1 forbids: a platform-only flag standing in for a capability (*admin of my own business*) that every owner needs.
+
+§6 already names the replacement for the second half — time-boxed `support` membership rows, *"the auditable alternative, and the table exists for them from day one."* What's new is that the *first* half shouldn't be a flag at all.
+
+## What that gives REQ-170
+
+The tab's 1c-only controls stop being gated on an admin flag. They're gated on two conditions:
+
+1. **you are an owner of this business** — uniform; Alice is, of theirs
+2. **this business's product is businesses** — which is what makes the control appear for 1stcontact and nowhere else
+
+So the tab renders product-fulfilment controls for whichever business you're in, according to what that business sells. 1stcontact sells businesses → provision. Alice sells plumbing → nothing here yet.
+
+Notice that states the seam without the word "admin" in it, which is the test that the platform-tenant idea is really gone. And today those two conditions select exactly the same person `platform_admin` does — so modelling it correctly costs nothing now and doesn't need the column changed to ship.
+
+The support bypass stays where it is and REQ-170 should **not** use it as its gate. That's cross-tenant reach, DOC-40 §7 parks it, and borrowing it here would put the one genuinely special power behind an ordinary product control.
+
+## Cost, honestly
+
+The doc sweep is real — DOC-40 §2 and §6 say "platform tenant" throughout, and so do REQ-167/170/178/180. In code it's mostly naming: `accountFor` already delegates to `findUser(env, tenant, email)`, so it's generic and only its name is special. The one substantive change is REQ-170's gate, and eventually `users.platform_admin`. REQ-180 D5 already set the precedent for enforcing a vocabulary rule with a guard rather than an audit.
+
+---
+
+Updated write-up for REQ-170, if you want it: the uniform tab; membership and entitlement as two orthogonal columns with membership primary (deleting *Not in scope: editing memberships*, against `0005:14`); the portal as membership-derived rather than granted; the 1c controls gated on owner-of-this-business plus what-this-business-sells rather than on an admin flag; and three noted dependencies it makes reachable but doesn't own — the `admit` lockout, DOC-40 §5's subject/object, and `users.platform_admin` vs `memberships.role`.
 
 <!-- xgd-chat-end -->
