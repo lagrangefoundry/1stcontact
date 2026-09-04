@@ -6,10 +6,10 @@ title: 'The answer decides the rights: ''for the site'' stays publishable, ''jus
   to read'' becomes material no site may carry'
 created_by: xgd
 created_at: '2026-09-04T04:51:42.423001+00:00'
-updated_at: '2026-09-04T04:51:42.423001+00:00'
+updated_at: '2026-09-04T05:02:00.383107+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
