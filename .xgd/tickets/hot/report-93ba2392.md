@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T03:04:22.011950+00:00'
+updated_at: '2026-09-04T03:20:52.441376+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -209,7 +209,7 @@ fields:
       the material is stored, not that it is searchable. The user-visible capability
       is that the assistant can know something about *this* business rather than about
       websites in general.
-    story_uid: null
+    story_uid: story-bb91191c
   - index: 6
     component: Project Knowledge Base — two triggers and the enumeration floor
     item_type: feature
