@@ -6,10 +6,10 @@ title: An unchanged reference keeps its last-changed time, so the index does not
   it every build
 created_by: xgd
 created_at: '2026-09-04T02:27:00.946501+00:00'
-updated_at: '2026-09-04T02:27:00.946501+00:00'
+updated_at: '2026-09-04T02:41:25.146149+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0d7d3aad
   kind: behavior
