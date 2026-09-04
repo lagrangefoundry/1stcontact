@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T21:05:33.486156+00:00'
+updated_at: '2026-09-04T21:07:29.166855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -189,5 +189,52 @@ Alice has access to a 1c user portal that shows her HER payments to 1c her delet
 IN ADDITION Alices login to 1c gives her access to the 1c app. (this does not exist in our example - Alice is a plumber "Alice's Plumbing"  does not have an app) Within the App there is a User tab where Alice can manage membership and entitlements.
 
 BTW we have not discussed it but there could be Level 1 entitlements made available to level 2 customers/members - for example content kept behimd a paywall on Alice's Plumbing which bob can only see if he is paying the membership fee.
+
+<!-- xgd-turn id="9c09caf8-5f1e-4ca5-a5d1-3c892ca53f84-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T21:07:29.058437+00:00" -->
+#### Claude
+Let me look at what `entitlements` can actually key to before I respond, because your paywall point lands directly on it.
+
+Got it — I merged two relations that your example keeps apart. Restating so the correction is on the record:
+
+- **Alice ↔ 1c is exactly Bob ↔ Alice's Plumbing.** Customer of a business: a portal, their payments, their details, their delete button. No qualification, no level asymmetry.
+- **The 1c app is the product 1c sells.** Alice's login reaches it because that is what they bought. Alice's Plumbing has no app because Alice sells plumbing. That's a difference between two businesses' products, not between two levels.
+
+So `memberships` and `entitlements` aren't "how level 1 works" — they're how 1c grants access to *its* product. Your paywall example is the proof, and it's the load-bearing one: Bob paying Alice to see gated content is the same mechanism one level down. Entitlements are general.
+
+## Where the schema stops supporting that, precisely
+
+`entitlements` (0004): `account_id`, `email`, `plan`, `source`, `status`, `starts_at`, `ends_at`. DOC-40 §5 pins `account_id` to a **business**, and says why the payer is someone else:
+
+> the grant is per business and the meter is per business: an account with three of them holds three grants and receives one invoice, because invoicing rolls up by payer and the payer is the account.
+
+So a grant already has two parties held apart — **the subject** (what access attaches to) and **the payer** (who owes). For 1c's product they differ: subject = Alice's Plumbing, payer = Alice. For Alice's paywall they coincide: subject = Bob, payer = Bob.
+
+The table can't currently say that. `account_id` is a tenant id, and Bob has no tenant — by DOC-40 §2.1 rule 2 he must never get one. `email` isn't a second kind of subject; 0004's comment makes it a pre-provisioning key for the *same* subject ("today's admin flow fills both"). What's missing is a grant whose subject is a **person within a tenant**.
+
+Nothing about the table is hostile to it — no unique index on either column, `plan`/`status` unconstrained TEXT, exactly so this kind of thing lands without a migration of meaning. But it isn't there, and it's a DOC-40 §5 amendment rather than something REQ-170 invents.
+
+What it binds on REQ-170 is one thing, and it's testable: **the entitlement editor must not be written as though the subject is always a business.** If it is, Alice's paywall arrives and the editor gets built a second time — §2.1 rule 1's named failure mode, one level down.
+
+## Which makes the seam narrower than I had it
+
+Last turn I said the additions are "the writes that leave the tenant." That's true but it's a symptom, and taking it as the definition would invite a generic privileged-action mechanism. The right statement is: **the additions are 1c's product-fulfilment actions.** Provisioning a business *is* 1c filling an order; it happens to write a `tenants` row outside 1c's tenant, which is why it needs `platform_admin`. Alice will eventually have product-fulfilment actions too, they'll look nothing like these, and they won't live here.
+
+So: no extension framework. One business's product controls, rendered for that business.
+
+## Two things in REQ-170 that are now inconsistent
+
+**1. Memberships.** You said the tab is where Alice manages membership and entitlements. REQ-170's body currently lists "Editing memberships" under *Not in scope*. And `0005_operator_membership.sql:14` says the opposite:
+
+> joining an existing business — which DOC-40 §9 leaves undefined and **REQ-170 owns**.
+
+So the migration already assigns it here and the ticket disclaims it. That needs settling either way — under your model it belongs in the tab, uniformly (Martin manages who may operate 1c; Alice manages who may operate Alice's Plumbing).
+
+**2. A vocabulary collision that will bite in code.** Bob pays a "membership fee" and holds no `memberships` row. In the schema `memberships` means *may operate this business* — Alice→Alice's Plumbing, Martin→1c, a future employee of Alice's. Bob's membership is an entitlement. Same English word, two tables. Worth one line in the ticket so nobody wires Bob's paywall to `memberships`.
+
+---
+
+Shall I write into REQ-170: the uniform statement of the tab, entitlements as a general mechanism with the subject-vs-payer distinction called out as a DOC-40 §5 amendment, the seam as 1c product-fulfilment rather than generic admin, and resolve the memberships scope contradiction against `0005`?
 
 <!-- xgd-chat-end -->
