@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-50
 created_by: xgd
 created_at: '2026-09-04T00:03:02.394090+00:00'
-updated_at: '2026-09-04T00:07:22.048839+00:00'
+updated_at: '2026-09-04T01:19:12.408178+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,11 @@ One snag for A: `1c builder` derives `appDir` from `process.cwd()` (`index.ts:71
 **UAT.** `run(['builder'])` currently spawns real wrangler, so the seam is `vi.mock('node:child_process')` — `spawn` is a static named import (`index.ts:13`), so that works. Then it's a real entry point with only the process boundary (a genuine external system) stubbed: assert the composed argv carries both `--env-file` flags, that `ONECONTACT_SECRETS` overrides the default, and that an absent secrets file names the path, states the consequence, and still spawns.
 
 Three questions before I write anything: commit `.dev.vars` or not; shape A or B; and do you want the ticket body corrected for all three findings above (I'd fold the REQ-173 supersession and the uncommitted-`package.json` framing in, and add the `.dev.vars` decision as scope) before I cut the branch?
+
+<!-- xgd-turn id="f5f6b2de-4f3c-4250-afb1-c63be822aa16-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T01:19:12.369313+00:00" -->
+#### You
+Sure lets do A
 
 <!-- xgd-chat-end -->
