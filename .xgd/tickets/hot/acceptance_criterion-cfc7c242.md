@@ -6,10 +6,10 @@ title: A material records the name it arrived under, how its description went an
   what produced it, so undescribed material is selectable by predicate
 created_by: xgd
 created_at: '2026-09-04T05:07:51.925445+00:00'
-updated_at: '2026-09-04T05:07:51.925445+00:00'
+updated_at: '2026-09-04T05:13:20.953583+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
