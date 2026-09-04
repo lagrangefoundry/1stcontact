@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-50
 created_by: xgd
 created_at: '2026-09-04T00:03:02.394090+00:00'
-updated_at: '2026-09-04T01:39:16.368064+00:00'
+updated_at: '2026-09-04T01:40:40.732307+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,23 @@ Whether `.dev.vars` becomes tracked. Nothing here settles it — the CLI now nam
 <!-- xgd-chat role="user" ts="2026-09-04T01:39:16.323369+00:00" -->
 #### You
 you tell me shoudl it be?
+
+<!-- xgd-turn id="86a4d9a6-eb28-4e2b-b545-0a84a96ba7db-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T01:40:40.515869+00:00" -->
+#### Claude
+Let me check one thing before answering — whether the alternative I'd actually prefer is blocked by an existing UAT.
+
+Yes — commit it. Two qualifications.
+
+**Why it should be tracked.** The file holds no secrets by design, it cannot reach production (`wrangler deploy --env production` reads `[env.production.vars]`; `.dev.vars` is a dev-server-only mechanism), and every clone needs it or the builder refuses every loopback request. That failure is also badly signposted: the operator sees an Access refusal, and nothing points at a missing file. DOC-41 has said it was committed all along — the intent was never in doubt, the repo just never matched it. An untracked file that every clone needs is the "depends on remembering" failure this codebase argues against in about forty comment blocks.
+
+**The one real objection**, and why I think it loses. `.dev.vars` is wrangler's conventional *secret* file, and nearly every scaffold gitignores it; committing it risks training someone to put a key there later, which is irreversible once it's in history. But that risk is already mitigated structurally rather than by convention: the file's header says NO SECRETS in caps, and after this ticket the tooling names a *separate* secrets file for you on every start. Someone would have to ignore both. Meanwhile the fresh-clone breakage is live and mitigated by nothing.
+
+**So: track `.dev.vars`, keep `.dev.vars.*` ignored.** That's the split I'd make rather than dropping the ignore wholesale — the one file every clone needs is tracked, and any ad-hoc personal variant (`.dev.vars.local`, `.dev.vars.production`) stays out of git. It gives the ecosystem convention exactly where it earns its keep. Concretely: delete the `.dev.vars` line from your uncommitted `.gitignore` change, keep the `.dev.vars.*` line, commit both the ignore and the file.
+
+**The option I'd have preferred, and why I'm not recommending it.** The reason `.dev.vars` is load-bearing at all is odd: `wrangler.toml`'s *top-level* `[vars]` sets the production Access identity, and a local file then has to un-set it so `ACCESS_DEV_OPEN=1` can take effect. Dropping `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` from top-level `[vars]` (keeping them under `[env.production.vars]`, which is what production actually reads) would make a fresh clone work with no file at all. But `test_UAT_FC_REQ-147_access_configuration_is_declared_for_every_environment` explicitly pins the top-level declaration, and REQ-147 chose that two-key posture — gate vars present *and* an explicit local blanking — deliberately. Changing it is a security-requirement decision, not a cleanup, and it doesn't belong under BUG-50. Worth raising separately if the fresh-clone friction keeps biting.
+
+Say the word and I'll land it: `.gitignore` edit, `git add -f apps/control-app/.dev.vars`, and a DOC-41 §2 correction (I wrote "It is NOT a tracked file" in there an hour ago, which would stop being true). That's a configuration change, so no branch needed under the protocol.
 
 <!-- xgd-chat-end -->
