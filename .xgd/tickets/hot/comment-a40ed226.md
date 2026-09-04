@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T21:19:26.724932+00:00'
+updated_at: '2026-09-04T22:29:23.496545+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -299,5 +299,14 @@ Those differ the moment two people are members of one business: under the schema
 **Is an entitlement a grant to a business, or to a person's access to a business?**
 
 Once you answer that I'll write up REQ-170: the uniform tab, membership and entitlement as two orthogonal columns, memberships back in scope against `0005`, the 1c-specific controls as product-fulfilment rather than generic admin, and the admission lockout noted as a dependency.
+
+<!-- xgd-turn id="6e4070dc-d46c-46bc-a3f1-452677be98ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T22:29:23.448707+00:00" -->
+#### You
+Provision a business <-- create it new role in the db
+entitle user <-- actually this is incorrect this should be entitle account (right now we have one user one account but I want to leave the door open to multi-user accounts in the future.) Give account access to something.
+
+So, modeling question: membership is ability to login, Membership implies access to the User Portal. That could be modeled as a free, automatic entitlement - or it could just be what membership gives you...what do you think?
 
 <!-- xgd-chat-end -->
