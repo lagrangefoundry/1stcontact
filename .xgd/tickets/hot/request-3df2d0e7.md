@@ -6,16 +6,24 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-04T00:05:31.552592+00:00'
+updated_at: '2026-09-04T00:23:08.757092+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a77a9cac
+  commits:
+  - working_sha: 7b17517616b6ff1149d0749aad12ee84bd335ad5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 48054a6864b452df270ece39c18172138704e730
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.63
 ---
 
 # The account surface: the businesses endpoint, the customer portal, and the Business vocabulary
