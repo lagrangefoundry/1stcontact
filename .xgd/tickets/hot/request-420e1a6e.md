@@ -15,6 +15,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a40ed226
 ---
 
 # The admin console: users, entitlements, and the invite that provisions an account
