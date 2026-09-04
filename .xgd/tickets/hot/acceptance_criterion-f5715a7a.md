@@ -6,10 +6,10 @@ title: A revoked grant, a withdrawn ownership or a suspended person each refuse 
   of any date
 created_by: xgd
 created_at: '2026-09-04T05:52:42.047834+00:00'
-updated_at: '2026-09-04T05:52:42.047834+00:00'
+updated_at: '2026-09-04T06:00:22.359202+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e7871ed7
   kind: behavior
