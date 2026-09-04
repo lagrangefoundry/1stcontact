@@ -5,13 +5,13 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-04T01:41:53.923078+00:00'
+updated_at: '2026-09-04T01:50:45.188481+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: story_points
 status: draft
 fields:
   priority: medium
-  story_points: 8
+  story_points: 5
   auto_merge_back: true
   needs_review: false
 ---
@@ -46,7 +46,7 @@ reverse-engineering what the first one decided.
 So the test for every decision in this ticket is not "does it work for 1st
 Contact" but **"is this the thing a customer's customer will use"**. Anything
 that is only ever true of 1st Contact's own account belongs in the admin console
-([[REQ-170]]) instead. That line is drawn in §5.
+([[REQ-170]]) instead. That line is drawn in §6.
 
 ## 2. What it is made of, and why none of it is new
 
@@ -103,29 +103,94 @@ provisional and the pages are not** — otherwise the next hand reads
 `app.1stcontact.io` as "the portal is a builder feature after all" and §1's
 failure mode arrives by a different door.
 
-## 4. What it shows
+## 4. v1 is one page with one button: **Delete account**
 
-Portal capabilities, [[DOC-40]] §2.1's list, in the order they can honestly be
-built:
+**The portal starts with exactly one capability, and it is the one that
+disappears if it is scheduled behind the others.**
 
-- **See my plan.** The best active grant covering now, per business
-  ([[DOC-40]] §5), plus the lapse reason [[REQ-180]] §1 landed for the ones that
-  have none. This exists today and is the one capability with real data behind it.
-- **Change my details.** `users.display_name` for the account, `tenants.name` for
-  each business — the human label, which [[DOC-40]] §2 says may change, and which
-  is currently changeable by nobody.
-- **See what I have been charged.** There is nothing to show: [[DOC-40]] §5 defers
-  the payments funnel and there is no `subscriptions` table. The surface must say
-  so honestly rather than render an empty table that reads as a failure to load —
-  or be left out, which is a decision this ticket should make rather than inherit.
+Everything else an account surface eventually shows — plan, charges, details — is
+a convenience whose absence is an inconvenience. This one is different in kind:
+[[DOC-37]] is a whole document about it, its absence is a compliance gap rather
+than a missing feature, and it is the only portal capability with a deadline
+attached that is not ours to set.
 
-**Adding a business does not appear here.** [[REQ-180]] D2 reversed that: we are
-pre-billing, `provisionBusiness` writes a live `pro` grant, and a
-customer-reachable route onto it is an unbounded free-plan mint. It is an
-operator action on `POST /api/admin/businesses` until billing exists. A portal
-that grows an "add a business" button has re-opened a closed decision.
+It is also the only one that can be built now. Charges need the `subscriptions`
+table [[DOC-40]] §5 defers; plan is thin but real; deletion needs **no new data at
+all**, because the thing it operates on is the account that already exists. So
+the capability that is most owed is also the one with no dependency, which is an
+unusually cheap ordering to get right.
 
-## 5. The line against the admin console
+And it is the smallest end-to-end slice that proves the whole of §2 and §3. One
+page, one control, reached from the avatar, rendered by the site pipeline,
+authorised by `admit`. If the pipeline reading is wrong, this is where it fails —
+cheaply, before a surface exists that would have to be rebuilt.
+
+[[DOC-37]] §8 makes the same argument from the other end: *registry at limb one*.
+The surface arriving before the mechanism means the mechanism has somewhere to
+land, rather than a retrofit across five limbs later.
+
+### 4.1 The button is SHOWN and the deletion is NOT BUILT
+
+**Implementing deletion is out of scope.** [[DOC-37]] is the design and it is a
+substantial piece of work in its own right: the store registry (§7), the
+identity/record separation (§6.3), crypto-shredding for free text and
+append-only history (§4.1, §6.3), the suppression hash, the billing redaction. It
+is not something to do as the tail of a portal ticket, and this ticket must not
+pretend otherwise.
+
+What lands is the surface: the page, the control, and the copy.
+
+### 4.2 …which makes [[DOC-37]] §6.2 a constraint on this ticket, not a later one
+
+> *"delete all my data" is not a promise we can keep, and offering it is worse
+> than offering the accurate thing.*
+
+A button that says **Delete account** and does not delete the account is exactly
+the inaccurate promise §6.2 forbids, and shipping one would be worse than
+shipping no button — it converts a missing feature into a lie, and it is a lie
+about the one subject where being caught in one is unrecoverable.
+
+So *"it can show one"* needs a shape, and this is the decision the ticket carries.
+Three candidates, and a recommendation:
+
+1. **Present and disabled, with a sentence.** Honest, and reads as unfinished
+   software.
+2. **Present and live, opening the explanation, ending in "get in touch".** The
+   control works; what it starts is a conversation rather than a job. The
+   explanation is the part [[DOC-37]] §6.1 says must exist anyway — what is
+   destroyed, what survives, and why each survivor serves the person rather than
+   us — so writing it now is not throwaway work, it is the copy the built version
+   will use unchanged.
+3. **Present and live, recording a request.** A row an operator actions. It is
+   option 2 plus a table, and the table is a commitment to a queue nobody has
+   agreed to staff.
+
+**Recommendation: option 2.** It keeps the promise accurate — the button does
+exactly what it says, and what it says is true today — and the explanation is the
+durable half. It also puts the honest sentence in front of the operator early,
+which is when the retention exceptions in §6.1 are still cheap to argue about.
+
+Whichever is chosen, the acceptance is that **no copy on this surface claims
+anything the system does not do**.
+
+## 5. What v1 does NOT show
+
+Named, because each of these is a thing a reasonable hand would add while they
+were in there.
+
+- **Plan and charges.** Deferred, not forgotten — see §7. Charges have no data
+  behind them at all ([[DOC-40]] §5).
+- **Changing details.** `users.display_name` and `tenants.name` are currently
+  changeable by nobody, which is a real gap and a different ticket.
+- **Adding a business.** [[REQ-180]] D2 closed this: pre-billing,
+  `provisionBusiness` writes a live `pro` grant, so a customer-reachable route
+  onto it is an unbounded free-plan mint. It is an operator action on
+  `POST /api/admin/businesses` until billing exists. A portal that grows an "add a
+  business" button has re-opened a closed decision.
+- **Export.** [[DOC-37]] §9 asks whether erasure and portability should arrive
+  together. They usually do, and the answer is not obviously "yes" here — see §8.
+
+## 6. The line against the admin console
 
 [[REQ-170]] is the operator's tool: every account, every grant, the invite that
 provisions one. This is one account's view of itself. The line is worth drawing
@@ -136,14 +201,15 @@ shortcut is one surface with a privilege check in it.
   businesses they hold a live membership on. It reads `admit`'s answer and never
   queries by id — which is what stops it becoming the existence oracle
   `identity.ts` and `scope.ts` both refuse to be.
-- **Authority.** The portal *reads* grants and never writes one. Creating and
-  revoking entitlements is [[REQ-170]]'s, because a surface that can grant itself
-  access is not a portal.
+- **Authority.** The portal *reads* and never grants. Creating and revoking
+  entitlements is [[REQ-170]]'s, because a surface that can grant itself access is
+  not a portal. Deletion is the one act a portal is entitled to ask for, and even
+  that is a request about itself and about nothing else.
 - **Population.** The admin console's left list is accounts. The portal has no
   list of accounts, in the same way a customer's portal has no list of that
   customer's other customers.
 
-## 6. What is deferred, and what is owed to it
+## 7. What is deferred, and what is owed to it
 
 The portal our customers give **their** customers is not built here either. What
 this ticket owes is the same thing [[REQ-180]] owed it: building that later must
@@ -157,7 +223,8 @@ require no second implementation. Concretely —
 
 If those three hold, the level-2 portal is this portal with a different
 credential layer and a different tenant, which is the whole claim of
-[[DOC-40]] §2.1.
+[[DOC-40]] §2.1 — and [[DOC-37]] §5 already assumes it, since an end customer's
+*"delete my data"* link necessarily points at our infrastructure.
 
 ## Acceptance
 
@@ -167,23 +234,38 @@ credential layer and a different tenant, which is the whole claim of
   platform business — no second renderer, no builder-route template.
 - It is reached from the avatar ([[REQ-179]]), which links out rather than owning
   the surface; the avatar dialog stays bounded to facts about the session.
-- It shows the account's plan per business, including the lapse reason for a
-  business with no live grant.
-- Details editable from the portal are the account's display name and each
-  business's `tenants.name`.
-- The portal reads entitlements and writes none; it answers only about businesses
-  the caller holds a live membership on, and a request naming another account's
-  business is indistinguishable from one naming a business that does not exist.
-- There is no way to add a business from the portal.
+- The surface carries a **Delete account** control and the [[DOC-37]] §6.1
+  explanation of what erasure destroys, what it retains, and why each survivor
+  serves the person.
+- **No copy on the surface claims anything the system does not do** ([[DOC-37]]
+  §6.2). Whatever the control does when pressed, what it says is what happens.
+- No deletion mechanism is built: no store registry, no sweep, no crypto-shred.
+  A UAT asserts the account still exists afterwards, so a later hand cannot read
+  the button as evidence the machinery is there.
+- The portal reads and grants nothing; it answers only about the caller's own
+  account, and a request naming another account's business is indistinguishable
+  from one naming a business that does not exist.
+- There is no way to add a business from the portal, and no plan, charges or
+  details surface.
 - No user-visible string says "tenant" ([[REQ-180]] §3's guard covers the two
   apps; this must not introduce a third surface outside it).
 
-## Open questions
+## 8. Open questions
 
 1. **§3's origin.** The one that should be answered first.
-2. **Does the charges surface land at all in v1**, given there is nothing to put
-   in it, or does the portal ship with plan and details only?
-3. **Is the 1st Contact marketing site a prerequisite?** `public-site` currently
+2. **Which of §4.2's three shapes** the shown button takes. Recommendation is
+   option 2; the acceptance holds for any of them.
+3. **Does "delete account" mean the account or its businesses?** [[DOC-40]] §2
+   separates them and an account may hold several. [[DOC-37]] §4 is written about
+   *tenant* deletion, which is the business; the portal control is on the
+   **account**, which is the payer. An account holding three businesses pressing
+   one button is a question [[DOC-37]] does not answer, and the copy cannot be
+   written until it is.
+4. **Export before delete** ([[DOC-37]] §9). Portability usually ships with
+   erasure. Here the export is a site definition and a customer list, which is a
+   larger thing than the button — so "together" may be the wrong default for
+   once, and that is worth deciding rather than assuming.
+5. **Is the 1st Contact marketing site a prerequisite?** `public-site` currently
    serves a placeholder at the apex, held back "until the marketing site exists".
    A portal that is a page of a site nobody has built is reachable but has no
    surroundings — which may be fine, and should be a decision.
