@@ -6,10 +6,10 @@ title: What kind of thing a file is comes from the bytes, with the name as a fal
   and nothing is refused for being unrecognisable
 created_by: xgd
 created_at: '2026-09-04T03:53:34.035121+00:00'
-updated_at: '2026-09-04T03:53:34.035121+00:00'
+updated_at: '2026-09-04T04:08:23.289633+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-70a922b9
   kind: behavior
