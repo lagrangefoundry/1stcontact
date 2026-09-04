@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T00:01:51.467140+00:00'
+updated_at: '2026-09-04T00:23:38.127127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,62 @@ Answer 1–4 and I'll cut the branch and implement.
    2. The key toi the model is business == tenant - do we have add tenant? they must go together.
    3. We are pre-billing and pre-proper access control - there should be no self-serve "add a business" button - I (admin) will add businesses - it needs to be possible but it could be completely manual. Ideally what I want is when I create an account I can also provision a business for that account
    4. users see the web app/site only
+
+<!-- xgd-turn id="890505f2-c2d6-4c10-905c-23bd54f25d81-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T00:23:38.002075+00:00" -->
+#### Claude
+Good — that changes item 2 materially. Let me verify the "business == tenant" invariant you're asking about before I scope.
+
+Clear picture now. Two things confirmed for you:
+
+- **`createTenant` has exactly two callers**: `provisionBusiness` (which writes the tenant, membership, grant and starter site as one operation) and `storeFor`'s self-heal. So business and tenant *do* already go together — the self-heal is the one place a tenant can appear without a business, and it's only reachable on the `TENANT_ID` dev path, because an admission-derived scope always came through `JOIN tenants`. That's a provable invariant and I'll lock it with a UAT.
+- **No user-visible string says "tenant" today** — every hit in the builder client and the public site is a comment or SQL. So item 3's work is the guard, not a cleanup.
+
+Let me scope the ticket.
+
+Ticket scoped. Cutting the branch.
+
+Now the identity layer — the lapse reason.
+
+Now the wire payload and the admin route.
+
+Now the router: payload lapse + admin route.
+
+Now the admin route.
+
+Now the route handler itself, next to `/api/businesses`.
+
+Now the client: config labels, the account surface reason line, and api.js passthrough.
+
+Now the CSS for the lapse line, and the boot-guard vocabulary fix.
+
+Now the boot-guard vocabulary fix (the one user-visible "tenant" that isn't config vocabulary).
+
+All nine pass. Now the admin-route UAT.
+
+Good — no webui dependency. Now the account surface UAT.
+
+Now the vocabulary guard.
+
+All 11 pre-existing failures reproduce identically on the main checkout; the 12th passes in isolation in both. No regressions from this change. Reviewing the diff.
+
+Done — merged back to `xgd-working`, promoted to `free_coded` at 0.2.63, worktree cleaned. 44 tests green on the merged tree.
+
+## What landed
+
+**§1 — the lapse reason.** `AdmittedBusiness` now carries `lapse: {reason, endedAt} | null`, present exactly when `selectable` is false because both derive from one `bestActiveGrant` answer. Four reasons — `expired` (with the date, latest wins when a grant was renewed), `revoked`, `not_yet`, `never_granted` — recovered by asking the entitlements table *without* the filters that collapsed them into one `null`, so nothing has to be kept in step. `admissibleBusiness` and `businessesFor` both route through one function, so an admin on a support call sees exactly what the owner sees. It crosses the wire on `/api/businesses` and the account surface states it in words beside the business it belongs to; the switcher keeps the suffix, since an `<option>` can't carry a sentence.
+
+**D2 — no self-serve add-a-business.** `POST /api/admin/businesses` behind `platform_admin`, calling `provisionBusiness` and nothing else. It 404s rather than 403s for everyone else — a 403 answers "does an admin surface exist" with *yes*. The dev-open loopback is refused too: no admission means no administrator. Driven by hand from your own logged-in session; REQ-170's console calls this rather than reimplementing it.
+
+**D3 — business == tenant.** Asserted as one operation: `tenants` row, `owner` membership, live grant with you as `granted_by`, and a starter site — checked through `admit`, not by reading tables back, so a business written-but-unreachable fails. And account creation still provisions its first business, so you never do it twice.
+
+**§3 — the vocabulary guard.** The audit passed (every "tenant" in the two apps was a comment or SQL), so the deliverable is the guard: no string literal in the builder client or public-site says "tenant", with four exemptions expressed as rules, not a list — SQL, `TENANT_ID`/`wrangler.toml`, regex matchers, and bare identifiers. It has a self-check that shows it two violations it must catch and each exemption it must excuse. Two strings did need fixing: the boot guard's "the store has no tenant yet" and a knowledge-index error message. `tenant_id` untouched in the schema, asserted.
+
+## Two things for you
+
+**The portal ticket isn't filed.** Your "ok" covered confirming the reading; I didn't want to read it as authorisation to create a ticket. Say the word and I'll file it — the scope is portal login on `apps/public-site` plus the plan/invoices/details surface through the site pipeline.
+
+**Test-suite state, unchanged by this work:** 11 files fail on `xgd-working` (knowledge-index and webui resolution). I baselined them on the main checkout before and after — same 11, same 30 failures. A 12th, `reconciliation-l1-navigation`, failed once in a full run and passes in isolation in both trees; it's a flake, not a regression.
 
 <!-- xgd-chat-end -->
