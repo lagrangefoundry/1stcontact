@@ -111,6 +111,9 @@ acceptance line below asks for literally.
 those are opaque, permanent and present in R2 keys, so renaming them buys a data
 migration for nothing.
 
+This also settles an ordering question: [[REQ-185]] writes a new `memberships`
+row, so it must run **after** this rename rather than beside it.
+
 ### Two consequences of touching this code
 
 - **[[REQ-180]]'s schema guardrail is narrowed.** It asserted that the string
