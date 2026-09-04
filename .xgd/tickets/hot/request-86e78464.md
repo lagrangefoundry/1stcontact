@@ -5,15 +5,18 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-04T23:44:15.249733+00:00'
+updated_at: '2026-09-04T23:57:54.254838+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: depends_on
 status: draft
 fields:
   priority: medium
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  depends_on:
+  - REQ-178
+  - REQ-179
 ---
 
 # The customer portal: the account's own surface, rendered by the site pipeline
