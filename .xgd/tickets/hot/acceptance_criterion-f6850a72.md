@@ -6,10 +6,10 @@ title: Dragging a file onto either the conversation or the Library raises the sa
   one question about what the file is for
 created_by: xgd
 created_at: '2026-09-04T04:51:40.313019+00:00'
-updated_at: '2026-09-04T04:51:40.313019+00:00'
+updated_at: '2026-09-04T05:02:00.694419+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1144410d
   kind: behavior
