@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:41:55.628557+00:00'
+updated_at: '2026-09-04T23:46:37.275033+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -635,5 +635,45 @@ Confirm the `commits`/`version` question and I'll run 1–5.
 <!-- xgd-chat role="user" ts="2026-09-04T23:41:55.477967+00:00" -->
 #### You
 I have moved them all to draft, proceed
+
+<!-- xgd-turn id="4aee6ade-faef-4b1a-8e65-eb0307068cf1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T23:46:36.954495+00:00" -->
+#### Claude
+All three are `draft` with `commits`/`version` intact. Let me read the two bodies I haven't seen before amending them.
+
+Now applying the amendments. Building a reusable append helper first.
+
+REQ-180 done. Now REQ-183.
+
+Now DOC-40 — append-only, no in-place edits to §2/§5/§6.
+
+Now updating DOC-42 §10 to reflect where each amendment actually landed.
+
+Now filing the one ticket the plan said still needs an owner.
+
+All five steps done. Everything is committed locally.
+
+## What changed
+
+| | | |
+|---|---|---|
+| **REQ-178** | draft, commits intact | `no_entitlement` stops being an admission refusal — inverts one acceptance criterion and its UAT. Framed as extending the ticket's own *"an account whose second business has lapsed must still reach the first"* argument by one step. |
+| **REQ-179** | draft, commits intact | Owns what the chrome does with zero selectable businesses: switcher renders, all entries unselectable, avatar link-out stays reachable. |
+| **REQ-180** | draft, commits intact | A1 D2's gate restated as product fulfilment (no endpoint change); A2 D4's lapse recorded as unreachable for an all-lapsed account; A3 D5 extended from the string to the model concept. D1 and D3 untouched. |
+| **REQ-183** | draft | B1 marks §4's delete button blocked on REQ-178/179; B2 adds the REQ-169 ToS interaction as a sixth open question; B3/B4 carry §6 and question 3 forward. |
+| **DOC-40** | open | Appended amendments section with all four corrections. §2/§5/§6 left as written, and the section says why. |
+| **DOC-42** | draft → open | §10 reframed from "what is wrong" to "amendments owed", each pointing at its owner. |
+| **REQ-184** | new, draft | Owns §10.2 — separates the urgent half (`account_id` holds a business id, and the name invites a silent data error) from the speculative half (an account subject column with no consumer yet). Blocked on REQ-178/179. |
+
+**One inconsistency worth naming:** I edited REQ-170 in place (draft, no commits) but appended to REQ-178/179/180 and DOC-40. So REQ-180 §2 still says "platform tenant" with the amendment correcting it downstream, while REQ-170's copy is simply gone. That's deliberate — text with commits behind it gets amended, not rewritten — but it means the phrase survives in three places by design.
+
+## Two things left open
+
+**DOC-42 §10.3's column split has no owner.** REQ-180 A1 amends the *rationale* and explicitly disclaims the split itself — *"splitting them is its own ticket and is not owed by this one."* It wasn't in the plan you approved as a ticket, so I didn't file it. REQ-170 doesn't need it, so it isn't urgent. Say the word and I'll file it.
+
+**Nothing here is implementable yet.** BUNDLE-23 is stalled in `error` at 73%, and REQ-170, REQ-183 and REQ-184 all queue behind REQ-178/179 reconciling — they share `identity.ts` and `scope.ts`. The BUNDLE-23 error is unrelated to any of this (knowledge-base cluster) but it's holding the queue.
+
+**Pushes are still failing** on the proxy auth error — every commit from this session is local only.
 
 <!-- xgd-chat-end -->
