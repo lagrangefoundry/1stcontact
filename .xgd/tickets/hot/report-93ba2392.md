@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T05:08:24.666621+00:00'
+updated_at: '2026-09-04T05:18:22.423295+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -421,7 +421,7 @@ fields:
       the bytes still live in the private bucket under the account''s own prefix,
       one account still cannot address another''s blob, and identical content still
       hashes identically. Only what the key is has changed.'
-    story_uid: null
+    story_uid: story-a7a12d81
     target_story_ids:
     - story-a7a12d81
     intent_delta_summary: Blob addressing moves from the content hash to the attachment
