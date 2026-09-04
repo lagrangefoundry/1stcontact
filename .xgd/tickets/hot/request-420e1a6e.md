@@ -6,7 +6,7 @@ title: 'The admin console: users, entitlements, and the invite that provisions a
   account'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-02T23:17:35.105239+00:00'
+updated_at: '2026-09-04T23:26:50.543761+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -89,8 +89,17 @@ A UAT asserts a freshly invited account has exactly one site and that it renders
 
 ## Not in scope
 
-Editing memberships, support-access grants, self-service anything, and the
+Support-access grants, self-service anything, removing a business, and the
 payments funnel that an expired grant should eventually lead to.
+
+**Editing memberships was here and is not any more** — see the 2026-09-04
+revision. `0005_operator_membership.sql:14` already assigns it to this ticket,
+and [[DOC-42]] §4 makes it the primary relation the tab manages.
+
+**Removing a business is new to this list.** It sounds like the other half of
+provisioning one and is not: [[DOC-37]] is a whole document about erasure, and
+[[REQ-183]] §4.1 deliberately ships a delete control with no delete mechanism
+behind it.
 
 
 ---
@@ -103,7 +112,7 @@ The console's shape is unaffected — a `/admin` route, `PLATFORM_ADMINS`,
 is what the rows mean.
 
 **The invite provisions an account and its first business.** [[DOC-40]] §4's
-table now reads: a `users` row in the platform tenant (the account), a `tenants`
+table now reads: a `users` row in the 1st Contact business (the account), a `tenants`
 row (their first business), a membership, an entitlement, one site. The console
 calls [[REQ-178]]'s `provisionBusiness` for the business half rather than writing
 those rows itself, so the admin path and the later self-serve path cannot
@@ -123,3 +132,126 @@ grant it found first.
 **Granting an existing account a further business** is an admin action here as
 well as an account-surface action ([[REQ-180]]); both go through the same
 function.
+
+---
+
+## Revision — 2026-09-04: this is the User tab, and it is uniform ([[DOC-42]])
+
+[[DOC-42]] was written out of the discussion that produced this revision. It is
+the model; this section is what the model changes here. The earlier revision
+above stands except where noted.
+
+### The surface is a tab, not `/admin`
+
+**The tab shows the people of the business you are in.** Not "every account" —
+the people of *this* business, read through the tenant-scoped handle. For the
+1st Contact business those people are our customers; for a customer's business
+they are that customer's customers ([[DOC-42]] §1, §7).
+
+`/admin` is dropped as a route and as a name. It names the privileged additions
+rather than the surface, and that naming is precisely what would fix the
+platform-only reading in place — [[DOC-40]] §2.1 rule 1's failure mode arriving
+through the URL bar. **It is the User tab**, reached in the app like the Library,
+scoped by the current business.
+
+That the left list happens to be accounts is a property of *our* business, not
+the definition of the tab.
+
+### Two orthogonal columns per person, and membership is the primary one
+
+[[DOC-42]] §4: membership means *this person may log in to this business*, and
+nothing else. Entitlement means *this account has been granted access to some
+thing*. Neither implies the other, and the code already splits them —
+`businessesFor` joins `memberships` (`identity.ts:621`) while
+`selectable: entitlement !== null` (`identity.ts:665`).
+
+So the tab manages both, and **membership is what "manage users' site access"
+means**. Its removal from *Not in scope* above is this revision's doing.
+
+The detail pane's `mountFields` descriptors therefore carry the person's record,
+their membership on this business, and their grants — three things, not one
+blended "access" field.
+
+### The entitlement editor must not assume its subject is a business
+
+The earlier revision's *"entitlements are edited against a business, not against
+a person"* is true of what exists today and must not be built in as though it
+were the model. [[DOC-42]] §6: the subject of a grant is the **account** and the
+business is the **object**. Today `entitlements.account_id` holds the object
+under the subject's name, which [[DOC-42]] §10.2 records as an amendment owed to
+[[DOC-40]] §5.
+
+What this ticket owes is that the editor survives that amendment: it says which
+business a grant is about, and it does not encode "the grant *is* the business".
+The case that breaks the shortcut is a customer's paywall — two members of one
+business, one paying and one not — which is unrepresentable if the grant is the
+business.
+
+### The list is the CRM's population, not a second one
+
+[[DOC-42]] §9: a contact is a `users` row with no authentication fields set, in
+the same table, under the same `(tenant_id, email)` unique index
+(`0004_identity.sql:61`). The CRM and this tab are two views of one list and
+**the invite is the verb that moves someone across**.
+
+A UAT asserts that a person who is both is one row: invite an address that
+already exists as a contact and the tab must show the same record, not a second.
+
+### The gate is not the word "admin"
+
+The controls only the 1st Contact operator sees are **1st Contact's
+product-fulfilment actions** — provisioning a business is us filling an order.
+The gate is two conditions ([[DOC-42]] §7):
+
+1. **you are an owner of this business** — uniform; Alice's Plumbing's owner is
+   the owner of theirs
+2. **this business's product is businesses** — which is what makes the control
+   appear for 1st Contact and nowhere else
+
+Today those two select exactly the set `platform_admin` selects, so nothing has
+to change in the schema for this ticket to ship. `PLATFORM_ADMINS` survives as
+the break-glass seed [[DOC-40]] §6 argues for, and stops being the model
+([[DOC-42]] §10.3).
+
+Two consequences:
+
+- **The asset gate mostly dissolves.** The console section above puts the check
+  before any admin asset is served. That was right for a platform-only route and
+  is wrong for a generic surface — everyone gets the assets. The gate that
+  matters is at the API, which is where [[REQ-180]] already put it
+  (`router.ts:964`).
+- **The support bypass is NOT this ticket's gate.** `scope.ts:237` lets an
+  administrator enter a business they hold no membership on. That is the one
+  genuinely special power ([[DOC-42]] §8), [[DOC-40]] §7 parks its general form,
+  and borrowing it for an ordinary product control would hide it behind one.
+
+### Provisioning is called, not reimplemented
+
+`POST /api/admin/businesses` already exists — [[REQ-180]] D2 landed it gated on
+`platform_admin` at `router.ts:964`, deliberately with no control in the product.
+This tab is the control. It calls that endpoint and [[REQ-178]]'s
+`provisionBusiness` behind it, and writes none of those rows itself.
+
+### There is no extension framework
+
+The additions are one business's product controls. Alice's Plumbing will have
+fulfilment actions too and they will look nothing like these, so a plugin
+registry built for the single case we have would be the wrong shape for the
+second. The seam is a descriptor list, an action list and a condition — all of
+which `mountFields` and `webui/list-detail` already take as parameters.
+
+### Dependencies this ticket makes reachable but does not own
+
+Recorded so they are not discovered from inside the implementation.
+
+- **[[DOC-42]] §10.1 — admission requires an entitlement and should require a
+  membership.** `admit` refuses when no business is selectable
+  (`identity.ts:542`). This tab is what creates lapsed members, so it is what
+  makes the lockout reachable: a lapsed customer cannot reach the portal showing
+  their payment history, the page where they would pay, or their delete button.
+  A UAT here asserts the tab can *produce* that state; fixing the state is
+  another ticket.
+- **[[DOC-42]] §10.2 — the entitlement subject column**, per the editor
+  constraint above.
+- **[[DOC-42]] §10.3 — `users.platform_admin` carries two capabilities.** This
+  ticket models the gate correctly without needing the column changed.
