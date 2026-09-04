@@ -6,9 +6,9 @@ title: Workspace opens as a single tab hosting the display panel, addressed by a
   id
 created_by: xgd
 created_at: '2026-08-07T01:43:46.576788+00:00'
-updated_at: '2026-08-16T10:02:40.441534+00:00'
+updated_at: '2026-09-04T05:30:44.006836+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -19,14 +19,20 @@ fields:
 
 ## Criterion
 
-Opening the workspace presents exactly one tab. That tab is addressed by a
-stable identifier (`site`) that never changes when its visible name does, and
-the display panel — the pane showing the site — is hosted inside that tab's
-content area rather than beside or outside the tab chrome.
+Opening the workspace presents exactly one panel per declared tab and no undeclared
+panel beside them. Each tab is addressed by a stable identifier that never changes
+when its visible name does; the site tab's is `site`. The first declared tab is the
+one that opens, and it is the site tab — so the workspace comes up on the site, not
+on whatever surface happens to have been added beside it. The display panel — the
+pane showing the site — is hosted inside that tab's content area rather than beside
+or outside the tab chrome.
 
 ## Verification
 
-Mount the workspace and observe the chrome: exactly one tab is present, its
-stable id is `site`, and the display panel element (the pane containing the
-displayed document) is a descendant of that tab's panel. Assert on the count of
-tabs, not merely on the presence of one.
+Mount the workspace and observe the chrome. Assert the number of mounted tab panels
+equals the number of tabs the workspace declares — the count, not merely the presence
+of one, since an undeclared panel appearing is the failure this guards, and reading
+the count off the declaration rather than off a literal is what keeps that guard
+binding as surfaces are added. Assert the site tab's stable id is `site`, that it is
+the first declared tab, and that it is the tab the chrome opens on. Assert the display
+panel element is a descendant of that tab's panel.
