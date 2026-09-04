@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A description is bounded and states in its own text when it was cut short
 created_by: xgd
 created_at: '2026-09-04T04:12:50.571222+00:00'
-updated_at: '2026-09-04T04:12:50.571222+00:00'
+updated_at: '2026-09-04T04:23:05.376246+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-724e4e8c
   kind: behavior
