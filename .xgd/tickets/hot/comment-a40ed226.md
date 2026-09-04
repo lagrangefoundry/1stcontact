@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:09:13.276122+00:00'
+updated_at: '2026-09-04T23:19:15.833322+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -402,5 +402,13 @@ The doc sweep is real — DOC-40 §2 and §6 say "platform tenant" throughout, a
 ---
 
 Updated write-up for REQ-170, if you want it: the uniform tab; membership and entitlement as two orthogonal columns with membership primary (deleting *Not in scope: editing memberships*, against `0005:14`); the portal as membership-derived rather than granted; the 1c controls gated on owner-of-this-business plus what-this-business-sells rather than on an admin flag; and three noted dependencies it makes reachable but doesn't own — the `admit` lockout, DOC-40 §5's subject/object, and `users.platform_admin` vs `memberships.role`.
+
+<!-- xgd-turn id="5619f9d5-6e86-4509-ae60-3dbf8caf74e5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T23:19:15.418893+00:00" -->
+#### You
+Good can you capture this model in a way that will be really clear - I think its probably worth a new doc just for this. It can be short but its complicated - it took us a long time to work through the kinks.
+
+Please create the doc first and the list the ticket updates that it drives
 
 <!-- xgd-chat-end -->
