@@ -2,13 +2,12 @@
 uid: request-420e1a6e
 id: REQ-170
 type: request
-title: 'The admin console: users, entitlements, and the invite that provisions an
-  account'
+title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-04T23:26:50.543761+00:00'
+updated_at: '2026-09-04T23:27:05.295754+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   priority: high
