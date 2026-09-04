@@ -6,10 +6,10 @@ title: An account may hold several grants at once, and a grant may name a plan o
   status not in today's set, without a storage change
 created_by: xgd
 created_at: '2026-09-04T05:52:44.129222+00:00'
-updated_at: '2026-09-04T05:52:44.129222+00:00'
+updated_at: '2026-09-04T06:00:22.049885+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e7871ed7
   kind: behavior
