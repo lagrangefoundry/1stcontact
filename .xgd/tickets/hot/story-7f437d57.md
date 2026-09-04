@@ -6,10 +6,10 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-09-04T05:30:17.474101+00:00'
+updated_at: '2026-09-04T05:31:45.540272+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-44a04848
