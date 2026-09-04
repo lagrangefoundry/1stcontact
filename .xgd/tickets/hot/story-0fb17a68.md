@@ -6,10 +6,10 @@ title: 'Knowledge that keeps up: an upload is findable at once, and the landscap
   stays honest as the corpus grows'
 created_by: xgd
 created_at: '2026-09-04T03:35:17.905423+00:00'
-updated_at: '2026-09-04T03:35:17.905423+00:00'
+updated_at: '2026-09-04T03:46:49.667906+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-203b1dc2
   capability_uid: capability-7cf24564
