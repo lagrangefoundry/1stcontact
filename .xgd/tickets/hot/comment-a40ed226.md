@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T21:18:06.360753+00:00'
+updated_at: '2026-09-04T21:19:26.724932+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -246,5 +246,58 @@ I don't understand your statements about membership. Let me clarify how I was us
 "Bob is a member of Alice's Plumbing" means exactly: Bob can login and get access to pages that require login (specifically right now this is the User Portal but someday there could be other things)
 
 There is no membership fee today - that is an entitlement please keep then separate - it just means Bob can log in. As Admin I can provision business and "entitle" users to have access to them - soimeday that will be done automatically when they pay.
+
+<!-- xgd-turn id="d50d5db7-ba4e-4216-98dd-16c430b9e1d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-04T21:19:26.179045+00:00" -->
+#### Claude
+That's a cleaner split than I had, and it makes the two relations orthogonal rather than layered. Let me check whether the schema and the admission code already agree with it.
+
+You're right, there's no ambiguity — I'd wrongly read `memberships` as operator-only. Dropping that.
+
+Your split is already in the code, and cleanly:
+
+- `businessesFor` joins through `memberships` (`identity.ts:621`) — membership puts a business in your set.
+- `selectable: entitlement !== null` (`identity.ts:665`) — the entitlement is what lets you in.
+
+That is exactly "membership = can log in; entitlement = access to the thing," and the `role` column (`owner`, `support`) is where Bob would land as a third kind of member.
+
+## The one place the code doesn't agree
+
+`admit` collapses the two back together at the door (`identity.ts:541`):
+
+```
+if (businesses.length === 0) return no_membership
+if (!businesses.some(b => b.selectable)) return no_entitlement
+```
+
+So today **login itself requires a live entitlement.** Under your model that's wrong in general — Bob is a member of Alice's Plumbing with no entitlement, and he must be able to log in and reach the User Portal. And it's wrong one level up too, in a way that bites harder: Alice with a lapsed grant is still a member of 1c, and denying admission means they cannot reach the portal showing their payment history — including the page where they would *pay*, which is the only thing that would restore the entitlement. A lockout loop.
+
+DOC-40 §5 half-anticipates this:
+
+> For the alpha an expired grant denies with a message; read-only access to one's own site is the better product answer and the model supports it unchanged, so it waits for the payments funnel.
+
+Your model gives it a stronger reason than "better product answer." And REQ-183 sharpens it into something with a deadline: that ticket puts a **Delete account** button in the portal because DOC-37 makes erasure a compliance obligation. If admission requires a live entitlement, a lapsed customer cannot reach their own delete button — the compliance surface ends up gated on payment.
+
+So `no_entitlement` should stop being an admission refusal and become a state *inside* an admitted session: you're logged in, the app isn't open to you, here's why. `no_membership` stays a refusal. That's not REQ-170's work, but REQ-170 is the surface that creates lapsed members, so it's the ticket that makes the loop reachable.
+
+## What this fixes in the User tab
+
+Membership and entitlement are two independent things the tab manages per person, not one layered thing:
+
+- Martin's tab, tenancy = 1c: Alice is a member (can log in), and entitled to Alice's Plumbing.
+- Alice's tab, tenancy = Alice's Plumbing: Bob is a member (can log in, reaches the portal), and someday entitled to the paywalled pages.
+
+Which makes REQ-170's *Not in scope: editing memberships* clearly wrong now — membership is the **primary** thing the tab manages, since "manage users' site access" is precisely the login relation. `0005_operator_membership.sql:14` already says REQ-170 owns it. I'd delete that exclusion.
+
+## One question I don't want to answer for you
+
+You wrote: *"provision business and entitle users to have access to them."* That reads as a grant on the pair **(user, business)**. The schema's grant is on the **business** alone — `entitlements.account_id` is a tenant id, and who pays is inferred by joining memberships (DOC-40 §5).
+
+Those differ the moment two people are members of one business: under the schema they necessarily share its entitlement; under the pair reading they could differ. Bob's paywall needs the pair reading — two members of Alice's Plumbing, one paying, one not. So I think the pair is where this ends up, but it's a DOC-40 §5 amendment and I'd rather ask than assume.
+
+**Is an entitlement a grant to a business, or to a person's access to a business?**
+
+Once you answer that I'll write up REQ-170: the uniform tab, membership and entitlement as two orthogonal columns, memberships back in scope against `0005`, the 1c-specific controls as product-fulfilment rather than generic admin, and the admission lockout noted as a dependency.
 
 <!-- xgd-chat-end -->
