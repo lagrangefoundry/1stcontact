@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-23 free-coded commits (knowledge bases, mate
   ingestion & Library, identity)'
 created_by: xgd
 created_at: '2026-09-04T02:10:44.539778+00:00'
-updated_at: '2026-09-04T02:10:44.539778+00:00'
+updated_at: '2026-09-04T02:16:39.392215+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-203b1dc2
@@ -36,7 +36,7 @@ fields:
       three artefacts under a corrected membership rule and a corrected listing. Extending
       STORY-117 is required rather than optional: leaving AC-1295 as written would
       leave the matrix asserting a rule the code deliberately retired.'
-    story_uid: null
+    story_uid: story-c4f329d3
     target_story_ids:
     - story-c4f329d3
     intent_delta_summary: Membership moves from a boolean opt-in flag to the ticket's
