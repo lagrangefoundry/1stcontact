@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T20:52:41.916346+00:00'
+updated_at: '2026-09-04T21:05:33.486156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -175,5 +175,19 @@ So the shared half of the tab is only half-shared today: your case works, Alice'
 ---
 
 Want me to write this into REQ-170 — the uniform statement of the tab, the no-`level`-column test, the CRM/User one-population constraint, the "additions are the writes that leave the tenant" rule, and the level-2 access gap as a noted dependency?
+
+<!-- xgd-turn id="9c09caf8-5f1e-4ca5-a5d1-3c892ca53f84-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T21:05:33.436154+00:00" -->
+#### You
+No you are still confused.
+
+"Alice's access to 1c is `memberships` + `entitlements" `<-- this is incorrect Alice's access to 1c is exactly the same as Bob's access to Alice's plumbing.
+
+Alice has access to a 1c user portal that shows her HER payments to 1c her delete button etc.
+
+IN ADDITION Alices login to 1c gives her access to the 1c app. (this does not exist in our example - Alice is a plumber "Alice's Plumbing"  does not have an app) Within the App there is a User tab where Alice can manage membership and entitlements.
+
+BTW we have not discussed it but there could be Level 1 entitlements made available to level 2 customers/members - for example content kept behimd a paywall on Alice's Plumbing which bob can only see if he is paying the membership fee.
 
 <!-- xgd-chat-end -->
