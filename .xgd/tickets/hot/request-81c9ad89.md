@@ -5,9 +5,9 @@ type: request
 title: 'Library under one-site-per-business: badge the exception, not the rule'
 created_by: xgd
 created_at: '2026-09-02T23:53:02.972968+00:00'
-updated_at: '2026-09-04T01:42:52.745442+00:00'
+updated_at: '2026-09-04T01:53:35.546303+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -178,3 +178,103 @@ state the v1 invariant plainly rather than repeating a superseded rationale.
 - After the selector changes business, no row from the previous business is
   visible.
 - The type icon and role pill are unchanged from [[REQ-176]].
+
+
+---
+
+## What landed, and where it departs from the plan above
+
+### The site-change hook: deleted, not converted
+
+§4 says `siteChanged` **must not simply be deleted** — because at the time this
+ticket was written, `app.js` only called it, and a business switch that merely
+re-filtered would leave the previous business's rows on screen.
+
+[[REQ-179]] has landed since, and it already moved the business switch into one
+place. `selectBusiness` awaits `library.refresh()` — a genuine re-read — for
+exactly the reason §4 gives. So the correctness fix §4 asks for is present, and
+`siteChanged` is now a redundant re-filter on a path that reloads anyway. It is
+deleted, along with both of its call sites; the `panel.on('site')` subscription
+no longer touches the Library at all, because a site change within a business is
+nothing to it.
+
+### One thing added: the list is cleared before the re-read
+
+`selectBusiness` swallows a listing failure deliberately (*"a failure to list is
+not a failure to run"*). With the re-read as the only defence, a business switch
+whose `/api/material` call failed would leave the **previous** business's
+material on screen under a header naming the new one — the exact outcome §4's
+invariant forbids, on the one path the host is allowed to ignore.
+
+So the panel gained a `clear()`, called immediately before the re-read. The rows
+are dropped first and restored by whatever comes back. A moment of "nothing yet"
+is honest; another business's material is not. `clear()` replaces `siteChanged`
+in the panel's API rather than joining it, so the surface did not grow.
+
+### Two more comments carried the superseded rationale
+
+§6 named three. The same DOC-38 §7.7 / DOC-10 §4.1 argument — *a client's second
+site should not start as cold as their first* — also appears on `fetchMaterial`
+in `builder/api.js` and on the `/api/material` route in `router.ts`. Both are
+rewritten to state the v1 invariant plainly: the scope is carried by the URL
+prefix, a business holds one site, and there is no narrower scope a slug could
+name. No behaviour changed in either.
+
+### The warning, as rendered
+
+A `builder-library__badge--unplaced` pill: a decorative warning glyph marked
+`aria-hidden`, the words **Not on the site**, and the full sentence on `title`
+(*"You asked for this to go on your site and it did not get there. It is still
+here — try adding it again."*). The words are what a screen reader reads and
+what survives a forced-colours mode, so the colour and the glyph are both
+redundant. It takes `--shell-danger` (with the literal fallback
+`.builder-modal__error` already uses, since the shell does not declare the
+token) and explicitly not `--shell-accent`.
+
+The predicate is `role === 'site'` and `placed_on` empty, and it is two facts
+rather than one on purpose: background information's `placed_on` is empty and
+always will be, so a warning keyed on placement alone would fire on every
+reference document the client ever uploads.
+
+### The detail field
+
+`placed_on` keeps its row in `RIGHTS_FIELDS` and is relabelled `Used on` to
+**`Placed on`** — it says where the bytes went, and a draft asset is not in use
+by anyone until the client publishes. It stays a joined list.
+
+## Evidence
+
+New: `tests/test_UAT_FC_REQ-181_library_badges_the_exception.test.ts` — seven
+UATs over the real components, and the business-switch case over the real
+builder driven through the switcher an operator uses:
+
+- no row carries a placement pill, and exactly the site-role row with no
+  placement carries a warning;
+- background information is never marked, however unplaced it is, and neither is
+  a placement that landed;
+- the warning is perceivable without colour — glyph `aria-hidden`, words in the
+  badge, full sentence on `title`, `--shell-danger` and not `--shell-accent`,
+  and the `--here` rule gone from the stylesheet rather than left beside it;
+- there is no "used on this site" filter, and text, role and kind still narrow;
+- `Placed on` holds the placement in the detail, as a list, under that name;
+- `library.js` reads no site anywhere — no `getSite`, `placedHere`, `hereOnly`
+  or `siteChanged`, and `app.js` calls no hook;
+- a business switch leaves no row from the previous business, **including when
+  the re-read fails**.
+
+Reworked, because their subject changed:
+
+- `test_UAT_FC_BUG-47_library_agrees.test.ts` — BUG-47's claim survives with two
+  readers instead of three. The note dropped on *"just for you to read"* must
+  now neither claim to be on the site nor swing to claiming it failed to get
+  there; the `Placed on` field still agrees with the warning.
+- `test_UAT_FC_REQ-161_library_tab.test.ts` — the list is the business's
+  material; the filter narrows by role and kind. Placement assertions moved out.
+- `test_UAT_FC_REQ-176_library_row_and_wording.test.ts` — the icon replaced the
+  kind pill and the role pill remains; the placement pill is asserted absent.
+- `REQ-166` / `REQ-172` / `BUG-42` / `REQ-179` — `getSite` dropped from the
+  Library mounts, comments corrected.
+
+Pre-existing and unrelated: eleven knowledge-base suites fail identically on an
+unmodified checkout (no local KB index) and one `tsc` error in
+`session-knowledge.ts`. Neither is touched here.
