@@ -6,10 +6,10 @@ title: The control-surface reference describes the whole declared surface, not o
   role's grant
 created_by: xgd
 created_at: '2026-09-04T02:27:18.568278+00:00'
-updated_at: '2026-09-04T02:27:18.568278+00:00'
+updated_at: '2026-09-04T02:41:24.501032+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0d7d3aad
   kind: behavior
