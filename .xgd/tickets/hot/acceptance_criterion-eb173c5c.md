@@ -6,10 +6,10 @@ title: The deployed assistant reaches the corpus from its own release artifact w
   no filesystem, and the surface and the priming arrive together or not at all
 created_by: xgd
 created_at: '2026-09-04T03:03:21.853619+00:00'
-updated_at: '2026-09-04T03:03:21.853619+00:00'
+updated_at: '2026-09-04T03:03:53.780165+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
