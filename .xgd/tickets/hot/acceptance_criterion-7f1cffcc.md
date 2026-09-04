@@ -6,10 +6,10 @@ title: A deployment that cannot index still keeps the file, tells the caller it 
   unfindable, and says so loudly to its operator
 created_by: xgd
 created_at: '2026-09-04T03:53:36.233952+00:00'
-updated_at: '2026-09-04T03:53:36.233952+00:00'
+updated_at: '2026-09-04T04:08:22.992472+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-70a922b9
   kind: behavior
