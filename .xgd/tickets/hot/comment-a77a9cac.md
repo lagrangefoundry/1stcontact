@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T01:42:19.868541+00:00'
+updated_at: '2026-09-04T01:48:43.894391+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -155,5 +155,13 @@ It draws the line against REQ-170 on three axes (scope, authority, population), 
 **Three open questions** are recorded rather than guessed: the origin; whether the charges surface lands at all in v1 given there's nothing to put in it (no `subscriptions` table, payments deferred by DOC-40 §5); and whether the 1st Contact marketing site is a prerequisite, since `public-site` still serves a placeholder at the apex.
 
 One note: the ticket store's `git push` failed — the sandbox blocks network access. The ticket is committed locally and will go up with your next push.
+
+<!-- xgd-turn id="b662dc18-587a-4a0f-af27-eacfb4c7b7c5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-04T01:48:43.359547+00:00" -->
+#### You
+It should start with one thing a "delete account" button.
+
+We have had design discussions on this. implementing the button is outside of the scope of the ticket - but it can show one
 
 <!-- xgd-chat-end -->
