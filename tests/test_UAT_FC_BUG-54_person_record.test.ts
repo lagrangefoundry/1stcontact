@@ -161,7 +161,13 @@ async function type(name: string, value: string) {
  * rather than shrink the assertion with it.
  */
 const LOCKED = [
-  'state',
+  // The two axes ([[REQ-188]], [[DOC-44]] §3) — `state` was the one field they
+  // replaced. `stage` is the interesting addition to this list: unlike the rest
+  // it HAS a column, and it is locked here as a policy rather than a physical
+  // fact, because moving somebody along the pipeline is an act with a meaning
+  // and not a value to retype on a record.
+  'stage',
+  'access',
   'status',
   'invitedAt',
   'firstSeenAt',

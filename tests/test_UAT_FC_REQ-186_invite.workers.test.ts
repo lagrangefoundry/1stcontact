@@ -198,8 +198,8 @@ describe('REQ-186 — one control, both levels', () => {
     // The acceptance in its plainest form: press the button, and the person is
     // in the tab. Asserted through `peopleOf` — the function the tab reads —
     // rather than by reading `users` back, because what the ticket owes is a
-    // person who SHOWS UP, and `invited_at` is the marker that puts them in the
-    // Invited state ([[DOC-42]] §4.1, [[REQ-188]]).
+    // person who SHOWS UP, and the pipeline stage is what says where they stand
+    // ([[DOC-44]] §3, §4, [[REQ-188]]).
     stubJwks()
     const owner = anEmail()
     const account = await anAccount(owner, "Alice's Plumbing")
@@ -212,8 +212,9 @@ describe('REQ-186 — one control, both levels', () => {
     const listed = await peopleOf(identityEnv(), { businessId: account.businessId })
     const them = listed.find((p) => p.email === invitee)
     expect(them, 'the invited person is not in the business they were invited to').toBeTruthy()
-    expect(them?.invitedAt, 'an invited person still reads as a Contact').toBeTruthy()
-    // AND NOT AS A MEMBER ([[REQ-188]]): the invite records that we asked, and
+    expect(them?.pipelineStage, 'the invite left them at the stage before it').toBe('invited')
+    expect(them?.invitedAt, 'the invite recorded no time for the act it performed').toBeTruthy()
+    // AND NOT AS A MEMBER ([[REQ-188]]): the invite moves the pipeline axis, and
     // nothing it writes can record that they came.
     expect(them?.termsAcceptedAt, 'the invite made a member out of nobody').toBeNull()
     // `active` is the login control ([[DOC-42]] §5). An invite that left it unset

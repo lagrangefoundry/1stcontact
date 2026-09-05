@@ -258,10 +258,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-189 — nothing on this tab is unstyled',
   })
 
   it('test_UAT_FC_REQ-189_no_rule_here_branches_on_what_a_state_is_called', async () => {
-    // REQ-188 turns Member/Contact into three states. A rule per label would
-    // have to be found and edited again the day that lands, so there is none.
+    // [[REQ-188]] replaced Member/Contact with two axes whose value sets both
+    // grow ([[DOC-44]] §3, §4). A rule per label would have to be found and
+    // edited again on each of those days, so there is none: classes name the
+    // AXIS — `__stage`, `__access` — and the choice of which value earns a badge
+    // is made in the panel, in one line.
     const people = CSS.split('\n').filter((line) => line.includes('builder-people'))
-    const branching = people.filter((line) => /member|contact|invited/i.test(line))
+    const branching = people.filter((line) => /member|contact|invited|lead/i.test(line))
     expect(branching, branching.join(' | ')).toEqual([])
   })
 })

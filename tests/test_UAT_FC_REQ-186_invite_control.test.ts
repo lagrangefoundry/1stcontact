@@ -47,6 +47,7 @@ interface Person {
   firstSeenAt: string | null
   lastSeenAt: string | null
   termsAcceptedAt: string | null
+  pipelineStage: string
   createdAt: string
 }
 
@@ -57,6 +58,7 @@ const person = (over: Partial<Person> & { id: string; email: string }): Person =
   firstSeenAt: null,
   lastSeenAt: null,
   termsAcceptedAt: null,
+  pipelineStage: 'invited',
   createdAt: '2026-09-01T09:00:00.000Z',
   ...over,
 })
@@ -100,13 +102,17 @@ function transportOver(people: Person[], canInvite = true, canFulfil = false) {
       invited.push({ email: normalised, displayName })
       const existing = rows.find((p) => p.email === normalised)
       if (existing) {
+        // Both, as the origin writes them ([[REQ-188]]): the stamp is kept and
+        // the stage is assigned.
         existing.invitedAt ??= '2026-09-02T10:00:00.000Z'
+        existing.pipelineStage = 'invited'
         return { created: false, person: { ...existing } }
       }
       const made = person({
         id: `usr_${rows.length + 1}`,
         email: normalised,
         displayName: displayName || null,
+        pipelineStage: 'invited',
       })
       rows.push(made)
       return { created: true, person: { ...made } }
@@ -134,8 +140,13 @@ beforeEach(() => {
 
 const EXISTING = [
   person({ id: 'usr_1', email: 'alice@example.test', displayName: 'Alice' }),
-  // A CONTACT: known here, never invited, and MAY become a member ([[DOC-42]] §4).
-  person({ id: 'usr_2', email: 'contact@example.test', invitedAt: null }),
+  // A LEAD: known here, never invited, and MAY become a member ([[DOC-44]] §4).
+  person({
+    id: 'usr_2',
+    email: 'contact@example.test',
+    invitedAt: null,
+    pipelineStage: 'lead',
+  }),
 ]
 
 async function panelOver(canInvite = true, canFulfil = false) {
@@ -238,11 +249,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — what the operator is told', () =>
     await invite('contact@example.test')
 
     expect(said().textContent).toMatch(/already known/i)
-    // And the row now reads as INVITED — not Member ([[REQ-188]]). The invite
-    // moves a contact one step; the person completes the journey themselves by
-    // accepting the terms, and neither of these two rows has.
-    const states = [...root.querySelectorAll('.builder-people__state')].map((n) => n.textContent)
-    expect(states).toEqual(['Invited', 'Invited'])
+    // And the row now reads as INVITED on the pipeline axis ([[REQ-188]],
+    // [[DOC-44]] §3). The invite moves that axis one step and touches access not
+    // at all; neither of these two contacts has signed up, so neither carries a
+    // member badge — which is the assertion that would have caught the old model.
+    const stages = [...root.querySelectorAll('.builder-people__stage')].map((n) => n.textContent)
+    expect(stages).toEqual(['Invited', 'Invited'])
+    expect(root.querySelectorAll('.builder-people__access')).toHaveLength(0)
   })
 
   it('test_UAT_FC_REQ-186_a_refusal_is_put_in_front_of_the_operator', async () => {

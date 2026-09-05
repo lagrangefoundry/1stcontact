@@ -9,25 +9,28 @@
  * which business it is, and there must not be: a platform-only people list is
  * [[DOC-40]] §2.1 rule 1's named failure mode arriving one table lower down.
  *
- * FOUR RELATIONS, AND THREE OF THEM ARE NOT THE SAME TABLE ([[DOC-42]] §4). The
- * distinction this module exists to get right, because an earlier draft got it
- * wrong:
+ * A CONTACT IS THE ENTITY, AND EVERYTHING ELSE IS A FACT ABOUT ONE ([[DOC-44]]
+ * §2, §3, [[REQ-188]]). A `users` row in this tenant is a **contact** — the
+ * whole population, whatever else is true of them. The rest are axes, and they
+ * are independent:
  *
- * - **contact** — a `users` row in this tenant, never invited. Known here, and
- *   MAY become a member.
- * - **invited** — a row that has been asked and has not come: `invited_at` set,
- *   `tos_accepted_at` null.
- * - **member** — a row that has SIGNED UP: `tos_accepted_at` set. May log in.
+ * - **access** — *member*: `tos_accepted_at` set, meaning they SIGNED UP and may
+ *   log in. Nothing else on the row implies it.
+ * - **pipeline** — *lead* → *invited* → …: `pipeline_stage`, a stored value.
+ *   Where the relationship stands, which is a different question from whether
+ *   they can sign in.
  * - **operator** — a `memberships` row. May RUN a business, which is a different
  *   act and usually a different business.
  * - **entitled** — an `entitlements` row. Has been granted access to a thing.
  *
- * A MEMBER IS SOMEONE WHO SIGNED UP, NOT SOMEONE WE INVITED ([[REQ-188]]). The
- * marker used to be `invited_at`, which describes what *we* did rather than what
- * *they* did — send the invite and the tab called that person a member at once.
- * An invitation nobody answered is not a relationship, and the middle state is
- * exactly the one an operator can act on.
+ * A MEMBER IS SOMEONE WHO SIGNED UP, NOT SOMEONE WE INVITED. The marker used to
+ * be `invited_at`, which describes what *we* did rather than what *they* did —
+ * send the invite and the tab called that person a member at once.
  *
+ * AND THE FIX FOR THAT WAS ITSELF ONE LINE TOO FEW. Contact / Invited / Member
+ * on a single axis cannot represent a member who was never invited, nor a lead
+ * who is neither, and both occur ([[DOC-44]] §3). Two axes can, and the invite
+ * moving somebody along one of them leaves the other exactly where it was. *
  * `memberships` DOES NOT MEAN "MAY LOG IN". {@link invitePerson} writes the
  * person's `users` row into this tenant while `provisionBusiness` writes their
  * membership on the business they will run — so an account logs in holding no
@@ -47,6 +50,12 @@
  */
 
 import { EMAIL_SHAPE_ERROR, isEmailShape } from './builder/email-shape.js'
+// THE STAGE VALUES COME FROM THE MODULE THAT NAMES THEM, the same way the email
+// shape does. `builder/people-axes.js` is the one definition of the two axes
+// ([[DOC-44]] §3) and it has no imports of its own precisely so both sides of
+// the seam can reach it; a string literal written here would be a second answer
+// to what `invited` is spelt like, free to drift by one character in silence.
+import { INVITED as PIPELINE_INVITED, LEAD as PIPELINE_LEAD } from './builder/people-axes.js'
 import type { IdentityEnv } from './identity'
 import { newId, normaliseEmail } from './identity'
 import type { Scope } from './scope'
@@ -54,14 +63,19 @@ import type { Scope } from './scope'
 /**
  * A person as the tab lists them.
  *
- * THE TWO MARKERS ARE REPORTED RATHER THAN INTERPRETED ([[REQ-188]]). `invited_at`
- * is what {@link invitePerson} sets and `tos_accepted_at` is what accepting the
- * terms sets, and between them they carry the three states ([[DOC-42]] §4.1);
- * the derivation lives at the one surface that draws it, in
- * `builder/people-state.js`, so there is no second copy here free to disagree.
+ * THE TWO AXES ARE REPORTED RATHER THAN INTERPRETED ([[REQ-188]], [[DOC-44]] §3).
+ * `pipelineStage` is the stored stage and `termsAcceptedAt` is what accepting the
+ * terms sets; between them they carry both axes, and the labels live at the one
+ * surface that draws them, in `builder/people-axes.js`, so there is no second
+ * copy here free to disagree.
  *
- * AND THE TAB SHOWS THE STATE RATHER THAN FILTERING ON IT: a list that dropped
- * contacts would be a second population, and the CRM reads the same rows
+ * `invitedAt` IS STILL HERE AND IS NO LONGER A STATE. It records WHEN we asked,
+ * which is a fact worth showing on a record; whether they are in that state is
+ * `pipelineStage` ([[DOC-44]] §4). A reader deriving the stage from this stamp
+ * would be reintroducing exactly what the column was added to remove.
+ *
+ * AND THE TAB SHOWS THE AXES RATHER THAN FILTERING ON THEM: a list that dropped
+ * leads would be a second population, and the CRM reads the same rows
  * ([[DOC-42]] §9).
  *
  * `tos_accepted_at` AND NOT `first_seen_at` is the membership marker, because the
@@ -76,12 +90,14 @@ export interface Person {
   displayName: string | null
   /** `active` is the member relation; anything else is refused `user_inactive`. */
   status: string
-  /** Null means a contact: known here, never invited, may become a member. */
+  /** When the invite was sent. A record of an act, never the pipeline stage. */
   invitedAt: string | null
   firstSeenAt: string | null
   lastSeenAt: string | null
   /** Set means a member: they signed up, which includes accepting the terms. */
   termsAcceptedAt: string | null
+  /** The pipeline axis: `lead` for every new contact, `invited` after an invite. */
+  pipelineStage: string
   createdAt: string
 }
 
@@ -140,12 +156,13 @@ interface UserRecord {
   first_seen_at: string | null
   last_seen_at: string | null
   tos_accepted_at: string | null
+  pipeline_stage: string | null
   created_at: string
 }
 
 const USER_COLUMNS =
   'id, email, status, display_name, invited_at, first_seen_at, last_seen_at, ' +
-  'tos_accepted_at, created_at'
+  'tos_accepted_at, pipeline_stage, created_at'
 
 function toPerson(row: UserRecord): Person {
   return {
@@ -157,6 +174,11 @@ function toPerson(row: UserRecord): Person {
     firstSeenAt: row.first_seen_at,
     lastSeenAt: row.last_seen_at,
     termsAcceptedAt: row.tos_accepted_at,
+    // COALESCED HERE AND NOWHERE ELSE. The column is `NOT NULL DEFAULT 'lead'`,
+    // so this only fires for a row read through a schema older than 0009 — and
+    // one default, at the boundary, beats every caller downstream having to
+    // remember that the stage might be missing.
+    pipelineStage: row.pipeline_stage ?? PIPELINE_LEAD,
     createdAt: row.created_at,
   }
 }
@@ -314,7 +336,7 @@ export interface InviteOutcome {
    * ended in, because both branches leave an invitee behind and the operator's
    * question at the moment they press the button is *did I just add someone, or
    * did I promote someone you already knew about*. A field that answered the
-   * former with `true` in both cases would make the contact→invited transition
+   * former with `true` in both cases would make the lead→invited transition
    * invisible at exactly the surface that performs it.
    */
   created: boolean
@@ -328,10 +350,17 @@ export class InvalidInviteError extends Error {}
  * The invite: the verb that turns a contact into an INVITEE ([[DOC-42]] §9,
  * [[REQ-188]]).
  *
- * IT DOES NOT MAKE A MEMBER, and that is the correction [[REQ-188]] carries. It
- * stamps `invited_at`, which records that we asked; membership is
- * `tos_accepted_at`, which records that they came. Nothing this function writes
- * can complete that journey, because completing it is the person's own act.
+ * IT MOVES THE PIPELINE AXIS AND LEAVES ACCESS ALONE, which is the correction
+ * [[REQ-188]] carries ([[DOC-44]] §3). It sets `pipeline_stage` to `invited` and
+ * stamps `invited_at` — the state, and when it was entered — and touches
+ * `tos_accepted_at` not at all. Membership is that column, which records that
+ * they came; nothing this function writes can complete that journey, because
+ * completing it is the person's own act.
+ *
+ * AND IT DOES NOT CARE WHETHER THEY ARE ALREADY A MEMBER. Inviting somebody who
+ * has signed up is an ordinary thing to do — the axes are independent, so they
+ * end up an invited member, which is a state the old single line could not spell
+ * at all. It is not an error and there is no branch here that treats it as one.
  *
  * IT UPDATES, AND INSERTS ONLY WHEN THERE IS NOTHING TO UPDATE. Contact and
  * member are ONE population in two states, and this is the transition between
@@ -392,13 +421,23 @@ export async function invitePerson(
     .first<UserRecord>()
 
   if (existing) {
-    // COALESCE on both, so a second press changes nothing it should not: the
-    // stamp survives and so does a name somebody already set.
+    // COALESCE on the two RECORDS, so a second press changes nothing it should
+    // not: the stamp survives and so does a name somebody already set.
+    //
+    // THE STAGE IS ASSIGNED RATHER THAN COALESCED, and the asymmetry is the
+    // point. `invited_at` answers "when did this happen" and must not be
+    // rewritten; the stage answers "where are they now" and this is the write
+    // that decides it. Assigning it is idempotent while there are two stages
+    // ([[DOC-44]] §4) — re-inviting an invitee is a no-op — and when a third
+    // arrives, whether an invite may move somebody BACK to it is a question the
+    // stage that exists then has to answer, which is exactly the decision a
+    // derived state would have hidden.
     await env.DB.prepare(
       'UPDATE users SET invited_at = COALESCE(invited_at, ?), ' +
-        'display_name = COALESCE(display_name, ?), updated_at = ? WHERE id = ?',
+        'display_name = COALESCE(display_name, ?), pipeline_stage = ?, ' +
+        'updated_at = ? WHERE id = ?',
     )
-      .bind(now, displayName, now, existing.id)
+      .bind(now, displayName, PIPELINE_INVITED, now, existing.id)
       .run()
     const row = await env.DB.prepare(
       `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
@@ -417,9 +456,10 @@ export async function invitePerson(
   const id = newId('usr')
   await env.DB.prepare(
     'INSERT INTO users (id, tenant_id, email, status, display_name, platform_operator, ' +
-      'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
+      'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
+      'VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
   )
-    .bind(id, scope.businessId, email, 'active', displayName, now, now, now, '{}')
+    .bind(id, scope.businessId, email, 'active', displayName, now, PIPELINE_INVITED, now, now, '{}')
     .run()
 
   const row = await env.DB.prepare(
@@ -519,12 +559,15 @@ function isDuplicateEmail(err: unknown): boolean {
  * ordinary outcome of a typo and the operator is told which of their two
  * problems it is.
  *
- * NOTHING HERE TOUCHES `status`, `invited_at`, `tos_accepted_at` OR THE STAMPS.
- * They are the record of what the system observed and of what the person
- * themselves did ([[DOC-42]] §4), and the three states of the tab are derived
- * from them; a route that let them be set by hand would make the states
- * assertions rather than observations. `status` has its own route because it is
- * a different act — the login control — with its own meaning.
+ * NOTHING HERE TOUCHES `status`, `pipeline_stage`, `invited_at`,
+ * `tos_accepted_at` OR THE STAMPS. They are the record of what the system
+ * observed and of what the person themselves did ([[DOC-42]] §4), and the two
+ * axes of the tab are read off them; a route that let them be set by hand would
+ * make the axes assertions rather than observations. The stage is written by the
+ * invite, which is an ACT with a meaning, and it will want an operator-facing
+ * mover of its own the day there is a third stage to move to — that is a
+ * different route from this one, which corrects who somebody is. `status` is
+ * separate for the same reason: it is the login control.
  */
 export async function setPersonRecord(
   env: IdentityEnv,

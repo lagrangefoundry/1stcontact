@@ -1,5 +1,8 @@
 import { d1r2SiteStore, type SiteStoreEnv } from '../../../tools/generate/src/store/d1r2-store'
 import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
+// The stage value from the module that names it, never a literal — see the
+// same import in `people.ts` ([[DOC-44]] §3, [[REQ-188]]).
+import { INVITED as PIPELINE_INVITED } from './builder/people-axes.js'
 
 /**
  * Identity, accounts and entitlement (REQ-167) — [[DOC-40]].
@@ -678,12 +681,32 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // The person. Casefolded on the way in for the reason `normaliseEmail` gives:
   // `idx_users_tenant_email` is byte-exact, so a differently-cased row would be a
   // second person this function would never find again.
+  //
+  // `pipeline_stage` IS WRITTEN AND NOT LEFT TO THE DEFAULT ([[REQ-188]],
+  // [[DOC-44]] §4). This insert stamps `invited_at`, so leaving the stage at
+  // `lead` would produce the one row in the table whose stamp and whose stage
+  // disagree — and a reader who noticed would be tempted to fix it by deriving
+  // the stage from the stamp, which is precisely what the column exists to stop.
+  // Nothing here touches `tos_accepted_at`: the seeded operator still has to
+  // accept the terms like anybody else, which is the access axis and is theirs.
   await env.DB.prepare(
     'INSERT INTO users (id, tenant_id, email, status, platform_operator, invited_at, ' +
-      'created_at, updated_at, fields) SELECT ?, ?, ?, ?, 1, ?, ?, ?, ? ' +
+      'pipeline_stage, created_at, updated_at, fields) SELECT ?, ?, ?, ?, 1, ?, ?, ?, ?, ? ' +
       'WHERE NOT EXISTS (SELECT 1 FROM users WHERE tenant_id = ? AND email = ?)',
   )
-    .bind(newId('usr'), platformTenant, normalised, 'active', now, now, now, '{}', platformTenant, normalised)
+    .bind(
+      newId('usr'),
+      platformTenant,
+      normalised,
+      'active',
+      now,
+      PIPELINE_INVITED,
+      now,
+      now,
+      '{}',
+      platformTenant,
+      normalised,
+    )
     .run()
 
   // The hosting half, for a person who already had a row without it. Separate
