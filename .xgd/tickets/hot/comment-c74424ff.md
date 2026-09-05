@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T20:17:40.834356+00:00'
+updated_at: '2026-09-05T21:11:06.664068+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1587,5 +1587,15 @@ CREATE UNIQUE INDEX idx_users_tenant_email ON users (tenant_id, email)
 This is the same root as the gap DOC-42 §4.1 already records for phone: *"a contact reached only by phone has no key and no column"*. Both are the same mistake — identity conflated with a channel. The fix shape is a channels table (person → many addresses, one flagged primary, phone alongside email) with `users` keyed by its opaque id and `admit` resolving through the channel.
 
 That's a real migration and it touches the one index the whole identity model rests on, so I haven't filed it — it wants your call on timing, and it's arguably the same ticket as the phone gap rather than a second one. Want me to write it up as one "identity is not a channel" REQ covering both?
+
+<!-- xgd-turn id="780ef485-ab7e-4cea-889d-da520f8b0fe8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:11:05.900734+00:00" -->
+#### You
+Yeah lets fix the email thing now that is a total footgun.
+
+First - we should have a separate key for all schema - DO NOT USE DATA FIELDS add an incrementing index. DATA as key gets us into exactly this kind of mess
+
+2. Email address should be a table each user can have multiple emails each email points to exactly one user - created, updated and "default" are important fields Can you create a REQ for this - today we have ONLY test data so this is the time to get it right
 
 <!-- xgd-chat-end -->
