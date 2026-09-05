@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:01:04.883964+00:00'
+updated_at: '2026-09-05T00:01:44.975804+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -35,5 +35,31 @@ Now `identity.ts` — the column rename, the role on the admitted business, the 
 <!-- xgd-chat role="user" ts="2026-09-05T00:01:04.843670+00:00" -->
 #### You
 this has a dependency on REQ-185 pausing work until that is satisfied
+
+<!-- xgd-turn id="cf816e79-d399-493b-8bab-3208d6626175-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:01:44.328930+00:00" -->
+#### Claude
+Paused. Nothing further committed or run.
+
+One thing worth flagging: this session is scoped to REQ-185 and the work in progress *is* REQ-185's implementation, so "depends on REQ-185" reads as either a message meant for another session, or a dependency I should know about that REQ-185 itself is blocked on. Tell me which and I'll pick up accordingly.
+
+**State left behind** — all of it isolated in the worktree branch `free-REQ-185` (`/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-185`). The primary checkout at `/Users/martin/lagrangefoundry/1stcontact` is untouched.
+
+Done:
+- Ticket status → `free_coding`; branch cut.
+- `db/migrations/0006_platform_operator.sql` — renames `users.platform_admin` → `platform_operator`.
+- `apps/control-app/src/identity.ts` — `platform_operator` on `UserRow`, `role` on `AdmittedBusiness` (null exactly on the hosting-bypass path), `businessesFor` carries the role, new `ownsBusiness` / `ownsPlatformBusiness` predicates, `PLATFORM_ADMINS` on `IdentityEnv`.
+
+Not done — and the tree is **mid-change, does not compile**:
+- `ensurePlatformOperator` (the idempotent seed) is referenced by the `PLATFORM_ADMINS` doc comment but not yet written, and `admit` does not call it.
+- `scope.ts` still reads `admission.user.platform_admin`; `router.ts` still gates `/api/admin/businesses` on the flag rather than `ownsPlatformBusiness`.
+- `0006` not added to `tests/support/d1-site-factory.ts`'s migration list; `tests/support/local-d1.ts` still inserts `platform_admin`.
+- REQ-168 and REQ-180 suites still set the old column; no REQ-185 UAT file yet; `wrangler.toml` has no `PLATFORM_ADMINS`.
+- No commit, no `status=free_coded`.
+
+Baseline before the edits was green (REQ-168 scope + REQ-180 admin suites, 24 tests). Resuming means finishing the list above, not restarting.
+
+Separately: the claude.ai Gmail, Calendar and Drive connectors need authorising from your claude.ai connector settings — this session can't run the OAuth flow, so those tools are unavailable until you do.
 
 <!-- xgd-chat-end -->
