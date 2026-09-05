@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:40:16.150878+00:00'
+updated_at: '2026-09-05T21:40:38.650631+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1793,5 +1793,33 @@ One caveat on trying it right now: the old simulator from earlier still holds po
 <!-- xgd-chat role="user" ts="2026-09-05T21:40:16.049720+00:00" -->
 #### You
 please give me a command to kill it
+
+<!-- xgd-turn id="108264c7-04f4-436c-812a-490f0056695c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:40:37.563809+00:00" -->
+#### Claude
+The stray is PID **19261** (`node .xgd/tmp/access-sim.mjs`, holding 8799). My 8801 test process already exited.
+
+```bash
+kill 19261
+```
+
+Or without hardcoding the pid:
+
+```bash
+pkill -f 'access-sim\.mjs'
+```
+
+Then start the real one:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact && ./bin/access-sim
+```
+
+It'll take 8799, and your running `wrangler dev` (workerd PID 19591, still serving 8788) will pick up the new signing key without a restart — the pid-based `kid` looks like a rotation to `access.ts`, which force-refreshes the JWKS.
+
+Your existing browser cookie will stop verifying, though, since the keypair is new. Just visit `http://127.0.0.1:8799/login` and pick yourself — that's the one-click path the old sim didn't have.
+
+One note: run it from a terminal you own rather than through me. Both of my attempts to signal 19261 were denied — the sandbox won't let me touch processes from an earlier session, which is why it's still there.
 
 <!-- xgd-chat-end -->
