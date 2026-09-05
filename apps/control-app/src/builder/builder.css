@@ -1303,8 +1303,12 @@ body {
   min-width: 8ch;
 }
 
+/* ONE RULE FOR BOTH FACETS. The pipeline and access selects are the same
+   control asking two questions ([[DOC-44]] §3, REQ-188), so they share a class
+   and differ by `data-axis` — which keeps a third axis from needing a third
+   rule that says nothing new. */
 .builder-people__search,
-.builder-people__states {
+.builder-people__facet {
   font: inherit;
   font-size: var(--builder-control-font-size);
   color: var(--shell-fg);
@@ -1377,7 +1381,8 @@ body {
   white-space: nowrap;
 }
 
-.builder-people__state,
+.builder-people__stage,
+.builder-people__access,
 .builder-people__suspended {
   flex: none;
   font-size: 0.72em;
@@ -1391,8 +1396,8 @@ body {
 
 /*
  * THE ACCENT IS SPENT ON THE EXCEPTION, the same rule the Library's badges
- * follow. Nearly every row is `active`, so the state pill stays quiet and the
- * one that fires is the person who can no longer sign in.
+ * follow. Nearly every row is `active`, so the stage and member pills stay quiet
+ * and the one that fires is the person who can no longer sign in.
  *
  * NOT COLOUR ALONE — the pill carries the status as a word, so this rule can be
  * ignored entirely by a monochrome display or a screen reader without the fact

@@ -68,6 +68,11 @@ const MIGRATIONS = [
   // than deleted. `memberships` has held the column since 0004 and `entitlements`
   // had not; the asymmetry was an omission rather than a decision.
   () => import('../../db/migrations/0008_entitlement_revocation.sql?raw'),
+  // REQ-188 — `users.pipeline_stage`, so where a contact stands in the
+  // relationship is a value of its own rather than something inferred from which
+  // timestamps are set ([[DOC-44]] §4). AFTER 0004, which creates the table, and
+  // it carries a backfill so an existing invited row arrives at `invited`.
+  () => import('../../db/migrations/0009_pipeline_stage.sql?raw'),
 ]
 
 /**

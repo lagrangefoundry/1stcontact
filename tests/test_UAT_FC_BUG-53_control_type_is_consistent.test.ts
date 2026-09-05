@@ -63,7 +63,12 @@ const BROWSER_DEFAULT_PX = 16
 const CONTROLS = [
   '.shell-actions button',
   '.builder-people__search',
-  '.builder-people__states',
+  // Was `.builder-people__states`, and is now the class BOTH facets carry:
+  // [[REQ-188]] split the one state select into a pipeline one and an access
+  // one ([[DOC-44]] §3), which share a rule and differ by `data-axis`. The
+  // claim this file makes is unchanged — the control in that row is sized and
+  // padded like its neighbours — and now covers two elements rather than one.
+  '.builder-people__facet',
   '.builder-people__invite',
   '.builder-people__fulfil',
   '.builder-modal__btn',
@@ -260,14 +265,14 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — one control size, declared once', 
     // the token, and against the DOM, so a rule that stopped matching anything
     // cannot pass by describing a control that is no longer rendered.
     await usersTab()
-    for (const sel of ['.builder-people__search', '.builder-people__states', '.builder-people__invite']) {
+    for (const sel of ['.builder-people__search', '.builder-people__facet', '.builder-people__invite']) {
       expect(root.querySelector(sel), `${sel} is not rendered`).toBeTruthy()
     }
     expect(root.querySelector('.builder-people__fulfil'), 'the fulfil control is not rendered')
       .toBeTruthy()
 
     for (const sel of [
-      '\\.builder-people__search,\\s*\\n?\\.builder-people__states',
+      '\\.builder-people__search,\\s*\\n?\\.builder-people__facet',
       '\\.builder-people__invite',
       '\\.builder-people__fulfil',
     ]) {

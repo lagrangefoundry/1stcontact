@@ -8,31 +8,42 @@
  * by the selected business, so a people list that behaved differently for the
  * platform would have to be written deliberately. [[DOC-40]] §2.1 rule 1.
  *
- * FOUR RELATIONS, AND THE FIRST OF THEM HAS THREE STATES ([[DOC-42]] §4,
- * [[REQ-188]]). The distinction an earlier draft of the model got wrong, and the
- * reason this file names them out loud:
+ * EVERY ROW IS A CONTACT, AND THE COLUMNS BESIDE IT ARE TWO SEPARATE AXES
+ * ([[DOC-44]] §2, §3, [[REQ-188]]). This is the distinction two drafts of the
+ * model got wrong in two different ways, and the reason this file names it out
+ * loud:
  *
- * - **contact** — known here, never invited, MAY become a member. `invitedAt` null.
- * - **invited** — asked, and has not come. `invitedAt` set, `termsAcceptedAt` null.
- * - **member** — signed up, and may log in. `termsAcceptedAt` set. The control
- *   over the login itself is `status`, which `admit` refuses on.
+ * - **contact** — the row itself. Not a state, not a stage: the population this
+ *   tab lists, whatever else is true of anybody in it.
+ * - **access** — *Member* when `termsAcceptedAt` is set, meaning they signed up
+ *   and may log in. The control over the login ITSELF is `status`, which `admit`
+ *   refuses on, and which is a third thing again.
+ * - **pipeline** — *Lead* → *Invited* → …, read from the stored `pipelineStage`.
+ *   Where the relationship stands, which does not answer and is not answered by
+ *   whether they can sign in.
  * - **operator** — may RUN a business. `memberships`, and usually a DIFFERENT
  *   business: viewed from 1st Contact, Alice's row shows Alice's Plumbing here.
  * - **entitled** — granted access to a thing. Per grant, and each names its
  *   business.
+ *
+ * TWO COLUMNS AND TWO FACETS, NOT ONE OF EACH. The earlier fix put three values
+ * on one line and could not draw a member who was never invited, nor a lead who
+ * is neither — both of which exist ([[DOC-44]] §3). Two axes drawn separately is
+ * not a richer presentation of the same fact; it is the only presentation that
+ * can show the fact at all.
  *
  * BEING IN THE LIST IS NOT THE MEMBER RELATION — being signed up is. There is
  * still no membership toggle beside a row, because `memberships` answers a
  * different question: withdrawing one takes away the right to run a business and
  * deliberately leaves that person's own Portal reachable.
  *
- * AND THE INVITE IS THE VERB THAT MOVES A ROW ACROSS ([[REQ-186]], [[DOC-42]]
- * §9) — from Contact to **Invited**, and no further. It is one control for both
- * levels: it writes into whichever business is open, so from 1st Contact it makes
- * Alice and from Alice's it makes Bob, which is why it is a button on this
- * uniform tab rather than a platform console. What it cannot do is finish the
- * journey. Only the person themselves does that, by accepting the terms, and the
- * tab reflects it with no operator action at all.
+ * AND THE INVITE IS THE VERB THAT MOVES THE PIPELINE ([[REQ-186]], [[DOC-42]]
+ * §9) — from Lead to **Invited**, and no further, and along that axis only. It
+ * is one control for both levels: it writes into whichever business is open, so
+ * from 1st Contact it makes Alice and from Alice's it makes Bob, which is why it
+ * is a button on this uniform tab rather than a platform console. What it cannot
+ * do is make a member. Only the person themselves does that, by accepting the
+ * terms, and the tab reflects it with no operator action at all.
  *
  * STANDARD `webui/split` + `webui/list-detail`, CONFIGURED RATHER THAN REBUILT,
  * exactly as the Library uses them. What is written here is the three functions
@@ -44,7 +55,15 @@ import { mountFields } from '@lagrangefoundry/webui-fields'
 import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
 import { EMAIL_SHAPE_ERROR, isEmailShape } from './email-shape.js'
-import { PERSON_STATES, stateOf } from './people-state.js'
+import {
+  ACCESS_STATES,
+  PIPELINE_STAGES,
+  accessLabel,
+  accessOf,
+  isMember,
+  stageLabel,
+  stageOf,
+} from './people-axes.js'
 import {
   fetchPeople,
   fetchPerson,
@@ -83,9 +102,16 @@ import {
  * where this panel was already passing a blanket `true`. So every field was
  * editable and the line that looked like it was restricting them was inert.
  *
- * `state` IS DERIVED AND HAS NO COLUMN. {@link stateOf} computes it from
- * `invitedAt` and `termsAcceptedAt`; there is nothing behind it to write, so it
- * is locked for a reason stronger than policy.
+ * `access` IS DERIVED AND HAS NO COLUMN. {@link accessOf} reads
+ * `termsAcceptedAt`; there is nothing behind it to write, so it is locked for a
+ * reason stronger than policy.
+ *
+ * `stage` DOES HAVE A COLUMN AND IS STILL LOCKED, which is the one entry here
+ * that is a policy rather than a physical fact. It is written by the invite,
+ * because moving somebody along the pipeline is an ACT and this pane corrects
+ * who somebody is ([[DOC-44]] §4). When a third stage exists there will be a
+ * control that moves it, and it will be a button with a meaning rather than a
+ * text box on a record.
  *
  * `status` IS LOCKED HERE AND STILL LIVE ON THE SERVER. It is the login control
  * ([[DOC-42]] §5) and `/api/people/status` still answers, but this tab no
@@ -102,9 +128,13 @@ const RECORD_FIELDS = [
     validate: (value) => (isEmailShape(value) ? null : EMAIL_SHAPE_ERROR),
   },
   { name: 'displayName', label: 'Name' },
-  { name: 'state', label: 'State', locked: true },
+  // THE TWO AXES, ADJACENT AND SEPARATE ([[DOC-44]] §3). Beside them `invitedAt`
+  // says WHEN we asked and `termsAcceptedAt` says when they came — the acts the
+  // two axes are the current answer to, which is why all four are worth a row.
+  { name: 'stage', label: 'Pipeline', locked: true },
+  { name: 'access', label: 'Access', locked: true },
   { name: 'status', label: 'May sign in', locked: true },
-  { name: 'invitedAt', label: 'Invited', locked: true },
+  { name: 'invitedAt', label: 'Invited at', locked: true },
   { name: 'firstSeenAt', label: 'First seen', locked: true },
   { name: 'lastSeenAt', label: 'Last seen', locked: true },
   { name: 'termsAcceptedAt', label: 'Terms accepted', locked: true },
@@ -121,13 +151,63 @@ function el(tag, className, text) {
 }
 
 /**
- * The three states, defined once in `people-state.js` and re-exported here.
+ * One facet over one axis.
  *
- * RE-EXPORTED RATHER THAN REDEFINED. The rule is a model fact ([[DOC-42]] §4)
- * and is asserted on both sides of the seam — the label this panel draws, and the
- * `users` row a workers test reads back — so it may have exactly one definition.
+ * A FUNCTION BECAUSE THERE ARE TWO OF THEM AND THERE WILL BE MORE ([[DOC-44]]
+ * §3 names a third axis, *customer*, and §7 records that it has nothing to read
+ * until there is a payments table). Written out twice, the second copy is where
+ * the "any" option quietly acquires a different value from the first and the
+ * clear-the-filter path stops working on one of them.
+ *
+ * THE EMPTY VALUE IS "no opinion", never a value of the axis. It is what an
+ * unfiltered list means and it is why {@link matches} tests the filter before it
+ * compares.
  */
-export { stateOf }
+function facetSelect(axis, anyLabel, values, labelOf, onChange) {
+  const select = document.createElement('select')
+  // ONE CLASS FOR BOTH, AND THE AXIS IN A DATA ATTRIBUTE. They are the same
+  // control twice over, so they take the same rule; what differs is which
+  // question the select asks, and that is data about the element rather than a
+  // second appearance for the sheet to describe. A class per axis would be a
+  // class per axis with no rule behind it, which is the shape [[BUG-53]]'s sweep
+  // exists to catch.
+  select.className = 'builder-people__facet'
+  select.dataset.axis = axis
+  const any = document.createElement('option')
+  any.value = ''
+  any.textContent = anyLabel
+  select.append(any)
+  for (const value of values) {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = labelOf(value)
+    select.append(option)
+  }
+  select.addEventListener('change', () => onChange(select.value))
+  return select
+}
+
+/**
+ * The two axes as the record pane shows them: labels, not stored values.
+ *
+ * DERIVED AT THE POINT OF DISPLAY and never merged into the person the panel is
+ * holding, so `detail.person.pipelineStage` stays the value the server sent. A
+ * pane that overwrote it with `'Lead'` would send that word back the next time
+ * anything posted the record.
+ */
+function axisValues(person) {
+  return { stage: stageLabel(stageOf(person)), access: accessLabel(accessOf(person)) }
+}
+
+/**
+ * The two axes, defined once in `people-axes.js` and re-exported here.
+ *
+ * RE-EXPORTED RATHER THAN REDEFINED. The rules are model facts ([[DOC-44]] §3)
+ * and are asserted on both sides of the seam — the labels this panel draws, and
+ * the `users` row a workers test reads back — so each may have exactly one
+ * definition.
+ */
+export { accessOf, stageOf }
 
 /**
  * What the name column says for somebody who has none yet ([[REQ-189]]).
@@ -141,17 +221,23 @@ export { stateOf }
 export const NO_NAME_YET = 'No name yet'
 
 /**
- * The list row: the name, the address, and the state they are in.
+ * The list row: the name, the address, where they stand, and whether they are in.
  *
  * THE NAME AND THE ADDRESS ARE TWO CELLS, not one with a fallback ([[REQ-189]]).
  * The row used to print `displayName || email`, which meant a person WITH a name
  * lost their address off the list — and, because nothing sets names yet, meant
  * the list read as addresses only and its name column was invisible.
  *
- * THE STATE IS DRAWN BY WHATEVER {@link stateOf} RETURNS and this row branches
- * on none of them — nor does any rule styling it. [[REQ-188]] has already turned
- * two states into three; a pill styled per label, or a row that special-cased
- * one, is what would have had to be found and edited that day.
+ * THE STAGE IS DRAWN BY WHATEVER {@link stageLabel} RETURNS and this row branches
+ * on none of them — nor does any rule styling it. The set of stages grows
+ * ([[DOC-44]] §4, §7); a pill styled per label, or a row that special-cased one,
+ * is what would have had to be found and edited the day it did.
+ *
+ * ACCESS IS A BADGE AND NOT A CELL, because it is a different KIND of fact from
+ * the stage rather than a second value of the same kind. Drawn only when they
+ * are in, on the idiom the suspended pill below already uses: what an operator
+ * scans this list for is who signed up, and a column reading "Not a member"
+ * against most rows would spend the eye's attention on the ordinary case.
  */
 function renderRow(person) {
   const row = el('div', 'builder-people__row')
@@ -159,7 +245,14 @@ function renderRow(person) {
   if (!person.displayName) name.classList.add('builder-people__noname')
   row.append(name)
   row.append(el('span', 'builder-people__email', person.email))
-  row.append(el('span', 'builder-people__state', stateOf(person)))
+  row.append(el('span', 'builder-people__stage', stageLabel(stageOf(person))))
+  if (isMember(person)) {
+    // THE CLASS NAMES THE AXIS AND NOT THE VALUE. `builder-people__member` would
+    // be a hook a stylesheet could branch on, which is the rule [[REQ-189]] holds
+    // this tab to: the decision about WHICH value gets a badge is made here, in
+    // one line, and the sheet only ever describes a badge.
+    row.append(el('span', 'builder-people__access', accessLabel(accessOf(person))))
+  }
   if (person.status !== 'active') {
     // THE ACCENT IS SPENT ON THE EXCEPTION. Nearly every row is `active`, so a
     // pill saying so would fire everywhere and mean nothing; what an operator
@@ -327,7 +420,7 @@ export function createPeoplePanel(options = {}) {
   let all = []
   let canFulfil = false
   let canInvite = false
-  const filter = { text: '', state: '' }
+  const filter = { text: '', stage: '', access: '' }
 
   const controls = el('div', 'builder-people__filter')
   const search = document.createElement('input')
@@ -341,37 +434,36 @@ export function createPeoplePanel(options = {}) {
   controls.append(search)
 
   /**
-   * Contacts, invitees and members in one list, with a facet rather than tabs.
+   * One list, faceted twice — never tabs, and never one facet over both axes.
    *
    * SEPARATE LISTS ARE THE THING RULED OUT ([[DOC-42]] §9), not separate views.
-   * They are one population in three states and the invite moves a row across, so
-   * a facet keeps the person who is both from appearing twice or disagreeing with
-   * themselves.
+   * Contacts are one population and the invite moves a row along an axis, so a
+   * facet keeps the person who is several things at once from appearing twice or
+   * disagreeing with themselves.
    *
-   * AND THE MIDDLE STATE IS THE ONE WORTH FILTERING TO ([[REQ-188]]). Two states
-   * collapsed the funnel; three show it, and "who did I ask who never came" is
-   * the question an operator can actually act on.
+   * TWO SELECTS BECAUSE THERE ARE TWO QUESTIONS ([[DOC-44]] §3). Merged into one
+   * list of options they would read as alternatives, and the two most useful
+   * queries an operator has would both become unaskable: *who did I ask who never
+   * came* is Invited AND not a member, and *who signed up that I never asked* is
+   * a member AND still a lead. Independent facets ask them by construction; a
+   * single facet cannot express either.
+   *
+   * BUILT FROM THE DECLARED VALUES, so a stage added to the model appears here
+   * without this file being edited — and, more to the point, so a value can never
+   * be shown by a row and be unreachable by the filter.
    */
-  const states = document.createElement('select')
-  states.className = 'builder-people__states'
-  const everyone = document.createElement('option')
-  everyone.value = ''
-  everyone.textContent = 'Everyone'
-  states.append(everyone)
-  // BUILT FROM `PERSON_STATES`, so a state added to the model appears here
-  // without this file being edited — and, more to the point, so a state can never
-  // be shown by a row and be unreachable by the filter.
-  for (const value of PERSON_STATES) {
-    const option = document.createElement('option')
-    option.value = value
-    option.textContent = value
-    states.append(option)
-  }
-  states.addEventListener('change', () => {
-    filter.state = states.value
-    apply()
-  })
-  controls.append(states)
+  controls.append(
+    facetSelect('pipeline', 'Any stage', PIPELINE_STAGES, stageLabel, (value) => {
+      filter.stage = value
+      apply()
+    }),
+  )
+  controls.append(
+    facetSelect('access', 'Anyone', ACCESS_STATES, accessLabel, (value) => {
+      filter.access = value
+      apply()
+    }),
+  )
 
   /**
    * The invite, beside the filter rather than inside a person's detail.
@@ -443,9 +535,9 @@ export function createPeoplePanel(options = {}) {
       try {
         const outcome = await transport.invite(emailField.value, nameField.value)
         await refresh()
-        // A CONTACT PROMOTED IS REPORTED AS SUCH ([[DOC-42]] §9). It is the same
-        // row moving between states, and telling the operator which of the two
-        // branches ran is the only way that transition is visible anywhere.
+        // A LEAD MOVED ALONG IS REPORTED AS SUCH ([[DOC-42]] §9). It is the same
+        // contact moving along one axis, and telling the operator which of the
+        // two branches ran is the only way that transition is visible anywhere.
         //
         // AND WHAT IT SAYS IS "INVITED", NOT "MEMBER" ([[REQ-188]]). The button
         // cannot make a member — only the person can, by signing up — so a
@@ -534,7 +626,10 @@ export function createPeoplePanel(options = {}) {
   }
 
   function matches(person) {
-    if (filter.state && stateOf(person) !== filter.state) return false
+    // AND, NOT OR. The two axes are independent, so narrowing on both is the
+    // conjunction — which is what makes "invited and never came" reachable.
+    if (filter.stage && stageOf(person) !== filter.stage) return false
+    if (filter.access && accessOf(person) !== filter.access) return false
     if (!filter.text) return true
     const haystack = `${person.email} ${person.displayName ?? ''}`.toLowerCase()
     return haystack.includes(filter.text)
@@ -593,7 +688,7 @@ export function createPeoplePanel(options = {}) {
      */
     const record = mountFields(section(view, 'Who they are'), {
       schema: RECORD_FIELDS,
-      values: { ...detail.person, state: stateOf(detail.person) },
+      values: { ...detail.person, ...axisValues(detail.person) },
       editable: true,
       onCommit: async (changes) => {
         const saved = await transport.saveRecord(detail.person.id, changes)
@@ -603,7 +698,7 @@ export function createPeoplePanel(options = {}) {
         // that is not the one in the row — and would disagree with the list the
         // refresh below redraws from the same server.
         Object.assign(detail.person, saved)
-        record.setValues({ ...detail.person, state: stateOf(detail.person) })
+        record.setValues({ ...detail.person, ...axisValues(detail.person) })
         await refresh()
       },
     })
@@ -717,6 +812,8 @@ export function createPeoplePanel(options = {}) {
     listDetail,
     refresh,
     clear,
-    stateOf,
+    /** Both axes, as this panel derives them — one definition, not a copy. */
+    stageOf,
+    accessOf,
   }
 }
