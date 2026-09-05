@@ -7,6 +7,14 @@
  * one module is what lets the pane, the toolbar and the tests agree on them.
  */
 
+import {
+  announceSessionEnded,
+  isSessionEnded,
+  SESSION_EXPIRED,
+  SESSION_UNREACHABLE,
+  SessionEndedError,
+} from './session.js'
+
 /**
  * WHICH BUSINESS EVERY URL BELOW IS ABOUT ([[REQ-179]]).
  *
@@ -52,6 +60,40 @@ export function getBusinessScope() {
  */
 function scoped(path) {
   return businessScope === null ? path : `/b/${encodeURIComponent(businessScope)}${path}`
+}
+
+/**
+ * EVERY request this module makes goes through here ([[BUG-52]]).
+ *
+ * ONE PLACE, for the reason `scoped()` above is one place: a rule that has to be
+ * remembered at each of twenty call sites is a rule the twenty-first will not
+ * have. This is the only fetch in the builder client — nothing outside this
+ * module calls `fetch` at all — so "the client notices a 401" is mechanically
+ * true rather than a convention. What an ended session then MEANS, and who is
+ * told, is `session.js`; this function only recognises one.
+ *
+ * A 401 IS ANNOUNCED AND THEN HANDED BACK. It is deliberately not thrown here:
+ * each caller below already has an error contract its own callers depend on
+ * (`CopyError` carrying the validator's sentence, the assistant's stream turning
+ * a refusal into a frame in the conversation), and rewriting all of them into
+ * one shape would be a bigger change than the bug. The three calls the builder
+ * makes on load DO throw — see them below — because those are the ones whose
+ * defaults draw the empty account this bug is about.
+ *
+ * A REJECTION IS THROWN AS A SESSION FAILURE, because there is nothing else it
+ * could usefully be to a caller: the request did not happen, no status exists,
+ * and behind Access the overwhelmingly likely cause is the login redirect the
+ * browser refused to follow. The original is kept as `cause`.
+ */
+async function send(fetchImpl, url, init) {
+  let res
+  try {
+    res = await fetchImpl(url, init)
+  } catch (cause) {
+    throw announceSessionEnded(new SessionEndedError(SESSION_UNREACHABLE, cause))
+  }
+  if (res.status === 401) announceSessionEnded(new SessionEndedError(SESSION_EXPIRED))
+  return res
 }
 
 /**
@@ -119,11 +161,18 @@ export function assetUrl(slug, handle) {
  */
 export async function fetchAiStatus(fetchImpl = fetch) {
   try {
-    const res = await fetchImpl('/api/status')
+    const res = await send(fetchImpl, '/api/status')
+    if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
     if (!res.ok) return { ai: true, message: null }
     const body = await res.json()
     return { ai: body.ai !== false, message: body.message ?? null }
-  } catch {
+  } catch (error) {
+    // AND A REFUSED SESSION IS NOT A BLIP ([[BUG-52]]). The paragraph above is
+    // about an origin that could not answer the QUESTION; a 401 answers it, with
+    // "not you". Defaulting to `{ai: true}` there reports a healthy assistant to
+    // somebody who is signed out — one of the three defaults that together drew
+    // a working, empty builder.
+    if (isSessionEnded(error)) throw error
     return { ai: true, message: null }
   }
 }
@@ -143,21 +192,33 @@ export async function fetchAiStatus(fetchImpl = fetch) {
  */
 export async function fetchBusinesses(fetchImpl = fetch) {
   try {
-    const res = await fetchImpl('/api/businesses')
+    const res = await send(fetchImpl, '/api/businesses')
+    if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
     if (!res.ok) return { account: null, businesses: [] }
     const body = await res.json()
     return {
       account: body?.account ?? null,
       businesses: Array.isArray(body?.businesses) ? body.businesses : [],
     }
-  } catch {
+  } catch (error) {
+    // EXCEPT A REFUSED ONE ([[BUG-52]]). "No switcher and an unscoped session"
+    // is the right answer for a host with no identity behind it; it is the wrong
+    // answer for a person who HAS one and whose session lapsed, because the two
+    // are then indistinguishable — an empty switcher and an avatar with no
+    // account behind it reads as a deleted account rather than an expired login.
+    if (isSessionEnded(error)) throw error
     return { account: null, businesses: [] }
   }
 }
 
 /** Every site in the store, newest revision included. */
 export async function fetchSites(fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/sites'))
+  const res = await send(fetchImpl, scoped('/api/sites'))
+  // NAMED, NOT NUMBERED, WHEN IT IS THE SESSION ([[BUG-52]]). The caller in
+  // `app.js` may not discard this one the way it discards a listing that merely
+  // failed — an empty site list is what an expired session looked like before —
+  // so it has to be able to tell the two apart from the error alone.
+  if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
   if (!res.ok) throw new Error(`GET /api/sites → ${res.status}`)
   return res.json()
 }
@@ -171,7 +232,7 @@ export async function fetchSites(fetchImpl = fetch) {
  * asset browser mode is the same store shown as a tab, and it calls this.
  */
 export async function fetchAssets(slug, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped(`/api/assets?slug=${encodeURIComponent(slug)}`))
+  const res = await send(fetchImpl, scoped(`/api/assets?slug=${encodeURIComponent(slug)}`))
   if (!res.ok) throw new Error(`GET /api/assets → ${res.status}`)
   return res.json()
 }
@@ -211,7 +272,7 @@ export async function fetchCopy(target, fetchImpl = fetch) {
   const q = new URLSearchParams({ slug: target.slug, page: target.page, path: target.path })
   if (target.module) q.set('module', target.module)
   if (target.slot) q.set('slot', target.slot)
-  return copyEnvelope(await fetchImpl(scoped(`/api/copy?${q}`)))
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/copy?${q}`)))
 }
 
 /**
@@ -225,7 +286,7 @@ export async function fetchCopy(target, fetchImpl = fetch) {
  */
 export async function saveCopy(target, values, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl(scoped('/api/copy'), {
+    await send(fetchImpl, scoped('/api/copy'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...target, values }),
@@ -242,7 +303,7 @@ export async function saveCopy(target, values, fetchImpl = fetch) {
  * even offered — is stated in the count.
  */
 export async function fetchPalette(slug, fetchImpl = fetch) {
-  return copyEnvelope(await fetchImpl(scoped(`/api/palette?slug=${encodeURIComponent(slug)}`)))
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/palette?slug=${encodeURIComponent(slug)}`)))
 }
 
 /**
@@ -260,7 +321,7 @@ export async function fetchPalette(slug, fetchImpl = fetch) {
  */
 export async function writePalette(body, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl(scoped('/api/palette'), {
+    await send(fetchImpl, scoped('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -277,7 +338,7 @@ export async function writePalette(body, fetchImpl = fetch) {
  * reason it is frozen rather than instead of one or the other.
  */
 export async function openChatSession(slug, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/ai/session'), {
+  const res = await send(fetchImpl, scoped('/api/ai/session'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ slug }),
@@ -352,7 +413,7 @@ export async function* streamChatReattach(sessionId, cursor, fetchImpl = fetch) 
  * unreachable is in the conversation.
  */
 async function* postEventStream(path, body, failure, fetchImpl) {
-  const res = await fetchImpl(path, {
+  const res = await send(fetchImpl, path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -381,7 +442,7 @@ async function* postEventStream(path, body, failure, fetchImpl) {
 
 /** Snapshot the draft into a new revision and render it (DOC-12 §5). */
 export async function publishSite(slug, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/publish'), {
+  const res = await send(fetchImpl, scoped('/api/publish'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ slug }),
@@ -399,14 +460,14 @@ export async function publishSite(slug, fetchImpl = fetch) {
  * the business, not to one of its sites.
  */
 export async function fetchMaterial(fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/material'))
+  const res = await send(fetchImpl, scoped('/api/material'))
   if (!res.ok) throw new Error(`GET /api/material → ${res.status}`)
   return res.json()
 }
 
 /** One piece of material with its description — the row plus the body. */
 export async function fetchMaterialItem(uid, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped(`/api/material/item?uid=${encodeURIComponent(uid)}`))
+  const res = await send(fetchImpl, scoped(`/api/material/item?uid=${encodeURIComponent(uid)}`))
   if (!res.ok) throw new Error(`GET /api/material/item → ${res.status}`)
   return res.json()
 }
@@ -451,7 +512,7 @@ export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
   form.append('file', file)
   form.append('role', role)
   if (slug) form.append('slug', slug)
-  return copyEnvelope(await fetchImpl(scoped('/api/material'), { method: 'POST', body: form }))
+  return copyEnvelope(await send(fetchImpl, scoped('/api/material'), { method: 'POST', body: form }))
 }
 
 /**
@@ -463,7 +524,7 @@ export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
  */
 export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
   return copyEnvelope(
-    await fetchImpl(scoped('/api/material/description'), {
+    await send(fetchImpl, scoped('/api/material/description'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ uid, body }),
@@ -480,14 +541,14 @@ export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
 
 /** Everyone in this business, contacts included, plus whether we may fulfil. */
 export async function fetchPeople(fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/people'))
+  const res = await send(fetchImpl, scoped('/api/people'))
   if (!res.ok) throw new Error(`GET /api/people → ${res.status}`)
   return res.json()
 }
 
 /** One person, with the businesses they run and the grants they hold. */
 export async function fetchPerson(id, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped(`/api/people/detail?id=${encodeURIComponent(id)}`))
+  const res = await send(fetchImpl, scoped(`/api/people/detail?id=${encodeURIComponent(id)}`))
   if (!res.ok) throw new Error(`GET /api/people/detail → ${res.status}`)
   return res.json()
 }
@@ -500,7 +561,7 @@ export async function fetchPerson(id, fetchImpl = fetch) {
  * the right to RUN a business.
  */
 export async function savePersonStatus(id, status, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/people/status'), {
+  const res = await send(fetchImpl, scoped('/api/people/status'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id, status }),
@@ -517,7 +578,7 @@ export async function savePersonStatus(id, status, fetchImpl = fetch) {
  * has no level of its own to declare ([[DOC-42]] §3).
  */
 export async function invitePerson(email, displayName, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/people/invite'), {
+  const res = await send(fetchImpl, scoped('/api/people/invite'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, displayName }),
@@ -543,7 +604,7 @@ export async function invitePerson(email, displayName, fetchImpl = fetch) {
  * not.
  */
 export async function provisionBusinessFor(accountEmail, name, fetchImpl = fetch) {
-  const res = await fetchImpl('/api/admin/businesses', {
+  const res = await send(fetchImpl, '/api/admin/businesses', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ accountEmail, name }),
@@ -557,7 +618,7 @@ export async function provisionBusinessFor(accountEmail, name, fetchImpl = fetch
 
 /** Open a dated grant. `businessId` is required; `accountId` null is capacity. */
 export async function openGrant(spec, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/grants'), {
+  const res = await send(fetchImpl, scoped('/api/grants'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(spec),
@@ -568,7 +629,7 @@ export async function openGrant(spec, fetchImpl = fetch) {
 
 /** Withdraw one. The row survives — see the route's comment. */
 export async function revokeGrant(id, fetchImpl = fetch) {
-  const res = await fetchImpl(scoped('/api/grants/revoke'), {
+  const res = await send(fetchImpl, scoped('/api/grants/revoke'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id }),
