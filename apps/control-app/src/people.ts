@@ -20,11 +20,16 @@
  *   act and usually a different business.
  * - **entitled** — an `entitlements` row. Has been granted access to a thing.
  *
- * `memberships` DOES NOT MEAN "MAY LOG IN". `provisionInvite` writes the person's
- * `users` row into this tenant while `provisionBusiness` writes their membership
- * on the business they will run — so an account logs in holding no membership on
- * the business it logs in to. Reading `memberships` to answer "may this person
- * sign in" is the specific error this comment exists to prevent.
+ * `memberships` DOES NOT MEAN "MAY LOG IN". {@link invitePerson} writes the
+ * person's `users` row into this tenant while `provisionBusiness` writes their
+ * membership on the business they will run — so an account logs in holding no
+ * membership on the business it logs in to. Reading `memberships` to answer "may
+ * this person sign in" is the specific error this comment exists to prevent.
+ *
+ * AND THOSE TWO ARE DELIBERATELY SEPARATE CALLS ([[REQ-186]]). Inviting is the
+ * transition every business performs on its own people; provisioning a business
+ * is 1st Contact's product-fulfilment action. One function doing both can only
+ * express a person who owns a business, which is level 1 and nothing else.
  *
  * THE READ NEVER LEAVES THE TENANT. The list is `users WHERE tenant_id = ?` and
  * nothing else. The operated-businesses column joins `memberships` onto
@@ -34,15 +39,15 @@
  */
 
 import type { IdentityEnv } from './identity'
-import { newId } from './identity'
+import { newId, normaliseEmail } from './identity'
 import type { Scope } from './scope'
 
 /**
  * A person as the tab lists them.
  *
  * `invited_at` IS THE CONTACT/MEMBER MARKER and is reported rather than
- * interpreted. It is what `provisionInvite` sets, so it is the only thing in the
- * schema that distinguishes the two states ([[DOC-42]] §4.1) — and the tab shows
+ * interpreted. It is what {@link invitePerson} sets, so it is the only thing in
+ * the schema that distinguishes the two states ([[DOC-42]] §4.1) — and the tab shows
  * the state rather than filtering on it, because a list that dropped contacts
  * would be a second population and the CRM reads the same rows ([[DOC-42]] §9).
  */
@@ -248,6 +253,133 @@ interface GrantRecord {
   starts_at: string
   ends_at: string | null
   note: string | null
+}
+
+/** What the operator supplies to invite someone. */
+export interface InviteSpec {
+  email: string
+  /** Optional, and only ever filled IN — see {@link invitePerson}. */
+  displayName?: string | null
+}
+
+/** What the invite did, and to whom. */
+export interface InviteOutcome {
+  /**
+   * True only when a row was INSERTED.
+   *
+   * It reports which of the two branches ran rather than whether the person is
+   * now a member, because both branches leave a member behind and the operator's
+   * question at the moment they press the button is *did I just add someone, or
+   * did I promote someone you already knew about*. A field that answered the
+   * former with `true` in both cases would make the contact→member transition
+   * invisible at exactly the surface that performs it.
+   */
+  created: boolean
+  person: Person
+}
+
+/** Refused because there is nothing to invite. */
+export class InvalidInviteError extends Error {}
+
+/**
+ * The invite: the verb that turns a contact into a member ([[DOC-42]] §9).
+ *
+ * IT UPDATES, AND INSERTS ONLY WHEN THERE IS NOTHING TO UPDATE. Contact and
+ * member are ONE population in two states, and this is the transition between
+ * them — so the row `idx_users_tenant_email` already decides is the row that is
+ * stamped. [[DOC-42]] §9's own falsifier is *"an invite that inserts rather than
+ * updates"*, and the failure it names is concrete: a contact captured by a form
+ * and later invited becomes a SECOND row carrying the same address, which is the
+ * exact case [[DOC-40]] cites as the reason contacts and users are one table.
+ * From then on the CRM and the User tab can disagree about a person who is both.
+ *
+ * IT WRITES INTO THE BUSINESS THE CALLER IS IN, and that is the whole of the
+ * level question ([[DOC-42]] §3). Invited from the 1st Contact business it makes
+ * Alice; invited from Alice's business it makes Bob. Same code, same row shape,
+ * and the only difference is `tenant_id` — because a level is a position and not
+ * a property, and a branch here on which business it is would be §3's falsifier.
+ *
+ * `invited_at` IS NOT RESTAMPED for someone already invited. It records WHEN this
+ * person was invited, so overwriting it on a second press would falsify the one
+ * fact in the row that this function exists to write. Re-inviting a member is
+ * therefore a no-op that reports the member, not an error: the operator asked for
+ * a state the system is already in.
+ *
+ * `display_name` IS FILLED IN AND NEVER OVERWRITTEN. A name typed at the invite
+ * is a courtesy for a row that has none; editing an existing one is [[REQ-183]]
+ * §5's surface, and letting the invite do it would give the tab a second,
+ * undeclared way to rename a person.
+ *
+ * NO ENTITLEMENT IS WRITTEN, deliberately ([[DOC-42]] §5). The Portal is what
+ * membership IS — an invited person reaches their own payments, details and
+ * delete button by virtue of holding a row at all. A grant here would be §5's
+ * falsifier ("an entitlement row created for every member and revoked for none")
+ * and its hazard is not tidiness: a grant that CAN be absent produces a person
+ * who can sign in and cannot reach their own erasure control ([[DOC-37]]).
+ * Access to the app is a separate grant and `provisionBusiness` writes it.
+ *
+ * AND NO MAIL IS SENT. There is no sender in this repository. The invite is a
+ * database transition and the person is admitted the next time they pass the
+ * front door; naming that here is the point, because an "invite" that silently
+ * sends nothing is a feature an operator will assume exists and will not check.
+ */
+export async function invitePerson(
+  env: IdentityEnv,
+  scope: Scope,
+  spec: InviteSpec,
+): Promise<InviteOutcome> {
+  // Casefolded on the way in, for the reason `0005` records: the index is
+  // byte-exact, so `Sarah@…` invited over `sarah@…` would be a second person
+  // that `admit` — which normalises — would never find.
+  const email = normaliseEmail(spec.email ?? '')
+  if (email === '') throw new InvalidInviteError('An invite needs an email address.')
+  const displayName = (spec.displayName ?? '').trim() || null
+
+  const now = new Date().toISOString()
+  const existing = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND email = ?`,
+  )
+    .bind(scope.businessId, email)
+    .first<UserRecord>()
+
+  if (existing) {
+    // COALESCE on both, so a second press changes nothing it should not: the
+    // stamp survives and so does a name somebody already set.
+    await env.DB.prepare(
+      'UPDATE users SET invited_at = COALESCE(invited_at, ?), ' +
+        'display_name = COALESCE(display_name, ?), updated_at = ? WHERE id = ?',
+    )
+      .bind(now, displayName, now, existing.id)
+      .run()
+    const row = await env.DB.prepare(
+      `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
+    )
+      .bind(scope.businessId, existing.id)
+      .first<UserRecord>()
+    if (!row) throw new InvalidInviteError('The invited person was not readable back.')
+    return { created: false, person: toPerson(row) }
+  }
+
+  // `status` IS `active` AND `platform_operator` IS 0, both written rather than
+  // defaulted. The first is the login control ([[DOC-42]] §5) and an invite that
+  // left it unset would produce a member refused `user_inactive` by the door it
+  // was supposed to open. The second is the hosting capability, which no invite
+  // may ever confer.
+  const id = newId('usr')
+  await env.DB.prepare(
+    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_operator, ' +
+      'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
+  )
+    .bind(id, scope.businessId, email, 'active', displayName, now, now, now, '{}')
+    .run()
+
+  const row = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
+  )
+    .bind(scope.businessId, id)
+    .first<UserRecord>()
+  if (!row) throw new InvalidInviteError('The invited person was not readable back.')
+  return { created: true, person: toPerson(row) }
 }
 
 /** Refused because the person is not in this business, or does not exist. */

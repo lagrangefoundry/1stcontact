@@ -3,7 +3,8 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { admit, provisionInvite, type IdentityEnv } from '../apps/control-app/src/identity'
+import { admit, type IdentityEnv } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import {
   acceptTerms,
   guardTerms,
@@ -23,7 +24,7 @@ import { applySchema } from './support/d1-site-factory'
  * inside workerd, against a real D1 database with the deployed schema applied,
  * carrying a real RS256 Access token verified against a real JWKS. Nothing on the
  * way to the check is short-circuited: the person under test was invited through
- * `provisionInvite` and admitted through `admit`, so what is being proved is that
+ * `inviteAccount` and admitted through `admit`, so what is being proved is that
  * an otherwise perfectly entitled caller is stopped by this and nothing else.
  *
  * THE THREE CLAIMS THIS FILE EXISTS FOR:
@@ -121,7 +122,7 @@ const anEmail = (): string => `req169-${(seq += 1)}@example.test`
 /** An invited, entitled person who has never accepted anything. */
 async function anInvitee(): Promise<{ email: string; token: string; userId: string }> {
   const email = anEmail()
-  const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+  const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
   return { email, token: await mint(email), userId: invited.user.id }
 }
 

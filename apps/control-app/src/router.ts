@@ -32,6 +32,8 @@ import {
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import {
+  InvalidInviteError,
+  invitePerson,
   openGrant,
   peopleOf,
   personDetail,
@@ -44,6 +46,7 @@ import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { NoBusinessError, splitBusinessPrefix, type Scope } from './scope'
 import {
   findAccount,
+  ownsBusiness,
   ownsPlatformBusiness,
   provisionBusiness,
   type Admission,
@@ -475,6 +478,8 @@ export const ADMIN_BUSINESSES_PATH = '/api/admin/businesses'
 export const PEOPLE_PATH = '/api/people'
 export const PERSON_DETAIL_PATH = '/api/people/detail'
 export const PERSON_STATUS_PATH = '/api/people/status'
+/** Where a business's owner turns a contact into a member ([[REQ-186]]). */
+export const PERSON_INVITE_PATH = '/api/people/invite'
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -1178,6 +1183,14 @@ async function routeUncached(
      * second population that could disagree with the first about someone who is
      * both.
      *
+     * `canInvite` IS THE OTHER HALF, AND IT IS A DIFFERENT QUESTION ([[REQ-186]]).
+     * It answers [[DOC-42]] §7's FIRST condition alone — *you own this business* —
+     * and is therefore true of every business owner, where `canFulfil` adds the
+     * second condition and is true only of ours. Two flags rather than one
+     * because the two controls they render are two acts: inviting makes a member
+     * of this business, provisioning makes a business. Collapsing them would gate
+     * the invite on being 1st Contact and foreclose level 2.
+     *
      * `canFulfil` IS REPORTED WITH THE LIST rather than inferred by the client
      * from anything it can see. It answers [[DOC-42]] §7's two conditions —
      * *you own this business* and *this business's product is businesses* — and
@@ -1187,9 +1200,11 @@ async function routeUncached(
      * refused.
      */
     if (p === PEOPLE_PATH && method === 'GET') {
+      const scope = requireScope()
       return json(200, {
-        people: await peopleOf(identityEnv, requireScope()),
+        people: await peopleOf(identityEnv, scope),
         canFulfil: ownsPlatformBusiness(identityEnv, deps.admission),
+        canInvite: ownsBusiness(deps.admission, scope.businessId),
       })
     }
 
@@ -1224,6 +1239,60 @@ async function routeUncached(
       const status = typeof body.status === 'string' ? body.status.trim() : ''
       if (status === '') return json(400, { error: 'A status is required.' })
       return json(200, await setPersonStatus(identityEnv, requireScope(), id, status))
+    }
+
+    /**
+     * POST /api/people/invite — the verb that turns a contact into a member
+     * ([[REQ-186]], [[DOC-42]] §9).
+     *
+     * ONE CONTROL FOR BOTH LEVELS, and there is no branch here on which one it
+     * is. The invite writes into whichever business `requireScope` resolved, so
+     * called from 1st Contact it makes Alice and called from Alice's business it
+     * makes Bob — same route, same rows, differing only in `users.tenant_id`.
+     * A level is a position and not a property ([[DOC-42]] §3), so a route that
+     * asked which level it was standing at would be that section's falsifier.
+     *
+     * THE GATE IS `ownsBusiness` AND EMPHATICALLY NOT `ownsPlatformBusiness`.
+     * This is [[DOC-42]] §7's FIRST condition alone — *you are an owner of this
+     * business* — which is uniform and true of Alice on hers. Reusing the
+     * fulfilment gate is the one mistake this route is most likely to attract,
+     * because the two sit adjacent in this table and select the same set today;
+     * it would mean only 1st Contact may invite anybody, which forecloses level 2
+     * entirely and is exactly §7's "generic admin extension" falsifier standing
+     * in for a capability every business owner needs.
+     *
+     * 403 AND NOT THE 404 THE FULFILMENT ROUTE ANSWERS. That one hides because
+     * an unprivileged caller asking whether an administrative surface exists is
+     * owed nothing; this surface is not administrative — every business owner
+     * has it — so its existence is not a secret and the refusal is an answer
+     * about the caller, which is the status the rest of this system gives one.
+     *
+     * AND IT REFUSES WITH NO ADMISSION AT ALL, which is the dev-open loopback
+     * path. There is nobody there to own anything, and a door onto creating
+     * people that opens only when authentication is switched off is a shape that
+     * reads as a feature and would eventually be relied upon — the same argument
+     * `/api/admin/businesses` makes for itself.
+     */
+    if (p === PERSON_INVITE_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        console.warn(
+          JSON.stringify({
+            event: 'invite_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only an owner of this business may invite people to it.' })
+      }
+      const body = await readJsonBody(request)
+      return json(
+        200,
+        await invitePerson(identityEnv, scope, {
+          email: typeof body.email === 'string' ? body.email : '',
+          displayName: typeof body.displayName === 'string' ? body.displayName : null,
+        }),
+      )
     }
 
     /**
@@ -1805,6 +1874,13 @@ async function routeUncached(
     // here it would become the generic 500 below — a server that broke, reported
     // to the one person whose problem is a payment.
     if (err instanceof NoBusinessError) throw err
+
+    // AN INVITE WITH NO ADDRESS IS THE CALLER'S MISTAKE ([[REQ-186]]) — 400, and
+    // not the 500 below, which would report "the builder broke" for an empty box
+    // and send the operator back to retry the one thing that cannot work.
+    if (err instanceof InvalidInviteError) {
+      return json(400, { error: scrub(err.message) })
+    }
 
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })
