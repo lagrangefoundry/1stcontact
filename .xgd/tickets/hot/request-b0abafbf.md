@@ -14,6 +14,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5c5852f7
 ---
 
 # A member is someone who has signed up, not someone we invited
