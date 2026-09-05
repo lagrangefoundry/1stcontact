@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-38
 created_by: xgd
 created_at: '2026-09-05T21:21:03.349099+00:00'
-updated_at: '2026-09-05T21:42:41.288938+00:00'
+updated_at: '2026-09-05T21:48:26.442015+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -186,5 +186,11 @@ My table last turn claimed email history matters too — inbound mail from someo
 I left REQ-191 alone because it's not free. Two wrinkles: a superseded row must have `is_primary` cleared or it fights the partial index, and `UNIQUE (tenant_id, email)` would then refuse to let someone re-add an address they'd previously dropped. Both solvable, neither obvious, and REQ-191 is clean right now.
 
 Worth doing, or is dropping an address on change good enough for the alpha?
+
+<!-- xgd-turn id="dca1b3be-f1e5-4f24-9579-83eacc572fbc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:48:24.828535+00:00" -->
+#### You
+Please file the name ticket
 
 <!-- xgd-chat-end -->
