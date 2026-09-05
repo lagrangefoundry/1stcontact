@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:57:59.665421+00:00'
+updated_at: '2026-09-05T01:52:41.364368+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -151,5 +151,11 @@ REQ-185 is done and `free_coded` at 0.2.70, merged back onto `xgd-working`.
 13 new UATs, all passing. Full suite: **31 failures / 12 files**, against a baseline of **37 / 16** on clean `xgd-working` — every failure in my branch also fails on the baseline (knowledge-base and webui environment artifacts in this sandbox), and no file fails that passed before. `tsc --noEmit` is clean apart from a pre-existing `session-knowledge.ts` error that reproduces on the baseline.
 
 Unrelated: the claude.ai Gmail, Calendar and Drive connectors still need authorising from your claude.ai connector settings — this session can't run the OAuth flow.
+
+<!-- xgd-turn id="2aea2f09-9bbf-4e11-862b-f90406df136e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T01:52:40.760124+00:00" -->
+#### You
+Please make surre the ticket reflects what was implemented
 
 <!-- xgd-chat-end -->
