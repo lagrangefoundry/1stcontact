@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-52
 created_by: xgd
 created_at: '2026-09-05T20:18:05.317872+00:00'
-updated_at: '2026-09-05T20:38:10.382983+00:00'
+updated_at: '2026-09-05T20:42:46.271904+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -94,5 +94,22 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="09b98070-6c44-44eb-9128-02bf131366d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T20:42:45.018487+00:00" -->
+#### Claude
+BUG-52's free-coding was already complete when you asked — I've now re-verified every step in the foreground on the merged `xgd-working`.
+
+**State:** status `free_coded`, version `0.2.76`, commits `902b5b63` (the fix) and `1cd00146` (the version bump, needed because REQ-188 claimed 0.2.75 while I was mid-gate). Both are ancestors of HEAD, the branch is merged and cleaned, and `session.js` plus both UAT files are on disk in the main checkout.
+
+**Tests, foreground, in the main checkout:** the two BUG-52 files pass — 14 tests. Full node project: 2262 passed, 21 failed across 12 files. None are mine, and I checked rather than assumed:
+
+- **`dist-assets.staging/`** — three of the failures (`req115-builder-shell` ×2, `reconciliation-builder-workspace-chrome` ×1) are repo-wide scans that walk the working tree. `test_UAT_FC_REQ-150` shells out to `1c assets` in the same run, which leaves a gitignored staging directory holding a full copy of `webui-shell` and `webui-split` — so the scan finds two vendored copies and two definition sites. Self-inflicted by the suite, not by this change.
+- **KB index absent** (4 files), **`1c assets` exiting 1** (2 files), and **`bug32-webui-scope-rebrand`** — the last I confirmed against a stashed baseline earlier; it fails identically without my changes.
+
+I've saved a note about the staging-directory artifact, since it's the second time this class of build-leftover has cost investigation time and the failing set differs between a worktree and the main checkout in a way that reads like a regression.
+
+One thing worth flagging from the work itself, since it will show up for someone else: mounting the builder against no origin now surfaces the session notice, because the default chat, library and people transports call `fetch` and reject. That is the honest reading of an unreachable origin, but it means any suite mounting the real shell wants transports injected — my mount tests do, and I added a comment saying why.
 
 <!-- xgd-chat-end -->
