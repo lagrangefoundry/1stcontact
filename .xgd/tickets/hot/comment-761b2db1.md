@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-38
 created_by: xgd
 created_at: '2026-09-05T21:21:03.349099+00:00'
-updated_at: '2026-09-05T21:48:26.442015+00:00'
+updated_at: '2026-09-05T21:49:36.266401+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -192,5 +192,19 @@ Worth doing, or is dropping an address on change good enough for the alpha?
 <!-- xgd-chat role="user" ts="2026-09-05T21:48:24.828535+00:00" -->
 #### You
 Please file the name ticket
+
+<!-- xgd-turn id="dca1b3be-f1e5-4f24-9579-83eacc572fbc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:49:34.979834+00:00" -->
+#### Claude
+Filed as **REQ-193 — "A person's name is a table, and every part of it is optional"** (`request-bce2b6f9`, draft, high, 3 points — matching REQ-191 and REQ-192).
+
+**What's in it:** the seven-part shape with `display_name` as the only `NOT NULL`; display stored never computed; `known_as`, `middle_names` over an initial, free-text `title` and `suffix`, no `sort_name`; `superseded_at` with the partial unique index enforcing *one current*; and `superseded_reason` with `corrected` as the default. Plus the section on who populates it, the tenant-scoping cost, and the REQ-189 read-path handoff.
+
+**Cross-references updated in both directions.** REQ-190's "name work will join the same baseline if it is ready in time" now names REQ-193, and its baseline acceptance criterion lists it alongside REQ-191. REQ-191's two forward references — the intro and the names bullet — point at it too. So the three tickets that share one baseline all say so.
+
+Three separate commits with distinct messages: create, and one content edit each on 190 and 191.
+
+**Still open from last turn:** whether `user_emails` gets `superseded_at`, so an old address still resolves inbound mail without becoming a send target. I left REQ-191 alone on that one — it's the only thing from this conversation not written down anywhere.
 
 <!-- xgd-chat-end -->
