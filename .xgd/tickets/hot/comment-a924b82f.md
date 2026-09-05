@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T01:52:41.364368+00:00'
+updated_at: '2026-09-05T01:54:01.745108+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -157,5 +157,21 @@ Unrelated: the claude.ai Gmail, Calendar and Drive connectors still need authori
 <!-- xgd-chat role="user" ts="2026-09-05T01:52:40.760124+00:00" -->
 #### You
 Please make surre the ticket reflects what was implemented
+
+<!-- xgd-turn id="2aea2f09-9bbf-4e11-862b-f90406df136e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T01:54:01.687398+00:00" -->
+#### Claude
+The ticket now describes what landed. Three corrections mattered:
+
+**`PLATFORM_ADMINS` did not "stay" — I built it.** The body asserted it "stays exactly as DOC-40 §6 argues", but it existed only as a design in §6: no reader, no declaration, no code anywhere in the repo. That was survivable while ownership was an ambient column; moving ownership behind a `memberships` row is what makes the var load-bearing rather than aspirational. Left uncorrected, a reconciler reading "stays" would meet new code and call it drift. The body now says so and points at the bootstrapping section as shipped behaviour rather than a requirement on it.
+
+**The column name was a live question and is now decided.** The body offered `platform_operator` as the better of two options; it now records that `platform_operator` is what landed, in `0007_platform_operator.sql`.
+
+**Two implemented things had no sentence behind them.** Added to *How it lands*:
+- the named predicates `ownsBusiness` / `ownsPlatformBusiness`, and the fact that `POST /api/admin/businesses` is the one surface whose gate moved — the acceptance criterion said "no single predicate answers both" without ever naming the route or the predicates the UATs call by name;
+- `ensurePlatformOperator` being exported and reused by REQ-180's suite, which is why that suite's setup changed shape.
+
+I checked all 13 new UATs plus the two REQ-180 renames against the body: each now traces to a sentence. No code changed — the branch is still at `75b37bc1c1`, merged into `xgd-working`, ticket `free_coded` at 0.2.70 with both SHAs recorded.
 
 <!-- xgd-chat-end -->
