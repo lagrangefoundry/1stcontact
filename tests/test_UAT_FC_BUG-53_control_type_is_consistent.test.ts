@@ -10,14 +10,26 @@
  * their class `builder-modal__button`, which matches no rule anywhere, so those
  * were unstyled in the literal sense.
  *
+ * AND A THIRD, FOUND ON SCREEN AFTER THE FIRST FIX SHIPPED: the sizing rule was
+ * written ABOVE the rules it had to beat. `font: inherit` is a shorthand and
+ * resets `font-size`; each control's own rule sits later in the same sheet at
+ * equal specificity, so the shorthand won and five of the six controls never
+ * moved. Theme and About did move, which is what made it legible — their
+ * `font: inherit` lives in an earlier component sheet, so for them ours was the
+ * later word. Same rule, same token, opposite outcome, decided entirely by which
+ * file each competing declaration sat in.
+ *
  * WHAT IS ASSERTED AND WHAT DELIBERATELY IS NOT, on REQ-189's doctrine: jsdom
  * applies no stylesheet and computes no layout, so "the same size" is proven by
- * the CSS contract that produces it — one grouped rule, read out of the sheet,
- * whose selector list covers every control the report named — rather than by
- * measuring boxes jsdom reports as zero either way. What IS mounted is the DOM:
- * each selector is checked against elements the real components actually render,
- * so a rule that has stopped matching anything fails here rather than passing by
- * describing a control that no longer exists.
+ * the CSS contract that produces it rather than by measuring boxes jsdom reports
+ * as zero either way. But the contract asserted is RESOLUTION, not existence:
+ * for each control this walks every rule that names it and requires the LAST
+ * `font`-family declaration to be the token. The first pass asserted existence,
+ * passed, and shipped the defect — a rule can name all six controls and reach
+ * none of them. What IS mounted is the DOM: each selector is checked against
+ * elements the real components actually render, so a rule that has stopped
+ * matching anything fails here rather than passing by describing a control that
+ * no longer exists.
  *
  * THE STATIC SWEEP AT THE END is the half REQ-189 could not have caught. Its
  * dialog test swept classes prefixed `builder-people`, so a `builder-modal__*`
@@ -57,15 +69,39 @@ const CONTROLS = [
   '.builder-modal__btn',
 ]
 
-/** The declarations of the one rule that sizes them, plus its selector list. */
-function sizingRule() {
-  const rule = /([^{}]+)\{([^{}]*--builder-control-font-size\)[^{}]*)\}/.exec(CSS)
-  expect(rule, 'no rule applies `--builder-control-font-size` to anything').toBeTruthy()
-  return {
-    selectors: rule![1].split(',').map((s) => s.trim()).filter(Boolean),
-    body: rule![2],
+/**
+ * The `font`/`font-size` declaration that WINS for a selector, by source order.
+ *
+ * WHY RESOLUTION AND NOT EXISTENCE. The first pass at this bug asserted that a
+ * rule naming all six controls existed, and it did — and five of the six still
+ * rendered at 16px. `font: inherit` is a shorthand that resets `font-size`, and
+ * each control's own rule sits later in the sheet at equal specificity (one
+ * class each), so the shorthand won and the sizing rule lost. A test that reads
+ * for the presence of a rule cannot see that; it passed the whole time the
+ * defect was on screen.
+ *
+ * Every rule here that names one of these controls does so with a single class
+ * (or `.shell-actions button`, a class and a type), so specificity is equal
+ * across the board and SOURCE ORDER decides — which is what this walks. If a
+ * future rule raises specificity, this becomes an under-approximation and the
+ * assertion is still the safe direction: it would demand the last word.
+ */
+function winningFontDecl(selector: string): { prop: string; value: string } | null {
+  // Comments carry prose about `font: inherit`; a declaration scan must not read it.
+  const sheet = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  let winner: { prop: string; value: string } | null = null
+  for (const rule of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = rule[1].split(',').map((s) => s.trim())
+    if (!selectors.includes(selector)) continue
+    for (const decl of rule[2].matchAll(/(?:^|\n)\s*(font|font-size)\s*:\s*([^;]+);/g)) {
+      winner = { prop: decl[1], value: decl[2].trim() }
+    }
   }
+  return winner
 }
+
+/** The token as every control has to end up reading it. */
+const TOKEN = 'var(--builder-control-font-size)'
 
 /** A `Storage`-shaped map — the panel persists its filter. */
 function memoryStorage() {
@@ -150,12 +186,34 @@ const click = (sel: string) => (root.querySelector(sel) as HTMLElement).click()
 
 describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — one control size, declared once', () => {
   it('test_UAT_FC_BUG-53_every_control_the_report_named_takes_one_declared_size', async () => {
-    // THE DEFECT, STATED AS A TEST. Six controls, one rule, one token — because
-    // a `font-size` written out per rule is six places to find the day the scale
+    // THE DEFECT, STATED AS A TEST. Six controls, one token — because a
+    // `font-size` written out per rule is six places to find the day the scale
     // moves, and the one that gets missed is this bug again.
-    const { selectors } = sizingRule()
     for (const control of CONTROLS) {
-      expect(selectors, `${control} is not sized by the app's control token`).toContain(control)
+      const decl = winningFontDecl(control)
+      expect(decl, `${control} is sized by nothing at all`).toBeTruthy()
+      expect(decl!.value, `${control} is not sized by the app's control token`).toContain(
+        '--builder-control-font-size',
+      )
+    }
+  })
+
+  it('test_UAT_FC_BUG-53_no_controls_size_is_left_to_a_later_font_shorthand', () => {
+    // THE SECOND PASS, AND THE ONE THAT COST A ROUND TRIP TO THE BROWSER. Every
+    // control here says `font: inherit` somewhere, and that shorthand RESETS
+    // `font-size`. Declare the token earlier in the sheet than the shorthand and
+    // the shorthand wins at equal specificity, which is exactly what happened:
+    // Theme and About took the new size (their `font: inherit` is in an earlier
+    // component sheet, so ours is the later word) and all five controls on the
+    // Users tab did not (theirs are in THIS sheet, below the sizing rule).
+    //
+    // So it is not enough that the token be applied. It has to be applied LAST.
+    for (const control of CONTROLS) {
+      expect(
+        winningFontDecl(control),
+        `${control}: a later \`font\` shorthand overrides the control size, ` +
+          'so the rule that names it has no effect on screen',
+      ).toEqual({ prop: 'font-size', value: TOKEN })
     }
   })
 
@@ -183,9 +241,9 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — one control size, declared once', 
     )
 
     expect(
-      sizingRule().selectors,
+      winningFontDecl('.shell-actions button'),
       'nothing here overrides the shell component\'s own action-button size',
-    ).toContain('.shell-actions button')
+    ).toEqual({ prop: 'font-size', value: TOKEN })
 
     const html = fs.readFileSync(repo('apps/control-app/src/chrome.ts'), 'utf8')
     const componentSheets = html.indexOf('styles.map(')
