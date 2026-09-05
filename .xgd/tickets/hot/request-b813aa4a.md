@@ -5,10 +5,10 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-05T00:50:27.487892+00:00'
+updated_at: '2026-09-05T01:52:47.385197+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 4
