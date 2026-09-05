@@ -213,12 +213,18 @@ describe('REQ-184 — capacity and account access are different grants', () => {
     // false answer.
     expect(business?.lapse?.reason).toBe('never_granted')
 
-    // The whole account is refused at the door, which is the same answer one
-    // level up — the person holds a membership and their business holds no
-    // capacity.
+    // The same answer one level up: the person holds a membership, so they are
+    // admitted ([[REQ-178]], [[DOC-42]] §10.1), and their business holds no
+    // capacity, so it is closed. An account grant does not open it there either
+    // — which is the claim this case exists for, and it is unaffected by where
+    // the door now is.
     const admission = await admit(identityEnv(), email)
-    expect(admission.ok).toBe(false)
-    if (!admission.ok) expect(admission.reason).toBe('no_entitlement')
+    expect(admission.ok).toBe(true)
+    if (!admission.ok) return
+    expect(admission.businesses.some((b) => b.selectable)).toBe(false)
+    expect(admission.businesses.find((b) => b.businessId === invite.businessId)?.lapse?.reason).toBe(
+      'never_granted',
+    )
   })
 
   it('test_UAT_FC_REQ-184_a_business_capacity_grant_does_not_satisfy_an_account_subject_lookup', async () => {
