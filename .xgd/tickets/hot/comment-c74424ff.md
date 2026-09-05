@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:25:05.528383+00:00'
+updated_at: '2026-09-05T19:27:27.828688+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1464,5 +1464,61 @@ Can you explain
  - "Invite" CTA - what does it do?
  - Grants - what are these exactly? What does "Withdraw" CTA do?
  - Provision a business CTA - what does it do?
+
+<!-- xgd-turn id="ea729454-278e-45f3-970f-25bec684c6e4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T19:27:27.223051+00:00" -->
+#### Claude
+Let me get the CTA semantics exactly right before I explain them.
+
+Splitting them now.
+
+REQ-187 filed as a conversation-starter, BUG-52 narrowed to reload + test-token lifetime. Before I explain the CTAs, let me check one thing so I describe Invite honestly.
+
+Both tickets done. Now the Users tab.
+
+## "Invite"
+
+**What it writes:** one row. A `users` row in **the business you're currently in**, with `invited_at` set. That's the whole transaction — no membership, no grant, and no email is sent (there's no mail infrastructure in the repo; REQ-186 says so explicitly). Re-inviting the same address updates that row rather than making a second one.
+
+**What it means:** it moves someone from **Contact** to **Member** in the list. Those are the two states of one row — DOC-42 §9 — and "Invite" is the verb that moves them across. Your CRM and this tab read the same population.
+
+**What it does *not* do yet, and you should know this before you click it:** an invited person still can't get in. I just tested Carol, whom I invited into 1st Contact an hour ago — 403 on the app *and* 403 on her portal. `admit` refuses anyone with no admissible business, and Invite doesn't give them one.
+
+That last part contradicts DOC-42 §5 ("a member reaches their Portal by virtue of holding a row at all"), and the doc already knows: §10.1 records it as an owed amendment — *"`no_entitlement` should become a state inside an admitted session: you are logged in, the app is not open to you, here is why."* It's marked as owned by REQ-178/179 and blocking REQ-183 §4. So Invite is correct as built; the thing that makes it feel inert is a known, recorded gap elsewhere.
+
+## "Grants" and "Withdraw"
+
+A grant is an **entitlement** row: *this account has been granted access to this business, on this plan, for this window*. Columns that matter: `business_id` (what's being accessed), `email` (who), `plan` (`pro`), `starts_at` / `ends_at` (the window), `status`.
+
+**What it controls:** `admit` requires an active grant covering *right now* for a business to be selectable. No live grant → that business isn't offered, and if it's your only one you're refused at the door. Grants are why Alice can open her builder and Carol can't.
+
+The line DOC-42 §5 draws, which is worth holding onto:
+
+> A fact about this person's **relationship** with this business → membership, no grant. Their payments, their details, their delete button.
+> Something the business **provides** → entitlement. The 1c app.
+
+So a grant is a commercial fact, not an identity one. It's what you'd attach billing to.
+
+**Withdraw** sets `status='revoked'` and stamps `revoked_at`. It **keeps the row** — deliberately. Revocation is not deletion, because the history of what someone was promised and when you stopped honouring it is the thing anyone asking about a refusal actually wants. Effect: that business stops being selectable for that account.
+
+## "Provision a business"
+
+1st Contact's **fulfilment action** — filling an order. Only visible to you, because it needs two conditions (DOC-42 §7): you own the business you're in, *and* this business's product is businesses. Alice will have fulfilment actions one day; they won't look like this one.
+
+You give it an **existing** account's email plus a name. It writes four things:
+
+1. a `tenants` row — the business itself
+2. a `memberships` row — that person as its `owner`
+3. an `entitlements` row — a live `pro` grant
+4. a starter site
+
+That third one is why it's operator-only and why there's no self-serve version: we're pre-billing, so a customer-reachable "add a business" would mint a live paid plan to whoever asked.
+
+## The shape underneath all three
+
+**Invite** = who exists here. **Provision a business** = what they get. **Grant** = the commercial terms of what they get, and **Withdraw** ends those terms without erasing the record.
+
+Invite + Provision a business is how you make a level-1 customer. Invite alone is how you'd make a level-2 one — once the two gaps we've found are closed (level-2 login, and §10.1's admitted-but-unentitled state).
 
 <!-- xgd-chat-end -->
