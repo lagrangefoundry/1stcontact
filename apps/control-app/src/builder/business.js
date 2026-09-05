@@ -313,7 +313,7 @@ export function openAccountSurface({ host = null, account = null, businesses = [
   modal.panel.append(portalHint)
 
   modal.panel.append(
-    modalFooter([modalButton('Close', 'builder-modal__button', () => modal.close())]),
+    modalFooter([modalButton('Close', 'builder-modal__btn', () => modal.close())]),
   )
   modal.mount()
   return modal

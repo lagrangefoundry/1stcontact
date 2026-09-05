@@ -402,7 +402,7 @@ export function createPeoplePanel(options = {}) {
     said.hidden = true
     modal.panel.append(said)
 
-    const send = modalButton('Invite', 'builder-modal__button', async () => {
+    const send = modalButton('Invite', 'builder-modal__btn builder-modal__btn--primary', async () => {
       send.disabled = true
       try {
         const outcome = await transport.invite(emailField.value, nameField.value)
@@ -429,7 +429,7 @@ export function createPeoplePanel(options = {}) {
       }
     })
     modal.panel.append(
-      modalFooter([send, modalButton('Close', 'builder-modal__button', () => modal.close())]),
+      modalFooter([send, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
     )
     modal.mount()
     emailField.focus()
@@ -472,7 +472,7 @@ export function createPeoplePanel(options = {}) {
     said.hidden = true
     modal.panel.append(said)
 
-    const make = modalButton('Provision', 'builder-modal__button', async () => {
+    const make = modalButton('Provision', 'builder-modal__btn builder-modal__btn--primary', async () => {
       make.disabled = true
       try {
         const made = await transport.fulfil(subject.email, nameField.value)
@@ -490,7 +490,7 @@ export function createPeoplePanel(options = {}) {
       }
     })
     modal.panel.append(
-      modalFooter([make, modalButton('Close', 'builder-modal__button', () => modal.close())]),
+      modalFooter([make, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
     )
     modal.mount()
     nameField.focus()
