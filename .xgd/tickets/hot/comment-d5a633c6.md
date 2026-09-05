@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T21:30:38.901001+00:00'
+updated_at: '2026-09-05T21:47:05.440452+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,11 @@ bin/kb-release     # 1c kb build, then 1c assets, in order
 ```
 
 Until that runs, every `1c assets` on this machine will refuse the same way — so any future browser-asset change hits this same wall, not just this one. That KB skew is a real outstanding item; I haven't filed it since it's outside this ticket, but say the word and I will.
+
+<!-- xgd-turn id="fb393754-fcc6-42d7-a2ea-bd277c04a49f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:47:03.779084+00:00" -->
+#### You
+Now localhost:8788 is giving me: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-key-1'.
 
 <!-- xgd-chat-end -->
