@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-179
 created_by: xgd
 created_at: '2026-09-03T20:19:44.390119+00:00'
-updated_at: '2026-09-05T00:34:16.494050+00:00'
+updated_at: '2026-09-05T00:50:52.970568+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,47 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="83d3049d-477b-4f4c-aa1f-06a0122e2486-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:50:52.894666+00:00" -->
+#### Claude
+Now the message constant:
+
+Now `business.js` — `resolveBusiness` doc and the switcher's nothing-selectable rendering:
+
+Now the `businesses` option doc and the CSS:
+
+Now the UATs:
+
+Now the ticket body delta:
+
+The reopen amendment is landed. REQ-179 is back at `free_coded`.
+
+**Commit** — `5bace72f8a`, merged into `xgd-working`, version `0.2.69`. Both SHAs are now on the ticket (the original `6d25bf25ba` stands; this is the delta on top).
+
+## What was outstanding
+
+The ticket was moved back to `draft` on 2026-09-04 to take [[DOC-42]] §10.1's amendment. REQ-178 and REQ-180 had already landed their halves — `admit` no longer refuses `no_entitlement`, `resolveScope` returns null rather than throwing, `NoBusinessError` 403s the business-scoped routes, and `/api/businesses` answers for a wholly-lapsed account. What was missing was REQ-179's own half: **what the chrome does when nothing is selectable**, which it had no answer to because before the amendment that person never got in.
+
+## What landed
+
+**The block lands on the tab strip and the panels, never on the shell.** The existing `blockEverything` (REQ-173) makes the whole shell `inert` — here that would take the avatar with it, and the avatar is the entire remedy. A second, narrower `blockTabs` marks `.shell-tabs` and `.shell-panels` inert and leaves the header alone. The wider block still wins when both apply.
+
+**A banner names the state where the product would be** — inside `.shell-content`, above the panels, outside the inert subtree so its text can be selected and pasted. It points at the avatar; *why* each business lapsed stays per-business on the account surface (REQ-180 §1), since an account with two businesses lapsed for different reasons would force one sentence to be wrong about one of them.
+
+**The switcher renders and is disabled**, `data-none-selectable` on the wrapper, every option marked and disabled, naming the first business rather than showing blank — a blank box reads as still loading.
+
+**No business in scope asks the origin for nothing.** The default site load calls the business-scoped `/api/sites`; unprefixed it resolves at the origin's fallback, so the request not made is one whose answer would be another business's sites under an account that may open none.
+
+**`resolveBusiness` returning null** is now the stated fallback behaviour for "admitted, nothing selectable", not only for "no identity behind this host".
+
+## Tests
+
+Three new UATs in the existing chrome suite (14 total, was 11): the switcher's rendering and disabled state, the inert boundary plus a live avatar that still opens the account surface with each lapse reason, and the no-scope-no-fetch case with a non-vacuity check that the same default *does* fetch when a business is in scope.
+
+Full suite: **12 failed files / 31 failed tests / 2491 passed**. Baseline on the same worktree before the change: **12 / 31 / 2488** — identical failures (knowledge-base index not built in this environment, plus an unrelated `bug32-webui-scope-rebrand` guardrail), and exactly the three new tests added.
+
+The ticket body carries an "Implementation delta" section written before the commit, so every new UAT is motivated by ticket language rather than left for reconciliation to discover. Story points raised 3 → 4.
 
 <!-- xgd-chat-end -->
