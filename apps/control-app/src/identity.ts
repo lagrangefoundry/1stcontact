@@ -594,11 +594,33 @@ export async function provisionBusiness(
 async function createStarterSite(env: IdentityEnv, businessId: string): Promise<string> {
   const store = await d1r2SiteStore(env).forTenant(businessId)
   const slug = businessId
-  await store.createDraft(slug)
-  await store.write(slug, {
-    siteJson: starterSiteJson(slug),
-    pages: [{ name: 'home.json', page: starterHomePage(slug, STARTER_HEADING) }],
-  })
+  // THE SCAFFOLD IS WRITTEN ONLY WHEN THE SITE DID NOT EXIST (BUG-51).
+  //
+  // `createDraft` has always been `INSERT OR IGNORE`, which made this pair LOOK
+  // idempotent — and it is, right up to the `write`, which replaces `site.json`
+  // and `home.json` unconditionally. So provisioning onto a slug that already
+  // held a site replaced that site's content with a blank starter page while
+  // leaving its journal, assets and version behind to say what used to be there.
+  //
+  // NOT REACHABLE TODAY, AND SAID SO PLAINLY. `businessId` is `newId('acct')` —
+  // 16 random bytes — so provisioning cannot collide with a slug that exists, and
+  // this branch is a guard rather than a fix for a live failure. It is here
+  // because the `createDraft`-then-`write` pair IS the shape that destroyed a
+  // site on the import route, and the illusion of safety is the same illusion in
+  // both places; a reader who copies this function should copy the guarded form.
+  // It stops being hypothetical the moment [[REQ-183]] seeds the portal site at
+  // provisioning time, because `PORTAL_SLUG` is a FIXED slug per tenant.
+  //
+  // A SITE THAT EXISTS IS LEFT ENTIRELY ALONE rather than merged with or
+  // repaired. There is nothing to repair: the starter is one blank page whose
+  // only purpose is to give a new account something to edit, and an account that
+  // already has a site already has that.
+  if (await store.createDraft(slug)) {
+    await store.write(slug, {
+      siteJson: starterSiteJson(slug),
+      pages: [{ name: 'home.json', page: starterHomePage(slug, STARTER_HEADING) }],
+    })
+  }
   return slug
 }
 

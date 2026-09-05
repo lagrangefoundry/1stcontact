@@ -25,6 +25,14 @@
 #   bin/publish xgd                   # one site → local
 #   bin/publish --production xgd      # one site → app.1stcontact.io (needs a token)
 #   bin/publish --origin URL xgd
+#   bin/publish --force xgd           # replace a site that was edited in the builder
+#
+# RE-RUNNING THIS IS SAFE FOR A SITE EDITED LOCALLY, AND ONLY THAT (BUG-51). The
+# import replaces `site.json` and every page it carries rather than merging, so a
+# site that has ALSO been edited in the builder would lose those edits. The Worker
+# refuses that case with 409 and writes nothing; `--force` is how you say you meant
+# it. BUG-51 is what happens without the refusal: a scaffolded site was pushed over
+# a built one, and only the change journal and the audit trail remembered it.
 #
 # Cloudflare Access fronts the deployed builder, so `--production` needs a service
 # token — the PAIR `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`, which Access
@@ -46,6 +54,7 @@ LOCAL_ORIGIN="http://localhost:8788"
 origin="$LOCAL_ORIGIN"
 client_id="${CF_ACCESS_CLIENT_ID:-}"
 client_secret="${CF_ACCESS_CLIENT_SECRET:-}"
+force=()
 slugs=()
 
 while [[ $# -gt 0 ]]; do
@@ -58,6 +67,14 @@ while [[ $# -gt 0 ]]; do
       origin="${2:?--origin needs a URL}"
       shift 2
       ;;
+    --force)
+      # Applies to EVERY slug in the run, because it is the operator's answer to
+      # a question about this invocation rather than about one site. A per-slug
+      # form would be the more precise tool and the less usable one: the refusal
+      # names the site it protected, so a narrower rerun is one command away.
+      force=(--force)
+      shift
+      ;;
     --client-id)
       client_id="${2:?--client-id needs a value}"
       shift 2
@@ -67,7 +84,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,44p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     -*)
@@ -109,7 +126,10 @@ fi
 
 echo "Pushing ${#slugs[@]} site(s) to $origin"
 for slug in "${slugs[@]}"; do
-  args=(push "$slug" --origin "$origin")
+  # `${a[@]+"${a[@]}"}` rather than `"${a[@]}"`: bash 3.2 — which is what
+  # /usr/bin/env bash still finds on macOS — treats an EMPTY array as unset under
+  # `set -u` and aborts the script. The guarded form expands to nothing instead.
+  args=(push "$slug" --origin "$origin" ${force[@]+"${force[@]}"})
   # Both or neither: `1c push` refuses half a credential rather than sending a
   # request that would be declined at the edge for a reason naming identity.
   [[ -n "$client_id" && -n "$client_secret" ]] &&

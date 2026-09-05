@@ -30,6 +30,21 @@ export interface SitePayload {
   pages: { name: string; page: Record<string, unknown> }[]
   /** Asset bytes, base64 — JSON has no byte type and an asset is usually an image. */
   assets: { name: string; base64: string }[]
+  /**
+   * Replace the target even when it holds changes made in the builder (BUG-51).
+   *
+   * ABSENT MEANS NO, and the refusal it unlocks is the whole point. An import
+   * replaces `site.json` and every page it carries, so pushing a freshly
+   * scaffolded site over one somebody built in the builder destroys the built
+   * one — which is exactly how BUG-51's demo site was lost, to a `bin/publish`
+   * whose own documentation calls re-running it "the ordinary way to use it".
+   * The far side refuses that case now; this is how a caller says it meant it.
+   *
+   * IT TRAVELS IN THE PAYLOAD rather than as a query parameter or a header,
+   * because it is part of what the caller is asking for, not part of how the
+   * request is addressed or authenticated. One body carries the whole request.
+   */
+  force?: boolean
 }
 
 export interface PushResult {
@@ -123,6 +138,8 @@ export interface PushOptions {
   origin: string
   /** Service-token credentials, for a deployment behind Access. */
   access?: AccessServiceToken
+  /** Overwrite a target that holds builder changes. See {@link SitePayload.force}. */
+  force?: boolean
   fetch?: typeof fetch
 }
 
@@ -133,6 +150,9 @@ export async function pushSite(
   opts: PushOptions,
 ): Promise<PushResult> {
   const payload = await readSitePayload(store, slug)
+  // Set only when asked, so an ordinary push sends a body with no `force` key at
+  // all rather than one that says `false`. The wire then shows what was meant.
+  if (opts.force === true) payload.force = true
   const doFetch = opts.fetch ?? globalThis.fetch
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (opts.access) {
@@ -160,15 +180,23 @@ export async function pushSite(
     // shapes of "we were bounced to a login page" report identically.
     const bounced = res.status === 0 || (res.status >= 300 && res.status < 400)
     const refusedByAccess = bounced || res.status === 401 || res.status === 403
+    // 409 IS NOT AN ERROR TO DIAGNOSE, it is a question to answer (BUG-51). The
+    // far side has already said what it is protecting and how much of it there
+    // is; all this side owes is the flag that says yes. Lumping it in with the
+    // Access advice above would answer a question the operator did not ask and
+    // leave the one they did unanswered.
+    const conflicted = res.status === 409
     throw new Error(
       `Import of '${slug}' was refused with ` +
         `${bounced ? `${res.status || 'a redirect'} to a login page` : res.status}: ` +
         `${body || '(no body)'}\n` +
-        (refusedByAccess
-          ? 'The target is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and ' +
-            'CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and ' +
-            '--client-secret. Run bin/access-token to provision one.'
-          : ''),
+        (conflicted
+          ? 'Pass --force to replace it anyway. Nothing was written.'
+          : refusedByAccess
+            ? 'The target is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and ' +
+              'CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and ' +
+              '--client-secret. Run bin/access-token to provision one.'
+            : ''),
     )
   }
   const landed = JSON.parse(body) as PushResult['landed']
