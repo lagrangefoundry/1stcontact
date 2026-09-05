@@ -5,9 +5,9 @@ type: request
 title: A member is a contact who can sign in, and the pipeline is a separate axis
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T23:33:52.437896+00:00'
+updated_at: '2026-09-05T23:34:29.501874+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   priority: high
@@ -19,9 +19,12 @@ fields:
   - working_sha: 59b983957f142d56c8923519209e29c599f60a68
     reconcile_sha: null
     main_sha: null
-  version: 0.2.75
+    working_sha_history: []
+  - working_sha: 50e945474402eb35346f701b4543ff1de7fab342
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.81
 ---
-
 
 # A member is a contact who can sign in, and the pipeline is a separate axis
 
