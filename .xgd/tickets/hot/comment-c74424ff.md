@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:34:48.118727+00:00'
+updated_at: '2026-09-05T21:40:16.150878+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1787,5 +1787,11 @@ Tokens default to 30 days, which also closes BUG-52's harness half.
 I recorded the decision in REQ-192 rather than leaving it open, and noted that `ACCESS.md` should gain a pointer. The file is untracked (`?? bin/access-sim`) — I haven't committed it, since you haven't asked me to commit anything this session.
 
 One caveat on trying it right now: the old simulator from earlier still holds port 8799 and I can't signal it (sandbox won't let me kill a process from a previous session). I smoke-tested on 8801. Once you kill the stray, `./bin/access-sim` takes 8799 and your existing wrangler picks it up without a restart — the pid-based `kid` is what makes that work.
+
+<!-- xgd-turn id="108264c7-04f4-436c-812a-490f0056695c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:40:16.049720+00:00" -->
+#### You
+please give me a command to kill it
 
 <!-- xgd-chat-end -->
