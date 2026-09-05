@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:00:32.067205+00:00'
+updated_at: '2026-09-05T00:01:04.883964+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -29,5 +29,11 @@ Please do make implementation decisions and low level UI decisions yourself. It 
 <!-- xgd-chat role="assistant" ts="2026-09-05T00:00:31.668376+00:00" -->
 #### Claude
 Now `identity.ts` — the column rename, the role on the admitted business, the two predicates, and the seed.
+
+<!-- xgd-turn id="cf816e79-d399-493b-8bab-3208d6626175-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:01:04.843670+00:00" -->
+#### You
+this has a dependency on REQ-185 pausing work until that is satisfied
 
 <!-- xgd-chat-end -->
