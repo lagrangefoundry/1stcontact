@@ -8,6 +8,7 @@ import {
   APP_ID,
   BUSINESS_NONE_SELECTABLE_MESSAGE,
   LIBRARY_TAB,
+  PEOPLE_TAB,
   SITE_TAB,
   STORAGE_KEYS,
   TABS,
@@ -20,6 +21,7 @@ import {
 } from './business.js'
 import { mountEditor } from './editor.js'
 import { createLibraryPanel } from './library.js'
+import { createPeoplePanel } from './people.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createDisplayPanel } from './panel.js'
 import { openPalettePopup } from './palette-popup.js'
@@ -107,6 +109,7 @@ export function mountBuilder(root, options = {}) {
      * whole surface without an origin.
      */
     libraryTransport = null,
+    peopleTransport = null,
     /**
      * When the markdown engines have settled (BUG-42). Awaited before a
      * conversation is handed to the pane, because the pane paints each turn once.
@@ -503,6 +506,27 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(LIBRARY_TAB.id).append(library.element)
 
   /**
+   * The User tab ([[REQ-170]]) — the people of whichever business is open.
+   *
+   * MOUNTED BESIDE THE LIBRARY AND ON THE SAME TERMS. It is business-scoped in
+   * exactly the way the Library is, so a business switch clears and re-reads it
+   * rather than re-filtering: these are other people entirely, and leaving one
+   * business's rows on screen under a header naming another is the outcome a
+   * failed re-read may not produce ([[REQ-181]]'s rule, applied to people).
+   *
+   * NOT GATED HERE, and its absence would not be a gate if it were. Every
+   * business has people and every owner may see their own; the one control that
+   * is 1st Contact's alone is decided inside the panel from what `/api/people`
+   * reports, and refused again by `/api/admin/businesses` for itself
+   * ([[DOC-42]] §7).
+   */
+  const people = createPeoplePanel({
+    storage: shell.storage(STORAGE_KEYS.people),
+    ...(peopleTransport ? { transport: peopleTransport } : {}),
+  })
+  shell.getPanel(PEOPLE_TAB.id).append(people.element)
+
+  /**
    * The upload overlay, watching BOTH entry points (REQ-161, DOC-8 open item #4).
    *
    * ONE INSTANCE, TWO WATCHERS, and that is the ticket's answer to "drag into
@@ -724,6 +748,8 @@ export function mountBuilder(root, options = {}) {
     // the one outcome a failure here may not produce.
     library.clear()
     await library.refresh().catch(() => {})
+    people.clear()
+    await people.refresh().catch(() => {})
   }
 
   /**

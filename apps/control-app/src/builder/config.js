@@ -60,8 +60,28 @@ export const SITE_TAB = { id: 'site', label: 'Site', fill: true }
  */
 export const LIBRARY_TAB = { id: 'library', label: 'Library', fill: true }
 
+/**
+ * The User tab — the people of this business ([[REQ-170]], [[DOC-42]]).
+ *
+ * `fill` for the reason the other two have it: this hosts a `list-detail`, which
+ * is a split, which resolves its height against the panel.
+ *
+ * THE LABEL IS "Users" AND THE TAB IS NOT "Admin". It shows the people of
+ * WHICHEVER business is selected — our customers when the 1st Contact business is
+ * open, a customer's customers when theirs is. Naming it for the privileged half
+ * would encode a platform-only reading in the one string every person sees, which
+ * is [[DOC-40]] §2.1 rule 1's failure mode arriving through the tab strip
+ * ([[DOC-42]] §2, §7).
+ *
+ * IT LISTS CONTACTS AS WELL AS MEMBERS. A person the business knows and has not
+ * invited belongs here — the CRM reads the same rows and the invite is the
+ * transition between the two states ([[DOC-42]] §9), so a tab that showed only
+ * members would be a second population.
+ */
+export const PEOPLE_TAB = { id: 'people', label: 'Users', fill: true }
+
 /** Every tab the shell mounts, in order. */
-export const TABS = [SITE_TAB, LIBRARY_TAB]
+export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB]
 
 /**
  * Per-instance persistence keys, namespaced by the shell under `APP_ID`.
@@ -78,6 +98,7 @@ export const STORAGE_KEYS = {
   panel: `${SITE_TAB.id}:panel`,
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
+  people: `${PEOPLE_TAB.id}:list`,
 }
 
 /**

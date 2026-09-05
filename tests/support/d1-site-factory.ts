@@ -64,6 +64,10 @@ const MIGRATIONS = [
   // `platform_operator` (entry without membership). AFTER 0006, which renames
   // the very column the ownership half moves onto.
   () => import('../../db/migrations/0007_platform_operator.sql?raw'),
+  // REQ-170 — `entitlements.revoked_at`, so a withdrawn grant is RECORDED rather
+  // than deleted. `memberships` has held the column since 0004 and `entitlements`
+  // had not; the asymmetry was an omission rather than a decision.
+  () => import('../../db/migrations/0008_entitlement_revocation.sql?raw'),
 ]
 
 /**
