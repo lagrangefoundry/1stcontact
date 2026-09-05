@@ -5,7 +5,7 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-05T02:05:55.181767+00:00'
+updated_at: '2026-09-05T02:20:07.467299+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -509,3 +509,49 @@ and the builder's state should survive the visit.
 - No plan, no charges, no details editing, no export, no way to add a business.
 - No new endpoint, no new renderer, no new store adapter, and no reader of
   `TENANT_ID`.
+
+
+## Behaviour that landed as a consequence, and is therefore specified
+
+Not asked for directly. Each is forced by a decision above, and each is pinned by
+a UAT, so each is named here rather than left for reconciliation to discover.
+
+- **The portal is `GET`/`HEAD` only and answers `405` to anything else.** §6 says
+  the portal reads and grants nothing; a route with a write verb on it is a place
+  for a later hand to hang one. The refusal is the contract, not an omission.
+- **It answers `404` when there is neither an admission nor a scope.** A host with
+  no identity behind it names no business whose portal this could be, and
+  inventing one would render somebody else's page.
+- **The portal's own sub-resources are served under its path** — `/account/theme.css`,
+  `/account/capabilities.js`. That is the render's document-relative output
+  ([[REQ-109]]) arriving through the ordinary channel, and it is what lets the
+  same site move to another origin unchanged.
+- **A business the caller does not hold and a business that does not exist give
+  byte-identical answers.** The `/b/<id>/` prefix reaches the portal like any
+  other route, so §6's scope line has to hold there too, or the surface is an
+  existence oracle over every business in the system.
+- **The erasure explanation names lapsed businesses as well as live ones.** They
+  are still the person's, they still hold their site and their customers, and the
+  population most likely to be reading this page is exactly the one whose grants
+  have lapsed — so omitting them would make the surface understate what erasure
+  destroys, which is the one direction §4.2 forbids.
+- **An account with no display name is named by its verified email.** That is the
+  identity the login established ([[DOC-40]] §2), so it is always true, where a
+  display name is a label somebody may never have set. A blank line where a
+  person's name goes reads as a failure to load.
+- **A refused endpoint costs the facts and nothing else.** The explanation is
+  copy and is unaffected; the surface says the details could not be loaded rather
+  than showing an empty line. This is D5's "only ever subtracts" at the level of
+  a single request.
+- **The renderer's store parameter widened from the tenant-scoped handle to the
+  `SiteStore` port.** The fallback portal is an in-memory store, and the whole
+  point of D3 is that it and an authored portal reach the renderer through one
+  interface. The narrower type was never used for anything — `PreviewRenderer`
+  already took the port — so this removes an annotation rather than a check.
+- **The behaviour module is subject to the [[REQ-180]] §3 vocabulary rule even
+  though it lives in the framework.** The guard walks the two apps; this surface
+  is user-facing and outside them, so the rule follows it there rather than the
+  surface escaping the rule.
+- **The portal's `site.json` is derived from the scaffolder's** rather than
+  written out, so its theme and nav shape are the ones every new site starts with
+  and cannot drift from them.
