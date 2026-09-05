@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T22:18:49.548826+00:00'
+updated_at: '2026-09-05T22:18:51.194054+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -138,3 +138,6 @@ Left in place until then: the `xgd` site stays in `1stcontact` and `xgd.dev`
 keeps its empty starter site.
 
 Adds one acceptance criterion below.
+
+- a site can be moved to another business by changing the business it names, with
+  no row in another table rewritten and no R2 object copied
