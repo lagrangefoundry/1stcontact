@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-183
 created_by: xgd
 created_at: '2026-09-05T01:57:18.337161+00:00'
-updated_at: '2026-09-05T02:28:12.765676+00:00'
+updated_at: '2026-09-05T16:57:22.760992+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -47,5 +47,14 @@ Now regenerate the module assets and wire the avatar link.
 Now the avatar link out.
 
 Now let me write the node-side UATs.
+
+<!-- xgd-turn id="5cce38d0-b7e0-4e6e-ae06-bb1e713375b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T16:57:21.940615+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
