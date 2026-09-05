@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:49:42.302799+00:00'
+updated_at: '2026-09-05T21:50:52.149022+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1873,5 +1873,46 @@ Cookies last 30 days, so this should be the last time login gets in your way.
 An asset the builder imports is missing. Run `1c assets`, then restart the builder — the assets manifest is read at startup.
 
 The document loaded; its client did not. Full detail is in the browser console.
+
+<!-- xgd-turn id="9f7ddf1a-af63-4628-9817-a31282f1ffdd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:50:49.881012+00:00" -->
+#### Claude
+Found it — `email-shape.js` landed at 14:26 and was never copied to `dist-assets`, so `main.js`'s import graph breaks.
+
+On disk but 404 — the assets manifest is built at startup, exactly as the error said. Needs a wrangler restart.
+
+Diagnosed, and the fix needs you again — same sandbox limitation.
+
+## What happened
+
+More builder code landed at 14:26 — **`email-shape.js`**, plus updates to `api.js` and `people.js`. Only `people.js` and `business.js` had been copied into `dist-assets`, so `email-shape.js` didn't exist there at all. `main.js` itself was fine; its *import graph* reached the missing module, and the browser reports that as "could not load main.js".
+
+I've copied everything across now. But it still 404s, because the boot-guard's own message is right: **the assets manifest is read at startup.** Wrangler built its manifest when the dev server started at 13:40; a file appearing on disk afterwards is invisible to it.
+
+## Run this
+
+```bash
+pkill -f 'wrangler dev'
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app && npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file "$HOME/Documents/secrets/1c.dev.env" \
+  --env-file /Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/access.dev.vars
+```
+
+Your login cookie survives — it's independent of the Worker process.
+
+## This is the third time, and it'll keep happening
+
+`./bin/1c assets` is the real build step, and it refuses to run because the system KB index is stale:
+
+```
+MISSING from the index (3): REF-behaviors, REF-l1, REF-surface
+STALE  in the index (2): DOC-17, DOC-33
+```
+
+My `cp -R src/builder/. dist-assets/builder/` is a stand-in for it, and it goes stale the moment anyone touches `src/builder/` — which is exactly what just happened while we were talking about something else. **When you're next online, run `./bin/1c kb build && ./bin/1c assets`** and the manual step disappears.
+
+Two smaller notes: the sandbox won't let me signal any of those processes (all from earlier sessions), so restarts have to come from your terminal. And `email-shape.js` alongside changes to `api.js`/`people.js` looks like REQ-191 work landing — if so, the email-table change may be partly in the working tree, which is worth knowing before you judge what the Users tab shows you.
 
 <!-- xgd-chat-end -->
