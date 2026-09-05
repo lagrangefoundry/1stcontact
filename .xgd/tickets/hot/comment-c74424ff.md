@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:28:20.327375+00:00'
+updated_at: '2026-09-05T18:30:04.639414+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1270,5 +1270,44 @@ Two smaller notes: REQ-170's *Not done* still says the invite is undone with no 
 <!-- xgd-chat role="user" ts="2026-09-05T18:28:20.019463+00:00" -->
 #### You
 ok lets just take it a step at a time - we can work through the gaps. I would like to see what we have, experience them and we can close them as we go
+
+<!-- xgd-turn id="466b86c8-2de6-44ad-b731-d0eb055f7d9a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T18:30:03.414401+00:00" -->
+#### Claude
+Right — let me get you in front of it rather than talking about it. First, is everything still up?
+
+Both up. Let me make persona-switching one click instead of pasting cookies.
+
+Can't restart the sim (the sandbox won't let me signal a process from an earlier session), so persona-switching stays a console paste. Let me mint fresh tokens and lay out the tour.
+
+Stack's up, four personas ready. Paste one line into the browser console (any page on `127.0.0.1:8788`, or just open the builder first) and you become that person.
+
+## The cast
+
+| Persona | Level | What it demonstrates |
+|---|---|---|
+| `martin-github@westhead.me` | 0 | The full tab set + the fulfilment control |
+| `uat@westhead.me` | 1 | **Two** businesses — the switcher |
+| `alice@plumbing.example` | 1 | One business, and a customer of her own |
+| `bob@example.com` | 2 | The wall |
+
+## Suggested order
+
+**1. You.** Three tabs — Site, Library, **Users**. The Users tab lists three people: you, `uat@westhead.me`, `alice@plumbing.example`, all labelled **Member**. Click one and the detail pane shows which businesses they operate and their grants, with **Withdraw** on each. You also get **Provision a business**, because you own the 1st Contact business — that's the one control DOC-42 §7 says is 1st Contact's alone.
+
+**2. `uat@westhead.me`.** This is the switcher. Two businesses — their own, and "Snip City Salon" I provisioned yesterday. Switching should change what the Site tab shows: `alpha` in one, a starter site in the other. Their Users tab is **empty**, which is correct — those would be *their* customers, and they have none.
+
+**3. `alice@plumbing.example`.** One business, "Alices Plumbing". Her Users tab shows **Bob** as a Member. No **Provision a business** button — she doesn't own the 1st Contact business. Check the avatar → `/account` for her portal.
+
+**4. `bob@example.com`.** 403. This is the gap I found while scoping REQ-186: Bob exists, lists correctly on Alice's tab, and cannot get in. `admit` only looks for people in the 1st Contact tenant, so a row in Alice's tenant is `no_user`. That's the level-2 door, and it's the next real gap after the invite.
+
+## What you'll notice is missing
+
+No **Invite** button anywhere — that's REQ-186. Alice and Bob got into the database by hand precisely because there's no way to put them there through the UI.
+
+Tokens last an hour. To refresh, `curl -s "http://127.0.0.1:8799/mint?email=<who>"` and swap it into the snippet.
+
+Go and look. I'll hold here — tell me what you see and we can take the gaps one at a time.
 
 <!-- xgd-chat-end -->
