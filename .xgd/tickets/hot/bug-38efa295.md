@@ -14,6 +14,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-22b21d75
 ---
 
 # An expired session renders as a working, empty account
