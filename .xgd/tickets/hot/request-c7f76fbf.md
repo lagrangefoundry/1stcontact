@@ -5,10 +5,10 @@ type: request
 title: The Users tab is unstyled, and its detail panel splits one thing into two tables
 created_by: xgd
 created_at: '2026-09-05T20:17:18.378919+00:00'
-updated_at: '2026-09-05T20:17:18.378919+00:00'
+updated_at: '2026-09-05T20:23:51.393074+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 3
