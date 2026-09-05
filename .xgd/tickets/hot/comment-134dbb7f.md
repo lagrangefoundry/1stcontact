@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-184
 created_by: xgd
 created_at: '2026-09-04T23:54:13.238390+00:00'
-updated_at: '2026-09-05T00:35:38.866231+00:00'
+updated_at: '2026-09-05T00:36:11.668097+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -81,5 +81,29 @@ Production needs `bin/deploy` to run `d1 migrations apply --remote` before the n
 <!-- xgd-chat role="user" ts="2026-09-05T00:35:38.826810+00:00" -->
 #### You
 Did you move this ticket to ready_to_reconcile/
+
+<!-- xgd-turn id="35d894de-fab1-4631-a97a-fd278c180e84-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:36:11.483900+00:00" -->
+#### Claude
+No — it's at `free_coded`. That's where `xgd ticket move-to-free-coded` leaves it, and I stopped there deliberately.
+
+There's no `move-to-ready-to-reconcile` command; the promotion is a plain `status` update, and this repo's own handoff comments treat it as yours to make:
+
+- `comment-76256ec4`: *"The ticket sits at `free_coded` — promotion to `ready_to_reconcile` is yours."*
+- `comment-88619077`: same wording.
+
+Current state of REQ-184:
+
+- `status: free_coded`
+- `fields.commits: [65c38cd5abc695dabe358aae3701014b216f69ec]`, version `0.2.66`
+- merged into `xgd-working` (`9d4fe11705`), branch cleaned, lock released
+
+Two things worth weighing before promoting, since reconciliation is where they'd otherwise surface:
+
+1. **The `memberships.account_id` rename wasn't in the ticket's original blast radius.** I added the motivating language to the body before committing, so the UATs trace — but it contradicts a decision DOC-40 §2 and an `identity.ts` comment had previously recorded, and I amended both. If you'd rather that half didn't land, it's a much cleaner revert now than after reconciliation.
+2. **Production hasn't had the migration applied.** `bin/deploy` runs `d1 migrations apply --remote`; until then the deployed Worker's code and schema disagree.
+
+Say the word and I'll set it to `ready_to_reconcile`.
 
 <!-- xgd-chat-end -->
