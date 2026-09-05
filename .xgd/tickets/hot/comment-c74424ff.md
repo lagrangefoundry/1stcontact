@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:14:47.433421+00:00'
+updated_at: '2026-09-05T22:16:45.443725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2002,5 +2002,11 @@ Two things you'll notice, both known rather than new:
 
 - The site's slug is the business id (`acct_057f…`). `provisionBusiness` names the starter site after the business, which is ugly but is also the thing REQ-190 stops being *load-bearing* — right now that slug is a key, so renaming it later is a five-table rewrite.
 - Your account name now reads **"Martin Westhead"** where it was `null` earlier, so something set `display_name` since — worth knowing when you look at REQ-189's empty-name state, since you're no longer a test case for it.
+
+<!-- xgd-turn id="5a1a2388-2fbb-45cf-a81a-bc32bf4d455d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:16:44.945248+00:00" -->
+#### You
+I do not see the xgd site that we built though?
 
 <!-- xgd-chat-end -->
