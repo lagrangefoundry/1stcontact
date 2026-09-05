@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:19:14.990023+00:00'
+updated_at: '2026-09-05T23:31:42.366574+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -280,5 +280,17 @@ Still open from my last message:
 3. **Magic link alongside Access, policy retired once proven** — confirm?
 
 And the fork above.
+
+<!-- xgd-turn id="13ec9199-76d7-41a7-9b7d-d7bbdbc003a8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:31:42.174996+00:00" -->
+#### You
+Plan against the future schema.
+
+**One question:** is the `email` ticket the **queue** or the **log**? Does Invite write N tickets as `queued` and something else sends them, or does it send and then record? I'd write the ticket first as `queued`, send, then update — about five extra lines, and it means a send that fails halfway leaves evidence instead of vanishing. <-- agree
+
+Lets do Resend
+
+I think the Cloudflare auth sound horrible is creating our own really so hard? Surely all the code exists we just have to wire it up?
 
 <!-- xgd-chat-end -->
