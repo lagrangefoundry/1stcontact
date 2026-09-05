@@ -5,6 +5,25 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
+updated_at: '2026-09-05T23:44:49.707300+00:00'
+completed_at: null
+last_field_updated: body
+status: draft
+fields:
+  priority: high
+  story_points: 5
+  auto_merge_back: true
+  needs_review: false
+  chat_comment: comment-ed878559
+---
+
+---
+uid: request-3a87d4a1
+id: REQ-190
+type: request
+title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
+created_by: xgd
+created_at: '2026-09-05T21:12:40.298029+00:00'
 updated_at: '2026-09-05T23:30:32.412829+00:00'
 completed_at: null
 last_field_updated: body
@@ -97,9 +116,30 @@ that D1 would need to alter a primary key in place.
 the remote D1** rather than editing history. Local stores are rebuilt by running
 the baseline and then [[REQ-192]].
 
-`0005`'s operator seed is **not** test data and must survive: it is the row that
-stops [[REQ-168]] locking the operator out of the live deployment. It becomes
-part of the baseline, keyed the new way.
+### `0005`'s operator seed is dropped, not carried — decided 2026-09-05
+
+An earlier draft said the seed must survive into the baseline. It must not:
+[[REQ-185]] made it redundant and nobody noticed.
+
+`ensurePlatformOperator` (`identity.ts`) writes **all four** rows the seed writes
+— the tenant, the `users` row, the membership and the entitlement — triggered by
+the caller's address appearing in `PLATFORM_ADMINS`. That is a complete bootstrap
+from deployment configuration, it works before any row exists, and it cannot be
+revoked by the database it repairs, which is the whole of why [[DOC-40]] §6 put it
+in a var. `0005` predates it and does the same job worse.
+
+Worse in a specific way: it hardcodes one personal address into a migration that
+runs in **every** environment, forever, including ones that address should never
+be able to enter. Bootstrapping through the var costs one setting and one sign-in,
+names whichever address is actually being used, and leaves nothing behind —
+[[REQ-185]] already records that using it *writes* the membership, so the repair
+outlives the var.
+
+Carrying it forward would also be the legacy path CLAUDE.md forbids: two ways to
+create the same four rows, one of them unreachable by anyone reading the code.
+
+**So the baseline seeds no people at all.** To bring a deployment up: set
+`PLATFORM_ADMINS` to the operator's address, sign in once, empty it again.
 
 ## Acceptance
 
@@ -162,7 +202,6 @@ One migration, authored once, containing every ticket in this cluster:
 | [[REQ-194]] | `accounts`, and business ownership moved onto it |
 | [[REQ-195]] | `contact_events` |
 | [[REQ-188]] | the pipeline stage column |
-| `0005` | the operator seed, keyed the new way — **not** test data |
 
 [[REQ-192]] runs **after** it and seeds everything else.
 
