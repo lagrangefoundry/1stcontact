@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T22:18:51.194054+00:00'
+updated_at: '2026-09-05T23:30:32.412829+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -141,3 +141,30 @@ Adds one acceptance criterion below.
 
 - a site can be moved to another business by changing the business it names, with
   no row in another table rewritten and no R2 object copied
+
+
+## The sweep is the whole schema — decided, 2026-09-05
+
+An earlier draft left "how far does the sweep go" open, splitting the identity
+half from the `sites`/`tenants` half. Closed ([[CHAT-23]]): it goes all the way,
+in the one baseline. Data as an index will burn you eventually, and half a
+rebaseline leaves the other half needing a second one.
+
+## What lands in the baseline
+
+One migration, authored once, containing every ticket in this cluster:
+
+| | |
+| --- | --- |
+| [[REQ-190]] | opaque keys everywhere; the offenders in the table above |
+| [[REQ-191]] | `user_emails`, and `users.email` dropped |
+| [[REQ-193]] | the name table |
+| [[REQ-194]] | `accounts`, and business ownership moved onto it |
+| [[REQ-195]] | `contact_events` |
+| [[REQ-188]] | the pipeline stage column |
+| `0005` | the operator seed, keyed the new way — **not** test data |
+
+[[REQ-192]] runs **after** it and seeds everything else.
+
+They are separable in review and in acceptance, not in deployment: two
+rebaselines for one schema change is the thing a rebaseline exists to avoid.
