@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-38
 created_by: xgd
 created_at: '2026-09-05T21:21:03.349099+00:00'
-updated_at: '2026-09-05T21:38:54.770748+00:00'
+updated_at: '2026-09-05T21:42:41.288938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,55 @@ That said what is going through my head as I read your proposal is, how are we g
 OK if you feel this should be part of   REQ-190 please add it - and please pics fix the primary key thing.
 
 Why don't you give me a column for the corrected versus changed, I suspect this is a YNGNT but it's easy to remove an empty column it's harder to add one
+
+<!-- xgd-turn id="33ba9cd1-5201-49f2-8c97-d2470ef62537-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:42:39.837964+00:00" -->
+#### Claude
+REQ-190 has been split under me — the address half is now REQ-191 ("A person's email addresses are a table, not a column"), and REQ-190 is the keys-and-sweep half. Reading REQ-191 before I touch anything.
+
+The primary-key slip is already fixed — REQ-191's shape block now reads `id TEXT PRIMARY KEY -- opaque random`. Checking whether another session is live on these tickets before I write.
+
+Nobody's mid-write (last touch 21:34, six minutes ago). Two things I can settle now, one that needs your word.
+
+Three things happened, one of which changes your instruction.
+
+## REQ-190 got split thirteen minutes ago
+
+It's no longer the email ticket. It's now **"Data is not a key: opaque keys across the schema, in one rebaseline"** — the rule plus the `tenants.id` / `sites.slug` / `published_sites` sweep. The address half became **REQ-191**, *"A person's email addresses are a table, not a column"*, and **REQ-192** covers regenerating test data.
+
+Both new tickets already anticipate this conversation. REQ-190: *"CHAT-38's name work will join the same baseline if it is ready in time."* REQ-191, under Not in scope: *"Names. CHAT-38 again; the name history table is the same pattern and will be its own ticket."*
+
+So "add it to REQ-190" no longer means what it meant when you said it — REQ-190 is about keys, and names aren't a key problem.
+
+## The primary key thing is already fixed
+
+REQ-191's shape block reads `id TEXT PRIMARY KEY -- opaque random ([[REQ-190]])`. The `INTEGER` slip went away in the split. Nothing to do.
+
+## What I did land
+
+**REQ-191's "Not in scope" is now "Not in scope — but now decided"**, recording what you settled today, since that ticket is where all three were flagged as open questions:
+
+- **Phone is a sibling table, not a generic `user_channels`** — with the reason written down, so nobody helpfully consolidates it later.
+- **Names take the same shape minus `is_primary`**, one axis removed, own ticket, same baseline.
+- **Postal addresses deferred and deliberately under-structured** when they come: authored block + `country` + `postcode`, nothing else.
+
+Nothing else in REQ-191 changed — same shape, same acceptance.
+
+## What I can't land
+
+I can't file the name ticket without you saying so. The full body is drafted and ready at `.xgd/tmp/req-names-draft.md` — title *"A person's name is a table, and every part of it is optional"*, everything we agreed including `superseded_reason` with `corrected` as the default.
+
+Your point about who populates the fields became **its own section**, not a footnote, because it's a genuine requirement rather than context: the operator is the curator, self-declaration is simpler, and therefore every field but `display_name` is optional. That last clause is the acceptance criterion — *"answering just my name is a complete answer."* It needed to be in the body so the tests can trace to it.
+
+**Say the word and I'll file it.**
+
+## One thing I did *not* touch, because it deserves your call
+
+My table last turn claimed email history matters too — inbound mail from someone's old address should still resolve to them, but the old address must not be a send target. That argues for `superseded_at` on `user_emails`, not just deletion.
+
+I left REQ-191 alone because it's not free. Two wrinkles: a superseded row must have `is_primary` cleared or it fights the partial index, and `UNIQUE (tenant_id, email)` would then refuse to let someone re-add an address they'd previously dropped. Both solvable, neither obvious, and REQ-191 is clean right now.
+
+Worth doing, or is dropping an address on change good enough for the alpha?
 
 <!-- xgd-chat-end -->
