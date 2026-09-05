@@ -5,13 +5,13 @@ type: request
 title: A member is a contact who can sign in, and the pipeline is a separate axis
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T23:34:29.501874+00:00'
+updated_at: '2026-09-05T23:34:34.092634+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
-  story_points: 2
+  story_points: 4
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5c5852f7
