@@ -5,10 +5,10 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-05T02:18:30.050305+00:00'
+updated_at: '2026-09-05T02:18:49.731087+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,11 @@ fields:
   chat_comment: comment-a40ed226
   depends_on:
   - REQ-184
+  commits:
+  - working_sha: 5b6befd15c86e1fe7d41b3e3df18fdb6351b3de5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.71
 ---
 
 # The admin console: users, entitlements, and the invite that provisions an account
