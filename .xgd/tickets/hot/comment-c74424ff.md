@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:24:54.113896+00:00'
+updated_at: '2026-09-05T18:27:17.455969+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1244,5 +1244,25 @@ Two bits of housekeeping: I left `alice@plumbing.example`, "Alices Plumbing" and
 <!-- xgd-chat role="user" ts="2026-09-05T18:24:53.990500+00:00" -->
 #### You
 ok please create that ticket
+
+<!-- xgd-turn id="45989341-1eee-4fd2-950f-4bca9f8e302c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T18:27:16.606401+00:00" -->
+#### Claude
+Before I write it — one thing I should test, because it changes the ticket's scope.
+
+Level 2 has a wall I should record. Let me check the create syntax and write it.
+
+**REQ-186 — "The invite: the verb that turns a contact into a member"** (draft, high, 2 points).
+
+The body argues from DOC-42 rather than restating the API: one button whose level is decided by where you're standing (§3), a transition that updates rather than inserts (§9), gated on `ownsBusiness` and explicitly **not** `ownsPlatformBusiness` — reusing the fulfilment gate is the mistake that would foreclose level 2 — and writing no entitlement, because the portal is what membership *is* (§5). Each of those carries the section's own falsifier so the UATs have language to trace to. It also deletes `provisionInvite`, since the two buttons decompose it and a test-only entry point kept "in case" is the legacy mode CLAUDE.md forbids.
+
+One thing I found while scoping it, and it changed the ticket's shape:
+
+**A level-2 member cannot log in, and the invite doesn't fix that.** I seeded Bob into Alice's business and he lists correctly on her Users tab as a Member — but `/account` answers him 403. `admit` resolves identity with `findUser(env, platformTenant, email)`, so a row in Alice's tenant is `no_user`. It's also an Access problem, not just a lookup one: Bob would authenticate at Alice's domain, which no Access application covers.
+
+So REQ-186 delivers level 1 completely and level 2's *row and representation* — the door is named in **Not in scope** because it isn't written down anywhere else, including DOC-42 §10.1, which covers `no_entitlement` but not this. It needs its own ticket and doesn't block REQ-186. Want me to file it?
+
+Two smaller notes: REQ-170's *Not done* still says the invite is undone with no pointer to REQ-186 — I left it alone since it's `ready_to_reconcile` and I didn't want to disturb a ticket awaiting reconcile, but I can append a line. And the `xgd` commit couldn't reach the remote (sandbox blocks network), so REQ-186 is committed locally and will push with your next one.
 
 <!-- xgd-chat-end -->
