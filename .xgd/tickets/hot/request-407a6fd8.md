@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-05T00:24:45.238923+00:00'
+updated_at: '2026-09-05T00:25:00.346922+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -392,3 +392,19 @@ one of which fails identically on the unmodified base commit — the KB
 corpus/index suites and `bug32-webui-scope-rebrand`. Two further files
 (`req115-builder-shell`, `reconciliation-l1-navigation`) failed once under full
 parallel load and pass in isolation.
+
+
+### A fourth commit: REQ-184's UAT lost the same observable
+
+`cd6002e17d` moves one UAT in
+`tests/test_UAT_FC_REQ-184_entitlement_subject.workers.test.ts` — *an account-subject
+grant does not satisfy a business capacity check* — off `admission.ok` and onto the
+business's `selectable` and `never_granted` lapse, for the same reason REQ-167's four
+moved. Its claim is unchanged; only the surface the answer appears on is.
+
+It is a separate commit rather than part of the merge because [[REQ-184]] landed on
+`xgd-working` after this branch was cut, so the file did not exist on the branch and the
+fix had nowhere there to live. A merge commit is not cherry-picked at reconcile, so
+conflict-resolution content that matters has to be its own commit — which is also why
+the merge resolves `package.json` to `xgd-working`'s `0.2.67` (the incoming `0.2.66` is
+bookkeeping) and this commit carries the bump to `0.2.68`.
