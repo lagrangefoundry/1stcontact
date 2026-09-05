@@ -2,6 +2,7 @@ import type { BehaviorDefinition } from './behavior'
 import { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './catalog'
 import { contactForm } from './contact-form/component'
 import { carousel } from './carousel/component'
+import { accountPortal } from './account-portal/component'
 
 /**
  * The behavior-module catalog **bound to its components** (REQ-85).
@@ -25,6 +26,7 @@ import { carousel } from './carousel/component'
 const COMPONENTS: Record<string, BehaviorDefinition['Component']> = {
   'contact-form': contactForm,
   carousel,
+  'account-portal': accountPortal,
 }
 
 const MODULES: BehaviorDefinition[] = CATALOG.map((meta) => {

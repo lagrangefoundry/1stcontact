@@ -12,9 +12,14 @@ import { registry, getModule, getModuleCss } from '../packages/framework/src/mod
  */
 describe('REQ-84 — strip layout modules to L1', () => {
   it('test_UAT_FC_REQ-84_no_layout_modules', () => {
-    // The catalog holds ONLY the capability modules.
+    // The catalog holds ONLY behaviours — never a layout module. The claim is
+    // about what is ABSENT, so it is asserted as absence: an enumerated list made
+    // adding an unrelated behaviour ([[REQ-183]]'s `account-portal`) fail here
+    // rather than wherever it would actually have broken something.
     const ids = [...registry.values()].map((d) => d.meta.id).sort()
-    expect(ids).toEqual(['carousel', 'contact-form'])
+    expect(ids).toContain('carousel')
+    expect(ids).toContain('contact-form')
+    for (const def of registry.values()) expect(def.meta.kind).toBe('behavior')
 
     // getModule for every deleted semantic layout module is a catalog miss.
     const deleted: [string, number][] = [

@@ -1506,3 +1506,23 @@ body {
 .builder-account__business-lapse {
   font-size: 12px;
 }
+
+/* REQ-183 — the way out of the dialog to the account's own surface.
+
+   Spaced off the business list rather than joined to it: the list is what this
+   dialog is about and the link is where the rest of the account lives, so the
+   gap is the difference between a row and a departure. It reads as a link and
+   not as a button because it navigates — a control styled as a button that
+   opens a new tab misdescribes what it does. */
+.builder-account__portal {
+  display: inline-block;
+  margin: 18px 0 0;
+  color: inherit;
+  font-weight: 600;
+}
+
+.builder-account__portal-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--shell-muted, #71717a);
+}

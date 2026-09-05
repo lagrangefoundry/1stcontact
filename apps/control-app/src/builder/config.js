@@ -175,6 +175,32 @@ export const ACCOUNT_LABEL = 'Account'
 export const ACCOUNT_INITIAL_FALLBACK = '?'
 
 /**
+ * The one thing the account dialog links OUT to ([[REQ-183]]).
+ *
+ * THE DIALOG LINKS; IT DOES NOT GROW. The surface showing an account its plan,
+ * its charges and its details is the customer portal of the 1st Contact SITE,
+ * rendered through the site pipeline by the code that will render the portal our
+ * customers give their own customers ([[DOC-40]] §2.1). Building any of it in
+ * this dialog would be §2.1 rule 1's named failure mode — the bespoke admin
+ * billing page — and would guarantee the portal gets built a second time by
+ * someone reverse-engineering what this one decided. So the dialog's bound is
+ * unchanged: facts about the session, and a way out to the surface that is not
+ * one.
+ *
+ * A NEW TAB, because the portal is a site page rather than a builder surface.
+ * Leaving the builder should look like leaving it, and the builder's state
+ * should still be there on the way back.
+ *
+ * THE PATH IS THE ORIGIN'S, and the origin is the provisional half of that
+ * design — the pages are not ([[REQ-183]] D1). When the credential layer is ours
+ * this is a different href and nothing else changes.
+ */
+export const PORTAL_HREF = '/account'
+export const PORTAL_LINK_LABEL = 'Open your account portal'
+export const PORTAL_LINK_HINT =
+  'Your details and what closing your account means. Opens in a new tab.'
+
+/**
  * The two drop areas of the upload overlay — REQ-161, and the only question this
  * product ever asks about a file.
  *
