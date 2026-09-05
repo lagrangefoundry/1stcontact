@@ -72,9 +72,25 @@
  * 12-13px the rest of the chrome runs at. They were not unstyled. They were
  * styled at a size that belonged to nobody.
  *
- * ONE TOKEN, APPLIED TO EVERY CONTROL, rather than a `font-size` written out per
- * rule. A literal repeated six times is six places to find the day the scale
- * moves, and the fifth one that is missed is exactly this defect again.
+ * ONE TOKEN, READ WHEREVER THE SIZE IS SET. A literal repeated six times is six
+ * places to find the day the scale moves, and the fifth one that is missed is
+ * exactly this defect again. The token is the single definition site; the rules
+ * below reference it.
+ *
+ * BUT THE SIZE IS DECLARED NEXT TO EACH `font: inherit`, NOT GATHERED INTO ONE
+ * GROUPED RULE UP HERE — and that is the whole lesson of this bug's second pass.
+ * A grouped rule here lost to every control it named: `font: inherit` is a
+ * SHORTHAND, so it resets `font-size` along with everything else, and each
+ * control's own rule sits LATER in this same file at equal specificity (one
+ * class each). Later wins. The grouped rule parsed, matched, and was overridden
+ * by the very declaration it existed to repair — leaving the controls at 16px
+ * with a rule in the sheet that said otherwise.
+ *
+ * Declaring `font-size` immediately after the shorthand that clobbers it makes
+ * the result independent of source order and of any rule added later, and puts
+ * the reason in the reader's eye at the point they would otherwise repeat the
+ * mistake. `.shell-actions button` is the one selector that stays here, because
+ * for it order is the mechanism rather than the hazard: see below.
  *
  * 13px MATCHES `--fields-font-size` (webui-fields), which is what the People
  * table already takes (REQ-189) - so a control and the data it filters are one
@@ -83,8 +99,9 @@
  * `.shell-actions button` IS AN OVERRIDE OF A COMPONENT RULE, deliberately. The
  * shell lives in the shared out-of-repo component store and is not ours to edit;
  * `chrome.ts` emits the component stylesheets and then this one, so a
- * same-specificity rule here wins on order. The avatar action is unaffected -
- * `.builder-avatar` sets its own size.
+ * same-specificity rule here wins on order — the rule it beats is in an EARLIER
+ * SHEET, which is why this one works where the grouped rule did not. The avatar
+ * action is unaffected - `.builder-avatar` sets its own size.
  */
 
 :root {
@@ -94,12 +111,7 @@
   --builder-control-padding: 4px 10px;
 }
 
-.shell-actions button,
-.builder-people__search,
-.builder-people__states,
-.builder-people__invite,
-.builder-people__fulfil,
-.builder-modal__btn {
+.shell-actions button {
   font-size: var(--builder-control-font-size);
 }
 
@@ -551,6 +563,7 @@ body {
   background: var(--shell-bg);
   color: var(--shell-fg);
   font: inherit;
+  font-size: var(--builder-control-font-size);
   font-weight: 500;
   cursor: pointer;
   transition: border-color 0.15s, background-color 0.15s;
@@ -1293,6 +1306,7 @@ body {
 .builder-people__search,
 .builder-people__states {
   font: inherit;
+  font-size: var(--builder-control-font-size);
   color: var(--shell-fg);
   background: var(--shell-surface);
   border: 1px solid var(--shell-border);
@@ -1302,6 +1316,7 @@ body {
 
 .builder-people__invite {
   font: inherit;
+  font-size: var(--builder-control-font-size);
   cursor: pointer;
   padding: var(--builder-control-padding);
   color: var(--shell-bg);
@@ -1510,6 +1525,7 @@ body {
 
 .builder-people__fulfil {
   font: inherit;
+  font-size: var(--builder-control-font-size);
   cursor: pointer;
   margin: 0 8px;
   padding: var(--builder-control-padding);
