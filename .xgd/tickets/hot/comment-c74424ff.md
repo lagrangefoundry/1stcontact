@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:31:38.305855+00:00'
+updated_at: '2026-09-05T21:34:48.118727+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1746,5 +1746,46 @@ Could you create a doc on data design capturing the "don't use data as a key" pr
 Can you put the access simulator in ./bin?
 
 NOTE all docs are created as DOC tickets DO NOT create .md files
+
+<!-- xgd-turn id="c87e8387-7282-4e5a-9606-3a9a27063fc8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:34:46.909573+00:00" -->
+#### Claude
+Let me check DOC ticket conventions and how `bin/` scripts are written here.
+
+Tool works — the `/login` page discovers all seven seeded people from D1. Now the DOC.
+
+Both done.
+
+## DOC-43 — "Data design: keys, uniqueness, and what a column cannot promise"
+
+Twelve principles, each with a rule, a reason grounded in this codebase, and a **falsifier** — following DOC-42's convention, because a principle nobody can check is a preference. Beyond "data is never a key":
+
+- **Keys are random, not derived.** `sha256(email)` is data-as-key wearing a disguise — it still changes when the address changes.
+- **One key, used everywhere, because it's unguessable.** The sequence isn't rejected on taste: it would need a random column beside it anyway, and then there are two.
+- **Uniqueness has a scope, and the scope is a decision.** A global unique index on a data column makes a failed insert an existence oracle.
+- **A column is a promise of exactly one.** `email TEXT` doesn't mean "the email", it means *one address, forever*.
+- **"Current" and "history" are different shapes** — the `is_primary` flag vs the validity interval, which is the distinction CHAT-38 will need for names.
+- **Invariants belong to the schema** — partial unique indexes, stored-normalised values. A rule the code maintains is one that eventually isn't.
+- **Keys escape the database** — R2 prefixes, URLs, and the erasure path, which makes key choice a correctness question rather than a naming one.
+- **Withdrawal is not deletion**, and is distinct from erasure — an act by the business about access, versus an act by the person about themselves.
+
+I wrote §1's reasoning around the thing that makes it hard to catch: `UNIQUE (tenant_id, email)` removes a join and reads like a statement of fact. It always looks like a saving at the time.
+
+## `bin/access-sim`
+
+Sits beside `bin/access-token` — one provisions a real service token, the other stands in for the whole gate locally. Smoke-tested: JWKS serves, tokens mint, and `/login` discovered all seven seeded people from local D1.
+
+Three things worth knowing:
+
+- **`--print-env`** emits the two vars, so setup is `./bin/access-sim --print-env > .dev.vars.local` and a third `--env-file` on the wrangler command. No editing `.dev.vars`.
+- **`/login` reads the real store** via `wrangler d1 execute` rather than opening the SQLite file — miniflare's layout is its own business, and a hard-coded path would be a second definition of where the store lives. A failure degrades to the manual path rather than a broken page.
+- **The `kid` carries the pid.** `access.ts` caches the JWKS for an hour and force-refreshes on an unseen `kid`, treating it as a rotation — which is what a restart is. A stable `kid` would leave the Worker verifying against a dead process's key.
+
+Tokens default to 30 days, which also closes BUG-52's harness half.
+
+I recorded the decision in REQ-192 rather than leaving it open, and noted that `ACCESS.md` should gain a pointer. The file is untracked (`?? bin/access-sim`) — I haven't committed it, since you haven't asked me to commit anything this session.
+
+One caveat on trying it right now: the old simulator from earlier still holds port 8799 and I can't signal it (sandbox won't let me kill a process from a previous session). I smoke-tested on 8801. Once you kill the stray, `./bin/access-sim` takes 8799 and your existing wrangler picks it up without a restart — the pid-based `kid` is what makes that work.
 
 <!-- xgd-chat-end -->
