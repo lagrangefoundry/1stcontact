@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:59:20.486377+00:00'
+updated_at: '2026-09-05T19:00:36.295351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1315,5 +1315,41 @@ Go and look. I'll hold here — tell me what you see and we can take the gaps on
 <!-- xgd-chat role="user" ts="2026-09-05T18:59:20.231172+00:00" -->
 #### You
 ok 186 was implemented - do I need to restart anything to pick up the changes?
+
+<!-- xgd-turn id="f64f4ced-4e93-4c4b-adf4-da5b832fb77e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T19:00:36.070147+00:00" -->
+#### Claude
+Let me check what actually landed and where.
+
+Worker hot-reloaded on its own — the route is live. Only the browser assets are stale. Let me re-sync and verify.
+
+No restart needed for the Worker — but the browser assets did, and I've already re-synced them. **Just hard-reload the page.**
+
+## What needed what
+
+| | Picked up how |
+|---|---|
+| Worker source (`router.ts`, `identity.ts`, …) | **Automatic** — `wrangler dev` hot-reloaded; `/api/people/invite` was already answering |
+| Builder client (`people.js`, `api.js`) | **Manual** — this is the stale-`dist-assets` trap again; done |
+| D1 migrations | **Nothing to do** — REQ-186 added none |
+| Access sim / tokens | Unaffected; your four snippets still work for the hour |
+
+The asset step is the one that'll keep biting until you can run `./bin/1c kb build && ./bin/1c assets` online — my `cp` is a stand-in for the real build, and it goes stale the moment anyone touches `src/builder/`.
+
+## I exercised it while I was in there
+
+Against the running stack, using only the HTTP surface:
+
+- **Invite creates and casefolds.** `Carol@Example.COM` → `carol@example.com`, listed as **Member**.
+- **Re-invite updates, doesn't insert.** Second call returns `created:false`, same id, still one row. That's DOC-42 §9's falsifier closed.
+- **Alice can invite into her own business** — `dave@example.com`, level 2.
+- **Alice cannot invite into 1st Contact** — 403 on `/b/1stcontact/api/people/invite`. So it's gated on `ownsBusiness`, not the fulfilment gate, which was the mistake the ticket flagged as most likely.
+- **No grant, no membership written** — 0 rows each for carol and dave. DOC-42 §5 holds.
+- `provisionInvite` is gone, as specified.
+
+Six of the seven acceptance criteria, verified live. The seventh — the full DOC-42 §1 sequence with Alice signing in — I ran by hand yesterday and nothing in this change touches it.
+
+Reload and you should see an **Invite** control on the Users tab. New faces to look for: `carol@example.com` on yours, `dave@example.com` on Alice's. Bob is still 403 — that's the level-2 door, still open as the next gap.
 
 <!-- xgd-chat-end -->
