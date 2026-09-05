@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-05T00:05:09.867457+00:00'
+updated_at: '2026-09-05T00:18:38.404094+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -249,3 +249,138 @@ business**, which owns the 1c site and whose users are its customers. The
 behaviour described is correct; the phrase names a kind of tenant that does not
 exist. `TENANT_ID` is untouched and stays — it is deployment configuration
 ([[REQ-180]] D5), not a model concept.
+
+
+---
+
+## What the amendment landed, and its consequences
+
+`admit` no longer refuses `no_entitlement`. Everything below is the technical
+consequence of that one deletion — recorded here because each piece is behaviour
+that did not previously exist, not merely a line moved.
+
+### The refusal is deleted; the reason is not
+
+`no_membership` still refuses. `no_entitlement` is gone from `admit` and stays a
+`DenialReason` value, because the state it names is still the first thing an
+operator needs when a customer says "it says no". What moved is **where it is
+recorded**: off the admission decision, which now admits, and onto the resolver,
+which is where the consequence now is. `index.ts` logs
+`{event: 'no_business', reason: 'no_entitlement', email}` when a route that
+needs a business is reached by an account that has none.
+
+### The resolver gains a fourth answer: no business
+
+`resolveScope` returns `Scope | null`. Null exactly when the admission is `ok`,
+no target was named, and nothing is selectable. `firstAdmissible` used to throw
+on that state, with a comment saying it was a broken invariant — this amendment
+is precisely what widened `admit`'s success case past it, and left unchanged the
+throw would have made every request from a lapsed customer a **503**: a
+configuration failure an operator can act on, shown to the one person whose
+problem is a payment.
+
+**A named target is unaffected.** Asking for a specific lapsed business is a
+different act from asking for whichever one is open, and it still raises
+`ScopeRefusedError('no_entitlement')`. Only the unnamed case was widened.
+
+### `route` takes a nullable scope, and one place turns it into a refusal
+
+`route(request, env, scope: Scope | null, deps, ctx)` — still a required
+argument with no default, so nothing acquires the deployment's own business by
+omission; what it may now carry is "there is no business to be in". Inside the
+table a single `requireScope()` throws `NoBusinessError`, and every route that
+needs a business already reaches it through one of three memoised openers
+(`openStore`, `openTickets`, `ingestDeps`) plus `chatHost`. So the null is
+handled once rather than per route, and a route added later cannot forget it.
+
+The routes above the store keep answering with no null check at all — the
+chrome, `/api/status`, `/api/businesses`. That set is the point rather than a
+side effect: **the chrome is the document that draws the switcher, and the
+switcher is the only surface that says why each business is closed**
+([[REQ-179]], [[REQ-180]] §1). A session refused the chrome would be told
+nothing at all.
+
+### `NoBusinessError` is rethrown from the router, in two places
+
+The route table's own handler catches everything and answers 500, so the error
+has to escape it to reach the frame that knows who the caller is. It is
+rethrown beside `TenantNotConfiguredError` for the same stated reason, and again
+from `/api/import`'s local catch — that route opens the store itself rather than
+through the memoised opener, so it is the one place the refusal would otherwise
+be swallowed.
+
+### The refusal is a 403 with its own message
+
+`NO_BUSINESS_MESSAGE`, not `DENIED_MESSAGE`. The latter says one thing to
+everybody because the caller might not be anybody — naming the reason to a
+refused visitor is an account-existence oracle. Nobody reaches this one without
+a live membership, so it is a fact about the reader's own account, owed to them
+and disclosing nothing about anybody else's: the same argument `BusinessLapse`
+is already carried on the wire under. It points at the switcher rather than
+restating the per-business reason, so there is one copy of that sentence.
+
+403 and not 402: "payment required" is the honest status and there is nothing to
+pay with yet ([[REQ-183]] owns that surface), so it would name a remedy this
+deployment cannot offer.
+
+### `businessesPayload` takes a nullable scope
+
+It reads the scope only on the no-admission branch, so the admitted lapsed
+account gets its full list — every business present, each unselectable, each
+carrying its `lapse`. A null scope with no admission answers an empty list; that
+pair is not constructible today (the dev-open path resolves from `TENANT_ID` or
+refuses outright) and is written rather than asserted because an empty list is
+true whatever produced it, where an invented id would be a business the chrome
+would then try to open.
+
+### No client change was needed
+
+`resolveBusiness` already returns null when nothing is selectable, and
+`selectBusiness(null)` sets no prefix and swallows the site-list failure — so
+the shell loads, the switcher lists both businesses marked with their reason,
+and the site pane is empty. [[REQ-179]] built that path for browser storage
+outliving a grant; the amendment is the case that finally reaches it. Asserted
+end-to-end through the Worker rather than assumed.
+
+### What REQ-167's grant-window UATs now observe
+
+Four UATs in `test_UAT_FC_REQ-167_identity.workers.test.ts` used admission's
+refusal as the observable for a claim about the grant **window**. The claims are
+unchanged — an end date in the past stops covering, a start date in the future
+does not yet cover, a revoked status refuses whatever the dates say — so they
+now assert on the business's `selectable`/`entitlement` instead of on `ok`.
+
+The fourth, `the_refusal_does_not_say_which_check_failed`, is the oracle claim:
+two refusals for different reasons must be one identical response. A lapsed
+grant is no longer one of the two, so it is driven with a **withdrawn
+membership** against a stranger — `no_membership` versus `no_user`, which is
+exactly the pair an existence oracle would distinguish.
+
+## Test plan (amendment)
+
+`tests/test_UAT_FC_REQ-178_lapsed_session.workers.test.ts` — seven UATs. The
+resolver cases call `resolveScope` directly, because "returns no business" has
+no HTTP shape of its own; the HTTP cases drive the **Worker's own `fetch`** with
+a real RS256 Access token against a real JWKS, inside workerd against real D1:
+
+- a wholly lapsed account resolves to no business
+- naming a lapsed business is still refused
+- one live business among lapsed ones still resolves — to the first *selectable*
+- the chrome loads, 200, for a wholly lapsed account
+- `/api/businesses` answers with every business present, unselectable, each with
+  its lapse reason
+- a business-scoped route (`/api/sites`) refuses **403, not 503**, with the
+  account-level message
+- the control: an account with a live business is unaffected
+
+In `tests/test_UAT_FC_REQ-178_businesses.workers.test.ts`, the every-lapsed UAT
+inverts (admitted, both present, neither selectable, each `lapse.reason` =
+`expired`), driven with two businesses so it cannot pass on code that stops at
+the first, and a new UAT asserts `no_membership` still refuses — so removing one
+refusal cannot quietly remove the other.
+
+Regression scope: the whole suite. 33 failures remain, in eleven files, every
+one of which fails identically on the unmodified base commit — the KB
+corpus/index suites and `bug32-webui-scope-rebrand`. Two further files
+(`req115-builder-shell`, `reconciliation-l1-navigation`) failed once under full
+parallel load and pass in isolation.
