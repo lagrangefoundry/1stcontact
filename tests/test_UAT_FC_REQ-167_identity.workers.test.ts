@@ -383,9 +383,19 @@ describe('REQ-167 — login binds, and does not provision', () => {
       .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
       .run()
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok, 'a grant whose end date has passed still admitted').toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    // THE OBSERVABLE IS THE BUSINESS, NOT THE PERSON ([[DOC-42]] §10.1). This
+    // case is about the grant WINDOW — that an end date in the past stops
+    // covering — and that claim is unchanged. What changed is where the answer
+    // shows up: membership admits, so an expired grant closes the business
+    // rather than the door.
+    const lapsed = await admit(identityEnv(), email)
+    expect(lapsed.ok).toBe(true)
+    if (!lapsed.ok) return
+    expect(
+      lapsed.businesses.some((b) => b.selectable),
+      'a grant whose end date has passed still opened its business',
+    ).toBe(false)
+    expect(lapsed.businesses[0]?.entitlement).toBeNull()
   })
 
   it('test_UAT_FC_REQ-167_a_grant_that_has_not_started_yet_does_not_admit', async () => {
@@ -398,7 +408,9 @@ describe('REQ-167 — login binds, and does not provision', () => {
       .bind(new Date(Date.now() + 86_400_000).toISOString(), invited.businessId)
       .run()
 
-    expect((await admit(identityEnv(), email)).ok).toBe(false)
+    const early = await admit(identityEnv(), email)
+    expect(early.ok).toBe(true)
+    expect(early.ok && early.businesses.some((b) => b.selectable)).toBe(false)
   })
 
   it('test_UAT_FC_REQ-167_a_revoked_grant_refuses_whatever_its_dates_say', async () => {
@@ -410,9 +422,9 @@ describe('REQ-167 — login binds, and does not provision', () => {
       .bind('revoked', invited.businessId)
       .run()
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    const revoked = await admit(identityEnv(), email)
+    expect(revoked.ok).toBe(true)
+    expect(revoked.ok && revoked.businesses.some((b) => b.selectable)).toBe(false)
   })
 
   it('test_UAT_FC_REQ-167_a_revoked_membership_refuses_whatever_the_grant_says', async () => {
@@ -506,25 +518,32 @@ describe('REQ-167 — the request path', () => {
     stubJwks()
     const stranger = await worker.fetch(GET(await mint(anEmail())), workerEnv())
 
+    // DRIVEN WITH A WITHDRAWN MEMBERSHIP RATHER THAN A LAPSED GRANT. The oracle
+    // claim is unchanged — two refusals for different reasons must be one
+    // response — but a lapsed grant is no longer one of the two ([[DOC-42]]
+    // §10.1): it admits. `no_membership` and `no_user` are the pair that still
+    // refuse, and they are exactly the pair the oracle would distinguish
+    // ("does an account exist for this email"), so the claim is driven from the
+    // case that can still break it.
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
+      .bind(new Date().toISOString(), invited.user.id)
       .run()
-    const expired = await worker.fetch(GET(await mint(email)), workerEnv())
+    const known = await worker.fetch(GET(await mint(email)), workerEnv())
 
-    expect(expired.status).toBe(stranger.status)
-    expect(await expired.text()).toBe(await stranger.text())
+    expect(known.status).toBe(stranger.status)
+    expect(await known.text()).toBe(await stranger.text())
     // …and the difference the caller is not told is one `admit` still reports.
     expect(!(await admit(identityEnv(), email)).ok).toBe(true)
     expect((await admit(identityEnv(), email)) as { reason: string }).toMatchObject({
-      reason: 'no_entitlement',
+      reason: 'no_membership',
     })
 
     // A refusal must not be cacheable or indexable: one cached 403 would become
     // everybody's answer, including the entitled.
-    expect(expired.headers.get('cache-control')).toBe('no-store')
-    expect(expired.headers.get('x-robots-tag')).toContain('noindex')
+    expect(known.headers.get('cache-control')).toBe('no-store')
+    expect(known.headers.get('x-robots-tag')).toContain('noindex')
   })
 
   it('test_UAT_FC_REQ-167_an_invited_and_entitled_person_reaches_the_builder', async () => {
