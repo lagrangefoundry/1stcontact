@@ -5,9 +5,9 @@ type: bug
 title: An expired session renders as a working, empty account
 created_by: xgd
 created_at: '2026-09-05T19:10:55.261370+00:00'
-updated_at: '2026-09-05T19:10:55.261370+00:00'
+updated_at: '2026-09-05T19:26:10.768111+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -18,11 +18,15 @@ fields:
 
 # An expired session renders as a working, empty account
 
+Scope: what a **reload** does. The larger question — not being denied mid-session
+in the first place, and how a session renews — is deliberately **not here**. It is
+[[REQ-187]], and this bug must not be closed by answering it.
+
 ## What happens
 
-When the caller's session lapses, every route answers 401 — correctly. The
-builder client then **swallows all three of the calls it makes on load** and
-draws a builder that looks fine and contains nothing:
+When the caller's session has lapsed, every route answers 401 — correctly. The
+builder client then swallows all three of the calls it makes on load and draws a
+builder that looks fine and contains nothing:
 
 | Call | Worker | `api.js` does |
 | --- | --- | --- |
@@ -30,70 +34,59 @@ draws a builder that looks fine and contains nothing:
 | `/api/status` | 401 | `return { ai: true, message: null }` (`api.js:123`) |
 | `/api/sites` | 401 | throws, and `app.js:724` `.catch(() => [])` discards it |
 
-So the switcher is empty, the avatar has no account behind it, the site list is
-empty, and the assistant reports itself healthy. Nothing anywhere says *you are
-signed out*. **There is no 401 handling in the client at all** — no reauth path,
-no banner, no distinct state. Verified 2026-09-05 against a running stack with a
-deliberately expired token.
+The switcher is empty, the avatar has no account behind it, the site list is
+empty, and the assistant reports itself healthy. Nothing says *you are signed
+out*. **There is no 401 handling in the client at all.** Verified 2026-09-05
+against a running stack with a deliberately expired token.
 
 ## Why it is a bug rather than a rough edge
 
 An expired session is **indistinguishable from a deleted account**. That is the
-exact failure this codebase has already rejected once: [[REQ-178]] refused to drop
+exact failure this codebase rejected once already: [[REQ-178]] refused to drop
 lapsed businesses from the switcher because *"a business that silently vanishes
 is indistinguishable from a deleted one, which is the wrong thing to tell someone
 whose card expired"*. The same sentence applies here with a worse subject — not
-one business missing, but every business, the account, and the sites.
+one business missing, but every business, the account and the sites at once.
 
-The person most likely to hit it is mid-edit, and what they are shown invites
-exactly the wrong response: an empty builder reads as data loss, and the obvious
-reaction to apparent data loss is to start re-creating things.
+The person most likely to hit it is mid-edit, and an empty builder reads as data
+loss. The obvious response to apparent data loss is to start re-creating things.
 
 ## Production is not milder
 
-Behind real Cloudflare Access the Worker is not even reached: Access answers the
+Behind real Cloudflare Access the Worker is not reached: Access answers the
 lapsed cookie itself, redirecting to its login origin. A top-level navigation
-therefore recovers on its own, but a background `fetch` gets a cross-origin
-redirect it cannot follow and **rejects** rather than returning 401 — landing in
-the same `catch`es above. The symptom is identical and the diagnosis is harder,
-because there is no status code to find in the network panel.
+recovers on its own, but a background `fetch` gets a cross-origin redirect it
+cannot follow and **rejects** rather than returning 401 — landing in the same
+`catch`es above. The symptom is identical and harder to diagnose, because there
+is no status code to find in the network panel.
 
-## Two failures, and they are separable
+## A valid stored token must survive a reload
 
-1. **Auth failure is swallowed.** Three call sites turn "refused" into "empty" or
-   "healthy". A 401 — and a fetch rejection that may be a redirect to an identity
-   provider — must be a distinct outcome, never a default value.
-2. **There is no way back.** Even correctly reported, the client offers nothing:
-   no reload prompt, no reauth, and no preservation of unsaved editor state
-   across the round trip.
+The complementary half, and the one an operator meets first: when the cookie is
+still good, reloading must simply work. It does today — nothing in the Worker
+issues a `Set-Cookie` and both the 401 and the 200 carry `Cache-Control:
+no-store`, so neither a cleared cookie nor a cached refusal is in play (checked
+2026-09-05). A UAT pins it, because this is the property the fix above could
+plausibly break: a client that reacts to auth failure is a client that can
+misfire on a working session and sign someone out for no reason.
 
-## Required behaviour
+## Test sessions must outlive a work session
 
-- an authentication failure is never rendered as data; the client tells the
-  person their session ended, in those terms
-- unsaved builder state survives whatever recovery is offered
-- an actively-engaged person is **not** interrupted at all — see below
-
-## The renewal requirement
-
-Being denied mid-session is not acceptable for someone actively working. A
-renewal policy for active sessions is the fix direction, and it is a design
-question rather than a defect: it spans the Cloudflare Access application's
-session duration, the identity provider's own re-auth friction, and what the
-client does as expiry approaches. Recorded here so this bug is not closed by
-merely reporting the failure more politely; scoped separately once that policy is
-agreed.
-
-Note that this deployment re-runs `admit` on **every** request, so app-level
-revocation (`users.status`, membership, entitlement) is already immediate and
-does not depend on the Access session being short.
+The local Access harness mints one-hour tokens, which expire inside a single
+sitting and make this bug's own symptom hard to distinguish from the harness
+running down. Test sessions want a lifetime measured in days. This is
+harness-only and has no production counterpart — deployed session lifetime is
+[[REQ-187]]'s subject.
 
 ## Acceptance
 
 - with an expired session, the builder reports that the session ended and does
   not draw an empty account
-- `/api/businesses`, `/api/status` and `/api/sites` no longer convert 401 into a
-  default value
+- `/api/businesses`, `/api/status` and `/api/sites` no longer convert a 401 into
+  a default value
 - a rejected fetch that may be an identity-provider redirect is treated as an
   authentication failure, not a transport error
-- unsaved editor state is still present after recovery
+- a **valid** stored token still loads the builder normally across a reload, and
+  no auth-failure path fires on it
+- unsaved editor state is still present after whatever recovery is offered
+- the local Access harness issues multi-day tokens by default
