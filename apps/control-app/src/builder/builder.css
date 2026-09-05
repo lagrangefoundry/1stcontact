@@ -1204,6 +1204,329 @@ body {
   margin-bottom: 0;
 }
 
+/* --- the User tab (REQ-170, REQ-189) ------------------------------------------
+ *
+ * NOTHING HERE EXISTED UNTIL REQ-189. The tab emitted correct DOM and no rule
+ * anywhere matched a single class of it, so every field ran into the next at the
+ * browser's default size while the one section that mounts `webui-fields` sat
+ * beside them looking like the rest of the app. That contrast is what this block
+ * closes, and it closes it by MATCHING `fields.css` rather than by inventing a
+ * second look for the same kind of content: 13px type, an 8px gutter, a 1px rule
+ * under each row, labels in `--shell-muted`. The numbers are the component's.
+ *
+ * THE TOKENS ARE THE SHELL'S DECLARED ONES — `--shell-muted`, `--shell-surface`,
+ * `--shell-border` — and not the `--shell-fg-muted` / `--shell-surface-alt`
+ * spellings that appear above. Those two are not in the shell's token list, so
+ * they resolve to nothing and the colour falls through to whatever it inherits.
+ *
+ * AND NOTHING HERE BRANCHES ON A STATE LABEL. REQ-188 turns Member/Contact into
+ * three states; a rule per label would have to be found and edited again.
+ */
+
+/* A link in the height chain (see the chain comment at the top), exactly as
+   `.builder-library` is: this hosts a `list-detail`, which is a split, which
+   resolves its height against a definite-height ancestor or collapses. */
+.builder-people {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The filter slot the list header exposes (`listControls`). */
+.builder-people__filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.builder-people__search {
+  flex: 1 1 8ch;
+  min-width: 8ch;
+}
+
+.builder-people__search,
+.builder-people__states {
+  font: inherit;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  padding: 3px 6px;
+}
+
+.builder-people__invite {
+  font: inherit;
+  cursor: pointer;
+  padding: 3px 10px;
+  color: var(--shell-bg);
+  background: var(--shell-accent);
+  border: 1px solid var(--shell-accent);
+  border-radius: var(--shell-radius);
+}
+
+.builder-people__invite[hidden] {
+  display: none;
+}
+
+/*
+ * ONE LINE: the name, the address, then what the row still has to say — the
+ * Library's row rule, for the same reason it has it. A list whose job is to be
+ * scanned may not spend two lines an item.
+ *
+ * TRUNCATION LANDS ON THE NAME AND THE ADDRESS AND NEVER ON A PILL. Both are
+ * still readable cut short; a half-drawn pill reads as a rendering fault rather
+ * than as a value that was too long, so the pills are `flex: none`.
+ */
+.builder-people__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 13px matches `.list-detail-row-title`, the component's own rows — `renderRow`
+   owns the whole content cell and would otherwise inherit the shell's body size
+   and make this the one list in the builder with a larger row title. */
+.builder-people__who {
+  flex: 0 1 auto;
+  min-width: 4ch;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nothing can set `display_name` yet (REQ-183 §5), so this is what every row
+   says today. Quieter than a name and NOT an error colour: it is a fact about
+   the person, not a fault in the cell. */
+.builder-people__noname {
+  color: var(--shell-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.builder-people__email {
+  flex: 1 1 auto;
+  min-width: 4ch;
+  font-size: 12px;
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-people__state,
+.builder-people__suspended {
+  flex: none;
+  font-size: 0.72em;
+  line-height: 1.6;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-border);
+  color: var(--shell-muted);
+  white-space: nowrap;
+}
+
+/*
+ * THE ACCENT IS SPENT ON THE EXCEPTION, the same rule the Library's badges
+ * follow. Nearly every row is `active`, so the state pill stays quiet and the
+ * one that fires is the person who can no longer sign in.
+ *
+ * NOT COLOUR ALONE — the pill carries the status as a word, so this rule can be
+ * ignored entirely by a monochrome display or a screen reader without the fact
+ * being lost. `--shell-danger` is not a declared shell token, hence the literal.
+ */
+.builder-people__suspended {
+  color: var(--shell-danger, #b91c1c);
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+/* --- the detail pane ---------------------------------------------------------- */
+
+.builder-people__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.builder-people__heading {
+  font-size: 0.95em;
+  margin: 0;
+  color: var(--shell-fg);
+}
+
+/* A heading and its section belong together: the gap above a heading is the
+   pane's, the gap below it is the heading's own and is much smaller. */
+.builder-people__heading + .builder-people__section {
+  margin-top: -6px;
+}
+
+.builder-people__section {
+  min-width: 0;
+}
+
+.builder-people__empty {
+  margin: 0;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-muted);
+}
+
+/*
+ * The joined table (REQ-189) — ONE ROW PER BUSINESS, carrying the membership
+ * facts and the grant facts as columns.
+ *
+ * Its metrics are `fields.css`'s, deliberately: 13px, `3px 8px` cells, a 1px
+ * rule under each row, headings in the label colour at the label weight. The
+ * two surfaces sit one above the other in this pane, and a table with its own
+ * type scale would be the second look this block exists to avoid.
+ */
+.builder-people__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.builder-people__table th,
+.builder-people__table td {
+  padding: 3px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--shell-border);
+}
+
+.builder-people__col {
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--shell-muted);
+}
+
+/* A wide row of short values is hard to track across; the hover is what keeps
+   the eye on one business. Cheap, and the only thing this class is for. */
+.builder-people__businessrow:hover td {
+  background: var(--shell-surface);
+}
+
+/* Cells whose emptiness IS the fact: a business run with no grant, and a grant
+   against a business nobody here runs. Muted and italic so the row reads as
+   complete-with-a-gap rather than as half-loaded, and never as an error — a
+   lapsed customer is a state, not a fault. */
+.builder-people__none {
+  color: var(--shell-muted);
+  font-style: italic;
+}
+
+/* The name is the row's subject. */
+.builder-people__name {
+  font-weight: 500;
+}
+
+.builder-people__role,
+.builder-people__plan,
+.builder-people__window,
+.builder-people__grantstatus {
+  white-space: nowrap;
+}
+
+.builder-people__grantstatus {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+/* A membership that was withdrawn, beside the role it withdrew — the exception
+   again, and again carried in a word rather than in the colour alone. */
+.builder-people__revoked {
+  margin-left: 6px;
+  font-size: 0.85em;
+  color: var(--shell-danger, #b91c1c);
+}
+
+.builder-people__revokegrant {
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  padding: 0 6px;
+  color: var(--shell-muted);
+  background: none;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+.builder-people__revokegrant:hover {
+  color: var(--shell-danger, #b91c1c);
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+.builder-people__fulfil {
+  font: inherit;
+  cursor: pointer;
+  margin: 0 8px;
+  padding: 4px 12px;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+.builder-people__fulfil:hover {
+  border-color: var(--shell-accent);
+}
+
+/* --- the two dialogs -----------------------------------------------------------
+ *
+ * The same defect one surface along: these fields were emitted and matched by
+ * nothing, so an invite dialog was two unstyled boxes at the browser's default
+ * size inside a panel that is otherwise the app's. The inputs take the palette's
+ * field metrics, which is what every other text input in a builder modal uses.
+ */
+
+.builder-people__invite-email,
+.builder-people__invite-name,
+.builder-people__fulfil-name {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+}
+
+.builder-people__invite-hint,
+.builder-people__fulfil-who {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--shell-muted);
+}
+
+/* One place for both the refusal and the outcome, so it may not be quiet enough
+   to miss — it is the only thing that says whether the invite happened. */
+.builder-people__invite-said,
+.builder-people__fulfil-said {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: var(--shell-radius);
+  background: var(--shell-surface);
+}
+
+.builder-people__invite-said[hidden],
+.builder-people__fulfil-said[hidden] {
+  display: none;
+}
+
 /*
  * The upload overlay (REQ-161).
  *

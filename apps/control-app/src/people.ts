@@ -98,6 +98,21 @@ export interface Grant {
   id: string
   /** The OBJECT — which business the access is to. */
   businessId: string
+  /**
+   * That business's name, so the joined table can say which one ([[REQ-189]]).
+   *
+   * IT CANNOT BE BORROWED FROM `operates`. The row that most needs a name is
+   * the one with no membership to borrow it from — a grant against a business
+   * this person does not run, which is a support arrangement or a mistake and
+   * is precisely the mismatch the joined table exists to surface. Left to the
+   * id it would read as an opaque `acct_…` beside real names, which is the
+   * cell an operator would skip.
+   *
+   * THE SAME METADATA-ONLY JOIN `operates` ALREADY MAKES: `tenants.name` for a
+   * business, and nothing inside it. Null when the tenant row is gone, so a
+   * dangling grant still renders rather than disappearing.
+   */
+  businessName: string | null
   /** The SUBJECT. Null is a per-business capacity grant ([[REQ-184]]). */
   accountId: string | null
   plan: string
@@ -227,12 +242,18 @@ async function grantsFor(
   personId: string,
   businessIds: string[],
 ): Promise<Grant[]> {
+  // LEFT JOIN, not an inner one: a grant naming a business whose `tenants` row
+  // has gone must still be reported. An inner join would silently drop it, and
+  // a grant that vanishes is the one an operator can never ask about.
   const columns =
-    'id, business_id, account_id, plan, source, status, starts_at, ends_at, note'
+    'e.id AS id, e.business_id AS business_id, t.name AS business_name, ' +
+    'e.account_id AS account_id, e.plan AS plan, e.source AS source, ' +
+    'e.status AS status, e.starts_at AS starts_at, e.ends_at AS ends_at, e.note AS note'
   const rows: GrantRecord[] = []
 
   const own = await env.DB.prepare(
-    `SELECT ${columns} FROM entitlements WHERE account_id = ? ORDER BY starts_at ASC`,
+    `SELECT ${columns} FROM entitlements e LEFT JOIN tenants t ON t.id = e.business_id ` +
+      'WHERE e.account_id = ? ORDER BY e.starts_at ASC',
   )
     .bind(personId)
     .all<GrantRecord>()
@@ -241,8 +262,8 @@ async function grantsFor(
   if (businessIds.length > 0) {
     const holes = businessIds.map(() => '?').join(', ')
     const capacity = await env.DB.prepare(
-      `SELECT ${columns} FROM entitlements WHERE account_id IS NULL ` +
-        `AND business_id IN (${holes}) ORDER BY starts_at ASC`,
+      `SELECT ${columns} FROM entitlements e LEFT JOIN tenants t ON t.id = e.business_id ` +
+        `WHERE e.account_id IS NULL AND e.business_id IN (${holes}) ORDER BY e.starts_at ASC`,
     )
       .bind(...businessIds)
       .all<GrantRecord>()
@@ -252,6 +273,7 @@ async function grantsFor(
   return rows.map((r) => ({
     id: r.id,
     businessId: r.business_id,
+    businessName: r.business_name ?? null,
     accountId: r.account_id,
     plan: r.plan,
     source: r.source,
@@ -265,6 +287,7 @@ async function grantsFor(
 interface GrantRecord {
   id: string
   business_id: string
+  business_name: string | null
   account_id: string | null
   plan: string
   source: string
@@ -506,8 +529,10 @@ export async function openGrant(env: IdentityEnv, spec: GrantSpec): Promise<Gran
     .run()
 
   const row = await env.DB.prepare(
-    'SELECT id, business_id, account_id, plan, source, status, starts_at, ends_at, note ' +
-      'FROM entitlements WHERE id = ?',
+    'SELECT e.id AS id, e.business_id AS business_id, t.name AS business_name, ' +
+      'e.account_id AS account_id, e.plan AS plan, e.source AS source, ' +
+      'e.status AS status, e.starts_at AS starts_at, e.ends_at AS ends_at, e.note AS note ' +
+      'FROM entitlements e LEFT JOIN tenants t ON t.id = e.business_id WHERE e.id = ?',
   )
     .bind(id)
     .first<GrantRecord>()
@@ -515,6 +540,7 @@ export async function openGrant(env: IdentityEnv, spec: GrantSpec): Promise<Gran
   return {
     id: row.id,
     businessId: row.business_id,
+    businessName: row.business_name ?? null,
     accountId: row.account_id,
     plan: row.plan,
     source: row.source,
