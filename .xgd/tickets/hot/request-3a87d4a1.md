@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T21:49:11.352533+00:00'
+updated_at: '2026-09-05T22:18:49.548826+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -111,3 +111,30 @@ part of the baseline, keyed the new way.
 - R2 prefixes and the erasure path follow the new keys
 - `0001`–`0008` are gone, replaced by one baseline that includes [[REQ-191]],
   [[REQ-193]] and the operator seed
+
+
+## Moving a site between businesses is the worked example
+
+Deferred to this ticket, 2026-09-05 ([[CHAT-23]]). `xgd.dev` was provisioned as a
+second business on the operator's account while the `xgd` site it is named after
+sat in `1stcontact`, where it was built when `TENANT_ID` decided everything.
+`provisionBusiness` fills an order and has no notion of existing content, so
+nothing moved — correctly. What was wanted is a second operation: move a site to
+another business.
+
+**Today that is a five-table rewrite plus an object-store copy.** `sites` is keyed
+`(tenant_id, slug)` and the key propagates into `site_pages`, `site_assets`,
+`site_changes`, `site_revisions` and `published_sites`, and into the R2 prefixes
+`draft/<tenant>/<slug>/assets/…`. The owning business is baked into the key of
+everything the site is made of, which is this ticket's whole thesis stated as a
+task somebody actually wanted to do.
+
+**After the rebaseline it is an update of one column** — the site's row names its
+business by key, and nothing else records it. So the move tool is deliberately
+not built first: it would be a migration written against a schema that is about
+to be replaced, and its difficulty is the evidence for replacing it.
+
+Left in place until then: the `xgd` site stays in `1stcontact` and `xgd.dev`
+keeps its empty starter site.
+
+Adds one acceptance criterion below.
