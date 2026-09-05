@@ -61,6 +61,48 @@
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+
+/* --- the app control size (BUG-53) -------------------------------------------
+ *
+ * THE COMPANION TO THE FAMILY RULE ABOVE, and for the same reason. Family is set
+ * once on the shell and inherited; SIZE could not be, because `.shell` declares
+ * none. So every control that says `font: inherit` — the shell's own action
+ * buttons, this app's filter rows, every dialog button — inherited nothing and
+ * resolved to the browser's default 16px, standing a full three points above the
+ * 12-13px the rest of the chrome runs at. They were not unstyled. They were
+ * styled at a size that belonged to nobody.
+ *
+ * ONE TOKEN, APPLIED TO EVERY CONTROL, rather than a `font-size` written out per
+ * rule. A literal repeated six times is six places to find the day the scale
+ * moves, and the fifth one that is missed is exactly this defect again.
+ *
+ * 13px MATCHES `--fields-font-size` (webui-fields), which is what the People
+ * table already takes (REQ-189) - so a control and the data it filters are one
+ * size.
+ *
+ * `.shell-actions button` IS AN OVERRIDE OF A COMPONENT RULE, deliberately. The
+ * shell lives in the shared out-of-repo component store and is not ours to edit;
+ * `chrome.ts` emits the component stylesheets and then this one, so a
+ * same-specificity rule here wins on order. The avatar action is unaffected -
+ * `.builder-avatar` sets its own size.
+ */
+
+:root {
+  --builder-control-font-size: 13px;
+  /* One height for the filter row: its search, its select and its button had
+     three different paddings and so three different heights. */
+  --builder-control-padding: 4px 10px;
+}
+
+.shell-actions button,
+.builder-people__search,
+.builder-people__states,
+.builder-people__invite,
+.builder-people__fulfil,
+.builder-modal__btn {
+  font-size: var(--builder-control-font-size);
+}
+
 /*
  * THE HEIGHT CHAIN. The preview frame is sized by the WINDOW, not by its
  * content, and that only holds if every box from the viewport down to the frame
@@ -1255,13 +1297,13 @@ body {
   background: var(--shell-surface);
   border: 1px solid var(--shell-border);
   border-radius: var(--shell-radius);
-  padding: 3px 6px;
+  padding: var(--builder-control-padding);
 }
 
 .builder-people__invite {
   font: inherit;
   cursor: pointer;
-  padding: 3px 10px;
+  padding: var(--builder-control-padding);
   color: var(--shell-bg);
   background: var(--shell-accent);
   border: 1px solid var(--shell-accent);
@@ -1470,7 +1512,7 @@ body {
   font: inherit;
   cursor: pointer;
   margin: 0 8px;
-  padding: 4px 12px;
+  padding: var(--builder-control-padding);
   color: var(--shell-fg);
   background: var(--shell-surface);
   border: 1px solid var(--shell-border);
