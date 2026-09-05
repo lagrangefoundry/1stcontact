@@ -5,13 +5,14 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-05T20:29:09.822243+00:00'
+updated_at: '2026-09-05T23:33:28.413715+00:00'
 completed_at: null
 last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
 ---
+
 
 # Two levels, two relations: the model behind the User tab
 
@@ -79,7 +80,7 @@ tenant — but nothing in the code needs to know how deep it is standing.
 that branches on which level a row belongs to. Today only `tenant_id` is
 consulted, which is correct.
 
-## 4. Four relations, and three of them are not the same table
+## 4. One entity, two axes, and two relations that are not the same table
 
 An earlier draft of this section said membership means *may log in* and mapped it
 to `memberships`. **That mapping was wrong**, and the schema says so plainly:
@@ -87,14 +88,15 @@ to `memberships`. **That mapping was wrong**, and the schema says so plainly:
 (`identity.ts:398`) while `provisionBusiness` writes her membership on *Alice's
 Plumbing*. She holds **no membership on 1st Contact** and logs in every day.
 
-The concepts were right; one of them lived somewhere else. There are four
-relations:
+The concepts were right; one of them lived somewhere else. **Amended again
+2026-09-05 against [[DOC-44]]**, which corrects the shape rather than the
+concepts a second time — see below the table.
 
 | | means | where it lives |
 | --- | --- | --- |
-| **Contact** | known to this business — an email or a phone — and **may become a member** | a `users` row in that tenant, never invited |
-| **Invited** | asked, and has not come | the same row, `invited_at` set and `tos_accepted_at` null |
-| **Member** | has signed up here, and so may log in | the same row, `tos_accepted_at` set |
+| **Contact** | known to this business — an email or a phone. The ENTITY, not a state | a `users` row in that tenant |
+| **Member** | has signed up here, and so may log in — the *access* axis | the same row, `tos_accepted_at` set |
+| **Lead** -> **Invited** -> ... | where the relationship stands — the *pipeline* axis | the same row, `pipeline_stage` |
 | **Operator** | may *run* this business — owner, support, eventually staff | `memberships` |
 | **Entitled** | this account has been granted access to some thing | `entitlements` |
 
@@ -103,24 +105,39 @@ An earlier draft of this section defined a member as *"may log in here — a `us
 row in that tenant, invited"*, which is the capability reading and is what made
 `invited_at` the marker: send the invite and the tab called that person a member
 at once. That describes what *we* did rather than what *they* did, and an
-invitation nobody answered is not a relationship. So the first relation has three
-states, and the middle one — asked, and not yet arrived — is the one an operator
-can act on.
+invitation nobody answered is not a relationship.
 
-Read across the example: Bob is a contact of Alice's Plumbing, becomes **invited**
-when Alice invites him, and becomes a **member** when he signs up. Alice is a
-member of 1st Contact **and** the operator of Alice's Plumbing. You are all four
-on 1st Contact.
+**And the fix for that was itself one line too few** ([[DOC-44]] §3). The draft
+between the two said the first relation had *three states* — Contact, Invited,
+Member — on one line. Two faults. *Contact* is the entity's own name, so using it
+as a value made it mean both "every row in this table" and "a row with nothing
+else true yet", which is how somebody comes to write the query that leaves
+customers out of the contact list; the initial value on the pipeline is **Lead**.
+And membership is an ACCESS fact while invited is a PIPELINE fact: they are
+independent, and the one line could represent neither a member this business
+never invited nor a lead who is neither. Both occur.
+
+Read across the example: Bob is a contact of Alice's Plumbing — that is what he
+IS, and it does not change. Alice invites him and his pipeline moves from
+**Lead** to **Invited**; he signs up and he becomes a **member**, with his stage
+exactly where it was. Alice is a member of 1st Contact **and** the operator of
+Alice's Plumbing. You are all of it on 1st Contact.
 
 `admit` implements the split exactly: `findUser(env, tenant, email)` is the
 member check, and `businessesFor(user.id)` then asks what that person may
 operate. The two answer different questions and neither implies the other.
 
-**Contact, invited and member are the same row in three states**, which is why the
-invite is a transition rather than a creation (§9). Two columns carry them:
-`invited_at`, which the invite stamps, and `tos_accepted_at`, which accepting the
-terms stamps. The two transitions belong to two different parties — the operator
-performs the first and only the person themselves can perform the second.
+**Both axes are columns on the same row**, which is why the invite is a
+transition rather than a creation (§9). `pipeline_stage` carries the first and
+`tos_accepted_at` the second, and the two transitions belong to two different
+parties — the operator moves the stage and only the person themselves can accept
+the terms.
+
+**`invited_at` is not the stage and must not be read as one** ([[DOC-44]] §4). It
+records WHEN we asked, which is worth showing on a record; the stage records
+WHETHER they are in that state. Deriving one from the other works for two values
+and turns every later stage into a new column plus an ordering rule nobody can
+see, so the stage is stored and the stamp is a stamp.
 
 `tos_accepted_at` and **not** `first_seen_at` is the membership marker, and the
 difference matters: `admit` stamps `first_seen_at` on the first request that gets
@@ -149,12 +166,15 @@ Recorded because the model names things the schema cannot yet hold.
   have rows at all and Access guards the origin; it stops being moot the moment a
   business captures contacts and puts a portal on its own site.
 
-  **What [[REQ-188]] does answer** is the other half. Membership is no longer a
-  label the tab paints over a row that was merely asked: `tos_accepted_at` is
-  written by an act of the person's own, `guardTerms` refuses everything behind it
-  until that act happens, and so the member state is enforced by the gate that
-  writes it. A never-invited row can still sign in; a row that has not signed up
-  cannot be called a member by anybody.
+  **What [[REQ-188]] does answer** is the other half, and it also dissolves part
+  of the question. Membership is no longer a label the tab paints over a row that
+  was merely asked: `tos_accepted_at` is written by an act of the person's own,
+  `guardTerms` refuses everything behind it until that act happens, and so
+  membership is enforced by the gate that writes it. A never-invited row can still
+  sign in — and under [[DOC-44]] §3 that is no longer even an anomaly to enforce
+  against, because a member who is still a **Lead** is an ordinary, representable
+  contact rather than a contradiction. What remains advisory is the pipeline
+  stage, which nothing but the invite writes and nothing at all consults.
 
 ## 5. The Portal is what MEMBERSHIP IS. It is not a grant
 
@@ -249,15 +269,15 @@ Three facts about what that business does. None of them is a kind of tenant.
 - **Its product is other businesses**, which is why `provisionBusiness` is its
   fulfilment action (§7).
 
-## 9. Contact, invited and member are one population in three states
+## 9. Contacts are one population, and the axes are columns on it
 
 [[DOC-40]] *Contacts are users*: a contact is a `users` row in that tenant with
 no authentication fields set — explicitly not a second table, with
 `(tenant_id, email)` unique as the one place identity is decided (0004:61).
 
 So the CRM and the User tab are two views of one list, and **the invite is the
-verb that moves someone across** — it turns a §4 *contact* into a §4 *invitee*.
-It is why these are states of one row rather than three records: capture a
+verb that moves someone along the pipeline** — it takes a §4 *lead* to *invited*.
+It is why these are values on one row rather than several records: capture a
 visitor → see them in the CRM → invite them in. Your CRM is prospects who landed
 on the 1c site; your Users are the ones you asked.
 
@@ -268,19 +288,26 @@ and the verb that writes it is the person's own: they sign up, which includes
 accepting the terms, and the tab shows them as a member with no operator action
 at all. Two verbs, two parties, one row.
 
-A contact is a person you may reach and who **may become** a member; an invitee is
-a person you have asked and who has not come. That "may" is the whole of the first
-distinction and "has not" is the whole of the second: nothing else about the row
-changes, and the identity the `(tenant_id, email)` index decides is the same
-identity throughout. Which is exactly why a contact later invited must not become
-a second row with a duplicate address — the case [[DOC-40]] cites as the reason
-for one table.
+**And they are two axes, not one line** ([[DOC-44]] §3; amended 2026-09-05).
+This section used to say *"one population in two states"*, and then *"three"*.
+One population, yes. States on a line, no: a contact is a **lead** until somebody
+asks them, and a **member** once they sign up, and those two answers are given
+independently. Nothing else about the row changes as either moves, and the
+identity the `(tenant_id, email)` index decides is the same identity throughout —
+which is exactly why a contact later invited must not become a second row with a
+duplicate address, the case [[DOC-40]] cites as the reason for one table.
 
-One tab with a facet, or two tabs over one query, is open. Two lists is not.
+One tab with facets is what this is. **Two facets, not one**, and that follows
+from the axes rather than from taste: the two questions an operator actually has
+— *who did I ask who never came*, and *who signed up that I never asked* — are
+each a conjunction across both axes, and no single facet over one merged list of
+values can express either, however many values that list is given. Two lists is
+still the thing ruled out.
 
 **Falsifier:** a User list and a CRM list that can disagree about a person who is
-both, an invite that inserts rather than updates, or any surface that calls a
-person a member before they have accepted the terms.
+both, an invite that inserts rather than updates, any surface that calls a person
+a member before they have accepted the terms, or a single control that makes the
+two axes look like alternatives.
 
 ## 10. Amendments this model owes to what is already written
 
