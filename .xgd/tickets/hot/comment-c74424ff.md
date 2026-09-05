@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:10:27.654764+00:00'
+updated_at: '2026-09-05T18:15:53.444418+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1169,5 +1169,11 @@ Three tickets, and I'd sequence them:
 3. The `500`-on-bad-grant fix, which is small.
 
 Want me to scope those? Note I only proved the tab is *served* — I haven't clicked it, so the Users tab and switcher UI are still unverified beyond their APIs.
+
+<!-- xgd-turn id="9ccc0b44-3ae4-4eb3-87aa-68cbce1c8160-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T18:15:52.949883+00:00" -->
+#### You
+I'm not sure I understand your steps. Can we do this by UX - I would like to start by creating (or showing) a user tab in the app that at least shows me users - is that a good place to start?
 
 <!-- xgd-chat-end -->
