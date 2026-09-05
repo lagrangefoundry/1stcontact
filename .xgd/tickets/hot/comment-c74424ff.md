@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:16:45.443725+00:00'
+updated_at: '2026-09-05T22:17:52.729139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2008,5 +2008,44 @@ Two things you'll notice, both known rather than new:
 <!-- xgd-chat role="user" ts="2026-09-05T22:16:44.945248+00:00" -->
 #### You
 I do not see the xgd site that we built though?
+
+<!-- xgd-turn id="5a1a2388-2fbb-45cf-a81a-bc32bf4d455d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:17:52.061693+00:00" -->
+#### Claude
+Found it — the `xgd` site is in the **1stcontact** business, not the new one.
+
+The scoped import route works (400 = it parsed my empty body, so it's reachable and scoped). Here's what happened.
+
+## The site is in the wrong business — and nothing moved it, by design
+
+| Business | Sites |
+|---|---|
+| `1stcontact` | `alpha`, **`xgd` (2 published revisions)** |
+| `xgd.dev` | one empty starter site |
+
+`provisionBusiness` **fills an order** — it creates a tenant, a membership, a grant and a fresh starter site. It has no notion of existing content, so it didn't and couldn't bring `xgd` with it. The site you built is still where you built it: in the 1st Contact business, from back when there was only one tenant and `TENANT_ID` decided everything.
+
+So "add xgd.dev as a business" did exactly what it says, and what you actually want is a *second* operation nobody has written: **move a site to another business.**
+
+## Why that operation doesn't exist, and isn't small
+
+This is REQ-190's argument made concrete. `sites` is keyed `(tenant_id, slug)`, and that key propagates into `site_pages`, `site_assets`, `site_changes`, `site_revisions` and `published_sites` — plus the R2 prefixes `draft/<tenant>/<slug>/assets/…`. Moving one site across a tenant boundary today is a five-table rewrite *and* an object-store copy, because the owning business is baked into the key of everything the site is made of.
+
+After REQ-190 it's an update of one column.
+
+## Three ways forward
+
+**1. Re-push the local draft into xgd.dev.** You still have `xgd` in the local file-backed store (`1c list` shows it, unpublished). The scoped route `/b/<id>/api/import` accepts it and I've confirmed it's reachable. This is the cleanest option — it uses the real import path and writes the site properly into the new business.
+
+The catch: `1c push` can't target a business. `push.ts:163` does `new URL('/api/import', opts.origin)`, and an absolute path discards any prefix on the origin — so `--origin http://…/b/<id>` silently lands in your default business instead. Making `1c push` take a `--business` flag is a small, honest change and probably wants a ticket.
+
+It also won't bring the two published revisions; you'd re-publish in the new business and start revision history over.
+
+**2. Move the rows.** Faithful, keeps history, and is the five-table-plus-R2 job described above. I'd rather not hand-write that against your data.
+
+**3. Leave it until REQ-190.** After the rebaseline this is a one-column update, and there's a decent argument for not building a migration tool for a schema you're about to replace.
+
+I'd suggest **1** if you want to look at the site inside xgd.dev today, **3** otherwise. Want me to file the `1c push --business` gap either way? It's the thing standing between you and a one-command answer, and it'll still be true after REQ-190.
 
 <!-- xgd-chat-end -->
