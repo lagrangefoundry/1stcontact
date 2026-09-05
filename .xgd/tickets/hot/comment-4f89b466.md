@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-189
 created_by: xgd
 created_at: '2026-09-05T20:19:37.492466+00:00'
-updated_at: '2026-09-05T20:35:45.997897+00:00'
+updated_at: '2026-09-05T20:37:43.871722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,14 @@ Done. REQ-189 is at `free_coded` on `0.2.77`, both commits merged into `xgd-work
 2. **REQ-188 landed on `xgd-working` mid-session, after my branch was cut.** I rebased onto it; the only conflict was a doc comment. Nothing in this work names a state label, so the three-state model needed no adaptation. Separately, BUG-52 claimed 0.2.76 seconds before my merge, so I took 0.2.77 in a follow-up commit rather than claiming their version.
 
 Evidence: 15 presentation UATs (jsdom, real components, HTTP the only double) and 2 origin UATs (workerd, real D1). Regression scope of 18 files / 145 tests passes. Three suites initially failed on missing `src/generated` and `dist-assets` — gitignored build output absent from a fresh worktree; they pass once copied, and are unrelated to this change.
+
+<!-- xgd-turn id="f118add0-e214-4fb2-b4b6-ef43e8b47d58-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T20:37:43.217365+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
