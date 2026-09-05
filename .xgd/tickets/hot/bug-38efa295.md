@@ -5,10 +5,10 @@ type: bug
 title: An expired session renders as a working, empty account
 created_by: xgd
 created_at: '2026-09-05T19:10:55.261370+00:00'
-updated_at: '2026-09-05T20:33:50.741577+00:00'
+updated_at: '2026-09-05T20:35:23.798617+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -16,6 +16,14 @@ fields:
   needs_review: false
   chat_comment: comment-22b21d75
   story_points: 3
+  commits:
+  - working_sha: 902b5b63d93eb4716df946d6d8f462a2d3aa0a97
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1cd00146f39e34df5fae860e124c2e071797cd7a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.76
 ---
 
 # An expired session renders as a working, empty account
