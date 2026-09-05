@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:19:02.098828+00:00'
+updated_at: '2026-09-05T23:28:28.016823+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2315,5 +2315,13 @@ An events table — `(contact, kind, when, detail)` — gives you provenance as 
 So I've recorded the fork as a sequencing question rather than a design one: the events table is where this ends up, and the only real decision is whether you pay for it now or put a `source` column in the rebaseline first and migrate later. Given REQ-190 is rebaselining anyway and there's no data, "now" is unusually cheap — but it's a bigger build than a column, so it's your call.
 
 Nothing filed yet. Want a REQ for provenance, and do you want it as the column or the events table?
+
+<!-- xgd-turn id="f7189739-cda6-440e-a868-410aad1fa01b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:28:27.950377+00:00" -->
+#### You
+Yes! we need an events table - notice the discussion on Beta test flows - we are going to create an email table too - each email (in or out) is an event
+
+Also can you answer the questions raised by REQ-190 bring anything to me that need my input
 
 <!-- xgd-chat-end -->
