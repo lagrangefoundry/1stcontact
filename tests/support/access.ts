@@ -16,6 +16,25 @@ import { webcrypto } from 'node:crypto'
 
 const crypto = webcrypto as unknown as Crypto
 
+/**
+ * How long a minted token is good for ([[BUG-52]]).
+ *
+ * MULTI-DAY, AND THAT IS A HARNESS DECISION WITH NO PRODUCTION COUNTERPART —
+ * deployed session lifetime is a Cloudflare Access setting and REQ-187's
+ * subject. This value governs one thing: whether a token minted for a local
+ * stack outlives the sitting somebody is using it in.
+ *
+ * IT WAS AN HOUR, AND AN HOUR IS THE WORST POSSIBLE LENGTH. It is long enough
+ * to look like a working session and short enough to end inside one — so the
+ * harness running down produces exactly the symptom [[BUG-52]] is about, and an
+ * operator reproducing that bug cannot tell the two apart. A lifetime measured
+ * in days removes the harness from the set of explanations.
+ *
+ * A DEFAULT, NOT A CEILING: `token({exp})` still overrides it, which is how the
+ * suites that mint a DELIBERATELY expired token do it.
+ */
+export const TOKEN_LIFETIME_SECONDS = 7 * 24 * 60 * 60
+
 export interface AccessTeam {
   /** Origin to set as `ACCESS_TEAM_DOMAIN`, e.g. `http://127.0.0.1:54321`. */
   teamDomain: string
@@ -70,7 +89,7 @@ export async function startAccessTeam(): Promise<AccessTeam> {
       aud: [aud],
       iat: now,
       nbf: now,
-      exp: now + 3600,
+      exp: now + TOKEN_LIFETIME_SECONDS,
       email: 'uat@westhead.me',
       ...claims,
     }

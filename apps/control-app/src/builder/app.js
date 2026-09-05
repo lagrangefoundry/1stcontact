@@ -42,6 +42,7 @@ import {
   uploadMaterial,
   writePalette,
 } from './api.js'
+import { createSessionNotice, isSessionEnded, onSessionEnded } from './session.js'
 
 /**
  * Mount the builder shell (REQ-115 / DOC-28 §12 T1).
@@ -247,6 +248,26 @@ export function mountBuilder(root, options = {}) {
    */
   const noBusiness = businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
   if (noBusiness && !blocked) blockTabs(shell, BUSINESS_NONE_SELECTABLE_MESSAGE)
+
+  /**
+   * SAY IT ONCE, THE FIRST TIME ANY CALL FINDS OUT ([[BUG-52]]).
+   *
+   * The builder makes several calls at once and a lapsed session refuses all of
+   * them, so the subscription fires repeatedly for one fact. `sessionNotice`
+   * being non-null is the latch: a second refusal changes nothing on screen, and
+   * in particular does not stack banners.
+   *
+   * ON `root`, ABOVE THE SHELL, for {@link blockEverything}'s reason — a message
+   * whose text cannot be selected cannot be pasted into a support request. What
+   * it deliberately does NOT do is make the shell `inert` or navigate anywhere;
+   * see `session.js` for why an operator's unsaved work outranks tidiness here.
+   */
+  let sessionNotice = null
+  const unwatchSession = onSessionEnded((error) => {
+    if (sessionNotice) return
+    sessionNotice = createSessionNotice({ reason: error?.reason, variant: 'banner' })
+    root.prepend(sessionNotice.element)
+  })
 
   /**
    * Where the selection is remembered ([[REQ-179]]).
@@ -721,7 +742,18 @@ export function mountBuilder(root, options = {}) {
 
     // A failure to list is not a failure to run: the pane keeps what it had, and
     // the operator sees an unchanged builder rather than an empty one.
-    const list = await loadSitesFor(currentBusiness).catch(() => [])
+    //
+    // A REFUSED SESSION IS THE ONE FAILURE THAT STOPS HERE ([[BUG-52]]). It used
+    // to arrive as `[]` like any other, and an empty list is what then emptied
+    // the pane, the Library and the People tab — the empty account this bug is
+    // named for. The notice above has already said what happened, so the honest
+    // response is to change nothing: everything below this line rewrites a
+    // surface, and every one of those rewrites would be a lie about a store this
+    // session can no longer read.
+    const list = await loadSitesFor(currentBusiness).catch((error) =>
+      isSessionEnded(error) ? null : [],
+    )
+    if (list === null) return
     const slug = list.some((entry) => entry.slug === currentSite)
       ? currentSite
       : (list[0]?.slug ?? null)
@@ -801,6 +833,16 @@ export function mountBuilder(root, options = {}) {
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
     banner,
     /**
+     * The signed-out notice, or `null` while the session is good ([[BUG-52]]).
+     *
+     * A getter rather than a value: it appears mid-session, long after this
+     * object is returned, and the whole claim worth proving is that a builder
+     * that mounted healthy grows one when its session lapses under it.
+     */
+    get sessionNotice() {
+      return sessionNotice?.element ?? null
+    },
+    /**
      * What the overlay calls when a drop is committed — named so the refusal on
      * an unconfigured deployment is provable without simulating a browser
      * gesture (REQ-173). It is the same function the overlay is handed, not a
@@ -809,6 +851,8 @@ export function mountBuilder(root, options = {}) {
     receiveFiles,
     destroy() {
       banner?.remove()
+      unwatchSession()
+      sessionNotice?.element.remove()
       panel.frame.removeEventListener('load', rebind)
       unbindSite()
       switcher.destroy()
