@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:11:23.755635+00:00'
+updated_at: '2026-09-05T19:25:05.528383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1447,5 +1447,22 @@ Two things I'd separate out rather than solve with session length:
 - **The client's expiry behaviour**, which is BUG-52 regardless of what policy you pick. Even a 30-day session expires eventually, and it must not expire into an empty builder.
 
 Want me to write this up as a DOC section — the model plus the recommendation — so the policy has a home before we ticket it? Also worth noting the Access application settings live outside the repo, so part of this is a Cloudflare dashboard change rather than code, and `ACCESS.md` is where that's recorded today.
+
+<!-- xgd-turn id="ea729454-278e-45f3-970f-25bec684c6e4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T19:25:05.072190+00:00" -->
+#### You
+ok lets separate two things that seem to both be landing on BUG-52:
+(1) short term immediate (the is BUG-52) I want longer lived test sessions and the system to respect the stored token on reload.
+(2) NOT BUG-52 there is a bigger conversation that I want to have about token refresh, not getting denied access mid-session etc. I do not want to have that conversation now we have a LOT on deck to get through and that can wait. I would like you to create an REQ for this with your thoughts - make it clear that this the start of a conversation.
+
+Then I want to talk about the user tab that I am seeing.
+
+So good - I log in as Alice and I see her users, I log in as me, I see my users.
+
+Can you explain 
+ - "Invite" CTA - what does it do?
+ - Grants - what are these exactly? What does "Withdraw" CTA do?
+ - Provision a business CTA - what does it do?
 
 <!-- xgd-chat-end -->
