@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:03:04.748206+00:00'
+updated_at: '2026-09-05T00:03:43.094568+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -67,5 +67,27 @@ Separately: the claude.ai Gmail, Calendar and Drive connectors need authorising 
 <!-- xgd-chat role="user" ts="2026-09-05T00:03:04.058361+00:00" -->
 #### You
 mistype REQ-184 is the dependency
+
+<!-- xgd-turn id="f57519db-385b-4066-92dd-860b60772f0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:03:42.625225+00:00" -->
+#### Claude
+Confirmed — REQ-184 is real and in flight, and the collision is direct. Holding here.
+
+REQ-184 (`request-95dffc48`, status `free_coding`) is uncommitted in its own worktree, and it renames `memberships.account_id` → `business_id` and `entitlements.account_id` → `business_id`. Every point of overlap is on my remaining to-do list:
+
+| Collision | REQ-184 | REQ-185 (mine) |
+|---|---|---|
+| `db/migrations/0006_*` | `0006_entitlement_subject.sql` | `0006_platform_operator.sql` — mine must renumber to 0007 |
+| `identity.ts` | renames `account_id` in `businessesFor`, `bestActiveGrant`, `provisionBusiness`, `admissibleBusiness` | I edited `businessesFor` (added `m.role`), `admissibleBusiness`, and the `users` INSERT |
+| `scope.ts` | modified | still to change (`platform_admin` → `platform_operator`) |
+| `local-d1.ts`, `d1-site-factory.ts` | modified | both still to change |
+| REQ-168 / REQ-180 suites | modified | both still to change |
+
+So REQ-185 has to be rebuilt on top of REQ-184's tip rather than merged beside it — the two touch the same query strings in the same functions, which is the shape that merges clean and produces a wrong query.
+
+State is unchanged from my last report: `free-REQ-185` holds the 0006 migration and a partial `identity.ts`, tree does not compile, nothing committed, ticket at `free_coding`. Primary checkout clean. I've made no further edits.
+
+Ping me when REQ-184 lands and I'll renumber to 0007, replay the identity.ts edits onto the renamed columns, and finish the rest.
 
 <!-- xgd-chat-end -->
