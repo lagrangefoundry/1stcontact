@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-188
 created_by: xgd
 created_at: '2026-09-05T20:20:02.227587+00:00'
-updated_at: '2026-09-05T23:16:43.187866+00:00'
+updated_at: '2026-09-05T23:35:00.545141+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,42 @@ One judgement call worth flagging: an invited-but-unentitled person still cannot
 <!-- xgd-chat role="user" ts="2026-09-05T23:16:43.084583+00:00" -->
 #### You
 There was an adjustment to naming noted in the ticket - can you make the adjustment as part of this ticket please?
+
+<!-- xgd-turn id="ed859fad-2240-4668-bf85-a223d2be18fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:35:00.507012+00:00" -->
+#### Claude
+Now the migration.
+
+Now `ensurePlatformOperator` in identity.ts.
+
+Now the facets and the filter.
+
+Now the invite dialog wording and REQ-186's assertions.
+
+Now rewrite the workers UAT.
+
+Now the jsdom UAT.
+
+Now the regression scope: identity, people, terms, invite, BUG-53.
+
+Done. The ticket's naming adjustment was the two-axis correction, and it's landed on `xgd-working` as `50e94547`, recorded against REQ-188 alongside the earlier commit.
+
+**What changed**
+
+The earlier fix put Contact / Invited / Member on one line. Per [[DOC-44]] §3 that's two faults: *Contact* is the entity's name, not a value, and membership (access) is independent of invited (pipeline). So:
+
+- **`db/migrations/0009_pipeline_stage.sql`** — `users.pipeline_stage TEXT NOT NULL DEFAULT 'lead'`, no CHECK (the set grows), plus a one-time backfill to `invited` for rows already carrying `invited_at`. The stage is **stored**, not inferred from stamps — `invited_at` now records *when*, the column records *whether*.
+- **`builder/people-axes.js`** replaces `people-state.js`: one definition of `stageOf`/`accessOf`, imported by the panel, by `people.ts` and by `identity.ts` (so the string `'invited'` has exactly one spelling), and by both UAT suites.
+- **The invite** assigns the stage and `COALESCE`s the stamp — the asymmetry is deliberate — and touches `tos_accepted_at` not at all. Inviting an existing member is now an ordinary no-op on the other axis rather than a state that can't be spelled.
+- **The tab** draws a stage on every row and a member badge on those who signed up, and offers **two facets**. That's the load-bearing UI decision: *who did I ask who never came* and *who signed up that I never asked* are each conjunctions across both axes, and no single merged facet can express either.
+- **Classes name the axis, never the value** (`__stage`, `__access`, `__facet`). REQ-189's "no rule branches on what a state is called" guard caught my first attempt (`builder-people__member`), which is the guard working.
+- **DOC-42 §4, §4.1 and §9** re-amended to the axes, with the intermediate three-state draft recorded as the thing being corrected.
+
+**Evidence** — 11 UATs across the two REQ-188 files. The workers suite drives both transitions through real routes in workerd against real D1, and adds the two combinations the one-line model couldn't hold: a member this business never invited (still a Lead), and rows whose stamp and stage deliberately disagree in both directions, which is the only test a timestamp-inferring reader would fail. The jsdom suite proves the separate columns, each facet across every value, and the conjunction queries.
+
+**Knock-ons** — REQ-186 (×2), BUG-53, BUG-54 and REQ-189 UATs adjusted where they pinned the old label, the old facet class, or the `state` field. All pass.
+
+**Pre-existing failures, untouched by this diff**: 11 files fail on `xgd-working` — `bug32-webui-scope-rebrand` and ten knowledge-base suites (`KnowledgeConfigError: no index for source 'project'`). They fail identically in isolation; the checkout needs `1c kb build`. Nothing in this change touches knowledge or webui scope.
 
 <!-- xgd-chat-end -->
