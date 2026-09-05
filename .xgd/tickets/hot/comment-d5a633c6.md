@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T20:57:42.122103+00:00'
+updated_at: '2026-09-05T21:07:54.914019+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-29e265e3
@@ -19,5 +19,46 @@ fields:
 <!-- xgd-chat role="user" ts="2026-09-05T20:57:34.389240+00:00" -->
 #### You
 A number of the CTAs on the current UI appear to have no CSS associated with them on the top bar Theme and About, on the users tab the filter, "Invite", "Provision a Business" can you make them consistent please with a smaller font
+
+<!-- xgd-turn id="a97e2739-88ca-4f06-ae3b-ae72ec5becd9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:07:54.079641+00:00" -->
+#### Claude
+Ticket is empty. Let me locate the relevant UI code.Diagnosis is complete. Writing the scope ticket.
+
+Baseline green. Now the CSS change.
+
+Now inserting the shared control-size block after the `@font-face` declarations.
+
+Now unify the filter-row padding and drop the redundant `font: inherit` on the affected rules.
+
+Now the dead `builder-modal__button` class in the two dialogs.
+
+Now verifying the UATs actually fail without the fix.
+
+Six of seven fail without the fix. Tightening the two that report weakly.
+
+All 7 are genuine evidence. Now the regression scope.
+
+Done — landed on `xgd-working` as `af7c9f7`, BUG-53 at `free_coded`.
+
+**What was actually wrong** — two defects wearing the same face:
+
+1. **`font: inherit` with nothing to inherit.** The shell's action buttons, the People filter's search/select, Invite, Provision a business and the dialog buttons all say `font: inherit`. Nothing in the chain declares a `font-size` — `.shell` sets only a family — so every one resolved to the browser default **16px** while the rest of the chrome runs at 12–13px. They were styled; just at a size belonging to nobody.
+
+2. **`builder-modal__button` is a dead class.** The canonical one is `builder-modal__btn`. Five call sites (both Users-tab dialogs, plus the account dialog's Close) spelled it the long way, matching no rule anywhere — the genuinely unstyled case.
+
+**The fix**
+
+- A `--builder-control-font-size` token at **13px** (matching `--fields-font-size`, which the People table already takes) sizes all six selectors from one grouped rule — one place to change, rather than six literals of which one always gets missed.
+- The top bar is an override: the shell is in the shared out-of-repo store and isn't ours to edit, but `chrome.ts` already emits `builder.css` after the component stylesheets, so a same-specificity rule wins on order.
+- The filter row's three controls had three different paddings (`3px 6px` / `3px 10px` / `4px 12px`) and so three heights; they now share one token.
+- The five dead class names corrected, with Invite and Provision marked `--primary` the way `editor.js` and `palette-popup.js` mark their affirmative buttons.
+
+Dialog footers keep their larger `8px 18px` padding — a footer isn't a filter row — and Invite keeps its accent fill. Only the type size was unified there.
+
+**Evidence:** `tests/test_UAT_FC_BUG-53_control_type_is_consistent.test.ts`, 7 tests, mounted against the real components. I verified all 7 fail with the source reverted and pass with it. Regression scope: 24 suites / 186 tests across the builder, dialogs, shell chrome and Users tab, all green.
+
+One thing worth noting: REQ-189 already had a test claiming "nothing this tab's dialogs emit is unstyled" — it swept only classes prefixed `builder-people`, which is exactly how the `builder-modal__*` typo walked through it. The new suite widens the rendered sweep to all `builder-*` classes and adds a static sweep over every `modalButton` class literal in the builder, so that class of defect can't recur on a surface this session didn't happen to open.
 
 <!-- xgd-chat-end -->
