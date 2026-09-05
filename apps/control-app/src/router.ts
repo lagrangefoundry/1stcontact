@@ -10,6 +10,12 @@ import {
 } from '../../../tools/generate/src/cli/edit'
 import { CommandError, InvalidDefinitionError } from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
+import {
+  PORTAL_PATH,
+  PORTAL_SLUG,
+  portalBusinessId,
+  portalFallbackStore,
+} from './portal'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
@@ -17,6 +23,7 @@ import { SlugClaimedError } from '../../../tools/generate/src/store/d1r2-store'
 import { publicSiteUrl } from './public-url'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import type { SiteStore } from '../../../tools/generate/src/store/site-store'
 import {
   openSession,
   streamPrompt,
@@ -112,7 +119,7 @@ const PREVIEW_CHANNELS: PreviewChannel[] = ['draft', 'edit']
  * tenant-keyed cache handed the first workspace's renderer to every later one.
  * A `WeakMap` also lets a finished workspace's renderer be collected with it.
  */
-const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
+const PREVIEWS = new WeakMap<SiteStore, PreviewRenderer>()
 
 /**
  * The chat host, ONE PER BUSINESS PER ISOLATE (REQ-146, scoped by [[REQ-168]]).
@@ -202,7 +209,7 @@ export function resetChatHost(): void {
  * route uses — a second instance would render the draft a second time and could
  * answer from a different stamp than the one the operator is looking at.
  */
-export function previewRenderer(store: TenantSiteStore): PreviewRenderer {
+export function previewRenderer(store: SiteStore): PreviewRenderer {
   let renderer = PREVIEWS.get(store)
   if (!renderer) {
     renderer = new PreviewRenderer(store)
@@ -1662,6 +1669,55 @@ async function routeUncached(
      * of the redirect — a never-published site shows public-site's 404 rather
      * than a builder-shaped message — lands on a URL the toolbar never produces.
      */
+    /**
+     * GET /account — the customer portal ([[REQ-183]]).
+     *
+     * A SITE PAGE, SERVED BY THE RENDERER THAT SERVES EVERY OTHER PAGE. The
+     * surface showing an account its own relationship with a business is the
+     * customer portal of that business's SITE ([[DOC-40]] §2.1) — the same
+     * surface, rendered by the same code, that our customers will give their own
+     * customers. So there is deliberately no template here and no second render
+     * path: this is `servePreview`, against a different store, at a different
+     * path. If a later hand finds themselves adding a rendering path for it, the
+     * reading has been abandoned and that belongs in [[DOC-40]] §2.1 rather than
+     * in a quiet diff.
+     *
+     * IT APPEARS ON THIS ORIGIN BECAUSE THE IDENTITY IS HERE, AND THAT IS THE
+     * PROVISIONAL HALF ([[REQ-183]] D1). `app.1stcontact.io` already verifies an
+     * email and runs `admit`; `1stcontact.io` is `GET`-only, edge-cached and
+     * authenticates nobody, so one cached copy of a portal page would be
+     * everybody's answer. The ORIGIN is what moves when the credential layer is
+     * ours ([[DOC-40]] §3); the pages do not, because they are site content.
+     *
+     * IT TAKES NO SCOPE, and that is [[DOC-42]] §10.1's whole point. The store
+     * is opened against the business the caller is an ACCOUNT OF rather than the
+     * one they are operating, so `requireScope` is not called and an account whose
+     * every grant has lapsed reaches it — which is the population most likely to
+     * want the one control on it.
+     *
+     * A BUSINESS THAT HAS NOT AUTHORED A PORTAL GETS THE SHIPPED DEFAULT, through
+     * a real in-memory `SiteStore` rather than a branch in the renderer. Authoring
+     * one is an ordinary site write and it takes over the moment it exists.
+     */
+    if (p === PORTAL_PATH || p.startsWith(`${PORTAL_PATH}/`)) {
+      if (method !== 'GET' && method !== 'HEAD') {
+        return text(405, 'Method Not Allowed')
+      }
+      const businessId = portalBusinessId(deps.admission ?? null, scope)
+      // No identity and no scope: there is no business whose portal this could
+      // be, and inventing one would render somebody else's page.
+      if (businessId === null) return text(404, 'Not found')
+      const hostStore = await (deps.store ?? storeFor)(env, { businessId })
+      const authored = await hostStore.hasDraft(PORTAL_SLUG)
+      const portalStore = authored ? hostStore : portalFallbackStore(BUSINESSES_PATH)
+      const rel = p.slice(PORTAL_PATH.length) || '/'
+      // `draft` rather than a published revision: the portal is not published
+      // through `public-site` and has no revision log of its own yet, so the
+      // draft IS the live copy. When the portal moves to a customer's origin that
+      // becomes a publish like any other site's.
+      return servePreview(portalStore, PORTAL_SLUG, 'draft', rel)
+    }
+
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
     if (preview) {
       const slug = decodeURIComponent(preview[1])
@@ -1952,7 +2008,7 @@ function streamTail(
 
 /** Render `rel` out of a draft-side channel and answer with it. */
 async function servePreview(
-  store: TenantSiteStore,
+  store: SiteStore,
   slug: string,
   channel: PreviewChannel,
   rel: string,

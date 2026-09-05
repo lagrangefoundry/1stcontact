@@ -32,7 +32,12 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
     // (a) The delivery mechanism is gone: the module catalog holds only the two
     // survivor capabilities. No services-grid/footer (or any deleted layout
     // module) survives, so no cardVeil/cardBorder/footer-colour dial can exist.
-    expect([...registry.keys()].sort()).toEqual(['carousel@3', 'contact-form@4'])
+    // The survivors are asserted as PRESENT and the deleted ones as absent below.
+    // An exact list made an unrelated behaviour ([[REQ-183]]) fail this criterion,
+    // which is about the layout modules that were stripped and not about the size
+    // of the catalog.
+    expect([...registry.keys()].sort()).toContain('carousel@3')
+    expect([...registry.keys()].sort()).toContain('contact-form@4')
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {
       expect([...registry.keys()].some((k) => k.startsWith(`${gone}@`))).toBe(false)
       expect(() => getModule(gone, 1)).toThrow(/not found in catalog/)

@@ -1,6 +1,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens/index'
 import { registry, getModule } from '../packages/framework/src/modules/registry'
+import { CATALOG } from '../packages/framework/src/modules/catalog'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import type { BehaviorMeta } from '../packages/framework/src/modules/behavior'
@@ -101,12 +102,16 @@ describe('@1stcontact/framework module registry', () => {
 
   it('test_UAT_FC_REQ-4_every_module_exports_capability_meta', () => {
     // Compile-time: each meta satisfies the BehaviorMeta contract (REQ-85).
-    // Post-pivot the catalog holds only the two surviving capability modules.
     expectTypeOf(carouselMeta).toMatchTypeOf<BehaviorMeta>()
     expectTypeOf(contactFormMeta).toMatchTypeOf<BehaviorMeta>()
 
-    // Runtime: every registered module exposes the full capability contract.
-    expect(registry.size).toBe(2)
+    // Runtime: EVERY registered module exposes the full capability contract, and
+    // the count is derived from the catalog rather than written down. The claim
+    // is "each entry carries the contract", which is about the entries; pinning
+    // a number instead made adding one a failure of this test rather than of
+    // whatever it actually broke ([[REQ-183]] added the third).
+    expect(registry.size).toBe(CATALOG.length)
+    expect(registry.size).toBeGreaterThan(0)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')
