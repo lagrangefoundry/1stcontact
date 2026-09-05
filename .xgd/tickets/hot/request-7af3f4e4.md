@@ -14,6 +14,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a289690d
 ---
 
 # The invite: the verb that turns a contact into a member
