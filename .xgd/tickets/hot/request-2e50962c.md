@@ -5,7 +5,7 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-09-05T21:41:48.368538+00:00'
+updated_at: '2026-09-05T21:49:12.128600+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -21,8 +21,8 @@ fields:
 Part of the schema rebaseline. [[REQ-190]] owns the keys and the single baseline
 migration; this ticket owns the address shape and everything that reads it. They
 land together — see *Sequencing* below. [[CHAT-38]] is the wider conversation
-about how contacts are represented, and the name tickets coming out of it take
-the same shape as this one.
+about how contacts are represented; [[REQ-193]] came out of it and takes the
+same shape as this one.
 
 ## The defect
 
@@ -118,7 +118,7 @@ where they were flagged as open; none of them changes the shape above.
 - **Names take this shape with one axis removed.** A person has several addresses
   at once and exactly one name at a time, so the name table has no `is_primary`
   and the same partial unique index enforces *one current* instead of *one
-  primary*. Its own ticket, landing in the same baseline.
+  primary*. That is [[REQ-193]], landing in the same baseline.
 - **Postal addresses are deferred, and deliberately under-structured when they
   arrive.** An authored multi-line block plus exactly two structured fields:
   `country` (ISO-3166-1 alpha-2), because [[DOC-34]] makes it the single input to
