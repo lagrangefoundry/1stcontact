@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:13:39.768129+00:00'
+updated_at: '2026-09-05T22:14:47.433421+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1968,5 +1968,39 @@ Want me to file that as a bug? It's contained (one file, four call sites, one se
 <!-- xgd-chat role="user" ts="2026-09-05T22:13:39.468707+00:00" -->
 #### You
 Sure, please file the bug, then can you add xgd.dev as a business please to my account please?
+
+<!-- xgd-turn id="86c6c8c1-712a-4604-b456-f14289bcd0b9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:14:47.385085+00:00" -->
+#### Claude
+Now the business — using the real fulfilment route, not SQL.
+
+Both done.
+
+## BUG-55 — `1c kb build` cannot finish
+
+Turned out closer to a rename than I said last message, and the report says so precisely. `kb.ts` already constructs the `nodeIndexSource`; it just hands it over as singular `source:` when upstream REQ-112 made it **one index per source** and now wants `indexes` keyed by source name. Four call sites, one entry in the map (`shipped`). `binding.sources` is a different seam — corpus stores — and stays.
+
+Two things I put in the body that matter more than the fix:
+
+- **It fails at stage four of four**, so `corpus → index → chunks` all succeed and `1c kb status` afterwards reports everything built — the map being the previous one. That's why it reads as transient rather than broken.
+- **It's been costing you silently.** `1c assets` reports `awareness primed not indexed` on every run, so every bundle built since this broke ships a degraded map. It also explains the skew that blocked you today: REQ-165 added the projected `REF-*` docs and no build could complete afterwards to index them.
+
+I made the last acceptance criterion *"something fails when the repository and the shared store disagree about this seam"* — nothing does today, which is how a signature change became a long silent degradation. The components arrive out of band, so no `pnpm install` and no suite would have caught it.
+
+## xgd.dev
+
+Provisioned through the real fulfilment route (`POST /api/admin/businesses`), not SQL — so it exercised the same path a customer order would:
+
+```
+businessId: acct_057f3791dff803dc6a8e7a4769f37d0d
+```
+
+Your switcher now shows two: **1stcontact** and **xgd.dev**, both selectable, with a starter site in the new one. Reload and it should be in the shell header.
+
+Two things you'll notice, both known rather than new:
+
+- The site's slug is the business id (`acct_057f…`). `provisionBusiness` names the starter site after the business, which is ugly but is also the thing REQ-190 stops being *load-bearing* — right now that slug is a key, so renaming it later is a five-table rewrite.
+- Your account name now reads **"Martin Westhead"** where it was `null` earlier, so something set `display_name` since — worth knowing when you look at REQ-189's empty-name state, since you're no longer a test case for it.
 
 <!-- xgd-chat-end -->
