@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:28:28.016823+00:00'
+updated_at: '2026-09-05T23:30:49.844383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2323,5 +2323,37 @@ Nothing filed yet. Want a REQ for provenance, and do you want it as the column o
 Yes! we need an events table - notice the discussion on Beta test flows - we are going to create an email table too - each email (in or out) is an event
 
 Also can you answer the questions raised by REQ-190 bring anything to me that need my input
+
+<!-- xgd-turn id="f7189739-cda6-440e-a868-410aad1fa01b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:30:49.621792+00:00" -->
+#### Claude
+More landed while I was working — REQ-193 exists and REQ-191 absorbed the CHAT-38 decisions. Let me read the Beta test flows chat before writing the events ticket.
+
+**REQ-195 — "Contact events: the immutable spine every interaction hangs off."**
+
+The sharpest thing that fell out of writing it: **immutability forces the email split.** A message's delivery outcome moves — queued, sent, delivered, bounced — so the *message* is a record with mutable state, and the events are `email.sent`, `email.delivered`, `email.bounced`: three immutable rows, not one rewritten three times. Backwards, and the timeline silently loses the bounce the moment a retry succeeds.
+
+Also two timestamps, not one: `occurred_at` (when it happened) and `recorded_at` (when we learned). An imported mailing-list signup happened before we knew about it; a bounce webhook arrives after the bounce. One column makes an import look like a flood of activity today.
+
+Inbound as events too — your framing, and it's right. A reply is `email.received`, so the timeline is one sequence rather than two lists a reader interleaves by eye.
+
+## REQ-190's questions — answered
+
+**Sweep scope** was the one genuinely open item. Closed as all-in per your "this applies to everything", and I've listed what the single baseline contains: REQ-190, 191, 193, 194, 195, REQ-188's stage column, and `0005`'s operator seed. REQ-192 seeds after.
+
+The others were already settled and are recorded: rebaseline-and-wipe, phone as a sibling table, names with `is_primary` swapped for one-current, postal deferred and deliberately under-structured.
+
+## Four things that need you
+
+**1. What does wiping remote D1 actually destroy?** This is the one with teeth. I can't reach it from here. Locally you have `alpha` and `xgd` (2 published revisions) in the `1stcontact` business — and the local file-backed store only has `xgd` and `gigabytealchemy`, so **`alpha` may exist nowhere else**. R2 objects under the old tenant prefixes are also orphaned by a re-key. Worth an inventory before anyone runs it.
+
+**2. Is `0005`'s hardcoded operator email still right?** It seeds `martin-github@westhead.me`. It carries into the new baseline as-is unless you say otherwise.
+
+**3. Email as ticket type or table?** CHAT-39 says ticket type, and I've recorded that as the leaning. The cost: delivery state becomes a field rather than a column, so *"every message that bounced this week"* is a scan. If that query matters, it wants a table. Needs deciding before REQ-195 is built.
+
+**4. One branch or six?** Six tickets, one migration. My suggestion is one branch that authors the baseline with each ticket reviewable as its own commit — but it's your call and it affects how the free-coding runs.
+
+Two I'd flag but not block on: DOC-44 still has *Operator*'s name open and the pipeline stages after `Invited`. Neither blocks the baseline, since the stage is a stored string.
 
 <!-- xgd-chat-end -->
