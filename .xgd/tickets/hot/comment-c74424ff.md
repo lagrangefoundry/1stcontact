@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:17:19.700017+00:00'
+updated_at: '2026-09-05T21:18:58.936200+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1649,5 +1649,44 @@ So we should consider using SHA's not an incrementing index.
 There is no data yet - rebaseline
 
 This applies to everything - data as index will always burn you eventually. Honestly I am surprised that you chose it.
+
+<!-- xgd-turn id="1cf226c7-93a5-4a56-a82a-602a13151818-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:18:58.769397+00:00" -->
+#### Claude
+`newId` already mints 128 bits of CSPRNG hex — so you're right, and it collapses my two-column pattern into one. Updating REQ-190.
+
+REQ-190 updated on all three points.
+
+## SHAs — agreed, and it simplifies the ticket
+
+You're right, and `newId` already does it: `crypto.getRandomValues` over 16 bytes, hex, prefixed (`identity.ts:357`). 128 bits, unguessable.
+
+That **collapses the two-column pattern I proposed.** The only reason I wanted a separate `public_id` was that an integer key can't safely appear in `/b/<id>/`. A key that's already unguessable is safe in a join, a URL, an API response and an R2 prefix alike — one column does everything.
+
+One thing I pinned down in the ticket, because "SHA" is ambiguous in a way that matters: it has to be **random, not a digest of the row's data**. `sha256(email)` is data-as-key wearing a disguise — it still changes when the address changes, and still says two addresses are two people. `newId` is the right primitive; a content hash would reintroduce exactly the bug.
+
+Cost is one clause: a `TEXT PRIMARY KEY` isn't SQLite's rowid, so it carries a separate index. Irrelevant here, and the right trade against an enumerable key on a multi-tenant surface.
+
+## Global uniqueness — I ran two constraints together
+
+Fair challenge, and my earlier phrasing was muddled. They're separate:
+
+- **The key is globally unique by construction.** `user_emails.id` is a random 128-bit id. No scope needed, can't collide. You're right about that.
+- **The address constraint stays per tenant** — and the reason is isolation, not modelling, which is why the key type doesn't change it.
+
+A global unique constraint on the *address* means one address is one human across the whole deployment. That breaks two things: DOC-42 §1's example stops being representable (Alice's customer can't also be our customer), and — worse — a failed insert tells Alice that some other business on the platform already knows that address. That's an existence oracle across the tenant barrier, and DOC-38 §7.2 already refuses a global content address for blob keys for exactly that reason. An email is more identifying than a file.
+
+CHAT-36 settled that contacts fragmenting across businesses is the feature. So: **global identifiers, tenant-scoped addresses.**
+
+## Rebaseline — recorded as decided
+
+`0001`–`0008` replaced by one correct baseline rather than eight create-copy-drop-rename rebuilds. It means wiping the remote D1, not editing history, since `migrations apply` records what it ran.
+
+## On the surprise
+
+The schema is REQ-167's, not something I chose — but I read `0004` and `0005` several times this session, reported in detail on `admit` and `peopleOf`, and didn't flag email-as-identity until you asked about second addresses. The pattern was in front of me and I described the behaviour without questioning the shape. That's the fair version of the criticism and I've taken it.
+
+Worth saying that the sweep is wider than identity: `tenants.id` is a chosen name, `sites` is keyed on `(tenant_id, slug)`, and `published_sites.slug` is a **global** primary key — so the first two customers who both publish a site called `home` collide today. REQ-190 §5 still leaves "how far does this sweep go" open, and given your position I'd now say it goes all the way in one rebaseline rather than splitting. Say the word and I'll fold the sites half in properly rather than leaving it flagged.
 
 <!-- xgd-chat-end -->
