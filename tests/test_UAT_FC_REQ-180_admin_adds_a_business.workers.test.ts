@@ -7,9 +7,9 @@ import {
   admit,
   ensurePlatformOperator,
   findAccount,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
@@ -107,8 +107,8 @@ let seq = 0
 const anEmail = (): string => `req180-admin-${(seq += 1)}@example.test`
 
 /** An invitee who has also accepted the terms ([[REQ-169]]) — setup, not a claim. */
-async function invite(spec: Parameters<typeof provisionInvite>[1]) {
-  const result = await provisionInvite(identityEnv(), spec)
+async function invite(spec: Parameters<typeof inviteAccount>[1]) {
+  const result = await inviteAccount(identityEnv(), spec)
   await acceptTerms(identityEnv(), result.user.id)
   return result
 }
@@ -311,7 +311,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     // ([[REQ-178]]'s `provisionBusiness`), so an account never exists in the
     // no-business state that `admit` refuses with `no_membership`.
     const email = anEmail()
-    const result = await provisionInvite(identityEnv(), {
+    const result = await inviteAccount(identityEnv(), {
       email,
       accountName: 'Salon',
       endsAt: null,

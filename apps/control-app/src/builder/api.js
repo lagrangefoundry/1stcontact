@@ -509,6 +509,52 @@ export async function savePersonStatus(id, status, fetchImpl = fetch) {
   return res.json()
 }
 
+/**
+ * Turn a contact into a member of the business that is open ([[REQ-186]]).
+ *
+ * `scoped()` LIKE EVERY OTHER WRITE, which is what makes one control serve both
+ * levels: the business in the path is the business the row lands in, so the tab
+ * has no level of its own to declare ([[DOC-42]] §3).
+ */
+export async function invitePerson(email, displayName, fetchImpl = fetch) {
+  const res = await fetchImpl(scoped('/api/people/invite'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, displayName }),
+  })
+  // The message is READ BACK on a refusal rather than discarded for the status.
+  // 403 here means "you do not own this business" and 400 means "you typed
+  // nothing"; a caller shown only the number has to guess which, and the panel
+  // puts the sentence in front of the operator.
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/people/invite → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * Provision a business for an existing account — 1st Contact filling an order.
+ *
+ * `/api/admin/` AND NOT `scoped()`, and the difference is the ticket's ([[REQ-180]]
+ * D2). Inviting is scoped because it writes into the business you are in;
+ * provisioning MAKES a business and belongs to no existing one, which is also why
+ * it is gated on the second of [[DOC-42]] §7's two conditions and the invite is
+ * not.
+ */
+export async function provisionBusinessFor(accountEmail, name, fetchImpl = fetch) {
+  const res = await fetchImpl('/api/admin/businesses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ accountEmail, name }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/admin/businesses → ${res.status}`)
+  }
+  return res.json()
+}
+
 /** Open a dated grant. `businessId` is required; `accountId` null is capacity. */
 export async function openGrant(spec, fetchImpl = fetch) {
   const res = await fetchImpl(scoped('/api/grants'), {

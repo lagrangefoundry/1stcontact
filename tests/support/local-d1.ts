@@ -44,9 +44,10 @@ export function applyLocalD1Schema(repoRoot: string): void {
  *
  * IT IS REAL SQL AGAINST THE REAL DATABASE, through the same `wrangler d1
  * execute` path `applyLocalD1Schema` uses — not a stubbed store and not a fake
- * binding. What it seeds is exactly what `provisionInvite` writes; it is spelled
- * out here rather than called because these suites reach the Worker over HTTP
- * and hold no D1 handle of their own to call it with.
+ * binding. What it seeds is exactly what an invite plus a
+ * provisioned business writes ([[REQ-186]]); it is spelled out here rather than
+ * called because these suites reach the Worker over HTTP and hold no D1 handle of
+ * their own to call it with.
  *
  * The grant is OPEN-ENDED (`ends_at IS NULL`) deliberately: a suite whose fixture
  * expired would fail at a wall-clock time nobody chose. Expiry is proved where it

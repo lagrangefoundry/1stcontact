@@ -5,9 +5,9 @@ import {
   ensurePlatformOperator,
   ownsPlatformBusiness,
   provisionBusiness,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import {
   openGrant,
   peopleOf,
@@ -36,7 +36,7 @@ import { applySchema } from './support/d1-site-factory'
  *
  * WHAT MAKES IT EVIDENCE. Every case runs inside workerd against a real D1
  * database with the deployed migrations applied, and every row is written by a
- * shipped entry point — `provisionInvite`, `provisionBusiness`, `openGrant` —
+ * shipped entry point — `inviteAccount`, `provisionBusiness`, `openGrant` —
  * rather than seeded by hand, so a divergence between what the product writes and
  * what the tab reads would fail here rather than pass.
  */
@@ -75,7 +75,7 @@ describe('REQ-170 — the people of the business you are in', () => {
    */
   it('test_UAT_FC_REQ-170_lists_the_people_of_the_scoped_business_and_no_others', async () => {
     const mine = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email: mine, accountName: 'Alice Plumbing' })
+    const invited = await inviteAccount(identityEnv(), { email: mine, accountName: 'Alice Plumbing' })
 
     const people = await peopleOf(identityEnv(), { businessId: PLATFORM })
     expect(people.map((p) => p.email)).toContain(mine)
@@ -94,7 +94,7 @@ describe('REQ-170 — the people of the business you are in', () => {
   it('test_UAT_FC_REQ-170_a_contact_is_listed_and_is_distinguishable_from_a_member', async () => {
     const memberEmail = anEmail()
     const contactEmail = anEmail()
-    await provisionInvite(identityEnv(), { email: memberEmail, accountName: 'A Business' })
+    await inviteAccount(identityEnv(), { email: memberEmail, accountName: 'A Business' })
     await addContact(PLATFORM, contactEmail)
 
     const people = await peopleOf(identityEnv(), { businessId: PLATFORM })
@@ -110,7 +110,7 @@ describe('REQ-170 — the people of the business you are in', () => {
    * become the existence oracle `identity.ts` and `scope.ts` both refuse to be.
    */
   it('test_UAT_FC_REQ-170_a_person_in_another_business_is_indistinguishable_from_one_that_does_not_exist', async () => {
-    const invited = await provisionInvite(identityEnv(), { email: anEmail(), accountName: 'Theirs' })
+    const invited = await inviteAccount(identityEnv(), { email: anEmail(), accountName: 'Theirs' })
     const ours = await peopleOf(identityEnv(), { businessId: PLATFORM })
     const someone = ours[0]
 
@@ -136,7 +136,7 @@ describe('REQ-170 — the four relations are not the same table', () => {
    */
   it('test_UAT_FC_REQ-170_an_account_logs_in_holding_no_membership_on_the_business_it_logs_in_to', async () => {
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, accountName: "Alice's Plumbing" })
+    await inviteAccount(identityEnv(), { email, accountName: "Alice's Plumbing" })
 
     const onPlatform = await env.DB.prepare(
       'SELECT COUNT(*) AS n FROM memberships m JOIN users u ON u.id = m.user_id ' +
@@ -156,7 +156,7 @@ describe('REQ-170 — the four relations are not the same table', () => {
    */
   it('test_UAT_FC_REQ-170_status_is_the_login_control_and_a_suspended_person_is_refused', async () => {
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, accountName: 'A Business' })
+    await inviteAccount(identityEnv(), { email, accountName: 'A Business' })
     const people = await peopleOf(identityEnv(), { businessId: PLATFORM })
     const person = people.find((p) => p.email === email)!
 
@@ -174,7 +174,7 @@ describe('REQ-170 — the four relations are not the same table', () => {
    */
   it('test_UAT_FC_REQ-170_the_detail_shows_the_businesses_that_person_runs', async () => {
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, accountName: "Alice's Plumbing" })
+    const invited = await inviteAccount(identityEnv(), { email, accountName: "Alice's Plumbing" })
     await provisionBusiness(identityEnv(), {
       accountUserId: invited.user.id,
       name: "Alice's Second",
@@ -200,7 +200,7 @@ describe('REQ-170 — grants are a list, and revocation keeps the row', () => {
    */
   it('test_UAT_FC_REQ-170_an_account_holding_two_grants_shows_both', async () => {
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, accountName: 'Two Grants' })
+    const invited = await inviteAccount(identityEnv(), { email, accountName: 'Two Grants' })
     await openGrant(identityEnv(), {
       businessId: invited.businessId,
       plan: 'pro',
@@ -229,7 +229,7 @@ describe('REQ-170 — grants are a list, and revocation keeps the row', () => {
    * the row — the history of what access was given is the thing being kept."*
    */
   it('test_UAT_FC_REQ-170_revocation_marks_the_grant_and_does_not_delete_it', async () => {
-    const invited = await provisionInvite(identityEnv(), { email: anEmail(), accountName: 'Revoked' })
+    const invited = await inviteAccount(identityEnv(), { email: anEmail(), accountName: 'Revoked' })
     const grant = await openGrant(identityEnv(), { businessId: invited.businessId, plan: 'pro' })
 
     await revokeGrant(identityEnv(), grant.id)
@@ -256,11 +256,11 @@ describe('REQ-170 — the gate is two conditions and neither is "admin"', () => 
    */
   it('test_UAT_FC_REQ-170_the_fulfilment_control_is_refused_to_a_customer_who_owns_their_own_business', async () => {
     const customer = anEmail()
-    await provisionInvite(identityEnv(), { email: customer, accountName: 'A Customer' })
+    await inviteAccount(identityEnv(), { email: customer, accountName: 'A Customer' })
     const theirs = await admit(identityEnv(), customer)
 
     const operator = anEmail()
-    await provisionInvite(identityEnv(), { email: operator, accountName: 'The Operator' })
+    await inviteAccount(identityEnv(), { email: operator, accountName: 'The Operator' })
     await ensurePlatformOperator(identityEnv(), operator)
     const ours = await admit(identityEnv(), operator)
 
