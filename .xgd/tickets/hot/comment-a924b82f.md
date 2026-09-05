@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:01:44.975804+00:00'
+updated_at: '2026-09-05T00:03:04.748206+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,11 @@ Not done — and the tree is **mid-change, does not compile**:
 Baseline before the edits was green (REQ-168 scope + REQ-180 admin suites, 24 tests). Resuming means finishing the list above, not restarting.
 
 Separately: the claude.ai Gmail, Calendar and Drive connectors need authorising from your claude.ai connector settings — this session can't run the OAuth flow, so those tools are unavailable until you do.
+
+<!-- xgd-turn id="f57519db-385b-4066-92dd-860b60772f0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:03:04.058361+00:00" -->
+#### You
+mistype REQ-184 is the dependency
 
 <!-- xgd-chat-end -->
