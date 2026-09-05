@@ -17,6 +17,7 @@ fields:
   depends_on:
   - REQ-178
   - REQ-179
+  chat_comment: comment-415d6245
 ---
 
 # The customer portal: the account's own surface, rendered by the site pipeline
