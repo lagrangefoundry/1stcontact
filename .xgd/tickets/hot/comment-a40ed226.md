@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:59:56.607371+00:00'
+updated_at: '2026-09-05T00:37:25.691674+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -839,5 +839,13 @@ Both are **empty** — zero commits ahead of `xgd-working`, no code written, no 
 I haven't touched either — deleting branches is your call. `xgd branch clean` is the verb if you want REQ-185's reverted to `draft` and its worktree removed.
 
 Everything else from this session is committed locally; the pushes are still failing on the proxy auth error.
+
+<!-- xgd-turn id="843e3089-f955-447e-b8fe-a687dd027c92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:37:25.648788+00:00" -->
+#### You
+ok please note the changes REQ-184 made (see its transcript).
+
+If those do not need discussion, please proceed with your implementation
 
 <!-- xgd-chat-end -->
