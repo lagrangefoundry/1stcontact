@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:15:46.467441+00:00'
+updated_at: '2026-09-05T23:18:58.147048+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -249,5 +249,11 @@ What this buys beyond the history pane you asked for:
 4. Confirm **(c)** — magic link alongside Access, policy retired once proven.
 
 Say the word on those four and I'll write the six tickets.
+
+<!-- xgd-turn id="4eace566-66b7-4b46-b654-b2d302aa2318-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:18:57.532914+00:00" -->
+#### You
+If I build invite / send / email-log against `users.email`, the rebaseline rewrites all of it - THIS IS A DESIGN DISCUSSION DON"T BUILD ANYTHING!
 
 <!-- xgd-chat-end -->
