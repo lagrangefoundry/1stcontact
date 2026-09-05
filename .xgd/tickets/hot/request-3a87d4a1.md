@@ -5,9 +5,9 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T21:25:45.995580+00:00'
+updated_at: '2026-09-05T21:49:11.352533+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -19,8 +19,7 @@ fields:
 # Data is not a key: opaque keys across the schema, in one rebaseline
 
 The address half of this ticket moved to [[REQ-191]]. What is left is the rule
-and the sweep, and the single baseline both land in. [[CHAT-38]]'s name work will
-join the same baseline if it is ready in time.
+and the sweep, and the single baseline both land in. [[CHAT-38]]'s name work is [[REQ-193]], and it joins the same baseline.
 
 ## The rule
 
@@ -109,5 +108,5 @@ part of the baseline, keyed the new way.
 - a business can be renamed, and a site's slug can change, with no key rewritten
 - two businesses can each publish a site called `home`
 - R2 prefixes and the erasure path follow the new keys
-- `0001`–`0008` are gone, replaced by one baseline that includes [[REQ-191]] and
-  the operator seed
+- `0001`–`0008` are gone, replaced by one baseline that includes [[REQ-191]],
+  [[REQ-193]] and the operator seed
