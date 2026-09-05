@@ -32,6 +32,7 @@ fields:
     reconcile_sha: 11014d58968c2b8d524f324899754381e49a416a
     main_sha: null
     working_sha_history: []
+  version: 0.2.68
 ---
 
 # Identity: an account operates several businesses, not one
