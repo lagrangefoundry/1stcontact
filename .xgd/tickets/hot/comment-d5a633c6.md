@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T21:48:07.899354+00:00'
+updated_at: '2026-09-05T22:11:28.641949+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,11 @@ $ curl -s http://127.0.0.1:8799/cdn-cgi/access/certs | grep -o '"kid":"[^"]*"'
 So the CSS sync from the last message is live — the Worker picked it up with no restart. `/builder/` itself 404s; the shell is served from `/`.
 
 One aside: `martin@westhead.me` gets a 403, not a 401 — signature verifies, identity isn't a seeded person. Use `martin-github@westhead.me` (or `uat@westhead.me`, `martin-1c-test@westhead.me`) from the sim's own list.
+
+<!-- xgd-turn id="063d4b81-3100-4465-9f59-5bea15382e6a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:11:27.837267+00:00" -->
+#### You
+ok Theme and About changed - all the CTAs on the User tab arre unchanged
 
 <!-- xgd-chat-end -->
