@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T20:15:36.637370+00:00'
+updated_at: '2026-09-05T20:17:40.834356+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1534,5 +1534,58 @@ Why do I need "Businesses they run" and "Grants" as separate? I mean I understan
 In the user list I would like to see the name of the user, if we have one.
 
 I guess technically I am looking at a list of "contacts" here, correct? I expect a contact, in general, to have more than one email address and their default email address may change - do we accommodate that in the model?
+
+<!-- xgd-turn id="f5d96ac4-9e8d-40d3-9b87-3455bf27a7c0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T20:17:40.062559+00:00" -->
+#### Claude
+Let me check a few schema facts before I answer — especially the email question.
+
+Checked. Now both REQs.
+
+No `builder-people` CSS exists at all — the classes are emitted but never styled. That's the whole explanation.
+
+**REQ-188** (member semantics) and **REQ-189** (presentation + the merged table + names). Taking your points in order:
+
+## Invite semantics — I agree, and it's a bigger change than a label
+
+Your version is better for a reason worth naming: an invitation nobody answered isn't a relationship. Two states collapse the funnel; three show it, and the middle one — *invited, never came* — is the only state an operator can act on.
+
+The marker should be `tos_accepted_at`, not `first_seen_at`. They differ: `admit` stamps `first_seen_at` on the first request through the door, and `guardTerms` runs *after* it. So `first_seen_at` means "reached the interstitial", `tos_accepted_at` means "completed sign-up". Only the second is a legal fact, and only the second is what you meant.
+
+The catch, which is why REQ-188 is 2 points and not 0: **it amends DOC-42.** §4 defines a member as *"may log in here"* — a capability, which is precisely what makes `invited_at` the marker today. §9 says `invited_at` *"is the only marker distinguishing them"*. Both are now wrong and need rewriting, not leaving to rot. §4.1's *"nothing enforces contact versus member"* is partly answered and should say what remains.
+
+## Why it looks that bad
+
+There is **no `builder-people` rule in `builder.css`** — not a thin one, none. The classes are emitted and never styled, so you're seeing raw DOM at browser-default type with no gutters.
+
+`webui-fields` is already mounted for the *Who they are* section (`people.js:354`) and nothing else — which is both proof the component fits and why the inconsistency is so glaring. REQ-189 makes it the reference for the list and every section.
+
+## Merging the two tables — yes, and the reason is the mismatches
+
+You're right that they're different relations (DOC-42 §4's *operator* vs *entitled*), but since REQ-184 they share a key: an entitlement's object is a **business**, and a membership is on a business. One row per business.
+
+The stronger argument is what two tables *hide*. Operating a business with no live grant is the lapsed customer. A grant on a business you don't operate is a support arrangement or a mistake. Those are the states worth seeing, and today you have to read both tables and do the join in your head. Same argument REQ-178 made for keeping lapsed businesses visible in the switcher.
+
+Column headings are in the acceptance criteria — neither table has any today.
+
+## Names
+
+`display_name` exists and `/api/people` already returns it, so it's presentation only. It'll be empty for everyone until something can set it — REQ-183 §5 records that it's changeable by nobody and calls it a separate ticket. REQ-189 requires the empty state to read as *no name yet* rather than as a broken cell.
+
+## Your last question — and no, the model doesn't accommodate it
+
+You're right that you're looking at contacts, and right to be suspicious.
+
+```sql
+email TEXT NOT NULL
+CREATE UNIQUE INDEX idx_users_tenant_email ON users (tenant_id, email)
+```
+
+**The email isn't an attribute of the person — it *is* the identity.** So one person, one address. A contact with two addresses is two rows, i.e. two people who can never be reconciled. Changing someone's primary address mutates their identity key, and `admit` finds them by it.
+
+This is the same root as the gap DOC-42 §4.1 already records for phone: *"a contact reached only by phone has no key and no column"*. Both are the same mistake — identity conflated with a channel. The fix shape is a channels table (person → many addresses, one flagged primary, phone alongside email) with `users` keyed by its opaque id and `admit` resolving through the channel.
+
+That's a real migration and it touches the one index the whole identity model rests on, so I haven't filed it — it wants your call on timing, and it's arguably the same ticket as the phone gap rather than a second one. Want me to write it up as one "identity is not a channel" REQ covering both?
 
 <!-- xgd-chat-end -->
