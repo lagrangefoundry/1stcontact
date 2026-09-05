@@ -8,10 +8,12 @@ import {
   DENIED_MESSAGE,
   IdentityNotConfiguredError,
   newId,
-  provisionInvite,
+  provisionBusiness,
   STARTER_HEADING,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { invitePerson } from '../apps/control-app/src/people'
+import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import migration from '../db/migrations/0004_identity.sql?raw'
@@ -178,15 +180,23 @@ describe('REQ-167 — the migration', () => {
   })
 })
 
-describe('REQ-167 — the invite provisions the account', () => {
-  it('test_UAT_FC_REQ-167_an_invite_creates_user_account_membership_grant_and_a_site', async () => {
-    // The acceptance in its plainest form: one call, and afterwards every row
-    // the login path will look for exists — read back out of D1 rather than out
-    // of the return value, because a function that reported what it meant to
-    // write would pass this test having written nothing.
+describe('REQ-167 — the invite and the business it is composed with', () => {
+  /**
+   * SINCE [[REQ-186]] THIS IS TWO CALLS, and the two-ness is the evidence rather
+   * than an inconvenience. `provisionInvite` used to write the person and their
+   * first business together; that shape can only express somebody who owns a
+   * business, so it could not express a member of a customer's business
+   * ([[DOC-42]] §1). What the account still needs is unchanged — every row below
+   * is the same row — and the cases here prove the pair still assembles it.
+   */
+  it('test_UAT_FC_REQ-167_an_invite_plus_a_business_creates_user_membership_grant_and_a_site', async () => {
+    // The acceptance in its plainest form: afterwards every row the login path
+    // will look for exists — read back out of D1 rather than out of the return
+    // values, because functions that reported what they meant to write would
+    // pass this test having written nothing.
     const email = anEmail()
-    const result = await provisionInvite(identityEnv(), { email, endsAt: null })
-    expect(result.created).toBe(true)
+    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    expect(invited.created).toBe(true)
 
     const user = await env.DB.prepare('SELECT * FROM users WHERE tenant_id = ? AND email = ?')
       .bind(PLATFORM, email)
@@ -194,14 +204,20 @@ describe('REQ-167 — the invite provisions the account', () => {
     expect(user?.invited_at, 'an invited user is not stamped as invited').toBeTruthy()
     expect(user?.first_seen_at, 'an invited user has already been seen').toBeNull()
 
+    const business = await provisionBusiness(identityEnv(), {
+      accountUserId: user!.id,
+      name: 'A Business',
+      email,
+    })
+
     const membership = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ?')
       .bind(user!.id)
       .first<{ business_id: string; role: string; status: string }>()
-    expect(membership?.business_id).toBe(result.businessId)
+    expect(membership?.business_id).toBe(business.businessId)
     expect(membership?.role).toBe('owner')
 
     const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE business_id = ?')
-      .bind(result.businessId)
+      .bind(business.businessId)
       .first<{ plan: string; source: string; status: string; email: string }>()
     expect(grant?.plan).toBe('pro')
     expect(grant?.source).toBe('admin_grant')
@@ -214,7 +230,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     // `forTenant` refuses an unregistered one, so a membership pointing at an
     // account the registry has never heard of could never be used.
     const tenant = await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
-      .bind(result.businessId)
+      .bind(business.businessId)
       .first<{ status: string }>()
     expect(tenant?.status).toBe('active')
   })
@@ -223,7 +239,7 @@ describe('REQ-167 — the invite provisions the account', () => {
     // [[REQ-170]]'s starter site, provisioned here: a person logging in for the
     // first time finds something to edit rather than an empty tenant and a
     // create-site flow that does not exist yet.
-    const result = await provisionInvite(identityEnv(), { email: anEmail(), endsAt: null })
+    const result = await inviteAccount(identityEnv(), { email: anEmail(), endsAt: null })
 
     const { results } = await env.DB.prepare('SELECT slug FROM sites WHERE tenant_id = ?')
       .bind(result.businessId)
@@ -250,13 +266,13 @@ describe('REQ-167 — the invite provisions the account', () => {
     // request away from being a lie. Two invites carrying IDENTICAL inputs but
     // for different people must produce unrelated ids, and neither id may
     // contain any input it was given.
-    const first = await provisionInvite(identityEnv(), {
+    const first = await inviteAccount(identityEnv(), {
       email: anEmail(),
       accountName: 'Sarah Chen Catering',
       displayName: 'Sarah Chen',
       endsAt: null,
     })
-    const second = await provisionInvite(identityEnv(), {
+    const second = await inviteAccount(identityEnv(), {
       email: anEmail(),
       accountName: 'Sarah Chen Catering',
       displayName: 'Sarah Chen',
@@ -277,49 +293,35 @@ describe('REQ-167 — the invite provisions the account', () => {
     expect(tenant?.name).toBe('Sarah Chen Catering')
   })
 
-  it('test_UAT_FC_REQ-167_re_inviting_an_existing_email_reports_rather_than_duplicates', async () => {
-    // The unique index would refuse a second row, and `UNIQUE constraint failed`
-    // surfacing out of an admin console is a worse answer than the true one. So
-    // the existing person is reported, with the account they already own, and no
-    // second account is created.
-    const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, endsAt: null })
-    const again = await provisionInvite(identityEnv(), { email, endsAt: null })
-
-    expect(again.created).toBe(false)
-    expect(again.businessId).toBe(first.businessId)
-    expect(again.user.id).toBe(first.user.id)
-
-    const { results } = await env.DB.prepare(
-      'SELECT id FROM users WHERE tenant_id = ? AND email = ?',
-    )
-      .bind(PLATFORM, email)
-      .all<{ id: string }>()
-    expect(results ?? []).toHaveLength(1)
-  })
-
-  it('test_UAT_FC_REQ-167_a_casefolded_email_is_the_same_person', async () => {
+  it('test_UAT_FC_REQ-167_a_casefolded_email_is_admitted_as_the_same_person', async () => {
     // SQLite's default collation is byte-exact, so without normalisation
-    // `Sarah@…` and `sarah@…` would be two rows, two accounts and one confused
-    // person — and the second account would be created by an invite that looked
-    // like it had worked.
+    // `Sarah@…` and `sarah@…` would be two rows and one confused person. Both
+    // ends normalise, and this asserts the SECOND end — that a login typed in a
+    // different case finds the row the invite wrote. The invite's own half is
+    // [[REQ-186]]'s, where the transition is.
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, endsAt: null })
-    const again = await provisionInvite(identityEnv(), { email: `  ${email.toUpperCase()} `, endsAt: null })
-    expect(again.created).toBe(false)
-    expect(again.user.id).toBe(first.user.id)
+    await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    await provisionBusiness(identityEnv(), {
+      accountUserId: (await env.DB.prepare('SELECT id FROM users WHERE tenant_id = ? AND email = ?')
+        .bind(PLATFORM, email)
+        .first<{ id: string }>())!.id,
+      name: 'Casefold',
+      email,
+    })
 
-    const admitted = await admit(identityEnv(), email.toUpperCase())
+    const admitted = await admit(identityEnv(), `  ${email.toUpperCase()} `)
     expect(admitted.ok).toBe(true)
   })
 
   it('test_UAT_FC_REQ-167_an_unconfigured_platform_tenant_refuses_rather_than_guesses', async () => {
-    // A defaulted tenant id would be a misconfigured Worker writing users into
+    // A defaulted tenant id would be a misconfigured Worker looking users up in
     // whichever account happened to carry that name — the same argument
-    // `store.ts` makes for its own refusal.
-    await expect(
-      provisionInvite(identityEnv({ TENANT_ID: '' }), { email: anEmail(), endsAt: null }),
-    ).rejects.toBeInstanceOf(IdentityNotConfiguredError)
+    // `store.ts` makes for its own refusal. Asserted against `admit` since
+    // [[REQ-186]]: the invite is scoped by its CALLER's business and needs no
+    // platform tenant of its own, so the door is where this refusal now lives.
+    await expect(admit(identityEnv({ TENANT_ID: '' }), anEmail())).rejects.toBeInstanceOf(
+      IdentityNotConfiguredError,
+    )
   })
 })
 
@@ -341,7 +343,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
 
   it('test_UAT_FC_REQ-167_an_invited_person_is_admitted_and_their_arrival_is_stamped', async () => {
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
@@ -373,7 +375,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // sets. One side alone would pass on code that always denied, or on code
     // that never evaluated the date at all.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), {
+    const invited = await inviteAccount(identityEnv(), {
       email,
       endsAt: new Date(Date.now() + 86_400_000).toISOString(),
     })
@@ -403,7 +405,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // promise about the future, and reading it as access today would let an
     // operator hand out access by scheduling it.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() + 86_400_000).toISOString(), invited.businessId)
       .run()
@@ -417,7 +419,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // Status and dates refuse INDEPENDENTLY. A revocation that only took effect
     // once the end date arrived would make revoking an open-ended grant a no-op.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', invited.businessId)
       .run()
@@ -433,7 +435,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // account's access, which is what the other users of that account are living
     // on.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
       .bind(new Date().toISOString(), invited.user.id)
       .run()
@@ -454,7 +456,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // and the answer must be the open one, or an account whose trial lapsed
     // while its subscription ran would be locked out by its own history.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), {
+    const invited = await inviteAccount(identityEnv(), {
       email,
       endsAt: new Date(Date.now() + 3_600_000).toISOString(),
       plan: 'short',
@@ -526,7 +528,7 @@ describe('REQ-167 — the request path', () => {
     // ("does an account exist for this email"), so the claim is driven from the
     // case that can still break it.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
       .bind(new Date().toISOString(), invited.user.id)
       .run()
@@ -552,7 +554,7 @@ describe('REQ-167 — the request path', () => {
     // A gate that denied everybody would pass every assertion above.
     stubJwks()
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     // ADMISSION IS NO LONGER THE LAST CHECK ([[REQ-169]]). A person who has not
     // accepted the terms is served the interstitial instead of the builder, so
     // reaching the builder now means passing both — and this case is about the

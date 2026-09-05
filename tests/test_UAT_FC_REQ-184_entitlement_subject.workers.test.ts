@@ -4,9 +4,9 @@ import {
   admissibleBusiness,
   admit,
   newId,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -145,7 +145,7 @@ describe('REQ-184 — the columns say what they hold', () => {
     // is added — which is the wrong-direction generalisation this ticket exists
     // to foreclose.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
 
     const row = await env.DB.prepare(
       'SELECT business_id, account_id FROM entitlements WHERE business_id = ?',
@@ -195,7 +195,7 @@ describe('REQ-184 — capacity and account access are different grants', () => {
     // grant would open the whole business to EVERY member holding a membership on
     // it. Driven through the shipped reader, not through a hand-written query.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Studio', endsAt: null })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Studio', endsAt: null })
 
     // Take the capacity grant away and replace it with one naming an account.
     await env.DB.prepare('DELETE FROM entitlements WHERE business_id = ?')
@@ -234,7 +234,7 @@ describe('REQ-184 — capacity and account access are different grants', () => {
     // business counts for everybody in it", and that would hand the paying
     // member's access to the one who did not pay.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Bakery', endsAt: null })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Bakery', endsAt: null })
     const bob = newId('acct')
 
     const forBob = await env.DB.prepare(
@@ -270,7 +270,7 @@ describe('REQ-184 — capacity and account access are different grants', () => {
     // grant covering forever. Driven from both sides against a date the test
     // sets, not against the clock.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Garage' })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Garage' })
 
     expect((await admissibleBusiness(identityEnv(), invite.businessId))?.selectable).toBe(true)
 

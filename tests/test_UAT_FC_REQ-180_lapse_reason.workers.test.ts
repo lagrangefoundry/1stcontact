@@ -4,9 +4,9 @@ import {
   admissibleBusiness,
   admit,
   provisionBusiness,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { businessesPayload } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 
@@ -15,7 +15,7 @@ import { applySchema } from './support/d1-site-factory'
  *
  * WHAT MAKES THIS EVIDENCE. Every case runs inside workerd against a real D1
  * database with the deployed schema from `db/migrations`, and every business is
- * provisioned through the shipped `provisionInvite` / `provisionBusiness`. The
+ * provisioned through the shipped `inviteAccount` / `provisionBusiness`. The
  * grants are then moved with the same `UPDATE` an expiry or a withdrawal
  * actually performs, so what is being read back is a real row in a real state
  * rather than a fixture's idea of one.
@@ -88,7 +88,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // rendered beside it would be a sentence about a problem that is not
     // happening on every row of the list.
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
 
     const business = await onlyBusiness(email)
     expect(business.selectable).toBe(true)
@@ -102,7 +102,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // bought.
     const email = anEmail()
     const ended = iso(-86_400_000)
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon' })
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(ended, invite.businessId)
       .run()
@@ -118,7 +118,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // true row and a false answer — and the customer would quote the wrong date
     // back at us.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon' })
     const first = iso(-90 * 86_400_000)
     const latest = iso(-2 * 86_400_000)
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
@@ -152,7 +152,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // would be presenting a bookkeeping timestamp as the moment access stopped.
     // It is the fix that differs: this one is settled by talking to us.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', invite.businessId)
       .run()
@@ -168,7 +168,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // be deleted and every test would still pass — while access became live the
     // moment it was sold rather than the moment it began.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon' })
     await env.DB.prepare('UPDATE entitlements SET starts_at = ?, ends_at = ? WHERE business_id = ?')
       .bind(iso(86_400_000), null, invite.businessId)
       .run()
@@ -184,7 +184,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // unhelpful, and the opposite of the news — so the branch order is asserted
     // rather than left to whichever row the planner returned first.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon' })
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(iso(-86_400_000), invite.businessId)
       .run()
@@ -217,7 +217,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // nothing was withdrawn, something was never made — and an operator reading
     // "revoked" would go looking for who withdrew it.
     const email = anEmail()
-    const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const invite = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     await env.DB.prepare('DELETE FROM entitlements WHERE business_id = ?')
       .bind(invite.businessId)
       .run()
@@ -233,7 +233,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // actually be visible, because the switcher and the account surface would be
     // rendering both rows side by side.
     const email = anEmail()
-    const live = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const live = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Studio',
@@ -264,13 +264,13 @@ describe('REQ-180 — why a business lapsed', () => {
     // reason in it is a fact about their own business and about nobody else's.
     const mine = anEmail()
     const theirs = anEmail()
-    const live = await provisionInvite(identityEnv(), { email: mine, accountName: 'Salon', endsAt: null })
+    const live = await inviteAccount(identityEnv(), { email: mine, accountName: 'Salon', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Studio',
       email: mine,
     })
-    const stranger = await provisionInvite(identityEnv(), { email: theirs, accountName: 'Theirs' })
+    const stranger = await inviteAccount(identityEnv(), { email: theirs, accountName: 'Theirs' })
     await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', dead.businessId)
       .run()

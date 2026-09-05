@@ -3,10 +3,10 @@ import { env } from 'cloudflare:test'
 import {
   admit,
   provisionBusiness,
-  provisionInvite,
   type Admission,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import {
   resolveScope,
   ScopeRefusedError,
@@ -110,7 +110,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
    */
   it('test_UAT_FC_REQ-168_two_businesses_resolve_to_two_stores', async () => {
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const first = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
@@ -136,7 +136,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
    */
   it('test_UAT_FC_REQ-168_the_path_prefix_selects_the_business', async () => {
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'One', endsAt: null })
+    const first = await inviteAccount(identityEnv(), { email, accountName: 'One', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Two',
@@ -193,8 +193,8 @@ describe('REQ-168 — resolution authorises the target', () => {
   it('test_UAT_FC_REQ-168_an_unauthorised_target_is_refused_not_substituted', async () => {
     const mine = anEmail()
     const theirs = anEmail()
-    const owner = await provisionInvite(identityEnv(), { email: mine, endsAt: null })
-    const stranger = await provisionInvite(identityEnv(), { email: theirs, endsAt: null })
+    const owner = await inviteAccount(identityEnv(), { email: mine, endsAt: null })
+    const stranger = await inviteAccount(identityEnv(), { email: theirs, endsAt: null })
 
     const admission = await admitted(mine)
     const refusal = await resolveScope(identityEnv(), admission, stranger.businessId).then(
@@ -217,7 +217,7 @@ describe('REQ-168 — resolution authorises the target', () => {
    */
   it('test_UAT_FC_REQ-168_a_lapsed_target_is_refused_as_entitlement_not_membership', async () => {
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'Live', endsAt: null })
+    const first = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Lapsed',
@@ -242,7 +242,7 @@ describe('REQ-168 — resolution authorises the target', () => {
    */
   it('test_UAT_FC_REQ-168_no_target_resolves_to_the_first_admissible_business', async () => {
     const email = anEmail()
-    const oldest = await provisionInvite(identityEnv(), { email, accountName: 'Oldest', endsAt: null })
+    const oldest = await inviteAccount(identityEnv(), { email, accountName: 'Oldest', endsAt: null })
     const newer = await provisionBusiness(identityEnv(), {
       accountUserId: oldest.user.id,
       name: 'Newer',
@@ -271,8 +271,8 @@ describe('REQ-168 — the platform admin bypass', () => {
   it('test_UAT_FC_REQ-168_a_platform_admin_resolves_a_business_it_holds_no_membership_for', async () => {
     const adminEmail = anEmail()
     const customerEmail = anEmail()
-    const admin = await provisionInvite(identityEnv(), { email: adminEmail, endsAt: null })
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const admin = await inviteAccount(identityEnv(), { email: adminEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
     await makeAdmin(admin.user.id)
 
     const admission = await admitted(adminEmail)
@@ -292,8 +292,8 @@ describe('REQ-168 — the platform admin bypass', () => {
   it('test_UAT_FC_REQ-168_the_admin_bypass_does_not_skip_entitlement', async () => {
     const adminEmail = anEmail()
     const customerEmail = anEmail()
-    const admin = await provisionInvite(identityEnv(), { email: adminEmail, endsAt: null })
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const admin = await inviteAccount(identityEnv(), { email: adminEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
     await makeAdmin(admin.user.id)
     await lapse(customer.businessId)
 
@@ -317,7 +317,7 @@ describe('REQ-168 — a deactivated business is not offered', () => {
    */
   it('test_UAT_FC_REQ-168_a_deactivated_business_leaves_the_admissible_set', async () => {
     const email = anEmail()
-    const live = await provisionInvite(identityEnv(), { email, accountName: 'Live', endsAt: null })
+    const live = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Suspended',

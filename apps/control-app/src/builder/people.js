@@ -23,6 +23,11 @@
  * away the right to run a business and deliberately leaves that person's own
  * Portal reachable.
  *
+ * AND THE INVITE IS THE VERB THAT MOVES A ROW ACROSS ([[REQ-186]], [[DOC-42]]
+ * §9). It is one control for both levels — it writes into whichever business is
+ * open, so from 1st Contact it makes Alice and from Alice's it makes Bob — which
+ * is why it is a button on this uniform tab rather than a platform console.
+ *
  * STANDARD `webui/split` + `webui/list-detail`, CONFIGURED RATHER THAN REBUILT,
  * exactly as the Library uses them. What is written here is the three functions
  * the component asks for: how a row looks, what a detail contains, and what the
@@ -31,10 +36,13 @@
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
+import { createModalShell, modalButton, modalFooter } from './modal.js'
 import {
   fetchPeople,
   fetchPerson,
+  invitePerson,
   openGrant,
+  provisionBusinessFor,
   revokeGrant,
   savePersonStatus,
 } from './api.js'
@@ -72,7 +80,7 @@ function el(tag, className, text) {
 /**
  * Contact or member, from the one marker the schema has ([[DOC-42]] §4.1).
  *
- * `invitedAt` is what `provisionInvite` sets, so it is what distinguishes the two
+ * `invitedAt` is what the invite sets, so it is what distinguishes the two
  * states. It is REPORTED rather than enforced: nothing in the code stops a
  * never-invited row from signing in today, and this label must not imply it does.
  */
@@ -103,8 +111,9 @@ export function createPeoplePanel(options = {}) {
       saveStatus: savePersonStatus,
       grant: openGrant,
       revoke: revokeGrant,
+      invite: invitePerson,
+      fulfil: provisionBusinessFor,
     },
-    onFulfil = null,
   } = options
 
   const element = el('div', 'builder-people')
@@ -112,6 +121,7 @@ export function createPeoplePanel(options = {}) {
   /** Everyone in this business. The filter narrows this; it never re-fetches. */
   let all = []
   let canFulfil = false
+  let canInvite = false
   const filter = { text: '', state: '' }
 
   const controls = el('div', 'builder-people__filter')
@@ -146,6 +156,161 @@ export function createPeoplePanel(options = {}) {
   })
   controls.append(states)
 
+  /**
+   * The invite, beside the filter rather than inside a person's detail.
+   *
+   * IT MAKES A PERSON, so it cannot hang off one. The detail pane edits somebody
+   * who already exists; this is the list's own action and it belongs where the
+   * list's own controls are.
+   *
+   * SHOWN ON ONE CONDITION AND IT IS NOT "ADMIN" ([[DOC-42]] §7). `canInvite` is
+   * *you own this business*, which is true of Alice on hers — so the same button
+   * appears on the same tab at both levels, and what it makes is decided by which
+   * business is open rather than by anything this file knows ([[DOC-42]] §3).
+   *
+   * NOT RENDERING IT IS NOT THE GATE, the same as the fulfilment control below:
+   * `/api/people/invite` asks the same question again for itself, because a
+   * control merely absent from a page is not refused to anyone who can type a URL.
+   */
+  const invite = el('button', 'builder-people__invite', 'Invite')
+  invite.type = 'button'
+  invite.hidden = true
+  invite.addEventListener('click', () => openInvite())
+  controls.append(invite)
+
+  /**
+   * The dialog: an address, an optional name, and a sentence about the post.
+   *
+   * THE "NO MAIL IS SENT" LINE IS PART OF THE FEATURE, not decoration. There is
+   * no sender in this system, so an operator who reads "Invite" and is told
+   * nothing will assume a message went out and will not check. The invite is a
+   * database transition; the person is admitted the next time they pass the front
+   * door, and they have to be told that by somebody.
+   *
+   * MOUNTED INTO THE PANEL, which is inside the shell root — `modal.js`'s rule:
+   * the `--shell-*` tokens and the app font are declared on `.shell`, and a
+   * dialog appended beside it resolves neither.
+   */
+  function openInvite() {
+    const modal = createModalShell({ host: element, title: 'Invite someone' })
+
+    const title = el('h2', 'builder-modal__title', 'Invite someone')
+    modal.panel.append(title)
+
+    const emailField = document.createElement('input')
+    emailField.type = 'email'
+    emailField.className = 'builder-people__invite-email'
+    emailField.placeholder = 'Email address'
+    const nameField = document.createElement('input')
+    nameField.type = 'text'
+    nameField.className = 'builder-people__invite-name'
+    nameField.placeholder = 'Name (optional)'
+    modal.panel.append(emailField, nameField)
+
+    const hint = el(
+      'p',
+      'builder-people__invite-hint',
+      'No message is sent. They become a member here, and are admitted the next ' +
+        'time they sign in.',
+    )
+    modal.panel.append(hint)
+
+    // ONE PLACE FOR BOTH THE REFUSAL AND THE OUTCOME, so a failed invite cannot
+    // close the dialog silently and leave the operator believing it worked.
+    const said = el('p', 'builder-people__invite-said', '')
+    said.hidden = true
+    modal.panel.append(said)
+
+    const send = modalButton('Invite', 'builder-modal__button', async () => {
+      send.disabled = true
+      try {
+        const outcome = await transport.invite(emailField.value, nameField.value)
+        await refresh()
+        // A CONTACT PROMOTED IS REPORTED AS SUCH ([[DOC-42]] §9). It is the same
+        // row moving between two states, and telling the operator which of the
+        // two branches ran is the only way that transition is visible anywhere.
+        said.textContent = outcome.created
+          ? `${outcome.person.email} is now a member.`
+          : `${outcome.person.email} was already known here, and is now a member.`
+        said.hidden = false
+        emailField.value = ''
+        nameField.value = ''
+      } catch (err) {
+        said.textContent = err instanceof Error ? err.message : String(err)
+        said.hidden = false
+      } finally {
+        send.disabled = false
+      }
+    })
+    modal.panel.append(
+      modalFooter([send, modalButton('Close', 'builder-modal__button', () => modal.close())]),
+    )
+    modal.mount()
+    emailField.focus()
+    return modal
+  }
+
+  /**
+   * Provisioning a business, from the person it will belong to ([[REQ-180]] D2).
+   *
+   * OPENED FROM A PERSON RATHER THAN FROM NOWHERE, because the route takes an
+   * account email and that is the one thing the detail pane already knows — a
+   * dialog asking the operator to retype an address they are looking at is a
+   * dialog inviting a typo into a `tenants` row.
+   *
+   * IT IS THE SECOND HALF OF THE PAIR ([[REQ-186]]). Invite alone makes a member
+   * of this business — a level-2 customer with a portal. Invite and then this
+   * makes a level-1 customer, who also gets the app. Two controls because they
+   * are two acts with two gates, and the composition is what [[DOC-42]] §1
+   * describes.
+   */
+  function openFulfil(subject, view) {
+    const modal = createModalShell({ host: element, title: 'Provision a business' })
+    modal.panel.append(el('h2', 'builder-modal__title', 'Provision a business'))
+    modal.panel.append(
+      el(
+        'p',
+        'builder-people__fulfil-who',
+        `A new business for ${subject.email}, with a starter site and a live plan.`,
+      ),
+    )
+
+    const nameField = document.createElement('input')
+    nameField.type = 'text'
+    nameField.className = 'builder-people__fulfil-name'
+    nameField.placeholder = 'Business name'
+    nameField.value = subject.displayName ?? ''
+    modal.panel.append(nameField)
+
+    const said = el('p', 'builder-people__fulfil-said', '')
+    said.hidden = true
+    modal.panel.append(said)
+
+    const make = modalButton('Provision', 'builder-modal__button', async () => {
+      make.disabled = true
+      try {
+        const made = await transport.fulfil(subject.email, nameField.value)
+        said.textContent = `${made.name} is provisioned.`
+        said.hidden = false
+        // REOPENED RATHER THAN LEFT AS IT WAS: the pane behind this dialog now
+        // says something untrue — it lists the businesses this person runs, and
+        // one of them has just appeared.
+        await reopen(subject.id, view)
+      } catch (err) {
+        said.textContent = err instanceof Error ? err.message : String(err)
+        said.hidden = false
+      } finally {
+        make.disabled = false
+      }
+    })
+    modal.panel.append(
+      modalFooter([make, modalButton('Close', 'builder-modal__button', () => modal.close())]),
+    )
+    modal.mount()
+    nameField.focus()
+    return modal
+  }
+
   function matches(person) {
     if (filter.state && stateOf(person) !== filter.state) return false
     if (!filter.text) return true
@@ -165,7 +330,25 @@ export function createPeoplePanel(options = {}) {
     return body
   }
 
-  async function openDetail(person, view) {
+  /**
+   * The detail pane, BUILT SYNCHRONOUSLY AND FILLED ASYNCHRONOUSLY.
+   *
+   * `list-detail` calls `openDetail(item, tab)` and reads `descriptor.element`
+   * from what comes back — the second argument is the TAB CONTROLLER, not a view
+   * to append into, and this function must return an element NOW. An earlier
+   * draft treated the controller as the view and was `async`, so the component
+   * read `.element` off a Promise, mounted its empty placeholder, and the append
+   * threw into an unhandled rejection: the pane was blank for every person and
+   * nothing on screen said why. Recorded because the shape is easy to write again
+   * — the mistake produces no error the operator can see.
+   */
+  function openDetail(person) {
+    const view = el('div', 'builder-people__detail')
+    void fill(person, view)
+    return { element: view }
+  }
+
+  async function fill(person, view) {
     const detail = await transport.item(person.id)
 
     mountFields(section(view, 'Who they are'), {
@@ -232,21 +415,29 @@ export function createPeoplePanel(options = {}) {
      * The product-fulfilment control, shown on two conditions and neither is
      * "admin" ([[DOC-42]] §7).
      *
+     * REACHABLE SINCE [[REQ-186]]. It was written by [[REQ-170]] behind an
+     * `onFulfil` callback that nothing ever passed, so it could not render — the
+     * route existed, the flag was reported, and the button was dead code. It is
+     * wired here rather than left as a hook because an unwired hook is the shape
+     * that reads as "supported" and is not, and because the ticket that adds the
+     * invite is the ticket whose story is the two composing.
+     *
      * NOT RENDERING IT IS NOT THE GATE. `/api/admin/businesses` asks the same
      * question again for itself, because a control that is merely absent from a
      * page is not refused to anyone who can type a URL.
      */
-    if (canFulfil && onFulfil) {
+    if (canFulfil) {
       const fulfil = section(view, 'Add a business')
       const button = el('button', 'builder-people__fulfil', 'Provision a business')
-      button.addEventListener('click', () => onFulfil(detail.person))
+      button.addEventListener('click', () => openFulfil(detail.person, view))
       fulfil.append(button)
     }
   }
 
+  /** Redraw one person's pane in place — a withdrawn grant changes what it says. */
   async function reopen(personId, view) {
     view.replaceChildren()
-    await openDetail({ id: personId }, view)
+    await fill({ id: personId }, view)
   }
 
   const listDetail = mountListDetail(element, {
@@ -267,6 +458,11 @@ export function createPeoplePanel(options = {}) {
     const answer = await transport.list()
     all = Array.isArray(answer.people) ? answer.people : []
     canFulfil = answer.canFulfil === true
+    canInvite = answer.canInvite === true
+    // HIDDEN RATHER THAN NOT BUILT, because the list is re-read on every business
+    // switch and a control that was never created for the first business would
+    // have to be created for the second — two code paths for one button.
+    invite.hidden = !canInvite
     apply()
     return all
   }
@@ -281,8 +477,17 @@ export function createPeoplePanel(options = {}) {
   function clear() {
     all = []
     canFulfil = false
+    canInvite = false
+    invite.hidden = true
     listDetail.setItems([])
   }
 
-  return { element, refresh, clear, stateOf }
+  return {
+    element,
+    /** The component itself, so a host — or a suite — can select a row by key. */
+    listDetail,
+    refresh,
+    clear,
+    stateOf,
+  }
 }

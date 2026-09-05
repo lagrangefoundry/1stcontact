@@ -6,10 +6,10 @@ import {
   findAccount,
   ownsBusiness,
   ownsPlatformBusiness,
-  provisionInvite,
   type Admission,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { resolveScope, ScopeRefusedError } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 
@@ -29,7 +29,7 @@ import { applySchema } from './support/d1-site-factory'
  *
  * WHAT MAKES IT EVIDENCE. Every case runs inside workerd against a real D1
  * database with the deployed migrations applied, and every row is written by a
- * shipped entry point — `provisionInvite`, `ensurePlatformOperator` — rather
+ * shipped entry point — `inviteAccount`, `ensurePlatformOperator` — rather
  * than seeded by hand, so a divergence between what the product writes and what
  * the test assumes would fail here rather than pass.
  */
@@ -77,7 +77,7 @@ describe('REQ-185 — the two capabilities are separately observable', () => {
    */
   it('test_UAT_FC_REQ-185_the_hosting_column_confers_no_ownership', async () => {
     const email = anEmail()
-    const host = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const host = await inviteAccount(identityEnv(), { email, endsAt: null })
     await makeHost(host.user.id)
 
     const admission = await admitted(email)
@@ -97,7 +97,7 @@ describe('REQ-185 — the two capabilities are separately observable', () => {
     await env.DB.prepare('UPDATE users SET platform_operator = 0 WHERE id = ?')
       .bind(owner?.id ?? '')
       .run()
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
 
     const admission = await admitted(ownerEmail)
     expect(ownsPlatformBusiness(identityEnv(), admission)).toBe(true)
@@ -123,7 +123,7 @@ describe('REQ-185 — the two capabilities are separately observable', () => {
     const operatorEmail = anEmail()
     const customerEmail = anEmail()
     await ensurePlatformOperator(identityEnv(), operatorEmail)
-    await provisionInvite(identityEnv(), { email: customerEmail, accountName: 'Salon', endsAt: null })
+    await inviteAccount(identityEnv(), { email: customerEmail, accountName: 'Salon', endsAt: null })
 
     const platform = (await admitted(operatorEmail)).businesses.find(
       (b) => b.businessId === PLATFORM,
@@ -199,7 +199,7 @@ describe('REQ-185 — PLATFORM_ADMINS is not locked out by a missing row', () =>
   it('test_UAT_FC_REQ-185_the_var_confers_both_halves_as_two_separate_facts', async () => {
     const email = anEmail()
     const customerEmail = anEmail()
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
 
     const admission = await admit(identityEnv({ PLATFORM_ADMINS: email }), email)
     expect(admission.ok).toBe(true)
@@ -263,8 +263,8 @@ describe('REQ-185 — the bypass refuses exactly what it refused before', () => 
   it('test_UAT_FC_REQ-185_the_bypass_still_refuses_a_business_with_no_grant', async () => {
     const hostEmail = anEmail()
     const customerEmail = anEmail()
-    const host = await provisionInvite(identityEnv(), { email: hostEmail, endsAt: null })
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const host = await inviteAccount(identityEnv(), { email: hostEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
     await makeHost(host.user.id)
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() - 1_000).toISOString(), customer.businessId)
@@ -283,8 +283,8 @@ describe('REQ-185 — the bypass refuses exactly what it refused before', () => 
   it('test_UAT_FC_REQ-185_the_bypass_still_refuses_a_deactivated_business', async () => {
     const hostEmail = anEmail()
     const customerEmail = anEmail()
-    const host = await provisionInvite(identityEnv(), { email: hostEmail, endsAt: null })
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const host = await inviteAccount(identityEnv(), { email: hostEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
     await makeHost(host.user.id)
     await env.DB.prepare('UPDATE tenants SET status = ? WHERE id = ?')
       .bind('suspended', customer.businessId)
@@ -311,8 +311,8 @@ describe('REQ-185 — the bypass refuses exactly what it refused before', () => 
   it('test_UAT_FC_REQ-185_a_business_reached_by_the_bypass_carries_no_role', async () => {
     const hostEmail = anEmail()
     const customerEmail = anEmail()
-    const host = await provisionInvite(identityEnv(), { email: hostEmail, endsAt: null })
-    const customer = await provisionInvite(identityEnv(), { email: customerEmail, endsAt: null })
+    const host = await inviteAccount(identityEnv(), { email: hostEmail, endsAt: null })
+    const customer = await inviteAccount(identityEnv(), { email: customerEmail, endsAt: null })
     await makeHost(host.user.id)
 
     const admission = await admitted(hostEmail)

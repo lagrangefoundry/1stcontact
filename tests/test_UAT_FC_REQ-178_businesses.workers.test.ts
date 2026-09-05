@@ -3,9 +3,9 @@ import { env } from 'cloudflare:test'
 import {
   admit,
   provisionBusiness,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -52,7 +52,7 @@ describe('REQ-178 — admission returns the set', () => {
     // `tenants.name`, because the id is deliberately opaque and a switcher has
     // nothing else to label a row with.
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const first = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
@@ -83,7 +83,7 @@ describe('REQ-178 — admission returns the set', () => {
     // field is DELETED rather than kept beside the list, so the observable claim
     // is that the key is not there at all.
     const email = anEmail()
-    await provisionInvite(identityEnv(), { email, endsAt: null })
+    await inviteAccount(identityEnv(), { email, endsAt: null })
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
@@ -99,7 +99,7 @@ describe('REQ-178 — denial is per business', () => {
     // the person outright, so an account whose second business lapsed could not
     // reach the first one either.
     const email = anEmail()
-    const live = await provisionInvite(identityEnv(), { email, accountName: 'Live', endsAt: null })
+    const live = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Lapsed',
@@ -133,7 +133,7 @@ describe('REQ-178 — denial is per business', () => {
     // Driven with two businesses rather than one, because with one the assertion
     // would pass on code that never looked past the first.
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'One', endsAt: null })
+    const first = await inviteAccount(identityEnv(), { email, accountName: 'One', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Second',
@@ -165,7 +165,7 @@ describe('REQ-178 — denial is per business', () => {
     // one refusal cannot quietly remove the other. No membership anywhere is no
     // relationship with anything, and there is nothing to admit someone to.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
       .bind(new Date().toISOString(), invited.user.id)
       .run()
@@ -181,7 +181,7 @@ describe('REQ-178 — denial is per business', () => {
     // former employee which businesses they used to be able to reach. Both
     // columns are driven, because checking only one makes the other decorative.
     const email = anEmail()
-    const kept = await provisionInvite(identityEnv(), { email, accountName: 'Kept', endsAt: null })
+    const kept = await inviteAccount(identityEnv(), { email, accountName: 'Kept', endsAt: null })
     const revoked = await provisionBusiness(identityEnv(), {
       accountUserId: kept.user.id,
       name: 'Revoked',
@@ -212,7 +212,7 @@ describe('REQ-178 — denial is per business', () => {
     // still refused, and refused as `user_inactive` rather than as anything
     // about their businesses.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?')
       .bind('suspended', invited.user.id)
       .run()
@@ -231,7 +231,7 @@ describe('REQ-178 — provisioning a second business', () => {
     // because a function reporting what it meant to write would pass having
     // written nothing.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), {
+    const invited = await inviteAccount(identityEnv(), {
       email,
       accountName: 'By invite',
       plan: 'pro',
@@ -286,7 +286,7 @@ describe('REQ-178 — provisioning a second business', () => {
     // than through the return value, because admission is what a login actually
     // asks.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     const added = await provisionBusiness(identityEnv(), {
       accountUserId: invited.user.id,
       name: 'Second',
@@ -317,7 +317,7 @@ describe('REQ-178 — provisioning a second business', () => {
       provisionBusiness(identityEnv(), { accountUserId: '  ', name: 'Nameless owner' }),
     ).rejects.toThrow(/account/i)
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await expect(
       provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: '   ' }),
     ).rejects.toThrow(/name/i)
@@ -330,11 +330,11 @@ describe('REQ-178 — provisioning a second business', () => {
     // account rather than refusing as "already exists" — it is not a second
     // account, because the account is the person and the person already existed.
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await env.DB.prepare('DELETE FROM memberships WHERE user_id = ?').bind(invited.user.id).run()
     expect((await admit(identityEnv(), email)).ok).toBe(false)
 
-    const again = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const again = await inviteAccount(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
     expect(again.businessId).not.toBe(invited.businessId)
     expect(again.siteSlug).toBe(again.businessId)

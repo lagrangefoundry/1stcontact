@@ -5,9 +5,9 @@ import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   provisionBusiness,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
@@ -19,7 +19,7 @@ import { applySchema } from './support/d1-site-factory'
  * deployed entry point, not `route()` — inside workerd, against a real D1
  * database with the deployed schema, with a real RS256 Access token verified
  * against a real JWKS. The businesses are provisioned through the shipped
- * `provisionInvite` / `provisionBusiness`, so what the endpoint reports is what
+ * `inviteAccount` / `provisionBusiness`, so what the endpoint reports is what
  * an invite and a second business actually wrote.
  *
  * DRIVING THE WORKER RATHER THAN THE ROUTER IS THE POINT OF THIS FILE. The
@@ -137,9 +137,9 @@ const anEmail = (): string => `req179-${(seq += 1)}@example.test`
  * that the next case added to this file inherits it.
  */
 async function invite(
-  spec: Parameters<typeof provisionInvite>[1],
-): Promise<Awaited<ReturnType<typeof provisionInvite>>> {
-  const result = await provisionInvite(identityEnv(), spec)
+  spec: Parameters<typeof inviteAccount>[1],
+): Promise<Awaited<ReturnType<typeof inviteAccount>>> {
+  const result = await inviteAccount(identityEnv(), spec)
   await acceptTerms(identityEnv(), result.user.id)
   return result
 }

@@ -5,9 +5,9 @@ import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   provisionBusiness,
-  provisionInvite,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { storeFor } from '../apps/control-app/src/store'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -108,9 +108,9 @@ const anEmail = (): string => `req183-${(seq += 1)}@example.test`
 
 /** An invitee who has also accepted the terms — otherwise every route is the interstitial. */
 async function invite(
-  spec: Parameters<typeof provisionInvite>[1],
-): Promise<Awaited<ReturnType<typeof provisionInvite>>> {
-  const result = await provisionInvite(identityEnv(), spec)
+  spec: Parameters<typeof inviteAccount>[1],
+): Promise<Awaited<ReturnType<typeof inviteAccount>>> {
+  const result = await inviteAccount(identityEnv(), spec)
   await acceptTerms(identityEnv(), result.user.id)
   return result
 }

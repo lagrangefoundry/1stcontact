@@ -4,13 +4,25 @@ import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cl
 /**
  * Identity, accounts and entitlement (REQ-167) — [[DOC-40]].
  *
- * TWO OPERATIONS, AND THEY ARE DELIBERATELY ASYMMETRIC. {@link provisionInvite}
- * creates everything: the person, the account, the membership that joins them,
- * the grant that admits them, and something to edit when they arrive.
+ * TWO OPERATIONS, AND THEY ARE DELIBERATELY ASYMMETRIC.
+ * {@link provisionBusiness} creates a business and everything that makes it
+ * operable: the tenant, the membership that joins its owner to it, the grant
+ * that admits them, and something to edit when they arrive.
  * {@link admit} creates NOTHING — it is pure lookup, and a verified email with no
  * row behind it is refused rather than signed up. Self-signup is [[DOC-40]] §5's
  * later branch and its absence here is the feature: until it lands, the only way
  * into this system is for someone to have been invited into it.
+ *
+ * THE PERSON IS NOT WRITTEN HERE, AND THAT SPLIT IS [[REQ-186]]'s. There used to
+ * be a `provisionInvite` that wrote the person AND their first business in one
+ * call, which reads as a convenience and is a model error: it can only ever
+ * express a person who owns a business, so it cannot express Bob — a member of
+ * a customer's business, with a portal and nothing to run ([[DOC-42]] §1). The
+ * invite is a `users` row in the business the caller is in and lives in
+ * `people.ts` beside the tab that performs it; provisioning a business is 1st
+ * Contact's own product-fulfilment action and lives here. Composing the two is
+ * what makes a level-1 customer, and keeping them apart is what makes level 2
+ * expressible at all.
  *
  * WHY THE ASYMMETRY IS WORTH STATING. The tempting shortcut is a login path that
  * "provisions on first sight", because it makes the invite optional and the demo
@@ -33,9 +45,8 @@ import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cl
  * called `account_id` until [[REQ-184]] renamed it to say so — so the schema
  * carried this from the first migration; what did not was this module,
  * which resolved one membership and reported it singular. {@link admit} now
- * returns the SET ({@link AdmittedBusiness}), and {@link provisionBusiness} is
- * the sibling of {@link provisionInvite} that adds one to an account that
- * already exists.
+ * returns the SET ({@link AdmittedBusiness}), and {@link provisionBusiness}
+ * adds one to an account that already exists.
  *
  * `ok` IS A PROPERTY OF THE PERSON; ACCESS IS A PROPERTY OF THE BUSINESS. A
  * single lapsed grant used to refuse the person, which with several businesses
@@ -361,44 +372,6 @@ export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-/** What an invite is told to create. */
-export interface Invite {
-  email: string
-  /** When the granted access ends. Omit for an open-ended grant. */
-  endsAt?: string | null
-  /** When it begins. Defaults to now. */
-  startsAt?: string
-  /** [[DOC-40]] §5 — a plan name, not a capability set. */
-  plan?: string
-  /** The account's human label, which `tenants.name` holds and may change. */
-  accountName?: string
-  displayName?: string
-  /** Who made the grant, for the audit record. */
-  grantedBy?: string
-  note?: string
-}
-
-export interface InviteResult {
-  /** False when the email was already known — see below. */
-  created: boolean
-  user: UserRow
-  /**
-   * The business this call provisioned, or — when the person already existed
-   * with businesses — the first one they hold.
-   *
-   * SINGULAR HERE AND PLURAL ON {@link Admission}, and the asymmetry is the
-   * point. An invite provisions ONE business ([[DOC-40]] §4), so reporting one
-   * id is reporting what happened. Admission answers a different question —
-   * which businesses may be operated — and a singular answer there would be a
-   * guess.
-   *
-   * Named for what it holds ([[REQ-168]]) — see {@link AdmittedBusiness.businessId}.
-   */
-  businessId: string
-  /** The starter site's slug, when this call provisioned a business. */
-  siteSlug: string | null
-}
-
 /** What provisioning one business is told. */
 export interface BusinessSpec {
   /**
@@ -441,83 +414,14 @@ export interface BusinessResult {
 export const STARTER_HEADING = 'Your 1stcontact site'
 
 /**
- * Create the whole set: person, account, membership, grant, and a site.
- *
- * THE BUSINESS IS {@link provisionBusiness}'S JOB, NOT THIS FUNCTION'S. An
- * invite is a person plus their first business, and a second business is the
- * same rows minus the person ([[DOC-40]] §4) — so the rows live in one place and
- * both entry points call it. Inlining them here is what would let the two paths
- * drift into provisioning differently-shaped businesses, which is a divergence
- * nothing would report until a self-serve business behaved unlike an invited
- * one.
- *
- * TRANSACTIONALLY WHERE D1 ALLOWS, AND THE BATCH IS NOW THE BUSINESS. Membership
- * and grant go in one `DB.batch()`, so a business can never exist that nobody
- * may operate or that carries no access. The user row is written first and
- * separately, because it belongs to the person rather than to any one business.
- * The failure that leaves is a person with no business — visible, because they
- * are refused `no_membership`, and REPAIRABLE, because re-inviting them
- * provisions one (below).
- *
- * RE-INVITING AN EXISTING EMAIL IS NOT A SECOND ACCOUNT. `idx_users_tenant_email`
- * would refuse it, and a constraint violation surfacing out of an admin console
- * as `UNIQUE constraint failed` is a worse answer than the true one. So the
- * existing user is looked up first and REPORTED — `created: false` — with the
- * business they already hold. A re-invite of someone holding NO live business
- * provisions one, which is the repair above; it is not a second account, because
- * the account is the person and the person already existed.
- */
-export async function provisionInvite(env: IdentityEnv, invite: Invite): Promise<InviteResult> {
-  const platformTenant = requirePlatformTenant(env)
-  const email = normaliseEmail(invite.email)
-  if (email === '') throw new Error('An invite needs an email address.')
-
-  const spec = (accountUserId: string): BusinessSpec => ({
-    accountUserId,
-    name: invite.accountName ?? email,
-    email,
-    plan: invite.plan,
-    startsAt: invite.startsAt,
-    endsAt: invite.endsAt,
-    grantedBy: invite.grantedBy,
-    note: invite.note,
-  })
-
-  const existing = await findUser(env, platformTenant, email)
-  if (existing) {
-    const held = await businessesFor(env, existing.id)
-    if (held.length > 0) {
-      return { created: false, user: existing, businessId: held[0].businessId, siteSlug: null }
-    }
-    const repaired = await provisionBusiness(env, spec(existing.id))
-    return { created: false, user: existing, businessId: repaired.businessId, siteSlug: repaired.siteSlug }
-  }
-
-  const now = new Date().toISOString()
-  const userId = newId('usr')
-
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_operator, ' +
-      'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
-  )
-    .bind(userId, platformTenant, email, 'active', invite.displayName ?? null, now, now, now, '{}')
-    .run()
-
-  const business = await provisionBusiness(env, spec(userId))
-
-  const user = await findUser(env, platformTenant, email)
-  if (!user) throw new Error('The invited user was not readable back after provisioning.')
-  return { created: true, user, businessId: business.businessId, siteSlug: business.siteSlug }
-}
-
-/**
  * Add one business to an account that already exists ([[DOC-40]] §4).
  *
- * THE SAME ROWS AN INVITE WRITES, MINUS THE PERSON: a `tenants` row, a
+ * EVERYTHING A BUSINESS IS, AND NOTHING A PERSON IS: a `tenants` row, a
  * membership joining them, an entitlement, and one site to edit. That is the
- * whole of what a second business is, which is why it needs no schema it does
- * not already have — and why {@link provisionInvite} calls this rather than
- * writing its own copy.
+ * whole of what a business is, which is why it needs no schema it does not
+ * already have — and why every entry point that makes one comes through here
+ * rather than writing its own copy. The person it belongs to was invited
+ * separately ([[REQ-186]]).
  *
  * SELF-SERVE CREATION IS A SECOND ENTRY POINT ONTO THIS FUNCTION, not new logic
  * — the same property [[DOC-40]] §4 claims for just-in-time provisioning. A
