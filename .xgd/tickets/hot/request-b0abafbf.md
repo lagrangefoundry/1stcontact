@@ -5,16 +5,21 @@ type: request
 title: A member is someone who has signed up, not someone we invited
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T20:29:41.739004+00:00'
+updated_at: '2026-09-05T20:30:11.540920+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5c5852f7
+  commits:
+  - working_sha: 59b983957f142d56c8923519209e29c599f60a68
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.75
 ---
 
 # A member is someone who has signed up, not someone we invited
