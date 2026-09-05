@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:17:51.576908+00:00'
+updated_at: '2026-09-05T23:19:02.098828+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2287,5 +2287,33 @@ One thing to flag before you build it: REQ-188 now needs a stored stage column, 
 <!-- xgd-chat role="user" ts="2026-09-05T23:17:51.420722+00:00" -->
 #### You
 I think we solve your lead semantics by explicitly storing what we know about where the contact came from. Lead - "joined email list" is very different from Lead - "booked consultation" - we can look for a better term...
+
+<!-- xgd-turn id="a8cb77a5-d71c-4df2-8a93-b958ee0f431f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:19:02.063098+00:00" -->
+#### Claude
+That's the right move, and it does more than rescue the term. Let me capture it.
+
+DOC-44 §4.1 now carries it. Two things fell out that are worth your attention.
+
+## Your fix removes the need for a better term
+
+The objection to *Lead* was that it over-claims intent. Once the entry route is stored, the stage isn't the thing carrying intent — what's left of the word is "known to us, nothing has happened yet", which it holds fine. So I'd **keep Lead** rather than hunt for a replacement: it's already decided, and every operator knows it.
+
+If you want zero commercial connotation anyway, *New* is the alternative. But it ages badly in a way Lead doesn't — a contact from two years ago who never progressed is still "New", which reads as a data error rather than a state.
+
+## Provenance is history, not a fourth axis
+
+Worth keeping separate: §3's three axes are **mutable state** — they change as the relationship does. Provenance is **immutable** — it's what happened, and it stays true. Mixing them gives you a "status" field that can be overwritten and takes a historical fact with it when someone does.
+
+## The sharper version of your own example
+
+"Joined email list" and "booked consultation" are both **events**. A `source` column can hold one of them — so the contact who joined your list and *then* booked a consultation has the more interesting fact overwritten or dropped. That's the exact case you used to motivate the idea, and a single column already fails it.
+
+An events table — `(contact, kind, when, detail)` — gives you provenance as the earliest row, keeps every later signal, and turns the pipeline stage into something a rule can *derive* rather than something a hand must set. Which is also, more or less, what a CRM is; and this product is a front office.
+
+So I've recorded the fork as a sequencing question rather than a design one: the events table is where this ends up, and the only real decision is whether you pay for it now or put a `source` column in the rebaseline first and migrate later. Given REQ-190 is rebaselining anyway and there's no data, "now" is unusually cheap — but it's a bigger build than a column, so it's your call.
+
+Nothing filed yet. Want a REQ for provenance, and do you want it as the column or the events table?
 
 <!-- xgd-chat-end -->
