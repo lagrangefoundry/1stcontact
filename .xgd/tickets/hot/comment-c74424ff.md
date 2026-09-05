@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:03:18.393867+00:00'
+updated_at: '2026-09-05T19:09:18.773748+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1390,5 +1390,13 @@ curl -s "http://127.0.0.1:8799/mint?email=bob@example.com&ttl=86400"
 In production this friction doesn't exist. Cloudflare Access issues its own `CF_Authorization` cookie with a lifetime set by your Access policy, and when it lapses you get *redirected* through the Access login and bounced back — not asked to do anything by hand. So none of the above is telling you something about the product.
 
 But there is one product question hiding underneath, and it's worth noting while we're here: **when your Access session does expire mid-edit, what happens to unsaved builder state?** The Worker answers 401 and the client has no re-auth path of its own — Access owns the redirect. I haven't tested that, and it's not something REQ-186 or the level-2 door touches. Might be worth a look once you've finished walking the invite flow.
+
+<!-- xgd-turn id="4c100885-47ed-4d9c-aea1-50cb2b56b072-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T19:09:18.636712+00:00" -->
+#### You
+So (1) can you create a bug for the current behavior please, and for testing can I get longer lived tokens please?
+(2) IUts not acceptable for a user to be denied access mid-session we need a renewal policy for situations where the user is actively engaged
+(3) related - re-login with email has to be infrequent its significant friction we should talk about acceptable security approaches here
 
 <!-- xgd-chat-end -->
