@@ -194,12 +194,12 @@ afterEach(() => {
 })
 
 describe('REQ-186 — one control, both levels', () => {
-  it('test_UAT_FC_REQ-186_an_invited_person_appears_in_that_business_as_a_member', async () => {
+  it('test_UAT_FC_REQ-186_an_invited_person_appears_in_that_business', async () => {
     // The acceptance in its plainest form: press the button, and the person is
-    // in the tab as a Member. Asserted through `peopleOf` — the function the tab
-    // reads — rather than by reading `users` back, because what the ticket owes
-    // is a person who SHOWS UP, and `invited_at` is the only marker the tab has
-    // to tell the two states apart ([[DOC-42]] §4.1).
+    // in the tab. Asserted through `peopleOf` — the function the tab reads —
+    // rather than by reading `users` back, because what the ticket owes is a
+    // person who SHOWS UP, and `invited_at` is the marker that puts them in the
+    // Invited state ([[DOC-42]] §4.1, [[REQ-188]]).
     stubJwks()
     const owner = anEmail()
     const account = await anAccount(owner, "Alice's Plumbing")
@@ -212,7 +212,10 @@ describe('REQ-186 — one control, both levels', () => {
     const listed = await peopleOf(identityEnv(), { businessId: account.businessId })
     const them = listed.find((p) => p.email === invitee)
     expect(them, 'the invited person is not in the business they were invited to').toBeTruthy()
-    expect(them?.invitedAt, 'an invited person reads as a Contact, not a Member').toBeTruthy()
+    expect(them?.invitedAt, 'an invited person still reads as a Contact').toBeTruthy()
+    // AND NOT AS A MEMBER ([[REQ-188]]): the invite records that we asked, and
+    // nothing it writes can record that they came.
+    expect(them?.termsAcceptedAt, 'the invite made a member out of nobody').toBeNull()
     // `active` is the login control ([[DOC-42]] §5). An invite that left it unset
     // would produce a member refused `user_inactive` by the door it opened.
     expect(them?.status).toBe('active')

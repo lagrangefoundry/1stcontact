@@ -15,10 +15,18 @@
  *
  * - **contact** — a `users` row in this tenant, never invited. Known here, and
  *   MAY become a member.
- * - **member** — a `users` row that has been invited. May log in.
+ * - **invited** — a row that has been asked and has not come: `invited_at` set,
+ *   `tos_accepted_at` null.
+ * - **member** — a row that has SIGNED UP: `tos_accepted_at` set. May log in.
  * - **operator** — a `memberships` row. May RUN a business, which is a different
  *   act and usually a different business.
  * - **entitled** — an `entitlements` row. Has been granted access to a thing.
+ *
+ * A MEMBER IS SOMEONE WHO SIGNED UP, NOT SOMEONE WE INVITED ([[REQ-188]]). The
+ * marker used to be `invited_at`, which describes what *we* did rather than what
+ * *they* did — send the invite and the tab called that person a member at once.
+ * An invitation nobody answered is not a relationship, and the middle state is
+ * exactly the one an operator can act on.
  *
  * `memberships` DOES NOT MEAN "MAY LOG IN". {@link invitePerson} writes the
  * person's `users` row into this tenant while `provisionBusiness` writes their
@@ -45,11 +53,21 @@ import type { Scope } from './scope'
 /**
  * A person as the tab lists them.
  *
- * `invited_at` IS THE CONTACT/MEMBER MARKER and is reported rather than
- * interpreted. It is what {@link invitePerson} sets, so it is the only thing in
- * the schema that distinguishes the two states ([[DOC-42]] §4.1) — and the tab shows
- * the state rather than filtering on it, because a list that dropped contacts
- * would be a second population and the CRM reads the same rows ([[DOC-42]] §9).
+ * THE TWO MARKERS ARE REPORTED RATHER THAN INTERPRETED ([[REQ-188]]). `invited_at`
+ * is what {@link invitePerson} sets and `tos_accepted_at` is what accepting the
+ * terms sets, and between them they carry the three states ([[DOC-42]] §4.1);
+ * the derivation lives at the one surface that draws it, in
+ * `builder/people-state.js`, so there is no second copy here free to disagree.
+ *
+ * AND THE TAB SHOWS THE STATE RATHER THAN FILTERING ON IT: a list that dropped
+ * contacts would be a second population, and the CRM reads the same rows
+ * ([[DOC-42]] §9).
+ *
+ * `tos_accepted_at` AND NOT `first_seen_at` is the membership marker, because the
+ * two differ. `admit` stamps `first_seen_at` on the first request through the
+ * door and `guardTerms` runs after it, so the first means "reached the
+ * interstitial once" and only the second means "completed sign-up" — which is
+ * the legal fact, and the one worth being able to query.
  */
 export interface Person {
   id: string
@@ -61,6 +79,7 @@ export interface Person {
   invitedAt: string | null
   firstSeenAt: string | null
   lastSeenAt: string | null
+  /** Set means a member: they signed up, which includes accepting the terms. */
   termsAcceptedAt: string | null
   createdAt: string
 }
@@ -267,11 +286,11 @@ export interface InviteOutcome {
   /**
    * True only when a row was INSERTED.
    *
-   * It reports which of the two branches ran rather than whether the person is
-   * now a member, because both branches leave a member behind and the operator's
+   * It reports which of the two branches ran rather than what state the person
+   * ended in, because both branches leave an invitee behind and the operator's
    * question at the moment they press the button is *did I just add someone, or
    * did I promote someone you already knew about*. A field that answered the
-   * former with `true` in both cases would make the contact→member transition
+   * former with `true` in both cases would make the contact→invited transition
    * invisible at exactly the surface that performs it.
    */
   created: boolean
@@ -282,7 +301,13 @@ export interface InviteOutcome {
 export class InvalidInviteError extends Error {}
 
 /**
- * The invite: the verb that turns a contact into a member ([[DOC-42]] §9).
+ * The invite: the verb that turns a contact into an INVITEE ([[DOC-42]] §9,
+ * [[REQ-188]]).
+ *
+ * IT DOES NOT MAKE A MEMBER, and that is the correction [[REQ-188]] carries. It
+ * stamps `invited_at`, which records that we asked; membership is
+ * `tos_accepted_at`, which records that they came. Nothing this function writes
+ * can complete that journey, because completing it is the person's own act.
  *
  * IT UPDATES, AND INSERTS ONLY WHEN THERE IS NOTHING TO UPDATE. Contact and
  * member are ONE population in two states, and this is the transition between
@@ -301,9 +326,9 @@ export class InvalidInviteError extends Error {}
  *
  * `invited_at` IS NOT RESTAMPED for someone already invited. It records WHEN this
  * person was invited, so overwriting it on a second press would falsify the one
- * fact in the row that this function exists to write. Re-inviting a member is
- * therefore a no-op that reports the member, not an error: the operator asked for
- * a state the system is already in.
+ * fact in the row that this function exists to write. Re-inviting someone already
+ * invited — or already a member — is therefore a no-op that reports them back,
+ * not an error: the operator asked for a state the system is already in.
  *
  * `display_name` IS FILLED IN AND NEVER OVERWRITTEN. A name typed at the invite
  * is a courtesy for a row that has none; editing an existing one is [[REQ-183]]
@@ -311,8 +336,8 @@ export class InvalidInviteError extends Error {}
  * undeclared way to rename a person.
  *
  * NO ENTITLEMENT IS WRITTEN, deliberately ([[DOC-42]] §5). The Portal is what
- * membership IS — an invited person reaches their own payments, details and
- * delete button by virtue of holding a row at all. A grant here would be §5's
+ * membership IS — a member reaches their own payments, details and delete button
+ * by virtue of holding a row at all. A grant here would be §5's
  * falsifier ("an entitlement row created for every member and revoked for none")
  * and its hazard is not tidiness: a grant that CAN be absent produces a person
  * who can sign in and cannot reach their own erasure control ([[DOC-37]]).
