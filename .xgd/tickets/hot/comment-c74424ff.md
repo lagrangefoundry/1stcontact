@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:43:54.074186+00:00'
+updated_at: '2026-09-05T22:44:57.249882+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2142,5 +2142,13 @@ Want me to file it as a REQ alongside REQ-191, or fold it into REQ-190's baselin
 <!-- xgd-chat role="user" ts="2026-09-05T22:43:53.878583+00:00" -->
 #### You
 Lets punt on access restrictions - I just want the model to support multiple users on an account - v1 we stick to one user
+
+<!-- xgd-turn id="2a16e6c3-2bbc-4b28-aee3-5f2e355b23d8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:44:56.732119+00:00" -->
+#### You
+Lets punt on access restrictions - I just want the model to support multiple users on an account - v1 we stick to one user
+
+Oh also I keep saying user - generically these are "Contacts" I'm actually taking about I hope our table is called Contacts?
 
 <!-- xgd-chat-end -->
