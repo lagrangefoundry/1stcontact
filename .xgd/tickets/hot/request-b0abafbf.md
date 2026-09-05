@@ -5,10 +5,10 @@ type: request
 title: A member is someone who has signed up, not someone we invited
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T20:16:48.488771+00:00'
+updated_at: '2026-09-05T20:22:53.046093+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 2
