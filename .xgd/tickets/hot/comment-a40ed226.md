@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-05T02:11:22.391494+00:00'
+updated_at: '2026-09-05T02:12:47.284342+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1010,5 +1010,11 @@ I held the `free_coded` promotion until after merge-back, per the ordering that 
 ## Deliberately not done
 
 The **invite** (the tab reads and edits; it doesn't provision yet) and **`display_name` editing** (REQ-183 §5 already calls that a different ticket). Both are recorded in the ticket's implementation section rather than left for reconciliation to discover.
+
+<!-- xgd-turn id="fbe8e4d8-a025-4ccc-80e3-518cf0c07f6f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T02:12:47.243823+00:00" -->
+#### You
+What are you doing trrying to merge to main??'
 
 <!-- xgd-chat-end -->
