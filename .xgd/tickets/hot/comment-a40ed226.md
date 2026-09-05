@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-05T02:17:54.950171+00:00'
+updated_at: '2026-09-05T02:19:16.474232+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1042,5 +1042,47 @@ I won't touch the branch further. What's the correct landing step here — do I 
 <!-- xgd-chat role="user" ts="2026-09-05T02:17:54.909697+00:00" -->
 #### You
 Please just read and follow the free-coding protocol
+
+<!-- xgd-turn id="4c256b1b-2607-40cb-bc44-6cdbbe35c057-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T02:19:16.070175+00:00" -->
+#### Claude
+Now I have it. Key correction: step 5 is `xgd branch lock` → **manual `git merge` into xgd-working**, not `merge-back` to main. Let me read the detail.
+
+Now I have the actual procedure. I skipped step 2 (`free_coding`) and used the wrong command for step 5. Correcting from where I am.
+
+Lock acquired — the `xgd-working` worktree is the main project dir. Merging by hand from there.
+
+Clean merge, no conflicts. Now step 6.
+
+REQ-170 is landed and at `free_coded`. The protocol is now followed end to end.
+
+## What I got wrong, and what the doc actually says
+
+| step | what I did | what the protocol says |
+|---|---|---|
+| 2 | skipped | set `status=free_coding` at the start |
+| 5 | `xgd merge-back` → **main** | `xgd branch lock` → **manual `git merge` into `xgd-working`** |
+| 6 | was going to set fields by hand | `xgd ticket move-to-free-coded <ID> <sha> --version` |
+| 8 | didn't know about it | `xgd branch clean <ID>` |
+
+The merge-back attempt was the serious one — automatic merge-back was *"considered and rejected"* precisely because conflict resolution needs judgment. I reached for a command name that sounded like the step instead of reading the step.
+
+## Final state
+
+- `5b6befd15c86e1fe7d41b3e3df18fdb6351b3de5` merged cleanly into `xgd-working` — no conflicts, 11 files, 1252 insertions
+- `move-to-free-coded` gate passed, which mechanically confirms the SHA is an ancestor of `xgd-working`
+- `fields.commits[0].working_sha` set, `version: 0.2.71`
+- `free-REQ-170` branch and worktree removed, merge lock released
+- Ticket body carries the implementation record, so a promotion to `ready_to_reconcile` reads the current spec rather than the original scope
+
+`main` was never touched — it's still at `6757d5de63`.
+
+## Two loose ends that aren't mine to clear
+
+- `.xgd/config.yaml` is still dirty in the standing main worktree (xgd's own YAML reflow); the sandbox denies me write access to it. `stash@{0}` is a redundant copy — safe to drop once you resolve the working copy.
+- `move-to-free-coded` asked whether I'd run the version increment script. I bumped `package.json` to 0.2.71 by hand in the commit and passed the same value to `--version`, so they agree — but if there's a script that does more than that field, it hasn't run.
+
+Promotion to `ready_to_reconcile` is yours, per the doc.
 
 <!-- xgd-chat-end -->
