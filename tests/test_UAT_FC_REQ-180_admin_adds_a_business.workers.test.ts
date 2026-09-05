@@ -265,14 +265,14 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     expect(tenant?.status).toBe('active')
 
     const membership = await env.DB.prepare(
-      'SELECT role, status FROM memberships WHERE user_id = ? AND account_id = ?',
+      'SELECT role, status FROM memberships WHERE user_id = ? AND business_id = ?',
     )
       .bind(invited.user.id, created.businessId)
       .first<{ role: string; status: string }>()
     expect(membership).toEqual({ role: 'owner', status: 'active' })
 
     const grant = await env.DB.prepare(
-      'SELECT plan, status, granted_by FROM entitlements WHERE account_id = ?',
+      'SELECT plan, status, granted_by FROM entitlements WHERE business_id = ?',
     )
       .bind(created.businessId)
       .first<{ plan: string; status: string; granted_by: string | null }>()

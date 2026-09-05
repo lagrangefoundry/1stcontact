@@ -22,9 +22,11 @@ import {
  *
  * A BUSINESS IS A TENANT, and the vocabulary here is deliberate. `tenant` is
  * internal — schema columns, R2 keys, store handles; *Business* is what a person
- * reads ([[REQ-180]] §3). The columns say `account_id` and the ids read `acct_…`,
- * and both have always held a tenant id; those are left alone because they are
- * opaque, permanent and in R2 keys, but nothing here repeats the confusion.
+ * reads ([[REQ-180]] §3). The columns used to say `account_id` while holding a
+ * tenant id, and [[REQ-184]] renamed them `business_id` once `entitlements`
+ * acquired a real account subject. The id VALUES still read `acct_…` and are left
+ * alone — opaque, permanent and in R2 keys — but nothing here repeats the
+ * confusion.
  */
 
 /**
@@ -35,8 +37,9 @@ import {
  * the parked operations assistant is a tenant-SWITCHING design, holding one
  * ordinary scoped handle at a time — while leaving unguarded the mix-up that can
  * actually happen: an account id and a business id are both opaque strings, and
- * `memberships.account_id` holds a business. Naming the field puts the type
- * system where the live confusion is.
+ * since [[REQ-184]] the schema holds BOTH — `entitlements.account_id` names a
+ * subject and `entitlements.business_id` an object. Naming the field puts the
+ * type system where the live confusion is.
  */
 export interface Scope {
   businessId: string

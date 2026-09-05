@@ -103,7 +103,7 @@ describe('REQ-180 — why a business lapsed', () => {
     const email = anEmail()
     const ended = iso(-86_400_000)
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(ended, invite.businessId)
       .run()
 
@@ -121,11 +121,11 @@ describe('REQ-180 — why a business lapsed', () => {
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
     const first = iso(-90 * 86_400_000)
     const latest = iso(-2 * 86_400_000)
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(first, invite.businessId)
       .run()
     await env.DB.prepare(
-      'INSERT INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, ' +
+      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
         'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
       .bind(
@@ -153,7 +153,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // It is the fix that differs: this one is settled by talking to us.
     const email = anEmail()
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', invite.businessId)
       .run()
 
@@ -169,7 +169,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // moment it was sold rather than the moment it began.
     const email = anEmail()
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
-    await env.DB.prepare('UPDATE entitlements SET starts_at = ?, ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET starts_at = ?, ends_at = ? WHERE business_id = ?')
       .bind(iso(86_400_000), null, invite.businessId)
       .run()
 
@@ -185,11 +185,11 @@ describe('REQ-180 — why a business lapsed', () => {
     // rather than left to whichever row the planner returned first.
     const email = anEmail()
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon' })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(iso(-86_400_000), invite.businessId)
       .run()
     await env.DB.prepare(
-      'INSERT INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, ' +
+      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
         'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
       .bind(
@@ -218,7 +218,7 @@ describe('REQ-180 — why a business lapsed', () => {
     // "revoked" would go looking for who withdrew it.
     const email = anEmail()
     const invite = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
-    await env.DB.prepare('DELETE FROM entitlements WHERE account_id = ?')
+    await env.DB.prepare('DELETE FROM entitlements WHERE business_id = ?')
       .bind(invite.businessId)
       .run()
 
@@ -239,7 +239,7 @@ describe('REQ-180 — why a business lapsed', () => {
       name: 'Studio',
       email,
     })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(iso(-1_000), dead.businessId)
       .run()
 
@@ -271,10 +271,10 @@ describe('REQ-180 — why a business lapsed', () => {
       email: mine,
     })
     const stranger = await provisionInvite(identityEnv(), { email: theirs, accountName: 'Theirs' })
-    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', dead.businessId)
       .run()
-    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', stranger.businessId)
       .run()
 

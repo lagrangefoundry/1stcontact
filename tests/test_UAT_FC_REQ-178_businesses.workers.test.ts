@@ -36,7 +36,7 @@ const anEmail = (): string => `req178-${(seq += 1)}@example.test`
 
 /** Push a business's grant into the past — the "card expired" shape. */
 async function lapse(accountId: string): Promise<void> {
-  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
     .bind(new Date(Date.now() - 1_000).toISOString(), accountId)
     .run()
 }
@@ -71,7 +71,7 @@ describe('REQ-178 — admission returns the set', () => {
     // business even though the invoice is per account ([[DOC-40]] §5).
     for (const business of result.businesses) {
       expect(business.entitlement, `${business.name} carried no grant`).toBeTruthy()
-      expect(business.entitlement?.account_id).toBe(business.businessId)
+      expect(business.entitlement?.business_id).toBe(business.businessId)
       expect(business.selectable).toBe(true)
     }
   })
@@ -160,10 +160,10 @@ describe('REQ-178 — denial is per business', () => {
       email,
     })
 
-    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE business_id = ?')
       .bind(new Date().toISOString(), revoked.businessId)
       .run()
-    await env.DB.prepare('UPDATE memberships SET expires_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE memberships SET expires_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() - 1_000).toISOString(), expired.businessId)
       .run()
 
@@ -221,13 +221,13 @@ describe('REQ-178 — provisioning a second business', () => {
         .bind(accountId)
         .first<{ name: string; status: string }>()
       const membership = await env.DB.prepare(
-        'SELECT user_id, role, status FROM memberships WHERE account_id = ?',
+        'SELECT user_id, role, status FROM memberships WHERE business_id = ?',
       )
         .bind(accountId)
         .first<{ user_id: string; role: string; status: string }>()
       const grant = await env.DB.prepare(
         'SELECT email, plan, source, status, ends_at, granted_by, note FROM entitlements ' +
-          'WHERE account_id = ?',
+          'WHERE business_id = ?',
       )
         .bind(accountId)
         .first<Record<string, unknown>>()

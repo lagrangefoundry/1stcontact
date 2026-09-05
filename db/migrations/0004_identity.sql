@@ -22,6 +22,14 @@
 -- decided for both cases.
 --
 -- `IF NOT EXISTS` throughout, per this repository's migration convention (0003).
+--
+-- SUPERSEDED IN PART BY `0006_entitlement_subject.sql` ([[REQ-184]]), which is
+-- left here as a pointer rather than edited into the DDL below: a migration is a
+-- record of what was applied, and rewriting it would describe a step no database
+-- ever took. `memberships.account_id` and `entitlements.account_id` are both
+-- renamed to `business_id` there, and `entitlements` gains a NEW `account_id`
+-- holding the grant's SUBJECT. Read this file as history; read 0006 for the
+-- current shape.
 
 -- The person. `tenant_id` is the tenant this identity belongs to: for a builder
 -- user that is the PLATFORM's own tenant, and for a contact captured by a

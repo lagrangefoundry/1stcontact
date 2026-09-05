@@ -28,9 +28,10 @@ import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cl
  *
  * AN ACCOUNT OPERATES SEVERAL BUSINESSES, NOT ONE ([[DOC-40]] §2). The *account*
  * is the payer — a `users` row in the platform's own tenant. A *business* is the
- * tenant, and the hard information barrier. `memberships (user_id, account_id)`
- * has always been a join and `account_id` has always held a tenant id, so the
- * schema carried this from the first migration; what did not was this module,
+ * tenant, and the hard information barrier. `memberships (user_id, business_id)`
+ * has always been a join and that column has always held a tenant id — it was
+ * called `account_id` until [[REQ-184]] renamed it to say so — so the schema
+ * carried this from the first migration; what did not was this module,
  * which resolved one membership and reported it singular. {@link admit} now
  * returns the SET ({@link AdmittedBusiness}), and {@link provisionBusiness} is
  * the sibling of {@link provisionInvite} that adds one to an account that
@@ -83,9 +84,30 @@ export interface UserRow {
   updated_at: string
 }
 
-/** One grant. `ends_at` null is open-ended. */
+/**
+ * One grant. `ends_at` null is open-ended.
+ *
+ * TWO IDS, AND THEY ARE NOT THE SAME NOUN ([[DOC-42]] §6, [[REQ-184]]). An
+ * entitlement grants an ACCOUNT access to a THING: `account_id` is the subject
+ * and `business_id` is the object. `0004` had one column called `account_id`
+ * with the OBJECT in it, so the column named for the subject held the object and
+ * the subject had no column at all; `0006` renames that one and adds this one.
+ *
+ * `account_id` NULL IS A FIRST-CLASS VALUE, not a missing one: it means the grant
+ * names no account, which is a per-business CAPACITY grant — "this business holds
+ * a pro plan". Every grant written today is one. A per-ACCOUNT grant ("Bob may
+ * read Alice's paywalled pages") names both, and the two are DIFFERENT GRANTS
+ * rather than one generalised — capacity must not require re-granting every
+ * member as they join. {@link bestActiveGrant} is the capacity check and requires
+ * the subject to be absent, so neither kind can satisfy the other's question.
+ *
+ * NOTHING MAY ASSERT THAT `account_id` IS A `users.id`. One user is one account
+ * today; the day an account has two people on it, that assumption is a migration
+ * rather than a row.
+ */
 export interface EntitlementRow {
   id: string
+  business_id: string | null
   account_id: string | null
   email: string | null
   plan: string
@@ -138,14 +160,15 @@ export interface AdmittedBusiness {
   /**
    * The business's tenant id. Opaque and permanent; never a label.
    *
-   * NAMED `businessId` THOUGH THE COLUMN IS `account_id` ([[REQ-168]]). The
-   * column has always held a tenant id, and the ids themselves read `acct_…`,
-   * so the SQL says "account" and means "business" throughout. The column and
-   * the prefix are left alone — they are opaque, permanent and present in R2
-   * keys, and renaming either buys a migration for nothing ([[REQ-180]] §3) —
-   * but nothing in TypeScript repeats the mistake, because an account id and a
-   * business id are both opaque strings and the type system is the only place
-   * that confusion can be caught.
+   * NAMED `businessId`, AND SINCE [[REQ-184]] SO IS THE COLUMN. It read
+   * `account_id` in `0004` and always held a tenant id; `0006` renamed it, because
+   * once `entitlements.account_id` started meaning an actual account, two adjacent
+   * tables carrying that name with opposite meanings was worse than either alone.
+   * The id VALUES still read `acct_…` and are left alone — they are opaque,
+   * permanent and present in R2 keys, so renaming the prefix buys a data migration
+   * for nothing ([[REQ-180]] §3). An account id and a business id are both opaque
+   * strings, so the type system is the only place that confusion can be caught,
+   * and the field name is where it is caught.
    */
   businessId: string
   /** `tenants.name` — the human label, which may change. */
@@ -447,11 +470,15 @@ export async function provisionBusiness(
 
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO memberships (id, user_id, account_id, role, status, granted_by, granted_at) ' +
+      'INSERT INTO memberships (id, user_id, business_id, role, status, granted_by, granted_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?)',
     ).bind(newId('mem'), spec.accountUserId, businessId, 'owner', 'active', spec.grantedBy ?? null, now),
     env.DB.prepare(
-      'INSERT INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, ' +
+      // `account_id` IS LEFT UNSET, and that is the grant this writes rather than
+      // an omission: provisioning gives a BUSINESS its capacity ([[REQ-184]]), and
+      // naming a subject here would make the grant Alice's-personal rather than
+      // Alice's-Plumbing's — invisible to every other member the day one is added.
+      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
         'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
       newId('ent'),
@@ -618,19 +645,19 @@ async function businessesFor(
   now: string = new Date().toISOString(),
 ): Promise<AdmittedBusiness[]> {
   const { results } = await env.DB.prepare(
-    'SELECT m.account_id AS account_id, t.name AS name FROM memberships m ' +
-      'JOIN tenants t ON t.id = m.account_id ' +
+    'SELECT m.business_id AS business_id, t.name AS name FROM memberships m ' +
+      'JOIN tenants t ON t.id = m.business_id ' +
       'WHERE m.user_id = ? AND m.status = ? AND m.revoked_at IS NULL ' +
       'AND (m.expires_at IS NULL OR m.expires_at > ?) ' +
       'AND t.status = ? ' +
       'ORDER BY m.granted_at, m.id',
   )
     .bind(userId, 'active', now, 'active')
-    .all<{ account_id: string; name: string }>()
+    .all<{ business_id: string; name: string }>()
 
   const businesses: AdmittedBusiness[] = []
   for (const row of results ?? []) {
-    businesses.push(await admittedBusiness(env, row.account_id, row.name, now))
+    businesses.push(await admittedBusiness(env, row.business_id, row.name, now))
   }
   return businesses
 }
@@ -676,6 +703,12 @@ async function admittedBusiness(
  * rather than by recording it somewhere at write time. Nothing has to be kept in
  * step, and a grant written by a path that does not exist yet is still explained.
  *
+ * `account_id IS NULL` IS THE ONE CONDITION IT KEEPS, because that one is not a
+ * filter — it is which KIND of grant this question is about ([[REQ-184]]). A
+ * business whose only rows name an account has had no capacity grant made against
+ * it, and `never_granted` is the true answer; treating a per-account grant as an
+ * explanation would report "expired" about something that never applied.
+ *
  * THE ORDER OF THE BRANCHES IS THE ORDER OF USEFULNESS TO THE PERSON READING IT.
  * A grant that has not started outranks one that has ended, because an account
  * holding both is one whose access is COMING BACK, and "your access ended" would
@@ -693,7 +726,8 @@ async function lapseFor(
   now: string,
 ): Promise<BusinessLapse> {
   const { results } = await env.DB.prepare(
-    'SELECT status, starts_at, ends_at FROM entitlements WHERE account_id = ?',
+    'SELECT status, starts_at, ends_at FROM entitlements WHERE business_id = ? ' +
+      'AND account_id IS NULL',
   )
     .bind(businessId)
     .all<{ status: string; starts_at: string; ends_at: string | null }>()
@@ -767,6 +801,15 @@ export async function admissibleBusiness(
  * latest `ends_at`. There is no plan ranking to order by, because there is one
  * plan; when billing lands and there are several, ordering will need to consult
  * the plan→capability map and this is the one function that changes.
+ *
+ * `account_id IS NULL` IS THE FOURTH CONDITION AND IT IS A KIND CHECK, NOT A
+ * FILTER ([[REQ-184]], [[DOC-42]] §6). This function asks whether a BUSINESS may
+ * be entered, which per-business CAPACITY answers and per-account access does
+ * not: a grant naming Bob's account against Alice's Plumbing must not make
+ * Alice's Plumbing selectable for everyone who holds a membership on it. The same
+ * predicate settles the converse for free — a capacity grant has no subject, so
+ * an `account_id = ?` lookup can never match one — which is why the two kinds are
+ * kept apart by one column rather than by two tables or a `kind` enum.
  */
 async function bestActiveGrant(
   env: IdentityEnv,
@@ -774,8 +817,9 @@ async function bestActiveGrant(
   now: string,
 ): Promise<EntitlementRow | null> {
   return env.DB.prepare(
-    'SELECT id, account_id, email, plan, source, status, starts_at, ends_at FROM entitlements ' +
-      'WHERE account_id = ? AND status = ? AND starts_at <= ? ' +
+    'SELECT id, business_id, account_id, email, plan, source, status, starts_at, ends_at ' +
+      'FROM entitlements ' +
+      'WHERE business_id = ? AND account_id IS NULL AND status = ? AND starts_at <= ? ' +
       'AND (ends_at IS NULL OR ends_at > ?) ' +
       'ORDER BY (ends_at IS NULL) DESC, ends_at DESC, starts_at DESC, id LIMIT 1',
   )

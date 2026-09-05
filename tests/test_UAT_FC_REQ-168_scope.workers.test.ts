@@ -61,7 +61,7 @@ const anEmail = (): string => `req168-${(seq += 1)}@example.test`
 
 /** Push a business's grant into the past — the "card expired" shape. */
 async function lapse(businessId: string): Promise<void> {
-  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
     .bind(new Date(Date.now() - 1_000).toISOString(), businessId)
     .run()
 }
@@ -455,7 +455,7 @@ describe('REQ-168 — the operator keeps the business they already have', () => 
    * IDEMPOTENT BY `WHERE NOT EXISTS`, not by `INSERT OR IGNORE` — the two are not
    * the same promise. `OR IGNORE` needs a unique index over exactly the columns
    * that make a row a duplicate, and `entitlements` deliberately has none on
-   * `account_id` because an account accumulates grants ([[REQ-167]], `0004`). So
+   * `business_id` because a business accumulates grants ([[REQ-167]], `0004`). So
    * re-running has to be proved rather than assumed: `wrangler d1 migrations
    * apply` runs against preview and production alike, and a second membership or
    * a second grant would be a silent duplicate nothing else would report.
@@ -467,16 +467,26 @@ describe('REQ-168 — the operator keeps the business they already have', () => 
     }
     const users = 'SELECT COUNT(*) AS n FROM users WHERE email = \'martin-github@westhead.me\''
     const members =
-      'SELECT COUNT(*) AS n FROM memberships WHERE account_id = \'1stcontact\''
+      'SELECT COUNT(*) AS n FROM memberships WHERE business_id = \'1stcontact\''
     const grants =
-      'SELECT COUNT(*) AS n FROM entitlements WHERE account_id = \'1stcontact\''
+      'SELECT COUNT(*) AS n FROM entitlements WHERE business_id = \'1stcontact\''
 
     const before = [await count(users), await count(members), await count(grants)]
     expect(before).toEqual([1, 1, 1])
 
-    // `applySchema` is memoised per process, so the migration is re-applied here
-    // explicitly rather than by calling it again — which would prove the memo.
-    await runMigration(operatorMembership)
+    // The migration is re-applied here explicitly rather than by calling
+    // `applySchema` again, which would re-run 0006's ALTERs and fail on the second
+    // pass rather than proving anything about this one.
+    //
+    // THE COLUMN NAMES ARE MAPPED FORWARD, and that is the honest form of the
+    // claim rather than a workaround ([[REQ-184]]). `0005` is history: it runs
+    // before `0006` on any database and is written against the names that existed
+    // then, so re-executing it verbatim against the current schema would fail on
+    // `no such column` and prove nothing about its guard. What must still hold is
+    // that its `WHERE NOT EXISTS` logic refuses to write a second membership or a
+    // second grant, and that is what this asserts, against the schema the Worker
+    // actually reads.
+    await runMigration(operatorMembership.replace(/\baccount_id\b/g, 'business_id'))
 
     expect([await count(users), await count(members), await count(grants)]).toEqual(before)
   })

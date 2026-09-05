@@ -55,6 +55,11 @@ const MIGRATIONS = [
   // production does not have. It is idempotent, so re-applying it across suites
   // in one persisted local D1 is a no-op.
   () => import('../../db/migrations/0005_operator_membership.sql?raw'),
+  // REQ-184 — `account_id` renamed to `business_id` on both tables, and
+  // `entitlements` given a real account subject. AFTER 0005 and it has to be:
+  // 0005 is a data migration written against the old column names, so a database
+  // that renamed first would refuse to run it ([[DOC-42]] §10.2).
+  () => import('../../db/migrations/0006_entitlement_subject.sql?raw'),
 ]
 
 /**
