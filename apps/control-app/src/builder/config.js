@@ -66,19 +66,25 @@ export const LIBRARY_TAB = { id: 'library', label: 'Library', fill: true }
  * `fill` for the reason the other two have it: this hosts a `list-detail`, which
  * is a split, which resolves its height against the panel.
  *
- * THE LABEL IS "Users" AND THE TAB IS NOT "Admin". It shows the people of
+ * THE LABEL IS "Contacts" AND THE TAB IS NOT "Admin". It shows the people of
  * WHICHEVER business is selected — our customers when the 1st Contact business is
  * open, a customer's customers when theirs is. Naming it for the privileged half
  * would encode a platform-only reading in the one string every person sees, which
  * is [[DOC-40]] §2.1 rule 1's failure mode arriving through the tab strip
- * ([[DOC-42]] §2, §7).
+ * ([[DOC-42]] §2, §7). "Contacts" is business-relative in exactly the way that
+ * argument requires, and is the word the product uses for this population.
  *
  * IT LISTS CONTACTS AS WELL AS MEMBERS. A person the business knows and has not
  * invited belongs here — the CRM reads the same rows and the invite is the
  * transition between the two states ([[DOC-42]] §9), so a tab that showed only
  * members would be a second population.
+ *
+ * THE ID STAYS `people` WHILE THE LABEL CHANGES. It namespaces this tab's
+ * persistence keys (`STORAGE_KEYS.people`) and is what `getPanel` mounts
+ * against, so renaming it would orphan every operator's saved split position
+ * and selection to buy nothing anybody can see.
  */
-export const PEOPLE_TAB = { id: 'people', label: 'Users', fill: true }
+export const PEOPLE_TAB = { id: 'people', label: 'Contacts', fill: true }
 
 /** Every tab the shell mounts, in order. */
 export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB]

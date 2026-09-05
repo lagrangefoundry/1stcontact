@@ -92,7 +92,7 @@
  * mistake. `.shell-actions button` is the one selector that stays here, because
  * for it order is the mechanism rather than the hazard: see below.
  *
- * 13px MATCHES `--fields-font-size` (webui-fields), which is what the People
+ * 13px MATCHES `--fields-font-size` (webui-fields), which is what the Contacts
  * table already takes (REQ-189) - so a control and the data it filters are one
  * size.
  *

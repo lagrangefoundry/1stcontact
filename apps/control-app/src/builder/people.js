@@ -674,7 +674,7 @@ export function createPeoplePanel(options = {}) {
     ...(storage ? { storage } : {}),
     items: [],
     getKey: (person) => person.id,
-    listTitle: 'People',
+    listTitle: 'Contacts',
     listControls: controls,
     renderRow,
     mode: 'no-tab',

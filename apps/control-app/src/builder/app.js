@@ -745,7 +745,7 @@ export function mountBuilder(root, options = {}) {
     //
     // A REFUSED SESSION IS THE ONE FAILURE THAT STOPS HERE ([[BUG-52]]). It used
     // to arrive as `[]` like any other, and an empty list is what then emptied
-    // the pane, the Library and the People tab — the empty account this bug is
+    // the pane, the Library and the Contacts tab — the empty account this bug is
     // named for. The notice above has already said what happened, so the honest
     // response is to change nothing: everything below this line rewrites a
     // surface, and every one of those rewrites would be a lie about a store this
