@@ -26,6 +26,7 @@ fields:
     reconcile_sha: 7bbdef1dc1e70a7886ed942355419ddcd70b7285
     main_sha: null
     working_sha_history: []
+  version: 0.2.70
 ---
 
 # `platform_admin` is two capabilities wearing one flag
