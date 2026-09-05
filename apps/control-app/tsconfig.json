@@ -4,7 +4,14 @@
     "types": [
       "@cloudflare/workers-types"
     ],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    // `allowJs` so the Worker's own TypeScript may import the one definition of
+    // a rule that BOTH sides of the browser/server seam need — today
+    // `src/builder/email-shape.js` ([[BUG-54]]), the same shape `people-state.js`
+    // already has for the browser-plus-workerd-test seam. `checkJs` stays off
+    // (its default): this admits those modules to the program, it does not start
+    // type-checking the builder's browser source.
+    "allowJs": true
   },
   "include": [
     "src/**/*.ts",
