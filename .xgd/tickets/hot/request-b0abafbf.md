@@ -5,9 +5,9 @@ type: request
 title: A member is someone who has signed up, not someone we invited
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T20:22:53.046093+00:00'
+updated_at: '2026-09-05T20:29:41.739004+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -92,3 +92,61 @@ and should say what remains true.
 - inviting someone moves them Contact → Invited and never straight to Member
 - accepting the terms moves them Invited → Member with no operator action
 - [[DOC-42]] §4, §4.1 and §9 are amended to describe the three states
+## What landed
+
+The three states are derived from the two markers the schema already carries, and
+the derivation has exactly **one** definition — `apps/control-app/src/builder/
+people-state.js`, a module with no imports, exporting `CONTACT`, `INVITED`,
+`MEMBER`, the ordered `PERSON_STATES` and `stateOf`. It is a module of its own so
+that the one rule is reachable from both sides of the seam: the browser panel that
+draws the label, and a test running in workerd against real rows. Two derivations
+would be two answers free to disagree about who is a member, which is exactly the
+wrong shape for the one place a legal fact is surfaced. `builder/people.js`
+re-exports it rather than keeping a copy.
+
+Consequences of the relabel, on the surfaces that carried the old semantic:
+
+- **The facet offers all three states**, built from `PERSON_STATES` rather than a
+  hand-written list, so a state a row can display can never be one the filter
+  cannot select. Filtering to **Invited** is what makes "who did I ask who never
+  came" an askable question — the reason the middle state is worth having.
+- **The invite dialog stops promising a membership the button cannot confer.**
+  The outcome sentence reads *"… is invited"* / *"… was already known here, and is
+  now invited"*, and the hint says no message is sent, that they are marked as
+  invited here, and that they become a member when they sign in and accept the
+  terms. An operator reads that sentence and nothing else, so leaving it saying
+  "member" would have kept the old model alive in the only place it is seen.
+- **The design record in `people.ts` and `builder/people.js` is rewritten**, on
+  this repository's rule that the comments are the design record: the invite is
+  documented as the verb that makes an *invitee*, and `tos_accepted_at` rather
+  than `first_seen_at` is documented as the membership marker, with the reason.
+- **Two REQ-186 UATs are adjusted** where they pinned the old label — one asserted
+  the tab read `['Member', 'Member']` after an invite and now asserts
+  `['Invited', 'Invited']`; two test names that said "as a member" no longer do.
+  The invite's own behaviour is unchanged, and the origin case additionally
+  asserts the invite stamps no acceptance.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-188_membership_states.workers.test.ts` — inside workerd
+against a real D1 with the deployed migrations, driving **both transitions through
+real routes**: `POST /api/people/invite` with an owner's real Access token, and
+`POST /api/terms/accept` with the person's own. Nothing stamps `tos_accepted_at`
+by hand on the path under test, because the claim is that signing up is what makes
+a member. Cases: a never-invited row is Contact; inviting makes Invited and stamps
+no acceptance; accepting the terms makes Member with no operator call between the
+assertions; and a session that reaches the interstitial and stops has
+`first_seen_at` set, `tos_accepted_at` null, and is still Invited — which is why
+the marker is the second column and not the first.
+
+`tests/test_UAT_FC_REQ-188_membership_states.test.ts` — the panel mounted against
+the real `webui` components, with only the HTTP call doubled. Cases: three rows
+read Contact / Invited / Member; the facet reaches each of the three and clears
+back to everyone; inviting a contact moves the row to Invited and the sentence
+says so without saying "member"; the row becomes Member after the terms are
+accepted out there, with no control on the tab touched; the hint promises no
+membership; and the panel's `stateOf` is the same function the workers suite
+asserts against real rows.
+
+Regression scope: the REQ-186 invite suites (both), REQ-170 people, REQ-169 terms
+and REQ-167 identity — 64 tests, all passing.
