@@ -6,9 +6,9 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-05T00:05:05.368378+00:00'
+updated_at: '2026-09-05T00:12:40.817635+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -303,3 +303,10 @@ single-reader idiom applied to a flag and to a concept.
   must excuse.
 
 - Everything D1–D5 landed still passes unchanged: no endpoint changes shape.
+
+
+- **The bypass's stated reason is corrected too.** `scope.ts`'s membership bypass
+  records that it is possible because 1st Contact *hosts* the others ([[DOC-42]]
+  §8) rather than because of any level — the genuinely special half of the flag,
+  against the half that is merely ownership of the 1st Contact business and is
+  `memberships.role`.
