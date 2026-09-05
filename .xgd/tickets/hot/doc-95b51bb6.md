@@ -5,7 +5,7 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-05T01:56:33.384906+00:00'
+updated_at: '2026-09-05T20:29:09.822243+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -93,21 +93,42 @@ relations:
 | | means | where it lives |
 | --- | --- | --- |
 | **Contact** | known to this business — an email or a phone — and **may become a member** | a `users` row in that tenant, never invited |
-| **Member** | may log in here | a `users` row in that tenant, invited |
+| **Invited** | asked, and has not come | the same row, `invited_at` set and `tos_accepted_at` null |
+| **Member** | has signed up here, and so may log in | the same row, `tos_accepted_at` set |
 | **Operator** | may *run* this business — owner, support, eventually staff | `memberships` |
 | **Entitled** | this account has been granted access to some thing | `entitlements` |
 
-Read across the example: Bob is a contact of Alice's Plumbing and becomes a
-member when Alice invites him. Alice is a member of 1st Contact **and** the
-operator of Alice's Plumbing. You are all four on 1st Contact.
+**A member is someone who has signed up, not someone we invited** ([[REQ-188]]).
+An earlier draft of this section defined a member as *"may log in here — a `users`
+row in that tenant, invited"*, which is the capability reading and is what made
+`invited_at` the marker: send the invite and the tab called that person a member
+at once. That describes what *we* did rather than what *they* did, and an
+invitation nobody answered is not a relationship. So the first relation has three
+states, and the middle one — asked, and not yet arrived — is the one an operator
+can act on.
+
+Read across the example: Bob is a contact of Alice's Plumbing, becomes **invited**
+when Alice invites him, and becomes a **member** when he signs up. Alice is a
+member of 1st Contact **and** the operator of Alice's Plumbing. You are all four
+on 1st Contact.
 
 `admit` implements the split exactly: `findUser(env, tenant, email)` is the
 member check, and `businessesFor(user.id)` then asks what that person may
 operate. The two answer different questions and neither implies the other.
 
-**Contact and member are the same row in two states**, which is why the invite is
-a transition rather than a creation (§9). `invited_at` is what `provisionInvite`
-sets and is the only marker distinguishing them today.
+**Contact, invited and member are the same row in three states**, which is why the
+invite is a transition rather than a creation (§9). Two columns carry them:
+`invited_at`, which the invite stamps, and `tos_accepted_at`, which accepting the
+terms stamps. The two transitions belong to two different parties — the operator
+performs the first and only the person themselves can perform the second.
+
+`tos_accepted_at` and **not** `first_seen_at` is the membership marker, and the
+difference matters: `admit` stamps `first_seen_at` on the first request that gets
+through the door and `guardTerms` runs *after* it, so `first_seen_at` means
+"reached the interstitial once" while `tos_accepted_at` means "completed
+sign-up". Only the second is a fact about the person having entered into
+anything, and only the second is a legal fact worth being able to query — which
+is what lets the tab answer "who has accepted the terms" with no separate report.
 
 **Falsifier:** code that reads `memberships` to answer "may this person log in",
 or that treats being in a business's people list as implying the right to run it.
@@ -121,12 +142,19 @@ Recorded because the model names things the schema cannot yet hold.
   (`0004:61`). A contact reached only by phone has no key and no column — there
   is no `phone` anywhere in the schema. This bites at level 2, where a plumber's
   contacts arrive by phone as often as by mail.
-- **Nothing enforces contact versus member.** Any `users` row with a matching
-  verified email and `status = 'active'` passes `admit`. The distinction is real
-  in the model and currently advisory in the code. It is moot at level 1, where
-  only invited people have rows at all and Access guards the origin; it stops
-  being moot the moment a business captures contacts and puts a portal on its own
-  site.
+- **Nothing enforces contact versus invited.** Any `users` row with a matching
+  verified email and `status = 'active'` passes `admit`; `invited_at` is reported
+  and never consulted. That half of the distinction is real in the model and
+  still advisory in the code. It is moot at level 1, where only invited people
+  have rows at all and Access guards the origin; it stops being moot the moment a
+  business captures contacts and puts a portal on its own site.
+
+  **What [[REQ-188]] does answer** is the other half. Membership is no longer a
+  label the tab paints over a row that was merely asked: `tos_accepted_at` is
+  written by an act of the person's own, `guardTerms` refuses everything behind it
+  until that act happens, and so the member state is enforced by the gate that
+  writes it. A never-invited row can still sign in; a row that has not signed up
+  cannot be called a member by anybody.
 
 ## 5. The Portal is what MEMBERSHIP IS. It is not a grant
 
@@ -221,29 +249,38 @@ Three facts about what that business does. None of them is a kind of tenant.
 - **Its product is other businesses**, which is why `provisionBusiness` is its
   fulfilment action (§7).
 
-## 9. Contact and member are one population in two states
+## 9. Contact, invited and member are one population in three states
 
 [[DOC-40]] *Contacts are users*: a contact is a `users` row in that tenant with
 no authentication fields set — explicitly not a second table, with
 `(tenant_id, email)` unique as the one place identity is decided (0004:61).
 
 So the CRM and the User tab are two views of one list, and **the invite is the
-verb that moves someone across** — it is what turns a §4 *contact* into a §4
-*member*, and it is why the two are states of one row rather than two records:
-capture a visitor → see them in the CRM → invite them in. Your CRM is prospects
-who landed on the 1c site; your Users are the ones who accepted.
+verb that moves someone across** — it turns a §4 *contact* into a §4 *invitee*.
+It is why these are states of one row rather than three records: capture a
+visitor → see them in the CRM → invite them in. Your CRM is prospects who landed
+on the 1c site; your Users are the ones you asked.
 
-A contact is a person you may reach and who **may become** a member. That "may"
-is the whole of the distinction: nothing else about the row changes, and the
-identity the `(tenant_id, email)` index decides is the same identity before and
-after. Which is exactly why a contact later invited must not become a second row
-with a duplicate address — the case [[DOC-40]] cites as the reason for one
-table.
+**The invite no longer completes the journey** ([[REQ-188]]). This section used
+to say `invited_at` *"is the only marker distinguishing them today"*, and it is
+still the marker of the first transition — but the second is `tos_accepted_at`,
+and the verb that writes it is the person's own: they sign up, which includes
+accepting the terms, and the tab shows them as a member with no operator action
+at all. Two verbs, two parties, one row.
+
+A contact is a person you may reach and who **may become** a member; an invitee is
+a person you have asked and who has not come. That "may" is the whole of the first
+distinction and "has not" is the whole of the second: nothing else about the row
+changes, and the identity the `(tenant_id, email)` index decides is the same
+identity throughout. Which is exactly why a contact later invited must not become
+a second row with a duplicate address — the case [[DOC-40]] cites as the reason
+for one table.
 
 One tab with a facet, or two tabs over one query, is open. Two lists is not.
 
 **Falsifier:** a User list and a CRM list that can disagree about a person who is
-both, or an invite that inserts rather than updates.
+both, an invite that inserts rather than updates, or any surface that calls a
+person a member before they have accepted the terms.
 
 ## 10. Amendments this model owes to what is already written
 
