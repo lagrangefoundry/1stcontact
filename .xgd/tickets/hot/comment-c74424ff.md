@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T17:55:13.116380+00:00'
+updated_at: '2026-09-05T18:07:39.418229+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1090,5 +1090,15 @@ Local `.wrangler` state only — nothing remote, nothing committed:
 The chat-host-per-business partitioning (needs driving the assistant through a real turn), the Users tab UI itself as opposed to its API, ToS re-prompt on a version bump, and the entitlement-lapse marking in the switcher.
 
 Want me to file the three findings as bugs, and pick up the chat-host verification next?
+
+<!-- xgd-turn id="a81d46e8-20d1-49bb-81db-4c529078134b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T18:07:39.319344+00:00" -->
+#### You
+ok this is good - access tokens give access - but there's more so I had some long discussions in REQ-170 I think we even created a doc DOC-42. I was hoping to see and be able to test:
+
+- User portal (won't have much in it but I should see one, no?)
+- User tab on the app (I only see Site and Library)
+- The ability for two levels of user provisioning Level 0 is me, Level 1 is my customers who get access to the 1c app Level 2 is their customers who get access to the user portal only.
 
 <!-- xgd-chat-end -->
