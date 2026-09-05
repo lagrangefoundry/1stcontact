@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-05T02:13:31.181958+00:00'
+updated_at: '2026-09-05T02:17:54.950171+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1036,5 +1036,11 @@ Current state, unchanged from before I tried:
 - `.xgd/config.yaml` in the standing main worktree is still dirty, and `stash@{0}` is a redundant copy of it you can drop
 
 I won't touch the branch further. What's the correct landing step here — do I set `free_coded` with the SHA and let the dispatcher pick it up, or is there something else that happens first?
+
+<!-- xgd-turn id="4c256b1b-2607-40cb-bc44-6cdbbe35c057-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T02:17:54.909697+00:00" -->
+#### You
+Please just read and follow the free-coding protocol
 
 <!-- xgd-chat-end -->
