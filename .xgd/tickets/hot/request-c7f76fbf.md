@@ -5,16 +5,24 @@ type: request
 title: The Users tab is unstyled, and its detail panel splits one thing into two tables
 created_by: xgd
 created_at: '2026-09-05T20:17:18.378919+00:00'
-updated_at: '2026-09-05T20:30:17.129117+00:00'
+updated_at: '2026-09-05T20:35:00.181466+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4f89b466
+  commits:
+  - working_sha: 759f6956ace353c066c75264b7326399f159f640
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b8c699fdeafa530ba9a1748529c8ec91d2a13475
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.77
 ---
 
 # The Users tab is unstyled, and its detail panel splits one thing into two tables
