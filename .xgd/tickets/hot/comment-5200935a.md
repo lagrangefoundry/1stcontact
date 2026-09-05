@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T22:45:18.778204+00:00'
+updated_at: '2026-09-05T23:13:07.785924+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,20 @@ Six tickets, in dependency order — the first two are the ones that block every
 6. **Lapse email** — once (5) settles what "expires" means
 
 Tell me which of the six decisions you want to settle now and I'll write the tickets.
+
+<!-- xgd-turn id="162f9d43-7c72-44c1-bdce-3a3615c6a6e8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:13:07.291276+00:00" -->
+#### You
+See DOC-44 users is wrong we are deliberately changing it to Contacts. The inital state of a contact will be  a Lead.
+
+6. A published 1stcontact site - definitely
+5. We have a REQ to deal with that lets make initial tokens long lived 3 months? and figure this out a little later
+4. Yes agree
+3. agree that is the intent - separate UI for template modification
+2. I don't understand this
+1. Lets discuss
+
+Also I missed something.  I want a ticket type "email" and I want to store all outgoinng email associated with the user we sent it to starting with the invite - these records will be visible on the Contacts/Users page
 
 <!-- xgd-chat-end -->
