@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-05T00:40:56.819439+00:00'
+updated_at: '2026-09-05T01:55:12.411318+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -914,5 +914,11 @@ So the three columns are: the record (with `status` as the login control), the b
 Fix DOC-42 §4 and §5, propagate the one-line consequence into REQ-170, then build against the corrected reading. It's a doc edit plus a column swap in the plan, not a re-litigation — your model is unchanged, only its mapping onto tables.
 
 I've cut `free-REQ-170` but written no code. Want me to make that correction and continue?
+
+<!-- xgd-turn id="5fcb252b-3284-4d6a-b071-fd480e7b711a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T01:55:12.131065+00:00" -->
+#### You
+Yes - although remember we will also have a "contact" which is a person with an email or phone number who MAY become a member
 
 <!-- xgd-chat-end -->
