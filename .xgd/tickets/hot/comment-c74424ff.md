@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:27:27.828688+00:00'
+updated_at: '2026-09-05T20:15:36.637370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1520,5 +1520,19 @@ That third one is why it's operator-only and why there's no self-serve version: 
 **Invite** = who exists here. **Provision a business** = what they get. **Grant** = the commercial terms of what they get, and **Withdraw** ends those terms without erasing the record.
 
 Invite + Provision a business is how you make a level-1 customer. Invite alone is how you'd make a level-2 one — once the two gaps we've found are closed (level-2 login, and §10.1's admitted-but-unentitled state).
+
+<!-- xgd-turn id="f5d96ac4-9e8d-40d3-9b87-3455bf27a7c0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T20:15:36.463602+00:00" -->
+#### You
+ok we need to talk about Invite - my intended sematic was that a user/contact becomes a member when they can log in, that requires sign-up including accepting ToS etc. I think that is the correct semantic - until that happens they are a contact who has been invited. If you agree lets get an REQ to change that?
+
+It is very hard to understand the UI because it is presenting multiple fields running together - can we have an REQ to fix the presentation both of the list and the sections in the detail panel. the fields editor component is a resonable starting point for styling. All the fints are overlarge and there is no alignment - there is no left margin - its super ugly.
+
+Why do I need "Businesses they run" and "Grants" as separate? I mean I understand that they are different things but one table with a row per business would seem to make more sense to me. These tables may need column headings to make sense.
+
+In the user list I would like to see the name of the user, if we have one.
+
+I guess technically I am looking at a list of "contacts" here, correct? I expect a contact, in general, to have more than one email address and their default email address may change - do we accommodate that in the model?
 
 <!-- xgd-chat-end -->
