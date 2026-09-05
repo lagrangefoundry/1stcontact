@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:44:57.249882+00:00'
+updated_at: '2026-09-05T22:46:15.565671+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2150,5 +2150,38 @@ Lets punt on access restrictions - I just want the model to support multiple use
 Lets punt on access restrictions - I just want the model to support multiple users on an account - v1 we stick to one user
 
 Oh also I keep saying user - generically these are "Contacts" I'm actually taking about I hope our table is called Contacts?
+
+<!-- xgd-turn id="2a16e6c3-2bbc-4b28-aee3-5f2e355b23d8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:46:15.484120+00:00" -->
+#### Claude
+**REQ-194 — "The Account is a table, and a business is owned by one"** (draft, high, 3 points).
+
+Scoped exactly as you said: the model supports several people per account, v1 ships one, and access restrictions are explicitly punted — no permission checks, no role vocabulary beyond the `'owner'` already sitting in the `role` column. The value is that adding a second person later is a row rather than a migration, and since REQ-190 is rebaselining now, that's a table definition versus a second rebaseline.
+
+`memberships` stays per-business rather than moving to the account. That preserves what CHAT-36 called a payoff — *"this employee sees only the salon site" for free* — and it's the relation RBAC will eventually hang off, without building any of it now.
+
+I also folded in the `acct_` prefix problem: `newId('acct')` currently mints **business** ids, so `acct_057f…` is xgd.dev. Once accounts are real that prefix is on the wrong noun, and REQ-190 is reminting every key anyway.
+
+## On "Contacts" — you're half right, and the half that's wrong is the important one
+
+**The tab already says Contacts.** Someone renamed it today (`config.js:87`, `label: 'Contacts'`), with the reasoning recorded:
+
+> *"Naming it for the privileged half would encode a platform-only reading in the one string every person sees… 'Contacts' is business-relative in exactly the way that argument requires, and is the word the product uses for this population."*
+
+**The table is still `users`.** So right now one population has four names across four layers:
+
+| Layer | Noun |
+|---|---|
+| table | `users` |
+| model (DOC-42 §4) | Contact / Member / Operator |
+| code | `Person`, `peopleOf`, `PersonDetail` |
+| tab | Contacts |
+
+That's the drift worth fixing, and I agree `contacts` is the right base name — DOC-42 §9 makes contact-and-member *one population in two states*, the row exists long before anyone logs in, and most rows will never belong to someone who signs in at all. "User" describes the minority state, so naming the table after it is backwards.
+
+The one thing to keep straight: renaming the table doesn't make "user" meaningless — under REQ-188 it becomes the *Member* state. So the rule would be **table `contacts`; states contact → invited → member; `Operator` is the membership**, and `Person`/`people` in code either follows or gets a stated reason not to.
+
+I haven't filed that — it's 16 SQL sites plus the code and API surface, and it interacts with REQ-188 (which renames the states) and REQ-190 (which is rewriting the schema anyway). Want it as its own REQ, or folded into REQ-190's baseline since the table is being recreated there regardless?
 
 <!-- xgd-chat-end -->
