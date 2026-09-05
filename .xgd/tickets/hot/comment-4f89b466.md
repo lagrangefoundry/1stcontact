@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-189
 created_by: xgd
 created_at: '2026-09-05T20:19:37.492466+00:00'
-updated_at: '2026-09-05T20:37:43.871722+00:00'
+updated_at: '2026-09-05T20:38:19.181927+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,28 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="f118add0-e214-4fb2-b4b6-ef43e8b47d58-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T20:38:16.583675+00:00" -->
+#### Claude
+Let me verify the current state rather than assume it survived.
+
+Everything is in place. Running the UATs from the main checkout in the foreground to confirm they pass where the code actually lives:
+
+REQ-189's free-coding was already complete at the end of the previous turn — I've now re-verified it on `xgd-working` rather than taking it on trust:
+
+| Protocol step | State |
+|---|---|
+| Ticket scoped with behaviour description | Body carries the original request plus an appended *What the implementation had to add, and why* + *Further acceptance* |
+| Branch cut | `free-REQ-189` (created, merged, cleaned up) |
+| Code + UATs named `test_UAT_FC_REQ-189_*` | 2 files, 17 cases |
+| Commit marked `[FREE-CODED]` | `759f6956` (the work) and `b8c699fd` (version bump) |
+| `status=free_coded` + `fields.commits` | Both SHAs recorded, confirmed ancestors of `xgd-working` |
+| Version | `0.2.77`, and `package.json` on `xgd-working` reads 0.2.77 |
+
+41 tests pass from the main checkout — including the two REQ-189 suites and the REQ-170/186/188 suites nearest the change.
+
+One thing to flag, since it's the only loose end and it isn't mine to close: `git status` still shows `.gitignore`, three `goal-*.md` ticket files, and an untracked `.pnpm-store/` as modified. Those were dirty before this session opened and I left them alone.
 
 <!-- xgd-chat-end -->
