@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:41:00.391675+00:00'
+updated_at: '2026-09-05T21:41:31.171976+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1833,5 +1833,31 @@ One note: run it from a terminal you own rather than through me. Both of my atte
 ((.venv-working) ) martin@nyx main %
 
 ```
+
+<!-- xgd-turn id="f82c31ae-3896-44c2-8f31-8be06a793e4c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:41:29.531648+00:00" -->
+#### Claude
+Dead. Let me start the real one on 8799.
+
+Running, and the key rotation worked exactly as intended — the already-running Worker accepted a token signed by the new keypair with no restart. `200` on `/api/sites`, and `/login` redirects correctly.
+
+**Go to http://127.0.0.1:8799/login** and pick a person. That's the whole login flow now — no console paste, no cookie juggling.
+
+You'll see seven people listed, read live from your local D1:
+
+| | |
+|---|---|
+| `martin-github@westhead.me` | you — level 0, all three tabs, the fulfilment control |
+| `uat@westhead.me` | two businesses — the switcher |
+| `alice@plumbing.example` | level 1, one business, Bob on her Users tab |
+| `bob@example.com` | level 2 — still 403, the known door |
+| `carol@example.com` | invited, never signed up — 403 |
+| `dave@example.com` | Alice invited them via REQ-186's new route |
+| `martin-1c-test@westhead.me` | from an earlier fixture |
+
+Carol and Dave are worth a look precisely because they *don't* work: both were invited and neither can get in, which is DOC-42 §10.1's admitted-but-unentitled gap. Under REQ-188 they'd correctly read as **Invited** rather than **Member**, which is the state the tab can't currently show you.
+
+Cookies last 30 days, so this should be the last time login gets in your way.
 
 <!-- xgd-chat-end -->
