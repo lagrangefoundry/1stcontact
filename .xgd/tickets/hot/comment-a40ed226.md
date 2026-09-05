@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-05T01:55:12.411318+00:00'
+updated_at: '2026-09-05T02:11:22.391494+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -920,5 +920,95 @@ I've cut `free-REQ-170` but written no code. Want me to make that correction and
 <!-- xgd-chat role="user" ts="2026-09-05T01:55:12.131065+00:00" -->
 #### You
 Yes - although remember we will also have a "contact" which is a person with an email or phone number who MAY become a member
+
+<!-- xgd-turn id="5fcb252b-3284-4d6a-b071-fd480e7b711a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T02:11:22.137178+00:00" -->
+#### Claude
+Two more gaps: `email TEXT NOT NULL` with `(tenant_id, email)` as the identity index — so a **phone-only contact is unrepresentable** — and there's no phone column anywhere. Let me fix DOC-42 properly.
+
+Now propagating the correction into REQ-170 before I write code against it.
+
+DOC-42 and REQ-170 are corrected. Now writing the code against the corrected model.
+
+`entitlements` has no `revoked_at` — only `memberships` does. REQ-170's body requires it, so it needs a migration. Checking the number is free first.
+
+REQ-185 has landed too (migration `0007`). Let me see what it changed before I build the gate on top of it.
+
+REQ-185 already exports `ownsBusiness` and a platform-business variant. Let me use those rather than duplicate them.
+
+REQ-185 built exactly the gate I was about to duplicate. Removing mine in favour of it.
+
+The worktree was cut before REQ-185 landed — it has `0006` but not `0007`, so `ownsPlatformBusiness` won't exist there. Let me bring the branch up to date.
+
+Merged cleanly — the branch now has REQ-184 and REQ-185. Adding the routes.
+
+Now inserting the routes.
+
+`identityEnv` is block-scoped inside the admin handler. Hoisting it and adding the imports.
+
+Only a pre-existing unrelated error (`session-knowledge.ts`); my files typecheck. Now the client tab — checking how the Library mounts.
+
+Now mounting it in `app.js` alongside the Library.
+
+Now the UATs. Let me follow the most recent workers test harness.
+
+Two failures. Let me check how the test harness applies migrations.
+
+`accountName`, not `name` — my test used the wrong field so the business defaulted to the email. Fixing.
+
+All 10 pass. Now checking for regressions across the suite.
+
+Two of those look like mine — the shell and library tab tests. Let me look.
+
+One real failure, and it's mine — REQ-161 pins the tab list. Updating it.
+
+All green. Let me confirm the other 12 failures are pre-existing by running them on the base in the main checkout.
+
+Confirmed pre-existing — those fail identically on the base. Committing.
+
+It's `xgd`'s own YAML reflow of a prompt string — semantically identical, not mine. Stashing it rather than discarding, then restoring after.
+
+The stash was created but git couldn't rewrite the file — sandbox denies writes to `.xgd/config.yaml`. Nothing is lost (the change is in both the worktree and `stash@{0}`), but I can't clear it myself. Let me record what landed on the ticket while that's pending.
+
+REQ-170 is implemented and committed on `free-REQ-170` — but **not merged back and not `free_coded`**, because merge-back is blocked. Details below.
+
+## What landed
+
+`5b6befd15c86e1fe7d41b3e3df18fdb6351b3de5`, version 0.2.71, 11 files.
+
+- **The Users tab** (`people` id, third in `TABS`), mounted beside the Library, clearing and re-reading on a business switch. Not `/admin` — the routes are `/api/people`, since an `admin` segment would put a platform-only reading in the URL.
+- **`people.ts` + five routes**: list, detail, status, grant, revoke.
+- **Migration 0008** — `entitlements.revoked_at` didn't exist. `memberships` has held it since `0004:82`; the ticket has always said revocation sets it, and there was no column.
+- **The gate calls REQ-185's `ownsPlatformBusiness`** rather than a second predicate, which also keeps `TENANT_ID` at REQ-168's two readers.
+- **Ten UATs** in workerd against real D1, each traced to ticket language — including the corrected-model one: *an account logs in holding no membership on the business it logs in to*.
+
+## Two things I changed that weren't mine
+
+**REQ-161's tab assertion.** It spelled "the Library sits beside the site tab" as `toEqual([site, library])`, which pinned the tab *count* as a side effect. Narrowed to the adjacency it's actually about. Implicit supersession, recorded on the ticket.
+
+**`identityEnv` hoisted in `router.ts`** — it was block-scoped inside the admin handler and five routes now need it.
+
+## Why it isn't merged back
+
+`.xgd/config.yaml` is dirty in the standing main worktree — an `xgd`-generated YAML reflow of a prompt string, semantically identical, not mine. `merge-back` refuses on a dirty checkout, and **the sandbox denies me write access to that file**, so I can't clear it.
+
+I tried to stash it; the stash was created (`stash@{0}`) but git couldn't rewrite the file, so the change now exists in *both* the worktree and the stash. Nothing is lost, but `stash@{0}` is redundant once you resolve the working copy — drop it after.
+
+You'll need to `git checkout .xgd/config.yaml` (or commit it) in `~/.xgd/worktrees/…/main`, then:
+
+```
+xgd merge-back free-REQ-170 --intent REQ-170
+```
+
+I held the `free_coded` promotion until after merge-back, per the ordering that matters for the SHA bookkeeping.
+
+## Test state
+
+10/10 REQ-170 UATs pass; `test_UAT_FC_REQ-161_library_tab` and `req115-builder-shell` pass. Twelve suites fail on the branch and **fail identically on the base** — the knowledge-base cluster plus `bug32-webui-scope-rebrand`, none of which this touches. I verified that against `xgd-working` rather than assuming it.
+
+## Deliberately not done
+
+The **invite** (the tab reads and edits; it doesn't provision yet) and **`display_name` editing** (REQ-183 §5 already calls that a different ticket). Both are recorded in the ticket's implementation section rather than left for reconciliation to discover.
 
 <!-- xgd-chat-end -->
