@@ -554,19 +554,37 @@ export async function fetchPerson(id, fetchImpl = fetch) {
 }
 
 /**
- * May this person sign in at all.
+ * Correct who somebody is: the address, the name ([[BUG-54]]).
  *
- * `status` AND NOT A MEMBERSHIP CALL ([[DOC-42]] §5) — this is the field `admit`
- * refuses on, and withdrawing a membership is the different act of taking away
- * the right to RUN a business.
+ * A PATCH AND NOT A RECORD. The fields panel commits one field at a time, so
+ * what arrives here is `{email}` or `{displayName}` and the route changes only
+ * what it was given. Sending the whole record instead would write back every
+ * other value this pane happened to be holding — including one a concurrent
+ * edit had already moved on from.
+ *
+ * ONLY THE TWO KEYS ARE FORWARDED, chosen here rather than spread. The panel's
+ * change object is the widget's, and a route that took whatever it was handed
+ * would grow whatever the widget's schema grows — silently, and on a table
+ * where the other columns are the record of what the system observed.
+ *
+ * THE MESSAGE IS READ BACK on a refusal, like the invite's. 400 here is a
+ * malformed address or one somebody in this business already holds, and those
+ * are different problems with the same number; the panel prints the sentence
+ * beside the box rather than the status code.
  */
-export async function savePersonStatus(id, status, fetchImpl = fetch) {
-  const res = await send(fetchImpl, scoped('/api/people/status'), {
+export async function savePersonRecord(id, patch = {}, fetchImpl = fetch) {
+  const body = { id }
+  if ('email' in patch) body.email = patch.email
+  if ('displayName' in patch) body.displayName = patch.displayName
+  const res = await send(fetchImpl, scoped('/api/people/record'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id, status }),
+    body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`POST /api/people/status → ${res.status}`)
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/people/record → ${res.status}`)
+  }
   return res.json()
 }
 

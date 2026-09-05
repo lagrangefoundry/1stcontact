@@ -33,12 +33,16 @@ import {
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import {
   InvalidInviteError,
+  InvalidPersonRecordError,
   invitePerson,
   openGrant,
   peopleOf,
   personDetail,
+  type PersonPatch,
   revokeGrant,
+  setPersonRecord,
   setPersonStatus,
+  UnknownPersonError,
 } from './people'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
@@ -478,6 +482,16 @@ export const ADMIN_BUSINESSES_PATH = '/api/admin/businesses'
 export const PEOPLE_PATH = '/api/people'
 export const PERSON_DETAIL_PATH = '/api/people/detail'
 export const PERSON_STATUS_PATH = '/api/people/status'
+/**
+ * Where a business's owner corrects who somebody is ([[BUG-54]]).
+ *
+ * SEPARATE FROM `/status`, and not folded into it. The two write to the same
+ * table and mean unrelated things: this one corrects the operator's own answer
+ * to who this person is, and that one withdraws a login ([[DOC-42]] §5). One
+ * route taking both would make suspending somebody reachable from every caller
+ * that only meant to fix a typo in their name.
+ */
+export const PERSON_RECORD_PATH = '/api/people/record'
 /** Where a business's owner turns a contact into a member ([[REQ-186]]). */
 export const PERSON_INVITE_PATH = '/api/people/invite'
 export const GRANTS_PATH = '/api/grants'
@@ -1242,6 +1256,54 @@ async function routeUncached(
     }
 
     /**
+     * POST /api/people/record — correct who somebody is ([[BUG-54]]).
+     *
+     * THE TWO FIELDS THE OPERATOR OWNS, and no others. `email` and
+     * `display_name` are their own answer to a question only they can answer —
+     * a typo in an invited address, a person who has since said what to call
+     * them — and there was no way to correct either. Everything else on the row
+     * is what the system OBSERVED, and `setPersonRecord` will not write it.
+     *
+     * `'email' in body` AND NOT `body.email` — the patch distinction. An absent
+     * key means leave it alone and a present one means write it, which is what
+     * lets the panel commit one field without sending back a stale copy of the
+     * other. Read as a truthiness test, clearing a name would be
+     * indistinguishable from not mentioning it.
+     *
+     * GATED ON `ownsBusiness`, THE SAME FIRST CONDITION AS THE INVITE
+     * ([[DOC-42]] §7) and emphatically not `ownsPlatformBusiness`. Correcting
+     * the record of your own business's people is uniform — Alice does it on
+     * hers — so gating it on being 1st Contact would be §7's falsifier and
+     * would foreclose level 2 exactly as it would for the invite.
+     *
+     * 403 AND NOT THE 404 THE FULFILMENT ROUTE ANSWERS, for the invite route's
+     * reason: this surface is not administrative, every business owner has it,
+     * so its existence is not a secret and the refusal is an answer about the
+     * caller.
+     */
+    if (p === PERSON_RECORD_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        console.warn(
+          JSON.stringify({
+            event: 'person_record_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only an owner of this business may edit its people.' })
+      }
+      const body = await readJsonBody(request)
+      const patch: PersonPatch = {}
+      if ('email' in body) patch.email = typeof body.email === 'string' ? body.email : ''
+      if ('displayName' in body) {
+        patch.displayName = typeof body.displayName === 'string' ? body.displayName : null
+      }
+      const id = typeof body.id === 'string' ? body.id : ''
+      return json(200, await setPersonRecord(identityEnv, scope, id, patch))
+    }
+
+    /**
      * POST /api/people/invite — the verb that turns a contact into a member
      * ([[REQ-186]], [[DOC-42]] §9).
      *
@@ -1880,6 +1942,22 @@ async function routeUncached(
     // and send the operator back to retry the one thing that cannot work.
     if (err instanceof InvalidInviteError) {
       return json(400, { error: scrub(err.message) })
+    }
+
+    // A BAD ADDRESS, OR ONE ALREADY TAKEN, IS THE OPERATOR'S TYPO ([[BUG-54]]) —
+    // 400 carrying the sentence, because the fields panel prints it beside the
+    // box that is wrong. Reported as the generic 500 below it would say "the
+    // builder broke" for a missing `.` and give them nothing to correct.
+    if (err instanceof InvalidPersonRecordError) {
+      return json(400, { error: scrub(err.message) })
+    }
+
+    // AN ID THAT NAMES NOBODY IN THIS BUSINESS IS 404 — the same non-oracle
+    // answer `/api/people/detail` gives, and for the same reason: not found and
+    // not yours must be indistinguishable, or the route becomes the existence
+    // oracle `identity.ts` and `scope.ts` both refuse to be.
+    if (err instanceof UnknownPersonError) {
+      return json(404, { error: scrub(err.message) })
     }
 
     if (err instanceof CommandError) {
