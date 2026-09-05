@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:45:29.986484+00:00'
+updated_at: '2026-09-05T23:54:32.632619+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2408,5 +2408,11 @@ I noted the cost is smaller than I implied. Delivery *transitions* live in `cont
 I've left the six as they are — they're written and cross-linked, and collapsing them now would cost more than it saves. One branch, one baseline, each ticket a commit. Say the word if you'd rather I merge them.
 
 **One flag before anyone starts:** with the seed gone, REQ-192's seeded personas can't be created by a privileged caller who doesn't exist yet. The seed command needs `PLATFORM_ADMINS` set for its first run, or it needs to write the first account directly. Worth settling when REQ-192 is picked up — it's the one ordering wrinkle the rebaseline introduces.
+
+<!-- xgd-turn id="800ff938-c7ce-4814-b5c0-3dfaf5c7b81d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:54:32.445690+00:00" -->
+#### You
+Please explain the seeded persona's issue?
 
 <!-- xgd-chat-end -->
