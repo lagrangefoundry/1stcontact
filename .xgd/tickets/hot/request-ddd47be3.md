@@ -5,9 +5,9 @@ type: request
 title: 'Contact events: the immutable spine every interaction hangs off'
 created_by: xgd
 created_at: '2026-09-05T23:30:16.329301+00:00'
-updated_at: '2026-09-05T23:30:16.329301+00:00'
+updated_at: '2026-09-05T23:45:12.001349+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -127,3 +127,18 @@ two lists a reader has to interleave by eye.
   on the Contacts tab
 - a delivery outcome that changes produces additional events, never a rewritten one
 - events are scoped to a business and no query can read across the barrier
+
+
+## An email is a ticket — decided, 2026-09-05
+
+[[CHAT-23]] settles the fork above: a message is a ticket of a new `email` type,
+beside the chat transcripts and uploaded material the ticket store already holds
+([[REQ-160]], [[REQ-162]]). It inherits a body, a version and the store's history,
+and the event's `ref` is the ticket uid.
+
+The cost stands and is accepted: delivery state is a field rather than a column,
+so "every message that bounced this week" is a scan. At beta volumes that is
+nothing, and the events table carries the delivery *transitions* anyway — so the
+question is answerable from `contact_events` by `kind`, which is indexed, rather
+than from the messages themselves. That is the better query shape regardless of
+where the message body lives.
