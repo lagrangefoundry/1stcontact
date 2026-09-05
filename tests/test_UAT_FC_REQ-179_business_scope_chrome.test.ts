@@ -27,6 +27,15 @@
  *   5. THE ACCOUNT IS BEHIND THE AVATAR AND ABSENT FROM THE TAB STRIP.
  *   6. A STORED SELECTION THE ACCOUNT CANNOT OPERATE FALLS BACK SILENTLY.
  *   7. WITH ONE BUSINESS THE SWITCHER CLAIMS NO MORE CHROME THAN THE NAME.
+ *   8. WITH NOTHING SELECTABLE THE SWITCHER STILL RENDERS, THE TABS GO AND THE
+ *      CHROME STAYS ([[REQ-179]] reopen, [[DOC-42]] §10.1). This state did not
+ *      exist when the cases above were written: an account whose every grant had
+ *      lapsed was refused at the door, so the person whose problem was a payment
+ *      met a login failure and could reach neither the page showing what they
+ *      were charged nor the button closing their account. Membership admits now.
+ *      The failure these cases guard is the block landing on the wrong subtree —
+ *      an inert shell takes the avatar with it, and the avatar is the whole
+ *      remedy.
  */
 
 import fs from 'node:fs'
@@ -75,6 +84,17 @@ const SITES_OF: Record<string, Array<{ slug: string; latest: number | null }>> =
 }
 
 const ACCOUNT = { name: 'Sam Salon', email: 'sam@example.test' }
+
+/**
+ * The same account with every grant lapsed — what [[DOC-42]] §10.1 made
+ * reachable. `lapse` is on the wire exactly when `selectable` is false, so these
+ * carry it: the account surface states the reason per business, and a fixture
+ * without it would exercise a payload the Worker never sends.
+ */
+const ALL_LAPSED = [
+  { id: 'acct_salon', name: 'Salon', selectable: false, lapse: { reason: 'expired', endedAt: '2026-07-01T00:00:00Z' } },
+  { id: 'acct_studio', name: 'Studio', selectable: false, lapse: { reason: 'revoked', endedAt: null } },
+]
 
 let root: HTMLElement
 
@@ -371,6 +391,129 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — the selection survives, and degra
 })
 
 // ── the pure half of the fallback, and the source claim ──────────────────────
+
+// ── 8: nothing selectable — the tabs go, the chrome stays ────────────────────
+
+describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — an account with nothing selectable', () => {
+  it('test_UAT_FC_REQ-179_the_switcher_renders_when_no_business_is_selectable', async () => {
+    const { app } = mount({ businesses: ALL_LAPSED })
+    await settle()
+
+    // IT RENDERS. An empty switcher and a missing switcher say different things,
+    // and the businesses are this person's own — the same argument this ticket
+    // already makes for the one-business case, at the other end of the range.
+    const switcher = root.querySelector('.builder-business') as HTMLElement
+    expect(switcher).toBeTruthy()
+    expect(app.shell.element.contains(switcher)).toBe(true)
+    expect(switcher.dataset.noneSelectable).toBe('true')
+
+    // EVERY ENTRY IS PRESENT AND UNSELECTABLE. Present, because a lapsed
+    // business and a deleted one are different facts to the person who owns
+    // both; unselectable, because none of them can be entered.
+    const select = switcher.querySelector('select') as HTMLSelectElement
+    expect(select).toBeTruthy()
+    expect([...select.options].map((o) => o.value)).toEqual(ALL_LAPSED.map((b) => b.id))
+    expect([...select.options].every((o) => o.disabled)).toBe(true)
+    for (const option of select.options) {
+      expect(option.textContent).toContain(CONFIG.BUSINESS_LAPSED_SUFFIX)
+    }
+
+    // THE CONTROL ITSELF IS DISABLED, and names the first rather than showing
+    // blank: a chooser with nothing choosable invites the operator to try and
+    // conclude the page is broken, and an empty box reads as still loading.
+    expect(select.disabled).toBe(true)
+    expect(select.value).toBe('acct_salon')
+
+    // AND NO SCOPE IS IN FORCE — the fallback had nothing to fall back to, and
+    // says so rather than opening a business the server will refuse.
+    expect(app.scope.getBusiness()).toBeNull()
+  })
+
+  it('test_UAT_FC_REQ-179_the_tabs_are_blocked_and_the_account_chrome_still_works', async () => {
+    const { app } = mount({ businesses: ALL_LAPSED })
+    await settle()
+
+    // THE TABS ARE WHAT BECOME UNAVAILABLE. Both subtrees — the strip and the
+    // panels — so a tab cannot be reached by clicking it OR by tabbing into the
+    // surface behind it.
+    const shellEl = app.shell.element as HTMLElement
+    expect(shellEl.querySelector('.shell-tabs')!.hasAttribute('inert')).toBe(true)
+    expect(shellEl.querySelector('.shell-panels')!.hasAttribute('inert')).toBe(true)
+    expect(shellEl.classList.contains('builder-shell--no-business')).toBe(true)
+
+    // THE CHROME IS NOT. This is the assertion that matters: the shell as a
+    // whole must NOT be inert, because the whole-shell block would take the
+    // avatar with it — and the avatar is where the account is, which is where
+    // this person would see what they were charged or ask for erasure.
+    expect(shellEl.hasAttribute('inert')).toBe(false)
+    const avatarButton = shellEl.querySelector(
+      `[data-action="${CONFIG.ACCOUNT_ACTION_ID}"]`,
+    ) as HTMLButtonElement
+    expect(avatarButton).toBeTruthy()
+    expect(avatarButton.closest('[inert]')).toBeNull()
+
+    // …and it still opens, listing every business with the reason it lapsed —
+    // which is the one place in the product the reason is stated.
+    avatarButton.click()
+    const dialog = shellEl.querySelector('.builder-modal')!
+    expect(dialog).toBeTruthy()
+    expect(dialog.textContent).toContain('Salon')
+    expect(dialog.textContent).toContain('Studio')
+    expect(dialog.textContent).toContain(CONFIG.BUSINESS_LAPSE_SENTENCES.revoked)
+    expect(dialog.textContent).toContain(CONFIG.BUSINESS_LAPSE_EXPIRED_ON('2026-07-01'))
+
+    // The switcher is outside the blocked subtrees too — it is chrome, not
+    // product, and this is the boundary [[DOC-42]] §5 draws.
+    expect((root.querySelector('.builder-business') as HTMLElement).closest('[inert]')).toBeNull()
+
+    // THE STATE IS NAMED, WHERE THE PRODUCT WOULD BE, AND SELECTABLE. A page
+    // that is simply empty looks like a broken deployment, and a message whose
+    // text cannot be selected cannot be pasted into a support request.
+    const banner = shellEl.querySelector('.builder-banner--no-business') as HTMLElement
+    expect(banner).toBeTruthy()
+    expect(banner.getAttribute('role')).toBe('alert')
+    expect(banner.textContent).toBe(CONFIG.BUSINESS_NONE_SELECTABLE_MESSAGE)
+    expect(banner.closest('[inert]')).toBeNull()
+    expect(shellEl.querySelector('.shell-content')!.contains(banner)).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-179_no_business_in_scope_asks_the_origin_for_nothing', async () => {
+    // WITHOUT A SCOPE THERE IS NOTHING TO ASK FOR, and the failure this guards
+    // is not a wasted round trip. An unprefixed `/api/sites` resolves at the
+    // origin's own fallback, so the request that should not be made is one whose
+    // answer would be some other business's site list arriving under an account
+    // that may open none of them.
+    const calls: string[] = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (input: unknown) => {
+      calls.push(String(input))
+      return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })
+    }) as typeof globalThis.fetch
+
+    try {
+      // `loadSites` left to the default, which is the branch under test — the
+      // other cases inject the seam, so nothing else exercises it.
+      const { app } = mount({ businesses: ALL_LAPSED, loadSites: undefined })
+      await settle()
+
+      expect(app.scope.getBusiness()).toBeNull()
+      expect(app.scope.getSite()).toBeNull()
+      expect(calls.filter((url) => url.includes('/api/sites'))).toEqual([])
+      // Non-vacuity: with a business in scope the same default DOES ask, so the
+      // assertion above is about the scope and not about a seam that never runs.
+      const live = mountBuilder(document.body.appendChild(document.createElement('div')), {
+        businesses: [{ id: 'acct_salon', name: 'Salon', selectable: true }],
+        account: ACCOUNT,
+        storage: memoryStorage(),
+      })
+      await settle()
+      expect(calls.some((url) => url.includes('/b/acct_salon/api/sites'))).toBe(true)
+      live.shell?.destroy?.()
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+})
 
 describe('REQ-179 — the rules, without a DOM', () => {
   it('test_UAT_FC_REQ-179_resolve_business_prefers_the_stored_id_and_falls_back_to_admissible', async () => {

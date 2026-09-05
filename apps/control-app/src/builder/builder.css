@@ -1366,6 +1366,31 @@ body {
   filter: grayscale(0.6);
 }
 
+/*
+ * THE LAPSED-ACCOUNT BLOCK ([[REQ-179]] reopen) — narrower than the one above,
+ * on purpose. The unconfigured deployment dims the whole shell because nothing
+ * in it can run; here the header genuinely still works, and dimming it would say
+ * the opposite of what is true. So only the tab strip and the panels — the two
+ * subtrees `blockTabs` makes inert — are dimmed, and the chrome above them keeps
+ * its full contrast because the account behind the avatar is the one thing this
+ * person came for.
+ */
+.builder-shell--no-business .shell-tabs,
+.builder-shell--no-business .shell-panels {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+/*
+ * The banner sits inside the content area rather than above the shell, so it
+ * needs the border on the side it is bounded from — the panels below it, not the
+ * header above.
+ */
+.builder-banner--no-business {
+  border-bottom: none;
+  border-top: 1px solid #d9a93a;
+}
+
 /* ── the shell's scope chrome ([[REQ-179]]) ────────────────────────────────────
    The switcher sits before the tabs in the shell's own header bar; the avatar
    is an ordinary shell action. Both are chrome, so both take their colour from
@@ -1406,6 +1431,21 @@ body {
   white-space: nowrap;
   color: var(--shell-fg, #18181b);
   font-weight: 600;
+}
+
+/*
+ * NOTHING SELECTABLE ([[REQ-179]] reopen). The switcher still renders — the
+ * businesses are the person's own and an empty switcher and a missing one say
+ * different things — but it is naming a fact rather than offering a choice, and
+ * it reads that way: dimmed, and with the cursor saying so where the control is
+ * a real (disabled) `<select>`.
+ */
+.builder-business[data-none-selectable='true'] {
+  opacity: 0.7;
+}
+
+.builder-business[data-none-selectable='true'] .builder-business__select {
+  cursor: not-allowed;
 }
 
 .builder-avatar {

@@ -6,6 +6,7 @@ import {
   ACCOUNT_LABEL,
   APP_FONT,
   APP_ID,
+  BUSINESS_NONE_SELECTABLE_MESSAGE,
   LIBRARY_TAB,
   SITE_TAB,
   STORAGE_KEYS,
@@ -63,6 +64,13 @@ export function mountBuilder(root, options = {}) {
      * The switcher renders nothing, no business prefix is set, and the origin
      * resolves every request through its own fallback — which is exactly what
      * every host did before this existed.
+     *
+     * NON-EMPTY WITH NOTHING SELECTABLE IS A DIFFERENT STATE, and a real person
+     * rather than a headless host ([[DOC-42]] §10.1): an account whose every
+     * grant has lapsed, admitted on its membership. It has businesses to show
+     * and none to open, so the switcher renders them all marked, the tabs are
+     * blocked and the chrome — switcher, account, theme, about — stays live.
+     * See {@link blockTabs}.
      */
     businesses = [],
     /** Who is signed in, for the avatar and the account surface behind it. */
@@ -214,6 +222,30 @@ export function mountBuilder(root, options = {}) {
   const blocked = banner !== null
 
   /**
+   * THE TABS GO, THE CHROME STAYS ([[REQ-179]] reopen, [[DOC-42]] §10.1).
+   *
+   * A member whose every grant has lapsed is admitted now rather than refused at
+   * the door — membership admits and entitlement does not — so this mount is a
+   * real session belonging to a real person, with nothing it may open. That is a
+   * different state from the unconfigured deployment above, and it takes a
+   * different block: {@link blockEverything} makes the whole shell inert, which
+   * here would take the avatar with it, and the avatar is precisely what must
+   * survive. It is where the account is, and the account is where this person
+   * would see what they were charged, pay, or ask for erasure ([[DOC-37]],
+   * [[REQ-183]]).
+   *
+   * THE LINE IS [[DOC-42]] §5's: the tab strip is the entitled product, and the
+   * chrome is a fact about this person's relationship with us. So the switcher,
+   * the account, Theme and About all stay live, and only what a grant buys goes.
+   *
+   * ORDER MATTERS AGAINST THE BLOCK ABOVE. An unconfigured deployment is a
+   * bigger fact than a lapsed grant — nothing runs either way — so the wider
+   * block wins and this one does not add a second banner under it.
+   */
+  const noBusiness = businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
+  if (noBusiness && !blocked) blockTabs(shell, BUSINESS_NONE_SELECTABLE_MESSAGE)
+
+  /**
    * Where the selection is remembered ([[REQ-179]]).
    *
    * Through the shell's own namespaced storage, like everything else that
@@ -235,7 +267,16 @@ export function mountBuilder(root, options = {}) {
    * about and, on the hosts that take this path, frequently no origin to ask.
    */
   const loadSitesFor =
-    loadSites ?? (businesses.length > 0 ? () => fetchSites() : async () => sites)
+    loadSites ??
+    (businesses.length > 0
+      ? // AND WITH NO BUSINESS IN SCOPE, NOTHING IS ASKED FOR ([[REQ-179]]
+        // reopen). An account whose every grant has lapsed reaches here with
+        // businesses and no scope, and an unprefixed `/api/sites` would resolve
+        // to the origin's own fallback — either a refusal to catch and discard,
+        // or, worse, some other business's sites. An empty list is the true
+        // answer to "the sites of no business".
+        (id) => (id ? fetchSites() : Promise.resolve([]))
+      : async () => sites)
 
   /**
    * THE BUSINESS SWITCHER, IN THE SHELL'S OWN HEADER ([[REQ-179]]).
@@ -781,6 +822,45 @@ function blockEverything(root, shell, message) {
   root.prepend(banner)
   shell.element.setAttribute('inert', '')
   shell.element.classList.add('builder-shell--blocked')
+  return banner
+}
+
+/**
+ * Take the tabs away and leave the chrome ([[REQ-179]] reopen).
+ *
+ * INERT ON THE TAB STRIP AND THE PANELS, NOT ON THE SHELL. The header keeps the
+ * switcher, the avatar and the shell's own two controls — see the call site for
+ * why that boundary is [[DOC-42]] §5's and not a layout preference. `inert` is
+ * one attribute over each subtree rather than a per-surface disabling to keep in
+ * step as surfaces are added, which is the same reasoning
+ * {@link blockEverything} uses one level up.
+ *
+ * THE BANNER SITS IN THE CONTENT AREA, ABOVE THE PANELS AND OUTSIDE THEM. Where
+ * the product would be, which is where a person looks when it is not there — and
+ * outside the inert subtree, because a message whose text cannot be selected is a
+ * message that cannot be pasted into a support request.
+ *
+ * IT DEGRADES RATHER THAN THROWS if the shell's markup moves. A banner with no
+ * block is a visible wrong state an operator can report; a silent no-op is a
+ * lapsed account looking at a builder whose every call 403s.
+ */
+function blockTabs(shell, message) {
+  const tabs = shell.element.querySelector('.shell-tabs')
+  const panels = shell.element.querySelector('.shell-panels')
+  const content = shell.element.querySelector('.shell-content')
+
+  const banner = document.createElement('div')
+  banner.className = 'builder-banner builder-banner--no-business'
+  // `alert` rather than `status`, for {@link blockEverything}'s reason: this is
+  // not progress, it is why nothing below it responds.
+  banner.setAttribute('role', 'alert')
+  banner.textContent = message
+  if (content && panels) content.insertBefore(banner, panels)
+  else (content ?? shell.element).prepend(banner)
+
+  tabs?.setAttribute('inert', '')
+  panels?.setAttribute('inert', '')
+  shell.element.classList.add('builder-shell--no-business')
   return banner
 }
 

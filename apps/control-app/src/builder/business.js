@@ -42,6 +42,17 @@ import { createModalShell, modalButton, modalFooter } from './modal.js'
  * SHOWS the lapsed business, marked, so the fact is available where it is
  * relevant rather than blocking where it is not.
  *
+ * NULL WHEN NOTHING CAN BE ENTERED, AND THAT IS NOW AN ORDINARY ANSWER ABOUT A
+ * REAL PERSON ([[DOC-42]] §10.1). It used to mean only "no identity behind this
+ * host" — the Node transport, a suite, an origin that could not answer. It also
+ * means, now, an account whose every grant has lapsed: membership admits and
+ * entitlement does not, so such a session arrives logged in with businesses to
+ * show and none to open. The fallback has nothing to fall back TO, and the
+ * stated behaviour is that it says so rather than picking a business the server
+ * will refuse. What the chrome then does with that null is `app.js`'s — see
+ * {@link createBusinessSwitcher} for what is still drawn, and the message in
+ * `config.js` for what is said.
+ *
  * Pure, and exported, so that fallback is provable without a DOM.
  *
  * @param {Array<{id: string, selectable?: boolean}>} businesses
@@ -103,6 +114,21 @@ export function lapseSentence(lapse) {
  * LAPSED MEMBERS ARE LISTED AND DISABLED rather than filtered — see
  * {@link resolveBusiness} for why the distinction is worth keeping on screen.
  *
+ * AND IT RENDERS WHEN NONE OF THEM IS SELECTABLE ([[REQ-179]] reopen). That is
+ * the state an account whose every grant has lapsed now arrives in, and it is
+ * the state this control matters most in: the businesses are the person's own,
+ * and an empty switcher and a missing switcher say different things — the same
+ * argument this module already makes for the one-business case, at the other end
+ * of the range. So the list is drawn, every entry marked, and the control is
+ * DISABLED rather than absent: a chooser with nothing choosable in it invites
+ * the operator to try, fail, and conclude the page is broken.
+ *
+ * WHAT IT NAMES IN THAT STATE IS THE FIRST BUSINESS, NOT NOTHING. `selected` is
+ * null there — correctly, because no business is in scope — and a `<select>`
+ * showing blank reads as still loading. Naming a business the label already
+ * suffixes "access ended" states two true things at once, where a blank box
+ * states neither.
+ *
  * @param {object} spec
  * @param {Array<{id: string, name?: string, selectable?: boolean}>} spec.businesses
  * @param {string|null} [spec.selected] the id to show as current
@@ -117,6 +143,12 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
   let select = null
 
   const labelOf = (b) => `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
+
+  // Marked on the wrapper rather than inferred by every reader: `app.js` blocks
+  // the tabs on the same fact, the stylesheet dims on it, and a suite asserts
+  // it. One derivation, three consumers.
+  const noneSelectable = businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
+  if (noneSelectable) element.dataset.noneSelectable = 'true'
 
   if (businesses.length > 1) {
     select = document.createElement('select')
@@ -133,6 +165,13 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
       select.append(opt)
     }
     if (current) select.value = current
+    else if (noneSelectable) {
+      // See the note above: name the first, disable the control. `value` is set
+      // explicitly rather than left to the browser's default so the displayed
+      // entry is a decision this module made and a suite can read back.
+      select.value = businesses[0].id
+      select.disabled = true
+    }
     select.addEventListener('change', () => {
       current = select.value
       onSelect(current)
