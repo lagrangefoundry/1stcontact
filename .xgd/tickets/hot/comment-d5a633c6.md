@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T22:11:28.641949+00:00'
+updated_at: '2026-09-05T22:16:00.193192+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,38 @@ One aside: `martin@westhead.me` gets a 403, not a 401 — signature verifies, id
 <!-- xgd-chat role="user" ts="2026-09-05T22:11:27.837267+00:00" -->
 #### You
 ok Theme and About changed - all the CTAs on the User tab arre unchanged
+
+<!-- xgd-turn id="063d4b81-3100-4465-9f59-5bea15382e6a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:15:59.590774+00:00" -->
+#### Claude
+Found it — a cascade bug in my own fix. Let me correct it.
+
+Now the test. The existing UAT proved the rule *existed*; it needs to prove the rule *wins*.
+
+Now the ticket body, then the commit.
+
+Fixed and committed as `fdd00b8`. Hard-refresh and the Users tab controls should drop to 13px.
+
+**My first fix was overridden by the rules it was meant to repair.** `font: inherit` is a *shorthand* — it resets `font-size` along with everything else. I put the token rule near the top of `builder.css`, but each control's own rule sits **later in the same file** at equal specificity (one class each). Later wins, so the shorthand reset the size straight back to 16px. The rule parsed, matched its elements, and reached none of them.
+
+Your symptom is the diagnosis. Theme and About worked because `.shell-actions button`'s competing `font: inherit` lives in the **shell component's stylesheet**, which `chrome.ts` emits *before* `builder.css` — for that one selector mine was the later declaration; for the other five it was the earlier one. Same rule, same token, opposite outcome, decided purely by which file each declaration sat in. Walking the sheet in source order against the committed CSS reproduces exactly what you saw:
+
+```
+OK   .shell-actions button      -> font-size: var(--builder-control-font-size)
+FAIL .builder-people__search    -> font: inherit
+FAIL .builder-people__states    -> font: inherit
+FAIL .builder-people__invite    -> font: inherit
+FAIL .builder-people__fulfil    -> font: inherit
+FAIL .builder-modal__btn        -> font: inherit
+```
+
+**The fix** declares the size immediately after each `font: inherit`, in the rule that does the clobbering — so the outcome no longer depends on source order or on any rule added later. `--builder-control-font-size` is still the single definition site; the four component rules reference the token, none restates 13px.
+
+**Why the tests passed while the bug was on screen** — the part worth your attention. My suite asserted that a rule *naming* all six controls existed. It did exist. Existence and effect are different claims, and only the second one is the bug. The suite now walks every rule naming each control and requires the *last* font declaration to be the token. I checked it both ways: the new assertions fail against the previously committed CSS for exactly the five Users-tab controls and pass for `.shell-actions button`. 8 passed on the fix.
+
+Ticket body has the follow-up section and test-plan item 6; `fields.commits` now carries both SHAs. Served CSS verified through the running Worker.
+
+One caveat on what I did *not* verify: jsdom applies no stylesheets, so this is still a source-order argument about the cascade, not a measurement of a rendered box. It's a strictly better argument than before and it reproduces your exact split — but your eyes on the refreshed page are the confirmation.
 
 <!-- xgd-chat-end -->
