@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:00:36.295351+00:00'
+updated_at: '2026-09-05T19:01:54.983238+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1351,5 +1351,11 @@ Against the running stack, using only the HTTP surface:
 Six of the seven acceptance criteria, verified live. The seventh — the full DOC-42 §1 sequence with Alice signing in — I ran by hand yesterday and nothing in this change touches it.
 
 Reload and you should see an **Invite** control on the Users tab. New faces to look for: `carol@example.com` on yours, `dave@example.com` on Alice's. Bob is still 403 — that's the level-2 door, still open as the next gap.
+
+<!-- xgd-turn id="a9ddf69e-84d6-4bee-8e3b-4447fab5f5ce-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T19:01:54.781056+00:00" -->
+#### You
+The reload needs me to re-login - expected?
 
 <!-- xgd-chat-end -->
