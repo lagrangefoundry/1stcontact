@@ -5,9 +5,9 @@ type: request
 title: The Users tab is unstyled, and its detail panel splits one thing into two tables
 created_by: xgd
 created_at: '2026-09-05T20:17:18.378919+00:00'
-updated_at: '2026-09-05T20:23:51.393074+00:00'
+updated_at: '2026-09-05T20:30:17.129117+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -84,3 +84,63 @@ empty state has to read as *no name yet* rather than as a broken cell.
   both visible as such in that table
 - every table has column headings
 - the list shows `displayName` when set, and reads as *no name yet* when not
+
+
+---
+
+## What the implementation had to add, and why
+
+Recorded here rather than left for reconciliation to discover. Each of these is a
+consequence of something above rather than a separate want.
+
+**A grant now carries its business's name.** The joined table is keyed by
+business, and the row that most needs a name is the one with no membership to
+borrow it from — the grant against a business this person does not operate,
+which is the mismatch the join exists to surface. `operates` already joined
+`tenants` for a name; `grants` returned only the opaque `acct_…` id, so that row
+would have rendered as the one cell an operator would skip. `personDetail` and
+`openGrant` now make the same metadata-only join, `LEFT` so a grant whose tenant
+row has gone still reports rather than vanishing.
+
+**A business holding two grants gets one business cell spanning both.** Grants
+are a list and never a single current value ([[DOC-40]] §5) — the join changed
+which axis they are grouped on and must not collapse them. The business and role
+cells `rowSpan` their grants, so two grants read as two grants on one business
+rather than as two businesses that happen to share a name.
+
+**Five columns, not six.** Withdrawing a grant is an action on that grant's
+status, so the control sits in the status cell rather than buying a sixth column
+whose heading could only ever be blank.
+
+**Every empty cell says why it is empty**, in words — *Not an operator*, *No
+grant*. A truly blank cell is indistinguishable from a value that failed to load,
+and these two blanks are the states the table exists to show.
+
+**Operated businesses keep their order; a grant-only business sorts to the end.**
+The origin already orders memberships by when they were granted, and the mismatch
+is the exception — interleaving it would disturb an order the operator learned to
+read.
+
+**The two dialogs this tab opens are styled too.** `builder-people__invite-*` and
+`builder-people__fulfil-*` are the same defect one surface along: emitted, matched
+by nothing, so an invite dialog was default-sized boxes inside a panel that is
+otherwise the app's. Their inputs take the metrics every other text input in a
+builder modal uses.
+
+**The panel is a link in the height chain.** It hosts a `list-detail`, which is a
+split, which resolves its height against a definite-height ancestor or collapses
+— the rule `.builder-library` already has, for the same reason.
+
+**A hover on the business row.** Five short columns are hard to track across; it
+is the only thing that class is for.
+
+**No rule branches on what a state is called.** [[REQ-188]] turns Member/Contact
+into three states, so there is no per-label styling to find and edit again.
+
+## Further acceptance
+
+- a grant reports the name of the business it is for, including when the person
+  holds no membership on that business
+- a business holding several grants presents them under one business cell
+- the invite and provisioning dialogs are styled to the same scale as the panel
+- no stylesheet rule names a state label
