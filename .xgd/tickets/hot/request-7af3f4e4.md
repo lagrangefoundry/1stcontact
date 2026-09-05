@@ -5,16 +5,21 @@ type: request
 title: 'The invite: the verb that turns a contact into a member'
 created_by: xgd
 created_at: '2026-09-05T18:26:53.840793+00:00'
-updated_at: '2026-09-05T18:46:31.665775+00:00'
+updated_at: '2026-09-05T18:48:47.682843+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a289690d
+  commits:
+  - working_sha: 27345a60cb6accf3402aa0ad2248b1321fd11ef9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.73
 ---
 
 # The invite: the verb that turns a contact into a member
