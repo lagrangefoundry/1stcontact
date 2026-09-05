@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-51
 created_by: xgd
 created_at: '2026-09-05T18:26:52.726905+00:00'
-updated_at: '2026-09-05T18:34:04.099833+00:00'
+updated_at: '2026-09-05T18:39:43.050580+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -48,5 +48,13 @@ Which path fired is inferred, but the evidence is narrow: the scaffold on disk h
 I've written all of this up on BUG-51 (severity high) with two defects called out: (1) a scaffold write can destroy authored content, and (2) there is no undo — the journal stores labels, not documents, and `alpha` was never published so there's no revision snapshot either.
 
 No code written yet — the fix scope needs your call. Options I listed on the ticket: guard the starter write against a slug that already holds content; make `/api/import` require an explicit force; or snapshot before any destructive write. Want me to restore the site from the audit trail first, and/or pick a fix direction?
+
+<!-- xgd-turn id="ee0891b5-15a0-42f5-b9d9-caa82e1c5a33-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T18:39:42.647591+00:00" -->
+#### You
+So we are still very much in test mode. It would be nice to get the site back but if not its not a huge deal.
+
+What I do need tho is control - the default should be that the site, transcript history is preserved between server restarts. But I also need a "reset" command so that I can start a test from a completely fresh, known state.
 
 <!-- xgd-chat-end -->
