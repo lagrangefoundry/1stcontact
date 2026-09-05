@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T17:47:11.187557+00:00'
+updated_at: '2026-09-05T17:55:13.116380+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -999,5 +999,96 @@ One thing I left alone: **`story_points: 3` is now light.** The original estimat
 <!-- xgd-chat role="user" ts="2026-09-05T17:47:10.991913+00:00" -->
 #### You
 ok we have done a LOT of development with very little testing which makes me nervous. Can you walk me through firing up the local stack and testing the new login and user management capabilities please?
+
+<!-- xgd-turn id="8b3204ac-8cee-40b7-acd4-0739e18c0e2e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T17:55:12.932812+00:00" -->
+#### Claude
+Let me look at what's actually runnable and what identity surface exists today.Substantial identity surface has landed since REQ-168 — including the migration I recommended. Let me map the actual run path.
+
+Now let me check whether the sandbox actually allows local servers — that determines whether any of this is runnable from here.
+
+Localhost works, wrangler runs, and local D1 is already migrated with two businesses seeded. Let me build a local Access harness so login can actually be exercised.
+
+Full gate chain works. Let me check the business-switch transport and the terms route.
+
+URL prefix `/b/<businessId>/…` is the switch transport. Let me run the matrix.
+
+Found something real. Let me confirm the admin/user-management half before reporting — restarting with break-glass enabled.
+
+Everything's up and I've driven the whole identity path. Here's the walkthrough, then what it turned up.
+
+## What's running right now
+
+| | |
+|---|---|
+| Builder | http://127.0.0.1:8788/ |
+| Access simulator | http://127.0.0.1:8799 |
+| Wrangler log | `.xgd/tmp/wrangler.log` |
+
+To click around in a browser, open the console on `127.0.0.1:8788` and paste:
+
+```js
+document.cookie = 'CF_Authorization=' + '<token>' + '; path=/'
+```
+
+…using a token from `curl -s "http://127.0.0.1:8799/mint?email=martin-github@westhead.me"`. Then reload. Swap the email to `uat@westhead.me` to become a customer.
+
+## Why a simulator was needed
+
+`ACCESS_DEV_OPEN=1` in `wrangler.toml` looks like the local login switch, but it only fires when `ACCESS_TEAM_DOMAIN` **and** `ACCESS_AUD` are both empty — and your `.dev.vars` blanks them precisely to get that. So the default local stack has **no login at all**: no gate, no `admit`, scope falls back to `TENANT_ID`. You cannot test login on it, by construction.
+
+The gate fetches `<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs` and `normaliseTeamDomain` accepts an `http://` prefix, so pointing it at a local JWKS server exercises the **real** gate — real RS256 verification, real `aud`/`iss`/`exp` checks — with tokens you mint. That's `.xgd/tmp/access-sim.mjs` (throwaway, gitignored, ~50 lines).
+
+Repeatable recipe:
+
+```bash
+node .xgd/tmp/access-sim.mjs &
+cd apps/control-app && npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file "$HOME/Documents/secrets/1c.dev.env" \
+  --env-file /Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/access.dev.vars &
+```
+
+The third `--env-file` layers the Access vars on last and wins. Your `.dev.vars` is untouched.
+
+## What passed
+
+All of this I ran, not inferred:
+
+- **No token → 401**, with the real reason (`no Access token was presented`).
+- **Unknown email → 403**, single non-oracular message. Suspended user → the same message, so the account-existence oracle stays shut.
+- **ToS gate holds.** The operator was blocked at `/terms` before anything else; accepting via `POST /api/terms/accept` released it.
+- **REQ-168's isolation is live.** `martin-github@` sees `alpha` + `xgd`; `uat@` sees only `alpha`. Two identities, same Worker, different data.
+- **Business switching works.** `/b/<id>/api/sites` resolves per business; I provisioned a second business for uat's account and the two return different sites. No prefix → first admissible business.
+- **An unauthorised target is refused, not silently downgraded.** `uat@` asking for `/b/1stcontact/…` → 403, exactly the failure mode the ticket was written against.
+- **Admin route answers 404, not 403**, to a non-owner.
+- **Suspend → refused → reinstate → served** round-trips.
+
+That's the reassuring part: the gate chain is genuinely working end to end.
+
+## Three things it turned up
+
+**1. A customer's Users tab is always empty — and the platform's lists every customer.** `people.ts:133` scopes by `users.tenant_id = scope.businessId`. But every builder user's `tenant_id` is the *platform* business by design (`provisionInvite` writes them there, `findUser` looks them up there). Verified: `uat@` scoped to their own business gets `{"people":[],"canFulfil":false}` — they can't see themselves. Meanwhile the operator scoped to `1stcontact` sees `uat@westhead.me`, who holds no membership there.
+
+This contradicts the route's own comment — *"this tab is the people of WHICHEVER business the caller is in"*. `canFulfil:false` is only "am I the platform owner", so it isn't intentional degradation. `setPersonStatus` shares the predicate, which is why the operator could suspend a user from another business. The fix is a union: builder users from `memberships.business_id = scope.businessId`, contacts from the existing `users.tenant_id` predicate (for contacts that column *is* correct).
+
+**2. No running surface can onboard a new account.** `provisionInvite` has no caller outside tests — no route, no `1c` command. `/api/admin/businesses` adds a business to an **existing** account and 404s otherwise (`{"error":"No account with that email address."}`). So a brand-new customer can only be created by raw SQL or a vitest run.
+
+**3. A bad grant body returns 500.** `POST /api/grants` with `{"businessId":"…"}` and no plan → `500 {"error":"A grant must name a plan."}`. Client error reported as server error; `openGrant` throws through an uncaught path.
+
+## What I changed in local D1
+
+Local `.wrangler` state only — nothing remote, nothing committed:
+
+- Accepted ToS for `martin-github@westhead.me`.
+- Created business `acct_a41560095853cdbb6ef17868a0045323` ("Snip City Salon") on uat's account. I left it because it makes the switcher testable; say the word and I'll delete it.
+- Suspended and reinstated `usr_uatwestheadme` (back to `active`).
+
+## Still untested
+
+The chat-host-per-business partitioning (needs driving the assistant through a real turn), the Users tab UI itself as opposed to its API, ToS re-prompt on a version bump, and the entitlement-lapse marking in the switcher.
+
+Want me to file the three findings as bugs, and pick up the chat-host verification next?
 
 <!-- xgd-chat-end -->
