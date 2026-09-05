@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:01:54.983238+00:00'
+updated_at: '2026-09-05T19:03:18.393867+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1357,5 +1357,38 @@ Reload and you should see an **Invite** control on the Users tab. New faces to l
 <!-- xgd-chat role="user" ts="2026-09-05T19:01:54.781056+00:00" -->
 #### You
 The reload needs me to re-login - expected?
+
+<!-- xgd-turn id="a9ddf69e-84d6-4bee-8e3b-4447fab5f5ce-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T19:03:18.285041+00:00" -->
+#### Claude
+Let me check rather than guess — decode the token.
+
+Not expired — 27 minutes left. Let me test the more likely cause.
+
+Cache headers are clean (`no-store` on both), and the token's still valid — so it's not expiry or caching. Two things about my snippet are almost certainly the cause, and one is a real flaw.
+
+**No — not expected, and it's my harness's fault, not the app's.** I checked the obvious suspects first: the token hadn't expired (27 min left), and both the 401 and the 200 carry `Cache-Control: no-store`, so a stale cached 401 isn't it either. The gate is behaving correctly.
+
+Two flaws in the snippet I gave you:
+
+**1. It sets the cookie on whichever origin you pasted it into, then navigates to `127.0.0.1`.** Wrangler prints `Ready on http://localhost:8788`, so if you followed that link, the cookie landed on `localhost` — and the browser treats `localhost` and `127.0.0.1` as *different* cookie hosts. The `location.href` hop then arrives with no cookie at all. That reproduces your symptom exactly, every single time.
+
+**2. No `Max-Age`,** so it was a session cookie — gone the moment you close the browser.
+
+Fixed snippets above: they set `max-age`, and `location.reload()` keeps you on the origin you're already on instead of hopping. Tokens are now **24 hours** instead of one. Pick `localhost` or `127.0.0.1` and stay on it.
+
+Two more personas if you want them:
+
+```
+curl -s "http://127.0.0.1:8799/mint?email=uat@westhead.me&ttl=86400"
+curl -s "http://127.0.0.1:8799/mint?email=bob@example.com&ttl=86400"
+```
+
+## Worth separating out
+
+In production this friction doesn't exist. Cloudflare Access issues its own `CF_Authorization` cookie with a lifetime set by your Access policy, and when it lapses you get *redirected* through the Access login and bounced back — not asked to do anything by hand. So none of the above is telling you something about the product.
+
+But there is one product question hiding underneath, and it's worth noting while we're here: **when your Access session does expire mid-edit, what happens to unsaved builder state?** The Worker answers 401 and the client has no re-auth path of its own — Access owns the redirect. I haven't tested that, and it's not something REQ-186 or the level-2 door touches. Might be worth a look once you've finished walking the invite flow.
 
 <!-- xgd-chat-end -->
