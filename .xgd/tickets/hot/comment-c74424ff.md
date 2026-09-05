@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:46:15.565671+00:00'
+updated_at: '2026-09-05T22:58:55.697478+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2183,5 +2183,25 @@ That's the drift worth fixing, and I agree `contacts` is the right base name —
 The one thing to keep straight: renaming the table doesn't make "user" meaningless — under REQ-188 it becomes the *Member* state. So the rule would be **table `contacts`; states contact → invited → member; `Operator` is the membership**, and `Person`/`people` in code either follows or gets a stated reason not to.
 
 I haven't filed that — it's 16 SQL sites plus the code and API surface, and it interacts with REQ-188 (which renames the states) and REQ-190 (which is rewriting the schema anyway). Want it as its own REQ, or folded into REQ-190's baseline since the table is being recreated there regardless?
+
+<!-- xgd-turn id="baea6081-67b3-4a7c-8bc0-d33f1629332a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:58:55.656695+00:00" -->
+#### You
+User describes anyone who uses the site - they may or may not be a contact, they may or may not be a member. We do not have database entries for users.
+
+A contact is a person or business that we have at least an email address for. We likely have other contact information and detail details.
+
+A contact can go through various states. I disagree with contact being the initial state. I think we should come up with something else. I also think that this state model will grow.
+
+A member is a contact who can sign in.
+
+A customer is a contact who has paid us at least once.
+
+Notice that a contact can be a customer and a member and a contact can be a customer but not a member or a member and not a customer
+
+I think we should get all these names straight do we have a document that we can put this in?
+
+I don't know what people/person are I don't think that's appropriate a contact could be a business or an organization. I'm also not sure what operator means in this context yet
 
 <!-- xgd-chat-end -->
