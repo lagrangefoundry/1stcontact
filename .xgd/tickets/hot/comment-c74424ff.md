@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:18:58.043921+00:00'
+updated_at: '2026-09-05T22:22:41.102490+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2069,5 +2069,11 @@ Added an acceptance criterion so it's testable rather than just argued:
 Current state stands: `xgd` stays in `1stcontact`, `xgd.dev` keeps its empty starter site, both visible in your switcher.
 
 One loose end I flagged and you didn't answer, so I've left it alone: `1c push` can't target a business (`push.ts:163` discards any path prefix on `--origin`). Unfiled, and it'll still be true after REQ-190 — say the word whenever.
+
+<!-- xgd-turn id="8cea12e9-c3f4-4a93-a394-d179592d4cec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:22:40.802667+00:00" -->
+#### You
+One thing I want to check about our data model - the difference between an Account and a Contact/User. The business should be owned by an Account with an associated Contact/User. In future we may support multiple Users in an Account with RBAC
 
 <!-- xgd-chat-end -->
