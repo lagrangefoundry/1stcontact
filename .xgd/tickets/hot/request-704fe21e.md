@@ -6,9 +6,9 @@ title: 'The template ticket type: message bodies are content, with a placeholder
   that refuses'
 created_by: xgd
 created_at: '2026-09-05T23:44:41.124618+00:00'
-updated_at: '2026-09-05T23:44:41.124618+00:00'
+updated_at: '2026-09-05T23:44:53.977151+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -17,7 +17,7 @@ fields:
   needs_review: false
 ---
 
-**Design ref:** [[CHAT-39]]. Depends on [[REQ-134-sender]] for delivery; independent of it for authoring.
+**Design ref:** [[CHAT-39]]. Depends on [[REQ-196]] for delivery; independent of it for authoring.
 
 ## A message body is content, and this repository already has a place for content
 
@@ -45,7 +45,7 @@ body:            the message
 **`template_key` and not the ticket id** is what the sender looks a template up by,
 so replacing a template is writing a new ticket rather than editing a live one in
 place — and the record of what was sent last month still points at the ticket that
-said it ([[REQ-136]]).
+said it ([[REQ-198]]).
 
 ## Placeholders are declared, and a missing one refuses the send
 
@@ -84,8 +84,8 @@ should not be smuggled into this one.
 
 ## What this does not do
 
-- no sending — [[REQ-134-sender]]
-- no record of what was sent — [[REQ-136]]
+- no sending — [[REQ-196]]
+- no record of what was sent — [[REQ-198]]
 - no editing UI
 - no per-recipient personalisation beyond token substitution
 - no HTML/text multipart decision; the body is one thing until there is a reason
