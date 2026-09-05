@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-188
 created_by: xgd
 created_at: '2026-09-05T20:20:02.227587+00:00'
-updated_at: '2026-09-05T20:30:46.538070+00:00'
+updated_at: '2026-09-05T23:16:43.187866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,11 @@ Implemented and landed. REQ-188 is at `free_coded`, commit `59b983957f` merged i
 Two pre-existing failures on `xgd-working`, unrelated to this diff and left alone: `bug32-webui-scope-rebrand` (two files restating the scope) and a `tsc` error in `session-knowledge.ts` re-exporting `SHIPPED_SOURCE`. Both reproduce identically without my changes.
 
 One judgement call worth flagging: an invited-but-unentitled person still cannot reach `/api/terms/accept` at all, so at level 2 nobody can currently cross Invited → Member. That is DOC-42 §10.1's admitted-but-unentitled gap, which your ticket explicitly scoped out — the tests work around it by giving the accepting person an entitlement.
+
+<!-- xgd-turn id="ed859fad-2240-4668-bf85-a223d2be18fa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:16:43.084583+00:00" -->
+#### You
+There was an adjustment to naming noted in the ticket - can you make the adjustment as part of this ticket please?
 
 <!-- xgd-chat-end -->
