@@ -234,6 +234,14 @@ export async function resolveScope(
   // the customer sees, so the grant is still required, and a deactivated business
   // is still refused. It does not grant platform scope: what comes back is an
   // ordinary business handle, indistinguishable from the owner's.
+  //
+  // AND THE REASON IT IS POSSIBLE AT ALL IS HOSTING, not level ([[DOC-42]] §8).
+  // 1st Contact holds the others' data, which is why support access into one can
+  // exist; a customer supporting THEIR customer has no equivalent power and needs
+  // none. This is the genuinely special half of the flag — the other half is
+  // merely owning the 1st Contact business, which is `memberships.role` and is
+  // not special at all ([[DOC-42]] §10.3). Time-boxed `support` membership rows
+  // are the auditable replacement for this half when there is a second operator.
   if (admission.user.platform_admin) {
     const business = await admissibleBusiness(env, requested)
     if (!business) throw new ScopeRefusedError('unknown_business', requested)

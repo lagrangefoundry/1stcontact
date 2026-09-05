@@ -951,11 +951,30 @@ async function routeUncached(
      * ABOVE THE STORE, like the two routes before it, because provisioning
      * REGISTERS the tenant a store handle would need to already exist.
      *
-     * THE ADMISSION IS THE ONLY THING CONSULTED. `platform_admin` is ambient by
+     * WHAT THE GATE IS ACTUALLY FOR, and it is not "administrators get extra
+     * pages" ([[DOC-42]] §7). Provisioning a business is 1st Contact FILLING AN
+     * ORDER — our own product-fulfilment action — and it needs privilege because
+     * it writes a `tenants` row, not because the caller holds a badge. As two
+     * conditions: you are an owner of this business, and this business's product
+     * is businesses. The first is uniform — a customer is the owner of theirs, and
+     * will have fulfilment actions of their own that look nothing like this one
+     * and will not sit behind the same check. The second is what confines this
+     * control to us.
+     *
+     * `platform_admin` IS HOW THOSE TWO ARE SPELLED TODAY, because they select
+     * exactly the set the flag selects and there is one business whose product is
+     * businesses. Spelling them any other way would cost a mechanism nothing yet
+     * needs. What the distinction buys is that the flag is not read here as a
+     * privilege LEVEL: a generic admin-surface mechanism hung off it would be
+     * [[DOC-40]] §2.1 rule 1's failure mode, and [[REQ-170]]'s console would be
+     * the first to inherit it. A guard holds the reader count while the column is
+     * still one column ([[DOC-42]] §10.3 splits it; [[REQ-185]] owns that).
+     *
+     * THE ADMISSION IS THE ONLY THING CONSULTED, because the flag is ambient by
      * design ([[DOC-40]] §6) — it works before any membership row exists, which
-     * is what lets the flag repair the system that grants it — so the check is
-     * against the person and not against the resolved scope. On the dev-open path
-     * there is no admission and therefore no administrator, and the route is
+     * is what lets it repair the system that grants it — so the check is against
+     * the person and not against the resolved scope. On the dev-open path there is
+     * no admission and therefore nobody to fill an order, and the route is
      * refused: a loopback door onto account provisioning is a shape that reads as
      * a feature and would eventually be relied upon.
      */

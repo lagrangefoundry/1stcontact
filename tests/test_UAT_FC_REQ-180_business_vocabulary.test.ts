@@ -258,3 +258,98 @@ describe('REQ-180 §3 — the vocabulary a person reads is Business', () => {
     expect(sql).not.toMatch(/business_id/i)
   })
 })
+
+/**
+ * REQ-180 A3 — **the rule extends from the word to the concept.**
+ *
+ * D5 above keeps *tenant* off a screen. This keeps *the platform's tenant* out of
+ * the model, and it is the same rule one level down rather than a second guard:
+ * a vocabulary that names a special kind of tenant is how the code acquires
+ * platform-only capability, which [[DOC-40]] §2.1 rule 1 forbids and [[DOC-42]]
+ * §2 gives the reason for.
+ *
+ * THERE IS NO PLATFORM TENANT. There is the **1st Contact business** — it owns
+ * the 1c site, and its users are its customers, which is the same sentence a
+ * customer would say about theirs. What is genuinely distinguished about it is
+ * three facts about what it DOES ([[DOC-42]] §8): the app is deployed against it,
+ * it hosts the others, and its product is other businesses. None of those is a
+ * kind, and none of them wants a predicate.
+ *
+ * THE EXEMPTION IS THE SAME TWO FILES [[REQ-168]] ALREADY NAMES, and for the same
+ * reason: `identity.ts` needs to know where builder users' `users` rows live and
+ * `scope.ts` needs an answer on the one request path with no identity to resolve
+ * from. Those are the two places the question is legitimately asked. A third is
+ * how the answer starts being used for something else.
+ *
+ * `TENANT_ID` ITSELF IS UNTOUCHED AND STAYS. It says which business this
+ * deployment's app runs against, which is a fact about the deployment and not
+ * about the model — D5 already classified it as deployment vocabulary and
+ * [[DOC-42]] §2 relies on that classification.
+ *
+ * COMMENTS ARE NOT CHECKED, on D5's own reasoning: a predicate is code, and prose
+ * is how the decision gets explained. This block's own header would fail a guard
+ * that read comments.
+ */
+
+/** The two places the question is legitimately asked ([[REQ-168]]). */
+const MAY_ASK = new Set(['identity.ts', 'scope.ts'])
+
+/** `platformTenant`, `PLATFORM_ACCOUNT`, `platform_own_business` — the concept, named. */
+const THE_CONCEPT_NAMED = /\bplatform[_A-Za-z]*(tenant|business|account)\b/i
+/** `isPlatform`, `is_platform` — the concept, asked. */
+const THE_CONCEPT_ASKED = /\bis_?platform\b/i
+/**
+ * The concept asked WITHOUT naming itself: a business id compared against the
+ * deployment's own slug. This is the shape that survives a rename, and it is the
+ * one a guard over identifiers alone would miss.
+ */
+const THE_SLUG_COMPARED = /[=!]==?[^\n]*['"`][^'"`\n]*1stcontact[^'"`\n]*['"`]|['"`][^'"`\n]*1stcontact[^'"`\n]*['"`][^\n]*[=!]==?/
+
+function askingLines(source: string): number[] {
+  const stripped = withoutComments(source)
+  const found: number[] = []
+  stripped.split('\n').forEach((line, i) => {
+    if (THE_CONCEPT_NAMED.test(line) || THE_CONCEPT_ASKED.test(line) || THE_SLUG_COMPARED.test(line)) {
+      found.push(i + 1)
+    }
+  })
+  return found
+}
+
+describe('REQ-180 A3 — nothing asks whether a business is the platform\'s own', () => {
+  it('test_UAT_FC_REQ-180_no_predicate_outside_the_two_readers_names_the_platforms_own_tenant', () => {
+    const offenders: string[] = []
+    for (const dir of SURFACES) {
+      for (const file of sourceFiles(dir)) {
+        if (MAY_ASK.has(path.basename(file))) continue
+        const lines = fs.readFileSync(file, 'utf8').split('\n')
+        for (const line of askingLines(lines.join('\n'))) {
+          offenders.push(`${path.relative(REPO, file)}:${line} — ${lines[line - 1].trim()}`)
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      'something asks whether a business is the platform\'s own. DOC-42 §2: there ' +
+        'is no platform tenant, there is the 1st Contact business — and once the ' +
+        'phrase is in the vocabulary the code follows it into platform-only ' +
+        'capability. Ask what the business SELLS, or who OWNS it.',
+    ).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ-180_the_concept_guard_can_actually_see_a_violation', () => {
+    const sample = [
+      'const platformTenant = requirePlatformTenant(env)', // 1 — the concept, named
+      '// The platform tenant is where accounts live — prose, and invisible here.',
+      '/** Doc comment about the platform tenant. */',
+      'if (isPlatform(scope.businessId)) return adminView()', // 4 — the concept, asked
+      "if (scope.businessId === '1stcontact') return adminView()", // 5 — asked by slug
+      'const tenantId = (env.TENANT_ID ?? "").trim()', // deployment vocabulary, not a predicate
+      "const site = await store.forTenant(scope.businessId)", // ordinary scoped work
+      "const label = 'app.1stcontact.io'", // a hostname, compared with nothing
+    ].join('\n')
+
+    expect(askingLines(sample)).toEqual([1, 4, 5])
+  })
+})
