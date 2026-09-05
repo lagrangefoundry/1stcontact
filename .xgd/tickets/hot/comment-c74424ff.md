@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:08:07.960545+00:00'
+updated_at: '2026-09-05T22:11:27.321287+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1925,5 +1925,42 @@ knowledge base 'system' reads from source 'shipped', which this host has no inde
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="e7a8d341-6991-49ee-a0a1-7bd24a31f9e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:11:27.061327+00:00" -->
+#### Claude
+Preflight passes, so nothing's missing. Let me look at the config and the build entry.
+
+The index build may have completed before the failure. Cheapest decisive test:
+
+`1c assets` **succeeded** — your `kb build` got far enough to rebuild the index and chunks before dying, which cleared the skew.
+
+`email-shape.js` serves 200 now — wrangler picked up the rebuild. Let me verify the whole graph.
+
+**Just reload the browser** — everything serves now. All 22 builder modules, the chrome, and the webui components are 200. No wrangler restart needed after all; the full `1c assets` rewrite triggered a reload that my piecemeal `cp` didn't.
+
+## What actually happened
+
+Your command chained with `&&`, so the failure looked total — but it wasn't. `1c kb build` runs four stages, and it got through three:
+
+```
+corpus → index → chunks → awareness map
+                            ↑ died here
+```
+
+The index and chunks were rebuilt, which cleared the REF-* skew. So when I ran `./bin/1c assets` on its own it succeeded — 27 files, including the `email-shape.js` that was breaking `main.js`'s import graph.
+
+## The `kb build` failure is a real bug, and it explains the staleness
+
+`tools/generate/src/cli/kb.ts:927` calls `lib.search(query, { …, sources: binding.sources })`. Upstream `@lagrangefoundry/knowledge` wants **`indexes`**, not `sources`, and `indexFor` throws rather than silently returning nothing:
+
+> *"That is a deployment error and it fails here, loudly, rather than contributing no rows to the ranking — which is indistinguishable, from the caller's side, from 'this knowledge base is empty'."*
+
+It's **not** a rename. `sources` holds a `DocDirStore` (a corpus store); `indexes` wants an `IndexSource` — a `readBytes`/`readText`/`writeBytes`/`writeText` interface over the index artifact. The host needs to build a `nodeIndexSource` over `kb/system/` and pass it. Four call sites: `kb.ts:934, 1035, 1041, 1076`.
+
+This is version skew with the out-of-band shared component, and it's self-reinforcing: `kb build` can't finish → the awareness map never regenerates → and `1c assets` reports `awareness primed not indexed`, which is the degraded state you're now shipping in the bundle. It also explains why the index was stale in the first place — REQ-165 added the projected REF-* docs and nobody could complete a build afterwards.
+
+Want me to file that as a bug? It's contained (one file, four call sites, one seam to construct) but it's a genuine break between the repo and the shared store, and right now every `1c assets` run ships an unindexed awareness map.
 
 <!-- xgd-chat-end -->
