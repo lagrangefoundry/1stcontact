@@ -5,10 +5,10 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-05T00:49:58.546870+00:00'
+updated_at: '2026-09-05T00:50:23.082401+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -19,7 +19,11 @@ fields:
   - working_sha: 6d25bf25baf5633574b69975a7ea046389da199c
     reconcile_sha: null
     main_sha: null
-  version: 0.2.61
+    working_sha_history: []
+  - working_sha: 5bace72f8a6a0e656544eec03f24fef6c20784a3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.69
   depends_on:
   - REQ-178
 ---
