@@ -5,10 +5,10 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-05T02:20:07.467299+00:00'
+updated_at: '2026-09-05T17:09:50.573260+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 5
@@ -18,6 +18,14 @@ fields:
   - REQ-178
   - REQ-179
   chat_comment: comment-415d6245
+  commits:
+  - working_sha: 03f961b34c770ab2f83733075f3821b23eb60170
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 569f5b9553e0570a83ba5d35398398c64d7d4d65
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.72
 ---
 
 # The customer portal: the account's own surface, rendered by the site pipeline
