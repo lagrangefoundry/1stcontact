@@ -67,7 +67,7 @@ const person = (over: Partial<Person> & { id: string; email: string }): Person =
  * IT IMPLEMENTS THE TRANSITION rather than always appending, because that is the
  * behaviour the control has to REPORT — a promoted contact and a new person are
  * two different sentences, and a double that always created would let a panel
- * that always said "is now a member" pass.
+ * that always said "is invited" pass.
  */
 function transportOver(people: Person[], canInvite = true, canFulfil = false) {
   const rows = people.map((p) => ({ ...p }))
@@ -214,7 +214,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — the invite is a control on the un
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — what the operator is told', () => {
-  it('test_UAT_FC_REQ-186_inviting_a_new_address_adds_them_to_the_list_as_a_member', async () => {
+  it('test_UAT_FC_REQ-186_inviting_a_new_address_adds_them_to_the_list', async () => {
     const { transport } = await panelOver()
 
     await invite('bob@example.test', 'Bob')
@@ -238,9 +238,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — what the operator is told', () =>
     await invite('contact@example.test')
 
     expect(said().textContent).toMatch(/already known/i)
-    // And the row now reads as a Member, from the one marker the schema has.
+    // And the row now reads as INVITED — not Member ([[REQ-188]]). The invite
+    // moves a contact one step; the person completes the journey themselves by
+    // accepting the terms, and neither of these two rows has.
     const states = [...root.querySelectorAll('.builder-people__state')].map((n) => n.textContent)
-    expect(states).toEqual(['Member', 'Member'])
+    expect(states).toEqual(['Invited', 'Invited'])
   })
 
   it('test_UAT_FC_REQ-186_a_refusal_is_put_in_front_of_the_operator', async () => {
