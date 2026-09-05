@@ -5,7 +5,7 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-05T21:34:30.731359+00:00'
+updated_at: '2026-09-05T23:45:10.090840+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -123,3 +123,36 @@ sitting makes every bug look like the harness running down.
 
 This ticket still owns the seed the simulator signs people in to, and
 `apps/control-app/ACCESS.md` should gain a pointer to it.
+
+
+## Two corrections, 2026-09-05 ([[CHAT-23]])
+
+**The operator seed is gone, not relocated.** This ticket previously said `0005`
+was not test data and would come from the baseline. [[REQ-190]] now drops it
+entirely: [[REQ-185]]'s `PLATFORM_ADMINS` bootstrap writes the tenant, the user,
+the membership and the entitlement, from configuration, without hardcoding an
+address. Bringing a deployment up is: set the var, sign in once, empty it. This
+ticket seeds nobody privileged and should say so.
+
+**One real artefact has to survive the wipe: the `xgd` site.** Everything else in
+the stores is disposable ([[CHAT-23]]).
+
+It is already safe, and this ticket's job is to prove that rather than assume it.
+The file-backed store at `storage/sites/xgd/` holds a draft — `site.json`, `pages/`
+and 9 assets, last edited 2026-09-01 — which is **newer** than the two published
+revisions in D1 (2026-08-21, "hello cloud" and "live edit", 9 assets). So the
+current content lives outside the database and `1c push` restores it.
+
+What a wipe does destroy is the two revision *records*: the stamps, messages and
+`based_on` chain. That is history, not content, and it is accepted.
+
+A cheap guard is worth more than the assurance: **capture the draft before the
+wipe and diff it after the re-push**, so "the site came back" is a check rather
+than a look.
+
+## Added acceptance
+
+- the `xgd` site is present and byte-identical after a wipe, baseline and reseed,
+  restored from the file-backed store rather than from D1
+- the seed creates no platform operator; `PLATFORM_ADMINS` is the documented way
+  to bring up an empty deployment
