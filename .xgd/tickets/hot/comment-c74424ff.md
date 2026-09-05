@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:26:33.053503+00:00'
+updated_at: '2026-09-05T21:31:01.974130+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1728,5 +1728,13 @@ I also specified the seed as a **command going through the product's own entry p
 REQ-192 needs your call on whether the local Access simulator becomes a supported dev tool. Right now it's the throwaway in `.xgd/tmp/` that this whole session has been logging in through, and it'll be lost. Without it, seeded personas exist but nobody can sign in as them locally — `ACCESS_DEV_OPEN` skips identity entirely and the configured path needs a real Cloudflare token. I've recommended yes, recorded next to the real settings in `ACCESS.md`, but flagged it rather than assumed it.
 
 One more from CHAT-38 worth noting while it's fresh: your "names change, store old and new — name is a table like email" is the same pattern as REQ-191, but with a wrinkle email doesn't have. An address is either current or not; a name has *history*, which means validity intervals rather than an `is_primary` flag. Worth settling in the chat before that ticket gets written, because the two shapes look alike and aren't.
+
+<!-- xgd-turn id="1d57b12d-047f-4d35-8b6d-e1ad7947c9ff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:31:01.289810+00:00" -->
+#### You
+Could you create a doc on data design capturing the "don't use data as a key" principle and any other principles
+
+Can you put the access simulator in ./bin?
 
 <!-- xgd-chat-end -->
