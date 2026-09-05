@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:22:41.102490+00:00'
+updated_at: '2026-09-05T22:24:03.657754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2075,5 +2075,66 @@ One loose end I flagged and you didn't answer, so I've left it alone: `1c push` 
 <!-- xgd-chat role="user" ts="2026-09-05T22:22:40.802667+00:00" -->
 #### You
 One thing I want to check about our data model - the difference between an Account and a Contact/User. The business should be owned by an Account with an associated Contact/User. In future we may support multiple Users in an Account with RBAC
+
+<!-- xgd-turn id="8cea12e9-c3f4-4a93-a394-d179592d4cec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:24:03.256975+00:00" -->
+#### Claude
+Let me check what the schema actually holds versus what the docs claim.
+
+Checked against the live schema, and your intuition is right — the model doesn't do what you just described.
+
+## There is no Account
+
+The tables are: `tenants`, `sites`, `site_*`, `published_sites`, `tickets`, `counters`, `users`, `memberships`, `entitlements`. **No `accounts` table.** What exists instead:
+
+```
+business  ←── memberships(user_id, business_id, role) ──  user
+```
+
+The business is owned by a **user**, not by an account. Concretely:
+
+- `memberships` names a `user_id`. That's the ownership relation.
+- `findAccount(env, email)` returns a `UserRow` — in code, "account" *is* a user.
+- `/api/businesses` returns `account: {name, email}`, which is that user's `display_name` and `email`. The account you see in the UI is a person wearing the label.
+- `entitlements.account_id` exists (REQ-184 added it) and is **`NULL` on every row**, deliberately — REQ-184 reserved it as the future subject slot, with `NULL` meaning "a per-business capacity grant with no subject".
+
+So `account_id` is an empty chair with your name on it, which is the honest state and better than a column quietly holding a user id.
+
+## The docs already know
+
+DOC-40 §2 lists four nouns and calls Account "the payer, owns N businesses, not a tenant of its own". DOC-42 §6 is blunter:
+
+> *"The subject is the **account**, not the person and not the business. Today one user is one account; the model must not foreclose an account with several users."*
+
+So the collapse is recorded as a known simplification, not an accident. What's missing is anywhere to put the noun.
+
+## What your version needs
+
+1. An `accounts` table.
+2. `users.account_id` — a person belongs to an account.
+3. Business ownership moves to the account.
+4. `entitlements.account_id` finally gets populated — the payer.
+
+Then a fork worth deciding rather than defaulting into: **is "may operate this business" an account fact or a user fact?**
+
+- **Account-level** — simple, but RBAC is coarse: a user is an admin of everything the account owns.
+- **Per-business** — `memberships (user_id, business_id, role)` survives *as* the RBAC relation, and an account with three businesses can give an employee just one.
+
+I'd take per-business. CHAT-36 already cited it as a payoff rather than an accident — *"membership is already per-site, which gets you 'this employee sees only the salon site' for free"* — and DOC-42 §4 defines Operator as "may run this business — owner, support, eventually staff". The `role` column is already there holding `'owner'`, so RBAC has its foothold and needs no new relation.
+
+That gives: **account owns and pays; membership grants a user a role on a business.**
+
+## One naming hazard
+
+`newId('acct')` mints **business** ids — `acct_uatwestheadme` is a business, and so is `acct_057f…` for xgd.dev. That prefix predates DOC-40 §2 splitting the two nouns, and it will actively mislead the moment accounts are real. REQ-190 is already reminting every key, so it's the cheap moment to fix the prefix too.
+
+## My recommendation
+
+**Model the account now; don't build RBAC now.** Create the table, hang ownership and the entitlement subject off it, leave `role` at its single `'owner'` value. That gets the shape right without building permission checks nobody needs yet.
+
+The timing argument is the one you made about emails: REQ-190 is already rebaselining, so adding this costs a table definition. Adding it afterwards costs a second rebaseline.
+
+Want me to file it as a REQ alongside REQ-191, or fold it into REQ-190's baseline directly?
 
 <!-- xgd-chat-end -->
