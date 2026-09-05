@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:31:01.974130+00:00'
+updated_at: '2026-09-05T21:31:38.305855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1736,5 +1736,15 @@ One more from CHAT-38 worth noting while it's fresh: your "names change, store o
 Could you create a doc on data design capturing the "don't use data as a key" principle and any other principles
 
 Can you put the access simulator in ./bin?
+
+<!-- xgd-turn id="c87e8387-7282-4e5a-9606-3a9a27063fc8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:31:37.463457+00:00" -->
+#### You
+Could you create a doc on data design capturing the "don't use data as a key" principle and any other principles
+
+Can you put the access simulator in ./bin?
+
+NOTE all docs are created as DOC tickets DO NOT create .md files
 
 <!-- xgd-chat-end -->
