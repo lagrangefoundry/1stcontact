@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:54:32.632619+00:00'
+updated_at: '2026-09-05T23:55:31.536672+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2414,5 +2414,41 @@ I've left the six as they are — they're written and cross-linked, and collapsi
 <!-- xgd-chat role="user" ts="2026-09-05T23:54:32.445690+00:00" -->
 #### You
 Please explain the seeded persona's issue?
+
+<!-- xgd-turn id="800ff938-c7ce-4814-b5c0-3dfaf5c7b81d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:55:31.255314+00:00" -->
+#### Claude
+Let me verify where the gates actually live before I explain it, since that decides how bad it is.
+
+Verified — and it's smaller than I flagged. All four provisioning functions are exported with **zero** permission checks; every gate lives in the router.
+
+## The wrinkle
+
+REQ-192 says the seed should go through the product's own entry points, *"so a seed that succeeds is evidence those paths work."*
+
+After the wipe the database is empty. Every privileged route needs an `admission`, and `admit` needs a `users` row to produce one. No rows → no admission → `/api/admin/businesses` answers 404 and `/api/people/invite` answers 403.
+
+So a seed driving the product **over HTTP** can't make its first call: there is nobody to be. Previously migration `0005` solved that by putting you in the database ahead of everything. Dropping it removes a bootstrap the seed was quietly relying on.
+
+## Why it isn't serious
+
+The gates are at lines 1143 and 1286 of `router.ts` — not inside `provisionBusiness`, `invitePerson`, `openGrant` or `ensurePlatformOperator`. All four are exported and ungated, which is exactly how the test suites already call them.
+
+So an in-process seed with a D1 binding just calls them. And because `ensurePlatformOperator` is exported, the seed can create the first operator through the *same code path* break-glass uses — no duplicated row-writing, no second definition of what an operator is.
+
+## What it does cost
+
+REQ-192's rationale gets weaker, and that's the part worth caring about. Calling the functions is evidence the **functions** work — not the routes, and not their gates.
+
+The gates are the part most likely to be wrong. This session already found `ownsPlatformBusiness` where `ownsBusiness` belonged, and REQ-186 flagged that exact substitution as the mistake most likely to be made again. An in-process seed never touches any of it.
+
+## What I'd do
+
+Hybrid. **Bootstrap the operator in-process** with one `ensurePlatformOperator` call, then **do everything else over HTTP** as that operator with an access-sim token. The single unavoidable in-process step is the same one break-glass performs, and every step after it exercises the real route and the real gate.
+
+One loose end either way: the seed needs an operator address from somewhere, and it shouldn't be hardcoded — same defect as the migration, smaller blast radius. A parameter or an env var.
+
+Want me to write that into REQ-192? It's a change to *how* the seed works, not to what it produces.
 
 <!-- xgd-chat-end -->
