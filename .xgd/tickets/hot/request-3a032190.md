@@ -5,9 +5,9 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-05T21:26:15.353111+00:00'
+updated_at: '2026-09-05T21:34:30.731359+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -99,3 +99,27 @@ next to the real settings.
 - every persona and every state in the table above is present
 - each persona can be signed in as, locally, without a Cloudflare account
 - the operator seed is **not** duplicated here; it comes from the baseline
+
+
+## The Access simulator: decided, 2026-09-05
+
+It is `bin/access-sim`, alongside `bin/access-token` — the one provisions a real
+service token, the other stands in for the whole gate locally. This closes the
+open decision above.
+
+It exercises the **real** gate rather than bypassing it: `access.ts` verifies
+RS256 against the JWKS at `<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs` and
+`normaliseTeamDomain` accepts an `http://` prefix, so every signature, `aud`,
+`iss` and expiry check runs against keys this process minted. Nothing in the
+Worker is stubbed or branched.
+
+`--print-env` emits the two vars to layer over `.dev.vars`, and `/login` lists
+whoever the local D1 actually holds — read through `wrangler d1 execute` rather
+than by opening the SQLite file, so the list cannot drift from the store and a
+missing store degrades to the manual path.
+
+Tokens default to 30 days, per [[BUG-52]]: a test session that expires inside a
+sitting makes every bug look like the harness running down.
+
+This ticket still owns the seed the simulator signs people in to, and
+`apps/control-app/ACCESS.md` should gain a pointer to it.
