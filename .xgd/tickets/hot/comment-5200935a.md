@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:31:42.366574+00:00'
+updated_at: '2026-09-05T23:32:45.556793+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -292,5 +292,61 @@ Plan against the future schema.
 Lets do Resend
 
 I think the Cloudflare auth sound horrible is creating our own really so hard? Surely all the code exists we just have to wire it up?
+
+<!-- xgd-turn id="13ec9199-76d7-41a7-9b7d-d7bbdbc003a8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:32:45.358848+00:00" -->
+#### Claude
+Locked in: future schema, queue-then-send, Resend.
+
+## On our own auth — your instinct is right, it's not hard
+
+But "all the code exists, just wire it up" is the part I'd push back on. The *mechanism* is well-known and small; the *library* situation is worse than you'd expect. Lucia — which was the standard answer for exactly this shape — was deprecated by its author and turned into a set of reference implementations, i.e. "copy this code into your project". Better Auth is the live option, but it brings its own user and session tables with its own key shapes, landing directly on top of REQ-190's "no data is ever a key" rebaseline. Its user table would fight your contacts table, and you'd be adopting OAuth providers, password hashing and 2FA to get the one thing you need.
+
+So: hand-roll it. Here's the honest size.
+
+**Two tables**, in the same baseline as the rebaseline:
+
+```
+login_tokens   id (opaque), contact_id, email_id, purpose, expires_at, used_at, created_at
+sessions       id (opaque), contact_id, expires_at, created_at, last_seen_at
+```
+
+**Four small pieces:** issue (find contact → mint token → render template → send), redeem (look up → check → mark used → mint session → set cookie), verify (read cookie → look up session → return contact), and wire (`access.ts` tries session, falls back to Access JWT). Call it 150 lines of substance plus tests.
+
+**Three things already in this codebase make it that small:**
+
+- `newId()` (`identity.ts:357`) already mints 128-bit CSPRNG opaque ids. That's your token generator, done.
+- `admit()` already converts a verified identity into an admission, and *everything* downstream — scope, terms gate, portal — consumes only that. So you're adding a second producer, not rewiring consumers.
+- `guardTerms` already handles "signed in but hasn't signed up", which is the invitee's exact state on arrival.
+
+## The bits that are actually fiddly
+
+Not hard, but this is where auth bugs live:
+
+1. **Rate-limit the issue endpoint.** Without it, anyone can make your Worker email arbitrary addresses — a spam relay with your domain's reputation attached. This is the one that genuinely bites. Cloudflare's Rate Limiting binding makes it more config than code.
+2. **Don't leak existence.** "Check your email" with identical response and timing whether or not we hold the address.
+3. **Single-use enforced in the DB**, not in code — `UPDATE … WHERE used_at IS NULL` and check rows-affected, so two simultaneous clicks can't both redeem.
+4. **Email scanners click links.** Outlook and most enterprise filters fetch every URL in a message to check for malware, which burns a single-use token before the human ever sees it. The standard fix changes your design: the emailed link lands on a page with a **Continue** button that POSTs to redeem, rather than redeeming on GET. Worth deciding now, because it changes what the invite CTA does.
+5. **Cookie on `.1stcontact.io`** so both Workers read it. `HttpOnly; Secure; SameSite=Lax` — Lax not Strict, or following the link from a mail client won't send it.
+
+## Two consequences worth noticing
+
+**There is no sign-up flow, because there's no password.** Sign in and sign up are the same act; the only difference is whether `tos_accepted_at` is set, which `guardTerms` already decides. So the public site's Sign In modal also works for an invitee who lost their invite email — they just ask again. That collapses your first and third flows into one mechanism.
+
+**What happens when someone signs in with an address we don't hold?** Under Access, anyone could pass the edge and get denied by `admit`. Now it's our choice: say "check your email" and send nothing, or self-signup and mint a Lead. For a stealth beta I'd say **send nothing, mint nothing** — but that's a decision, not a default.
+
+## On keeping Access briefly
+
+You're right that it's horrible and it should go. My only argument for the overlap is that if the magic link has a bug you're locked out of your own builder — Access is cheap insurance for a short window, not a long coexistence. If you'd rather just cut over, the mitigation is a break-glass path for your own address.
+
+---
+
+Two things still unanswered and I need them for the tickets:
+
+- **The From address** (`hello@1stcontact.io`?) and whether replies go anywhere real
+- **Unknown address on sign-in** — silent, or self-signup?
+
+Plus the new one: **link-with-Continue-button, or redeem-on-click?** I'd take the button; the failure mode of the alternative is invisible and intermittent.
 
 <!-- xgd-chat-end -->
