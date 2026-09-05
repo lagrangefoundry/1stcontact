@@ -5,9 +5,9 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-09-05T21:25:16.063394+00:00'
+updated_at: '2026-09-05T21:41:48.368538+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -101,16 +101,33 @@ decided against:
   addresses, not only the primary one — otherwise inviting someone at their
   second address creates the duplicate this ticket exists to prevent.
 
-## Not in scope
+## Not in scope — but now decided
 
-- **Phone.** The same shape answers [[DOC-42]] §4.1's other bullet, and
-  [[CHAT-38]] is where the decision belongs — one `user_channels` table with a
-  `kind`, or siblings per channel. Named so it is a decision rather than an
-  oversight.
-- **Names.** [[CHAT-38]] again; the name history table is the same pattern and
-  will be its own ticket.
-- **Editing addresses in the UI.** This ticket makes the model right; which
-  surface adds and re-primaries an address is [[REQ-189]]'s territory or later.
+[[CHAT-38]] settled these on 2026-09-05. Recorded here because this ticket is
+where they were flagged as open; none of them changes the shape above.
+
+- **Phone is a sibling table, not a generic `user_channels`.** Email and phone
+  are the same shape — a normalised routing string with a uniqueness constraint
+  that means something — but a postal address is a compound with no such
+  constraint, so one table with a `kind` column would carry columns two of its
+  three kinds never use. Keep the *pattern* uniform — opaque key, foreign key by
+  key, `is_primary`, invariant enforced by a partial unique index — and let the
+  tables differ. `user_phones` stores the E.164 form beside the authored one, for
+  the same reason this table casefolds, and carries a `kind`, because SMS reaches
+  a mobile and not a landline. That is a capability distinction, not decoration.
+- **Names take this shape with one axis removed.** A person has several addresses
+  at once and exactly one name at a time, so the name table has no `is_primary`
+  and the same partial unique index enforces *one current* instead of *one
+  primary*. Its own ticket, landing in the same baseline.
+- **Postal addresses are deferred, and deliberately under-structured when they
+  arrive.** An authored multi-line block plus exactly two structured fields:
+  `country` (ISO-3166-1 alpha-2), because [[DOC-34]] makes it the single input to
+  locale, currency and legal obligation, and `postcode`, because it is the part
+  that gets validated. Street, city and region are display-only, and structuring
+  them buys nothing until some capability queries them.
+- **Editing addresses in the UI.** Unchanged: this ticket makes the model right;
+  which surface adds an address and re-primaries it is [[REQ-189]]'s territory or
+  later.
 
 ## Sequencing
 
