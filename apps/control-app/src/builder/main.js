@@ -1,5 +1,6 @@
 import { mountBuilder } from './app.js'
 import { fetchAiStatus, fetchBusinesses, publishSite } from './api.js'
+import { loadOrSignOut } from './session.js'
 import { mountL1EditBridge } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
 import { shadeHex } from '/framework/site-schema-shade.js'
@@ -34,13 +35,27 @@ const root = document.getElementById('app')
  * builder resolves its own scope and reads the sites of the business it settles
  * on, which is one round trip in the same place rather than two in two.
  */
-const [businesses, aiStatus] = await Promise.all([fetchBusinesses(), fetchAiStatus()])
+/**
+ * AND A REFUSED SESSION DRAWS A REASON RATHER THAN A BLANK PAGE ([[BUG-52]]).
+ *
+ * The decision is `loadOrSignOut`'s, in `session.js`, and not written here on
+ * purpose: this file imports three modules by absolute URL that only a browser
+ * can resolve, so anything decided in it is decided where no suite can reach.
+ * What stays here is the wiring — which calls open the builder, and what is
+ * mounted when they answer.
+ */
+const loaded = await loadOrSignOut(root, () =>
+  Promise.all([fetchBusinesses(), fetchAiStatus()]),
+)
 
-mountBuilder(root, {
-  businesses: businesses.businesses,
-  account: businesses.account,
-  aiStatus,
-  publish: (slug) => publishSite(slug),
-  editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
-  shadeHex,
-})
+if (loaded) {
+  const [businesses, aiStatus] = loaded
+  mountBuilder(root, {
+    businesses: businesses.businesses,
+    account: businesses.account,
+    aiStatus,
+    publish: (slug) => publishSite(slug),
+    editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+    shadeHex,
+  })
+}

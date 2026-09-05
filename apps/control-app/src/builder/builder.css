@@ -1391,6 +1391,64 @@ body {
   border-top: 1px solid #d9a93a;
 }
 
+/* ── the session has ended ([[BUG-52]]) ───────────────────────────────────────
+   TWO SHAPES, ONE VOICE. `.builder-session-notice` is the mid-session strip and
+   looks exactly like the two banners above — a different colour would say this
+   is a different KIND of thing from the other reasons the builder stops, and it
+   is not. `.builder-signed-out` is what a load-time refusal draws INSTEAD of a
+   builder, so it fills the space the builder would have occupied rather than
+   sitting as a strip above nothing.
+
+   NEITHER DIMS ANYTHING, and no `--blocked` class is set beside them.
+   `.builder-shell--blocked` exists for a builder with nothing in it yet; this
+   one sits over the operator's unsaved work, which stays readable and
+   selectable on purpose — see `session.js`. */
+
+.builder-session-notice {
+  /* The same strip as `.builder-banner`, written out rather than shared: the
+     two say different things and one of them will want its own colour before
+     long, and a shared selector would make that a rewrite of both. */
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  line-height: 1.4;
+  color: #3d2b00;
+  background: #ffdf9e;
+  border-bottom: 1px solid #d9a93a;
+}
+
+.builder-signed-out {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.builder-signed-out {
+  flex-direction: column;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+  text-align: center;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.builder-signed-out-action {
+  padding: 0.35rem 0.9rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.builder-signed-out-action:hover {
+  background: rgb(0 0 0 / 0.06);
+}
+
 /* ── the shell's scope chrome ([[REQ-179]]) ────────────────────────────────────
    The switcher sits before the tabs in the shell's own header bar; the avatar
    is an ordinary shell action. Both are chrome, so both take their colour from
