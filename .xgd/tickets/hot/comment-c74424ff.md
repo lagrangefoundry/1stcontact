@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:18:58.936200+00:00'
+updated_at: '2026-09-05T21:23:52.849112+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1688,5 +1688,11 @@ CHAT-36 settled that contacts fragmenting across businesses is the feature. So: 
 The schema is REQ-167's, not something I chose — but I read `0004` and `0005` several times this session, reported in detail on `admit` and `peopleOf`, and didn't flag email-as-identity until you asked about second addresses. The pattern was in front of me and I described the behaviour without questioning the shape. That's the fair version of the criticism and I've taken it.
 
 Worth saying that the sweep is wider than identity: `tenants.id` is a chosen name, `sites` is keyed on `(tenant_id, slug)`, and `published_sites.slug` is a **global** primary key — so the first two customers who both publish a site called `home` collide today. REQ-190 §5 still leaves "how far does this sweep go" open, and given your position I'd now say it goes all the way in one rebaseline rather than splitting. Say the word and I'll fold the sites half in properly rather than leaving it flagged.
+
+<!-- xgd-turn id="3930de7a-5e38-4eba-bc5f-51c71922ad9c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:23:52.764672+00:00" -->
+#### You
+ok so can you create an REQ for fixing the representation of email, another for fixing the primary keys across the project and a third to regenerate the test data please? Note the chat I just started on representing Names - there will be REQs on that too
 
 <!-- xgd-chat-end -->
