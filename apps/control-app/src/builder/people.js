@@ -93,10 +93,36 @@ function el(tag, className, text) {
  */
 export { stateOf }
 
-/** The list row: who they are, and which of the three states they are in. */
+/**
+ * What the name column says for somebody who has none yet ([[REQ-189]]).
+ *
+ * IT IS A SENTENCE AND NOT A DASH, because today it is what EVERY row says:
+ * nothing in this system can set `display_name` yet ([[REQ-183]] §5), so a
+ * blank or a glyph would read as a column that is broken rather than as a fact
+ * about the person. The wording says which of the two it is. Exported so the
+ * evidence asserts the string rather than restating it.
+ */
+export const NO_NAME_YET = 'No name yet'
+
+/**
+ * The list row: the name, the address, and the state they are in.
+ *
+ * THE NAME AND THE ADDRESS ARE TWO CELLS, not one with a fallback ([[REQ-189]]).
+ * The row used to print `displayName || email`, which meant a person WITH a name
+ * lost their address off the list — and, because nothing sets names yet, meant
+ * the list read as addresses only and its name column was invisible.
+ *
+ * THE STATE IS DRAWN BY WHATEVER {@link stateOf} RETURNS and this row branches
+ * on none of them — nor does any rule styling it. [[REQ-188]] has already turned
+ * two states into three; a pill styled per label, or a row that special-cased
+ * one, is what would have had to be found and edited that day.
+ */
 function renderRow(person) {
   const row = el('div', 'builder-people__row')
-  row.append(el('span', 'builder-people__who', person.displayName || person.email))
+  const name = el('span', 'builder-people__who', person.displayName || NO_NAME_YET)
+  if (!person.displayName) name.classList.add('builder-people__noname')
+  row.append(name)
+  row.append(el('span', 'builder-people__email', person.email))
   row.append(el('span', 'builder-people__state', stateOf(person)))
   if (person.status !== 'active') {
     // THE ACCENT IS SPENT ON THE EXCEPTION. Nearly every row is `active`, so a
@@ -105,6 +131,144 @@ function renderRow(person) {
     row.append(el('span', 'builder-people__suspended', person.status))
   }
   return row
+}
+
+/**
+ * The two relations, joined on the key they share ([[REQ-189]], [[DOC-42]] §4).
+ *
+ * ONE ROW PER BUSINESS, AND THE MISMATCHES ARE THE POINT. Operator and entitled
+ * are different relations, but since [[REQ-184]] an entitlement's OBJECT is a
+ * business and a membership is on a business — so they share a key, and the
+ * shape that tells the truth is one row per business carrying both sets of
+ * facts. Presented as two tables, the reader has to do this join in their head
+ * and the two states worth seeing are exactly the ones that vanish: a business
+ * operated with no live grant is the lapsed customer, and a grant against a
+ * business somebody does not operate is a support arrangement or a mistake.
+ * Joined, each is an empty cell on a row that is otherwise filled in — which is
+ * [[REQ-178]]'s argument for keeping a lapsed business visible in the switcher
+ * rather than dropping it, applied one surface along.
+ *
+ * OPERATED BUSINESSES KEEP THEIR ORDER AND GRANT-ONLY ONES FOLLOW. The origin
+ * already orders memberships by when they were granted, and a grant with no
+ * membership is the exception — so it sorts to the end rather than interleaving
+ * into an order the operator learned to read.
+ *
+ * PURE, and exported for that reason: this is the claim the ticket makes, and it
+ * is provable without a DOM.
+ *
+ * @param {Array<{businessId: string, name?: string|null}>} operates
+ * @param {Array<{businessId: string, businessName?: string|null}>} grants
+ */
+export function joinBusinesses(operates = [], grants = []) {
+  const rows = []
+  const byId = new Map()
+  const bucket = (businessId, name) => {
+    let row = byId.get(businessId)
+    if (!row) {
+      row = { businessId, name: name ?? null, membership: null, grants: [] }
+      byId.set(businessId, row)
+      rows.push(row)
+    } else if (row.name == null && name != null) {
+      row.name = name
+    }
+    return row
+  }
+  for (const business of operates) bucket(business.businessId, business.name).membership = business
+  for (const grant of grants) bucket(grant.businessId, grant.businessName).grants.push(grant)
+  return rows
+}
+
+/**
+ * The columns, declared once so the headings and the cells cannot drift apart.
+ *
+ * FIVE AND NOT SIX: withdrawing a grant is an action ON that grant's status, so
+ * the control sits in the status cell rather than buying a sixth column that
+ * could only ever carry a blank heading.
+ */
+const BUSINESS_COLUMNS = ['Business', 'Role', 'Plan', 'Access', 'Status']
+
+/** How long a grant runs, said the way an operator asks it. */
+function windowOf(grant) {
+  return grant.endsAt ? `until ${grant.endsAt}` : 'open-ended'
+}
+
+function cell(row, tag, className, text) {
+  const node = el(tag, className, text)
+  row.append(node)
+  return node
+}
+
+/** A cell whose emptiness is the fact — said in words, never left blank. */
+function absence(row, text, span) {
+  const node = cell(row, 'td', 'builder-people__none', text)
+  if (span) node.colSpan = span
+  return node
+}
+
+/**
+ * The joined table ([[REQ-189]]).
+ *
+ * A REAL `<table>`, because it is one: five headed columns of like values, and a
+ * grid of `<div>`s would be the same picture with none of the row/column
+ * relationships a screen reader reads out. The business and role cells `rowSpan`
+ * across a business's grants, so two grants on one business read as two grants
+ * on ONE business rather than as two businesses that happen to share a name.
+ *
+ * EVERY EMPTY CELL SAYS WHY IT IS EMPTY. A truly blank cell is indistinguishable
+ * from a value that failed to load, and these two blanks are the states the
+ * table exists to show — so "not an operator" and "no grant" are written out.
+ */
+function businessTable(rows, onRevoke) {
+  const table = el('table', 'builder-people__table')
+  const head = el('thead')
+  const headings = el('tr')
+  for (const label of BUSINESS_COLUMNS) cell(headings, 'th', 'builder-people__col', label)
+  head.append(headings)
+  table.append(head)
+
+  const body = el('tbody')
+  for (const business of rows) {
+    // At least one line per business: a business with no grant is a row, not an
+    // omission — it is the lapsed customer, which is the whole point.
+    const lines = business.grants.length > 0 ? business.grants : [null]
+    lines.forEach((grant, index) => {
+      const line = el('tr', 'builder-people__businessrow')
+      if (index === 0) {
+        const name = cell(
+          line,
+          'td',
+          'builder-people__name',
+          // The id when the name is unknown — a dangling grant still has to say
+          // WHICH business, and the id is the only handle left.
+          business.name || business.businessId,
+        )
+        const role = business.membership
+          ? cell(line, 'td', 'builder-people__role', business.membership.role)
+          : absence(line, 'Not an operator')
+        if (business.membership?.revokedAt) {
+          role.append(el('span', 'builder-people__revoked', 'withdrawn'))
+        }
+        name.rowSpan = lines.length
+        role.rowSpan = lines.length
+      }
+      if (!grant) {
+        absence(line, 'No grant', 3)
+      } else {
+        cell(line, 'td', 'builder-people__plan', grant.plan)
+        cell(line, 'td', 'builder-people__window', windowOf(grant))
+        const status = cell(line, 'td', 'builder-people__grantstatus', grant.status)
+        if (grant.status !== 'revoked') {
+          const withdraw = el('button', 'builder-people__revokegrant', 'Withdraw')
+          withdraw.type = 'button'
+          withdraw.addEventListener('click', () => void onRevoke(grant.id))
+          status.append(withdraw)
+        }
+      }
+      body.append(line)
+    })
+  }
+  table.append(body)
+  return table
 }
 
 export function createPeoplePanel(options = {}) {
@@ -384,53 +548,35 @@ export function createPeoplePanel(options = {}) {
     })
 
     /**
-     * What they may RUN — and it is usually not this business.
+     * WHAT THEY RUN AND WHAT THEY HOLD, IN ONE TABLE ([[REQ-189]]).
      *
      * THE ONLY PLACE A SECOND BUSINESS IS VISIBLE AT ALL. Viewed from 1st
      * Contact, this is where Alice's Plumbing appears against Alice's row; it is
-     * membership metadata and a name, never the contents of that business.
-     */
-    const operates = section(view, 'Businesses they run')
-    if (detail.operates.length === 0) {
-      operates.append(el('p', 'builder-people__empty', 'None — they run no business.'))
-    }
-    for (const business of detail.operates) {
-      const line = el('div', 'builder-people__business')
-      line.append(el('span', 'builder-people__name', business.name))
-      line.append(el('span', 'builder-people__role', business.role))
-      if (business.revokedAt) line.append(el('span', 'builder-people__revoked', 'withdrawn'))
-      operates.append(line)
-    }
-
-    /**
-     * Their grants, as a LIST and never as a single current value.
+     * membership metadata, a name and a grant, never the contents of that
+     * business.
      *
-     * An account accumulates them ([[DOC-40]] §5) and effective access is the
-     * best active grant covering now — so a UI showing one would misrepresent an
-     * account holding two the moment billing lands. Each row names the business
-     * it is for, because "this user's plan" is unrepresentable.
+     * GRANTS ARE STILL A LIST AND NEVER A SINGLE CURRENT VALUE ([[DOC-40]] §5).
+     * An account accumulates them and effective access is the best active grant
+     * covering now, so a business holding two gets two rows under one business
+     * cell rather than one row that picks a winner. The join changed which axis
+     * they are grouped on; it did not collapse them.
+     *
+     * COLUMN HEADINGS, because neither of the two tables this replaces had any
+     * and the reader was inferring what each value meant from its shape.
      */
-    const grants = section(view, 'Grants')
-    if (detail.grants.length === 0) {
-      grants.append(el('p', 'builder-people__empty', 'No grants.'))
-    }
-    for (const grant of detail.grants) {
-      const line = el('div', 'builder-people__grant')
-      line.append(el('span', 'builder-people__plan', grant.plan))
-      line.append(el('span', 'builder-people__for', grant.businessId))
-      line.append(
-        el('span', 'builder-people__window', grant.endsAt ? `until ${grant.endsAt}` : 'open-ended'),
+    const businesses = section(view, 'Businesses')
+    const joined = joinBusinesses(detail.operates, detail.grants)
+    if (joined.length === 0) {
+      businesses.append(
+        el('p', 'builder-people__empty', 'None — they run no business, and hold no grant.'),
       )
-      line.append(el('span', 'builder-people__grantstatus', grant.status))
-      if (grant.status !== 'revoked') {
-        const withdraw = el('button', 'builder-people__revokegrant', 'Withdraw')
-        withdraw.addEventListener('click', async () => {
-          await transport.revoke(grant.id)
+    } else {
+      businesses.append(
+        businessTable(joined, async (grantId) => {
+          await transport.revoke(grantId)
           await reopen(detail.person.id, view)
-        })
-        line.append(withdraw)
-      }
-      grants.append(line)
+        }),
+      )
     }
 
     /**
