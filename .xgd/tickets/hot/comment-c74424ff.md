@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:12:58.832045+00:00'
+updated_at: '2026-09-05T21:17:19.700017+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1637,5 +1637,17 @@ So the pattern is **two columns**: an integer surrogate for joins, and a separat
 **How far does the sweep go?** The identity half is small and urgent. The `sites`/`slug`/`tenants.id` half is larger — it moves R2 key prefixes (DOC-38 §7.2) and the erasure path depends on the tenant prefix (DOC-37). It may want to be its own ticket. I've named it rather than folding it in silently, because `published_sites` is already colliding and shouldn't get lost.
 
 I also flagged phone as adjacent — the same table shape answers DOC-42 §4.1's other bullet, either by generalising to channels with a `kind` or as a sibling table. Not folded in; named so it's a decision rather than an oversight.
+
+<!-- xgd-turn id="1cf226c7-93a5-4a56-a82a-602a13151818-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:17:19.598513+00:00" -->
+#### You
+So we should consider using SHA's not an incrementing index.
+
+**2. Uniqueness is per tenant, not global.** "Each email points to exactly one user" is right *within a tenant*, but a global constraint would break the recursion. <-- ? again consider SHAs - is global uniqueness down a table not desirable?
+
+There is no data yet - rebaseline
+
+This applies to everything - data as index will always burn you eventually. Honestly I am surprised that you chose it.
 
 <!-- xgd-chat-end -->
