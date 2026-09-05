@@ -6,16 +6,21 @@ title: The entitlement's subject is the account, and the column that says so hol
   a business
 created_by: xgd
 created_at: '2026-09-04T23:45:54.614655+00:00'
-updated_at: '2026-09-05T00:12:49.877287+00:00'
+updated_at: '2026-09-05T00:13:17.188060+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-134dbb7f
+  commits:
+  - working_sha: 65c38cd5abc695dabe358aae3701014b216f69ec
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.66
 ---
 
 # The entitlement's subject is the account, and the column that says so holds a business
