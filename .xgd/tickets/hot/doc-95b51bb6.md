@@ -5,7 +5,7 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-05T00:10:36.084101+00:00'
+updated_at: '2026-09-05T01:56:33.384906+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -79,33 +79,60 @@ tenant — but nothing in the code needs to know how deep it is standing.
 that branches on which level a row belongs to. Today only `tenant_id` is
 consulted, which is correct.
 
-## 4. Membership and entitlement are orthogonal
+## 4. Four relations, and three of them are not the same table
 
-Two relations, two questions, no layering between them:
+An earlier draft of this section said membership means *may log in* and mapped it
+to `memberships`. **That mapping was wrong**, and the schema says so plainly:
+`provisionInvite` writes Alice's `users` row into the 1st Contact tenant
+(`identity.ts:398`) while `provisionBusiness` writes her membership on *Alice's
+Plumbing*. She holds **no membership on 1st Contact** and logs in every day.
 
-| | means | table |
+The concepts were right; one of them lived somewhere else. There are four
+relations:
+
+| | means | where it lives |
 | --- | --- | --- |
-| **Membership** | this person may log in to this business | `memberships` |
-| **Entitlement** | this account has been granted access to some thing | `entitlements` |
+| **Contact** | known to this business — an email or a phone — and **may become a member** | a `users` row in that tenant, never invited |
+| **Member** | may log in here | a `users` row in that tenant, invited |
+| **Operator** | may *run* this business — owner, support, eventually staff | `memberships` |
+| **Entitled** | this account has been granted access to some thing | `entitlements` |
 
-Membership is *not* "operator of the business" and *not* a paid tier. It is the
-login relation and nothing else. `memberships.role` (`owner`, `support`) says
-what kind of member; Bob is a third kind.
+Read across the example: Bob is a contact of Alice's Plumbing and becomes a
+member when Alice invites him. Alice is a member of 1st Contact **and** the
+operator of Alice's Plumbing. You are all four on 1st Contact.
 
-The code already implements this split correctly:
+`admit` implements the split exactly: `findUser(env, tenant, email)` is the
+member check, and `businessesFor(user.id)` then asks what that person may
+operate. The two answer different questions and neither implies the other.
 
-- `businessesFor` joins through `memberships` (`identity.ts:621`) — membership
-  puts a business in your set.
-- `selectable: entitlement !== null` (`identity.ts:665`) — the entitlement is
-  what lets you in.
+**Contact and member are the same row in two states**, which is why the invite is
+a transition rather than a creation (§9). `invited_at` is what `provisionInvite`
+sets and is the only marker distinguishing them today.
 
-**Falsifier:** anything that treats holding a membership as implying a grant, or
-that reaches for `memberships` to answer "has this person paid for X".
+**Falsifier:** code that reads `memberships` to answer "may this person log in",
+or that treats being in a business's people list as implying the right to run it.
 
-## 5. The Portal is what membership IS. It is not a grant
+### 4.1 Two gaps this naming exposes
 
-A member reaches their User Portal by virtue of being a member. There is no
-free automatic entitlement row standing behind it.
+Recorded because the model names things the schema cannot yet hold.
+
+- **A phone-only contact is unrepresentable.** `users.email` is `NOT NULL`
+  (`0004:35`) and identity is decided by the `(tenant_id, email)` unique index
+  (`0004:61`). A contact reached only by phone has no key and no column — there
+  is no `phone` anywhere in the schema. This bites at level 2, where a plumber's
+  contacts arrive by phone as often as by mail.
+- **Nothing enforces contact versus member.** Any `users` row with a matching
+  verified email and `status = 'active'` passes `admit`. The distinction is real
+  in the model and currently advisory in the code. It is moot at level 1, where
+  only invited people have rows at all and Access guards the origin; it stops
+  being moot the moment a business captures contacts and puts a portal on its own
+  site.
+
+## 5. The Portal is what MEMBERSHIP IS. It is not a grant
+
+A member reaches their User Portal by virtue of being a member — of holding a
+row in that business at all. There is no free automatic entitlement standing
+behind it, and there must not be.
 
 The reason is not tidiness. The Portal is where a person sees what they have
 paid, changes their details, and asks for erasure ([[DOC-37]]). If that access
@@ -116,8 +143,14 @@ delete button. A constant that can go missing is strictly worse than a constant.
 
 It would also cause a control to exist that should not: if Portal access were a
 grant, someone will build *revoke Portal access*, which is close to blocking an
-erasure request. Withdrawing a login is already expressible —
-`memberships.revoked_at`, which refuses independently of any date (0004:63).
+erasure request.
+
+**Withdrawing a login is `users.status`**, which `admit` checks before it looks at
+any business and refuses as `user_inactive` (`identity.ts:535`). An earlier draft
+said `memberships.revoked_at`; that revokes the right to *run* a business, which
+is a different act and leaves the person's own Portal reachable — correctly, since
+what they see there is their own relationship and not the business they no longer
+operate.
 
 This gives the line for what needs a grant and what does not:
 
@@ -188,21 +221,29 @@ Three facts about what that business does. None of them is a kind of tenant.
 - **Its product is other businesses**, which is why `provisionBusiness` is its
   fulfilment action (§7).
 
-## 9. Contacts and users are one population
+## 9. Contact and member are one population in two states
 
 [[DOC-40]] *Contacts are users*: a contact is a `users` row in that tenant with
 no authentication fields set — explicitly not a second table, with
 `(tenant_id, email)` unique as the one place identity is decided (0004:61).
 
 So the CRM and the User tab are two views of one list, and **the invite is the
-verb that moves someone across**: capture a visitor → see them in the CRM →
-invite them in. Your CRM is prospects who landed on the 1c site; your Users are
-the ones who accepted.
+verb that moves someone across** — it is what turns a §4 *contact* into a §4
+*member*, and it is why the two are states of one row rather than two records:
+capture a visitor → see them in the CRM → invite them in. Your CRM is prospects
+who landed on the 1c site; your Users are the ones who accepted.
+
+A contact is a person you may reach and who **may become** a member. That "may"
+is the whole of the distinction: nothing else about the row changes, and the
+identity the `(tenant_id, email)` index decides is the same identity before and
+after. Which is exactly why a contact later invited must not become a second row
+with a duplicate address — the case [[DOC-40]] cites as the reason for one
+table.
 
 One tab with a facet, or two tabs over one query, is open. Two lists is not.
 
 **Falsifier:** a User list and a CRM list that can disagree about a person who is
-both.
+both, or an invite that inserts rather than updates.
 
 ## 10. Amendments this model owes to what is already written
 
