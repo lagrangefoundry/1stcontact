@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:50:52.149022+00:00'
+updated_at: '2026-09-05T22:08:07.960545+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1914,5 +1914,16 @@ STALE  in the index (2): DOC-17, DOC-33
 My `cp -R src/builder/. dist-assets/builder/` is a stand-in for it, and it goes stale the moment anyone touches `src/builder/` — which is exactly what just happened while we were talking about something else. **When you're next online, run `./bin/1c kb build && ./bin/1c assets`** and the manual step disappears.
 
 Two smaller notes: the sandbox won't let me signal any of those processes (all from earlier sessions), so restarts have to come from your terminal. And `email-shape.js` alongside changes to `api.js`/`people.js` looks like REQ-191 work landing — if so, the email-table change may be partly in the working tree, which is worth knowing before you judge what the Users tab shows you.
+
+<!-- xgd-turn id="e7a8d341-6991-49ee-a0a1-7bd24a31f9e6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:08:07.922694+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % ./bin/1c kb build && ./bin/1c assets
+knowledge base 'system' reads from source 'shipped', which this host has no index for (available: none)
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
