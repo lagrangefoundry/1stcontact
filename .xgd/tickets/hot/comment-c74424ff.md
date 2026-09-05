@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:15:53.444418+00:00'
+updated_at: '2026-09-05T18:20:38.169382+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1175,5 +1175,68 @@ Want me to scope those? Note I only proved the tab is *served* — I haven't cli
 <!-- xgd-chat role="user" ts="2026-09-05T18:15:52.949883+00:00" -->
 #### You
 I'm not sure I understand your steps. Can we do this by UX - I would like to start by creating (or showing) a user tab in the app that at least shows me users - is that a good place to start?
+
+<!-- xgd-turn id="9ccc0b44-3ae4-4eb3-87aa-68cbce1c8160-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T18:20:37.950465+00:00" -->
+#### Claude
+Yes — that's exactly the right place to start. And the good news is it already exists; the question is whether it *works*. Let me actually render it rather than guess.
+
+Chrome can't start under this sandbox (mach port denied), so you'll need to click it yourself. Let me verify the data contract the tab depends on, so it works when you do.
+
+One more check — I want to prove what a single button would actually unlock.
+
+Yes — and better than that: **it already exists.** Reload `http://127.0.0.1:8788/` and you'll see it, now that the stale assets are fixed. Nothing to build for step one.
+
+## What's on the tab today
+
+From `people.js`, it's more complete than "at least shows me users":
+
+- **The list** — everyone in the business you're in, with a **Member / Contact** facet (`invitedAt` set or not, DOC-42 §9's two states of one row).
+- **A detail pane** — the person, which businesses they *operate*, and their grants.
+- **Withdraw** on a grant.
+- **Provision a business** — the fulfilment control, which only shows when you own the 1st Contact business.
+
+You'll see two people: yourself and `uat@westhead.me`, both "Member".
+
+## The one thing missing, in UX terms
+
+**There is no Invite button.** That's it. That's the whole gap — and it's why my earlier three-step answer was more complicated than the problem.
+
+Here's the thing I got wrong by listing tickets instead of thinking in screens. DOC-42 §3 says a level is a *position, not a property*. So an Invite button on the Users tab, pointed at whichever business you're currently in, **is both levels at once**:
+
+- You click Invite on the **1st Contact** tab → you've made Alice, a level-1 customer.
+- Alice clicks Invite on **her** tab → she's made Bob, a level-2 customer.
+
+Same button, same code, different vantage point. Not two features.
+
+And the level-1 extra — Alice also needs an *app* — is the **Provision a business** button that's already on the tab. So:
+
+> **Invite** (missing) + **Provision a business** (built) = a level-1 customer.
+> **Invite** alone = a level-2 customer.
+
+That's also why `provisionInvite` being unreachable matters less than I implied: it does both at once, and once the two buttons exist it's the redundant one.
+
+## I ran the whole thing to check
+
+I hand-wrote a single SQL `INSERT` to fake the invite, then used only real UI endpoints:
+
+1. Alice appeared in your Users tab immediately.
+2. **Provision a business** → "Alices Plumbing" created.
+3. Alice logged in with her own token, accepted terms.
+4. She sees exactly one business — hers. Not yours.
+5. She has her **own Users tab** (empty — no Bob yet) with `canFulfil:false`, so no provisioning control.
+6. Her **portal** at `/account` → 200.
+7. She's 404'd from the fulfilment route.
+
+The DOC-42 example runs end to end. **The only step that needed SQL was the invite.** Everything downstream already works.
+
+## So: one ticket
+
+*"Invite a person into the business you are in"* — a button on the Users tab, `POST /api/people/invite`, writing a `users` row into the scoped tenant with `invited_at` set. DOC-42 §9 already specifies the semantics (a transition, not a creation — it must update an existing contact row, not insert a duplicate).
+
+Want me to scope that? It's small, and it's the last thing between you and clicking through the full three-level story yourself.
+
+Two bits of housekeeping: I left `alice@plumbing.example`, "Alices Plumbing" and "Snip City Salon" in your **local** D1 — useful for testing the switcher, easy to delete, say the word. And I couldn't drive a browser from here (the sandbox blocks Chrome's mach ports), so everything above is verified at the API and asset layer — the tab's *rendering* is the one thing you'll be checking that I couldn't.
 
 <!-- xgd-chat-end -->
