@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4f89b466
 ---
 
 # The Users tab is unstyled, and its detail panel splits one thing into two tables
