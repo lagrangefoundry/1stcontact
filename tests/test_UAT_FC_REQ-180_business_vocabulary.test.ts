@@ -245,6 +245,15 @@ describe('REQ-180 §3 — the vocabulary a person reads is Business', () => {
     // so renaming the column to match a word on a screen buys a migration for
     // nothing. The guard above would be satisfied by a rename; this is what says
     // a rename is not what was asked for.
+    //
+    // NARROWED BY [[REQ-184]], AND THE NARROWING IS THE POINT. This used to
+    // assert that the string `business_id` appeared in no migration at all,
+    // which is a proxy for "nothing renamed `tenant_id`" and stopped being one
+    // the moment a DIFFERENT column earned that name: `0006` renames
+    // `memberships.account_id` and `entitlements.account_id`, neither of which is
+    // `tenant_id` and both of which were WRONG rather than merely internal. So
+    // the claim is now made about `tenant_id` itself, which is what §3 was ever
+    // about — a blanket ban on a word cannot tell a rename from a coincidence.
     const migrations = path.join(REPO, 'db/migrations')
     const sql = fs
       .readdirSync(migrations)
@@ -254,7 +263,8 @@ describe('REQ-180 §3 — the vocabulary a person reads is Business', () => {
 
     expect(sql).toMatch(/CREATE TABLE[\s\S]*?tenants/i)
     expect(sql).toMatch(/tenant_id/)
-    // And nothing renamed it out from under the keys.
-    expect(sql).not.toMatch(/business_id/i)
+    // And nothing renamed it, or the table it names, out from under the keys.
+    expect(sql).not.toMatch(/RENAME\s+COLUMN\s+tenant_id\b/i)
+    expect(sql).not.toMatch(/ALTER\s+TABLE\s+tenants\s+RENAME\b/i)
   })
 })
