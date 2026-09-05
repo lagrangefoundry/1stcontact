@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:05:46.196951+00:00'
+updated_at: '2026-09-05T23:07:14.246436+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2251,5 +2251,35 @@ I think Lead will do for now as an appropriate initial state.
 BTW I renamed the tab Contacts - the reason I called it Users was that I was thinking to separate User management from Contact management - but I think they are really hard to separate.
 
 I changed REQ-188 back to free coded so we can update that ticket please?
+
+<!-- xgd-turn id="6005cfa0-9c64-43f3-9e7b-4f4ba332d7eb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:07:14.176280+00:00" -->
+#### Claude
+Now REQ-188, rewritten against the three axes.
+
+Both updated.
+
+## DOC-44 §4 — Lead settled
+
+Recorded as decided, with the counter-argument kept rather than dropped: *Lead* does commit to slightly more commercial intent than someone writing in with a question warrants. It wins on being the word everyone already knows — a stage name gets read by operators far more often than it gets reasoned about, and an unfamiliar-but-precise term is a glossary lookup on every screen.
+
+I also added one thing the decision implies. **The stage has to be a stored value, not derived from which timestamps are set.** Deriving works for two values and turns every later stage into a new column plus an invisible ordering rule. So `invited_at` records *when*; the stage records *whether*. That matters now because you've said the set will grow.
+
+## Your tab rename went in as evidence, not a footnote
+
+You called it Users because you were trying to separate user management from contact management, and found they don't separate. That's the same conclusion as DOC-44 §3, reached from the UI instead of the schema — the same row is the thing you invite, the thing that signs in, the thing the CRM holds and the thing you bill, so any line between the two surfaces cuts through one population. It's in §1 as corroboration, because a design argument that arrives twice by different routes is worth more than one that arrives once.
+
+## REQ-188 rewritten
+
+Retitled to **"A member is a contact who can sign in, and the pipeline is a separate axis"**, still `free_coded`.
+
+The correction you originally made survives intact — the marker is `tos_accepted_at`, not `invited_at`, and the `first_seen_at` reasoning is unchanged. What changed is the shape: two axes with two values each, rather than three states on one line.
+
+The clearest evidence the old framing was wrong is now an acceptance criterion: *an invited non-member, a member who was never invited, and a Lead who is neither* all have to exist and display correctly. The single-line model couldn't represent the second at all.
+
+It still carries the DOC-42 amendments — §4's "may log in here", §9's "two states", §4.1's "nothing enforces contact versus member" — since those sentences are what the code was written against.
+
+One thing to flag before you build it: REQ-188 now needs a stored stage column, and REQ-190 is rebaselining the schema. If REQ-188 lands first it adds a column that the baseline then re-creates. Probably worth REQ-188 defining the column and REQ-190's baseline being where it actually appears — same arrangement as REQ-191. Say if you'd rather sequence it the other way.
 
 <!-- xgd-chat-end -->
