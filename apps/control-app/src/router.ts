@@ -24,6 +24,13 @@ import {
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
+import {
+  openGrant,
+  peopleOf,
+  personDetail,
+  revokeGrant,
+  setPersonStatus,
+} from './people'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
@@ -448,6 +455,23 @@ export const BUSINESSES_PATH = '/api/businesses'
 export const ADMIN_BUSINESSES_PATH = '/api/admin/businesses'
 
 /**
+ * The User tab's four routes ([[REQ-170]]).
+ *
+ * `/api/people` AND NOT `/api/admin/people`. The prefix is the decision rather
+ * than the spelling: this tab is the people of WHICHEVER business the caller is
+ * in, so an `admin` segment would encode a platform-only reading in the URL and
+ * be wrong for every customer who ever reaches it ([[DOC-42]] §7). The one
+ * control that IS 1st Contact's alone already has its own path above, and keeps
+ * it — provisioning a business is our product-fulfilment action, and it is
+ * separate here for the same reason it is separate there.
+ */
+export const PEOPLE_PATH = '/api/people'
+export const PERSON_DETAIL_PATH = '/api/people/detail'
+export const PERSON_STATUS_PATH = '/api/people/status'
+export const GRANTS_PATH = '/api/grants'
+export const GRANT_REVOKE_PATH = '/api/grants/revoke'
+
+/**
  * What an operator-only route says to everybody else.
  *
  * 404 AND NOT THE 403 EVERY OTHER REFUSAL USES, and the difference is the point.
@@ -798,6 +822,16 @@ async function routeUncached(
     return scope
   }
 
+  /**
+   * The same `env`, seen as the identity module sees it.
+   *
+   * HOISTED because [[REQ-170]]'s five routes need it as well as
+   * `/api/admin/businesses`, and a cast repeated six times is six places for one
+   * of them to drift into a different assertion. It is a view and not a
+   * conversion: nothing is copied and no binding is added.
+   */
+  const identityEnv = env as unknown as IdentityEnv
+
   if (p === '/' || p === '/index.html') {
     return new Response(chromeHtml(), {
       status: 200,
@@ -1034,7 +1068,6 @@ async function routeUncached(
       // names `TENANT_ID`: which business's product is businesses, and where the
       // platform's accounts live, are both `identity.ts`'s knowledge, kept there
       // so [[REQ-168]]'s two readers stay two.
-      const identityEnv = env as unknown as IdentityEnv
       if (!ownsPlatformBusiness(identityEnv, admission)) {
         console.warn(
           JSON.stringify({
@@ -1074,6 +1107,109 @@ async function routeUncached(
         note: typeof body.note === 'string' ? body.note : undefined,
       })
       return json(200, business)
+    }
+
+    /**
+     * GET /api/people — everyone in the business this caller is in ([[REQ-170]]).
+     *
+     * THE SAME ANSWER FOR EVERY BUSINESS, and that uniformity is the ticket. The
+     * rows are `users WHERE tenant_id = <the resolved business>`; viewed from 1st
+     * Contact they are our customers, viewed from a customer's business they are
+     * theirs. There is no branch on which business it is, because a people list
+     * that had one would be the platform-only capability [[DOC-40]] §2.1 rule 1
+     * forbids.
+     *
+     * CONTACTS ARE IN IT. A person the business knows and has never invited is a
+     * row with `invited_at` null and it is listed as such ([[DOC-42]] §9) — the
+     * CRM reads these same rows, and a tab that filtered them out would be a
+     * second population that could disagree with the first about someone who is
+     * both.
+     *
+     * `canFulfil` IS REPORTED WITH THE LIST rather than inferred by the client
+     * from anything it can see. It answers [[DOC-42]] §7's two conditions —
+     * *you own this business* and *this business's product is businesses* — and
+     * the client renders the provisioning control on it. It is a convenience for
+     * the chrome and NOT the gate: `/api/admin/businesses` asks the same question
+     * again for itself, because a control that is merely unrendered is not
+     * refused.
+     */
+    if (p === PEOPLE_PATH && method === 'GET') {
+      return json(200, {
+        people: await peopleOf(identityEnv, requireScope()),
+        canFulfil: ownsPlatformBusiness(identityEnv, deps.admission),
+      })
+    }
+
+    /**
+     * GET /api/people/detail?id= — one person, with what they run and hold.
+     *
+     * NOT FOUND AND NOT IN THIS BUSINESS ARE THE SAME ANSWER, which is what stops
+     * this becoming the existence oracle `identity.ts` and `scope.ts` both refuse
+     * to be: `personDetail` scopes by tenant AND id, so a caller in one business
+     * guessing an id from another learns nothing a stranger could not.
+     */
+    if (p === PERSON_DETAIL_PATH && method === 'GET') {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      const detail = await personDetail(identityEnv, requireScope(), id)
+      if (!detail) return json(404, { error: 'No such person in this business.' })
+      return json(200, detail)
+    }
+
+    /**
+     * POST /api/people/status — may this person sign in at all ([[DOC-42]] §5).
+     *
+     * `users.status` IS THE LOGIN CONTROL AND `memberships` IS NOT. `admit`
+     * checks the status before it looks at any business and refuses
+     * `user_inactive`, so this is the field that stops a sign-in. Revoking a
+     * membership withdraws the right to RUN a business and deliberately leaves
+     * that person's own Portal reachable — a different act, and the distinction
+     * this route exists to keep.
+     */
+    if (p === PERSON_STATUS_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      const id = typeof body.id === 'string' ? body.id : ''
+      const status = typeof body.status === 'string' ? body.status.trim() : ''
+      if (status === '') return json(400, { error: 'A status is required.' })
+      return json(200, await setPersonStatus(identityEnv, requireScope(), id, status))
+    }
+
+    /**
+     * POST /api/grants — open a dated grant ([[REQ-170]], [[DOC-40]] §5).
+     *
+     * IT NAMES THE BUSINESS, ALWAYS. "This user's plan" is unrepresentable: an
+     * account running three businesses holds up to three grants, and an editor
+     * that omitted the object would silently change whichever one it found first.
+     * The subject is separate and optional — null opens a per-business capacity
+     * grant, which is what every row written so far is ([[REQ-184]]).
+     */
+    if (p === GRANTS_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      return json(
+        200,
+        await openGrant(identityEnv, {
+          businessId: typeof body.businessId === 'string' ? body.businessId : '',
+          accountId: typeof body.accountId === 'string' ? body.accountId : null,
+          plan: typeof body.plan === 'string' ? body.plan : '',
+          startsAt: typeof body.startsAt === 'string' ? body.startsAt : undefined,
+          endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,
+          note: typeof body.note === 'string' ? body.note : null,
+          grantedBy: deps.admission?.ok ? deps.admission.user.email : null,
+        }),
+      )
+    }
+
+    /**
+     * POST /api/grants/revoke — withdraw one, keeping the row ([[REQ-170]]).
+     *
+     * REVOCATION IS NOT DELETION. The history of what access was given is the
+     * thing being kept, and a deleted row takes with it the answer to "what were
+     * they promised, and when did we stop honouring it" — which is what anyone
+     * asking about a refusal is actually asking.
+     */
+    if (p === GRANT_REVOKE_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      await revokeGrant(identityEnv, typeof body.id === 'string' ? body.id : '')
+      return json(200, { ok: true })
     }
 
     if (p === '/api/sites' && method === 'GET') {

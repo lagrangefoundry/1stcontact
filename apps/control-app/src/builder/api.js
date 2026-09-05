@@ -470,3 +470,63 @@ export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
     }),
   )
 }
+
+// --- the User tab ([[REQ-170]]) -----------------------------------------------
+//
+// SCOPED LIKE EVERY OTHER READ. `scoped()` puts the selected business in the
+// path, so "the people of this business" is answered by the same mechanism that
+// decides which site the editor is editing — the tab has no scope of its own and
+// cannot acquire one ([[DOC-42]] §7).
+
+/** Everyone in this business, contacts included, plus whether we may fulfil. */
+export async function fetchPeople(fetchImpl = fetch) {
+  const res = await fetchImpl(scoped('/api/people'))
+  if (!res.ok) throw new Error(`GET /api/people → ${res.status}`)
+  return res.json()
+}
+
+/** One person, with the businesses they run and the grants they hold. */
+export async function fetchPerson(id, fetchImpl = fetch) {
+  const res = await fetchImpl(scoped(`/api/people/detail?id=${encodeURIComponent(id)}`))
+  if (!res.ok) throw new Error(`GET /api/people/detail → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * May this person sign in at all.
+ *
+ * `status` AND NOT A MEMBERSHIP CALL ([[DOC-42]] §5) — this is the field `admit`
+ * refuses on, and withdrawing a membership is the different act of taking away
+ * the right to RUN a business.
+ */
+export async function savePersonStatus(id, status, fetchImpl = fetch) {
+  const res = await fetchImpl(scoped('/api/people/status'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id, status }),
+  })
+  if (!res.ok) throw new Error(`POST /api/people/status → ${res.status}`)
+  return res.json()
+}
+
+/** Open a dated grant. `businessId` is required; `accountId` null is capacity. */
+export async function openGrant(spec, fetchImpl = fetch) {
+  const res = await fetchImpl(scoped('/api/grants'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(spec),
+  })
+  if (!res.ok) throw new Error(`POST /api/grants → ${res.status}`)
+  return res.json()
+}
+
+/** Withdraw one. The row survives — see the route's comment. */
+export async function revokeGrant(id, fetchImpl = fetch) {
+  const res = await fetchImpl(scoped('/api/grants/revoke'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+  if (!res.ok) throw new Error(`POST /api/grants/revoke → ${res.status}`)
+  return res.json()
+}
