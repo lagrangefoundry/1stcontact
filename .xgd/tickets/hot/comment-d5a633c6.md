@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T21:07:54.914019+00:00'
+updated_at: '2026-09-05T21:27:47.372149+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -60,5 +60,11 @@ Dialog footers keep their larger `8px 18px` padding — a footer isn't a filter 
 **Evidence:** `tests/test_UAT_FC_BUG-53_control_type_is_consistent.test.ts`, 7 tests, mounted against the real components. I verified all 7 fail with the source reverted and pass with it. Regression scope: 24 suites / 186 tests across the builder, dialogs, shell chrome and Users tab, all green.
 
 One thing worth noting: REQ-189 already had a test claiming "nothing this tab's dialogs emit is unstyled" — it swept only classes prefixed `builder-people`, which is exactly how the `builder-modal__*` typo walked through it. The new suite widens the rendered sweep to all `builder-*` classes and adds a static sweep over every `modalButton` class literal in the builder, so that class of defect can't recur on a surface this session didn't happen to open.
+
+<!-- xgd-turn id="02bfa225-46eb-4000-93d5-7ae45c06eb7c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:27:44.485572+00:00" -->
+#### You
+I refreshed and see no difference in the buttons I named do I need to do a build of somesort to see a change?
 
 <!-- xgd-chat-end -->
