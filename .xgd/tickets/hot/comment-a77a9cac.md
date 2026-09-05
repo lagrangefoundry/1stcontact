@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-05T00:01:33.892519+00:00'
+updated_at: '2026-09-05T00:15:35.772979+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -197,5 +197,35 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="52df7865-caf1-412e-b118-02af50de2525-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:15:34.668367+00:00" -->
+#### Claude
+Done — merged into `xgd-working`, promoted to `free_coded` at 0.2.67, branch cleaned. All targeted suites green on the merged tree (11 node-side guard tests, 57 workers-side identity/scope/businesses tests).
+
+## What the reopen actually asked for, and what landed
+
+I read the three DOC-42 amendments as one small delta, not a rebuild — and the ticket says so itself: *"the commits above stand and no endpoint changes shape."* No endpoint changed shape.
+
+**A2 landed no code, deliberately.** It says `REQ-178`'s reopen is the fix, and REQ-178's own reopened section says *"what a session with nothing selectable may reach is not settled here"* — it's REQ-183's. What this ticket owed A2 was that the account surface already states a lapse **per business** rather than as one banner, so the all-lapsed case needs no second rendering path when that admission change arrives. It does; nothing to build.
+
+**A1 and A3 land the same instrument twice**, and it's the one D5 already chose: a guard, not an audit. I checked both audits first and both pass today — `platform_admin` has exactly the two readers it should, and nothing anywhere asks whether a business is the platform's own. So the deliverable is the assertion that the next one can't appear quietly.
+
+- **A1 — `platform_admin` has two readers and they mean different things.** `scope.ts` enters a business without a membership (special because 1st Contact *hosts* the others, §8); `router.ts` gates product fulfilment (provisioning is filling an order, §7). A third read is how DOC-42 §10.3's two separable capabilities fuse into the generic privileged surface DOC-40 §2.1 rule 1 names as its failure mode — so the count is the assertion, plus a check that no `isAdmin`/`requireAdmin`-shaped predicate exists at all, which is §7's own falsifier. A *read* is a property access or a destructure; the column's declaration and the SQL that writes it are not, expressed as a rule rather than a list of exempt files.
+
+- **A3 — the rule extends from the word to the concept.** D5 keeps *tenant* off a screen; this keeps *the platform's tenant* out of the model. Outside REQ-168's two readers nothing may name the concept (`platformTenant`), ask it (`isPlatform`), or ask it by comparing a business id against the deployment's own slug — the last being the shape that survives a rename and that a guard over identifiers alone would miss. It extends the D5 file rather than starting a second guard, because it's the same rule one level down.
+
+Both guards were proved against the real tree by injecting a violation into `store.ts` and confirming each failure, then reverting — a guard with four exemptions and a hand-rolled scanner between it and the source is worth showing a violation before trusting.
+
+**The stated reasons are corrected in place.** `POST /api/admin/businesses` stops giving the flag as its reason and gives DOC-42 §7's two conditions — you own this business, and this business's product is businesses — which select exactly the set the flag selects today. `scope.ts` records that its bypass rests on hosting rather than on level.
+
+## Two things worth knowing
+
+**The version race is real and I hit it.** REQ-184 was merging concurrently; we both bumped to 0.2.66, the merge driver took the max, and `move-to-free-coded` refused because REQ-184 had already claimed that version. Resolved by re-bumping on the branch and merging again — hence the fourth commit, `89fae47616`, which is only a version bump.
+
+**I raised story points 5 → 6**, since the reopen added two guards on top of what the original five covered.
+
+I did not touch `identity.ts`'s "the platform's own tenant" prose — REQ-178's reopened section explicitly claims that vocabulary correction, and A3's rule exempts identity.ts as one of the two places the question is legitimately asked.
 
 <!-- xgd-chat-end -->
