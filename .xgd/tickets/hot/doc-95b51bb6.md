@@ -5,7 +5,7 @@ type: doc
 title: 'Two levels, two relations: the model behind the User tab'
 created_by: xgd
 created_at: '2026-09-04T23:20:47.206764+00:00'
-updated_at: '2026-09-04T23:52:06.627098+00:00'
+updated_at: '2026-09-05T00:10:36.084101+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -237,18 +237,45 @@ admitted session: you are logged in, the app is not open to you, here is why.
 with a message; read-only access to one's own site is the better product
 answer"*. §5 above gives it a stronger reason than product preference.
 
-### 10.2 `entitlements.account_id` holds a business
+### 10.2 `entitlements.account_id` holds a business — **taken, 2026-09-04**
 
-**Owned by [[REQ-184]]**, filed 2026-09-04. [[REQ-167]] wrote the schema and is
-`bundled`, so it could not take this. It constrains [[REQ-170]]'s entitlement
-editor in the meantime, which must not be built as though the subject were always
-a business.
+**Owned by [[REQ-184]]**, filed 2026-09-04 and landed the same day in
+`db/migrations/0006_entitlement_subject.sql`. [[REQ-167]] wrote the schema and is
+`bundled`, so it could not take this. It constrained [[REQ-170]]'s entitlement
+editor in the meantime, which had to not be built as though the subject were
+always a business; that constraint is now discharged.
 
-[[DOC-40]] §5 says so plainly: *"`account_id` here is a business"*. Under §6 the
-subject is the account and the business is the object, so the column that says
-`account_id` is the one that is not. The name will produce a bug — someone will
-write a user id into it because the name tells them to, and it will half-work.
-Rename to `business_id` when the subject column lands, rather than twice.
+[[DOC-40]] §5 said so plainly: *"`account_id` here is a business"*. Under §6 the
+subject is the account and the business is the object, so the column that said
+`account_id` was the one that was not. The name would have produced a bug —
+someone writes a user id into it because the name tells them to, and it
+half-works.
+
+**Which way it went.** Both halves landed together, as this section asked
+("rather than twice"):
+
+- `entitlements.account_id` → **`business_id`**, the object.
+- `entitlements` gains a new **`account_id`**, the subject. `NULL` is a
+  first-class value meaning *no account named*, which is a per-business
+  **capacity** grant — every row written before this migration is one, and
+  provisioning still writes one.
+- The capacity check (`bestActiveGrant`) reads
+  `business_id = ? AND account_id IS NULL`, so an account-subject grant cannot
+  make a business selectable for everyone holding a membership on it, and the
+  converse — a capacity grant answering an `account_id = ?` lookup — is
+  foreclosed by the same one column rather than by a second table or a `kind`
+  enum.
+- **No index on the subject yet**, deliberately: nothing reads it, and an index
+  without a reader is a guess at a query nobody has written.
+
+**And `memberships.account_id` was renamed too**, which is required by the above
+rather than tidying alongside it. That column has always held a business, and
+leaving it alone was defensible while `account_id` meant *business* everywhere
+([[DOC-40]] §2). The moment `entitlements.account_id` starts meaning an actual
+account, two adjacent tables carry that name with opposite meanings — strictly
+worse than the state this section set out to fix, and exactly the trap that
+produces a silently-empty query. `tenant_id` is untouched, per [[REQ-180]] §3:
+that column is correct and merely internal, where these two were wrong.
 
 ### 10.3 `users.platform_admin` bundles two capabilities
 
