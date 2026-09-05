@@ -5,9 +5,9 @@ type: bug
 title: An expired session renders as a working, empty account
 created_by: xgd
 created_at: '2026-09-05T19:10:55.261370+00:00'
-updated_at: '2026-09-05T20:35:23.798617+00:00'
+updated_at: '2026-09-05T20:35:26.993653+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   severity: high
