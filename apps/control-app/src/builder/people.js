@@ -43,6 +43,7 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
+import { EMAIL_SHAPE_ERROR, isEmailShape } from './email-shape.js'
 import { PERSON_STATES, stateOf } from './people-state.js'
 import {
   fetchPeople,
@@ -51,28 +52,63 @@ import {
   openGrant,
   provisionBusinessFor,
   revokeGrant,
-  savePersonStatus,
+  savePersonRecord,
 } from './api.js'
 
 /**
- * The record, read-only except for the one field that decides a login.
+ * The record: two fields the operator owns, and seven the system does
+ * ([[BUG-54]]).
  *
- * `status` IS THE ONLY EDITABLE ONE, and it is editable because it is the login
- * control ([[DOC-42]] §5) rather than because it is convenient. Everything else
- * here is a fact the system recorded — when they arrived, when they last signed
- * in, when they accepted the terms — and a surface that let an operator retype
- * those would be inviting them to falsify the record.
+ * WHO THEY ARE IS EDITABLE; WHAT HAPPENED TO THEM IS NOT. The address and the
+ * name are the operator's own answer to a question only they can answer — a
+ * typo in an invited address, a person who has since said what to call them —
+ * and there is nowhere else in the product to correct either. Everything else
+ * here is something the system OBSERVED: when it asked, when they first came
+ * through the door, when they last did, when they accepted the terms, when the
+ * row was written. A box inviting an operator to retype one of those is a box
+ * inviting them to falsify the record, and the record is what [[DOC-42]] §4's
+ * three states are derived from.
+ *
+ * `locked` AND NOT A NARROWER `editable` LIST AT THE MOUNT. The two are not the
+ * same claim. `editable` is the viewer's override — this surface, today, does
+ * not offer these — and `locked` is the schema's hard ceiling, which no viewer
+ * override can lift (webui-fields §9). These fields are the second: not a
+ * permission this panel happens to withhold, but a property of the fields
+ * themselves, which a second viewer of the same schema inherits without having
+ * to remember to.
+ *
+ * AND THE PREVIOUS SPELLING OF THIS DID NOTHING. `{ editable: true }` on a
+ * descriptor was written to mean "only this one", but the descriptor axis is
+ * `locked`/`defaultEditable` — `editable` is read only off the mount options,
+ * where this panel was already passing a blanket `true`. So every field was
+ * editable and the line that looked like it was restricting them was inert.
+ *
+ * `state` IS DERIVED AND HAS NO COLUMN. {@link stateOf} computes it from
+ * `invitedAt` and `termsAcceptedAt`; there is nothing behind it to write, so it
+ * is locked for a reason stronger than policy.
+ *
+ * `status` IS LOCKED HERE AND STILL LIVE ON THE SERVER. It is the login control
+ * ([[DOC-42]] §5) and `/api/people/status` still answers, but this tab no
+ * longer offers it — so today nothing in the UI suspends a sign-in.
  */
 const RECORD_FIELDS = [
-  { name: 'email', label: 'Email' },
+  {
+    name: 'email',
+    label: 'Email',
+    // `required` IS WHAT REFUSES AN EMPTY BOX. Validation is skipped for an
+    // empty value unless the field is required, so without this, clearing the
+    // address would pass the shape check by never reaching it.
+    required: true,
+    validate: (value) => (isEmailShape(value) ? null : EMAIL_SHAPE_ERROR),
+  },
   { name: 'displayName', label: 'Name' },
-  { name: 'state', label: 'State' },
-  { name: 'status', label: 'May sign in', editable: true },
-  { name: 'invitedAt', label: 'Invited' },
-  { name: 'firstSeenAt', label: 'First seen' },
-  { name: 'lastSeenAt', label: 'Last seen' },
-  { name: 'termsAcceptedAt', label: 'Terms accepted' },
-  { name: 'createdAt', label: 'Created' },
+  { name: 'state', label: 'State', locked: true },
+  { name: 'status', label: 'May sign in', locked: true },
+  { name: 'invitedAt', label: 'Invited', locked: true },
+  { name: 'firstSeenAt', label: 'First seen', locked: true },
+  { name: 'lastSeenAt', label: 'Last seen', locked: true },
+  { name: 'termsAcceptedAt', label: 'Terms accepted', locked: true },
+  { name: 'createdAt', label: 'Created', locked: true },
 ]
 
 const EMPTY_DETAIL = 'Select a person.'
@@ -277,7 +313,7 @@ export function createPeoplePanel(options = {}) {
     transport = {
       list: fetchPeople,
       item: fetchPerson,
-      saveStatus: savePersonStatus,
+      saveRecord: savePersonRecord,
       grant: openGrant,
       revoke: revokeGrant,
       invite: invitePerson,
@@ -537,12 +573,37 @@ export function createPeoplePanel(options = {}) {
   async function fill(person, view) {
     const detail = await transport.item(person.id)
 
-    mountFields(section(view, 'Who they are'), {
+    /**
+     * `onCommit` AND NOT `onSave` ([[BUG-54]]). The component's commit hook is
+     * `onCommit`; `onSave` was a key nothing read, so every confirmed edit was
+     * applied to the widget's own copy of the values and went no further. It
+     * failed silently by construction — the rollback path runs when the commit
+     * callback REJECTS, and a callback that is never called never rejects.
+     *
+     * ONE FIELD PER CALL, which is the `auto` commit mode: the changes object
+     * carries the single field just confirmed, so the route is handed a patch
+     * and never a whole record. That is what lets it leave `display_name`
+     * alone while the address changes, rather than writing back a stale copy
+     * of every other value the pane happened to be holding.
+     *
+     * A REJECTION IS THE ERROR REPORT. The widget rolls the cell back to the
+     * last-known-good value and prints the message inline, so a refusal the
+     * server made — an address another person already holds — lands beside the
+     * box it is about rather than in a console.
+     */
+    const record = mountFields(section(view, 'Who they are'), {
       schema: RECORD_FIELDS,
       values: { ...detail.person, state: stateOf(detail.person) },
       editable: true,
-      onSave: async (values) => {
-        await transport.saveStatus(detail.person.id, values.status)
+      onCommit: async (changes) => {
+        const saved = await transport.saveRecord(detail.person.id, changes)
+        // THE SAVED ROW IS PUT BACK, because the server normalises: an address
+        // typed `Sarah@…` is stored `sarah@…`, and the widget's optimistic copy
+        // still holds what was TYPED. Left alone the pane would show an address
+        // that is not the one in the row — and would disagree with the list the
+        // refresh below redraws from the same server.
+        Object.assign(detail.person, saved)
+        record.setValues({ ...detail.person, state: stateOf(detail.person) })
         await refresh()
       },
     })

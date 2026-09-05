@@ -46,6 +46,7 @@
  * Nothing here can read what is inside a business the caller is not in.
  */
 
+import { EMAIL_SHAPE_ERROR, isEmailShape } from './builder/email-shape.js'
 import type { IdentityEnv } from './identity'
 import { newId, normaliseEmail } from './identity'
 import type { Scope } from './scope'
@@ -458,6 +459,116 @@ export async function setPersonStatus(
   )
     .bind(status, now, scope.businessId, personId)
     .run()
+  if (!changed.meta?.changes) throw new UnknownPersonError()
+
+  const detail = await personDetail(env, scope, personId)
+  if (!detail) throw new UnknownPersonError()
+  return detail.person
+}
+
+/**
+ * The two fields of a person's record an operator owns ([[BUG-54]]).
+ *
+ * A PATCH: an absent key is "leave it alone", and is not the same as `null`.
+ * `displayName: null` clears the name; `displayName` absent does not touch it.
+ * The panel commits one field at a time, so in practice exactly one key
+ * arrives — but the distinction has to be in the type, because the alternative
+ * is a route that writes back whatever the caller was holding for every column
+ * it did not mean to change.
+ */
+export interface PersonPatch {
+  email?: string
+  displayName?: string | null
+}
+
+/** Refused because of what was typed — a bad address, or one already taken. */
+export class InvalidPersonRecordError extends Error {}
+
+/**
+ * Is this D1 failure the `(tenant_id, email)` index refusing a duplicate?
+ *
+ * MATCHED ON THE MESSAGE, because that is what SQLite gives — there is no code
+ * on the error to switch on. Deliberately narrow: anything that is not
+ * recognisably the unique index is rethrown, so a genuine database failure
+ * stays a 500 and is not reported to the operator as "that address is taken".
+ */
+function isDuplicateEmail(err: unknown): boolean {
+  const said = err instanceof Error ? err.message : String(err)
+  return /UNIQUE constraint failed/i.test(said) && /users\.email|users\.tenant_id/i.test(said)
+}
+
+/**
+ * Correct who somebody is ([[BUG-54]]).
+ *
+ * THE AUTHORITY, AND THE PANEL'S CHECK IS NOT. `builder/people.js` refuses a
+ * malformed address inline so the operator sees it while still looking at the
+ * box, but that is feedback: this is the refusal that counts, and it runs for
+ * anyone who reaches the route by any other means. Both read
+ * {@link isEmailShape}, from a module neither of them owns, so there is exactly
+ * one answer to what an address is.
+ *
+ * CASEFOLDED ON THE WAY IN, for the reason `0005` records and
+ * {@link invitePerson} already obeys: the `(tenant_id, email)` index is
+ * byte-exact and `admit` normalises, so an address stored as typed would be a
+ * person the front door could no longer find. This is the write that most needs
+ * it — an invite at least starts from a fresh row, whereas this can strand a
+ * member who was signing in yesterday.
+ *
+ * A DUPLICATE IS A SENTENCE AND NOT A 500. Two people in one business holding
+ * one address is exactly what the index exists to prevent, so hitting it is an
+ * ordinary outcome of a typo and the operator is told which of their two
+ * problems it is.
+ *
+ * NOTHING HERE TOUCHES `status`, `invited_at`, `tos_accepted_at` OR THE STAMPS.
+ * They are the record of what the system observed and of what the person
+ * themselves did ([[DOC-42]] §4), and the three states of the tab are derived
+ * from them; a route that let them be set by hand would make the states
+ * assertions rather than observations. `status` has its own route because it is
+ * a different act — the login control — with its own meaning.
+ */
+export async function setPersonRecord(
+  env: IdentityEnv,
+  scope: Scope,
+  personId: string,
+  patch: PersonPatch,
+): Promise<Person> {
+  const sets: string[] = []
+  const binds: unknown[] = []
+
+  if (patch.email !== undefined) {
+    const email = normaliseEmail(patch.email ?? '')
+    if (!isEmailShape(email)) throw new InvalidPersonRecordError(`Email ${EMAIL_SHAPE_ERROR}.`)
+    sets.push('email = ?')
+    binds.push(email)
+  }
+  if (patch.displayName !== undefined) {
+    // EMPTY BECOMES NULL rather than an empty string, so "no name" has one
+    // representation — the one the list already draws `No name yet` for.
+    sets.push('display_name = ?')
+    binds.push((patch.displayName ?? '').trim() || null)
+  }
+  if (sets.length === 0) throw new InvalidPersonRecordError('Nothing to change.')
+
+  const now = new Date().toISOString()
+  sets.push('updated_at = ?')
+  binds.push(now)
+
+  let changed
+  try {
+    changed = await env.DB.prepare(
+      `UPDATE users SET ${sets.join(', ')} WHERE tenant_id = ? AND id = ?`,
+    )
+      .bind(...binds, scope.businessId, personId)
+      .run()
+  } catch (err) {
+    if (isDuplicateEmail(err)) {
+      throw new InvalidPersonRecordError('Somebody in this business already has that address.')
+    }
+    throw err
+  }
+  // SCOPED BY TENANT AND ID TOGETHER, so a caller in one business guessing an
+  // id from another gets the same answer as one guessing an id that never
+  // existed — the non-oracle rule `personDetail` already keeps.
   if (!changed.meta?.changes) throw new UnknownPersonError()
 
   const detail = await personDetail(env, scope, personId)
