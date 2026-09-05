@@ -140,8 +140,16 @@ export interface TenantSiteStore extends SiteStore {
    * The port has no create verb because no *command* creates a site — `1c new`
    * does, and it is `commands.ts`'s. This is the adapter's own admin surface,
    * the counterpart of the in-memory adapter's `seed`.
+   *
+   * RETURNS WHETHER IT CREATED ONE (BUG-51). The insert is `INSERT OR IGNORE`,
+   * so this has always been safe on a slug that exists — and every caller then
+   * followed it with a `write` that was not, which is how a starter scaffold
+   * came to replace a built site. The information needed to stop that was
+   * already here and was being thrown away. A caller that only wants to seed an
+   * empty site now has one call to branch on, rather than a read-then-write it
+   * has to remember to perform.
    */
-  createDraft(slug: string): Promise<void>
+  createDraft(slug: string): Promise<boolean>
   /** Drop a site and its assets entirely, so `hasDraft` goes back to false. */
   forget(slug: string): Promise<void>
   /** The slugs this tenant holds a draft for, sorted. */
@@ -390,12 +398,18 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
     async createDraft(slug) {
       const now = new Date().toISOString()
-      await DB.prepare(
+      // `meta.changes` IS THE ANSWER, and it is D1's own count of rows the
+      // statement wrote — 1 when the insert landed, 0 when `OR IGNORE` swallowed
+      // it. Reading the row back instead would be a second round-trip and a
+      // race: another writer could create the site between the check and the
+      // insert, and the caller would be told it created something it did not.
+      const { meta } = await DB.prepare(
         'INSERT OR IGNORE INTO sites (tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
           'VALUES (?, ?, NULL, 0, 0, ?, ?)',
       )
         .bind(tenantId, slug, now, now)
         .run()
+      return meta.changes > 0
     },
 
     async forget(slug) {

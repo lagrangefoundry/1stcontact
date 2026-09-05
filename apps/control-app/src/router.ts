@@ -862,7 +862,14 @@ async function routeUncached(
    *
    * IDEMPOTENT by construction — `createDraft` is a no-op for a site that
    * exists and the write replaces each page and asset by name — so re-running
-   * `bin/publish` after an edit is the ordinary way to use it.
+   * `bin/publish` after a LOCAL edit is the ordinary way to use it.
+   *
+   * "Idempotent" was doing too much work in that sentence, and BUG-51 is the
+   * bill. Re-running the command is safe when the local copy is the only place
+   * the site is edited; it is destructive the moment the site has also been
+   * edited in the builder, because this route replaces what is there rather than
+   * merging with it. The guard below draws that line, so the sentence above is
+   * now true of the case it was always meant to describe.
    */
   if (p === '/api/import' && method === 'POST') {
     try {
@@ -881,6 +888,45 @@ async function routeUncached(
       // all. `storeFor` registers the configured tenant itself now, and there is
       // one opener again.
       const store = await (deps.store ?? storeFor)(env, requireScope())
+      // BUG-51 — AN IMPORT MAY NOT SILENTLY REPLACE WORK DONE IN THE BUILDER.
+      //
+      // This route replaces `site.json` and every page the payload carries, and
+      // the write is unconditional. That is correct for what it was built for
+      // — copying a locally authored site up — and catastrophic for the case
+      // nobody had separated from it: a freshly scaffolded site pushed over one
+      // somebody spent an afternoon building. BUG-51 is that case. The site was
+      // not deleted, so nothing looked broken; its `site.json` and `home.json`
+      // were simply the starter's, while the change journal, the assets, the
+      // audit trail and the chat transcript all survived to say what had been
+      // there.
+      //
+      // THE COUNTER IS THE TEST, NOT THE VERSION, and the difference is the
+      // whole reason this refusal does not break the ordinary loop. `write`
+      // bumps `version` on every call including this route's own, so a site that
+      // has only ever been published from `storage/sites/` still has a version
+      // well above zero — guarding on it would refuse `bin/publish` the second
+      // time it ran, every time. `counter` moves only through `appendChange`,
+      // which is what a builder edit, an AI turn or a structured-edit command
+      // does. So it separates content somebody AUTHORED HERE from content this
+      // very command put here, which is exactly the distinction being made.
+      //
+      // REFUSED BEFORE THE WRITE, not rolled back after it: there is nothing to
+      // learn from the attempt, and a `createDraft` left behind would turn a
+      // refusal into a half-landed one.
+      const authored = await store.counter(payload.slug)
+      if (authored > 0 && payload.force !== true) {
+        return json(409, {
+          error:
+            `Site '${payload.slug}' has ${authored} change(s) made in the builder. ` +
+            'Importing would replace them. Nothing was written.',
+          slug: payload.slug,
+          changes: authored,
+          // Named in the body rather than only in the prose, so a caller that
+          // is not a person can tell "refused, and here is the way to mean it"
+          // from "refused" without parsing a sentence.
+          force: 'Re-send with "force": true (1c push --force, bin/publish --force).',
+        })
+      }
       await store.createDraft(payload.slug)
       const write = payloadToWrite(payload)
       await store.write(payload.slug, write)

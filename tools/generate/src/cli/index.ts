@@ -66,6 +66,12 @@ import {
 } from './shared-store'
 import { startBuilder } from './builder'
 import {
+  builderIsRunning,
+  humanBytes,
+  performReset,
+  resetPlan,
+} from './reset'
+import {
   buildKb,
   ensureConfig,
   exportCorpus,
@@ -261,6 +267,18 @@ Usage:
     Replaces the draft with a revision. Forward-only: publishing afterwards mints a
     NEW highest revision recording what it descended from — history never rewinds.
   1c revisions <slug> [--sandbox]
+  1c reset [--yes] [--include-public] [--port <n>]
+    Empties the LOCAL dev store: apps/control-app/.wrangler/state, which is where
+    \`wrangler dev\` persists D1 and R2 — every site, page, change journal, asset,
+    revision, chat transcript, ticket, tenant and audit record. Removing it is what
+    a fresh clone would have. storage/ is never touched: storage/sites/ is the
+    git-tracked authored source a re-seed comes from.
+    Without --yes it PREVIEWS: prints what it would remove and deletes nothing.
+    Refuses while the builder is answering on --port (default 8788) — a live
+    miniflare holds those SQLite files open, so deleting under it corrupts the
+    store rather than resetting it. Stop the server first.
+    --include-public extends it to apps/public-site/.wrangler/state.
+
   1c builder [--port <n>] [--remote]
     Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
     routes, store and runtime as production. Serves what \`1c assets\` built, so run
@@ -289,10 +307,12 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     where that is caught instead.
 
 Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
-  1c push <slug> [--origin URL] [--client-id ID --client-secret SECRET] [--json]
+  1c push <slug> [--origin URL] [--force] [--client-id ID --client-secret SECRET] [--json]
     Reads the local draft (definition + assets) and posts it to the builder Worker's
     import route, which writes it into D1 and R2 through the same store it serves from.
-    Idempotent: re-running after an edit replaces each page and asset by name.
+    Idempotent: re-running after a LOCAL edit replaces each page and asset by name.
+    REFUSED with 409 when the target has changes made in the BUILDER — importing
+    would replace them (BUG-51). --force says you mean it; nothing is written without.
     --origin defaults to http://localhost:8788 (\`wrangler dev\`). A deployed builder
     is behind Cloudflare Access and needs a service token: --client-id/--client-secret,
     or CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET in the environment. Provision one
@@ -603,6 +623,11 @@ export async function run(argv: string[]): Promise<void> {
       }
       const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
         origin,
+        // BUG-51 — only ever passed when typed. The far side refuses an import
+        // that would replace builder changes, and this is the operator saying
+        // they know what is there. A default would be the destructive default
+        // the whole ticket exists to remove.
+        ...(flags.force === true ? { force: true } : {}),
         ...(clientId && clientSecret
           ? { access: { clientId, clientSecret } }
           : {}),
@@ -701,6 +726,77 @@ export async function run(argv: string[]): Promise<void> {
         force: flags.force === true,
       })
       console.log(`Checked out revision r${id} → ${draftDir}`)
+      return
+    }
+
+    case 'reset': {
+      // BUG-51 — the deliberate way back to empty. See `reset.ts` for why a
+      // command exists rather than an instruction to delete a directory.
+      const port = Number.parseInt(typeof flags.port === 'string' ? flags.port : '8788', 10)
+      // A bare Error, as `1c push` raises for its own usage mistake: the
+      // `ErrorCode` set is about what happened to a DEFINITION, and a mistyped
+      // flag never reached one.
+      if (!Number.isFinite(port) || port <= 0) {
+        throw new Error(`--port must be a port number, not '${String(flags.port)}'.`)
+      }
+      const plan = resetPlan({
+        repoRoot: repoRoot(),
+        includePublic: flags['include-public'] === true,
+      })
+
+      const describe = (): string =>
+        plan.targets
+          .map((t) =>
+            t.present
+              ? `  ${t.label}  (${t.files} file(s), ${humanBytes(t.bytes)})\n    ${t.dir}`
+              : `  ${t.label}  (already empty)`,
+          )
+          .join('\n')
+
+      if (flags.yes !== true) {
+        // A PREVIEW EXITS 0, because it did what it was asked. `1c reset` with no
+        // flag is a question — "what would this take away?" — and answering it is
+        // a success. Exiting non-zero would make the safe form of a destructive
+        // command look like a failure, which teaches the operator to reach past
+        // it for the one that does not ask.
+        console.log(
+          `Would empty the local dev store:\n${describe()}\n\n` +
+            `Never touched: ${plan.preserved.join(', ')}\n\n` +
+            'Nothing was deleted. Re-run with --yes to do it.',
+        )
+        return
+      }
+
+      if (await builderIsRunning(port)) {
+        // THE WHOLE EXPLANATION IS IN THE MESSAGE, not split into a `hint`. A
+        // command that throws from here reaches `bin/1c.mjs`'s catch, which
+        // prints `err.message` and nothing else — so a hint would be the half of
+        // this refusal that never reaches the operator, and it is the half that
+        // says why. `builder` has the same shape and the same silent hint; that
+        // is a wart to fix where it lives, not one to inherit here.
+        throw new CommandError({
+          code: 'ENVIRONMENT',
+          // "SOMETHING", NOT "THE BUILDER". A connect proves a listener, not
+          // whose it is, and on a developer's machine that port may belong to
+          // anything. Naming it as the builder would make the one case where the
+          // operator is right and the tool is wrong — a different service on
+          // 8788 — read as the tool knowing something it does not. `--port` is
+          // the way out, and is named here because that is when it is needed.
+          message:
+            `Something is listening on port ${port}, so the builder may be running. ` +
+            'Stop it first: a live wrangler dev holds the store\'s SQLite files open, ' +
+            'so deleting them underneath it corrupts the store instead of emptying it. ' +
+            'Nothing was deleted. If that port is something else, pass --port.',
+        })
+      }
+
+      const { removed } = performReset(plan)
+      console.log(
+        (removed.length
+          ? `Emptied the local dev store:\n${removed.map((t) => `  ${t.label}`).join('\n')}`
+          : 'The local dev store was already empty.') +
+          `\n\nNext start is a fresh store; seed it with \`bin/publish\`.`,
+      )
       return
     }
 
