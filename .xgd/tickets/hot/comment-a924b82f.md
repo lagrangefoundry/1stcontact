@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T00:36:08.005055+00:00'
+updated_at: '2026-09-05T00:57:59.665421+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,57 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="f52b2abe-9290-40af-8be9-31a2ecc54460-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:57:59.556555+00:00" -->
+#### Claude
+REQ-184 has landed (`free_coded`, `65c38cd5`, on `xgd-working`). Dependency satisfied — resuming. First, rebasing my branch onto it.
+
+Now the queries, the two predicates, and the seed.
+
+Now the two stale doc references in `identity.ts`, then `scope.ts` and `router.ts`.
+
+Now `business.js` prose, `wrangler.toml`, and the test supports.
+
+Now the existing suites that set the old column, then a typecheck.
+
+Now the two suites that set the old column, then typecheck.
+
+Type predicates were wrong there — a customer is admitted and owns nothing, so the negative direction is false. Reverting to plain booleans.
+
+Now the REQ-185 UAT suite.
+
+Now the affected existing suites.
+
+REQ-184 already set the pattern here — map names forward rather than edit history. Extending it.
+
+Now the full suite.
+
+No regressions — all 11 failures reproduce on the clean baseline (knowledge-base/webui environment artifacts). Now recording the implementation consequences in the ticket body before committing.
+
+REQ-185 is done and `free_coded` at 0.2.70, merged back onto `xgd-working`.
+
+## What changed
+
+**The ownership half moved to `memberships.role`.** `AdmittedBusiness` now carries `role`, and two predicates in `identity.ts` read it: `ownsBusiness(admission, businessId)` and `ownsPlatformBusiness(env, admission)` — DOC-42 §7's two conditions, *you own this business* and *this business's product is businesses*. `POST /api/admin/businesses` gates on the second and no longer reads the flag at all. Owning the 1st Contact business is now an `owner` row exactly like owning a salon.
+
+**The hosting half kept a column and got an honest name.** `0007_platform_operator.sql` renames `platform_admin` → `platform_operator`, ordered after REQ-184's rename of the column ownership moves onto. `scope.ts` is its only reader. The bypass's behaviour is untouched — grant still required, deactivated business still refused, handle still ordinary. The new lever is that a business reached by the bypass comes back with `role: null`, so entry can never be read back as ownership.
+
+**`PLATFORM_ADMINS` became real.** It didn't exist in the codebase — only in DOC-40 §6 — and moving ownership behind a row is exactly the lockout §6 exists to prevent, so it had to. It's an empty-by-default var declared on both sides of wrangler's inheritance line; `ensurePlatformOperator` seeds the tenant, user, `owner` membership and open-ended grant idempotently (0005's `WHERE NOT EXISTS` shape), called from `admit` before the user lookup. It writes rows rather than synthesising an admission, so the holder is then admitted by the same reads as everyone else and emptying the var doesn't undo the repair.
+
+**REQ-180's reader-count guard tightened** from two readers to one — which is what it was explicitly holding the count for. Two of its UATs are renamed to say *one* where they said *two*; worth knowing at reconciliation.
+
+## Judgement calls
+
+- **`admit` now writes, for one bounded case.** Its "creates nothing" rule guards against self-serve admission; `PLATFORM_ADMINS` isn't something a caller can present, so the unbounded set stays empty. The header says so rather than leaving the exception silent.
+- **Predicates return `boolean`, not type guards.** A type predicate compiled and was wrong — true implies the admission succeeded, but false says nothing, since an ordinary customer is admitted and owns nothing. TypeScript then treats the refusal branch as unreachable for the caller it mostly serves.
+- **0005 left naming the old column.** REQ-168's idempotence test maps the rename forward instead, which is the pattern REQ-184 already set.
+
+## Verification
+
+13 new UATs, all passing. Full suite: **31 failures / 12 files**, against a baseline of **37 / 16** on clean `xgd-working` — every failure in my branch also fails on the baseline (knowledge-base and webui environment artifacts in this sandbox), and no file fails that passed before. `tsc --noEmit` is clean apart from a pre-existing `session-knowledge.ts` error that reproduces on the baseline.
+
+Unrelated: the claude.ai Gmail, Calendar and Drive connectors still need authorising from your claude.ai connector settings — this session can't run the OAuth flow.
 
 <!-- xgd-chat-end -->
