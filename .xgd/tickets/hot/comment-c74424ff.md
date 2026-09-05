@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:23:52.849112+00:00'
+updated_at: '2026-09-05T21:26:33.053503+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1694,5 +1694,39 @@ Worth saying that the sweep is wider than identity: `tenants.id` is a chosen nam
 <!-- xgd-chat role="user" ts="2026-09-05T21:23:52.764672+00:00" -->
 #### You
 ok so can you create an REQ for fixing the representation of email, another for fixing the primary keys across the project and a third to regenerate the test data please? Note the chat I just started on representing Names - there will be REQs on that too
+
+<!-- xgd-turn id="3930de7a-5e38-4eba-bc5f-51c71922ad9c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:26:32.530209+00:00" -->
+#### Claude
+Let me find the Names chat first so I can link it correctly.
+
+CHAT-38 "Contact Representation" — got it, I'll link it. REQ-190 already holds both halves, so I'll split it rather than leave a three-way overlap.
+
+Three tickets, and I split REQ-190 rather than leaving a three-way overlap:
+
+| | |
+|---|---|
+| **REQ-190** *(rescoped)* | Data is not a key: opaque keys across the schema, in one rebaseline |
+| **REQ-191** *(new)* | A person's email addresses are a table, not a column |
+| **REQ-192** *(new)* | Regenerate the test data as a command, not as hand-written SQL |
+
+REQ-190 kept its number because it already carried the key rule and the sweep; the address half moved out to REQ-191. Cross-references are wired in all three directions, and REQ-191 links CHAT-38 so the name work lands beside it.
+
+## Things worth flagging
+
+**They're one migration, three reviews.** D1 can't alter a primary key in place, so REQ-190 replaces `0001`–`0008` with a single baseline — and `user_emails` has to be created *in* that baseline, not by a migration after it. Two rebaselines for one schema change is the thing a rebaseline exists to avoid. So REQ-191 is separable in review and acceptance, not in deployment. I've said so in both.
+
+**Migration `0005` is not test data**, and it was at risk of being treated as such. It seeds the operator's membership on the platform business and exists to stop REQ-168 locking you out of the live deployment. It moves into the baseline; REQ-192 explicitly does *not* re-seed it.
+
+**REQ-192's fixture list is the interesting part.** Beyond the DOC-42 §1 cast, I've required the states that are hard to reach by clicking and easy to break: someone invited who never signed up (REQ-188's new middle state), a contact never invited, a lapsed entitlement, and a person with a non-primary second address. Those are the ones nothing currently exercises.
+
+I also specified the seed as a **command going through the product's own entry points** — the invite, `provisionBusiness`, `openGrant` — rather than a SQL file. A seed that succeeds is then evidence those paths work, and one that breaks when they change is a signal rather than drift.
+
+## One decision left open
+
+REQ-192 needs your call on whether the local Access simulator becomes a supported dev tool. Right now it's the throwaway in `.xgd/tmp/` that this whole session has been logging in through, and it'll be lost. Without it, seeded personas exist but nobody can sign in as them locally — `ACCESS_DEV_OPEN` skips identity entirely and the configured path needs a real Cloudflare token. I've recommended yes, recorded next to the real settings in `ACCESS.md`, but flagged it rather than assumed it.
+
+One more from CHAT-38 worth noting while it's fresh: your "names change, store old and new — name is a table like email" is the same pattern as REQ-191, but with a wrinkle email doesn't have. An address is either current or not; a name has *history*, which means validity intervals rather than an `is_primary` flag. Worth settling in the chat before that ticket gets written, because the two shapes look alike and aren't.
 
 <!-- xgd-chat-end -->
