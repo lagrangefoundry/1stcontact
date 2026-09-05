@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:17:52.729139+00:00'
+updated_at: '2026-09-05T22:18:22.546818+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2047,5 +2047,11 @@ It also won't bring the two published revisions; you'd re-publish in the new bus
 **3. Leave it until REQ-190.** After the rebaseline this is a one-column update, and there's a decent argument for not building a migration tool for a schema you're about to replace.
 
 I'd suggest **1** if you want to look at the site inside xgd.dev today, **3** otherwise. Want me to file the `1c push --business` gap either way? It's the thing standing between you and a one-command answer, and it'll still be true after REQ-190.
+
+<!-- xgd-turn id="6fe9bfa1-1284-46c3-b3d3-86e09462fe48-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:18:22.089107+00:00" -->
+#### You
+3.
 
 <!-- xgd-chat-end -->
