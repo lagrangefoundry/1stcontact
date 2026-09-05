@@ -5,9 +5,9 @@ type: request
 title: Identity is not a channel, and data is not a key
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T21:12:40.298029+00:00'
+updated_at: '2026-09-05T21:18:36.775860+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -47,23 +47,28 @@ cause, two symptoms.
 That last row is not a future cost. Since [[REQ-168]] every customer has their own
 tenant, and the first two customers to pick the same slug collide.
 
-## 3. Surrogate keys, and a caveat worth taking
+## 3. Opaque random keys, one column
 
-Every table gets an integer surrogate primary key — in SQLite, `INTEGER PRIMARY
-KEY`, which *is* the rowid and increments without `AUTOINCREMENT`'s extra table
-and monotonicity cost. Existing keys become plain unique constraints where the
-uniqueness is still wanted.
+Every table's primary key is an **opaque random id** — 128 bits from a CSPRNG,
+which is exactly what `newId` already mints (`identity.ts:357`,
+`crypto.getRandomValues` over 16 bytes, hex, prefixed). No integer sequence.
 
-**But an incrementing key must not be the one in the URL.** `/b/<businessId>/`
-and `/b/<id>/api/…` are reachable by customers. An integer there is an
-enumeration oracle: `/b/2/`, `/b/3/` probes every other business on the
-deployment and turns a 403 into an existence check. Today `newId('acct')` mints
-random hex, which is safe to expose by accident.
+**Random, not a digest.** "SHA" is worth pinning down, because a hash *of the
+row's data* is data-as-key wearing a disguise: `sha256(email)` still changes when
+the address changes, and still says two addresses are two people. What is wanted
+is an identifier with no relationship to its contents at all. `newId` is that;
+a content hash is not.
 
-So the pattern is **two columns, not one**: an integer surrogate for joins, and a
-separate random opaque `public_id` for anything that appears in a URL, an API
-response, or an R2 key. That satisfies the rule — neither is a data field — and
-keeps the property the current ids have by luck.
+This collapses the two-column pattern an earlier draft of this ticket proposed.
+An incrementing key cannot appear in a URL — `/b/2/`, `/b/3/` would probe every
+other business on the deployment and turn a 403 into an existence check — so it
+would have needed a second opaque column beside it for anything exposed. A key
+that is already unguessable needs no second column: the same value is safe in a
+join, in `/b/<id>/`, in an API response and in an R2 prefix.
+
+The only cost is that a `TEXT PRIMARY KEY` is not SQLite's rowid, so it carries a
+separate index. At this scale that is not a consideration, and it is the correct
+trade against an enumerable key on a multi-tenant surface.
 
 ## 4. Emails become a table
 
@@ -89,26 +94,44 @@ user_emails
   normalised form so the constraint enforces what the convention intends.
 - `admit`'s `findUser` resolves through this table instead of `users.email`.
 
-### One correction to the brief: uniqueness is per tenant, not global
+### Uniqueness: the key is global, the address is not
 
-"Each email points to exactly one user" is right **within a tenant** and must not
-be global. [[DOC-42]] §1 has the same human as a member of 1st Contact *and* a
-contact of Alice's Plumbing — two `users` rows in two tenants, deliberately,
-because a contact belongs to the business that knows them. A global unique
-constraint would make the second one impossible and break the recursion the whole
-model rests on.
+These are two different constraints and an earlier draft of this ticket ran them
+together.
 
-So: `UNIQUE (tenant_id, email)` moves onto `user_emails`, carrying the tenant
-through from the owning user.
+**The key is globally unique by construction.** `user_emails.id` is a random
+128-bit id; it does not need a scope and cannot collide. Same for every other
+table. Nothing about the key is per tenant.
+
+**The address constraint stays per tenant, and the reason is isolation rather
+than modelling.** `UNIQUE (tenant_id, email)` moves onto `user_emails`.
+
+A global unique constraint on the *address* would mean one address is one human
+across the whole deployment — and that is a linkage this product has already
+decided against. [[DOC-42]] §1 has the same person as a member of 1st Contact and
+a contact of Alice's Plumbing, as two unrelated rows, deliberately: [[CHAT-36]]
+settled that contacts fragmenting across businesses is the feature, not the
+defect. Making the address globally unique would:
+
+- **break the recursion** — Alice's customer could not also be our customer, and
+  [[DOC-42]] §1's own example stops being representable;
+- **create an existence oracle across the tenant barrier** — an insert that fails
+  tells Alice that some other business on the platform already knows that
+  address. [[DOC-38]] §7.2 refuses a global content address for blob keys for
+  precisely this reason, and an address is more identifying than a file.
+
+So: global identifiers, tenant-scoped addresses. Switching the key type does not
+change this, because the constraint being argued about is on the data, not the
+key.
 
 ## 5. Decisions this needs before it starts
 
-- **Rebaseline or migrate?** D1/SQLite cannot alter a primary key in place;
-  changing one means create-copy-drop-rename per table. With only test data, a
-  single new baseline that drops and recreates is far cleaner than eight
-  table rebuilds — but `wrangler d1 migrations apply` records what it has run, so
-  a rebaseline means wiping the remote D1 rather than editing history.
-  **Recommend: rebaseline, and wipe.**
+- **Rebaseline — decided, 2026-09-05.** There is no real data anywhere, so
+  `0001`–`0008` are replaced by one baseline that creates the schema right rather
+  than eight create-copy-drop-rename rebuilds. `wrangler d1 migrations apply`
+  records what it has run, so this means **wiping the remote D1** rather than
+  editing history. The local store is rebuilt by re-running the baseline and
+  `0005`'s operator seed.
 - **How far does the sweep go?** The identity half (§4, plus `entitlements.email`)
   is small and urgent. The `sites`/`slug` and `tenants.id` half is larger — it
   moves R2 key prefixes ([[DOC-38]] §7.2) and the erasure path depends on the
@@ -120,13 +143,13 @@ through from the owning user.
 
 ## Acceptance
 
-- no table's primary key is a value a human typed or chose
-- anything appearing in a URL, an API response or an R2 key is an opaque
-  `public_id`, never the integer surrogate
+- every primary key is an opaque random id; no table's key is a value a human
+  typed or chose, and none is a digest of the row's own data
+- the same key is used in joins and in URLs, because it is unguessable in both
 - a user holds several email addresses; exactly one is primary, enforced by a
   constraint and not by code
 - an address resolves to exactly one user within a tenant, and the same address
-  may exist in two tenants as two people
+  exists in two tenants as two unrelated people
 - changing a person's primary address changes no key and no foreign key
 - `entitlements` names its subject by key, not by email string
 - addresses are stored casefolded and the constraint is what enforces it
