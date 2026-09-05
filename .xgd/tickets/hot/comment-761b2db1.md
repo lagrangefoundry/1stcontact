@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-38
 created_by: xgd
 created_at: '2026-09-05T21:21:03.349099+00:00'
-updated_at: '2026-09-05T21:24:56.542684+00:00'
+updated_at: '2026-09-05T21:38:54.770748+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,17 @@ Three calls I need from you:
 1. **Fold in, or separate ticket?** (I'd fold — and while we're there, fold phone in too, since §5 already leaves it dangling as "a decision rather than an oversight" and the answer is now obvious.)
 2. **`known_as` — in or out?** It's the one field I'm recommending beyond your list.
 3. **`corrected` vs `changed`** — do you want the disposition column, or is "keep everything, search everything" acceptable for now?
+
+<!-- xgd-turn id="33ba9cd1-5201-49f2-8c97-d2470ef62537-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:38:54.733057+00:00" -->
+#### You
+OK, so I buy all your arguments. I think this is a very thoughtful conversation, and it's important this is supposed to be a contact system and if we can't represent peoples names correctly we are screwed before we start.
+
+That said what is going through my head as I read your proposal is, how are we going to populate all these fields correctly? Actually you know what never mind I think in most cases it is the small business owner who is going to populate these Fields, they are the one who is going to correct the contact name the other one who was going to add the known as field and they're going to do it because they care and we're going to give them the tools to make that possible. The customer themselves almost always will not want to fill in all of these details, and their self declaration is probably much simpler than what we have here but we can talk about that when we design it. Perhaps we offer the fields and have many of them as optional...
+
+OK if you feel this should be part of   REQ-190 please add it - and please pics fix the primary key thing.
+
+Why don't you give me a column for the corrected versus changed, I suspect this is a YNGNT but it's easy to remove an empty column it's harder to add one
 
 <!-- xgd-chat-end -->
