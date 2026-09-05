@@ -5,10 +5,10 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-09-05T00:56:03.334410+00:00'
+updated_at: '2026-09-05T00:57:38.271762+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 2
@@ -17,6 +17,14 @@ fields:
   chat_comment: comment-a924b82f
   depends_on:
   - REQ-184
+  commits:
+  - working_sha: 2103d2e63b88301c65af56727f1bc99be3f1b1fe
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 75b37bc1c16f10bed1a0c5827d3c346f558dc7d2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.70
 ---
 
 # `platform_admin` is two capabilities wearing one flag
