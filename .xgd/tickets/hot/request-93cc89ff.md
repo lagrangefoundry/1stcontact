@@ -5,9 +5,9 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-09-04T23:58:13.760581+00:00'
+updated_at: '2026-09-05T00:56:03.334410+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -102,3 +102,45 @@ behind rather than depend on it forever.
   extra scope.
 - Whatever the retained column is called, no reader treats it as a statement
   about ownership.
+## How it lands
+
+The decisions above leave a handful of mechanical consequences. They are written
+down here because each one is asserted, and a UAT with no sentence behind it is
+indistinguishable from drift.
+
+**The rename is a migration, ordered after [[REQ-184]]'s.** That ticket renames
+`memberships.account_id` to `business_id` — the very column the ownership half
+moves onto — so the two cannot be reordered. `ALTER TABLE ... RENAME COLUMN`
+carries no `IF NOT EXISTS`, which breaks 0003–0005's convention; what makes that
+safe is that `wrangler d1 migrations apply` records what it has run. `0004` and
+`0005` keep naming the old column, because they are history and ran against a
+schema where it had that name. A suite re-applying `0005` maps the rename forward,
+which is the form [[REQ-184]] already established.
+
+**`PLATFORM_ADMINS` is deployment configuration, declared on both sides of the
+inheritance line and empty by default.** A named wrangler environment inherits no
+vars, so a break-glass key declared once is one that does not exist in production
+— discovered at the only moment it is ever reached for. Empty means nobody, for
+the reason an unset `ACCESS_TEAM_DOMAIN` means deny; a value checked in would be
+a standing grant no `memberships` row records.
+
+**The seed runs inside `admit`, before the user lookup, and is idempotent.**
+Before the lookup because the lockout it repairs includes having no `users` row
+at all. Idempotent because every admission by a holder runs it, so a second
+membership row per login would corrupt the table admission is decided from. It
+writes rows and does not synthesise an admission: the holder is then admitted by
+the same reads as everybody else, against rows that are now there. `admit`
+otherwise still creates nothing — the exception is bounded by the var and by
+nothing else, and an address the var does not name is refused exactly as before.
+
+**The admitted business carries its `role`.** That is what lets ownership be read
+without a second query that could disagree with the one admission was decided
+from, and it is `null` exactly on the bypass path — so entering a business you
+host can never be read back as owning it. It is unconstrained text, like `plan`
+and `status`, so a role added when seats land is a code change and not a
+migration.
+
+**[[REQ-180]]'s reader-count guard tightens rather than moving.** It held the
+count at two while the column was one column, explicitly so this split would be
+cheap; with the split made, the retained column has exactly one reader and no
+route among them. Two of its UATs are renamed to say one where they said two.
