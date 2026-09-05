@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-02T23:56:49.838906+00:00'
+updated_at: '2026-09-05T17:47:11.187557+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -993,5 +993,11 @@ REQ-168 updated. I read CHAT-36 first, so the changes are written against the Ac
 I also reconciled the apparent conflict between "never `env.TENANT_ID`" (the authenticated no-target fallback) and my dev-open recommendation — they're different branches, and the body now says so explicitly, because an implementer reading "never" would otherwise be stuck.
 
 One thing I left alone: **`story_points: 3` is now light.** The original estimate covered four reads; the body now also carries the chat-host cache rework, a `tenants.status` join, and a migration. I'd put it at 5, but that's a planning call rather than a correction, so I didn't change it.
+
+<!-- xgd-turn id="8b3204ac-8cee-40b7-acd4-0739e18c0e2e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T17:47:10.991913+00:00" -->
+#### You
+ok we have done a LOT of development with very little testing which makes me nervous. Can you walk me through firing up the local stack and testing the new login and user management capabilities please?
 
 <!-- xgd-chat-end -->
