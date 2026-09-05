@@ -27,7 +27,7 @@ import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
-import { splitBusinessPrefix, type Scope } from './scope'
+import { NoBusinessError, splitBusinessPrefix, type Scope } from './scope'
 import {
   findAccount,
   provisionBusiness,
@@ -517,10 +517,23 @@ export interface BusinessesPayload {
  *
  * The name falls back to the id there because no `tenants` row has been read —
  * an opaque label is worse than a human one and better than a guess.
+ *
+ * AN ADMITTED ACCOUNT WITH NOTHING SELECTABLE STILL GETS ITS LIST, and this is
+ * the route that matters most to it ([[DOC-42]] §10.1). The `admission?.ok`
+ * branch is reached with every business marked unselectable and each carrying
+ * its `lapse`, which is the whole of what the switcher needs to say which of
+ * "pay us" and "talk to us" is the fix. It is why the scope may be null here:
+ * this endpoint answers a question about the ACCOUNT, so it never needed one.
+ *
+ * A NULL SCOPE WITH NO ADMISSION IS AN EMPTY LIST, and is not constructible
+ * today — the dev-open path resolves from `TENANT_ID` or refuses outright, so
+ * there is always exactly one business on it. It is written rather than asserted
+ * because an empty list is the one answer that is true whatever produced it,
+ * where an invented id would be a business the chrome would then try to open.
  */
 export function businessesPayload(
   admission: Admission | null | undefined,
-  scope: Scope,
+  scope: Scope | null,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
@@ -535,7 +548,9 @@ export function businessesPayload(
   }
   return {
     account: null,
-    businesses: [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }],
+    businesses: scope
+      ? [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }]
+      : [],
   }
 }
 
@@ -720,11 +735,20 @@ export interface RouteContext {
  * reading. Putting it ahead of `deps` makes every existing call site a compile
  * error rather than letting one slide through on a positional argument that
  * still type-checks.
+ *
+ * NULLABLE, WHICH IS NOT THE SAME AS OPTIONAL ([[DOC-42]] §10.1). It is still a
+ * required argument with no default; what it may now carry is the resolver's
+ * answer that this admitted account has no business to be in — a lapsed customer
+ * who must still reach the chrome and the switcher that explains why
+ * ([[REQ-179]], [[REQ-180]] §1). Every route that needs a business asks
+ * {@link NoBusinessError} for it through the openers below, so the ones that do
+ * not — the chrome, `/api/status`, `/api/businesses` — keep answering without a
+ * per-route null check, and a route added later cannot forget one.
  */
 export async function route(
   request: Request,
   env: RouterEnv,
-  scope: Scope,
+  scope: Scope | null,
   deps: RouterDeps = {},
   ctx?: RouteContext,
 ): Promise<Response> {
@@ -734,7 +758,7 @@ export async function route(
 async function routeUncached(
   request: Request,
   env: RouterEnv,
-  scope: Scope,
+  scope: Scope | null,
   deps: RouterDeps = {},
   ctx?: RouteContext,
 ): Promise<Response> {
@@ -757,6 +781,21 @@ async function routeUncached(
   // value out of this table is `scrub(...)`" a rule with a single subject —
   // which is the rule the boundary UAT actually checks for.
   const scrub = redactor(secretsOf(env))
+
+  /**
+   * The business this request runs in, or a refusal ([[DOC-42]] §10.1).
+   *
+   * ONE PLACE, so the null cannot be forgotten. Every route that needs a
+   * business reaches it through the three openers below, and all three come
+   * through here — so an admitted account with nothing selectable refuses those
+   * routes uniformly, and the routes above the store keep answering. A per-route
+   * check would be the same rule written a dozen times, with the twelfth one
+   * missing and returning a 503 to the one person whose problem is a payment.
+   */
+  const requireScope = (): Scope => {
+    if (scope === null) throw new NoBusinessError()
+    return scope
+  }
 
   if (p === '/' || p === '/index.html') {
     return new Response(chromeHtml(), {
@@ -799,7 +838,7 @@ async function routeUncached(
       // registered, so a builder nobody had published to could not be read at
       // all. `storeFor` registers the configured tenant itself now, and there is
       // one opener again.
-      const store = await (deps.store ?? storeFor)(env, scope)
+      const store = await (deps.store ?? storeFor)(env, requireScope())
       await store.createDraft(payload.slug)
       const write = payloadToWrite(payload)
       await store.write(payload.slug, write)
@@ -809,6 +848,11 @@ async function routeUncached(
         siteJson: write.siteJson !== undefined,
       })
     } catch (err) {
+      // Rethrown for the reason the table's own handler rethrows it: this route
+      // opens the store itself rather than through the memoised opener, so it is
+      // the one place a missing business would be swallowed into a 500 instead
+      // of reaching `index.ts` as the caller-level 403 it is.
+      if (err instanceof NoBusinessError) throw err
       // Applied here too, though this route never touches a credential: a path
       // that scrubs and a path that does not is an invitation to add a third
       // that does not, and the cost when there is nothing to scrub is nil.
@@ -847,7 +891,7 @@ async function routeUncached(
    */
   let opening: Promise<TenantSiteStore> | null = null
   const openStore = (): Promise<TenantSiteStore> => {
-    opening ??= (deps.store ?? storeFor)(env, scope)
+    opening ??= (deps.store ?? storeFor)(env, requireScope())
     return opening
   }
   // `actor: 'client'` — REQ-131. A write arriving on these routes is the
@@ -861,7 +905,7 @@ async function routeUncached(
   // handle.
   let tickets: Promise<TicketStore> | null = null
   const openTickets = (): Promise<TicketStore> => {
-    tickets ??= (deps.tickets ?? ticketStoreFor)(env, scope)
+    tickets ??= (deps.tickets ?? ticketStoreFor)(env, requireScope())
     return tickets
   }
 
@@ -887,7 +931,9 @@ async function routeUncached(
    * require an embedder, an R2 index and a Workers AI binding to make.
    */
   const ingestDeps = async () => ({
-    index: deps.index ? await deps.index(env, scope) : await defaultIndexer(env, scope),
+    index: deps.index
+      ? await deps.index(env, requireScope())
+      : await defaultIndexer(env, requireScope()),
     describeImage: deps.describeImage ?? defaultDescriber(env),
     describeText: deps.describeText ?? defaultTextDescriber(env),
   })
@@ -1335,7 +1381,7 @@ async function routeUncached(
       if (typeof slug !== 'string' || slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const host = await chatHost(env, scope, deps)
+      const host = await chatHost(env, requireScope(), deps)
       const session = await openSession(slug, {}, host.deps)
       // Opening can run a tool-free turn's worth of policy — nothing to audit
       // yet in practice, but flushed for the same reason the prompt route
@@ -1354,7 +1400,7 @@ async function routeUncached(
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
       }
-      const host = await chatHost(env, scope, deps)
+      const host = await chatHost(env, requireScope(), deps)
       return streamTurn(host, sessionId, text, scrub, ctx)
     }
 
@@ -1395,7 +1441,7 @@ async function routeUncached(
       if (typeof cursor !== 'number' || !Number.isFinite(cursor) || cursor < 0) {
         return json(400, { error: 'cursor is required' })
       }
-      const host = await chatHost(env, scope, deps)
+      const host = await chatHost(env, requireScope(), deps)
       return streamTail(host, sessionId, cursor, scrub)
     }
 
@@ -1505,6 +1551,14 @@ async function routeUncached(
     // moving WHEN the store opens would silently downgrade "this deployment is
     // misconfigured" to "the server broke on your request".
     if (err instanceof TenantNotConfiguredError || err instanceof UnknownTenantError) throw err
+
+    // A ROUTE THAT NEEDS A BUSINESS AND HAS NONE IS AN ANSWER ABOUT THE CALLER,
+    // and rethrowing is what keeps it one. `index.ts` is the only frame that
+    // knows who this is, so it is the only frame that can log the refusal
+    // against them and render it as the 403 it is ([[DOC-42]] §10.1). Caught
+    // here it would become the generic 500 below — a server that broke, reported
+    // to the one person whose problem is a payment.
+    if (err instanceof NoBusinessError) throw err
 
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })

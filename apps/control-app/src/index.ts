@@ -1,7 +1,13 @@
 import { guardAccess, type AccessEnv } from './access'
-import { admit, DENIED_MESSAGE, type Admission, type IdentityEnv } from './identity'
+import {
+  admit,
+  DENIED_MESSAGE,
+  type Admission,
+  type DenialReason,
+  type IdentityEnv,
+} from './identity'
 import { route, type RouterEnv } from './router'
-import { resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
+import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { guardTerms } from './terms'
 
 /**
@@ -160,6 +166,60 @@ function refused(err: ScopeRefusedError): Response {
 }
 
 /**
+ * What a route needing a business tells an account that has none.
+ *
+ * NOT {@link DENIED_MESSAGE}, and the difference is the reason that message is
+ * the shape it is. `DENIED_MESSAGE` says one thing to everybody because the
+ * caller might not be anybody — telling a refused visitor which of "no such
+ * account" and "expired grant" they hit is an account-existence oracle to
+ * anyone who can pass a one-time PIN. Nobody reaches THIS message without a live
+ * membership ([[DOC-42]] §4), so it is a fact about the reader's own account,
+ * owed to them, and disclosing nothing about anybody else's — the same argument
+ * `BusinessLapse` is carried on the wire under.
+ *
+ * IT POINTS AT THE SWITCHER RATHER THAN EXPLAINING. The per-business reason is
+ * already on `/api/businesses` and already rendered ([[REQ-179]], [[REQ-180]]
+ * §1), so restating it here would be a second copy of a sentence that can
+ * disagree with the first. This is the fallback an API caller sees; the screen
+ * is where the answer lives.
+ *
+ * 403 AND NOT 402. "Payment required" is the honest status and there is nothing
+ * to pay with yet ([[REQ-183]] owns the surface), so it would name a remedy this
+ * deployment cannot offer.
+ */
+const NO_BUSINESS_MESSAGE =
+  'No business on this account can be opened at the moment. The business ' +
+  'switcher lists each one and says why.'
+
+/**
+ * The refusal an admitted account with nothing selectable receives.
+ *
+ * LOGGED AS `no_entitlement`, which is why that {@link DenialReason} value
+ * survives the change that stopped it refusing ([[DOC-42]] §10.1). The state it
+ * names is unchanged and still the first thing an operator needs when a customer
+ * says "it says no"; what moved is where it is recorded — off the admission
+ * decision, which now admits, and onto the resolver, which is where the
+ * consequence is.
+ */
+function noBusiness(admission: Admission | null): Response {
+  console.warn(
+    JSON.stringify({
+      event: 'no_business',
+      reason: 'no_entitlement' satisfies DenialReason,
+      email: admission?.ok ? admission.user.email : null,
+    }),
+  )
+  return new Response(NO_BUSINESS_MESSAGE, {
+    status: 403,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex',
+    },
+  })
+}
+
+/**
  * `ctx` IS TAKEN AND PASSED ON (BUG-46), and this is the only place it exists.
  *
  * `ExecutionContext` is given to the fetch handler and to nothing else, so a
@@ -185,6 +245,10 @@ function refused(err: ScopeRefusedError): Response {
  */
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    // DECLARED OUTSIDE THE `try` SO THE CATCH CAN READ IT. `NoBusinessError` is
+    // thrown from inside the router, several frames down, and the one thing its
+    // log line needs is who it happened to — which only exists here.
+    let admission: Admission | null = null
     try {
       // The business the caller is ASKING for. Whether they may have it is
       // `resolveScope`'s question, and asking it here rather than in the router
@@ -195,7 +259,6 @@ export default {
       // not on a second condition that happens to agree with it today. Two
       // predicates that can drift is how a deployment ends up resolving a
       // loopback scope while enforcing a production gate, or the reverse.
-      let admission: Admission | null = null
       if (!isUnconfiguredLocalDev(env)) {
         const gate = await guardAccess(request, env)
         if (!gate.ok) return gate.response
@@ -225,6 +288,12 @@ export default {
       // fails identically forever, and would put someone else's business id in
       // front of an operator as though it were theirs to fix.
       if (err instanceof ScopeRefusedError) return refused(err)
+      // THE SAME REASONING, ONE STEP EARLIER. The caller named no business and
+      // holds none they may open — an answer about their account, not a
+      // configuration failure. Before [[DOC-42]] §10.1 this was unreachable: the
+      // account was refused at the door instead, which is the refusal that took
+      // away the remedy along with the access.
+      if (err instanceof NoBusinessError) return noBusiness(admission)
       // Anything reaching here escaped the router's own handler, or the
       // admission check ahead of it — a store that could not be constructed, an
       // identity table that is not migrated, most likely a missing binding or an

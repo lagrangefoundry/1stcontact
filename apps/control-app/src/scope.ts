@@ -76,6 +76,33 @@ export class ScopeRefusedError extends Error {
 }
 
 /**
+ * The caller is admitted and has no business to be in.
+ *
+ * IT IS NOT A {@link ScopeRefusedError}, and the difference is the whole point.
+ * That one answers "you may not operate THAT business" and carries the id the
+ * caller named; this one answers "there is no business to operate at all", and
+ * there is no id, because nothing was asked for. Collapsing them would report a
+ * business the caller never mentioned as the thing they were refused.
+ *
+ * IT IS ALSO NOT AN ADMISSION FAILURE. The person is logged in ([[DOC-42]] §5) —
+ * their memberships are live and their grants are not. What they may reach in
+ * that state is [[REQ-183]]'s question; what this type does is make the state
+ * legible instead of letting it surface as the broken-invariant 503 that
+ * {@link firstAdmissible} used to throw.
+ *
+ * RAISED WHERE A BUSINESS IS ACTUALLY NEEDED, not at the door. The chrome and
+ * the businesses endpoint need no scope and must still answer — the switcher is
+ * where the lapse is explained ([[REQ-179]], [[REQ-180]] §1), so refusing the
+ * document that draws it would hide the only surface that says why.
+ */
+export class NoBusinessError extends Error {
+  readonly name = 'NoBusinessError'
+  constructor() {
+    super('This account holds no business it can currently open.')
+  }
+}
+
+/**
  * `TENANT_ID` is unset on the one path that still needs it.
  *
  * The same message `store.ts` carried, kept verbatim because operators and two
@@ -210,12 +237,20 @@ export function splitBusinessPrefix(pathname: string): {
  *
  * Never to `env.TENANT_ID` — that would serve the platform's own data into a
  * customer's session, which is the failure this whole file exists to prevent.
+ *
+ * NULL WHEN AN ADMITTED ACCOUNT HAS NOTHING SELECTABLE ([[DOC-42]] §10.1). That
+ * is a reachable state now rather than an impossible one: membership admits and
+ * entitlement does not, so a person whose every grant has lapsed arrives here
+ * logged in with nothing to open. Null rather than a throw, because the routes
+ * that need no business must still answer — see {@link NoBusinessError}. A
+ * NAMED target is unaffected and still refuses: asking for a specific lapsed
+ * business is a different act from asking for whichever one is open.
  */
 export async function resolveScope(
   env: IdentityEnv,
   admission: Admission | null,
   requestedBusinessId?: string | null,
-): Promise<Scope> {
+): Promise<Scope | null> {
   if (admission === null || !admission.ok) {
     const tenantId = (env.TENANT_ID ?? '').trim()
     if (tenantId === '') throw new TenantNotConfiguredError()
@@ -223,7 +258,10 @@ export async function resolveScope(
   }
 
   const requested = (requestedBusinessId ?? '').trim()
-  if (requested === '') return { businessId: firstAdmissible(admission.businesses).businessId }
+  if (requested === '') {
+    const first = firstAdmissible(admission.businesses)
+    return first ? { businessId: first.businessId } : null
+  }
 
   const held = admission.businesses.find((b) => b.businessId === requested)
   if (held) {
@@ -256,7 +294,7 @@ export async function resolveScope(
 }
 
 /**
- * The first business the caller may actually enter.
+ * The first business the caller may actually enter, or null when there is none.
  *
  * `businesses` is ordered by `granted_at` and holds lapsed members too — they are
  * returned so the switcher can show "your grant expired" rather than making a
@@ -264,17 +302,13 @@ export async function resolveScope(
  * first SELECTABLE, or an account whose oldest business lapsed would resolve to
  * the one thing it cannot open.
  *
- * `admit` guarantees at least one selectable member on an `ok` admission — that
- * pair of conditions IS its decision — so the throw is a broken invariant rather
- * than a reachable state, and says so.
+ * NULL IS AN ORDINARY ANSWER NOW, AND USED TO BE A BROKEN INVARIANT. This threw,
+ * because `admit` promised at least one selectable member on an `ok` admission.
+ * [[DOC-42]] §10.1 removed that promise deliberately: membership admits and
+ * entitlement does not, so a lapsed account is logged in with nothing to open.
+ * The throw would have made that state a 503 — a configuration failure an
+ * operator can act on — shown to the one person whose problem is a payment.
  */
-function firstAdmissible(businesses: AdmittedBusiness[]): AdmittedBusiness {
-  const business = businesses.find((b) => b.selectable)
-  if (!business) {
-    throw new Error(
-      'An admitted account resolved to no selectable business. `admit` promises at ' +
-        'least one; something has widened its success case without widening this.',
-    )
-  }
-  return business
+function firstAdmissible(businesses: AdmittedBusiness[]): AdmittedBusiness | null {
+  return businesses.find((b) => b.selectable) ?? null
 }
