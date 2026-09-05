@@ -127,10 +127,18 @@ export interface EntitlementRow {
  * has to exist — an operator debugging a customer's "it says no" needs it — so it
  * exists here and reaches the log rather than the wire.
  *
- * `no_membership` AND `no_entitlement` ARE ACCOUNT-LEVEL, NOT BUSINESS-LEVEL.
- * They mean *none of them* — no live membership at all, or no live membership
- * that carries a grant. A single lapsed business among several is not a refusal;
- * it comes back in the admission marked unselectable ({@link AdmittedBusiness}).
+ * `no_membership` IS ACCOUNT-LEVEL, NOT BUSINESS-LEVEL. It means *none of them*
+ * — no live membership at all. A single lapsed business among several is not a
+ * refusal; it comes back in the admission marked unselectable
+ * ({@link AdmittedBusiness}).
+ *
+ * `no_entitlement` IS NO LONGER A REFUSAL, AND IS STILL A REASON ([[DOC-42]]
+ * §10.1). Membership admits and entitlement does not, so an account whose every
+ * grant has lapsed is admitted with nothing selectable rather than turned away —
+ * see {@link admit}. The value stays in this union because the state stays worth
+ * naming in the log an operator reads when a customer says "it says no", and
+ * `index.ts` records it there when the resolver finds nothing to open. What
+ * changed is that it never produces `ok: false`.
  */
 export type DenialReason =
   | 'no_email'
@@ -240,9 +248,13 @@ export interface BusinessLapse {
  * had selected the second — a silent, plausible, wrong answer. Deleting it turns
  * every such call site into a compile error instead.
  *
- * `businesses` is non-empty on an `ok` admission and holds at least one
- * selectable member; that pair of conditions IS the admission decision.
- * Which one is being operated is [[REQ-168]]'s question, not this one's.
+ * `businesses` is non-empty on an `ok` admission. It MAY HOLD NO SELECTABLE
+ * MEMBER: admission is a fact about the person's membership, and lapse is a fact
+ * about each business's grant ([[DOC-42]] §4). A caller that needs one to enter
+ * must consult `selectable` rather than reading `ok` as a promise of access —
+ * which is what `scope.ts` does, and why it can answer "no business" rather than
+ * throwing. Which one is being operated is [[REQ-168]]'s question, not this
+ * one's.
  */
 export type Admission =
   | { ok: true; user: UserRow; businesses: AdmittedBusiness[] }
@@ -564,11 +576,18 @@ export async function admit(
   // Every business, then the decision — not the first business, then the
   // decision. The two orders differ exactly when an account holds several and
   // one of them has lapsed, which is the case this ticket exists for.
+  //
+  // MEMBERSHIP ADMITS; ENTITLEMENT DOES NOT ([[DOC-42]] §4, §5). No membership
+  // anywhere is no relationship with anything, and there is nothing to admit
+  // someone to — so that stays a refusal. A membership whose grant has lapsed is
+  // a relationship that is still there, and refusing it removes the remedy along
+  // with the access: the person cannot see what they were charged, cannot reach
+  // the page where they would PAY — the only act that restores the grant — and
+  // cannot reach their delete button, which [[DOC-37]] makes an obligation
+  // rather than a feature. So an account with nothing selectable is ADMITTED,
+  // and the set simply comes back with nothing selectable in it.
   const businesses = await businessesFor(env, user.id, stamp)
   if (businesses.length === 0) return { ok: false, reason: 'no_membership', email: normalised }
-  if (!businesses.some((business) => business.selectable)) {
-    return { ok: false, reason: 'no_entitlement', email: normalised }
-  }
 
   return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, businesses }
 }

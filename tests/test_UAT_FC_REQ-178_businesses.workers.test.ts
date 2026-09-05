@@ -123,12 +123,17 @@ describe('REQ-178 — denial is per business', () => {
     expect(byId.get(live.businessId)?.selectable).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-178_every_business_lapsed_is_refused_with_no_entitlement', async () => {
-    // `no_entitlement` keeps its meaning at the ACCOUNT level: none of them, not
-    // this one. Driven with two businesses rather than one, because with one the
-    // assertion would pass on code that never looked past the first.
+  it('test_UAT_FC_REQ-178_every_business_lapsed_is_admitted_with_nothing_selectable', async () => {
+    // THE AMENDMENT ([[DOC-42]] §10.1), and the inverse of what this case used to
+    // assert. Membership admits; entitlement does not. A person whose every grant
+    // has lapsed is logged in with nothing to open — because refusing them takes
+    // away the remedy along with the access: the page where they would pay is
+    // behind the same door.
+    //
+    // Driven with two businesses rather than one, because with one the assertion
+    // would pass on code that never looked past the first.
     const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, endsAt: null })
+    const first = await provisionInvite(identityEnv(), { email, accountName: 'One', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Second',
@@ -138,8 +143,36 @@ describe('REQ-178 — denial is per business', () => {
     await lapse(second.businessId)
 
     const result = await admit(identityEnv(), email)
+    expect(result.ok, 'a wholly lapsed account was refused at the door').toBe(true)
+    if (!result.ok) return
+
+    // BOTH ARE STILL LISTED. This is the state in which the list matters most:
+    // it is the only thing that says which of "pay us" and "talk to us" is the
+    // fix, per business ([[REQ-180]] §1).
+    expect(result.businesses.map((b) => b.businessId).sort()).toEqual(
+      [first.businessId, second.businessId].sort(),
+    )
+    expect(result.businesses.every((b) => b.selectable)).toBe(false)
+    expect(result.businesses.some((b) => b.selectable)).toBe(false)
+    for (const business of result.businesses) {
+      expect(business.entitlement).toBeNull()
+      expect(business.lapse?.reason).toBe('expired')
+    }
+  })
+
+  it('test_UAT_FC_REQ-178_no_membership_anywhere_is_still_refused', async () => {
+    // The half of the amendment that did NOT change, asserted so that removing
+    // one refusal cannot quietly remove the other. No membership anywhere is no
+    // relationship with anything, and there is nothing to admit someone to.
+    const email = anEmail()
+    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
+      .bind(new Date().toISOString(), invited.user.id)
+      .run()
+
+    const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(false)
-    expect(!result.ok && result.reason).toBe('no_entitlement')
+    expect(!result.ok && result.reason).toBe('no_membership')
   })
 
   it('test_UAT_FC_REQ-178_a_revoked_or_expired_membership_excludes_its_business', async () => {
