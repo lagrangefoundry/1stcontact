@@ -5,7 +5,7 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-04T23:58:14.207595+00:00'
+updated_at: '2026-09-05T01:56:57.076602+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -279,3 +279,54 @@ blocker:
 
 Work lands on `working`, where [[REQ-178]]'s, [[REQ-179]]'s and [[REQ-180]]'s
 free-coded commits already sit, so none of this is waiting on reconciliation.
+
+### Correction 2026-09-04: four relations, not two ([[DOC-42]] §4 as corrected)
+
+The revision above says the detail pane carries *"the person's record, their
+membership on this business, and their grants"*, and that membership is the
+primary thing the tab manages. **The concepts hold; one of them named the wrong
+table.** [[DOC-42]] §4 has been corrected and this follows it.
+
+`memberships` does not mean *may log in*. `provisionInvite` writes a person's
+`users` row into the business's tenant (`identity.ts:398`) while
+`provisionBusiness` writes their membership on the business they will *run* — so
+an account logs in holding no membership on the business it logs in to. The
+member check is the `users` row; the membership row is the right to operate.
+
+So the tab's people carry **four** states, and the detail pane shows three
+columns rather than two:
+
+| | means | control |
+| --- | --- | --- |
+| **Contact** | known here — an email or a phone — and may become a member | the invite promotes them |
+| **Member** | may log in here | `users.status`, which `admit` refuses as `user_inactive` |
+| **Operator** | may run a business — owner, support | `memberships`, per business |
+| **Entitled** | granted access to a thing | `entitlements`, per grant |
+
+**Being in the list is the member relation.** There is no separate login toggle
+to render beside it; the control is `users.status`, and revoking it is what stops
+someone signing in. `memberships.revoked_at` withdraws the right to *run* a
+business and deliberately leaves that person's own Portal reachable.
+
+**The operator column is what the earlier revision already described** — *"the
+businesses that person may operate — the membership rows — which is the only
+place a second business is visible at all."* Viewed from 1st Contact, Alice's row
+shows Alice's Plumbing there. That is unchanged and is now correctly named.
+
+**Contacts appear in the list.** A person the business knows and has not invited
+is a row with `invited_at` null, and the tab shows them as such — this is the same
+population the CRM reads ([[DOC-42]] §9), and the invite is the transition. A tab
+that listed only invited people would be a second population, which is the thing
+that must not exist.
+
+#### Two schema gaps this ticket does not close
+
+Both are recorded in [[DOC-42]] §4.1 and neither blocks this tab, because every
+person in the 1st Contact business has an email and was invited.
+
+- **A phone-only contact is unrepresentable.** `users.email` is `NOT NULL` and
+  identity is the `(tenant_id, email)` index; there is no `phone` column. This
+  tab must not assume an email is present in a way that would need unpicking, but
+  it cannot fix the schema either.
+- **Nothing enforces contact versus member.** `invited_at` is the only marker.
+  The tab reads it and does not pretend it is a gate.
