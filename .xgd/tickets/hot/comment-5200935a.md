@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:13:07.785924+00:00'
+updated_at: '2026-09-05T23:15:46.467441+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,127 @@ See DOC-44 users is wrong we are deliberately changing it to Contacts. The inita
 1. Lets discuss
 
 Also I missed something.  I want a ticket type "email" and I want to store all outgoinng email associated with the user we sent it to starting with the invite - these records will be visible on the Contacts/Users page
+
+<!-- xgd-turn id="162f9d43-7c72-44c1-bdce-3a3615c6a6e8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:15:46.348500+00:00" -->
+#### Claude
+Read DOC-44. One correction to my last message: the three-state table I gave you is exactly what DOC-44 §3 forbids — Contact is the entity, Member is an *access* fact, Lead→Invited is a separate *pipeline* axis, and the stage is a stored value rather than something derived from which timestamps are set. REQ-188 is already `free_coded` against that shape (branch `59b9839`, not yet reconciled), so Lead/Invited and the Member axis exist in code.
+
+## First: a sequencing problem I hit while reading
+
+REQ-190/191/192/193/194 are sitting in `draft` and they all land in **one baseline migration**:
+
+| | |
+|---|---|
+| REQ-190 | `users` → the contacts table; every key becomes opaque |
+| REQ-191 | **`users.email` is dropped** — addresses move to `user_emails` with `is_primary` |
+| REQ-193 | names become a table |
+| REQ-194 | Account becomes a table |
+
+This sits directly underneath everything we just designed. If I build invite / send / email-log against `users.email`, the rebaseline rewrites all of it — the To-List, the invite's identity resolution, and the `contact_id` on your new email records. And REQ-191 specifically turns "which address do we send to?" into a real question with a real answer (`is_primary`) that the invite modal needs to ask.
+
+**Proposed split** — build the parts that barely touch the schema now, and let the rebaseline land in parallel:
+
+- **Now, schema-independent:** email sender (a port), `template` ticket type, `email` ticket type. These are tickets and an HTTP adapter; almost nothing to rewrite.
+- **After the rebaseline:** Contacts tab (add/bulk-invite), magic-link auth, published stealth site.
+
+That way nothing gets written twice and the beta doesn't wait on the rebaseline for the slow part (DNS/domain warm-up).
+
+## #2 — what the email question actually is
+
+You can't send mail from a Worker. There's no SMTP: Workers have no outbound port 25, so sending is always an HTTPS call to someone else's service. Cloudflare's own `send_email` binding doesn't help — it only delivers to addresses you've **pre-verified in your account**, so it can't email a new invitee. That's the whole reason this is a decision rather than a line of code.
+
+Two things are needed.
+
+**a) A sending service.** You POST JSON, they deliver, they tell you about bounces.
+
+| | Fit |
+|---|---|
+| **Resend** | Workers-native, simplest integration, 3k/month free. Newer company. |
+| **Postmark** | Best transactional deliverability reputation, very mature, ~$15/mo for 10k. |
+| **Amazon SES** | Cheapest at volume, most setup, no Workers SDK — you'd hand-roll SigV4 signing. |
+
+**I'd take Resend for the beta.** Least work inside a Worker, free tier covers you, and if we put a `sendEmail` port in front of it the switch to Postmark later is one adapter.
+
+**b) Three DNS records on `1stcontact.io`**, which is what makes Gmail and Outlook accept your mail instead of binning it:
+
+- **SPF** — a TXT record naming who's allowed to send as `@1stcontact.io`
+- **DKIM** — a public key in DNS; the sender signs each message with the matching private key so the recipient can prove it wasn't forged
+- **DMARC** — what to do when the other two fail, and where to send reports
+
+In practice: sign up, add `1stcontact.io` as a sending domain, they hand you 3–4 records to paste into Cloudflare DNS, click verify. Maybe 30 minutes, plus propagation. Since your DNS is already at Cloudflare it's quick.
+
+I flagged it as critical path because it's the only piece with *waiting* in it and the only piece I can't do — it needs your account. **Also pick the From address now** (`hello@1stcontact.io`?) and whether replies go anywhere real.
+
+## #1 — Access vs our own login
+
+**Today:** Cloudflare Access sits in front of `app.1stcontact.io`. Someone hits it, Cloudflare bounces them to its own login page, emails a 6-digit code, sets its cookie, mints a JWT, and `access.ts` verifies it. You never touch a credential.
+
+**What breaks with your flows:**
+
+1. Your invite CTA points at the app. The invitee clicks → Cloudflare intercepts → asks for their email → sends a **second, Cloudflare-branded email** with a code → *then* they reach your welcome page. Two emails per invite, and the first thing a beta user sees isn't yours.
+2. "Sign In → modal → check your email for a sign-in link" **cannot exist**. Access does codes, not links, and won't let you start the flow from your own page.
+3. Your `template` tickets can't own the sign-in email, because Cloudflare sends it.
+4. Access is free to 50 users. A beta above that starts costing per seat.
+
+**What it's worth keeping for:** it's a genuine edge shield — bots never reach the Worker, so they cost you nothing.
+
+**The options:**
+
+- **(a) Keep Access, live with the double email.** Zero auth work. Kills the public-site Sign In outright.
+- **(b) Own magic link, retire Access.** A `login_tokens` table and a `sessions` table; issue a token, email the link, redeem it at `/signin/<token>`, mint a session, set the cookie on `.1stcontact.io` so both Workers read it. Genuinely small — a migration and a few hundred lines. The care is all in details: single-use, constant-time compare, don't leak whether an address exists, `HttpOnly; Secure; SameSite=Lax`, and **rate-limit the issue endpoint** or it's a spam cannon pointed at arbitrary addresses.
+- **(c) Both for a window, then (b).**
+
+**I'd do (c) as the route to (b).** It's the same code as (b), and it's purely additive: `access.ts` already produces a verified identity and everything downstream consumes only that, so a session cookie becomes a second producer of the same thing. Access JWT **or** valid session admits. You keep logging in normally while the new path is half-built, then drop the policy when it's proven.
+
+**One correction on your 3 months** — there are two different lifetimes and they want different numbers:
+
+- the **login token** (the thing in the emailed link) — single-use. 3 months is defensible for an *invite* since people don't check mail promptly, but a sign-in link should be short. Suggest **30 days for invites, 30 minutes for sign-in**, both re-issuable.
+- the **session** (the cookie) — this is the one you want at **90 days**. That's what actually defers the expiry problem: nobody in the beta gets logged out, and the lapse flow can wait as you said.
+
+## The `email` ticket type — yes, and it does more than you asked
+
+Every outgoing message becomes an `email` ticket in the tenant's ticket store:
+
+```
+contact_id     who it went to
+template       which template ticket it rendered from
+to / from / subject
+sent_at
+status         queued | sent | delivered | bounced | failed
+provider_id    the ESP's message id
+body           the RENDERED body actually sent
+```
+
+**Store the rendered body, not just a template reference.** The template changes; what you sent doesn't. The record has to answer "what did this person actually receive" months later — same reasoning that makes `TERMS_VERSION` a date rather than "v3".
+
+What this buys beyond the history pane you asked for:
+
+- **Bounce handling for free.** The ESP webhooks back, you find the ticket by `provider_id`, set `status=bounced` — and the Contacts list can now show a bad address, which in a beta is the single most valuable signal you'll get.
+- **Resend becomes "render that template again"**, and you can see how many times you already asked.
+
+**One question:** is the `email` ticket the **queue** or the **log**? Does Invite write N tickets as `queued` and something else sends them, or does it send and then record? I'd write the ticket first as `queued`, send, then update — about five extra lines, and it means a send that fails halfway leaves evidence instead of vanishing.
+
+## Revised plan
+
+**Track A — start now, schema-independent**
+1. Email sender: `sendEmail` port, Resend adapter, no-op local impl, verified domain
+2. `template` ticket type + placeholder contract (refuse to send on a missing token) + three seed templates
+3. `email` ticket type: queue-then-send, bounce webhook
+
+**Track B — after the rebaseline lands**
+4. Contacts tab: split add-Lead from invite, checkboxes, bulk invite modal, To-List tooltip, email history pane
+5. Magic-link auth alongside Access, then retire the policy
+6. Published 1stcontact stealth site with Sign In
+
+## What I need from you
+
+1. **Resend, or do you want Postmark?** And the From address.
+2. **Does the rebaseline go first**, per the split above — or do you want the beta flows on the current schema and accept rewriting them?
+3. **Queue or log** for the `email` ticket.
+4. Confirm **(c)** — magic link alongside Access, policy retired once proven.
+
+Say the word on those four and I'll write the six tickets.
 
 <!-- xgd-chat-end -->
