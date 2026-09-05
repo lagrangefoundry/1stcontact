@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:24:03.657754+00:00'
+updated_at: '2026-09-05T22:43:54.074186+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2136,5 +2136,11 @@ That gives: **account owns and pays; membership grants a user a role on a busine
 The timing argument is the one you made about emails: REQ-190 is already rebaselining, so adding this costs a table definition. Adding it afterwards costs a second rebaseline.
 
 Want me to file it as a REQ alongside REQ-191, or fold it into REQ-190's baseline directly?
+
+<!-- xgd-turn id="88d00e76-0da5-49f8-aab6-20581eb91a94-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:43:53.878583+00:00" -->
+#### You
+Lets punt on access restrictions - I just want the model to support multiple users on an account - v1 we stick to one user
 
 <!-- xgd-chat-end -->
