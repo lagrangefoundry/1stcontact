@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:32:45.556793+00:00'
+updated_at: '2026-09-05T23:37:57.835971+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -348,5 +348,16 @@ Two things still unanswered and I need them for the tickets:
 - **Unknown address on sign-in** — silent, or self-signup?
 
 Plus the new one: **link-with-Continue-button, or redeem-on-click?** I'd take the button; the failure mode of the alternative is invisible and intermittent.
+
+<!-- xgd-turn id="9b6efc77-9192-4419-9369-c4a819ee1fb3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:37:57.796645+00:00" -->
+#### You
+Ok I want to do the auth ourselves, but I would like to do it as a lagrange-framework component. You can write the tickets, I'll implement it their and then we get a reusable system. If we need to I can do the reverse, build it here, extract it and then reconsume but that feels like much more work and it only makes sense if we don';t understand the APIs well enough.
+
+**Rate-limit the issue endpoint.** Without it, anyone can make your Worker email arbitrary addresses — a spam relay with your domain's reputation attached. This is the one that genuinely bites. Cloudflare's Rate Limiting binding makes it more config than code. <-- why would this not have access controls? (I mean rate limit too sure but does this really need to be public?)
+
+4. Sure - you said that before lets do it that way
+5. Sure - but can't rely on the user being on the default browser or the right device
 
 <!-- xgd-chat-end -->
