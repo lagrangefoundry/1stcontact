@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T21:27:47.372149+00:00'
+updated_at: '2026-09-05T21:30:38.901001+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,38 @@ One thing worth noting: REQ-189 already had a test claiming "nothing this tab's 
 <!-- xgd-chat role="user" ts="2026-09-05T21:27:44.485572+00:00" -->
 #### You
 I refreshed and see no difference in the buttons I named do I need to do a build of somesort to see a change?
+
+<!-- xgd-turn id="02bfa225-46eb-4000-93d5-7ae45c06eb7c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:30:37.763516+00:00" -->
+#### Claude
+Yes — a build step, and it was silently blocked. You should see the change now after a hard refresh.
+
+**Why nothing changed.** The Worker serves the builder from `apps/control-app/dist-assets/`, not from `src/`. `./bin/1c assets` copies one to the other. Your `dist-assets/builder/builder.css` was timestamped 13:40; my commit landed at 14:07. You were looking at the pre-commit CSS.
+
+**Why I couldn't just run the build.** `./bin/1c assets` refuses outright:
+
+```
+The system KB corpus and its index disagree, so this bundle would ship
+documents the assistant cannot retrieve.
+  MISSING from the index (3): REF-behaviors, REF-l1, REF-surface
+  STALE  in the index (2): DOC-17, DOC-33
+```
+
+That's BUG-48's guard firing correctly on a genuinely stale index — pre-existing, nothing to do with BUG-53. It aborts before writing anything, so the CSS copy never happens either. Repairing it needs `1c kb build`, which needs to reach Cloudflare for embeddings, and my sandbox has no network — the call dies at `fetch failed`.
+
+**What I did instead.** I verified `1c assets` treats those three files as a straight copy (the existing `dist-assets` copies are byte-identical to the pre-commit sources), then copied them across by hand. `dist-assets/` is gitignored build output, so nothing is committed and the next real `1c assets` overwrites it.
+
+- Hard-refresh the builder (⌘⇧R — plain refresh may serve cached CSS).
+- If it still looks the same, restart `pnpm dev` / `1c builder`; the assets binding may have the old directory listing in memory.
+
+**Worth doing properly when you're at a terminal with network:**
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(cat ~/Documents/secrets/1c_AI_Admin)"
+bin/kb-release     # 1c kb build, then 1c assets, in order
+```
+
+Until that runs, every `1c assets` on this machine will refuse the same way — so any future browser-asset change hits this same wall, not just this one. That KB skew is a real outstanding item; I haven't filed it since it's outside this ticket, but say the word and I will.
 
 <!-- xgd-chat-end -->
