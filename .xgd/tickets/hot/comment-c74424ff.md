@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:20:38.169382+00:00'
+updated_at: '2026-09-05T18:24:54.113896+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1238,5 +1238,11 @@ The DOC-42 example runs end to end. **The only step that needed SQL was the invi
 Want me to scope that? It's small, and it's the last thing between you and clicking through the full three-level story yourself.
 
 Two bits of housekeeping: I left `alice@plumbing.example`, "Alices Plumbing" and "Snip City Salon" in your **local** D1 — useful for testing the switcher, easy to delete, say the word. And I couldn't drive a browser from here (the sandbox blocks Chrome's mach ports), so everything above is verified at the API and asset layer — the tab's *rendering* is the one thing you'll be checking that I couldn't.
+
+<!-- xgd-turn id="45989341-1eee-4fd2-950f-4bca9f8e302c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T18:24:53.990500+00:00" -->
+#### You
+ok please create that ticket
 
 <!-- xgd-chat-end -->
