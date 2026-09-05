@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T19:09:18.773748+00:00'
+updated_at: '2026-09-05T19:11:23.755635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1398,5 +1398,54 @@ But there is one product question hiding underneath, and it's worth noting while
 So (1) can you create a bug for the current behavior please, and for testing can I get longer lived tokens please?
 (2) IUts not acceptable for a user to be denied access mid-session we need a renewal policy for situations where the user is actively engaged
 (3) related - re-login with email has to be infrequent its significant friction we should talk about acceptable security approaches here
+
+<!-- xgd-turn id="4c100885-47ed-4d9c-aea1-50cb2b56b072-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T19:11:23.466153+00:00" -->
+#### Claude
+Let me establish what actually happens today before writing the bug — I don't want to file a guess.
+
+Confirmed the actual behaviour, and it's worse than "you must re-login". Filing that.
+
+**BUG-52 — "An expired session renders as a working, empty account"** (draft, high/high). 30-day tokens above; swap the email for other personas.
+
+## (1) The bug is worse than what you hit
+
+Investigating it turned up something sharper than "you must re-login". When the session lapses, all three calls the chrome makes on load get swallowed:
+
+| Call | Worker | Client does |
+|---|---|---|
+| `/api/businesses` | 401 | `return { account: null, businesses: [] }` |
+| `/api/status` | 401 | `return { ai: true, message: null }` — reports the assistant *healthy* |
+| `/api/sites` | 401 | throws, then `.catch(() => [])` discards it |
+
+There is **no 401 handling anywhere in the client**. So you get a builder that looks fine and contains nothing — an expired session is indistinguishable from a deleted account. That's the failure REQ-178 already rejected once for a single lapsed business; here it's every business, the account, and the sites at once. Someone mid-edit reads it as data loss and starts re-creating things.
+
+Production isn't milder: Access intercepts before the Worker, so a background `fetch` gets a cross-origin redirect it can't follow and *rejects* — landing in the same `catch`es, with no status code to find in the network panel.
+
+## (2) Renewal — I recorded the requirement, deliberately didn't scope it
+
+It's in BUG-52 as a named requirement so the bug can't be closed by reporting the failure more politely. But I didn't file the policy work, because it depends on (3) and filing it first would be backwards.
+
+One fact that matters for the policy: **`admit` runs on every request.** Revocation via `users.status`, membership or entitlement is already immediate and does *not* depend on the Access session being short. That decouples the two questions more than usual.
+
+## (3) The security conversation
+
+The friction you're feeling is almost entirely **the identity provider, not Access**. Two dials:
+
+**Session duration** is an Access application setting — 30 minutes to a month, or tied to the IdP session. Yours is presumably at a default. Raising it is one setting and the biggest single win.
+
+**Which IdP** is the real lever. One-time-PIN email is the highest-friction option that exists: every re-auth is a code, in a mailbox, retyped. A real IdP (Google, GitHub) makes re-auth a *silent redirect* — the IdP session is long-lived, so the user sees a flicker, not a login. For your modal customer — a hairdresser on a phone — "check your email for a code" every few days is the kind of thing that loses accounts.
+
+My recommendation: **long Access session (weeks) + a real IdP, and keep OTP email only as the fallback for people with neither Google nor GitHub.**
+
+The usual objection to long sessions is the stolen-cookie window. Here that argument is unusually weak, because per-request `admit` means you can kill anyone instantly from your own Users tab regardless of their Access session. What a long session actually costs you is bounded by a control you already have and just used.
+
+Two things I'd separate out rather than solve with session length:
+
+- **Step-up on destructive actions.** Erasure, billing changes, transferring a business — re-auth *those*, not the whole app. That's better security than a short global session and near-zero friction, because it's rare.
+- **The client's expiry behaviour**, which is BUG-52 regardless of what policy you pick. Even a 30-day session expires eventually, and it must not expire into an empty builder.
+
+Want me to write this up as a DOC section — the model plus the recommendation — so the policy has a home before we ticket it? Also worth noting the Access application settings live outside the repo, so part of this is a Cloudflare dashboard change rather than code, and `ACCESS.md` is where that's recorded today.
 
 <!-- xgd-chat-end -->
