@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:11:27.321287+00:00'
+updated_at: '2026-09-05T22:13:39.768129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1962,5 +1962,11 @@ It's **not** a rename. `sources` holds a `DocDirStore` (a corpus store); `indexe
 This is version skew with the out-of-band shared component, and it's self-reinforcing: `kb build` can't finish → the awareness map never regenerates → and `1c assets` reports `awareness primed not indexed`, which is the degraded state you're now shipping in the bundle. It also explains why the index was stale in the first place — REQ-165 added the projected REF-* docs and nobody could complete a build afterwards.
 
 Want me to file that as a bug? It's contained (one file, four call sites, one seam to construct) but it's a genuine break between the repo and the shared store, and right now every `1c assets` run ships an unindexed awareness map.
+
+<!-- xgd-turn id="86c6c8c1-712a-4604-b456-f14289bcd0b9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:13:39.468707+00:00" -->
+#### You
+Sure, please file the bug, then can you add xgd.dev as a business please to my account please?
 
 <!-- xgd-chat-end -->
