@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:00:55.168797+00:00'
+updated_at: '2026-09-05T23:05:46.196951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2241,5 +2241,15 @@ Also open: whether an organisation contact can hold person contacts (a contact *
 ## One consequence you should know about
 
 **This invalidates REQ-188 as filed.** I wrote it as a linear Contact → Invited → Member progression. The marker reasoning survives — a member is someone who completed sign-up, not someone we invited — but the framing doesn't. It's flagged in DOC-44 §6 as needing revision before it's built. Want me to revise it now, or leave it until the pipeline names are settled, since it'll need those anyway?
+
+<!-- xgd-turn id="6005cfa0-9c64-43f3-9e7b-4f4ba332d7eb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:05:46.158920+00:00" -->
+#### You
+I think Lead will do for now as an appropriate initial state.
+
+BTW I renamed the tab Contacts - the reason I called it Users was that I was thinking to separate User management from Contact management - but I think they are really hard to separate.
+
+I changed REQ-188 back to free coded so we can update that ticket please?
 
 <!-- xgd-chat-end -->
