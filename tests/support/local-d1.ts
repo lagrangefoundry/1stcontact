@@ -84,7 +84,7 @@ export function seedIdentity(
   const now = new Date().toISOString()
   const sql = [
     `INSERT OR IGNORE INTO tenants (id, name, status, created_at) VALUES ('${businessId}', '${email}', 'active', '${now}');`,
-    `INSERT OR IGNORE INTO users (id, tenant_id, email, status, platform_admin, invited_at, created_at, updated_at) ` +
+    `INSERT OR IGNORE INTO users (id, tenant_id, email, status, platform_operator, invited_at, created_at, updated_at) ` +
       `VALUES ('${userId}', '${tenantId}', '${email.toLowerCase()}', 'active', 0, '${now}', '${now}', '${now}');`,
     `INSERT OR IGNORE INTO memberships (id, user_id, business_id, role, status, granted_at) ` +
       `VALUES ('mem_${userId}', '${userId}', '${businessId}', 'owner', 'active', '${now}');`,

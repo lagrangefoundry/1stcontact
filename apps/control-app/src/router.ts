@@ -30,6 +30,7 @@ import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { NoBusinessError, splitBusinessPrefix, type Scope } from './scope'
 import {
   findAccount,
+  ownsPlatformBusiness,
   provisionBusiness,
   type Admission,
   type BusinessLapse,
@@ -1007,26 +1008,34 @@ async function routeUncached(
      * and will not sit behind the same check. The second is what confines this
      * control to us.
      *
-     * `platform_admin` IS HOW THOSE TWO ARE SPELLED TODAY, because they select
-     * exactly the set the flag selects and there is one business whose product is
-     * businesses. Spelling them any other way would cost a mechanism nothing yet
-     * needs. What the distinction buys is that the flag is not read here as a
-     * privilege LEVEL: a generic admin-surface mechanism hung off it would be
-     * [[DOC-40]] §2.1 rule 1's failure mode, and [[REQ-170]]'s console would be
-     * the first to inherit it. A guard holds the reader count while the column is
-     * still one column ([[DOC-42]] §10.3 splits it; [[REQ-185]] owns that).
+     * AND BOTH ARE SPELLED OUT NOW ([[REQ-185]]). They used to be one read of
+     * `users.platform_admin`, because that flag selected exactly this set — and
+     * that is precisely what [[DOC-42]] §10.3 called the defect: a flag bundling
+     * "owner of the 1st Contact business" with "may enter a business I hold no
+     * membership on", so a hand reading it here would build a generic
+     * admin-surface mechanism rather than these two conditions, and [[REQ-170]]'s
+     * console would be the first to inherit it. `ownsPlatformBusiness` asks the
+     * two questions instead, over `memberships.role` — the same way ownership is
+     * expressed for every other business — and `platform_operator`, which is what
+     * is left of the flag, is not consulted here at all. A holder of it who owns
+     * no membership on this business is refused, and a UAT says so.
      *
-     * THE ADMISSION IS THE ONLY THING CONSULTED, because the flag is ambient by
-     * design ([[DOC-40]] §6) — it works before any membership row exists, which
-     * is what lets it repair the system that grants it — so the check is against
-     * the person and not against the resolved scope. On the dev-open path there is
-     * no admission and therefore nobody to fill an order, and the route is
-     * refused: a loopback door onto account provisioning is a shape that reads as
-     * a feature and would eventually be relied upon.
+     * THE ADMISSION IS THE ONLY THING CONSULTED, because this is a question about
+     * the PERSON and not about the business the request resolved to: an operator
+     * filling an order is not thereby operating the business they are creating.
+     * On the dev-open path there is no admission and therefore nobody to fill an
+     * order, and the route is refused: a loopback door onto account provisioning
+     * is a shape that reads as a feature and would eventually be relied upon.
      */
     if (p === ADMIN_BUSINESSES_PATH && method === 'POST') {
       const admission = deps.admission
-      if (!admission?.ok || !admission.user.platform_admin) {
+      // `env` is structurally an `IdentityEnv` — it carries the same `DB` and
+      // `SITES` — and this cast is the whole of the coupling. The router never
+      // names `TENANT_ID`: which business's product is businesses, and where the
+      // platform's accounts live, are both `identity.ts`'s knowledge, kept there
+      // so [[REQ-168]]'s two readers stay two.
+      const identityEnv = env as unknown as IdentityEnv
+      if (!ownsPlatformBusiness(identityEnv, admission)) {
         console.warn(
           JSON.stringify({
             event: 'admin_route_refused',
@@ -1044,11 +1053,6 @@ async function routeUncached(
         return json(400, { error: 'accountEmail and name are required' })
       }
 
-      // `env` is structurally an `IdentityEnv` — it carries the same `DB` and
-      // `SITES` — and this cast is the whole of the coupling. The router never
-      // names `TENANT_ID`: where the platform's accounts live is `identity.ts`'s
-      // knowledge, kept there so [[REQ-168]]'s two readers stay two.
-      const identityEnv = env as unknown as IdentityEnv
       const account = await findAccount(identityEnv, accountEmail)
       // Reported plainly, because the caller is an administrator who typed the
       // address and is owed the difference between "no such account" and "done".
@@ -1062,7 +1066,11 @@ async function routeUncached(
         email: account.email,
         plan: typeof body.plan === 'string' ? body.plan : undefined,
         endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,
-        grantedBy: admission.user.email,
+        // The gate above has already established that this caller owns the 1st
+        // Contact business, which is only true of a successful admission — but
+        // `ownsPlatformBusiness` is a boolean and not a type predicate (for the
+        // reason it gives), so the read is guarded again rather than asserted.
+        grantedBy: admission?.ok ? admission.user.email : undefined,
         note: typeof body.note === 'string' ? body.note : undefined,
       })
       return json(200, business)

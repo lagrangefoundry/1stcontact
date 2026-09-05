@@ -60,6 +60,10 @@ const MIGRATIONS = [
   // 0005 is a data migration written against the old column names, so a database
   // that renamed first would refuse to run it ([[DOC-42]] §10.2).
   () => import('../../db/migrations/0006_entitlement_subject.sql?raw'),
+  // REQ-185 — `platform_admin` splits into `memberships.role` (ownership) and
+  // `platform_operator` (entry without membership). AFTER 0006, which renames
+  // the very column the ownership half moves onto.
+  () => import('../../db/migrations/0007_platform_operator.sql?raw'),
 ]
 
 /**

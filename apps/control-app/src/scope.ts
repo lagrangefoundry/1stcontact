@@ -269,11 +269,11 @@ export async function resolveScope(
     return { businessId: held.businessId }
   }
 
-  // THE BYPASS IS OVER MEMBERSHIP ONLY ([[DOC-40]] §6). `platform_admin` is
+  // THE BYPASS IS OVER MEMBERSHIP ONLY ([[DOC-40]] §6). `platform_operator` is
   // ambient so that it works before any membership exists and cannot lock its
-  // holder out — but an administrator operating an expired account must see what
-  // the customer sees, so the grant is still required, and a deactivated business
-  // is still refused. It does not grant platform scope: what comes back is an
+  // holder out — but an operator entering an expired account must see what the
+  // customer sees, so the grant is still required, and a deactivated business is
+  // still refused. It does not grant platform scope: what comes back is an
   // ordinary business handle, indistinguishable from the owner's.
   //
   // AND THE REASON IT IS POSSIBLE AT ALL IS HOSTING, not level ([[DOC-42]] §8).
@@ -283,7 +283,15 @@ export async function resolveScope(
   // merely owning the 1st Contact business, which is `memberships.role` and is
   // not special at all ([[DOC-42]] §10.3). Time-boxed `support` membership rows
   // are the auditable replacement for this half when there is a second operator.
-  if (admission.user.platform_admin) {
+  //
+  // THAT SPLIT HAS HAPPENED ([[REQ-185]]), which is why the column reads
+  // `platform_operator` and why this is its ONLY reader. Ownership of the 1st
+  // Contact business is `ownsPlatformBusiness`, over `memberships.role`, and no
+  // predicate answers both questions. Nothing may gate a control, a page or a
+  // route on the column read here: a surface that appears "because you are an
+  // admin" is exactly [[DOC-40]] §2.1 rule 1's shape, and entering a business you
+  // host is not owning it — which is why what comes back carries `role: null`.
+  if (admission.user.platform_operator) {
     const business = await admissibleBusiness(env, requested)
     if (!business) throw new ScopeRefusedError('unknown_business', requested)
     if (!business.selectable) throw new ScopeRefusedError('no_entitlement', requested)

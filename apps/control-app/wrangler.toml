@@ -96,8 +96,27 @@ run_worker_first = true
 # through would be the exact hole this ticket closes. Fill them in per
 # apps/control-app/ACCESS.md, which is also where the granted identities are
 # recorded.
+# PLATFORM_ADMINS is BREAK GLASS, and empty is the correct steady state
+# ([[DOC-40]] §6, [[REQ-185]]). A comma-separated list of email addresses that
+# may operate the 1st Contact business whatever the database says.
+#
+# It exists because [[REQ-185]] moved "owner of the 1st Contact business" onto
+# `memberships.role`, which put it behind a ROW — and a missing row is exactly
+# the lockout §6's ambient flag was there to prevent. Deployment configuration
+# works before any row exists and cannot be revoked by the database it repairs,
+# which is the whole of why it is here rather than in a table.
+#
+# EMPTY MEANS NOBODY, like ACCESS_TEAM_DOMAIN above: a capability that switches
+# on when configuration goes missing is the opposite of a control. Fill it in to
+# recover a deployment nobody can enter, and empty it again afterwards — using it
+# WRITES the membership, so the repair outlives the var.
+#
+# Declared on BOTH sides for the reason every var here is: a named environment
+# inherits none, and a break-glass key that silently does not exist in production
+# is one discovered at the worst possible moment. A UAT pins the two together.
 [vars]
 TENANT_ID = "1stcontact"
+PLATFORM_ADMINS = ""
 ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
@@ -221,6 +240,8 @@ head_sampling_rate = 1
 # moment Access were unconfigured. A UAT asserts this block does not name it.
 [env.production.vars]
 TENANT_ID = "1stcontact"
+# See the top-level block: break glass, empty until it is needed ([[REQ-185]]).
+PLATFORM_ADMINS = ""
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 

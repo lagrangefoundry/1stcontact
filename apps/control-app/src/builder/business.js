@@ -192,8 +192,9 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  *
  * ADDING A BUSINESS IS NOT HERE EITHER, and for a different reason ([[REQ-180]]
  * D2). It is an operator action while we are pre-billing — `provisionBusiness`
- * writes a live grant — so it lives behind `platform_admin` on
- * `/api/admin/businesses` and has no control in the product at all.
+ * writes a live grant — so it lives on `/api/admin/businesses`, behind owning
+ * the 1st Contact business ([[REQ-185]]), and has no control in the product at
+ * all.
  *
  * @param {object} spec
  * @param {Element} [spec.host] inside the shell root — see `modal.js`
