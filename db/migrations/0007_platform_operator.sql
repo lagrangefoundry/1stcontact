@@ -1,0 +1,44 @@
+-- REQ-185 — `platform_admin` was two capabilities wearing one flag ([[DOC-42]] §10.3).
+--
+-- WHAT THE ONE COLUMN ANSWERED. Two questions with nothing to do with each other:
+--
+--   1. *Am I an owner of the 1st Contact business?* Not special in any way. Every
+--      business has an owner and a customer is the owner of theirs. That is
+--      `memberships.role = 'owner'`, and the table has held it since 0004 —
+--      `provisionBusiness` writes exactly that row for every business it makes.
+--   2. *May I enter a business I hold no membership on?* Genuinely special, and
+--      special because 1st Contact HOSTS the others ([[DOC-42]] §8) rather than
+--      because of any level or seniority.
+--
+-- Bundling them is [[DOC-40]] §2.1 rule 1's shape: a platform-only flag standing
+-- in for a capability every business owner needs. The cost is not theoretical —
+-- the next surface to read it would build a generic "admins get extra pages"
+-- mechanism rather than the two conditions [[DOC-42]] §7 describes.
+--
+-- SO THE FIRST QUESTION LOSES ITS COLUMN AND THE SECOND KEEPS ONE, RENAMED. No
+-- data moves and no row changes meaning: every holder of the old flag was a
+-- holder of the hosting capability too, and ownership is now read from the
+-- membership rows 0005 and `provisionBusiness` already write. What the rename
+-- buys is that the old reading is no longer available to a hand that has not read
+-- this migration — a column called `platform_admin` retained for just the bypass
+-- would keep inviting "admins get more", which is the whole defect.
+--
+-- NO `IF NOT EXISTS`, AND IT CANNOT HAVE ONE. This file breaks 0003–0005's
+-- convention because SQLite has no conditional `ALTER TABLE`; there is no way to
+-- spell "rename it if it has not been renamed". What makes that safe is that
+-- `wrangler d1 migrations apply` records what it has run and never re-runs it,
+-- which is the mechanism the convention was belt-and-braces against rather than a
+-- replacement for. A re-run would fail loudly on an unknown column, which is the
+-- correct answer to "this database is not in the state you think it is".
+--
+-- 0004 AND 0005 ARE LEFT NAMING THE OLD COLUMN, deliberately. They are history:
+-- on a fresh database they run first, against a table where the column still has
+-- its old name, and editing them to agree with this file would make them describe
+-- a schema they did not create.
+--
+-- AFTER 0006 ([[REQ-184]]) AND NOT BESIDE IT. That migration renames
+-- `memberships.account_id` to `business_id`, which is the column the ownership
+-- half of this flag moves ONTO — so this ticket's answer to "am I an owner here"
+-- is read from a column 0006 named. Ordering them the other way round would leave
+-- one migration renaming a column while the other moved a capability onto it.
+ALTER TABLE users RENAME COLUMN platform_admin TO platform_operator;

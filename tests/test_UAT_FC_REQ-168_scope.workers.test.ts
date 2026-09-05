@@ -260,7 +260,7 @@ describe('REQ-168 — resolution authorises the target', () => {
 
 describe('REQ-168 — the platform admin bypass', () => {
   const makeAdmin = async (userId: string): Promise<void> => {
-    await env.DB.prepare('UPDATE users SET platform_admin = 1 WHERE id = ?').bind(userId).run()
+    await env.DB.prepare('UPDATE users SET platform_operator = 1 WHERE id = ?').bind(userId).run()
   }
 
   /**
@@ -480,13 +480,22 @@ describe('REQ-168 — the operator keeps the business they already have', () => 
     //
     // THE COLUMN NAMES ARE MAPPED FORWARD, and that is the honest form of the
     // claim rather than a workaround ([[REQ-184]]). `0005` is history: it runs
-    // before `0006` on any database and is written against the names that existed
-    // then, so re-executing it verbatim against the current schema would fail on
-    // `no such column` and prove nothing about its guard. What must still hold is
-    // that its `WHERE NOT EXISTS` logic refuses to write a second membership or a
-    // second grant, and that is what this asserts, against the schema the Worker
-    // actually reads.
-    await runMigration(operatorMembership.replace(/\baccount_id\b/g, 'business_id'))
+    // before `0006` and `0007` on any database and is written against the names
+    // that existed then, so re-executing it verbatim against the current schema
+    // would fail on `no such column` and prove nothing about its guard. What must
+    // still hold is that its `WHERE NOT EXISTS` logic refuses to write a second
+    // membership or a second grant, and that is what this asserts, against the
+    // schema the Worker actually reads.
+    //
+    // TWO RENAMES ARE MAPPED NOW: `account_id` → `business_id` ([[REQ-184]]) and
+    // `platform_admin` → `platform_operator` ([[REQ-185]]). The second one is a
+    // column `0005` sets to 0 and says so in prose — the flag is not granted from
+    // inside a data migration — and that is still what the mapped statement does.
+    await runMigration(
+      operatorMembership
+        .replace(/\baccount_id\b/g, 'business_id')
+        .replace(/\bplatform_admin\b/g, 'platform_operator'),
+    )
 
     expect([await count(users), await count(members), await count(grants)]).toEqual(before)
   })

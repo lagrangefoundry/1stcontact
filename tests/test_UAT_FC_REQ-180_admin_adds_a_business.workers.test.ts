@@ -3,7 +3,13 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { admit, provisionInvite, type IdentityEnv } from '../apps/control-app/src/identity'
+import {
+  admit,
+  ensurePlatformOperator,
+  findAccount,
+  provisionInvite,
+  type IdentityEnv,
+} from '../apps/control-app/src/identity'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
@@ -23,8 +29,9 @@ import { applySchema } from './support/d1-site-factory'
  * self-serve "add a business"; D2 reverses it. We are pre-billing, and
  * `provisionBusiness` writes a live `pro` grant, so any customer-reachable route
  * onto it is an unbounded free-plan mint. The operator's path exists because
- * adding a business has to be possible; it is behind `platform_admin`, and the
- * cases below are as much about who is refused as about what succeeds.
+ * adding a business has to be possible; it is behind owning the 1st Contact
+ * business ([[REQ-185]]), and the cases below are as much about who is refused
+ * as about what succeeds.
  *
  * AND IT ENFORCES THAT A BUSINESS AND ITS TENANT ARE ONE OPERATION (D3). The
  * model's load-bearing identity is *business == tenant*, so the failure worth
@@ -106,11 +113,23 @@ async function invite(spec: Parameters<typeof provisionInvite>[1]) {
   return result
 }
 
-/** The same, plus [[DOC-40]] §6's ambient flag. */
-async function admin(spec: Parameters<typeof provisionInvite>[1]) {
-  const result = await invite(spec)
-  await env.DB.prepare('UPDATE users SET platform_admin = 1 WHERE id = ?').bind(result.user.id).run()
-  return result
+/**
+ * An OWNER OF THE 1st CONTACT BUSINESS, which is what the gate now asks
+ * ([[REQ-185]]).
+ *
+ * It used to be an invitee plus `platform_admin = 1`. The flag bundled two
+ * capabilities and this route only ever needed one of them — *you own the
+ * business whose product is businesses* — so the setup says that instead, and
+ * says it through {@link ensurePlatformOperator}: the production path
+ * `PLATFORM_ADMINS` takes, rather than a hand-written approximation of it that
+ * could drift into granting something the real one does not.
+ */
+async function admin(email: string) {
+  await ensurePlatformOperator(identityEnv(), email)
+  const account = await findAccount(identityEnv(), email)
+  if (!account) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), account.id)
+  return account
 }
 
 const addBusiness = async (
@@ -215,7 +234,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     const owner = anEmail()
     const operator = anEmail()
     await invite({ email: owner, accountName: 'Salon', endsAt: null })
-    await admin({ email: operator, accountName: 'Platform', endsAt: null })
+    await admin(operator)
 
     const response = await addBusiness(await mint(operator), {
       accountEmail: owner,
@@ -249,7 +268,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     const owner = anEmail()
     const operator = anEmail()
     const invited = await invite({ email: owner, accountName: 'Salon', endsAt: null })
-    await admin({ email: operator, accountName: 'Platform', endsAt: null })
+    await admin(operator)
 
     const response = await addBusiness(await mint(operator), {
       accountEmail: owner,
@@ -313,7 +332,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     // "no such account" and "done".
     stubJwks()
     const operator = anEmail()
-    await admin({ email: operator, accountName: 'Platform', endsAt: null })
+    await admin(operator)
 
     const response = await addBusiness(await mint(operator), {
       accountEmail: 'nobody@example.test',
@@ -331,7 +350,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     // out". 400 and the field names is the answer they can act on.
     stubJwks()
     const operator = anEmail()
-    await admin({ email: operator, accountName: 'Platform', endsAt: null })
+    await admin(operator)
     const token = await mint(operator)
 
     expect((await addBusiness(token, { accountEmail: operator })).status).toBe(400)

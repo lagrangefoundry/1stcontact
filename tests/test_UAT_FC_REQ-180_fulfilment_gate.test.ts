@@ -3,47 +3,53 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * REQ-180 A1 — **`platform_admin` has two readers, and they mean different
- * things.**
+ * REQ-180 A1 — **the hosting column has ONE reader, and the gate is not it.**
  *
- * WHAT THIS IS FOR. `POST /api/admin/businesses` is gated on the flag, and
+ * IT WAS TWO, AND [[REQ-185]] IS WHY IT IS ONE. This guard was written while
+ * `platform_admin` bundled two separable capabilities ([[DOC-42]] §10.3) and
+ * held the reader count at two — `scope.ts` for entry without membership,
+ * `router.ts` for the fulfilment gate — precisely so the split would be cheap
+ * when someone came to make it. It has been made: ownership moved to
+ * `memberships.role`, the column was renamed `platform_operator` to say what is
+ * left, and `router.ts` gates on `ownsPlatformBusiness` instead. So the claim
+ * this file has always made is now assertable in its strong form — the column is
+ * read in exactly ONE place, and no route reads it at all.
+ *
+ * WHAT THIS IS FOR. `POST /api/admin/businesses` was gated on the flag, and
  * [[REQ-180]] D2 gave the flag itself as the reason. [[DOC-42]] §7 gives the
  * reason it is actually gated: provisioning a business is 1st Contact filling an
  * order, and it needs privilege because it writes a `tenants` row — not because
  * the caller holds a badge. Stated as two conditions, it is *you are an owner of
- * this business* and *this business's product is businesses*, which select
- * exactly the set the flag selects today.
+ * this business* and *this business's product is businesses*, and those are now
+ * what the route asks.
  *
  * SO THE RISK IS A READING, NOT A BUG. Nothing built is wrong; what is fragile is
- * that the next hand reads the flag as "administrators get extra pages" and
+ * that the next hand reads the column as "administrators get extra pages" and
  * builds a generic privileged-surface mechanism to hang them off. That is
  * [[DOC-42]] §7's own falsifier and [[DOC-40]] §2.1 rule 1's named failure mode —
  * capability built platform-only, which one business has today and the next
  * business's will not fit. It produces no exception and no wrong answer; it
- * produces a shape, and the shape is a third reader.
+ * produces a shape, and the shape is another reader.
  *
- * SO THE COUNT IS THE ASSERTION, in [[REQ-168]]'s single-reader idiom. Two files
- * may read it, and each is exempt for a DIFFERENT reason — which is the whole
- * point of [[DOC-42]] §10.3's observation that the column bundles two separable
- * capabilities:
+ * SO THE COUNT IS THE ASSERTION, in [[REQ-168]]'s single-reader idiom. One file
+ * may read it:
  *
  *   - `scope.ts` reads it to enter a business without holding a membership. This
  *     is the genuinely special power, and it is special because 1st Contact
  *     *hosts* the others ([[DOC-42]] §8) — not because of any level, and not
  *     because the holder is an administrator.
- *   - `router.ts` reads it to gate product fulfilment: the one action whose
- *     availability follows from what the 1st Contact business SELLS.
  *
- * Splitting the column is [[REQ-185]]'s and is not owed here. Holding the reader
- * count while it is still one column is what keeps that split cheap.
+ * `router.ts` is no longer exempt because it no longer needs to be: the
+ * fulfilment gate asks [[DOC-42]] §7's two conditions over `memberships.role`,
+ * which is how ownership is expressed for every business. A route reading this
+ * column again would be the fusion returning.
  */
 
 const SRC = path.resolve(__dirname, '..', 'apps', 'control-app', 'src')
 
-/** The two readers, and the meaning each is exempt for. */
+/** The one reader, and the meaning it is exempt for. */
 const READERS = new Map([
   ['scope.ts', 'entry into a business without a membership — 1st Contact hosts the others'],
-  ['router.ts', 'the product-fulfilment gate — provisioning is 1st Contact filling an order'],
 ])
 
 /** Build output — the components' bundled source, not this repository's. */
@@ -65,10 +71,10 @@ function sourceFiles(dir: string): string[] {
  * A READ, distinguished from the two ways the name legitimately appears without
  * one — and the distinction is a rule rather than a list of exempt files.
  *
- *   - `admission.user.platform_admin` is a read: someone is consulting it.
- *   - `platform_admin: number` on an interface is the column's DECLARATION.
+ *   - `admission.user.platform_operator` is a read: someone is consulting it.
+ *   - `platform_operator: number` on an interface is the column's DECLARATION.
  *     `identity.ts` has to spell the shape of the row it selects.
- *   - `platform_admin` inside an `INSERT INTO users (...)` is SQL. A column list
+ *   - `platform_operator` inside an `INSERT INTO users (...)` is SQL. A column list
  *     is not a decision about anybody.
  *
  * A property access or a destructure is therefore the shape checked for, because
@@ -76,8 +82,8 @@ function sourceFiles(dir: string): string[] {
  * guard makes when it examines only quoted strings: name the shape the failure
  * has, not the files it is currently absent from.
  */
-const A_PROPERTY_READ = /\.\s*platform_admin\b/
-const A_DESTRUCTURE = /\{[^{}\n]*\bplatform_admin\b[^{}\n]*\}\s*=/
+const A_PROPERTY_READ = /\.\s*platform_operator\b/
+const A_DESTRUCTURE = /\{[^{}\n]*\bplatform_operator\b[^{}\n]*\}\s*=/
 
 /**
  * The generic mechanism itself, caught by name. [[DOC-42]] §7's falsifier is "a
@@ -102,7 +108,7 @@ function readsOfTheFlag(source: string): number[] {
 }
 
 describe('REQ-180 A1 — the fulfilment gate is not a generic admin surface', () => {
-  it('test_UAT_FC_REQ-180_platform_admin_is_read_in_exactly_two_places', () => {
+  it('test_UAT_FC_REQ-180_the_hosting_column_is_read_in_exactly_one_place', () => {
     const offenders: string[] = []
     for (const file of sourceFiles(SRC)) {
       if (READERS.has(path.basename(file))) continue
@@ -115,22 +121,24 @@ describe('REQ-180 A1 — the fulfilment gate is not a generic admin surface', ()
 
     expect(
       offenders,
-      'platform_admin gained a third reader. The flag carries two separable ' +
-        'capabilities (DOC-42 §10.3) and a third read is how they fuse into a ' +
-        'generic privileged surface — DOC-40 §2.1 rule 1\'s failure mode. Gate on ' +
-        'what the business sells, or on ownership, not on the badge.',
+      'platform_operator gained a second reader. It answers ONE question — may ' +
+        'this person enter a business they hold no membership on — and a reader ' +
+        'outside scope.ts is one treating it as a statement about ownership or a ' +
+        'privilege level, which is DOC-40 §2.1 rule 1\'s failure mode. Gate on ' +
+        'ownership (ownsBusiness) or on what the business sells, not on the badge.',
     ).toEqual([])
   })
 
   /**
    * The other half of the same claim. A guard that only checked for absence
-   * would keep passing if the gate were deleted outright, at which point
-   * provisioning is open to anyone admitted and nothing here says so.
+   * would keep passing if the bypass were deleted outright, at which point
+   * `scope.ts` refuses every unmembered target and the hosting capability is
+   * gone with nothing here saying so.
    */
-  it('test_UAT_FC_REQ-180_both_readers_still_consult_it_for_their_own_reason', () => {
+  it('test_UAT_FC_REQ-180_the_exempt_reader_still_consults_it_for_its_own_reason', () => {
     for (const [name] of READERS) {
       const source = fs.readFileSync(path.join(SRC, name), 'utf8')
-      expect(readsOfTheFlag(source).length, `${name} stopped reading platform_admin`).toBeGreaterThan(0)
+      expect(readsOfTheFlag(source).length, `${name} stopped reading platform_operator`).toBeGreaterThan(0)
     }
   })
 
@@ -156,14 +164,14 @@ describe('REQ-180 A1 — the fulfilment gate is not a generic admin surface', ()
   })
 
   it('test_UAT_FC_REQ-180_the_gate_guard_can_actually_see_a_violation', () => {
-    // Four exemptions and a hand-rolled scanner sit between this guard and the
+    // Three exemptions and a hand-rolled scanner sit between this guard and the
     // source, so it is shown each shape it must excuse and each it must catch.
     const sample = [
-      '  platform_admin: number', // the column's declaration — not a read
-      "    'INSERT INTO users (id, tenant_id, platform_admin) VALUES (?, ?, ?)',", // SQL
-      ' * `platform_admin` is ambient by design — prose, and not a read.',
-      '  if (admission.user.platform_admin) {', // 4 — a read
-      '  const { platform_admin } = admission.user', // 5 — a read
+      '  platform_operator: number', // the column's declaration — not a read
+      "    'INSERT INTO users (id, tenant_id, platform_operator) VALUES (?, ?, ?)',", // SQL
+      ' * `platform_operator` is ambient by design — prose, and not a read.',
+      '  if (admission.user.platform_operator) {', // 4 — a read
+      '  const { platform_operator } = admission.user', // 5 — a read
     ].join('\n')
 
     expect(readsOfTheFlag(sample)).toEqual([4, 5])

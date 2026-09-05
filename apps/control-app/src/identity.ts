@@ -53,6 +53,36 @@ export interface IdentityEnv extends SiteStoreEnv {
    * onto the account resolved here.
    */
   TENANT_ID?: string
+  /**
+   * BREAK GLASS — the addresses that may operate the 1st Contact business
+   * whatever the database says ([[DOC-40]] §6).
+   *
+   * A comma-separated list of email addresses, EMPTY BY DEFAULT, for exactly one
+   * situation: the rows that confer operation are missing, and the only way to
+   * write them is through a system nobody can currently enter. [[REQ-185]] moved
+   * ownership onto `memberships.role`, which put it BEHIND A ROW — and a missing
+   * row is precisely the lockout §6's ambient flag exists to prevent. This var is
+   * what keeps that promise once ownership is a row: it is deployment
+   * configuration, so it works before any row exists, and it cannot be revoked by
+   * the database it repairs.
+   *
+   * IT CONFERS BOTH HALVES, AND THAT IS NOT A RE-BUNDLING of what [[REQ-185]]
+   * separated. The two capabilities stay separate WHERE THEY ARE READ — no
+   * predicate answers both — and this var writes the two facts down separately:
+   * {@link ensurePlatformOperator} leaves an `owner` membership on the 1st
+   * Contact business AND sets `platform_operator` on the user, as two rows a
+   * later reader can tell apart. A var that synthesised an admission in memory
+   * would be the thing that re-bundles them, because nothing on disk would record
+   * which half was being used.
+   *
+   * AND USING IT LEAVES THE ROWS BEHIND rather than standing in for them forever.
+   * The seed is idempotent — the `WHERE NOT EXISTS` shape
+   * `0005_operator_membership.sql` already uses — so the first admission repairs
+   * the database and every later one finds what it would have written. Emptying
+   * the var afterwards does not undo the repair, which is what makes this break
+   * glass rather than a permanent second authorisation path.
+   */
+  PLATFORM_ADMINS?: string
 }
 
 export class IdentityNotConfiguredError extends Error {
@@ -74,7 +104,24 @@ export interface UserRow {
   email: string
   status: string
   display_name: string | null
-  platform_admin: number
+  /**
+   * May this person enter a business they hold no membership on ([[REQ-185]])?
+   *
+   * ONE CAPABILITY, NOT TWO. It was `platform_admin`, and it answered this
+   * question AND "am I an owner of the 1st Contact business" — two questions with
+   * nothing to do with each other ([[DOC-42]] §10.3). Ownership moved to
+   * `memberships.role`, where every other business already expresses it. What is
+   * left here is the one thing that is genuinely ours alone, and it is ours
+   * because 1st Contact HOSTS the other businesses ([[DOC-42]] §8) rather than
+   * because of any level or seniority.
+   *
+   * IT IS NOT A STATEMENT ABOUT OWNERSHIP, and the name is the guard. `scope.ts`
+   * is its only reader; no control, page or route is gated on it, and none may
+   * be — a surface that appears "because you are an admin" is [[DOC-40]] §2.1
+   * rule 1's failure mode, and the two conditions [[DOC-42]] §7 actually
+   * describes are {@link ownsPlatformBusiness}.
+   */
+  platform_operator: number
   tos_version: string | null
   tos_accepted_at: string | null
   invited_at: string | null
@@ -181,6 +228,26 @@ export interface AdmittedBusiness {
   businessId: string
   /** `tenants.name` — the human label, which may change. */
   name: string
+  /**
+   * `memberships.role` — what this person is TO this business ([[REQ-185]]).
+   *
+   * `owner` for every business {@link provisionBusiness} creates; `support` is
+   * what a time-boxed grant ([[DOC-40]] §6) will carry when there is a second
+   * operator. UNCONSTRAINED TEXT, like `plan` and `status` on `entitlements` and
+   * for the same reason 0004 gives: a role added when seats land must be a code
+   * change and not a schema migration.
+   *
+   * NULL EXACTLY WHEN THERE IS NO MEMBERSHIP — which is the hosting bypass's
+   * business ({@link admissibleBusiness}) and nothing else. That is what keeps
+   * the two capabilities apart as a property of the data rather than as a rule
+   * someone has to remember: entering a business you do not belong to never makes
+   * you its owner, so {@link ownsBusiness} answers false about it.
+   *
+   * THE 1st CONTACT BUSINESS IS NOT A SPECIAL CASE OF IT. Owning it is an `owner`
+   * row exactly like owning a salon, so this field reads `owner` for both and
+   * nothing downstream can tell which is which.
+   */
+  role: string | null
   /** The best active grant covering now, or null when nothing covers it. */
   entitlement: EntitlementRow | null
   /** Whether this business may be entered. False exactly when there is no grant. */
@@ -430,7 +497,7 @@ export async function provisionInvite(env: IdentityEnv, invite: Invite): Promise
   const userId = newId('usr')
 
   await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_admin, ' +
+    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_operator, ' +
       'invited_at, created_at, updated_at, fields) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
   )
     .bind(userId, platformTenant, email, 'active', invite.displayName ?? null, now, now, now, '{}')
@@ -538,9 +605,24 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
 /**
  * Login: bind a verified email to an account, or refuse.
  *
- * NOTHING IS CREATED HERE. Every step is a read except the one stamp, and a
- * missing row at any step is a refusal rather than a repair. See the file header
- * for why that asymmetry is the whole design.
+ * NOTHING IS CREATED HERE FOR ANYONE THE DATABASE DECIDES ABOUT. Every step is a
+ * read except the one stamp, and a missing row at any step is a refusal rather
+ * than a repair. See the file header for why that asymmetry is the whole design.
+ *
+ * THE ONE EXCEPTION IS `PLATFORM_ADMINS`, AND IT IS NOT A CRACK IN THAT RULE.
+ * The rule exists because admission must not be self-serve: the Access policy is
+ * identity-only, so "provision on first sight" would give an account to anyone
+ * who can receive an email. `PLATFORM_ADMINS` is not something a caller can
+ * present — it is deployment configuration, set by whoever can deploy this
+ * Worker, and a caller who could edit it could edit the database directly. So
+ * the unbounded set the rule guards against is still empty, and what the seed
+ * buys is [[DOC-40]] §6's promise that the break-glass capability "cannot lock
+ * its holder out of the system that grants it" — a promise [[REQ-185]] would
+ * otherwise have broken by moving ownership behind a `memberships` row.
+ *
+ * IT RUNS BEFORE `findUser`, because the lockout it repairs includes having no
+ * `users` row at all. Seeding after the `no_user` refusal would fix every case
+ * except the one a fresh database presents.
  *
  * THE STAMP HAPPENS BEFORE THE ADMISSION DECISION, deliberately. `last_seen_at`
  * records that this person came to the door, which is exactly as interesting when
@@ -557,6 +639,12 @@ export async function admit(
   // verified email the identity), so there is nothing to look a user up by.
   if (!email) return { ok: false, reason: 'no_email', email: null }
   const normalised = normaliseEmail(email)
+
+  // Break glass, and then carry on down the ordinary path. The seed writes rows;
+  // it does not produce an admission — so a holder is admitted by the same three
+  // reads as everybody else, against rows that are now there. That is what makes
+  // this a repair rather than a second authorisation path with its own bugs.
+  if (isPlatformAdminSeed(env, normalised)) await ensurePlatformOperator(env, normalised)
 
   const user = await findUser(env, platformTenant, normalised)
   if (!user) return { ok: false, reason: 'no_user', email: normalised }
@@ -593,6 +681,142 @@ export async function admit(
 }
 
 /**
+ * Is this address one the deployment named as break glass ([[DOC-40]] §6)?
+ *
+ * COMMA-SEPARATED AND CASEFOLDED, compared against the same {@link
+ * normaliseEmail} the `users` index is written through — otherwise a var reading
+ * `Martin@example.com` would name a person the database does not contain, and
+ * the failure would be a lockout discovered at exactly the moment the var was
+ * reached for.
+ *
+ * EMPTY IS THE DEFAULT AND MEANS NOBODY. An unset var must not open anything,
+ * for the same reason `ACCESS_TEAM_DOMAIN` empty means deny: a capability that
+ * switches on when configuration goes missing is the opposite of a control.
+ */
+function isPlatformAdminSeed(env: IdentityEnv, normalisedEmail: string): boolean {
+  if (normalisedEmail === '') return false
+  return (env.PLATFORM_ADMINS ?? '')
+    .split(',')
+    .map((entry) => normaliseEmail(entry))
+    .filter((entry) => entry !== '')
+    .includes(normalisedEmail)
+}
+
+/**
+ * Write down what `PLATFORM_ADMINS` claims, so the database stops disagreeing.
+ *
+ * WHAT IT WRITES IS WHAT AN OPERATOR ALREADY HAS, and the shape is
+ * `0005_operator_membership.sql`'s deliberately: the platform `tenants` row, the
+ * person, an `owner` membership joining them to the 1st Contact business, and an
+ * open-ended grant. That migration seeds one named operator at deploy time; this
+ * seeds whoever the var names, at admission time, and the two must produce
+ * indistinguishable rows or "break glass" would mean "get a slightly different
+ * account".
+ *
+ * BOTH HALVES, WRITTEN SEPARATELY ([[REQ-185]]). The membership is the ownership
+ * half and `platform_operator` is the hosting half, and they go in as two
+ * independent facts rather than one flag — so a later reader asking "is this
+ * person an owner here" and a later reader asking "may this person enter a
+ * business they are not a member of" consult different rows, which is the whole
+ * of what this ticket separated.
+ *
+ * IDEMPOTENT BY `WHERE NOT EXISTS`, NOT BY `INSERT OR IGNORE`, for the reason
+ * 0005 states: `OR IGNORE` relies on a unique index over exactly the columns that
+ * make the row a duplicate, and `entitlements` deliberately has none. Every
+ * admission by a holder runs this, so "cheap when there is nothing to do" is a
+ * requirement rather than a nicety — three `WHERE NOT EXISTS` inserts that match
+ * nothing is what a steady state costs.
+ *
+ * IT DOES NOT CREATE A STARTER SITE, unlike {@link provisionBusiness}. The 1st
+ * Contact business is not being provisioned here — it exists, and this is a
+ * membership onto it. Writing a starter site into the platform's own business
+ * every time an operator logged in would be a new site nobody asked for.
+ *
+ * NO GRANT IS OVERWRITTEN. The entitlement is inserted only when nothing active
+ * covers the business, so a deployment that has deliberately dated the platform's
+ * own grant keeps it rather than having it silently widened to open-ended by
+ * whoever logged in next.
+ */
+export async function ensurePlatformOperator(env: IdentityEnv, email: string): Promise<void> {
+  const platformTenant = requirePlatformTenant(env)
+  const normalised = normaliseEmail(email)
+  if (normalised === '') throw new Error('A platform operator needs an email address.')
+  const now = new Date().toISOString()
+
+  // The business itself, in case this is a database being brought up from empty.
+  // `forTenant` refuses an unregistered tenant, so a membership pointing at one
+  // would be a row that can never be used — and `businessesFor`'s join drops it,
+  // so the operator would be refused `no_membership` with the row sitting there.
+  await d1r2SiteStore(env).createTenant({ id: platformTenant, name: platformTenant })
+
+  // The person. Casefolded on the way in for the reason `normaliseEmail` gives:
+  // `idx_users_tenant_email` is byte-exact, so a differently-cased row would be a
+  // second person this function would never find again.
+  await env.DB.prepare(
+    'INSERT INTO users (id, tenant_id, email, status, platform_operator, invited_at, ' +
+      'created_at, updated_at, fields) SELECT ?, ?, ?, ?, 1, ?, ?, ?, ? ' +
+      'WHERE NOT EXISTS (SELECT 1 FROM users WHERE tenant_id = ? AND email = ?)',
+  )
+    .bind(newId('usr'), platformTenant, normalised, 'active', now, now, now, '{}', platformTenant, normalised)
+    .run()
+
+  // The hosting half, for a person who already had a row without it. Separate
+  // from the insert above because the row may predate the var — an operator
+  // invited as an ordinary customer and later named here must gain the column,
+  // and an `INSERT ... WHERE NOT EXISTS` says nothing about a row that exists.
+  await env.DB.prepare(
+    'UPDATE users SET platform_operator = 1, updated_at = ? WHERE tenant_id = ? AND email = ? ' +
+      'AND platform_operator = 0',
+  )
+    .bind(now, platformTenant, normalised)
+    .run()
+
+  // The ownership half — the row this function exists for. Inserted FROM a select
+  // over `users` rather than against an id computed above, so it agrees with a
+  // row an earlier run or an invite already wrote.
+  await env.DB.prepare(
+    'INSERT INTO memberships (id, user_id, business_id, role, status, granted_by, granted_at) ' +
+      "SELECT ?, u.id, ?, 'owner', 'active', ?, ? FROM users u " +
+      'WHERE u.tenant_id = ? AND u.email = ? AND NOT EXISTS (' +
+      'SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.business_id = ?)',
+  )
+    .bind(newId('mem'), platformTenant, 'PLATFORM_ADMINS', now, platformTenant, normalised, platformTenant)
+    .run()
+
+  // AND THE GRANT, WITHOUT WHICH THE MEMBERSHIP IS HALF A REPAIR. `admit` admits
+  // a member whose grant has lapsed ([[REQ-184]]), so this is not the difference
+  // between in and out — but a business with no covering grant is unselectable,
+  // and `resolveScope` refuses it `no_entitlement`. Break glass that admitted its
+  // holder to a business they could not open would not have repaired anything.
+  //
+  // Open-ended, and `account_id` LEFT NULL: this is a grant to the BUSINESS
+  // ([[REQ-184]]), which is the kind `bestActiveGrant` selects. A dated grant on
+  // the platform's own business would expire the operator out of their own
+  // deployment at a wall-clock time nobody chose.
+  await env.DB.prepare(
+    'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ' +
+      "ends_at, granted_by, note, created_at, updated_at) SELECT ?, ?, ?, 'pro', 'admin_grant', " +
+      "'active', ?, NULL, ?, ?, ?, ? WHERE NOT EXISTS (" +
+      'SELECT 1 FROM entitlements WHERE business_id = ? AND account_id IS NULL ' +
+      "AND status = 'active' AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?))",
+  )
+    .bind(
+      newId('ent'),
+      platformTenant,
+      normalised,
+      now,
+      'PLATFORM_ADMINS',
+      "The platform business's own capacity, seeded by PLATFORM_ADMINS ([[DOC-40]] §6).",
+      now,
+      now,
+      platformTenant,
+      now,
+      now,
+    )
+    .run()
+}
+
+/**
  * The account an operator named, by the address it logs in with ([[REQ-180]]).
  *
  * IT EXISTS SO THAT NOTHING OUTSIDE THIS MODULE HAS TO KNOW WHERE ACCOUNTS LIVE.
@@ -609,7 +833,8 @@ export async function admit(
  *
  * NULL RATHER THAN A THROW. "No account with that address" is an ordinary answer
  * to an operator who mistyped one, and it is not a disclosure: reaching this
- * function at all requires `platform_admin`.
+ * function at all requires owning the 1st Contact business
+ * ({@link ownsPlatformBusiness}).
  */
 export async function findAccount(env: IdentityEnv, email: string): Promise<UserRow | null> {
   const platformTenant = requirePlatformTenant(env)
@@ -664,7 +889,7 @@ async function businessesFor(
   now: string = new Date().toISOString(),
 ): Promise<AdmittedBusiness[]> {
   const { results } = await env.DB.prepare(
-    'SELECT m.business_id AS business_id, t.name AS name FROM memberships m ' +
+    'SELECT m.business_id AS business_id, m.role AS role, t.name AS name FROM memberships m ' +
       'JOIN tenants t ON t.id = m.business_id ' +
       'WHERE m.user_id = ? AND m.status = ? AND m.revoked_at IS NULL ' +
       'AND (m.expires_at IS NULL OR m.expires_at > ?) ' +
@@ -672,13 +897,80 @@ async function businessesFor(
       'ORDER BY m.granted_at, m.id',
   )
     .bind(userId, 'active', now, 'active')
-    .all<{ business_id: string; name: string }>()
+    .all<{ business_id: string; role: string; name: string }>()
 
   const businesses: AdmittedBusiness[] = []
   for (const row of results ?? []) {
-    businesses.push(await admittedBusiness(env, row.business_id, row.name, now))
+    businesses.push(await admittedBusiness(env, row.business_id, row.name, row.role, now))
   }
   return businesses
+}
+
+/**
+ * Is this person an owner of that business ([[REQ-185]])?
+ *
+ * ONE QUESTION, ASKED THE SAME WAY FOR EVERY BUSINESS. It used to have two
+ * answers depending on WHICH business was being asked about — `memberships.role`
+ * for a customer's, `users.platform_admin` for 1st Contact's — and that asymmetry
+ * is [[DOC-40]] §2.1 rule 1's named failure mode: a platform-only flag standing
+ * in for a capability every business owner needs. Owning the 1st Contact business
+ * is an `owner` row exactly like owning a salon, and this function cannot tell
+ * the two apart because there is nothing to tell apart ([[DOC-42]] §7).
+ *
+ * IT READS THE ADMISSION AND TOUCHES NO TABLE. The admission already carries
+ * every business this person may operate, each with its role, so asking the
+ * database again would be a second answer that could disagree with the one
+ * admission was decided from.
+ *
+ * IT IS NOT THE HOSTING BYPASS AND CANNOT BECOME IT. A business reached through
+ * {@link admissibleBusiness} carries `role: null`, so entering a business you do
+ * not belong to never makes you its owner. That is the separation this ticket
+ * exists for, and it holds because of where the data comes from rather than
+ * because two call sites agree.
+ */
+export function ownsBusiness(
+  admission: Admission | null | undefined,
+  businessId: string,
+): boolean {
+  if (!admission?.ok) return false
+  return admission.businesses.some((b) => b.businessId === businessId && b.role === 'owner')
+}
+
+/**
+ * Is this person an owner of the 1st Contact business ([[DOC-42]] §7)?
+ *
+ * THE GATE ON A PRODUCT-FULFILMENT CONTROL, and it is TWO CONDITIONS rather than
+ * a privilege: *you are an owner of this business*, and *this business's product
+ * is businesses*. Provisioning a business is 1st Contact filling an order — which
+ * is why it writes a `tenants` row and therefore needs a gate at all. A customer
+ * will have fulfilment actions of their own and they will look nothing like these.
+ * Neither condition is the word "admin", and there is deliberately no generic
+ * privileged-surface mechanism here for the next surface to reuse: the next one
+ * asks these same two questions about whatever business it is for.
+ *
+ * "THIS BUSINESS'S PRODUCT IS BUSINESSES" IS `TENANT_ID` TODAY, which is why the
+ * predicate lives in this module rather than at the route. [[REQ-168]] left that
+ * variable exactly two readers — this file and `scope.ts` — because a third is
+ * how the platform's data ends up in a customer's session, and a route resolving
+ * the platform business for itself would be that third one.
+ *
+ * IT SAYS NOTHING ABOUT `platform_operator`, deliberately and permanently. A
+ * holder of that column who owns no membership here is refused by this function,
+ * which is the acceptance criterion that no single predicate answers both
+ * questions.
+ *
+ * `boolean`, NOT A TYPE PREDICATE narrowing to a successful admission — which
+ * compiles and would be wrong. True here does imply the admission succeeded, but
+ * a predicate asserts the CONVERSE too, and false says nothing: an ordinary
+ * customer is admitted and owns nothing here. TypeScript would then treat the
+ * refusal branch as unreachable for an admitted caller, which is the one caller
+ * that branch mostly serves.
+ */
+export function ownsPlatformBusiness(
+  env: IdentityEnv,
+  admission: Admission | null | undefined,
+): boolean {
+  return ownsBusiness(admission, requirePlatformTenant(env))
 }
 
 /**
@@ -701,12 +993,14 @@ async function admittedBusiness(
   env: IdentityEnv,
   businessId: string,
   name: string,
+  role: string | null,
   now: string,
 ): Promise<AdmittedBusiness> {
   const entitlement = await bestActiveGrant(env, businessId, now)
   return {
     businessId,
     name,
+    role,
     entitlement,
     selectable: entitlement !== null,
     lapse: entitlement === null ? await lapseFor(env, businessId, now) : null,
@@ -772,10 +1066,16 @@ async function lapseFor(
 /**
  * One business by id, WITHOUT consulting membership — the admin bypass's half.
  *
- * [[DOC-40]] §6's `platform_admin` is ambient by design: it has to work before
- * any membership row exists, or the flag could not be used to repair the system
+ * [[DOC-40]] §6's `platform_operator` is ambient by design: it has to work before
+ * any membership row exists, or the column could not be used to repair the system
  * that grants it. So the bypass needs a way to reach a business that
  * {@link businessesFor} will never return, and this is it.
+ *
+ * IT IS THE HOSTING HALF AND ONLY THAT ([[REQ-185]]). The column that reaches
+ * here once also meant "owner of the 1st Contact business"; that half is
+ * `memberships.role` now, and nothing on this path consults it. Entering a
+ * business you host is not owning it, which is why what comes back carries
+ * `role: null`.
  *
  * IT BYPASSES MEMBERSHIP AND NOTHING ELSE. The tenant must still be registered
  * and ACTIVE, and the grant is still selected the ordinary way — an administrator
@@ -802,7 +1102,11 @@ export async function admissibleBusiness(
     .bind(businessId, 'active')
     .first<{ id: string; name: string }>()
   if (!row) return null
-  return admittedBusiness(env, row.id, row.name, now)
+  // `role: null` — there IS no membership here, which is this path's whole
+  // point. It is also what keeps [[REQ-185]]'s two capabilities apart: a business
+  // reached through the hosting bypass leaves {@link ownsBusiness} answering
+  // false about it, so the bypass can never be read back as ownership.
+  return admittedBusiness(env, row.id, row.name, null, now)
 }
 
 /**
