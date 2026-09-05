@@ -14,6 +14,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-ed878559
 ---
 
 # Data is not a key: opaque keys across the schema, in one rebaseline
