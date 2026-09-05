@@ -6,7 +6,7 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-09-04T23:43:40.335222+00:00'
+updated_at: '2026-09-05T00:05:01.877956+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -251,3 +251,55 @@ is the right instrument for it.
 D1 and D3 are untouched. The portal reading, the prohibition on plan/billing/
 invoice views as builder routes, and business-and-tenant-as-one-operation all
 stand exactly as decided — [[DOC-42]] §5 and §7 depend on them.
+
+
+### What the amendments make buildable
+
+A2 lands no code here. Admission is [[REQ-178]]'s and the surface a
+nothing-selectable session lands on is [[REQ-183]]'s; what this ticket owes A2 is
+that the account surface already states a lapse per business rather than as one
+banner, which it does, so the all-lapsed case needs no second rendering path when
+that admission change arrives.
+
+A1 and A3 land the same instrument twice, and it is the one D5 already chose: a
+**guard, not an audit**. Both audits pass today — `platform_admin` has exactly the
+two readers it should, and no predicate anywhere asks whether a business is the
+platform's own. So in both cases the thing worth writing down is not a cleanup but
+the assertion that the next one cannot appear quietly, which is [[REQ-168]]'s
+single-reader idiom applied to a flag and to a concept.
+
+- **A1's guard: `platform_admin` has two readers, and they mean different
+  things.** `scope.ts` reads it to enter a business without a membership — the
+  genuinely special power, and special because 1st Contact *hosts* the others
+  ([[DOC-42]] §8). `router.ts` reads it to gate product fulfilment — provisioning
+  is 1st Contact filling an order ([[DOC-42]] §7). A third reader is the generic
+  privileged-surface mechanism [[DOC-42]] §7 names as its falsifier and
+  [[DOC-40]] §2.1 rule 1 names as its failure mode, so the count is the
+  assertion. The declaration of the column and the SQL that writes it are not
+  reads and are exempt, on the same rule the vocabulary guard already uses.
+
+- **A3's guard: no predicate asks whether a business is the platform's own.**
+  Outside `identity.ts` and `scope.ts` — [[REQ-168]]'s two readers, and the two
+  places the question is legitimately asked — nothing may name or test the
+  concept. It extends the D5 guard rather than starting a second one, because it
+  is the same rule at the level below the word: D5 keeps *tenant* off a screen,
+  and this keeps *the platform's tenant* out of the model.
+
+- **The route's stated reason is corrected in place.** `POST /api/admin/businesses`
+  does not change shape, and its comment stops giving the flag as the reason. The
+  reason is [[DOC-42]] §7's two conditions — you own this business, and this
+  business's product is businesses — which select exactly the set the flag selects
+  today and will not select a generic admin surface tomorrow.
+
+## Acceptance — as amended
+
+- `platform_admin` is read in exactly two places, and a third read fails the
+  build; the column's declaration and the SQL that writes it are not reads.
+
+- No predicate outside `identity.ts` and `scope.ts` names or tests "the
+  platform's own tenant".
+
+- Both guards can be shown a violation they must catch and each exemption they
+  must excuse.
+
+- Everything D1–D5 landed still passes unchanged: no endpoint changes shape.
