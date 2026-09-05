@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:58:55.697478+00:00'
+updated_at: '2026-09-05T23:00:55.168797+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2203,5 +2203,43 @@ Notice that a contact can be a customer and a member and a contact can be a cust
 I think we should get all these names straight do we have a document that we can put this in?
 
 I don't know what people/person are I don't think that's appropriate a contact could be a business or an organization. I'm also not sure what operator means in this context yet
+
+<!-- xgd-turn id="baea6081-67b3-4a7c-8bc0-d33f1629332a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:00:54.981711+00:00" -->
+#### Claude
+Let me check what the existing docs commit to, so the new one amends them accurately.
+
+**DOC-44 — "The Contact: one entity, three axes, and the words for them."**
+
+To answer your question directly: no, there wasn't a home. DOC-42 §4 was closest but it's framed around the User tab, and DOC-40 §2 defines the nouns from the identity side. Both were deciding vocabulary as a side effect of describing something else, which is how one population ended up with four names. DOC-44 is the authority; the other two now defer to it.
+
+## The thing your description clarified
+
+Writing it up, the sharpest point turned out to be one you implied rather than stated: **these aren't stages of one line, they're three independent axes.**
+
+- **Access** — Member (can sign in)
+- **Commercial** — Customer (has paid ≥ once)
+- **Pipeline** — the one that will grow
+
+All four member/customer combinations are real, and you named three of them. So *contact* is the noun and *member*/*customer* are adjectives. A contact who is both is one row with two facts true, not a row that advanced twice.
+
+That also gives a precise reason **Contact can't be the initial state**: it's the entity's name. Using it as a value on one axis makes it mean both "every row in this table" and "a row with nothing else true yet" — and the second reading is what makes someone write a query that excludes customers from the contact list.
+
+## Operator — why it felt different
+
+It isn't a fact about a contact at all. Contact, Member and Customer are **unary** — true of the contact alone. Operator is **binary**: it's true of a *(contact, business)* pair. You're not "an operator", you're an operator *of a business*, and of a different business you're not. Entitled is binary too, on *(account, business)*.
+
+So the discomfort was well-placed. Whether "Operator" survives as the word is open; that it sits on a different axis is settled.
+
+## Left open rather than decided
+
+The initial pipeline state. I listed Lead / Prospect / Enquiry / Known with what each commits to — *Lead* assumes commercial intent, which is wrong for someone asking a question via a contact form — but didn't pick. A first stage named without knowing the second and third is named against nothing, so it wants settling as a set.
+
+Also open: whether an organisation contact can hold person contacts (a contact *at* an organisation is an obvious want, and there's no relation for it), and where *Customer* is computed from — "has paid once" needs a payments table that doesn't exist, so that axis currently has nothing to read.
+
+## One consequence you should know about
+
+**This invalidates REQ-188 as filed.** I wrote it as a linear Contact → Invited → Member progression. The marker reasoning survives — a member is someone who completed sign-up, not someone we invited — but the framing doesn't. It's flagged in DOC-44 §6 as needing revision before it's built. Want me to revise it now, or leave it until the pipeline names are settled, since it'll need those anyway?
 
 <!-- xgd-chat-end -->
