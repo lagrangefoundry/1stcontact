@@ -5,10 +5,10 @@ type: request
 title: 'The invite: the verb that turns a contact into a member'
 created_by: xgd
 created_at: '2026-09-05T18:26:53.840793+00:00'
-updated_at: '2026-09-05T18:48:51.799117+00:00'
+updated_at: '2026-09-05T18:58:31.423187+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
