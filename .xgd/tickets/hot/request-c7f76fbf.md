@@ -5,9 +5,9 @@ type: request
 title: The Users tab is unstyled, and its detail panel splits one thing into two tables
 created_by: xgd
 created_at: '2026-09-05T20:17:18.378919+00:00'
-updated_at: '2026-09-05T20:35:05.166932+00:00'
+updated_at: '2026-09-05T20:35:24.559129+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -142,8 +142,11 @@ split, which resolves its height against a definite-height ancestor or collapses
 **A hover on the business row.** Five short columns are hard to track across; it
 is the only thing that class is for.
 
-**No rule branches on what a state is called.** [[REQ-188]] turns Member/Contact
-into three states, so there is no per-label styling to find and edit again.
+**No rule branches on what a state is called.** [[REQ-188]] landed on
+`xgd-working` while this was being written and had already turned Member/Contact
+into three states; this branch was rebased onto it, and because no rule and no row
+here names a label, nothing had to be edited for that. The row draws whatever
+`stateOf` returns and the pill is styled the same whichever of the three it is.
 
 ## Further acceptance
 
