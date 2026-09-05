@@ -5,9 +5,9 @@ type: request
 title: A member is a contact who can sign in, and the pipeline is a separate axis
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-05T23:06:58.435646+00:00'
+updated_at: '2026-09-05T23:33:52.437896+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.2.75
 ---
+
 
 # A member is a contact who can sign in, and the pipeline is a separate axis
 
@@ -74,6 +75,31 @@ new column plus an invisible ordering rule. `invited_at` stays and records
 **Contact is not a value on either axis.** It is the entity ([[DOC-44]] §2). A row
 with nothing else true is a `Lead`.
 
+## How it lands
+
+- **`users.pipeline_stage`**, `TEXT NOT NULL DEFAULT 'lead'`, in a migration that
+  backfills `invited` for every row already carrying `invited_at`. No CHECK
+  constraint: the set grows and adding a stage must be a code change.
+- **`builder/people-axes.js`** replaces `people-state.js` — the one definition of
+  both derivations, importable from the browser panel, from `people.ts` and from
+  a test running in workerd, so the labels an operator sees and the rows a test
+  reads back come from the same rule.
+- **The invite writes the stage and keeps the stamp.** `invited_at` is
+  `COALESCE`d so a second press does not falsify when we asked; the stage is
+  assigned, because that is the fact the invite decides. Inviting somebody who is
+  already a member is an ordinary no-op on the other axis, not an error.
+- **The tab draws a stage on every row and a member badge on the ones that have
+  signed up**, and offers **two facets** rather than one. That is not a richer
+  presentation of one fact: the two questions an operator actually has — *who did
+  I ask who never came* and *who signed up that I never asked* — are each a
+  conjunction across the axes, and a single merged facet can express neither.
+- **Classes name the axis, never the value** (`__stage`, `__access`, `__facet`),
+  which is the rule [[REQ-189]] already holds this tab to and which the growing
+  stage set makes load-bearing rather than tidy.
+- **The seeded platform operator is written at `invited`**, because that insert
+  stamps `invited_at` — leaving it at `lead` would produce the one row whose
+  stamp and stage disagree, and invite somebody to "fix" it by deriving.
+
 ## What this does not do
 
 - **No access restrictions and no role vocabulary.** Punted ([[REQ-194]]).
@@ -110,4 +136,8 @@ with nothing else true is a `Lead`.
 - the two axes are independently representable: an invited non-member, a member
   who was never invited, and a Lead who is neither, all exist and all display
   correctly
+- the two axes are drawn as separate things on a row, and narrowed by separate
+  facets; narrowing both at once is what makes *invited and never came* and
+  *signed up and never asked* askable
+- no stylesheet rule names a value of either axis
 - [[DOC-42]] §4, §4.1 and §9 are amended to describe the axes
