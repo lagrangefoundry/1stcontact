@@ -146,7 +146,7 @@ async function invite(
 
 /** Push a business's grant into the past — the "card expired" shape. */
 async function lapse(businessId: string): Promise<void> {
-  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+  await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
     .bind(new Date(Date.now() - 1_000).toISOString(), businessId)
     .run()
 }

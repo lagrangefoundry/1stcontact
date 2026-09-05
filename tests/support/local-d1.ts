@@ -73,25 +73,28 @@ export function applyLocalD1Schema(repoRoot: string): void {
 export function seedIdentity(
   repoRoot: string,
   email: string,
-  options: { tenantId?: string; accountId?: string } = {},
-): { accountId: string } {
+  options: { tenantId?: string; businessId?: string } = {},
+): { businessId: string } {
   const tenantId = options.tenantId ?? '1stcontact'
-  const accountId = options.accountId ?? `acct_${email.replace(/[^a-z0-9]/gi, '')}`
+  // Named for what it is ([[REQ-184]]): the row this seeds is a BUSINESS. The id
+  // still reads `acct_…` because those values are opaque, permanent and in R2
+  // keys; only the names say what they mean.
+  const businessId = options.businessId ?? `acct_${email.replace(/[^a-z0-9]/gi, '')}`
   const userId = `usr_${email.replace(/[^a-z0-9]/gi, '')}`
   const now = new Date().toISOString()
   const sql = [
-    `INSERT OR IGNORE INTO tenants (id, name, status, created_at) VALUES ('${accountId}', '${email}', 'active', '${now}');`,
+    `INSERT OR IGNORE INTO tenants (id, name, status, created_at) VALUES ('${businessId}', '${email}', 'active', '${now}');`,
     `INSERT OR IGNORE INTO users (id, tenant_id, email, status, platform_admin, invited_at, created_at, updated_at) ` +
       `VALUES ('${userId}', '${tenantId}', '${email.toLowerCase()}', 'active', 0, '${now}', '${now}', '${now}');`,
-    `INSERT OR IGNORE INTO memberships (id, user_id, account_id, role, status, granted_at) ` +
-      `VALUES ('mem_${userId}', '${userId}', '${accountId}', 'owner', 'active', '${now}');`,
-    `INSERT OR IGNORE INTO entitlements (id, account_id, email, plan, source, status, starts_at, ends_at, created_at, updated_at) ` +
-      `VALUES ('ent_${userId}', '${accountId}', '${email.toLowerCase()}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
+    `INSERT OR IGNORE INTO memberships (id, user_id, business_id, role, status, granted_at) ` +
+      `VALUES ('mem_${userId}', '${userId}', '${businessId}', 'owner', 'active', '${now}');`,
+    `INSERT OR IGNORE INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, created_at, updated_at) ` +
+      `VALUES ('ent_${userId}', '${businessId}', '${email.toLowerCase()}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
     `UPDATE users SET tos_version = '${TERMS_VERSION}', tos_accepted_at = '${now}' WHERE id = '${userId}';`,
   ].join(' ')
   execFileSync('npx', ['wrangler', 'd1', 'execute', '1stcontact', '--local', '--command', sql], {
     cwd: path.join(repoRoot, 'apps', 'control-app'),
     stdio: 'ignore',
   })
-  return { accountId }
+  return { businessId }
 }

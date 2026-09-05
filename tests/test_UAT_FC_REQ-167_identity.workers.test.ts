@@ -156,7 +156,7 @@ describe('REQ-167 — the migration', () => {
   })
 
   it('test_UAT_FC_REQ-167_an_account_may_hold_several_grants_at_once', async () => {
-    // There is deliberately NO unique index on `entitlements.account_id`: an
+    // There is deliberately NO unique index on `entitlements.business_id`: an
     // account accumulates grants over its life and effective access is the best
     // active one covering now. The claim is proved by the database ACCEPTING a
     // second grant — a unique index would refuse this insert, which is precisely
@@ -165,13 +165,13 @@ describe('REQ-167 — the migration', () => {
     const now = new Date().toISOString()
     for (const plan of ['pro', 'trial']) {
       await env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
         .bind(newId('ent'), accountId, plan, 'admin_grant', 'active', now, now, now)
         .run()
     }
-    const { results } = await env.DB.prepare('SELECT plan FROM entitlements WHERE account_id = ?')
+    const { results } = await env.DB.prepare('SELECT plan FROM entitlements WHERE business_id = ?')
       .bind(accountId)
       .all<{ plan: string }>()
     expect((results ?? []).map((r) => r.plan).sort()).toEqual(['pro', 'trial'])
@@ -196,11 +196,11 @@ describe('REQ-167 — the invite provisions the account', () => {
 
     const membership = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ?')
       .bind(user!.id)
-      .first<{ account_id: string; role: string; status: string }>()
-    expect(membership?.account_id).toBe(result.businessId)
+      .first<{ business_id: string; role: string; status: string }>()
+    expect(membership?.business_id).toBe(result.businessId)
     expect(membership?.role).toBe('owner')
 
-    const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE account_id = ?')
+    const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE business_id = ?')
       .bind(result.businessId)
       .first<{ plan: string; source: string; status: string; email: string }>()
     expect(grant?.plan).toBe('pro')
@@ -379,7 +379,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     })
     expect((await admit(identityEnv(), email)).ok, 'a live grant did not admit').toBe(true)
 
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
       .run()
 
@@ -394,7 +394,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // operator hand out access by scheduling it.
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() + 86_400_000).toISOString(), invited.businessId)
       .run()
 
@@ -406,7 +406,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // once the end date arrived would make revoking an open-ended grant a no-op.
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
       .bind('revoked', invited.businessId)
       .run()
 
@@ -430,7 +430,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     expect(refused.ok).toBe(false)
     expect(!refused.ok && refused.reason).toBe('no_membership')
     // The grant is untouched — the account still has access; this person does not.
-    const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE account_id = ?')
+    const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE business_id = ?')
       .bind(invited.businessId)
       .first<{ status: string }>()
     expect(grant?.status).toBe('active')
@@ -450,7 +450,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
     const now = new Date().toISOString()
     await env.DB.batch([
       env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).bind(
         newId('ent'),
@@ -464,7 +464,7 @@ describe('REQ-167 — login binds, and does not provision', () => {
         now,
       ),
       env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
       ).bind(newId('ent'), invited.businessId, 'open', 'admin_grant', 'active', now, now, now),
     ])
@@ -508,7 +508,7 @@ describe('REQ-167 — the request path', () => {
 
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(new Date(Date.now() - 1_000).toISOString(), invited.businessId)
       .run()
     const expired = await worker.fetch(GET(await mint(email)), workerEnv())
