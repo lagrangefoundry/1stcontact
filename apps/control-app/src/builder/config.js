@@ -99,6 +99,33 @@ export const BUSINESS_LABEL = 'Business'
 export const BUSINESS_LAPSED_SUFFIX = ' (access ended)'
 
 /**
+ * What the builder says when NOTHING on the account can be entered ([[REQ-179]]
+ * reopen, [[DOC-42]] §10.1).
+ *
+ * THIS STATE USED NOT TO EXIST. An account whose every grant had lapsed was
+ * refused at the door, so the person whose problem was a payment met a login
+ * failure — and could reach neither the page showing what they were charged nor
+ * the button closing their account, which [[DOC-37]] makes an obligation rather
+ * than a feature. Membership admits now; entitlement does not. So the session is
+ * real, the chrome is live, and the TABS are what is unavailable.
+ *
+ * IT NAMES THE STATE AND POINTS AT THE ONE THING THAT STILL WORKS. "Nothing
+ * loaded" is what a broken deployment looks like too, and a person who cannot
+ * tell those apart will file the wrong support request — or none. The avatar is
+ * named because it is where the account is, and the account is where the remedy
+ * is once [[REQ-183]] renders it.
+ *
+ * WHY EACH BUSINESS LAPSED IS NOT HERE. That is per business and belongs beside
+ * the business it is about — the account surface has a row each and says it
+ * there ([[REQ-180]] §1). An account with two businesses lapsed for different
+ * reasons would force this sentence to pick one and be wrong about the other.
+ */
+export const BUSINESS_NONE_SELECTABLE_MESSAGE =
+  'None of your businesses is open to you at the moment, so there is nothing ' +
+  'here to edit. Your account is still yours — open it from the avatar above ' +
+  'to see each business and why its access ended.'
+
+/**
  * WHY a business lapsed, in words ([[REQ-180]] §1).
  *
  * THE SUFFIX ABOVE MARKS; THIS EXPLAINS, and the split is where each one can be

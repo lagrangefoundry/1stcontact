@@ -5,13 +5,13 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-09-04T23:57:46.609050+00:00'
+updated_at: '2026-09-05T00:50:27.487892+00:00'
 completed_at: null
-last_field_updated: depends_on
-status: draft
+last_field_updated: story_points
+status: free_coded
 fields:
   priority: high
-  story_points: 3
+  story_points: 4
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c4e1817d
@@ -19,7 +19,11 @@ fields:
   - working_sha: 6d25bf25baf5633574b69975a7ea046389da199c
     reconcile_sha: null
     main_sha: null
-  version: 0.2.61
+    working_sha_history: []
+  - working_sha: 5bace72f8a6a0e656544eec03f24fef6c20784a3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.69
   depends_on:
   - REQ-178
 ---
@@ -169,3 +173,63 @@ The tab strip is the entitled product; the chrome is not. That line is the same
 one [[DOC-42]] §5 draws between *a fact about this person's relationship with this
 business* and *something the business provides*, and it is what decides which
 parts of the shell survive an empty selectable set.
+
+
+### Implementation delta (added at free-coding time)
+
+The section above states the intent. These follow from it as technical
+consequence, recorded here so they are matrix-visible rather than discovered by
+reconciliation.
+
+**The block lands on the tab strip and the panels, never on the shell.** The
+existing unconfigured-deployment block (`blockEverything`, [[REQ-173]]) makes the
+whole shell `inert`, which here would take the avatar with it — and the avatar is
+the entire remedy this state has. So a second, narrower block marks `.shell-tabs`
+and `.shell-panels` inert and leaves the header alone; the switcher, the account
+avatar and the shell's own Theme and About stay live. The wider block still wins
+when both apply: an unconfigured deployment is a bigger fact than a lapsed grant,
+and two banners under each other would say so twice.
+
+**The state is named where the product would be.** A page that is simply empty
+looks like a broken deployment, and the person who cannot tell those apart files
+the wrong support request or none. So a one-sentence banner sits in the content
+area above the panels — inside the shell, outside the inert subtree, because a
+message whose text cannot be selected cannot be pasted into a support request. It
+names the state and points at the avatar; **why** each business lapsed stays per
+business on the account surface ([[REQ-180]] §1), because an account with two
+businesses lapsed for different reasons would force one sentence to be wrong
+about one of them.
+
+**The switcher is disabled rather than merely all-options-disabled, and it names
+the first business rather than showing blank.** A chooser with nothing choosable
+in it invites the operator to try, fail, and conclude the page is broken; an
+empty box reads as still loading. Naming a business whose label already carries
+the lapse suffix states two true things where a blank states neither.
+
+**With no business in scope, no site list is asked for.** The default site load
+calls the business-scoped `/api/sites`; unprefixed it resolves at the origin's own
+fallback, so the request that must not be made is one whose answer would be some
+other business's sites arriving under an account that may open none of them. The
+true answer to "the sites of no business" is the empty list, and it is returned
+without a round trip.
+
+**`resolveBusiness` returning null is the stated fallback behaviour.** It already
+meant "no identity behind this host"; it now also means "admitted, nothing
+selectable", and in that case it says so rather than picking a business the server
+will refuse.
+
+### Acceptance, in test terms
+
+- With every business unselectable the switcher renders, lists them all, marks
+  each one, is itself disabled, and no business is in scope.
+
+- The tab strip and the panels are inert; the shell is not; the avatar is outside
+  every inert subtree and still opens the account surface, which states each
+  business's lapse reason.
+
+- The banner is present, is an `alert`, carries the message verbatim, sits inside
+  the shell's content area and is outside the inert subtree.
+
+- With no business in scope nothing asks the origin for a site list — and the same
+  default does ask when a business is in scope, so the assertion is about the
+  scope rather than about a seam that never runs.

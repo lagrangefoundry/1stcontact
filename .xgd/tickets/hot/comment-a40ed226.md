@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-170
 created_by: xgd
 created_at: '2026-09-04T01:52:48.555922+00:00'
-updated_at: '2026-09-04T23:59:56.607371+00:00'
+updated_at: '2026-09-05T00:40:56.819439+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -839,5 +839,80 @@ Both are **empty** — zero commits ahead of `xgd-working`, no code written, no 
 I haven't touched either — deleting branches is your call. `xgd branch clean` is the verb if you want REQ-185's reverted to `draft` and its worktree removed.
 
 Everything else from this session is committed locally; the pushes are still failing on the proxy auth error.
+
+<!-- xgd-turn id="843e3089-f955-447e-b8fe-a687dd027c92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:37:25.648788+00:00" -->
+#### You
+ok please note the changes REQ-184 made (see its transcript).
+
+If those do not need discussion, please proceed with your implementation
+
+<!-- xgd-turn id="843e3089-f955-447e-b8fe-a687dd027c92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T00:40:56.589185+00:00" -->
+#### Claude
+REQ-184 has landed — `free_coded`, commit `65c38cd5`. Let me see what it actually changed.
+
+REQ-184 landed and merged back. Let me note what it did and check for anything that changes REQ-170's plan.
+
+REQ-184 didn't touch `admit` (hunks skip 511–567), so REQ-178's pending delta is unaffected. Nothing here needs discussion — it sharpens REQ-170's contract rather than changing it. Proceeding.
+
+`webui-list-detail` is already built. Let me look at the tab registration and the Library tab as the closest precedent.
+
+Understood the patterns. Cutting the branch.
+
+Branch cut. Setting up the worktree — from memory, worktrees break webui resolution without the generated files.
+
+Worktree ready. Let me check how routes get the resolved business scope.
+
+Before I write the membership editor I need to check one thing — and I think I've found an error in DOC-42.
+
+Stopping before I write code — I've found an error in DOC-42, and it's in the part that decides what the User tab's columns are.
+
+## What the schema actually says
+
+Trace Alice through provisioning:
+
+- `provisionInvite` (`identity.ts:398`) writes her `users` row into the **1c tenant**
+- `provisionBusiness` writes her membership on **Alice's Plumbing**
+- She has **no membership on 1c** — yet she logs into 1c every day
+
+And `admit` confirms the split: `findUser(env, platformTenant, email)` is the login check; `businessesFor(user.id)` then asks what she may *operate*. `0005` gives you a membership + entitlement on `'1stcontact'` precisely because you operate 1c, which Alice does not.
+
+So **login is the `users` row in the tenant, not the membership row.**
+
+## The error
+
+DOC-42 §4 maps your concept onto the wrong table:
+
+> | **Membership** | this person may log in to this business | `memberships` |
+
+Your *concepts* were right — I mapped one to the wrong place. There are **three** relations, not two:
+
+| relation | means | where it lives |
+|---|---|---|
+| **in the business** | may log in here | a `users` row in that tenant |
+| **operates the business** | owner, support, eventually staff | `memberships` |
+| **entitled** | granted access to a thing | `entitlements` |
+
+Bob has the first. Alice has the first on 1c and the first *and second* on Alice's Plumbing. You have all three on 1c.
+
+§5 is wrong in the same way — it says withdrawing a login is `memberships.revoked_at`. It's `users.status`, which `admit` checks as `user_inactive`.
+
+## Why this changes what I build
+
+The User tab's detail pane was going to carry "membership on this business" as an editable column. Under the corrected reading:
+
+- **Being in the list *is* the login relation.** There's no separate membership toggle for it — the editable control is `users.status`.
+- **`memberships` becomes what REQ-170's own revision note already said it was**: *"the businesses that person may operate — the membership rows — which is the only place a second business is visible at all."* For Alice viewed from 1c, that's Alice's Plumbing. That's a *different* column from "can she log in here".
+
+So the three columns are: the record (with `status` as the login control), the businesses they operate, and their grants. That's arguably cleaner than what DOC-42 §4 says — and it's what the ticket already described before I wrote the doc.
+
+## What I'd do
+
+Fix DOC-42 §4 and §5, propagate the one-line consequence into REQ-170, then build against the corrected reading. It's a doc edit plus a column swap in the plan, not a re-litigation — your model is unchanged, only its mapping onto tables.
+
+I've cut `free-REQ-170` but written no code. Want me to make that correction and continue?
 
 <!-- xgd-chat-end -->
