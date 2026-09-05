@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:41:31.171976+00:00'
+updated_at: '2026-09-05T21:49:42.302799+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1859,5 +1859,19 @@ You'll see seven people listed, read live from your local D1:
 Carol and Dave are worth a look precisely because they *don't* work: both were invited and neither can get in, which is DOC-42 §10.1's admitted-but-unentitled gap. Under REQ-188 they'd correctly read as **Invited** rather than **Member**, which is the state the tab can't currently show you.
 
 Cookies last 30 days, so this should be the last time login gets in your way.
+
+<!-- xgd-turn id="9f7ddf1a-af63-4628-9817-a31282f1ffdd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:49:40.708361+00:00" -->
+#### You
+# The builder did not start.
+
+**What failed:** could not load http://127.0.0.1:8788/builder/main.js
+
+**GET /api/sites:** 200 [{"slug":"alpha","latest":null}]
+
+An asset the builder imports is missing. Run `1c assets`, then restart the builder — the assets manifest is read at startup.
+
+The document loaded; its client did not. Full detail is in the browser console.
 
 <!-- xgd-chat-end -->
