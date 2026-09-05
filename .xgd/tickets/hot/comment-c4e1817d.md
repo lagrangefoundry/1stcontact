@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-179
 created_by: xgd
 created_at: '2026-09-03T20:19:44.390119+00:00'
-updated_at: '2026-09-03T21:43:59.898940+00:00'
+updated_at: '2026-09-05T00:34:16.494050+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,14 @@ The site selector was an action in the site tab's toolbar, so it scoped one tab 
 **Tests** — two new UAT files (11 tests: endpoint shape/lapsed marking/no-admission path, and chrome placement, switch propagation, persistence, fallback, avatar-not-a-tab). Seven existing suites updated for the moved selector. Full suite: 2413 passed, 30 failed — all 30 are pre-existing knowledge-base index and webui-scope failures, verified identical on `xgd-working` before the change.
 
 The ticket body already carries an "Implementation scope" section written at design time covering the endpoint, the URL prefixing, the toolbar deletion, the `.shell-bar` reach and its upstream gap, and the acceptance criteria — so every UAT is motivated by ticket language. Story points raised 2 → 3.
+
+<!-- xgd-turn id="83d3049d-477b-4f4c-aa1f-06a0122e2486-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:34:15.998091+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
