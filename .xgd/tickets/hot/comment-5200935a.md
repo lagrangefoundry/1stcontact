@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:37:57.835971+00:00'
+updated_at: '2026-09-05T23:39:20.700291+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -359,5 +359,19 @@ Ok I want to do the auth ourselves, but I would like to do it as a lagrange-fram
 
 4. Sure - you said that before lets do it that way
 5. Sure - but can't rely on the user being on the default browser or the right device
+
+<!-- xgd-turn id="8390cca8-36bf-4a09-aef8-09fe35187914-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:39:20.661654+00:00" -->
+#### You
+Ok I want to do the auth ourselves, but I would like to do it as a lagrange-framework component. You can write the tickets, I'll implement it their and then we get a reusable system. If we need to I can do the reverse, build it here, extract it and then reconsume but that feels like much more work and it only makes sense if we don';t understand the APIs well enough.
+
+**Rate-limit the issue endpoint.** Without it, anyone can make your Worker email arbitrary addresses — a spam relay with your domain's reputation attached. This is the one that genuinely bites. Cloudflare's Rate Limiting binding makes it more config than code. <-- why would this not have access controls? (I mean rate limit too sure but does this really need to be public?)
+
+1. Sure - you said that before lets do it that way
+2. Sure - but can't rely on the user being on the default browser or the right device
+
+no-reply@1stcontact.io
+**Unknown address on sign-in** — silent, or self-signup <-- today silent fail just drop it - tomorrow self-signup
 
 <!-- xgd-chat-end -->
