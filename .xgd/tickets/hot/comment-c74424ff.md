@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:11:06.664068+00:00'
+updated_at: '2026-09-05T21:12:58.832045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1597,5 +1597,45 @@ Yeah lets fix the email thing now that is a total footgun.
 First - we should have a separate key for all schema - DO NOT USE DATA FIELDS add an incrementing index. DATA as key gets us into exactly this kind of mess
 
 2. Email address should be a table each user can have multiple emails each email points to exactly one user - created, updated and "default" are important fields Can you create a REQ for this - today we have ONLY test data so this is the time to get it right
+
+<!-- xgd-turn id="780ef485-ab7e-4cea-889d-da520f8b0fe8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:12:57.662609+00:00" -->
+#### Claude
+Let me survey every table so the REQ names actual offenders, not principles.
+
+Surveyed all eight migrations. Writing it up with the actual offenders.
+
+**REQ-190 — "Identity is not a channel, and data is not a key"** (draft, high, 5 points).
+
+Surveying all eight migrations turned up more offenders than the email one, and one that's already biting:
+
+| Table | Data doing a key's job |
+|---|---|
+| `users` | `UNIQUE (tenant_id, email)` — the one you spotted |
+| `entitlements` | `email` as the subject — a **string** foreign key to a person |
+| `tenants` | `id` is a chosen name (`'1stcontact'`), propagating into every `tenant_id`, R2 prefixes and `/b/<id>/` URLs |
+| `sites` | `PRIMARY KEY (tenant_id, slug)` — renaming a site rewrites five tables plus R2 |
+| `published_sites` | `slug TEXT PRIMARY KEY`, **globally** |
+
+That last one isn't a future cost. Since REQ-168 gave every customer their own tenant, the first two customers who both publish a site called `home` collide. It's live.
+
+## Three things I changed or added to your brief
+
+**1. An incrementing key must not be the one in the URL.** `/b/<businessId>/` is customer-reachable. Integers there are an enumeration oracle — `/b/2/`, `/b/3/` probes every other business on the deployment and turns a 403 into an existence check. Today `newId('acct')` mints random hex, which is safe by luck rather than by design.
+
+So the pattern is **two columns**: an integer surrogate for joins, and a separate opaque `public_id` for anything in a URL, API response, or R2 key. Both satisfy your rule — neither is a data field.
+
+**2. Uniqueness is per tenant, not global.** "Each email points to exactly one user" is right *within a tenant*, but a global constraint would break the recursion. DOC-42 §1 has the same human as a member of 1st Contact **and** a contact of Alice's Plumbing — two rows in two tenants, deliberately, because a contact belongs to the business that knows them. So `UNIQUE (tenant_id, email)` moves onto the new table rather than disappearing.
+
+**3. `is_primary`, not `default`** — reserved word in enough dialects to matter — and the "exactly one primary" rule enforced by a partial unique index (`… ON user_emails (user_id) WHERE is_primary = 1`) rather than by application code. Same for casefolding: store the normalised form so the constraint enforces what `normaliseEmail` currently only conventions.
+
+## Two decisions the ticket needs from you
+
+**Rebaseline or migrate?** SQLite can't alter a primary key in place — each table means create-copy-drop-rename. With only test data, one new baseline that drops and recreates is far cleaner than eight rebuilds. The catch: `wrangler d1 migrations apply` records what it ran, so a rebaseline means **wiping the remote D1**, not editing history. I've recommended rebaseline-and-wipe, but it's your call since it's the deployed database.
+
+**How far does the sweep go?** The identity half is small and urgent. The `sites`/`slug`/`tenants.id` half is larger — it moves R2 key prefixes (DOC-38 §7.2) and the erasure path depends on the tenant prefix (DOC-37). It may want to be its own ticket. I've named it rather than folding it in silently, because `published_sites` is already colliding and shouldn't get lost.
+
+I also flagged phone as adjacent — the same table shape answers DOC-42 §4.1's other bullet, either by generalising to channels with a `kind` or as a sibling table. Not folded in; named so it's a decision rather than an oversight.
 
 <!-- xgd-chat-end -->
