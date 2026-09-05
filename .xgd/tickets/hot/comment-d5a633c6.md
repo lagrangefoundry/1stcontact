@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-53
 created_by: xgd
 created_at: '2026-09-05T20:57:42.122103+00:00'
-updated_at: '2026-09-05T21:47:05.440452+00:00'
+updated_at: '2026-09-05T21:48:07.899354+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,36 @@ Until that runs, every `1c assets` on this machine will refuse the same way — 
 <!-- xgd-chat role="user" ts="2026-09-05T21:47:03.779084+00:00" -->
 #### You
 Now localhost:8788 is giving me: Cloudflare Access rejected this request: no Access signing key matches kid 'local-dev-key-1'.
+
+<!-- xgd-turn id="fb393754-fcc6-42d7-a2ea-bd277c04a49f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:48:07.020097+00:00" -->
+#### Claude
+Stale cookie, not a code problem. Your browser is presenting a token signed by a key that no longer exists.
+
+**What's happening.** The live sim publishes one key:
+
+```
+$ curl -s http://127.0.0.1:8799/cdn-cgi/access/certs | grep -o '"kid":"[^"]*"'
+"kid":"local-dev-35981"
+```
+
+`bin/access-sim` mints `local-dev-${process.pid}` (line 65) precisely so a restart reads as a key rotation. Your cookie says `local-dev-key-1` — the old *stable* kid, from before that change. The gate is working correctly: it fetched the JWKS, found no matching kid, and refused.
+
+**Two things to fix, and the second will bite you again if you miss it.**
+
+1. Re-login at http://127.0.0.1:8799/login and pick a person. That overwrites `CF_Authorization` with a token signed by the current key.
+2. Browse **`127.0.0.1:8788`**, not `localhost:8788`. Cookies are scoped by host and ignore the port — the sim sets its cookie on `127.0.0.1`, so it is never sent to `localhost`. `access-sim` calls this out at line 115. Your stale `local-dev-key-1` cookie is presumably sitting on the `localhost` host from an earlier run; clear it there or it'll keep shadowing.
+
+**Verified end to end just now.** Minted a fresh token for a seeded person and drove the running Worker:
+
+```
+/                     200
+/builder/builder.css  → contains --builder-control-font-size (×2)
+```
+
+So the CSS sync from the last message is live — the Worker picked it up with no restart. `/builder/` itself 404s; the shell is served from `/`.
+
+One aside: `martin@westhead.me` gets a 403, not a 401 — signature verifies, identity isn't a seeded person. Use `martin-github@westhead.me` (or `uat@westhead.me`, `martin-1c-test@westhead.me`) from the sim's own list.
 
 <!-- xgd-chat-end -->
