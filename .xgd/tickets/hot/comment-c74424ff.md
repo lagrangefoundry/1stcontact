@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T21:40:38.650631+00:00'
+updated_at: '2026-09-05T21:41:00.391675+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1821,5 +1821,17 @@ It'll take 8799, and your running `wrangler dev` (workerd PID 19591, still servi
 Your existing browser cookie will stop verifying, though, since the keypair is new. Just visit `http://127.0.0.1:8799/login` and pick yourself — that's the one-click path the old sim didn't have.
 
 One note: run it from a terminal you own rather than through me. Both of my attempts to signal 19261 were denied — the sandbox won't let me touch processes from an earlier session, which is why it's still there.
+
+<!-- xgd-turn id="f82c31ae-3896-44c2-8f31-8be06a793e4c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:40:58.510601+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx main % kill 19261
+((.venv-working) ) martin@nyx main % ps 19261     
+  PID   TT  STAT      TIME COMMAND
+((.venv-working) ) martin@nyx main %
+
+```
 
 <!-- xgd-chat-end -->
