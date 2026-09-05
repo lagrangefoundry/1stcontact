@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T18:30:04.639414+00:00'
+updated_at: '2026-09-05T18:59:20.486377+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1309,5 +1309,11 @@ No **Invite** button anywhere — that's REQ-186. Alice and Bob got into the dat
 Tokens last an hour. To refresh, `curl -s "http://127.0.0.1:8799/mint?email=<who>"` and swap it into the snippet.
 
 Go and look. I'll hold here — tell me what you see and we can take the gaps one at a time.
+
+<!-- xgd-turn id="f64f4ced-4e93-4c4b-adf4-da5b832fb77e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T18:59:20.231172+00:00" -->
+#### You
+ok 186 was implemented - do I need to restart anything to pick up the changes?
 
 <!-- xgd-chat-end -->
