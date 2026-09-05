@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:30:49.844383+00:00'
+updated_at: '2026-09-05T23:43:19.814327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2355,5 +2355,15 @@ The others were already settled and are recorded: rebaseline-and-wipe, phone as 
 **4. One branch or six?** Six tickets, one migration. My suggestion is one branch that authors the baseline with each ticket reviewable as its own commit — but it's your call and it affects how the free-coding runs.
 
 Two I'd flag but not block on: DOC-44 still has *Operator*'s name open and the pipeline stages after `Invited`. Neither blocks the baseline, since the stage is a stored string.
+
+<!-- xgd-turn id="0d771648-ee10-4d8e-aa62-0f9c455738df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:43:19.655727+00:00" -->
+#### You
+1 We need to give you access - but the ONLY data I care about is the early stage xgd site which I  assume we have a copy of in some form. Everything else is entirely disposable.
+
+2. What are the consequences here - that email works but it is not the one I will use ultimately
+3. ticket
+4. It really doesn't matter - the fewer the tickets the better but DO NOT WORRY ABOUT data (except for xgd.dev site)
 
 <!-- xgd-chat-end -->
