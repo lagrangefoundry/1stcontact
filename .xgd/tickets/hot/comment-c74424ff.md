@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:07:14.246436+00:00'
+updated_at: '2026-09-05T23:17:51.576908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2281,5 +2281,11 @@ The clearest evidence the old framing was wrong is now an acceptance criterion: 
 It still carries the DOC-42 amendments — §4's "may log in here", §9's "two states", §4.1's "nothing enforces contact versus member" — since those sentences are what the code was written against.
 
 One thing to flag before you build it: REQ-188 now needs a stored stage column, and REQ-190 is rebaselining the schema. If REQ-188 lands first it adds a column that the baseline then re-creates. Probably worth REQ-188 defining the column and REQ-190's baseline being where it actually appears — same arrangement as REQ-191. Say if you'd rather sequence it the other way.
+
+<!-- xgd-turn id="a8cb77a5-d71c-4df2-8a93-b958ee0f431f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:17:51.420722+00:00" -->
+#### You
+I think we solve your lead semantics by explicitly storing what we know about where the contact came from. Lead - "joined email list" is very different from Lead - "booked consultation" - we can look for a better term...
 
 <!-- xgd-chat-end -->
