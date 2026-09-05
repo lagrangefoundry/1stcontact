@@ -6,9 +6,9 @@ title: 'Email sending: a sendEmail port, a Resend adapter, and a verified sendin
   domain'
 created_by: xgd
 created_at: '2026-09-05T23:44:40.147333+00:00'
-updated_at: '2026-09-05T23:44:40.147333+00:00'
+updated_at: '2026-09-05T23:44:53.220961+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -47,7 +47,7 @@ Postmark, and when it does the change should be one adapter and no call sites.
 
 **`providerId` is returned and is not optional.** It is the provider's message id,
 and it is the only thing that can later join a delivery or bounce webhook back to
-the record of what we sent ([[REQ-136]]). An adapter that discarded it would make
+the record of what we sent ([[REQ-198]]). An adapter that discarded it would make
 bounce handling unimplementable without a second round trip.
 
 ## The local adapter records and does not send
@@ -80,9 +80,9 @@ wanted, it is a separate address and a separate decision.
 
 ## What this does not do
 
-- no message bodies — those are templates ([[REQ-135]])
-- no record of what was sent — that is [[REQ-136]]
-- no bounce handling — the webhook is [[REQ-136]]'s, and this ticket only makes it
+- no message bodies — those are templates ([[REQ-197]])
+- no record of what was sent — that is [[REQ-198]]
+- no bounce handling — the webhook is [[REQ-198]]'s, and this ticket only makes it
   possible by returning `providerId`
 - no rate limiting; the only caller so far is an authenticated operator pressing a
   button
