@@ -18,6 +18,9 @@
 import {
   ACCOUNT_INITIAL_FALLBACK,
   ACCOUNT_LABEL,
+  PORTAL_HREF,
+  PORTAL_LINK_HINT,
+  PORTAL_LINK_LABEL,
   BUSINESS_LABEL,
   BUSINESS_LAPSED_SUFFIX,
   BUSINESS_LAPSE_EXPIRED_ON,
@@ -214,8 +217,9 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  * surface that is not business-scoped, and a tab for it would be the single
  * place where the shell's switcher is present and does not apply.
  *
- * IT DOES NOT GROW INTO THE PORTAL — IT LINKS TO IT. [[REQ-180]] settled the
- * question this comment used to leave open: the surface showing an account its
+ * IT DOES NOT GROW INTO THE PORTAL — IT LINKS TO IT, and since [[REQ-183]] the
+ * link is actually there. [[REQ-180]] settled the question this comment used to
+ * leave open: the surface showing an account its
  * plan, its invoices and its details is the customer portal of the 1st Contact
  * *site*, rendered through the site pipeline by the code that will render the
  * portal our customers give their own customers ([[DOC-40]] §2.1). Building any
@@ -287,6 +291,26 @@ export function openAccountSurface({ host = null, account = null, businesses = [
     list.append(row)
   }
   modal.panel.append(list)
+
+  // THE WAY OUT, AND THE ONLY THING IN THIS DIALOG THAT IS NOT A FACT ABOUT THE
+  // SESSION ([[REQ-183]]). An anchor rather than a button because it navigates:
+  // a middle click, a copied link and the browser's own affordances all work,
+  // which they would not if this were a click handler calling `open()`. The
+  // portal is a page of a site, so it is reached the way a page is reached.
+  const portal = document.createElement('a')
+  portal.className = 'builder-account__portal'
+  portal.href = PORTAL_HREF
+  portal.target = '_blank'
+  // Paired with `target` rather than optional: the opener reference is a hole
+  // and not a preference, which is the same rule L1's own link renderer applies.
+  portal.rel = 'noopener noreferrer'
+  portal.textContent = PORTAL_LINK_LABEL
+  modal.panel.append(portal)
+
+  const portalHint = document.createElement('p')
+  portalHint.className = 'builder-account__portal-hint'
+  portalHint.textContent = PORTAL_LINK_HINT
+  modal.panel.append(portalHint)
 
   modal.panel.append(
     modalFooter([modalButton('Close', 'builder-modal__button', () => modal.close())]),

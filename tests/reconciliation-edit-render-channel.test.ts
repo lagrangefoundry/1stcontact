@@ -239,6 +239,27 @@ const SEAM_CASES: SeamCase[] = [
     },
     addresses: ['0.0', '0.1'],
   },
+  {
+    // [[REQ-183]] — the customer portal. A SINGLE-subtree seam like the form's,
+    // and it is the `body` seam rather than `erasure` because copy inside the
+    // portal's own presentation is what an operator edits; the explanation is the
+    // other seam and is addressed the same way, in its own namespace.
+    type: 'account-portal',
+    version: 1,
+    instance: 'portal',
+    slot: 'body',
+    config: { account: '/api/businesses' },
+    slotValue: {
+      kind: 'container',
+      layout: 'stack',
+      children: [
+        { kind: 'text', text: SEAM_COPY_ONE },
+        { kind: 'text', text: SEAM_COPY_TWO },
+        { kind: 'control', control: 'reveal' },
+      ],
+    },
+    addresses: ['0.0', '0.1'],
+  },
 ]
 
 /**

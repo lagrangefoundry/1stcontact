@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getModule, latestModuleVersion } from '../packages/framework/src/worker'
+import { CATALOG, getModule, latestModuleVersion } from '../packages/framework/src/worker'
 import { MODULE_CSS } from '../packages/framework/src/modules/module-assets'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import { contactFormProps, contactFormSeed } from './support/behavior-site'
@@ -153,12 +161,17 @@ describe('REQ-148 — the render path is Astro-free', () => {
     // REQ-96 is removing. The precompiled constant is therefore exactly the two
     // files, and nothing else.
     const dir = path.join(repoRoot, 'packages/framework/src/modules')
-    for (const id of ['contact-form', 'carousel']) {
+    const withCss = CATALOG.map((m) => m.id).filter((id) =>
+      existsSync(path.join(dir, id, 'styles.css')),
+    )
+    for (const id of withCss) {
       const css = readFileSync(path.join(dir, id, 'styles.css'), 'utf8').trim()
       expect(MODULE_CSS).toContain(`/* module: ${id} */\n${css}`)
     }
-    // Nothing beyond the two blocks and their headers.
-    expect(MODULE_CSS.split('/* module: ')).toHaveLength(3)
+    // Nothing beyond those blocks and their headers — the count derived from the
+    // catalog rather than written down, so a behaviour added later ([[REQ-183]])
+    // is checked by this test instead of failing it.
+    expect(MODULE_CSS.split('/* module: ')).toHaveLength(withCss.length + 1)
     // The aesthetic rules REQ-96 removed have not come back with the move. The
     // pattern anchors on a DECLARATION, not the word: both stylesheets name
     // `flex-basis` in a comment explaining why they do not set it.

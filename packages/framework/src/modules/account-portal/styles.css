@@ -1,0 +1,24 @@
+/*
+ * Every rule here belongs to an INVARIANT element: presentation fixed by an
+ * obligation, not by taste ([[DOC-25]] §10.3). There is deliberately nothing
+ * about the portal's type, colour, spacing or arrangement — all of that is the
+ * `body` and `erasure` slots' L1 subtrees, and the module has no way to express
+ * it ([[REQ-183]]).
+ */
+
+/* The module's own chrome must contribute no layout to the L1 it wraps. */
+.account-portal,
+.account-portal__body,
+.account-portal__erasure { margin: 0; padding: 0; border: 0; }
+
+/*
+ * The three elements the client writes into. They inherit their type and colour
+ * from the L1 around them — a portal's own design paints them — so the only
+ * rule they carry is that they take no space of their own before they hold
+ * anything. Obligation, not styling: a designer who could give these a fixed
+ * height would leave a gap on the page of a visitor whose account failed to
+ * load, and the gap would look like the missing sentence.
+ */
+.account-portal__identity,
+.account-portal__holdings,
+.account-portal__error { margin: 0; }
