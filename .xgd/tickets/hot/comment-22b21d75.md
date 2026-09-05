@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-52
 created_by: xgd
 created_at: '2026-09-05T20:18:05.317872+00:00'
-updated_at: '2026-09-05T20:35:50.019169+00:00'
+updated_at: '2026-09-05T20:38:10.382983+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,14 @@ Done. BUG-52 is at `free_coded`, merged into `xgd-working`.
 14 UATs across two files, all passing. Full node project run: the 9 failing files are pre-existing worktree artifacts — `dist-assets` not built (`1c assets`), no KB index, and a `session-knowledge.ts` typecheck error I confirmed fails identically on the stashed baseline. The two builder suites that appeared in that list pass in isolation with my changes.
 
 One thing worth knowing: mounting the builder against no origin now surfaces the notice, because the default chat/library/people transports fetch and reject. That is honest behaviour, but it means suites mounting the real shell want transports injected — my mount tests do.
+
+<!-- xgd-turn id="09b98070-6c44-44eb-9128-02bf131366d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T20:38:09.633134+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
