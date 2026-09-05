@@ -198,7 +198,17 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the tab is the shared components,
     // BESIDE the site tab, not inside it: the Library is TENANT-wide while the
     // site tab is about one site, so nesting it would make a scope claim the data
     // does not have.
-    expect(TABS.map((tab) => tab.id)).toEqual([SITE_TAB.id, LIBRARY_TAB.id])
+    //
+    // ASSERTS THE ADJACENCY AND NOT THE WHOLE LIST ([[REQ-170]]). This read
+    // `toEqual([SITE_TAB.id, LIBRARY_TAB.id])` while those were the only two, and
+    // that spelling pinned the tab COUNT as a side effect of pinning the
+    // relationship — so the User tab arriving beside them failed a claim it does
+    // not contradict. What REQ-161 actually says is that the Library is beside
+    // the site tab rather than inside it, which is an ordering fact about those
+    // two and stays true however many tabs exist.
+    const ids = TABS.map((tab) => tab.id)
+    expect(ids).toContain(SITE_TAB.id)
+    expect(ids.indexOf(LIBRARY_TAB.id)).toBe(ids.indexOf(SITE_TAB.id) + 1)
     const panel = app.shell.getPanel(LIBRARY_TAB.id)
     expect(panel).toBeTruthy()
     expect(panel.contains(app.library.element)).toBe(true)

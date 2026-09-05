@@ -1,0 +1,29 @@
+-- REQ-170 — a withdrawn grant is RECORDED, not deleted.
+--
+-- THE HISTORY OF WHAT ACCESS WAS GIVEN IS THE THING BEING KEPT. An account
+-- accumulates grants over its life ([[DOC-40]] §5) — comped, then trial, then
+-- subscription — and effective access is the best active grant covering now. A
+-- withdrawal that DELETED the row would take with it the answer to "what were
+-- they promised, and when did we stop honouring it", which is the question
+-- anyone asking about a refusal is actually asking.
+--
+-- `memberships` HAS HELD THIS COLUMN SINCE `0004` (line 82) AND `entitlements`
+-- HAS NOT. The asymmetry was not deliberate: [[REQ-170]]'s body has always said
+-- revocation sets `revoked_at` and `status='revoked'`, and there was no column
+-- to set. Adding it here rather than writing the tab against `status` alone,
+-- because the two carry different facts — `status` says what the grant is now,
+-- `revoked_at` says WHEN it stopped, and an expired grant and a withdrawn one
+-- are distinguishable only by the second.
+--
+-- NULLABLE AND UNBACKFILLED. Every existing row is a grant nobody has withdrawn,
+-- which is exactly what NULL means here, so there is nothing to migrate. It is
+-- not defaulted, because a default would make "never revoked" and "revoked at
+-- the epoch" the same value.
+--
+-- IT DOES NOT PARTICIPATE IN THE ACCESS CHECK, and that is deliberate.
+-- `bestActiveGrant` selects on `status` and the date window; a revoked row
+-- carries `status='revoked'` and is already excluded by it. Adding a second
+-- condition would give the check two ways to say no and let them disagree —
+-- the failure `0004` avoids by keeping `status` unconstrained TEXT rather than
+-- spreading the decision across columns.
+ALTER TABLE entitlements ADD COLUMN revoked_at TEXT;
