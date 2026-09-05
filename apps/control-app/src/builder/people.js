@@ -8,25 +8,31 @@
  * by the selected business, so a people list that behaved differently for the
  * platform would have to be written deliberately. [[DOC-40]] §2.1 rule 1.
  *
- * FOUR RELATIONS, THREE COLUMNS ([[DOC-42]] §4). The distinction an earlier draft
- * of the model got wrong, and the reason this file names them out loud:
+ * FOUR RELATIONS, AND THE FIRST OF THEM HAS THREE STATES ([[DOC-42]] §4,
+ * [[REQ-188]]). The distinction an earlier draft of the model got wrong, and the
+ * reason this file names them out loud:
  *
  * - **contact** — known here, never invited, MAY become a member. `invitedAt` null.
- * - **member** — may log in. The control is `status`, which `admit` refuses on.
+ * - **invited** — asked, and has not come. `invitedAt` set, `termsAcceptedAt` null.
+ * - **member** — signed up, and may log in. `termsAcceptedAt` set. The control
+ *   over the login itself is `status`, which `admit` refuses on.
  * - **operator** — may RUN a business. `memberships`, and usually a DIFFERENT
  *   business: viewed from 1st Contact, Alice's row shows Alice's Plumbing here.
  * - **entitled** — granted access to a thing. Per grant, and each names its
  *   business.
  *
- * BEING IN THE LIST IS THE MEMBER RELATION. There is no membership toggle beside
- * it, because `memberships` answers a different question — withdrawing one takes
- * away the right to run a business and deliberately leaves that person's own
- * Portal reachable.
+ * BEING IN THE LIST IS NOT THE MEMBER RELATION — being signed up is. There is
+ * still no membership toggle beside a row, because `memberships` answers a
+ * different question: withdrawing one takes away the right to run a business and
+ * deliberately leaves that person's own Portal reachable.
  *
  * AND THE INVITE IS THE VERB THAT MOVES A ROW ACROSS ([[REQ-186]], [[DOC-42]]
- * §9). It is one control for both levels — it writes into whichever business is
- * open, so from 1st Contact it makes Alice and from Alice's it makes Bob — which
- * is why it is a button on this uniform tab rather than a platform console.
+ * §9) — from Contact to **Invited**, and no further. It is one control for both
+ * levels: it writes into whichever business is open, so from 1st Contact it makes
+ * Alice and from Alice's it makes Bob, which is why it is a button on this
+ * uniform tab rather than a platform console. What it cannot do is finish the
+ * journey. Only the person themselves does that, by accepting the terms, and the
+ * tab reflects it with no operator action at all.
  *
  * STANDARD `webui/split` + `webui/list-detail`, CONFIGURED RATHER THAN REBUILT,
  * exactly as the Library uses them. What is written here is the three functions
@@ -37,6 +43,7 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
+import { PERSON_STATES, stateOf } from './people-state.js'
 import {
   fetchPeople,
   fetchPerson,
@@ -78,17 +85,15 @@ function el(tag, className, text) {
 }
 
 /**
- * Contact or member, from the one marker the schema has ([[DOC-42]] §4.1).
+ * The three states, defined once in `people-state.js` and re-exported here.
  *
- * `invitedAt` is what the invite sets, so it is what distinguishes the two
- * states. It is REPORTED rather than enforced: nothing in the code stops a
- * never-invited row from signing in today, and this label must not imply it does.
+ * RE-EXPORTED RATHER THAN REDEFINED. The rule is a model fact ([[DOC-42]] §4)
+ * and is asserted on both sides of the seam — the label this panel draws, and the
+ * `users` row a workers test reads back — so it may have exactly one definition.
  */
-export function stateOf(person) {
-  return person && person.invitedAt ? 'Member' : 'Contact'
-}
+export { stateOf }
 
-/** The list row: who they are, and which of the two states they are in. */
+/** The list row: who they are, and which of the three states they are in. */
 function renderRow(person) {
   const row = el('div', 'builder-people__row')
   row.append(el('span', 'builder-people__who', person.displayName || person.email))
@@ -136,18 +141,30 @@ export function createPeoplePanel(options = {}) {
   controls.append(search)
 
   /**
-   * Contacts and members in one list, with a facet rather than two tabs.
+   * Contacts, invitees and members in one list, with a facet rather than tabs.
    *
-   * TWO LISTS IS THE THING RULED OUT ([[DOC-42]] §9), not two views. They are one
-   * population in two states and the invite moves a row across, so a facet keeps
-   * the person who is both from appearing twice or disagreeing with themselves.
+   * SEPARATE LISTS ARE THE THING RULED OUT ([[DOC-42]] §9), not separate views.
+   * They are one population in three states and the invite moves a row across, so
+   * a facet keeps the person who is both from appearing twice or disagreeing with
+   * themselves.
+   *
+   * AND THE MIDDLE STATE IS THE ONE WORTH FILTERING TO ([[REQ-188]]). Two states
+   * collapsed the funnel; three show it, and "who did I ask who never came" is
+   * the question an operator can actually act on.
    */
   const states = document.createElement('select')
   states.className = 'builder-people__states'
-  for (const [value, label] of [['', 'Everyone'], ['Member', 'Members'], ['Contact', 'Contacts']]) {
+  const everyone = document.createElement('option')
+  everyone.value = ''
+  everyone.textContent = 'Everyone'
+  states.append(everyone)
+  // BUILT FROM `PERSON_STATES`, so a state added to the model appears here
+  // without this file being edited — and, more to the point, so a state can never
+  // be shown by a row and be unreachable by the filter.
+  for (const value of PERSON_STATES) {
     const option = document.createElement('option')
     option.value = value
-    option.textContent = label
+    option.textContent = value
     states.append(option)
   }
   states.addEventListener('change', () => {
@@ -210,8 +227,8 @@ export function createPeoplePanel(options = {}) {
     const hint = el(
       'p',
       'builder-people__invite-hint',
-      'No message is sent. They become a member here, and are admitted the next ' +
-        'time they sign in.',
+      'No message is sent. They are marked as invited here, and become a member ' +
+        'when they sign in and accept the terms.',
     )
     modal.panel.append(hint)
 
@@ -227,11 +244,16 @@ export function createPeoplePanel(options = {}) {
         const outcome = await transport.invite(emailField.value, nameField.value)
         await refresh()
         // A CONTACT PROMOTED IS REPORTED AS SUCH ([[DOC-42]] §9). It is the same
-        // row moving between two states, and telling the operator which of the
-        // two branches ran is the only way that transition is visible anywhere.
+        // row moving between states, and telling the operator which of the two
+        // branches ran is the only way that transition is visible anywhere.
+        //
+        // AND WHAT IT SAYS IS "INVITED", NOT "MEMBER" ([[REQ-188]]). The button
+        // cannot make a member — only the person can, by signing up — so a
+        // sentence claiming one would be the old two-state model surviving in the
+        // one place the operator actually reads.
         said.textContent = outcome.created
-          ? `${outcome.person.email} is now a member.`
-          : `${outcome.person.email} was already known here, and is now a member.`
+          ? `${outcome.person.email} is invited.`
+          : `${outcome.person.email} was already known here, and is now invited.`
         said.hidden = false
         emailField.value = ''
         nameField.value = ''
