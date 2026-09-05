@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-184
 created_by: xgd
 created_at: '2026-09-04T23:54:13.238390+00:00'
-updated_at: '2026-09-05T00:15:23.747023+00:00'
+updated_at: '2026-09-05T00:35:38.866231+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,11 @@ Done. REQ-184 is `free_coded` at `65c38cd5abc695dabe358aae3701014b216f69ec`, mer
 DOC-40 §5's amendment and DOC-42 §10.2 both now record which way it went.
 
 Production needs `bin/deploy` to run `d1 migrations apply --remote` before the new code serves.
+
+<!-- xgd-turn id="35d894de-fab1-4631-a97a-fd278c180e84-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:35:38.826810+00:00" -->
+#### You
+Did you move this ticket to ready_to_reconcile/
 
 <!-- xgd-chat-end -->
