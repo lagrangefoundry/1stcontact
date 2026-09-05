@@ -5,9 +5,9 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-09-05T02:05:14.231815+00:00'
+updated_at: '2026-09-05T02:05:55.181767+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -353,3 +353,159 @@ is. Bob is an account of Alice's Plumbing. So the answer cannot be phrased in
 terms of "the platform's account holders" without becoming platform-only
 vocabulary, and whatever is decided has to read correctly one level down, where
 the account has no businesses at all.
+
+
+---
+
+## Implementation decisions — 2026-09-04
+
+§8's questions are answered here rather than left open, because the acceptance
+requires the origin decision to be recorded *before* the surface exists and the
+copy in §4.2 cannot be written until Q3 is settled. Each rejected option is
+recorded as rejected rather than silently not taken.
+
+### D1. The origin is `app.1stcontact.io`. It is provisional; the pages are not
+
+§3's recommendation, taken. The control-app origin already carries the identity
+layer — Cloudflare Access, a verified email, `admit` — so a portal built against
+`admit` costs nothing to reach and moves to a customer's own origin when
+[[DOC-40]] §3's later branch replaces the credential layer, because `users`,
+`memberships` and `entitlements` do not change when it does.
+
+**`1stcontact.io` (public-site) is REJECTED for v1**, and the reason is not
+preference. That Worker is `GET`/`HEAD` only, edge-cached for 60s, and
+authenticates nobody; one cached copy of a portal page is everybody's answer.
+Authenticating there means building `auth_tokens`, `sessions`, an email provider
+and a verified sending domain up front, and turning a deliberately read-only
+Worker into a writing one. It is the right eventual answer and the wrong first
+step.
+
+**What is provisional is the origin only.** The pages are site content and the
+renderer is the shared one; the next hand must not read `app.1stcontact.io` as
+"the portal turned out to be a builder feature after all" — that is §1's failure
+mode arriving by a different door.
+
+### D2. The host business is the one the account is an account OF
+
+The portal is hosted by the business whose `users` table this account's row
+lives in — `admission.user.tenant_id`, read off the admission. Never
+`env.TENANT_ID`: §7's third constraint holds, and [[REQ-168]] leaves that
+variable exactly two readers.
+
+This is [[DOC-42]] §6's relativity made operational. Alice is an account of 1st
+Contact, so her portal is hosted by 1st Contact; Bob is an account of Alice's
+Plumbing, so his is hosted by Alice's Plumbing. **The same expression answers
+both**, which is the "no second implementation" property this ticket owes. It is
+also *not* the business the caller is operating: Alice's scope is Alice's
+Plumbing and her portal is still 1st Contact's, so the portal deliberately does
+not consult `resolveScope`.
+
+Consequence: the portal answers with **no scope at all**, so an account whose
+every grant has lapsed reaches it. That is B1's requirement — the population most
+likely to want the delete button is exactly the one a scoped route would refuse.
+
+### D3. The pages are a site under the reserved slug `portal` in the host business's store
+
+Served at `/account` on the control-app origin, rendered by the **existing
+request-time renderer** (`PreviewRenderer` -> `renderSiteFiles`) — the same one
+`/preview/<slug>/<channel>/…` uses. No second renderer, no `apps/control-app`
+template, no third store adapter.
+
+**When the host business's store holds no `portal` site, the same renderer
+renders a shipped default definition** through the in-memory `SiteStore`
+adapter. One renderer, two sources — and the fallback is what makes the portal
+reachable for a business provisioned before this ticket existed, without a
+migration that a D1+R2 store cannot express. The moment anyone writes a `portal`
+site into a business, that site is what serves, and it is ordinary editable site
+content.
+
+Seeding `portal` at provisioning time — so every new business owns its portal as
+content from the first day — is the natural next step and is **deliberately not
+done here**: it changes `provisionBusiness`, which two other tickets' UATs pin.
+
+### D4. The authenticated API already exists: `/api/businesses`
+
+§2 calls for "an endpoint that requires an identity". [[REQ-179]] built one, and
+it answers exactly what the portal needs — the caller's own account, and the
+businesses that identity reaches, each marked selectable or lapsed with a reason.
+**No second endpoint is added.** Building one would be the same page's worth of
+authorisation logic written twice, which is §1's failure mode at endpoint scale.
+
+The page is therefore identical for every visitor and the per-visitor facts
+arrive by `fetch` — which is what keeps the page site content rather than a
+per-request template, and what lets the same page be served from a cacheable
+origin when the portal moves to level 2.
+
+### D5. §4.2's shape is option 2: the control is live and reveals the explanation
+
+Pressing **Delete account** opens the [[DOC-37]] §6.1 explanation — what erasure
+destroys, what survives, and why each survivor serves the person — ending in a
+way to get in touch. Nothing is deleted and no request is recorded (option 3's
+table is a commitment to a queue nobody has agreed to staff; option 1 reads as
+unfinished software).
+
+**The no-JavaScript baseline is the explanation shown in full.** The page renders
+it visible and the vetted client collapses it behind the control; so a visitor
+with no scripting sees more, never a control that claims something it cannot do.
+
+### D6. §8 Q3 — the copy names what would go, computed from the caller's own facts
+
+"Delete account" is a request about the account, and [[DOC-42]] §6 makes an
+account relative to the business it is an account of. So the honest sentence is
+not a fixed claim about businesses: it is *this ends your relationship with this
+business, and here is what that relationship consists of* — and where the account
+operates businesses, the explanation **lists them by name**, from the same
+`/api/businesses` payload.
+
+That reads correctly one level down, where an account operates nothing and the
+sentence about businesses simply does not appear — which is the constraint B4
+adds. It also means the copy cannot drift out of date, because it is not copy: it
+is the account's own facts, rendered.
+
+### D7. §8 Q4 — export is not shown
+
+[[DOC-37]] §9 asks whether portability ships with erasure. Here the export is a
+site definition and a customer list, which is a larger thing than the button, and
+"together" would make the compliance surface wait on it. Deferred, deliberately,
+and named in §5's list of what v1 does not show.
+
+### D8. §8 Q5 — the marketing site is not a prerequisite
+
+The portal is served on `app.1stcontact.io`, which is behind Access and has never
+been the marketing surface. `public-site`'s apex placeholder is untouched.
+
+### D9. §8 Q6 / B2 — the terms gate is left exactly as [[REQ-169]] built it
+
+Not weakened here. A gate that fails closed for every route is the correct
+direction, and re-versioned terms are recoverable in one click, unlike B1's dead
+end. **Whether a data-rights request may sit behind an unaccepted contract at all
+remains open** and belongs to [[DOC-37]]; this ticket records it rather than
+deciding it, and changes no behaviour either way.
+
+### D10. The avatar links out, in a new tab
+
+The dialog gains one link and nothing else — its bound stays "facts about the
+session" ([[REQ-179]], [[REQ-180]]). A new tab because the portal is a *site
+page* and not a builder surface: leaving the builder should look like leaving it,
+and the builder's state should survive the visit.
+
+## What this lands
+
+- `account-portal`, a vetted behaviour module in the framework catalog. It paints
+  nothing: the portal's whole presentation is L1 in its slots, the account line
+  and the business list are invariant elements its client fills from the endpoint,
+  and the delete control is an L1 `control` node. Same contract as `contact-form`.
+- The shipped default portal site definition, carrying the [[DOC-37]] §6.1 copy.
+- `GET /account` (and its sub-resources) on the control-app, rendered through the
+  request-time renderer against the host business's store, falling back to the
+  shipped default.
+- The avatar's link out.
+
+## What this does not land
+
+- No deletion of anything: no store registry, no sweep, no crypto-shred, no
+  suppression hash, no billing redaction. [[DOC-37]] is that work and it is not
+  the tail of a portal ticket.
+- No plan, no charges, no details editing, no export, no way to add a business.
+- No new endpoint, no new renderer, no new store adapter, and no reader of
+  `TENANT_ID`.
