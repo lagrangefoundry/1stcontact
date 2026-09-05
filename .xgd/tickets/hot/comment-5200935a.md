@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:18:58.147048+00:00'
+updated_at: '2026-09-05T23:19:14.990023+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -255,5 +255,30 @@ Say the word on those four and I'll write the six tickets.
 <!-- xgd-chat role="user" ts="2026-09-05T23:18:57.532914+00:00" -->
 #### You
 If I build invite / send / email-log against `users.email`, the rebaseline rewrites all of it - THIS IS A DESIGN DISCUSSION DON"T BUILD ANYTHING!
+
+<!-- xgd-turn id="4eace566-66b7-4b46-b654-b2d302aa2318-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T23:19:14.221322+00:00" -->
+#### Claude
+Understood — nothing has been built and nothing will be. I've only read files this session; no branch, no code, no tickets.
+
+That sentence was a sequencing argument, not a plan. Let me restate it as the design question it actually is:
+
+**Which schema do the onboarding flows get designed against?** REQ-191 drops `users.email` and moves addresses to their own table with `is_primary`. So the design has to pick one:
+
+- **Against the current schema** — a contact has exactly one address, and "who does the invite go to" has no question in it.
+- **Against the post-rebaseline schema** — a contact has *many* addresses, and the invite has to decide which one it sends to. That changes the To-List (does it show the primary, or let you pick?), it changes what "invite this contact" means, and it changes what the `email` record points at — an address, or a contact.
+
+That's a real fork in the design and it isn't about build order. The second is the shape you've already decided you want; designing against the first bakes in the one-address assumption DOC-44 and REQ-191 exist to remove.
+
+My view: **design against the post-rebaseline shape.** The `email` record should reference the contact *and* the address it went to, because a bounce is a fact about an address, not about a person — and that distinction only exists in the new schema.
+
+Still open from my last message:
+
+1. **Resend or Postmark**, and the From address
+2. **Queue or log** for the `email` ticket — I lean queue (a failed send leaves evidence)
+3. **Magic link alongside Access, policy retired once proven** — confirm?
+
+And the fork above.
 
 <!-- xgd-chat-end -->
