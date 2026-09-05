@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-185
 created_by: xgd
 created_at: '2026-09-04T23:54:17.945140+00:00'
-updated_at: '2026-09-05T01:55:35.628160+00:00'
+updated_at: '2026-09-05T01:56:43.181106+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -186,5 +186,23 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="cf60f250-63c5-41fd-b17a-790aaff559c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T01:56:42.166113+00:00" -->
+#### Claude
+Worktree is clean and merged. Verifying the merged state on `xgd-working` before teardown.
+
+Free-coding of REQ-185 is complete.
+
+**Teardown:** `xgd branch clean REQ-185` removed the worktree, deleted the local branch, and released the merge lock. Before that I confirmed the worktree had nothing uncommitted and that `75b37bc1c1` is an ancestor of `xgd-working`.
+
+**Verified on the merged branch, not just in the worktree** — the distinction mattered, since REQ-179 landed on `xgd-working` between my branch point and the merge. Ran in the foreground from `/Users/martin/lagrangefoundry/1stcontact` on `xgd-working`: both REQ-185 suites plus the seven neighbouring identity/scope/business suites — **10 files, 92 tests, all passing**.
+
+**Final ticket state:** `free_coded`, version `0.2.70`, two commits recorded — `2103d2e63b…` (the implementation) and `75b37bc1c1…` (the version bump).
+
+One loose end I have not touched: `remotes/origin/free-REQ-185` still exists as a ref. `xgd branch clean` deletes only the local branch and worktree, so removing the remote is a separate, outward-facing act I'd rather not take unprompted — say the word and I'll push the deletion. I couldn't confirm whether the branch is actually still on origin or the ref is merely stale locally: `git ls-remote` is refused by the sandbox's proxy, which has no network hosts allowed.
+
+Also still outstanding from earlier: the claude.ai Gmail, Calendar and Drive connectors need authorising from your claude.ai connector settings — this session can't run the OAuth flow, so those tools stay unavailable.
 
 <!-- xgd-chat-end -->
