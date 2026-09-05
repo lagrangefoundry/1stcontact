@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T22:18:22.546818+00:00'
+updated_at: '2026-09-05T22:18:58.043921+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2053,5 +2053,21 @@ I'd suggest **1** if you want to look at the site inside xgd.dev today, **3** ot
 <!-- xgd-chat role="user" ts="2026-09-05T22:18:22.089107+00:00" -->
 #### You
 3.
+
+<!-- xgd-turn id="6fe9bfa1-1284-46c3-b3d3-86e09462fe48-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:18:57.834797+00:00" -->
+#### Claude
+Recording the decision where it belongs.
+
+Recorded in REQ-190 as its worked example — the move is a five-table-plus-R2 job today and a one-column update after the rebaseline, so its difficulty is the evidence for the ticket rather than a reason to build a tool against a schema you're replacing.
+
+Added an acceptance criterion so it's testable rather than just argued:
+
+> a site can be moved to another business by changing the business it names, with no row in another table rewritten and no R2 object copied
+
+Current state stands: `xgd` stays in `1stcontact`, `xgd.dev` keeps its empty starter site, both visible in your switcher.
+
+One loose end I flagged and you didn't answer, so I've left it alone: `1c push` can't target a business (`push.ts:163` discards any path prefix on `--origin`). Unfiled, and it'll still be true after REQ-190 — say the word whenever.
 
 <!-- xgd-chat-end -->
