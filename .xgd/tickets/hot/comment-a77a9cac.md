@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-180
 created_by: xgd
 created_at: '2026-09-03T21:50:39.000461+00:00'
-updated_at: '2026-09-04T01:51:05.206535+00:00'
+updated_at: '2026-09-05T00:01:33.892519+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,15 @@ I found the design discussion you meant: **DOC-37, *Data Deletion & Retention �
 **One question the docs don't answer**, now open question 3: does "delete account" mean the account or its businesses? DOC-40 §2 separates them and an account may hold several; DOC-37 §4 is written about *tenant* deletion, which is the business — but the portal control sits on the **account**, which is the payer. An account holding three businesses pressing one button is undefined, and the copy can't be written until it is.
 
 Dropped to 5 points. The origin decision and the pipeline work are now the bulk; the payload is one control.
+
+<!-- xgd-turn id="52df7865-caf1-412e-b118-02af50de2525-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T00:01:33.463515+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
