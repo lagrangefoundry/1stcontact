@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T21:51:51.237438+00:00'
+updated_at: '2026-09-06T22:00:30.441656+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -691,5 +691,11 @@ I haven't verified it on this store, so it may be that accepting the terms drops
 If you do hit the wall, the decision is what an accepted invitee should land on: a holding page, an auto-provisioned business, or the portal. That's the gap with no ticket, and it's the last thing between you and a beta.
 
 Two notes: the seed's `bob/carol/dave` are people of **Alice's Plumbing**, not this deployment, so they'll get `no_user` — that's correct, not a bug. And an access-sim was already running on 8799, so I used it rather than starting a second; the one I launched exited with `EADDRINUSE`.
+
+<!-- xgd-turn id="b9321fa9-a827-45bb-9c92-5a29234519f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:00:30.106597+00:00" -->
+#### You
+http://127.0.0.1:8799/login <-- no longer has the list of roles, we deleted them, I believe the was a ticket for a script to repopulate them (REQ-192)
 
 <!-- xgd-chat-end -->
