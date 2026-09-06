@@ -573,14 +573,24 @@ describe('REQ-186 — the invite writes no entitlement', () => {
     const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: alice })
     await markInvited(identityEnv(), { businessId: PLATFORM }, invited.person.id)
 
-    // INVITED AND NO MORE IS `no_membership`, and that is the composition being
-    // load-bearing rather than a gap in it. `admit` requires a relationship with
-    // something, and an invite deliberately writes none ([[DOC-42]] §5) — so the
-    // invite alone makes the member, and the business is what makes the app
+    // INVITED AND NO MORE IS AN ADMISSION WITH NOTHING IN IT, and that is the
+    // composition being load-bearing rather than a gap in it. The invite
+    // deliberately writes no membership and no entitlement ([[DOC-42]] §5) — so
+    // the invite alone makes the member, and the business is what makes the app
     // reachable. Getting only one of the two is a visible, nameable state.
+    //
+    // IT WAS `no_membership` UNTIL [[REQ-203]], WHICH SUPERSEDES THAT. Refusing
+    // here told a person invited five minutes ago that their access "has ended",
+    // which was false in the one case it was most often read — and it put the
+    // terms gate, the only thing that could END this state by provisioning them
+    // a business, on the far side of the refusal. Alice is now admitted holding
+    // nothing, which is what this assertion says, and reaches nothing but the
+    // interstitial until she signs up. THE HALF THAT DID NOT CHANGE is that the
+    // invite writes her no business: the set is EMPTY, and asserting that is
+    // what keeps "the invite alone is not access" true under the new answer.
     const bare = await admit(identityEnv(), alice)
-    expect(bare.ok).toBe(false)
-    expect(bare.ok === false && bare.reason).toBe('no_membership')
+    expect(bare.ok).toBe(true)
+    expect(bare.ok && bare.businesses).toEqual([])
 
     const business = await provisionBusiness(identityEnv(), {
       accountId: invited.person.accountId,

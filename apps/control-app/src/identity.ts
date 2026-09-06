@@ -374,10 +374,13 @@ export interface BusinessLapse {
  * had selected the second — a silent, plausible, wrong answer. Deleting it turns
  * every such call site into a compile error instead.
  *
- * `businesses` is non-empty on an `ok` admission. It MAY HOLD NO SELECTABLE
- * MEMBER: admission is a fact about the person's membership, and lapse is a fact
- * about each business's grant ([[DOC-42]] §4). A caller that needs one to enter
- * must consult `selectable` rather than reading `ok` as a promise of access —
+ * `businesses` MAY BE EMPTY on an `ok` admission, and may hold no SELECTABLE
+ * member. Empty is a contact who has not signed up yet ([[REQ-203]]) — admitted
+ * so the terms gate can ask them, and able to reach nothing else until they
+ * answer. Nothing selectable is an account whose every grant has lapsed:
+ * admission is a fact about the person's membership, and lapse is a fact about
+ * each business's grant ([[DOC-42]] §4). A caller that needs one to enter must
+ * consult `selectable` rather than reading `ok` as a promise of access —
  * which is what `scope.ts` does, and why it can answer "no business" rather than
  * throwing. Which one is being operated is [[REQ-168]]'s question, not this
  * one's.
@@ -573,6 +576,34 @@ export async function accountById(
   )
     .bind(accountId)
     .first<AccountRow>()
+}
+
+/**
+ * Does this account already own a business ([[REQ-203]])?
+ *
+ * `tenants.owner_account_id` IS THE COLUMN, NOT A MEMBERSHIP. Membership says
+ * who may OPERATE a business and an account may put several people on one;
+ * ownership is the column the business itself carries ([[REQ-194]]), and
+ * "does this account own a business" is exactly the question.
+ *
+ * NULL `owner_account_id` IS THE PLATFORM BUSINESS AND MATCHES NOBODY, which is
+ * the schema's own rule — 1st Contact is not somebody's product — and is what
+ * keeps an operator from being read as owning it here.
+ *
+ * TWO READERS, ONE DEFINITION. {@link admit} asks it to decide whether signing
+ * up still has anything to give somebody, and `onboarding.ts` asks it to decide
+ * whether to provision. Those must be the same question or the door opens onto
+ * a hook that does nothing.
+ */
+export async function accountOwnsBusiness(
+  env: IdentityEnv,
+  accountId: string,
+): Promise<boolean> {
+  if ((accountId ?? '').trim() === '') return false
+  const held = await env.DB.prepare('SELECT id FROM tenants WHERE owner_account_id = ? LIMIT 1')
+    .bind(accountId)
+    .first<{ id: string }>()
+  return held !== null
 }
 
 /**
@@ -890,8 +921,49 @@ export async function admit(
   // cannot reach their delete button, which [[DOC-37]] makes an obligation
   // rather than a feature. So an account with nothing selectable is ADMITTED,
   // and the set simply comes back with nothing selectable in it.
+  //
+  // AND A CONTACT WHO HAS NOT SIGNED UP YET IS ADMITTED WITH NOTHING
+  // ([[REQ-203]]). An invited contact holds a `users` row and an address and no
+  // membership at all, because the invite deliberately writes neither a
+  // membership nor an entitlement ([[DOC-42]] §5) — so before this they were
+  // refused `no_membership` and shown {@link DENIED_MESSAGE}, *"your access has
+  // ended"*, five minutes after being invited. Nothing had ended; they had never
+  // had access, and the sentence was false in the one case it is most often
+  // read. Every beta invitee travelled that path.
+  //
+  // THE PREDICATE IS "SIGNING UP WOULD STILL GIVE THEM SOMETHING", asked as the
+  // two facts that make it true. `tos_accepted_at` is null exactly while
+  // somebody has not signed up ([[DOC-44]] §3) — the access axis, theirs rather
+  // than ours — and {@link accountOwnsBusiness} is the same question
+  // `ensureOwnBusiness` guards on, so the door opens exactly when there is
+  // something behind it. Neither reads the PIPELINE stage: a Lead nobody invited
+  // is treated identically, because being asked is the other axis.
+  //
+  // BOTH HALVES, AND THE SECOND IS WHAT KEEPS THE OLD REFUSALS. A person whose
+  // membership was WITHDRAWN, or whose membership rows were lost between the two
+  // writes that make an account, has an account that already owns a business —
+  // so they are refused exactly as they were, and re-inviting them is still the
+  // repair. Without it, revocation would stop refusing anybody who had never got
+  // as far as accepting.
+  //
+  // IT OPENS NO ROUTE, WHICH IS WHY THE RELAXATION IS SAFE. `guardTerms` runs
+  // immediately after this in `index.ts` and an unaccepted session is refused
+  // every asset and every API route, so the only thing an admission with no
+  // membership can reach is the terms interstitial and the accept route — which
+  // is where signing up provisions the business that ends this state. Admission
+  // is still bounded by there being a `users` row at all, so self-signup remains
+  // exactly as absent as the file header says.
+  //
+  // A PERSON WHO HAS ACCEPTED AND STILL HOLDS NOTHING IS STILL REFUSED. That is
+  // the state this reason has always named — a relationship that ended — and it
+  // is the one sentence `DENIED_MESSAGE` is true about.
   const businesses = await businessesFor(env, user.id, stamp)
-  if (businesses.length === 0) return { ok: false, reason: 'no_membership', email: normalised }
+  if (businesses.length === 0) {
+    // The cheap half first: the column is already in hand, and the query below
+    // is only ever reached by somebody who holds no live membership at all.
+    const signingUp = user.tos_accepted_at === null && !(await accountOwnsBusiness(env, user.account_id))
+    if (!signingUp) return { ok: false, reason: 'no_membership', email: normalised }
+  }
 
   return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, businesses }
 }
