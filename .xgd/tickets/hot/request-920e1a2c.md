@@ -6,7 +6,7 @@ title: 'Email sending: a sendEmail port, a Resend adapter, and a verified sendin
   domain'
 created_by: xgd
 created_at: '2026-09-05T23:44:40.147333+00:00'
-updated_at: '2026-09-06T18:47:43.516250+00:00'
+updated_at: '2026-09-06T18:47:50.071303+00:00'
 completed_at: null
 last_field_updated: status
 status: free_coding
