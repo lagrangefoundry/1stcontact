@@ -6,7 +6,7 @@ title: 'public-site: /site/<key>/ returns 500 — deployed Worker predates the R
   baseline'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T20:44:03.515198+00:00'
-updated_at: '2026-09-06T21:49:43.151287+00:00'
+updated_at: '2026-09-06T22:00:18.326560+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -178,3 +178,36 @@ names; `--control-origin` is derived from `--origin` and overridable.
 `tests/test_UAT_FC_REQ-144_deploy_scripts.test.ts` assert the old check names and
 the draft channel; both are updated to the new behaviour rather than left
 asserting a channel that is gone.
+
+
+## Refinements made while implementing
+
+**The `--control-origin` derivation is limited to the apex this repo names, not
+generalised to `app.<host>`.** Point 4 above said "defaults to `app.<host>` of
+`--origin`", and that is wrong in a way that matters: pointed at a staging or
+preview origin with no `app.` sibling, the fetch throws and the check reports a
+FAILING control gate for a host that was never the control app. A false alarm on
+the one assertion that says "the builder is not public" is worse than a skip. So
+the apex and its control origin are declared as a pair — `https://1stcontact.io`
+→ `https://app.1stcontact.io` — and any other `--origin` must name its control
+app with `--control-origin` or the check skips.
+
+**Every skip must name the one argument that would make that check run.** This
+is the property that keeps the defect from recurring: a check that skips without
+saying what it wants is indistinguishable from a check that can never run.
+`--site-key` for the published-channel six, `--control-origin` and
+`--workers-dev-origin` for the two Access ones, each named in its own skip
+reason.
+
+**The published cache policy is pinned to the Worker's, not merely restated.**
+`PUBLISHED_CACHE` now appears in both `tools/generate/bin/smoke.mjs` and
+`apps/public-site/src/index.ts`, because the script runs outside the Worker
+bundle and cannot import it — the same arrangement, and the same reasoning, as
+the content-type table. A UAT reads the Worker's own value and asserts a smoke
+run agrees with it, so the pair cannot drift.
+
+**One breakage may fail more than one check, and that is correct.** A site root
+that stops serving is genuinely not serving HTML, not caching it and not
+referencing assets — so the reconciliation suite's "exactly one check fails"
+assertion becomes "the owning check plus exactly the ones that share its
+response", which stays exact rather than loosening to "contains".
