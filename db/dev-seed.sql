@@ -132,27 +132,27 @@ INSERT OR IGNORE INTO tenants (id, name, status, config, created_at) VALUES
 -- disagreeing except a check that compares them, and
 -- `test_UAT_FC_REQ-192_the_seed_names_the_configured_tenant` is that check.
 INSERT OR IGNORE INTO users
-  (id, tenant_id, status, display_name, platform_operator, tos_version,
+  (id, tenant_id, status, platform_operator, tos_version,
    tos_accepted_at, invited_at, pipeline_stage, first_seen_at, last_seen_at,
    created_at, updated_at, fields)
 VALUES
   ('usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_51a6746495c8057e886ff98d4208e6b9', 'active', 'Alice', 0,
+   'acct_51a6746495c8057e886ff98d4208e6b9', 'active', 0,
    '2026-09-01', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-120 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_b62f8d40a1e74c93bf5017ce8a2d6b39',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 'Bob', 0,
+   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
    '2026-09-01', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-20 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_07ce39b5f8a2416d9e40bc71d3ab8f52',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 'Carol', 0,
+   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
    NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_d13a5e8c26f04b7793ca0f61e8b47205',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 'Dave', 0,
+   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
    NULL, NULL,
    NULL, 'lead', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}');
@@ -199,6 +199,94 @@ VALUES
   ('eml_59e0c31b7f2a48d6ba94ef073c81e072', 'usr_d13a5e8c26f04b7793ca0f61e8b47205',
    'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'dave@example.com', 1,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
+-- ---------------------------------------------------------------------------
+-- The names (REQ-193)
+-- ---------------------------------------------------------------------------
+--
+-- FOUR PEOPLE, FOUR DIFFERENT SHAPES OF NAME, because a fixture where everybody
+-- is `Firstname Lastname` demonstrates one row of the table seven times and
+-- proves nothing about the six columns that are allowed to be empty.
+--
+--   Alice — the full record, and the one the operator curated. A title she
+--           actually holds, a `known_as` that is not derivable from the parts,
+--           and a former name below.
+--   Bob   — `known_as` doing its real job: nobody alive calls Robert Robert.
+--   Carol — a MONONYM. No given name, no family name, and the acceptance
+--           criterion that a required `family_name` would have made
+--           unrepresentable.
+--   Dave  — parts and no `known_as`, so the greeting falls through to
+--           `given_name` and the fallback chain is exercised by the fixture
+--           rather than only by a test.
+--
+-- `display_name` IS AUTHORED AND NOT ASSEMBLED. Alice's reads `Dr Alice Nowak`
+-- because that is what she is shown as; nothing concatenates `title` onto the
+-- parts to produce it, and Carol's proves the concatenation is not happening.
+--
+-- `superseded_at` IS NULL ON ALL FOUR — these are the current names, one per
+-- person, which the partial unique index requires.
+INSERT OR IGNORE INTO user_names
+  (id, user_id, display_name, known_as, title, given_name, middle_names,
+   family_name, suffix, created_at, updated_at, superseded_at, superseded_reason)
+VALUES
+  ('nam_18c74e0b39a5426fbd82071ea6c53d94', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
+   'Dr Alice Nowak', 'Ali', 'Dr', 'Alice', 'Maria', 'Nowak', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+   NULL, NULL),
+  ('nam_6a2f95d3081b47ce9d4207fb1e8c360a', 'usr_b62f8d40a1e74c93bf5017ce8a2d6b39',
+   'Robert Fenwick', 'Bob', NULL, 'Robert', NULL, 'Fenwick', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+   NULL, NULL),
+  ('nam_c397be5024fd41a8b60e7cf9251d83a6', 'usr_07ce39b5f8a2416d9e40bc71d3ab8f52',
+   'Carol', NULL, NULL, NULL, NULL, NULL, NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+   NULL, NULL),
+  ('nam_45b0e8137c9a46d2ae51cf30d7629b84', 'usr_d13a5e8c26f04b7793ca0f61e8b47205',
+   'Dave Okonkwo', NULL, NULL, 'Dave', NULL, 'Okonkwo', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+   NULL, NULL);
+
+-- THE HISTORY, AND IT IS THE POINT OF THE TABLE.
+--
+-- ALICE HAS TWO SUPERSEDED ROWS AND THEY ARE NOT THE SAME KIND OF FACT, which is
+-- the distinction nothing reachable by clicking produces today:
+--
+--   `changed`   — she was Alice Kowalczyk. A real former name: searchable, and
+--                 drawn in the list as *formerly Alice Kowalczyk*. Searching the
+--                 Users tab for `Kowalczyk` finds her, and that is only true
+--                 because history is a table rather than an audit log.
+--   `corrected` — `Alise Nowak`, a typo somebody fixed at the keyboard. Kept for
+--                 audit, and it must NOT appear in either place. If a seeded
+--                 search for `Alise` ever starts returning her, the filter has
+--                 regressed in exactly the direction that surfaces a deadname.
+--
+-- ONE SUPERSEDED ROW HAS A NULL REASON — Bob's `Robert Fennwick` — because a
+-- supersession recorded with no reason at all is read as a correction, and the
+-- default is worth having a fixture for. It is unsearchable and undisplayed for
+-- the same reason the explicit correction above is.
+--
+-- SUPERSEDED ROWS CARRY THE SAME `user_id` AND A DIFFERENT `id`. That is the
+-- claim the table exists to make: a name changing moves no key, so every
+-- membership, entitlement and address still points at the same person.
+INSERT OR IGNORE INTO user_names
+  (id, user_id, display_name, known_as, title, given_name, middle_names,
+   family_name, suffix, created_at, updated_at, superseded_at, superseded_reason)
+VALUES
+  ('nam_92e14ab7c50d43f6893b2ce07fa1685d', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
+   'Alice Kowalczyk', NULL, NULL, 'Alice', 'Maria', 'Kowalczyk', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-95 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-95 days'), 'changed'),
+  ('nam_7d3c60fa298e4b15a7e01db64c93f280', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
+   'Alise Nowak', NULL, 'Dr', 'Alise', 'Maria', 'Nowak', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-95 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days'), 'corrected'),
+  ('nam_0b58fe2a4c67419d83ba15e70cd249f3', 'usr_b62f8d40a1e74c93bf5017ce8a2d6b39',
+   'Robert Fennwick', NULL, NULL, 'Robert', NULL, 'Fennwick', NULL,
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-20 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-20 days'), NULL);
 
 -- ---------------------------------------------------------------------------
 -- What Alice may operate
