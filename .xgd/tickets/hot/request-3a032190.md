@@ -5,7 +5,7 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-06T00:02:41.328321+00:00'
+updated_at: '2026-09-06T18:31:11.862133+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -226,3 +226,106 @@ env var, defaulted to nothing.
 - the seed refuses to run against a store that already has an operator, rather
   than half-seeding it
 - the operator address is supplied, not hardcoded
+
+
+
+## Simplified, 2026-09-06: a SQL file and a runner
+
+The two-phase design above is withdrawn. It is over-built for what this is: a
+development fixture that most people will run once, on a laptop, to get a stack
+worth looking at. What replaces it is a **SQL file and a shell script that feeds
+it to `wrangler d1 execute`** — `db/dev-seed.sql` and `bin/seed`.
+
+**"Through the product's own entry points" is downgraded from a requirement to a
+preference, and here it is not taken.** The argument for it stands — a seed that
+succeeds is evidence those paths work — but the price is a two-phase command that
+needs a running Worker, a minted Access token, a bootstrapped operator and an
+in-process D1 binding held by a second process, all so that a fixture can be
+written. That is a lot of machinery to maintain for something whose failure mode
+is "the test data looks wrong", which is visible immediately. The routes are
+covered by [[REQ-180]]'s, [[REQ-186]]'s and [[REQ-188]]'s own suites, which is
+where evidence about a route belongs.
+
+So `phase 1` / `phase 2`, the in-process `ensurePlatformOperator` call, and the
+"one command, no second script" argument built on top of them are all dropped.
+The added acceptance clauses that describe them are superseded by this section.
+
+### What the seed writes
+
+Identity rows only, straight into the tables. Fixed, opaque primary keys —
+`usr_…`, `acct_…`, `mem_…`, `ent_…`, minted once and written down — so that
+`INSERT OR IGNORE` is the whole of the idempotence and no `WHERE NOT EXISTS`
+scaffolding is needed. Fixed rather than random is the one place this file
+departs from the baseline's rule, and it departs from the *minting* half only:
+the values still carry no meaning and are still never parsed.
+
+| Persona | Where | State |
+| --- | --- | --- |
+| Alice, `alice@plumbing.example` | a `users` row in the deployment's own business | signed up — she accepted the terms |
+| Alice's Plumbing | a business | Alice owns it, with an open-ended grant |
+| Alice's Lettings | a second business | the same account, a second business ([[REQ-178]]) |
+| Alice's Old Salon | a third business | its grant ended — present and unselectable |
+| Bob, `bob@example.com` | a `users` row in Alice's Plumbing | invited, and signed up |
+| Carol, `carol@example.com` | a `users` row in Alice's Plumbing | invited, and never came |
+| Dave, `dave@example.com` | a `users` row in Alice's Plumbing | a lead — never invited |
+
+Alice holds **no membership on the 1st Contact business** and signs in every day,
+which is [[DOC-42]] §4's correction stated as data rather than as prose.
+
+### What it does not write, and says so
+
+- **No platform operator.** `PLATFORM_ADMINS` is the way in, unchanged. Nothing
+  in the seed sets `platform_operator` or writes a membership on the deployment's
+  own business.
+- **No second address for anybody.** [[REQ-191]]'s `user_emails` table does not
+  exist yet, so that row of the cast is not reachable by any means, SQL included.
+  `bin/seed` prints this as an outstanding gap on every run, naming the ticket, so
+  that it stays visible rather than being quietly absent.
+- **No sites.** Identity fixtures, not a demo corpus — the businesses come up
+  empty and `1c push` puts a site in one. `bin/seed` prints that as the next step.
+
+### The runner
+
+`bin/seed` runs one `wrangler d1 execute DB --file db/dev-seed.sql`, against the
+local D1 by default and against the remote one only when `--remote` is typed. It
+prints what it wrote, the gap above, and what to do next. `--help` says all of it.
+
+Local by default is a safety property rather than a convenience: a fixture
+carrying `alice@plumbing.example` reaching a real deployment is the same defect
+[[REQ-190]] just took out of migration `0005`, so the destructive target has to be
+named out loud.
+
+### The Access simulator
+
+`bin/access-sim` is committed under this ticket, as the section above decided. It
+is what makes the seeded people reachable: a JWKS endpoint and a token minter on
+loopback, pointed at by `ACCESS_TEAM_DOMAIN`, so `access.ts` verifies a real RS256
+signature against keys this process published. A UAT mints through it and verifies
+with `verifyAccessJwt` itself, so the claim that it exercises the real gate rather
+than bypassing it is checked rather than asserted.
+
+`apps/control-app/ACCESS.md` gains the pointer to both, as this ticket already
+promised.
+
+### Superseded acceptance
+
+These clauses described the two-phase command and go with it:
+
+- ~~the seed is one command; there is no second script an operator must remember~~
+- ~~phase 1 makes exactly one in-process call, `ensurePlatformOperator`~~
+- ~~every persona, business, invite and grant after the operator is created over HTTP~~
+- ~~the seed refuses to run against a store that already has an operator~~
+- ~~the operator address is supplied, not hardcoded~~ — nothing seeds an operator, so
+  there is no address to supply
+
+### Acceptance, as it now stands
+
+- one command — `bin/seed` — populates an empty local D1 with the cast above
+- re-running it changes nothing
+- every persona the schema can hold is present; the one it cannot is named on
+  every run rather than silently missing
+- each seeded person can be signed in as locally, without a Cloudflare account,
+  through `bin/access-sim` — and where the product refuses them, the refusal is
+  the product's honest answer and not a defect in the fixture
+- the seed creates no platform operator
+- the seed writes to the local D1 unless `--remote` is typed
