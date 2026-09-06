@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5165b19e
 ---
 
 # A person's name is a table, and every part of it is optional
