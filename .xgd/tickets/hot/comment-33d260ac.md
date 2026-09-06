@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T18:28:38.351762+00:00'
+updated_at: '2026-09-06T18:58:41.530971+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,45 @@ Tell me on 1 and 2 and I'll cut the branch and build it.
 I think the "products own entry points" is an unnecessary constraint - its desirable but not required. Please don't overengineer this I want a simple script that populates the test data.
 
 This may only run once? Really don't over engineer
+
+<!-- xgd-turn id="02aec5ab-ca15-402c-a25d-54bb541c8877-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T18:58:41.181437+00:00" -->
+#### Claude
+Understood — simple script, direct SQL is fine. Let me gather the last few facts and then cut the branch.
+
+Now let me scope the ticket with the simplification decision.
+
+Now the seed SQL.
+
+Now the runner:
+
+Now the workers UAT:
+
+REQ-191 landed while I was working — `user_emails` now exists. That changes the seed. Let me re-read the current schema.
+
+REQ-191 landing means the two-addresses persona is now seedable. Rewriting the seed against the current schema:
+
+Now let me actually run it against a scratch SQLite to check the SQL parses and satisfies every constraint:
+
+Now update the workers UAT for the current schema and add the two-addresses case:
+
+Now add the two-addresses case and fix the snapshot to cover `user_emails`:
+
+Now the access-sim UAT — the strongest claim in the ticket is that it exercises the real gate:
+
+Now let me run the whole affected suite plus the neighbours that touch the same files:
+
+Now let me verify the seeded data really is reachable through `access-sim`'s live D1 read:
+
+`access-sim` still queries `users.email`, which REQ-191 removed — the login list is empty. Fixing:
+
+Now add a regression guard for the `access-sim` schema bug I just found, then reseed and verify the live ordering:
+
+All 17 failures are pre-existing (confirmed with my work stashed). Now the ticket correction — REQ-191 landed mid-session and changes the cast:
+
+Both are strictly superseded by the branch versions (backed up to `.xgd/tmp/premerge/`). Merging:
+
+A concurrent session is merging REQ-197 into `xgd-working`. Let me check whether that settled before touching anything:
 
 <!-- xgd-chat-end -->
