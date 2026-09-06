@@ -106,6 +106,48 @@ The client secret is a real credential: it goes in the operator's password manag
 deploy hook ever needs it, into Cloudflare's own secret store via `bin/deploy.d/secrets/`. Never
 into this repository.
 
+### Locally, as a seeded person
+
+`bin/access-token` provisions a *real* service token against the deployed application.
+`bin/access-sim` is its counterpart for a laptop: it stands in for the whole gate, so a seeded
+person can be signed in as without a Cloudflare account (REQ-192).
+
+It **exercises the real gate rather than bypassing it.** `access.ts` fetches
+`<ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs` and verifies an RS256 JWT against the published key,
+checking `aud`, `iss`, `exp`, `nbf` and `iat`; `normaliseTeamDomain` accepts an `http://` prefix.
+Pointing the var at this process therefore runs every one of those checks for real, against keys
+it minted at boot. Nothing in the Worker is stubbed, mocked or branched — the only difference from
+production is which team domain published the JWKS, and
+`test_UAT_FC_REQ-192_a_minted_token_passes_the_real_verifier` calls `verifyAccessJwt` itself to
+say so.
+
+It is **not** a backdoor, and that is structural. The keypair is generated at boot and served from
+loopback, so a deployment whose `ACCESS_TEAM_DOMAIN` names Cloudflare refuses every token it
+mints. The way to misuse it is to repoint a deployment's team domain at localhost, which is not a
+mistake — the same standard `wrangler.toml` records for `ACCESS_DEV_OPEN`.
+
+```bash
+./bin/seed                                     # the people to sign in as (REQ-192)
+./bin/access-sim --print-env > .dev.vars.local  # ACCESS_TEAM_DOMAIN + ACCESS_AUD
+./bin/access-sim &
+cd apps/control-app && npx wrangler dev --port 8788 \
+  --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+Then open <http://127.0.0.1:8799/login> and pick a person. The list is read out of the local D1 at
+request time — through `wrangler d1 execute`, not by opening the SQLite file — so it cannot drift
+from what the seed wrote, and a missing store degrades to `/login?email=…` rather than to a broken
+page. The cookie it sets reaches the builder because cookies are scoped by host and ignore the
+port; browse `127.0.0.1:8788`, not `localhost:8788`, or it is a different cookie host.
+
+Tokens last 30 days by default (BUG-52): a test session that expires inside a sitting makes every
+bug look like the harness running down. Deployed session lifetime is a separate question and is
+REQ-187's.
+
+**There is no operator in the seed.** `PLATFORM_ADMINS` is how somebody privileged comes to exist
+in an empty database (REQ-185) — set it in `.dev.vars.local` alongside the two vars above, sign in
+once, and empty it. Using it *writes* the membership, so the repair outlives the var.
+
 ## What Access does *not* change
 
 - **Draft snapshots served by `public-site` stay link-private, not authenticated** — an

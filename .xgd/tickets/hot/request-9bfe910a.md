@@ -5,15 +5,16 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-09-05T23:44:54.669580+00:00'
+updated_at: '2026-09-06T19:13:37.527862+00:00'
 completed_at: null
 last_field_updated: body
-status: draft
+status: free_coding
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-b6d07352
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-196]] and [[REQ-197]].
@@ -102,3 +103,87 @@ based on what it is told.
 - the Contacts detail pane lists a contact's messages, most recent first, showing
   subject, when, and status
 - a contact with a bounced address is distinguishable in the Contacts list
+## Implementation decisions
+
+Recorded here because each is a consequence of the shape above rather than a
+free choice, and because the two tickets this one depends on are being built
+alongside it.
+
+### The record is written around a `sendEmail`-shaped port that is passed in
+
+[[REQ-196]] owns the port and its Resend and local adapters. This ticket owns
+the *recording* half — queue, call, update — and takes the port as an argument
+rather than importing an adapter. So the seam is
+`sendRecordedEmail(store, spec, send)`: the recorder never chooses a provider,
+never holds an API key, and the suite drives it with a stub that captures.
+That is also what satisfies [[REQ-196]]'s falsifier — *a code path where running
+the tests can send mail* — from this side of the seam.
+
+`template_key` is a plain string on the record. Rendering is [[REQ-197]]'s, and
+the record only has to say which template the body came from.
+
+### The type registers `contact_id` and `address_id` as strings, not `uid`
+
+A `uid` field in the type pack is a *reference to another ticket*, and the store
+refuses a create whose reference does not resolve. A contact is a `users` row and
+an address is a `user_emails` row; neither is a ticket, so declaring them `uid`
+would make every send fail validation. They are opaque keys into the identity
+schema and are typed as what they are.
+
+### The webhook is unauthenticated by necessity, and therefore verified first
+
+It is mounted ahead of the Access gate — a provider cannot present an Access
+token, so a webhook behind the gate is a webhook that never fires. Everything the
+gate would have done is replaced by the signature: the body is read, the
+provider's signature over it is verified against a shared secret, and a request
+that fails verification is refused before anything is looked up, let alone
+written. The signed content includes the provider's timestamp, and a timestamp
+outside a few minutes is refused too, so a captured request cannot be replayed.
+
+### Finding the record means listing tenants, not reading across them
+
+The provider knows a message id and nothing about businesses, so the lookup has
+no tenant to start from. The ticket store has no unscoped read and must not grow
+one: the sanctioned shape is to hold the base handle, `listTenants()`, and take
+one ordinary scoped handle per tenant until the record is found — pointers, then
+an ordinary read ([[DOC-40]] §7). It costs one indexed query per registered
+business per event, which is the honest price of a beta with a handful of them;
+what it buys is that no new cross-tenant read surface exists.
+
+### The bounce reaches the list without a schema change
+
+`/api/people` reports, alongside the people, the contacts that hold a bounced
+message — one scoped query over the tenant's own `email` records. The list marks
+those rows. A column on `user_emails` would be a second home for a fact the
+record already carries, and the two would be free to disagree.
+
+### What the operator sees
+
+- the detail pane gains a **Messages** section listing that contact's messages,
+  most recent first, showing subject, when it was queued, and status
+- a message that failed says why, on the row, because the reason is the only
+  thing that tells the operator whether pressing Invite again will help
+- a contact with a bounced address carries a marker in the list itself
+
+### There is no call site in this ticket
+
+Nothing in the product sends mail yet, and this ticket does not add the first
+thing that does. It adds the record, the webhook and the two reads the Contacts
+tab makes; the surface that composes *render a template, send it, record it* is
+the invite modal in [[REQ-199]], over [[REQ-196]]'s adapter and [[REQ-197]]'s
+templates. That is why the acceptance below is stated against `sendRecordedEmail`
+rather than against pressing a button.
+
+The signing secret is `EMAIL_WEBHOOK_SECRET`, pushed with `wrangler secret` and
+never committed. Absent, the endpoint refuses everything rather than accepting
+unverified events — which is the right failure, and is why it is not a deploy
+blocker before the provider is configured.
+
+## Acceptance (added by implementation)
+
+- the webhook refuses a request whose timestamp is far outside now, so a captured
+  request cannot be replayed
+- the webhook refuses a body that verifies but names no message we sent, without
+  writing anything
+- `sendRecordedEmail` takes the sending port as an argument and imports no adapter
+- a failed send's reason is stored on the record and shown on the row

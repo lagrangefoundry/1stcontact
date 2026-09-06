@@ -14,6 +14,7 @@ import {
 import { personByEmail } from './support/person'
 import { seedContact } from './support/contact'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { currentNameOf, writeName } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PEOPLE_PATH, PERSON_INVITE_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
@@ -158,7 +159,7 @@ const getPeople = async (token: string, businessId: string | null = null): Promi
 const rowsFor = async (tenantId: string, email: string) => {
   const { results } = await env.DB.prepare(
     `SELECT u.id AS id, u.tenant_id AS tenant_id, ${PRIMARY_EMAIL_SQL} AS email, ` +
-      'u.status AS status, u.display_name AS display_name, u.invited_at AS invited_at ' +
+      'u.status AS status, u.invited_at AS invited_at ' +
       `FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
   )
     .bind(tenantId, tenantId, email)
@@ -167,7 +168,6 @@ const rowsFor = async (tenantId: string, email: string) => {
       tenant_id: string
       email: string
       status: string
-      display_name: string | null
       invited_at: string | null
     }>()
   return results ?? []
@@ -250,14 +250,16 @@ describe('REQ-186 — one control, both levels', () => {
     expect(bobRow.tenant_id).toBe(account.businessId)
     expect(aliceRow.tenant_id).not.toBe(bobRow.tenant_id)
 
-    // Everything else about the two rows is the same shape.
-    const shape = (row: typeof aliceRow) => ({
+    // Everything else about the two rows is the same shape — the name included,
+    // read through `currentNameOf` because a name is a row now ([[REQ-193]]) and
+    // the claim is that neither level gets a different one.
+    const shape = async (row: typeof aliceRow) => ({
       status: row.status,
-      displayName: row.display_name,
+      displayName: (await currentNameOf(identityEnv(), row.id))?.displayName ?? null,
       invited: row.invited_at !== null,
       id: /^usr_[0-9a-f]{32}$/.test(row.id),
     })
-    expect(shape(bobRow)).toEqual(shape(aliceRow))
+    expect(await shape(bobRow)).toEqual(await shape(aliceRow))
 
     // AND THE SCHEMA CARRIES NO LEVEL TO BRANCH ON. Read from the database rather
     // than asserted about the migration text, so a column added later is caught.
@@ -348,7 +350,7 @@ describe('REQ-186 — a transition, not a creation', () => {
 
     expect(again.created).toBe(false)
     expect(again.person.invitedAt).toBe(first.person.invitedAt)
-    expect(again.person.displayName).toBe('Bob Smith')
+    expect(again.person.name?.displayName).toBe('Bob Smith')
   })
 
   it('test_UAT_FC_REQ-186_an_invite_with_no_address_is_refused_as_the_callers_mistake', async () => {

@@ -10,6 +10,7 @@ import {
 } from '../apps/control-app/src/identity'
 import { personByEmail } from './support/person'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { currentNameOf } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PERSON_RECORD_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
@@ -143,16 +144,26 @@ const postRecord = async (
 interface UserRowShape {
   id: string
   email: string
-  display_name: string | null
   status: string
   invited_at: string | null
   tos_accepted_at: string | null
   created_at: string
 }
 
-const rowById = async (tenantId: string, id: string): Promise<UserRowShape> => {
+/**
+ * The row, and the name that hangs off it ([[REQ-193]]).
+ *
+ * THE NAME COMES THROUGH `currentNameOf` AND NOT THROUGH SQL WRITTEN HERE.
+ * `superseded_at IS NULL` has exactly one spelling in this repository, and a
+ * suite that wrote its own would be the second — and would keep passing on the
+ * day the production predicate changed.
+ */
+const rowById = async (
+  tenantId: string,
+  id: string,
+): Promise<UserRowShape & { displayName: string | null }> => {
   const row = await env.DB.prepare(
-    `SELECT u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.display_name AS display_name, ` +
+    `SELECT u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, ` +
       'u.status AS status, u.invited_at AS invited_at, ' +
       'u.tos_accepted_at AS tos_accepted_at, u.created_at AS created_at ' +
       'FROM users u WHERE u.tenant_id = ? AND u.id = ?',
@@ -160,7 +171,8 @@ const rowById = async (tenantId: string, id: string): Promise<UserRowShape> => {
     .bind(tenantId, id)
     .first<UserRowShape>()
   if (!row) throw new Error(`no such row: ${id}`)
-  return row
+  const name = await currentNameOf(identityEnv(), id)
+  return { ...row, displayName: name?.displayName ?? null }
 }
 
 /**
@@ -224,12 +236,12 @@ describe('BUG-54 — the correction lands', () => {
     expect(addressed.status).toBe(200)
 
     const row = await rowById(businessId, personId)
-    expect(row.display_name).toBe('Bob Smith')
+    expect(row.displayName).toBe('Bob Smith')
     expect(row.email).toBe('bob.smith@example.test')
     const listed = await peopleOf(identityEnv(), { businessId })
     const them = listed.find((p) => p.id === personId)
     expect(them?.email).toBe('bob.smith@example.test')
-    expect(them?.displayName).toBe('Bob Smith')
+    expect(them?.name?.displayName).toBe('Bob Smith')
   })
 
   it('test_UAT_FC_BUG-54_an_absent_key_leaves_that_field_alone', async () => {
@@ -246,7 +258,7 @@ describe('BUG-54 — the correction lands', () => {
     )
 
     expect(response.status).toBe(200)
-    expect((await rowById(businessId, personId)).display_name).toBe('Bob')
+    expect((await rowById(businessId, personId)).displayName).toBe('Bob')
   })
 
   it('test_UAT_FC_BUG-54_the_address_is_casefolded_so_the_front_door_still_finds_them', async () => {
@@ -295,7 +307,7 @@ describe('BUG-54 — the correction lands', () => {
 
     expect(response.status).toBe(200)
     const after = await rowById(businessId, personId)
-    expect(after.display_name).toBe('Bob Smith')
+    expect(after.displayName).toBe('Bob Smith')
     expect(after.status).toBe(before.status)
     expect(after.invited_at).toBe(before.invited_at)
     expect(after.tos_accepted_at).toBe(before.tos_accepted_at)
@@ -436,7 +448,7 @@ describe('BUG-54 — who may correct a record', () => {
 
     expect(response.status).toBe(403)
     expect((await response.json<{ error: string }>()).error).toContain('owner')
-    expect((await rowById(theirs.businessId, theirs.personId)).display_name).toBe('Bob')
+    expect((await rowById(theirs.businessId, theirs.personId)).displayName).toBe('Bob')
   })
 
   it('test_UAT_FC_BUG-54_an_id_that_names_nobody_here_is_404_and_not_a_500', async () => {
@@ -472,6 +484,6 @@ describe('BUG-54 — who may correct a record', () => {
     )
 
     expect(response.status).toBe(404)
-    expect((await rowById(carol.businessId, carol.personId)).display_name).toBe(before.display_name)
+    expect((await rowById(carol.businessId, carol.personId)).displayName).toBe(before.displayName)
   })
 })

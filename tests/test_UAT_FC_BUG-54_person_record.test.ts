@@ -46,10 +46,45 @@ function memoryStorage() {
   }
 }
 
+/**
+ * A name record, as the origin reports one ([[REQ-193]]).
+ *
+ * THE PANEL READS `person.name`, because a name is a row and the displayed
+ * value is one field of it — and it WRITES the parts back flat, one at a time,
+ * which is what the transport below records.
+ */
+interface PersonName {
+  id: string
+  displayName: string
+  knownAs: string | null
+  title: string | null
+  givenName: string | null
+  middleNames: string | null
+  familyName: string | null
+  suffix: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+const named = (displayName: string, over: Partial<PersonName> = {}): PersonName => ({
+  id: 'nam_1',
+  displayName,
+  knownAs: null,
+  title: null,
+  givenName: null,
+  middleNames: null,
+  familyName: null,
+  suffix: null,
+  createdAt: '2026-09-01T09:00:00.000Z',
+  updatedAt: '2026-09-01T09:00:00.000Z',
+  ...over,
+})
+
 interface Person {
   id: string
   email: string
-  displayName: string | null
+  name: PersonName | null
+  formerNames: string[]
   status: string
   invitedAt: string | null
   firstSeenAt: string | null
@@ -61,7 +96,8 @@ interface Person {
 const ALICE: Person = {
   id: 'usr_1',
   email: 'alice@example.test',
-  displayName: 'Alice',
+  name: named('Alice'),
+  formerNames: [],
   status: 'active',
   invitedAt: '2026-09-01T10:00:00.000Z',
   firstSeenAt: '2026-09-02T10:00:00.000Z',
@@ -94,8 +130,13 @@ function transportOver(row: Person = ALICE) {
       if (refuse) throw new Error(refuse)
       saved.push({ id, ...patch })
       if ('email' in patch) person.email = String(patch.email ?? '').trim().toLowerCase()
+      // THE NAME PARTS ARRIVE FLAT AND LAND ON THE RECORD, which is exactly what
+      // the origin does ([[REQ-193]]): the route gathers whichever parts came
+      // and `writeName` supersedes the row with them merged over the current one.
       if ('displayName' in patch) {
-        person.displayName = String(patch.displayName ?? '').trim() || null
+        const shown = String(patch.displayName ?? '').trim()
+        person.name =
+          shown === '' ? null : { ...(person.name ?? named(shown)), displayName: shown }
       }
       return { ...person }
     },
@@ -227,7 +268,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-54 — an edit leaves the browser', () =>
     await type('displayName', 'Alice Smith')
 
     expect(transport.saved).toEqual([{ id: 'usr_1', displayName: 'Alice Smith' }])
-    expect(transport.person.displayName).toBe('Alice Smith')
+    expect(transport.person.name?.displayName).toBe('Alice Smith')
   })
 
   it('test_UAT_FC_BUG-54_one_field_is_sent_and_not_the_whole_record', async () => {
