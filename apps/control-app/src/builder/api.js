@@ -684,14 +684,19 @@ export async function savePersonRecord(id, patch = {}, fetchImpl = fetch) {
 }
 
 /**
- * Turn a contact into a member of the business that is open ([[REQ-186]]).
+ * Add a contact, and do nothing else ([[REQ-199]]).
+ *
+ * ITS OWN CALL AND NOT A FLAG ON THE INVITE. Adding somebody records them as a
+ * **Lead**; inviting them emails a stranger. One function with an `alsoInvite`
+ * boolean would make that difference a parameter, and that parameter eventually
+ * defaults wrong in the direction that mails people.
  *
  * `scoped()` LIKE EVERY OTHER WRITE, which is what makes one control serve both
  * levels: the business in the path is the business the row lands in, so the tab
  * has no level of its own to declare ([[DOC-42]] §3).
  */
-export async function invitePerson(email, displayName, fetchImpl = fetch) {
-  const res = await send(fetchImpl, scoped('/api/people/invite'), {
+export async function addContact(email, displayName, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/add'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, displayName }),
@@ -700,6 +705,53 @@ export async function invitePerson(email, displayName, fetchImpl = fetch) {
   // 403 here means "you do not own this business" and 400 means "you typed
   // nothing"; a caller shown only the number has to guess which, and the panel
   // puts the sentence in front of the operator.
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/people/add → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * What the invite modal opens with: the sender, and the template's copy
+ * ([[REQ-199]], [[REQ-197]]).
+ *
+ * READ FROM THE SERVER RATHER THAN HELD HERE. The copy lives in this business's
+ * own ticket store and changes without a deploy, so a default written into the
+ * browser bundle would be a second answer that is stale the moment anybody edits
+ * the template — and stale in the one direction nobody notices, because the
+ * modal would still look filled in.
+ */
+export async function fetchInviteDraft(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/invite'))
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `GET /api/people/invite → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * Invite the checked contacts — one message each ([[REQ-199]]).
+ *
+ * IDS AND NOT ADDRESSES. The rows are already here; the address each message
+ * goes to is that contact's PRIMARY one, which the schema guarantees rather than
+ * this client choosing. Sending addresses from the browser would let a stale
+ * list mail somewhere the row no longer says.
+ *
+ * NO `from` IS SENT. The sending address is the deployment's and the modal shows
+ * it without offering it — a field a client could set and the server ignored is
+ * a field that eventually gets believed.
+ *
+ * `subject` AND `body` ARE FOR THIS SEND. They go up because the operator may
+ * have changed them, and nothing on this path writes them back to the template.
+ */
+export async function invitePeople(ids, subject, body, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/invite'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ids, subject, body }),
+  })
   if (!res.ok) {
     const said = await res.json().catch(() => null)
     throw new Error(said?.error || `POST /api/people/invite → ${res.status}`)

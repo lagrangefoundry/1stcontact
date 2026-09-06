@@ -5,7 +5,7 @@ import {
   type IdentityEnv,
   type UserRow,
 } from '../../apps/control-app/src/identity'
-import { invitePerson } from '../../apps/control-app/src/people'
+import { addContact } from '../../apps/control-app/src/people'
 
 /**
  * A 1st Contact ACCOUNT, seeded for a suite that needs one to exist.
@@ -25,11 +25,17 @@ import { invitePerson } from '../../apps/control-app/src/people'
  * it is written as the two shipped calls in order, so a change to either one is
  * felt here rather than routed around.
  *
- * IT INVITES INTO THE PLATFORM TENANT, because that is what a 1st Contact
- * ACCOUNT is ([[DOC-40]] §2.1): a `users` row in the business whose product is
+ * IT ADDS INTO THE PLATFORM TENANT, because that is what a 1st Contact ACCOUNT
+ * is ([[DOC-40]] §2.1): a `users` row in the business whose product is
  * businesses. A suite wanting Bob — a member one level down — calls
- * {@link invitePerson} against that customer's business directly, which is the
+ * {@link addContact} against that customer's business directly, which is the
  * whole of the difference and is why it is not a parameter here.
+ *
+ * IT ADDS RATHER THAN INVITES ([[REQ-199]]). The two came apart: adding creates
+ * and leaves the pipeline at Lead, and inviting moves an existing contact and
+ * mails them. What every caller of this fixture wants is the first — an account
+ * that EXISTS — and routing it through the second would have every suite that
+ * needs a person send them mail.
  */
 export interface SeededAccount {
   /** False when the email was already known in the platform tenant. */
@@ -61,7 +67,7 @@ export async function inviteAccount(
     throw new Error('inviteAccount needs TENANT_ID — it seeds an account, which is a row there.')
   }
 
-  const invited = await invitePerson(env, { businessId: platformTenant }, {
+  const invited = await addContact(env, { businessId: platformTenant }, {
     email: seed.email,
     displayName: seed.displayName ?? null,
   })
@@ -90,7 +96,7 @@ export async function inviteAccount(
   }
 
   const business: BusinessResult = await provisionBusiness(env, {
-    // THE ACCOUNT'S KEY ([[REQ-194]]). `invitePerson` minted it alongside the
+    // THE ACCOUNT'S KEY ([[REQ-194]]). `addContact` minted it alongside the
     // person, so the account this business belongs to is the one on their row.
     accountId: user.account_id,
     // The address is a fallback LABEL for the business, not a claim on the grant

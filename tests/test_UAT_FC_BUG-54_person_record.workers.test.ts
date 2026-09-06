@@ -9,7 +9,7 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { personByEmail } from './support/person'
-import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { addContact, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PERSON_RECORD_PATH } from '../apps/control-app/src/router'
@@ -187,7 +187,7 @@ async function aBusinessWithSomebodyInIt() {
   const owner = anEmail()
   const account = await anAccount(owner, "Alice's Plumbing")
   const bob = anEmail()
-  const invited = await invitePerson(
+  const invited = await addContact(
     identityEnv(),
     { businessId: account.businessId },
     { email: bob, displayName: 'Bob' },
@@ -353,7 +353,7 @@ describe('BUG-54 — the origin is the authority on an address', () => {
     stubJwks()
     const { owner, businessId, personId, bob } = await aBusinessWithSomebodyInIt()
     const other = anEmail()
-    await invitePerson(identityEnv(), { businessId }, { email: other })
+    await addContact(identityEnv(), { businessId }, { email: other })
 
     const response = await postRecord(await mint(owner), { id: personId, email: other }, businessId)
 

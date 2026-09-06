@@ -37,13 +37,23 @@
  * different question: withdrawing one takes away the right to run a business and
  * deliberately leaves that person's own Portal reachable.
  *
- * AND THE INVITE IS THE VERB THAT MOVES THE PIPELINE ([[REQ-186]], [[DOC-42]]
- * §9) — from Lead to **Invited**, and no further, and along that axis only. It
- * is one control for both levels: it writes into whichever business is open, so
- * from 1st Contact it makes Alice and from Alice's it makes Bob, which is why it
- * is a button on this uniform tab rather than a platform console. What it cannot
- * do is make a member. Only the person themselves does that, by accepting the
- * terms, and the tab reflects it with no operator action at all.
+ * TWO CONTROLS, BECAUSE THERE ARE TWO ACTS ([[REQ-199]]). `+` ADDS a contact and
+ * does nothing else — the new row is a **Lead**, no mail is sent — and that is
+ * the more basic of the two, because most contacts are never invited at all. The
+ * tab could not do it until [[REQ-199]]: inviting was insert-or-update and was
+ * therefore the only way to create anybody, so recording a person necessarily
+ * also asked them to sign up.
+ *
+ * AND THE INVITE IS THE VERB THAT MOVES THE PIPELINE ([[REQ-186]], [[REQ-199]],
+ * [[DOC-42]] §9) — from Lead to **Invited**, and no further, and along that axis
+ * only. It acts on the CHECKED SET rather than on an address typed into a form,
+ * and it now really sends mail: one message per contact, each with exactly one
+ * recipient, to that contact's primary address. It is one control for both
+ * levels: it writes into whichever business is open, so from 1st Contact it
+ * moves Alice and from Alice's it moves Bob, which is why it is a button on this
+ * uniform tab rather than a platform console. What it cannot do is make a
+ * member. Only the person themselves does that, by accepting the terms, and the
+ * tab reflects it with no operator action at all.
  *
  * STANDARD `webui/split` + `webui/list-detail`, CONFIGURED RATHER THAN REBUILT,
  * exactly as the Library uses them. What is written here is the three functions
@@ -74,10 +84,12 @@ import {
 } from './people-axes.js'
 import { eventLabel } from './contact-events.js'
 import {
+  addContact,
+  fetchInviteDraft,
   fetchPeople,
   fetchPerson,
   fetchPersonMessages,
-  invitePerson,
+  invitePeople,
   openGrant,
   provisionBusinessFor,
   revokeGrant,
@@ -303,8 +315,25 @@ export { NO_NAME_YET }
  * scans this list for is who signed up, and a column reading "Not a member"
  * against most rows would spend the eye's attention on the ordinary case.
  */
-function renderRow(person, bounced = new Set()) {
+function renderRow(person, bounced = new Set(), selection = null) {
   const row = el('div', 'builder-people__row')
+  // THE CHECKBOX IS PART OF THE ROW AND NOT A COLUMN BESIDE IT ([[REQ-199]]).
+  // `list-detail` renders one content cell per row, so the tick has to live
+  // inside it — and it stops its own clicks, because ticking somebody is not
+  // selecting them: an operator checks five rows while reading a sixth, and a
+  // tick that also moved the detail pane would make that impossible.
+  if (selection) {
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.className = 'builder-people__check'
+    box.checked = selection.has(person.id)
+    // AN ACCESSIBLE NAME, because a bare checkbox in a list of them is announced
+    // as "checkbox" and nothing else. The person is who it is about.
+    box.setAttribute('aria-label', `Select ${displayNameOf(person) || person.email || person.id}`)
+    box.addEventListener('click', (ev) => ev.stopPropagation())
+    box.addEventListener('change', () => selection.toggle(person.id, box.checked))
+    row.append(box)
+  }
   const shown = displayNameOf(person)
   const name = el('span', 'builder-people__who', shown || NO_NAME_YET)
   if (!shown) name.classList.add('builder-people__noname')
@@ -377,6 +406,46 @@ function messageLine(message) {
     line.append(el('span', 'builder-people__msgfailure', message.failure))
   }
   return line
+}
+
+/**
+ * What one invite did, said in one sentence ([[REQ-199]]).
+ *
+ * EVERY SELECTED CONTACT GETS A LINE, including the ones that worked. A report
+ * that listed only the failures would leave "nine sent" to be inferred from an
+ * absence, and the operator's actual question after pressing Send is *did it go
+ * to everybody I ticked* — which is answered by counting lines, not by trusting
+ * that nothing was omitted.
+ *
+ * A REFUSAL NAMES THE PERSON AND THE REASON. "One contact could not be sent to"
+ * against a list of ten cannot be acted on; the whole value of refusing rather
+ * than guessing an address is that the operator is told which row to go and fix.
+ *
+ * PURE AND EXPORTED, because this is the claim the ticket makes about what the
+ * operator is shown, and it is provable without a DOM.
+ */
+export function describeOutcome(result) {
+  const who = result?.who || result?.contactId || 'someone'
+  if (result?.status === 'refused') {
+    return { status: 'refused', text: `${who}: not sent — ${result.reason ?? 'refused'}` }
+  }
+  if (result?.status === 'failed') {
+    return { status: 'failed', text: `${who}: failed — ${result.reason ?? 'the provider refused it'}` }
+  }
+  return { status: 'sent', text: `${who}: sent to ${result?.to ?? ''}`.trim() }
+}
+
+/** The report, one line per selected contact, in the order they were sent. */
+function outcomeLines(results) {
+  return results.map((result) => {
+    const said = describeOutcome(result)
+    const line = el('p', 'builder-people__outcome', said.text)
+    // THE STATUS IS AN ATTRIBUTE AND NOT A CLASS PER VALUE, the idiom the
+    // message list and the facets already use: one rule describes an outcome
+    // line, and the sheet says which of the three deserves an accent.
+    line.dataset.status = said.status
+    return line
+  })
 }
 
 /**
@@ -574,7 +643,9 @@ export function createPeoplePanel(options = {}) {
     saveRecord: savePersonRecord,
     grant: openGrant,
     revoke: revokeGrant,
-    invite: invitePerson,
+    add: addContact,
+    inviteDraft: fetchInviteDraft,
+    invite: invitePeople,
     fulfil: provisionBusinessFor,
     ...(options.transport ?? {}),
   }
@@ -594,6 +665,22 @@ export function createPeoplePanel(options = {}) {
    * person would inherit the ambiguity.
    */
   let bounced = new Set()
+  /**
+   * The checked rows ([[REQ-199]]).
+   *
+   * IDS AND NOT ROWS, so it survives every redraw the list makes. `setItems`
+   * rebuilds every row on a filter change and on a refresh, and a selection held
+   * as element references would be emptied by both — silently, which is the
+   * worst possible way for a multi-select to fail: the operator ticks five
+   * people, types in the search box, and sends to whoever is left.
+   *
+   * PRUNED AGAINST THE LIST ON EVERY REFRESH, and deliberately NOT against the
+   * filter. Filtering hides rows and does not unselect them — an operator who
+   * narrows to *Leads*, ticks four, then clears the filter still means those
+   * four — but a person who has left the business entirely is an id that can no
+   * longer be sent to, and keeping it would put a refusal in every later send.
+   */
+  const selected = new Set()
   const filter = { text: '', stage: '', access: '' }
 
   const controls = el('div', 'builder-people__filter')
@@ -640,16 +727,47 @@ export function createPeoplePanel(options = {}) {
   )
 
   /**
-   * The invite, beside the filter rather than inside a person's detail.
+   * ADD, beside the filter — the fundamental act ([[REQ-199]]).
+   *
+   * A `+` AND NOT A WORD, because it sits in a row of filter chrome and its
+   * meaning is the one every list in every product gives it. Its accessible name
+   * is the sentence the glyph is short for; a control announced as "plus" is a
+   * control a screen reader user has to guess at.
    *
    * IT MAKES A PERSON, so it cannot hang off one. The detail pane edits somebody
    * who already exists; this is the list's own action and it belongs where the
-   * list's own controls are.
+   * list's own controls are — the same argument the invite makes below.
+   *
+   * SHOWN ON THE SAME CONDITION AS THE INVITE, `canInvite` — *you own this
+   * business* ([[DOC-42]] §7), which is true of Alice on hers. Not rendering it
+   * is not the gate: `/api/people/add` asks the same question again for itself.
+   */
+  const add = el('button', 'builder-people__add', '+')
+  add.type = 'button'
+  add.hidden = true
+  add.title = 'Add a contact'
+  add.setAttribute('aria-label', 'Add a contact')
+  add.addEventListener('click', () => openAdd())
+  controls.append(add)
+
+  /**
+   * The invite, beside the filter rather than inside a person's detail.
+   *
+   * IT ACTS ON THE CHECKED SET ([[REQ-199]]). It used to open a form that took
+   * an address, which made inviting the only way to create a contact; now adding
+   * is its own control and this one asks people who are already here.
+   *
+   * DISABLED WITH NOTHING CHECKED, AND NOT ABSENT. A control that vanishes
+   * teaches nothing — an operator who has never used the tab has no way to
+   * discover that ticking rows is what makes inviting possible. Disabled, the
+   * button is visible, its tooltip says what it needs, and the relationship
+   * between the two is learnable by looking.
    *
    * SHOWN ON ONE CONDITION AND IT IS NOT "ADMIN" ([[DOC-42]] §7). `canInvite` is
    * *you own this business*, which is true of Alice on hers — so the same button
-   * appears on the same tab at both levels, and what it makes is decided by which
-   * business is open rather than by anything this file knows ([[DOC-42]] §3).
+   * appears on the same tab at both levels, and who it reaches is decided by
+   * which business is open rather than by anything this file knows ([[DOC-42]]
+   * §3).
    *
    * NOT RENDERING IT IS NOT THE GATE, the same as the fulfilment control below:
    * `/api/people/invite` asks the same question again for itself, because a
@@ -662,79 +780,267 @@ export function createPeoplePanel(options = {}) {
   controls.append(invite)
 
   /**
-   * The dialog: an address, an optional name, and a sentence about the post.
+   * The selection's one write path, so the button and the boxes cannot disagree.
    *
-   * THE "NO MAIL IS SENT" LINE IS PART OF THE FEATURE, not decoration. There is
-   * no sender in this system, so an operator who reads "Invite" and is told
-   * nothing will assume a message went out and will not check. The invite is a
-   * database transition; the person is admitted the next time they pass the front
-   * door, and they have to be told that by somebody.
+   * EVERY TICK GOES THROUGH HERE and every path that changes the set ends in
+   * {@link syncInvite}. Written as two lines at each of four call sites, the
+   * fifth call site is where somebody forgets the second one and the Invite
+   * button stays disabled over a full selection.
+   */
+  const selection = {
+    has: (id) => selected.has(id),
+    toggle(id, on) {
+      if (on) selected.add(id)
+      else selected.delete(id)
+      syncInvite()
+    },
+  }
+
+  /** What the Invite button says and whether it may be pressed. */
+  function syncInvite() {
+    const n = selected.size
+    invite.disabled = n === 0
+    invite.textContent = n === 0 ? 'Invite' : `Invite ${n}`
+    invite.title =
+      n === 0 ? 'Tick one or more contacts to invite them.' : `Invite ${n} selected contact${n === 1 ? '' : 's'}.`
+  }
+
+  /**
+   * ADD: an address, an optional name, and nothing else happens ([[REQ-199]]).
+   *
+   * THE SENTENCE IS PART OF THE FEATURE. "Add" is a word an operator will read
+   * as "add and tell them", because that is what every invite-shaped control
+   * they have ever used did — and the whole point of this control is that it
+   * does not. Saying so is cheaper than the support conversation, and far
+   * cheaper than the one where they assumed mail went out and it did not.
+   *
+   * IT STAYS OPEN AFTER A SUCCESSFUL ADD, boxes cleared and focus back in the
+   * address. Adding contacts is something an operator does several of in a row,
+   * and a dialog that closed on each one would make the second one four clicks
+   * away from the first.
    *
    * MOUNTED INTO THE PANEL, which is inside the shell root — `modal.js`'s rule:
    * the `--shell-*` tokens and the app font are declared on `.shell`, and a
    * dialog appended beside it resolves neither.
    */
-  function openInvite() {
-    const modal = createModalShell({ host: element, title: 'Invite someone' })
-
-    const title = el('h2', 'builder-modal__title', 'Invite someone')
-    modal.panel.append(title)
+  function openAdd() {
+    const modal = createModalShell({ host: element, title: 'Add a contact' })
+    modal.panel.append(el('h2', 'builder-modal__title', 'Add a contact'))
 
     const emailField = document.createElement('input')
     emailField.type = 'email'
-    emailField.className = 'builder-people__invite-email'
+    emailField.className = 'builder-people__add-email'
     emailField.placeholder = 'Email address'
     const nameField = document.createElement('input')
     nameField.type = 'text'
-    nameField.className = 'builder-people__invite-name'
+    nameField.className = 'builder-people__add-name'
     nameField.placeholder = 'Name (optional)'
     modal.panel.append(emailField, nameField)
 
-    const hint = el(
-      'p',
-      'builder-people__invite-hint',
-      'No message is sent. They are marked as invited here, and become a member ' +
-        'when they sign in and accept the terms.',
+    modal.panel.append(
+      el(
+        'p',
+        'builder-people__add-hint',
+        'Nothing is sent. They are recorded as a lead — tick them in the list and ' +
+          'press Invite when you want to ask them in.',
+      ),
     )
-    modal.panel.append(hint)
 
-    // ONE PLACE FOR BOTH THE REFUSAL AND THE OUTCOME, so a failed invite cannot
+    // ONE PLACE FOR BOTH THE REFUSAL AND THE OUTCOME, so a failed add cannot
     // close the dialog silently and leave the operator believing it worked.
-    const said = el('p', 'builder-people__invite-said', '')
+    const said = el('p', 'builder-people__add-said', '')
     said.hidden = true
     modal.panel.append(said)
 
-    const send = modalButton('Invite', 'builder-modal__btn builder-modal__btn--primary', async () => {
-      send.disabled = true
+    const make = modalButton('Add', 'builder-modal__btn builder-modal__btn--primary', async () => {
+      make.disabled = true
       try {
-        const outcome = await transport.invite(emailField.value, nameField.value)
+        const outcome = await transport.add(emailField.value, nameField.value)
         await refresh()
-        // A LEAD MOVED ALONG IS REPORTED AS SUCH ([[DOC-42]] §9). It is the same
-        // contact moving along one axis, and telling the operator which of the
-        // two branches ran is the only way that transition is visible anywhere.
-        //
-        // AND WHAT IT SAYS IS "INVITED", NOT "MEMBER" ([[REQ-188]]). The button
-        // cannot make a member — only the person can, by signing up — so a
-        // sentence claiming one would be the old two-state model surviving in the
-        // one place the operator actually reads.
+        // AN ADDRESS ALREADY HERE IS REPORTED AS SUCH rather than as a success.
+        // Adding somebody twice is an operator arriving at a person who is
+        // already here, and silence would let them believe they had made a
+        // second record of a customer they have one of.
         said.textContent = outcome.created
-          ? `${outcome.person.email} is invited.`
-          : `${outcome.person.email} was already known here, and is now invited.`
+          ? `${outcome.person.email} is added as a lead.`
+          : `${outcome.person.email} was already a contact here — nothing changed.`
         said.hidden = false
         emailField.value = ''
         nameField.value = ''
+        emailField.focus()
       } catch (err) {
         said.textContent = err instanceof Error ? err.message : String(err)
         said.hidden = false
       } finally {
-        send.disabled = false
+        make.disabled = false
       }
     })
     modal.panel.append(
-      modalFooter([send, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
+      modalFooter([make, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
     )
     modal.mount()
     emailField.focus()
+    return modal
+  }
+
+  /**
+   * THE INVITE MODAL: what is about to be sent, and to whom ([[REQ-199]]).
+   *
+   * IT IS A MESSAGE AND IT LOOKS LIKE ONE — From, Subject, To-List, Body, in the
+   * order a person composing mail reads them. The operator is about to write to
+   * strangers on behalf of their business, and a dialog that hid the words behind
+   * "Send invite?" would be asking them to trust copy they have never seen.
+   *
+   * `From` IS DISPLAY ONLY. An arbitrary sender address fails DKIM and lands the
+   * message in spam, so offering the field would offer a way to break delivery
+   * silently. It is shown because *who will this appear to be from* is a fair
+   * question; showing it and refusing to take an edit are different things, and
+   * only the second is a restriction.
+   *
+   * `To-List:` AND NOT `To:`, WITH A HOVER THAT EXPLAINS WHY. These go out as N
+   * separate messages, one per recipient. The reason is not technical: contacts
+   * must not be given each other's email addresses, and a single message with
+   * several recipients would disclose the whole list to every one of them. The
+   * label is unusual on purpose and the tooltip is what makes it legible rather
+   * than a typo.
+   *
+   * SUBJECT AND BODY ARE PREFILLED FROM THE `invite` TEMPLATE AND EDITABLE FOR
+   * THIS SEND ([[REQ-197]]). Nothing here writes back to the template: editing
+   * one is a different act with a different surface, and a modal that quietly
+   * rewrote it would let a one-off change to one invite alter what every later
+   * invite says.
+   *
+   * THE DRAFT IS FETCHED WHEN THE DIALOG OPENS, not held from the last one. The
+   * copy lives in this business's ticket store and changes without a deploy, so
+   * a cached draft is stale in the one direction nobody notices — the modal still
+   * looks filled in.
+   */
+  function openInvite() {
+    const chosen = all.filter((person) => selected.has(person.id))
+    const modal = createModalShell({ host: element, title: 'Invite' })
+    modal.panel.append(el('h2', 'builder-modal__title', 'Invite'))
+
+    const form = el('div', 'builder-people__compose')
+    modal.panel.append(form)
+
+    /** One labelled row of the composer, so the four cannot drift apart. */
+    const field = (label, control, hint) => {
+      const row = el('div', 'builder-people__field')
+      const name = el('label', 'builder-people__label', label)
+      if (hint) {
+        // THE HOVER IS ON THE LABEL, which is the thing that looks like a typo.
+        // `title` rather than a paragraph, because the explanation is for the one
+        // reader who stops to ask; printed in full it would be four lines of
+        // policy above the words the operator actually came to read.
+        name.title = hint
+        name.classList.add('builder-people__label--explained')
+      }
+      row.append(name, control)
+      form.append(row)
+      return row
+    }
+
+    const fromField = el('p', 'builder-people__from', '…')
+    field('From:', fromField)
+
+    const subjectField = document.createElement('input')
+    subjectField.type = 'text'
+    subjectField.className = 'builder-people__subject'
+    field('Subject:', subjectField)
+
+    /**
+     * The recipients, one per line, read-only.
+     *
+     * THE ADDRESSES ARE THE PRIMARY ONES AS THE LIST HAS THEM, and a contact
+     * with none is shown as such rather than omitted. A selection of five that
+     * lists four addresses is a dialog inviting the operator to miscount; the
+     * server refuses that contact by name and the others still send, and this is
+     * where they find out which one before they press anything.
+     */
+    const toField = document.createElement('textarea')
+    toField.className = 'builder-people__tolist'
+    toField.readOnly = true
+    toField.rows = Math.min(6, Math.max(2, chosen.length))
+    toField.value = chosen
+      .map((person) => person.email || `${displayNameOf(person) || person.id} — no address`)
+      .join('\n')
+    field(
+      'To-List:',
+      toField,
+      'Each contact gets their own message. They are never put on one email ' +
+        'together, so nobody is shown anybody else’s address.',
+    )
+
+    const bodyField = document.createElement('textarea')
+    bodyField.className = 'builder-people__body'
+    bodyField.rows = 12
+    field('Body:', bodyField)
+
+    const said = el('div', 'builder-people__invite-said', '')
+    said.hidden = true
+    modal.panel.append(said)
+
+    const sendButton = modalButton(
+      `Send ${chosen.length}`,
+      'builder-modal__btn builder-modal__btn--primary',
+      async () => {
+        sendButton.disabled = true
+        said.replaceChildren()
+        said.hidden = true
+        try {
+          const answer = await transport.invite(
+            chosen.map((person) => person.id),
+            subjectField.value,
+            bodyField.value,
+          )
+          await refresh()
+          said.replaceChildren(...outcomeLines(answer.results ?? []))
+          said.hidden = false
+          // THE SELECTION IS CLEARED ONLY ONCE SOMETHING WAS SENT, and the
+          // dialog stays open on top of the report. An operator who has just
+          // mailed nine people and refused one needs to read which one; closing
+          // over the answer is how that gets missed.
+          selected.clear()
+          syncInvite()
+        } catch (err) {
+          said.replaceChildren(
+            el('p', 'builder-people__outcome', err instanceof Error ? err.message : String(err)),
+          )
+          said.hidden = false
+        } finally {
+          sendButton.disabled = false
+        }
+      },
+    )
+    sendButton.disabled = true
+    modal.panel.append(
+      modalFooter([sendButton, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
+    )
+    modal.mount()
+
+    // THE COPY ARRIVES AFTER THE DIALOG IS ON SCREEN, and Send is disabled until
+    // it does. Awaiting the read before mounting would leave the operator
+    // looking at nothing after a click; sending before it lands would send an
+    // empty body.
+    void (async () => {
+      try {
+        const draft = await transport.inviteDraft()
+        fromField.textContent = draft.from ?? ''
+        subjectField.value = draft.subject ?? ''
+        bodyField.value = draft.body ?? ''
+        sendButton.disabled = false
+        subjectField.focus()
+      } catch (err) {
+        said.replaceChildren(
+          el(
+            'p',
+            'builder-people__outcome',
+            `The invite copy could not be read: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        )
+        said.hidden = false
+      }
+    })()
     return modal
   }
 
@@ -1206,9 +1512,10 @@ export function createPeoplePanel(options = {}) {
     getKey: (person) => person.id,
     listTitle: 'Contacts',
     listControls: controls,
-    // WRAPPED so the row can see the bounce set without it becoming a field on
-    // the person — the component calls this per row and holds nothing else.
-    renderRow: (person) => renderRow(person, bounced),
+    // WRAPPED so the row can see the bounce set and the selection without either
+    // becoming a field on the person — the component calls this per row and
+    // holds nothing else.
+    renderRow: (person) => renderRow(person, bounced, selection),
     mode: 'no-tab',
     openDetail,
     emptyDetail: EMPTY_DETAIL,
@@ -1221,10 +1528,18 @@ export function createPeoplePanel(options = {}) {
     canFulfil = answer.canFulfil === true
     canInvite = answer.canInvite === true
     bounced = new Set(Array.isArray(answer.bounced) ? answer.bounced : [])
+    // A TICK ON SOMEBODY WHO IS NO LONGER IN THE LIST IS DROPPED ([[REQ-199]]).
+    // Kept, it would be an id nothing can send to and a refusal in every later
+    // send — and it would make the button's count disagree with the number of
+    // boxes the operator can see ticked.
+    const present = new Set(all.map((person) => person.id))
+    for (const id of [...selected]) if (!present.has(id)) selected.delete(id)
     // HIDDEN RATHER THAN NOT BUILT, because the list is re-read on every business
     // switch and a control that was never created for the first business would
     // have to be created for the second — two code paths for one button.
     invite.hidden = !canInvite
+    add.hidden = !canInvite
+    syncInvite()
     apply()
     return all
   }
@@ -1241,7 +1556,14 @@ export function createPeoplePanel(options = {}) {
     canFulfil = false
     canInvite = false
     bounced = new Set()
+    // THE SELECTION GOES WITH THE LIST. These are other people entirely, and a
+    // tick surviving a business switch is a checked id in a business that has no
+    // such row — which the invite would then refuse, naming a person the
+    // operator is not even looking at.
+    selected.clear()
     invite.hidden = true
+    add.hidden = true
+    syncInvite()
     listDetail.setItems([])
   }
 

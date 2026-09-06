@@ -31,7 +31,7 @@
  * on a single axis cannot represent a member who was never invited, nor a lead
  * who is neither, and both occur ([[DOC-44]] §3). Two axes can, and the invite
  * moving somebody along one of them leaves the other exactly where it was. *
- * `memberships` DOES NOT MEAN "MAY LOG IN". {@link invitePerson} writes the
+ * `memberships` DOES NOT MEAN "MAY LOG IN". {@link addContact} writes the
  * person's `users` row into this tenant while `provisionBusiness` writes their
  * membership on the business they will run — so an account logs in holding no
  * membership on the business it logs in to. Reading `memberships` to answer "may
@@ -347,6 +347,36 @@ export async function peopleOf(env: IdentityEnv, scope: Scope): Promise<Person[]
 }
 
 /**
+ * One person's row, and nothing joined onto it beyond their name and primary
+ * address ([[REQ-199]]).
+ *
+ * SCOPED BY BOTH id AND tenant, which is what stops a caller in one business
+ * reading a row in another by guessing an id — the existence oracle `identity.ts`
+ * and `scope.ts` both refuse to be. Not found and not-in-this-business are the
+ * same answer for the same reason {@link personDetail} gives.
+ *
+ * SEPARATE FROM {@link personDetail} BECAUSE THE INVITE ASKS A SMALLER QUESTION.
+ * The detail pane needs the businesses, the grants, the history and the
+ * provenance — five reads for one person, which is right for a pane and wrong
+ * for a loop over a checked selection. This is the one query the row itself
+ * costs, so inviting ten contacts is ten reads rather than fifty.
+ */
+export async function personOf(
+  env: IdentityEnv,
+  scope: Scope,
+  personId: string,
+): Promise<Person | null> {
+  if (personId === '') return null
+  const row = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+  )
+    .bind(scope.businessId, personId)
+    .first<UserRecord>()
+  if (!row) return null
+  return toPerson(row, await formerNamesOf(env, row.id))
+}
+
+/**
  * One person, with what they may run and what they hold.
  *
  * SCOPED BY BOTH id AND tenant. A person id alone would let a caller in one
@@ -494,125 +524,93 @@ interface GrantRecord {
   note: string | null
 }
 
-/** What the operator supplies to invite someone. */
-export interface InviteSpec {
+/** What the operator supplies to add a contact. */
+export interface AddContactSpec {
   email: string
-  /** Optional, and only ever filled IN — see {@link invitePerson}. */
+  /** Optional, and only ever filled IN — see {@link addContact}. */
   displayName?: string | null
 }
 
-/** What the invite did, and to whom. */
-export interface InviteOutcome {
+/** What the add did, and to whom. */
+export interface AddContactOutcome {
   /**
    * True only when a row was INSERTED.
    *
    * It reports which of the two branches ran rather than what state the person
-   * ended in, because both branches leave an invitee behind and the operator's
-   * question at the moment they press the button is *did I just add someone, or
-   * did I promote someone you already knew about*. A field that answered the
-   * former with `true` in both cases would make the lead→invited transition
-   * invisible at exactly the surface that performs it.
+   * ended in, because both branches leave a contact behind and the operator's
+   * question at the moment they press `+` is *did I just add someone, or was
+   * this address already here*. A `+` that silently reported success on an
+   * address it did nothing with is how the same human quietly becomes two rows
+   * in an operator's head while staying one in the table.
    */
   created: boolean
   person: Person
 }
 
-/** Refused because there is nothing to invite. */
-export class InvalidInviteError extends Error {}
+/** Refused because there is nothing to add. */
+export class InvalidContactError extends Error {}
 
 /**
- * The invite: the verb that turns a contact into an INVITEE ([[DOC-42]] §9,
- * [[REQ-188]]).
+ * ADD: the fundamental act, and until [[REQ-199]] it did not exist.
  *
- * IT MOVES THE PIPELINE AXIS AND LEAVES ACCESS ALONE, which is the correction
- * [[REQ-188]] carries ([[DOC-44]] §3). It sets `pipeline_stage` to `invited` and
- * stamps `invited_at` — the state, and when it was entered — and touches
- * `tos_accepted_at` not at all. Membership is that column, which records that
- * they came; nothing this function writes can complete that journey, because
- * completing it is the person's own act.
+ * THE TAB COULD INVITE AND COULD NOT ADD. `invitePerson` was insert-or-update,
+ * so it was the only way to create a contact — which meant creating one
+ * necessarily also asked them to sign up. That collapses two different acts, and
+ * the one it lost is the more basic: MOST CONTACTS ARE NEVER INVITED AT ALL.
  *
- * AND IT DOES NOT CARE WHETHER THEY ARE ALREADY A MEMBER. Inviting somebody who
- * has signed up is an ordinary thing to do — the axes are independent, so they
- * end up an invited member, which is a state the old single line could not spell
- * at all. It is not an error and there is no branch here that treats it as one.
+ * TWO FUNCTIONS, NOT ONE WITH A FLAG. This creates and leaves the pipeline at
+ * Lead; `invitePerson` in `invites.ts` transitions an existing contact to
+ * Invited and sends them mail. A single function taking `alsoInvite` would make
+ * the difference between *I am recording somebody* and *I am emailing a
+ * stranger* a boolean, which is the kind of parameter that eventually defaults
+ * wrong — and defaults wrong in the direction of mailing people nobody meant to
+ * mail.
  *
- * IT UPDATES, AND INSERTS ONLY WHEN THERE IS NOTHING TO UPDATE. Contact and
- * member are ONE population in two states, and this is the transition between
- * them — so the row `idx_user_emails_tenant_email` already decides is the row
- * that is stamped. [[DOC-42]] §9's own falsifier is *"an invite that inserts rather than
- * updates"*, and the failure it names is concrete: a contact captured by a form
- * and later invited becomes a SECOND row carrying the same address, which is the
- * exact case [[DOC-40]] cites as the reason contacts and users are one table.
- * From then on the CRM and the User tab can disagree about a person who is both.
+ * THE NEW ROW IS A **LEAD** ([[DOC-44]] §4). That is the initial value of the
+ * pipeline axis and it is what a contact we hold an address for and nothing else
+ * IS. Nothing here stamps `invited_at`, because nobody has been asked anything.
  *
- * IT WRITES INTO THE BUSINESS THE CALLER IS IN, and that is the whole of the
- * level question ([[DOC-42]] §3). Invited from the 1st Contact business it makes
- * Alice; invited from Alice's business it makes Bob. Same code, same row shape,
- * and the only difference is `tenant_id` — because a level is a position and not
- * a property, and a branch here on which business it is would be §3's falsifier.
+ * IT FINDS RATHER THAN DUPLICATES, on the same argument the invite used to make
+ * for itself ([[DOC-42]] §9). Adding an address this business already holds is
+ * an operator arriving at a person who is already here; a second row would be
+ * the exact duplicate `idx_user_emails_tenant_email` exists to prevent, and from
+ * then on the CRM and this tab can disagree about somebody who is one person.
  *
- * `invited_at` IS NOT RESTAMPED for someone already invited. It records WHEN this
- * person was invited, so overwriting it on a second press would falsify the one
- * fact in the row that this function exists to write. Re-inviting someone already
- * invited — or already a member — is therefore a no-op that reports them back,
- * not an error: the operator asked for a state the system is already in.
+ * IT MATCHES ON ANY OF THEIR ADDRESSES, NOT ONLY THE PRIMARY ONE ([[REQ-191]]),
+ * for the reason the invite did: a person holds as many addresses as they have,
+ * and typing their second one has to reach the person their first one reaches.
  *
- * IT MATCHES ON ANY OF THEIR ADDRESSES, NOT ONLY THE PRIMARY ONE ([[REQ-191]]).
- * A person holds as many addresses as they have, and inviting someone at their
- * second one has to reach the person their first one reaches — otherwise the
- * invite creates exactly the duplicate the address table exists to prevent, and
- * does it at the one surface whose whole job is to avoid making a second row for
- * somebody already known.
+ * IT ADDS NO ADDRESS TO A PERSON IT MATCHED, and it writes no event for one
+ * either. A match means nothing happened: the contact was already here, at that
+ * address, and a `contact.created` row for the second press would put a second
+ * origin on a person who has one ([[REQ-195]]). Which surface adds a SECOND
+ * address to somebody is [[REQ-189]]'s territory or later.
  *
- * IT ADDS NO ADDRESS TO A PERSON IT MATCHED. An invite is a pipeline transition,
- * not an edit of who somebody is — and a match means the address was already
- * theirs. Which surface ADDS a second address, and re-primaries it, is
- * [[REQ-189]]'s territory or later; this one writes the first address of a
- * person it creates and nothing else.
+ * A NAME TYPED HERE IS FILLED IN AND NEVER OVERWRITTEN, exactly as the invite
+ * did it: a courtesy for a person who has none, because renaming somebody is
+ * {@link setPersonRecord}'s surface and doing it here would write a supersession
+ * into their name history for an act that was not a rename ([[REQ-193]]).
  *
- * A NAME TYPED HERE IS FILLED IN AND NEVER OVERWRITTEN. It is a courtesy for a
- * person who has none; editing an existing one is {@link setPersonRecord}'s
- * surface, and letting the invite do it would give the tab a second, undeclared
- * way to rename somebody — and would write a supersession into their name
- * history for an act that was not a rename at all ([[REQ-193]]).
+ * AND NO MAIL IS SENT. Not "not yet" — never, by construction. This function
+ * imports nothing that could send anything, which is what makes "adding a
+ * contact cannot email them" a property of the code rather than a rule somebody
+ * has to keep remembering as the tab grows.
  *
- * NO ENTITLEMENT IS WRITTEN, deliberately ([[DOC-42]] §5). The Portal is what
- * membership IS — a member reaches their own payments, details and delete button
- * by virtue of holding a row at all. A grant here would be §5's
- * falsifier ("an entitlement row created for every member and revoked for none")
- * and its hazard is not tidiness: a grant that CAN be absent produces a person
- * who can sign in and cannot reach their own erasure control ([[DOC-37]]).
- * Access to the app is a separate grant and `provisionBusiness` writes it.
- *
- * AND NO MAIL IS SENT — still, and now for a different reason ([[REQ-196]]).
- * There IS a sender in this repository: `mail.ts` is the port, with Resend
- * behind it in a deployment that holds a credential and a local adapter that
- * records and delivers nothing in one that does not. This function does not call
- * it, because the MESSAGE is [[REQ-197]]'s and the record of what was sent is
- * [[REQ-198]]'s. The invite remains a database transition and the person is
- * admitted the next time they pass the front door; naming that here is the
- * point, because an "invite" that silently sends nothing is a feature an
- * operator will assume exists and will not check.
- *
- * IT APPENDS TO THE CONTACT'S HISTORY, ONE EVENT PER ACT ([[REQ-195]]). A fresh
- * person gets `contact.created` — the provenance row, which is where they came
- * from and is a question no column on `users` answers — and `contact.invited`.
- * Somebody already known gets `contact.invited` alone, every press, including
- * the presses that change no column at all. That is what makes chasing a
- * contact visible: the stamp says when we FIRST asked and the events say how
- * many times we have, and only one of those two questions has an answer today
- * without them.
+ * ONE EVENT, AND IT IS THE PROVENANCE ROW ([[REQ-195]]). `contact.created` with
+ * `via: 'add'` — where this person came from, which is a question no column on
+ * `users` answers. The old two-events-in-one-batch shape was the invite doing
+ * both acts at once; split, each act writes its own.
  */
-export async function invitePerson(
+export async function addContact(
   env: IdentityEnv,
   scope: Scope,
-  spec: InviteSpec,
-): Promise<InviteOutcome> {
+  spec: AddContactSpec,
+): Promise<AddContactOutcome> {
   // Casefolded on the way in, for the reason `0005` records: the index is
-  // byte-exact, so `Sarah@…` invited over `sarah@…` would be a second person
-  // that `admit` — which normalises — would never find.
+  // byte-exact, so `Sarah@…` added over `sarah@…` would be a second person that
+  // `admit` — which normalises — would never find.
   const email = normaliseEmail(spec.email ?? '')
-  if (email === '') throw new InvalidInviteError('An invite needs an email address.')
+  if (email === '') throw new InvalidContactError('A contact needs an email address.')
   const displayName = (spec.displayName ?? '').trim() || null
 
   const now = new Date().toISOString()
@@ -624,125 +622,54 @@ export async function invitePerson(
     .first<UserRecord>()
 
   if (existing) {
-    // COALESCE on the two RECORDS, so a second press changes nothing it should
-    // not: the stamp survives and so does a name somebody already set.
-    //
-    // THE STAGE IS ASSIGNED RATHER THAN COALESCED, and the asymmetry is the
-    // point. `invited_at` answers "when did this happen" and must not be
-    // rewritten; the stage answers "where are they now" and this is the write
-    // that decides it. Assigning it is idempotent while there are two stages
-    // ([[DOC-44]] §4) — re-inviting an invitee is a no-op — and when a third
-    // arrives, whether an invite may move somebody BACK to it is a question the
-    // stage that exists then has to answer, which is exactly the decision a
-    // derived state would have hidden.
-    //
-    // AND THE PRESS ITSELF IS RECORDED, EVERY TIME ([[REQ-195]]). The row's
-    // stamp answers "when was this person invited" and must not move; the event
-    // answers "what did we do, and when" and there is one per act. A second
-    // press that changed no column and left no trace would make re-inviting
-    // somebody invisible — which is precisely the history an operator asking
-    // "have we chased them?" is looking for. In the same batch as the update,
-    // because a transition recorded by a separate round trip is a transition
-    // that can be missing from the history of a row that shows it happened.
-    await env.DB.batch([
-      env.DB.prepare(
-        'UPDATE users SET invited_at = COALESCE(invited_at, ?), pipeline_stage = ?, ' +
-          'updated_at = ? WHERE id = ?',
-      ).bind(now, PIPELINE_INVITED, now, existing.id),
-      contactEventInsert(env, {
-        contactId: existing.id,
-        businessId: scope.businessId,
-        kind: CONTACT_INVITED,
-        now,
-      }),
-    ])
-    // THE COALESCE ON THE NAME IS NOW THE ABSENCE OF A ROW, and it is the same
-    // rule: a name is written only for somebody who has none. `writeName` on a
-    // person who already has one would supersede it, which is a rename, and an
-    // invite is not one.
-    //
-    // OUTSIDE THE BATCH, because it is conditional and `writeName` is a call
-    // rather than a statement ([[REQ-193]]). The transition and its event are
-    // the pair that must land together; a name filled in afterwards is a
-    // courtesy, and losing it would lose a courtesy rather than a fact.
+    // NOTHING IS WRITTEN AT ALL for somebody already here, not even a stamp.
+    // The row is theirs and this press changed nothing about it; a courtesy
+    // name is the one exception, on the rule above.
     if (displayName && !nameFromJoin(existing)) {
       await writeName(env, existing.id, { displayName })
+      const named = await env.DB.prepare(
+        `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+      )
+        .bind(scope.businessId, existing.id)
+        .first<UserRecord>()
+      if (named) return { created: false, person: toPerson(named) }
     }
-    const row = await env.DB.prepare(
-      `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
-    )
-      .bind(scope.businessId, existing.id)
-      .first<UserRecord>()
-    if (!row) throw new InvalidInviteError('The invited person was not readable back.')
-    return { created: false, person: toPerson(row) }
+    return { created: false, person: toPerson(existing) }
   }
 
   // `status` IS `active` AND `platform_operator` IS 0, both written rather than
-  // defaulted. The first is the login control ([[DOC-42]] §5) and an invite that
-  // left it unset would produce a member refused `user_inactive` by the door it
-  // was supposed to open. The second is the hosting capability, which no invite
-  // may ever confer.
+  // defaulted. The first is the login control ([[DOC-42]] §5); the second is the
+  // hosting capability, which nothing on this tab may ever confer.
+  //
+  // `pipeline_stage` IS WRITTEN AS `lead` RATHER THAN LEFT TO THE COLUMN DEFAULT.
+  // The default says the same thing today, and this is the surface whose whole
+  // claim is *the new row is a Lead* — a claim that must not be a property of a
+  // migration somebody could change without reading this.
   //
   // THE PERSON, THEIR ACCOUNT AND THEIR FIRST ADDRESS GO AS ONE BATCH
-  // ([[REQ-191]], [[REQ-194]]). They are one fact in three rows now, and a person
-  // written without an address is a person nothing can find — not `admit`, not
-  // the next invite, not this function on its second press. The address is the
-  // primary one, because it is their only one.
+  // ([[REQ-191]], [[REQ-194]]). A person written without an address is a person
+  // nothing can find — not `admit`, not the invite, not this function on its
+  // second press.
   //
   // ONE ACCOUNT PER CONTACT, AND THAT IS v1 RATHER THAN THE MODEL ([[REQ-194]]).
-  // Every contact belongs to an account, so every contact gets one minted here —
-  // including a lead nobody will ever bill, because "belongs to an account" with
-  // exceptions is a nullable column and an empty chair, which is the state this
-  // ticket removed from `entitlements`. Joining a SECOND person to an existing
-  // account is this same insert with an `account_id` that already exists; nothing
-  // in the product does it yet, and the schema needs no change when something does.
-  //
-  // THE ACCOUNT IS NAMED AFTER NOTHING when no display name was typed. Its `name`
-  // is a billing label, not the person's name — the person's name is on the
-  // person — so a contact captured with nothing but an address leaves it null.
-  //
-  // AND TWO EVENTS, BECAUSE TWO THINGS HAPPENED ([[REQ-195]]). This press both
-  // made a contact and asked them in, and those are separate facts with separate
-  // futures: `contact.created` is the provenance row — where this person came
-  // from, which is a question no column answers — and `contact.invited` is the
-  // pipeline transition, which will happen again the next time somebody presses
-  // the button. Collapsed into one event, a contact added by a later surface
-  // that does NOT invite ([[REQ-199]]) would have no provenance at all.
-  //
-  // `contact.created` IS STAMPED FIRST AND ORDERS FIRST. Both carry the same
-  // `now`, so the tie is broken by insertion order — which is the order they are
-  // written in here, and is why the batch is not reordered for tidiness.
+  // Every contact belongs to an account, including a lead nobody will ever bill,
+  // because "belongs to an account" with exceptions is a nullable column and an
+  // empty chair.
   const id = newId('usr')
   const accountId = newId('acct')
   await env.DB.batch([
     accountInsert(env, { id: accountId, tenantId: scope.businessId, name: displayName, now }),
     env.DB.prepare(
       'INSERT INTO users (id, tenant_id, account_id, status, platform_operator, ' +
-        'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
-        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-    ).bind(
-      id,
-      scope.businessId,
-      accountId,
-      'active',
-      now,
-      PIPELINE_INVITED,
-      now,
-      now,
-      '{}',
-    ),
+        'pipeline_stage, created_at, updated_at, fields) ' +
+        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
+    ).bind(id, scope.businessId, accountId, 'active', PIPELINE_LEAD, now, now, '{}'),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
     contactEventInsert(env, {
       contactId: id,
       businessId: scope.businessId,
       kind: CONTACT_CREATED,
-      detail: { via: 'invite' },
-      now,
-    }),
-    contactEventInsert(env, {
-      contactId: id,
-      businessId: scope.businessId,
-      kind: CONTACT_INVITED,
+      detail: { via: 'add' },
       now,
     }),
   ])
@@ -753,8 +680,84 @@ export async function invitePerson(
   )
     .bind(scope.businessId, id)
     .first<UserRecord>()
-  if (!row) throw new InvalidInviteError('The invited person was not readable back.')
+  if (!row) throw new InvalidContactError('The new contact was not readable back.')
   return { created: true, person: toPerson(row) }
+}
+
+/**
+ * The pipeline half of the invite: Lead → **Invited**, and nothing else
+ * ([[DOC-42]] §9, [[REQ-188]], [[REQ-199]]).
+ *
+ * IT TAKES A CONTACT ID AND CANNOT CREATE ONE. That is the whole of what changed
+ * in [[REQ-199]]: the invite acts on a SELECTION of contacts that already exist,
+ * so there is no address to insert from and no branch here that inserts. A
+ * contact id that names nobody in this business is refused, and not-found and
+ * not-in-this-business are the same answer for the reason `personDetail` gives.
+ *
+ * IT MOVES THE PIPELINE AXIS AND LEAVES ACCESS ALONE ([[DOC-44]] §3). It sets
+ * `pipeline_stage` to `invited` and stamps `invited_at` — the state, and when it
+ * was entered — and touches `tos_accepted_at` not at all. Membership is that
+ * column; nothing written here can complete that journey, because completing it
+ * is the person's own act.
+ *
+ * AND IT DOES NOT CARE WHETHER THEY ARE ALREADY A MEMBER. Inviting somebody who
+ * has signed up is an ordinary thing to do — the axes are independent, so they
+ * end up an invited member, which is a state the old single line could not spell
+ * at all.
+ *
+ * `invited_at` IS NOT RESTAMPED for someone already invited. It records WHEN
+ * this person was invited, so overwriting it on a second press would falsify the
+ * one fact in the row this function exists to write. THE STAGE IS ASSIGNED
+ * RATHER THAN COALESCED, and the asymmetry is the point: `invited_at` answers
+ * "when did this happen" and must not be rewritten; the stage answers "where are
+ * they now" and this is the write that decides it.
+ *
+ * AND THE PRESS ITSELF IS RECORDED, EVERY TIME ([[REQ-195]]) — including presses
+ * that change no column at all. The stamp says when we FIRST asked and the
+ * events say how many times we have, and only one of those two questions has an
+ * answer without them. In the same batch as the update, because a transition
+ * recorded by a separate round trip is a transition that can be missing from the
+ * history of a row that shows it happened.
+ *
+ * IT SENDS NOTHING, AND THE COMPOSITION IS `invites.ts`'S. This is the identity
+ * schema's half; rendering the message, sending it and recording what was sent
+ * are three other modules' halves, and putting them together here would put a
+ * ticket-store dependency and a network port on the module every people read
+ * goes through.
+ */
+export async function markInvited(
+  env: IdentityEnv,
+  scope: Scope,
+  contactId: string,
+): Promise<Person> {
+  const now = new Date().toISOString()
+  const existing = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+  )
+    .bind(scope.businessId, contactId)
+    .first<UserRecord>()
+  if (!existing) throw new UnknownPersonError()
+
+  await env.DB.batch([
+    env.DB.prepare(
+      'UPDATE users SET invited_at = COALESCE(invited_at, ?), pipeline_stage = ?, ' +
+        'updated_at = ? WHERE id = ?',
+    ).bind(now, PIPELINE_INVITED, now, existing.id),
+    contactEventInsert(env, {
+      contactId: existing.id,
+      businessId: scope.businessId,
+      kind: CONTACT_INVITED,
+      now,
+    }),
+  ])
+
+  const row = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
+  )
+    .bind(scope.businessId, existing.id)
+    .first<UserRecord>()
+  if (!row) throw new UnknownPersonError()
+  return toPerson(row)
 }
 
 /** Refused because the person is not in this business, or does not exist. */
@@ -870,7 +873,7 @@ function isDuplicateEmail(err: unknown): boolean {
  * one answer to what an address is.
  *
  * CASEFOLDED ON THE WAY IN, for the reason `0005` records and
- * {@link invitePerson} already obeys: `idx_user_emails_tenant_email` is
+ * {@link addContact} already obeys: `idx_user_emails_tenant_email` is
  * byte-exact and `admit` normalises, so an address stored as typed would be a
  * person the front door could no longer find. This is the write that most needs
  * it — an invite at least starts from a fresh row, whereas this can strand a
