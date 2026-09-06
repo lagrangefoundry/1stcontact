@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-05T23:44:49.707300+00:00'
+updated_at: '2026-09-06T00:23:54.647058+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -207,3 +207,29 @@ One migration, authored once, containing every ticket in this cluster:
 
 They are separable in review and in acceptance, not in deployment: two
 rebaselines for one schema change is the thing a rebaseline exists to avoid.
+
+
+## The R2 buckets are emptied too — decided, 2026-09-05
+
+The blast-radius section above names R2 as affected and an earlier draft stopped
+there. Wiping D1 deletes every row that *references* an object; it deletes no
+objects. So `t/1stcontact/blob/…` and `draft/1stcontact/<slug>/assets/…` survive
+the rebaseline with nothing pointing at them.
+
+**This is not just clutter, and that is why it needs saying.** [[DOC-37]] erasure
+is implemented by deleting under a tenant prefix. After the re-key, an erasure
+request resolves the contact's *new* business key and deletes under *that*
+prefix — and objects sitting under the old one are untouched by it, permanently,
+by a mechanism that reports success. A leftover that survives its own erasure path
+is the worst shape this could take.
+
+So both buckets are emptied as part of the wipe: `1stcontact-sites` and
+`1stcontact-material`. Everything in them is disposable ([[CHAT-23]]) except the
+`xgd` site's 9 assets, which live in the file-backed store at
+`storage/sites/xgd/draft/assets/` and return with the re-push ([[REQ-192]]).
+
+## Added acceptance
+
+- no object survives the rebaseline under a prefix no row references
+- an erasure request after the rebaseline reaches every object belonging to the
+  contact, with none stranded under a pre-rebaseline prefix
