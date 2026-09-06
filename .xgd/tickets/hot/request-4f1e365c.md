@@ -5,10 +5,10 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T20:24:53.108700+00:00'
+updated_at: '2026-09-06T20:30:49.919238+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
