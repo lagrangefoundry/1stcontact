@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T19:12:34.143123+00:00'
+updated_at: '2026-09-06T19:22:46.074614+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -123,5 +123,46 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="322b1930-6b53-4d6c-8f8b-352f056528ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T19:22:45.561168+00:00" -->
+#### Claude
+My work is merged and reachable; only the `free_coded` promotion remains. Let me sync the branch with the (much-advanced) working branch and re-run the UATs first:
+
+REQ-193 already built on my seed (moving names into `user_names`). Let me verify my UATs still pass against the merged state — foreground:
+
+All 24 pass. Now the promotion — lock, bump, fast-forward, promote in one window:
+
+Even holding the lock, concurrent ticket commits land on `xgd-working` between the fast-forward and the check. Retrying in a loop until a clean window:
+
+Word-splitting bug in my loop (zsh) — the shas went as one argument. Fixing and retrying:
+
+Free-coding of REQ-192 is complete.
+
+## What landed
+
+**`db/dev-seed.sql`** — the DOC-42 §1 cast as rows. Alice (in the deployment's own business, no membership on it, per §4) owning three businesses: two with open-ended grants, one whose grant *ended* so it is present in the switcher and unselectable. Her people in Alice's Plumbing across three combinations of DOC-44 §3's two axes — Bob (invited, came), Carol (invited, never came), Dave (a lead, never invited). Every key is a fixed 128-bit value minted once, which is what makes `INSERT OR IGNORE` the whole of the idempotence.
+
+**`bin/seed`** — one command, local by default; `--remote` has to be typed, because a fixture carrying invented people reaching a deployment is the defect REQ-190 removed from migration `0005`. It holds wrangler's per-statement JSON back unless something fails.
+
+**`bin/access-sim`** — committed (it was untracked from CHAT-23), plus a section in `apps/control-app/ACCESS.md`.
+
+**24 UATs across three files**, all passing on `xgd-working`.
+
+## Two things I changed course on, and why
+
+**Direct SQL, per your call.** The ticket's "product's own entry points" requirement is recorded in the ticket body and in the file header as withdrawn, with the reasoning, so reconciliation sees a decision rather than drift.
+
+**REQ-191 merged mid-session, which reopened a persona I had told you was blocked.** `users.email` became `user_emails`, so "a person with two addresses" went from unwritable to seedable — Alice now holds `alice@plumbing.example` (primary) and `alice@oldsalon.example` (not primary). The cast is complete; nothing is missing. That also exposed a live bug: `bin/access-sim`'s login list queried `SELECT email FROM users`, which failed silently because `knownPeople` swallows errors by design — the page kept rendering and had stopped listing anybody. Fixed, and pinned by a regression guard.
+
+## Two things I did not fix
+
+- **`apps/control-app/src/session-knowledge.ts` fails `tsc`** — `SHIPPED_SOURCE` is not exported from `./system-knowledge`. Pre-existing; I touched nothing under `src/`.
+- **17 test failures across the KB/knowledge/priming suites.** Confirmed pre-existing by re-running with my work stashed.
+
+## On the promotion
+
+It took many attempts. `move-to-free-coded` requires the version-bump commit to be the tip of `xgd-working`, but every `xgd ticket` call by any agent commits there and bypasses the merge lock — so a concurrent commit lands on top within seconds and the gate refuses. It succeeded at **0.2.113**, and the burnt version numbers between 0.2.104 and 0.2.112 are the cost of the retries. Ticket is `free_coded` with three commits recorded; the branch and worktree are cleaned up. I've saved both that race and the "repo moves under you" hazard to memory.
 
 <!-- xgd-chat-end -->
