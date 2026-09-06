@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:09:02.277515+00:00'
+updated_at: '2026-09-06T23:09:26.913734+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1248,5 +1248,25 @@ If it still lands in spam after that, it's the remaining items and I'd bet on th
 <!-- xgd-chat role="user" ts="2026-09-06T23:09:02.107619+00:00" -->
 #### You
 why amazonses.com?
+
+<!-- xgd-turn id="b2d4b04c-60a2-4c63-abff-c027ad1e8d56-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:09:26.869630+00:00" -->
+#### Claude
+Because **Resend is built on Amazon SES.** It's a developer-experience layer — API, dashboard, webhooks, React Email — on top of SES as the actual mail transfer agent. Your messages are physically sent by SES infrastructure, so SPF has to authorise SES's sending IPs. The DNS record you were given is correct, not a misconfiguration.
+
+That also explains the shape of the rest of the setup:
+
+- **Why SPF is on `send.1stcontact.io` and not the apex.** SES sets the envelope sender (Return-Path) to a bounce domain it controls, so bounce handling works. SPF authenticates *that* domain, not the `From:` header. Hence the subdomain.
+- **Why SPF can't align for DMARC.** Alignment compares the SPF-authenticated domain (`send.1stcontact.io`) against the `From:` domain (`1stcontact.io`). They differ, so SPF alignment fails by construction. That's fine — DMARC passes if *either* SPF or DKIM aligns, and your DKIM key is on the apex signing `d=1stcontact.io`, which aligns. This is exactly why the missing `_dmarc` record is the whole problem: DKIM is doing the work and there's no policy record for Gmail to evaluate it against.
+- **`~all` rather than `-all`** is SES's standard softfail — deliberately lenient, since a hard fail on a shared platform breaks forwarding.
+
+Two practical consequences:
+
+**Your deliverability is SES's, on shared IP pools.** New Resend accounts sit on shared IPs whose reputation you don't control. Mostly fine for transactional mail at your volume, and it's another reason the first few sends are treated cautiously.
+
+**If you ever switch to Postmark, these DNS records change.** REQ-196's `sendEmail` port makes the code side a one-adapter swap, but the domain setup is provider-specific and would need redoing — worth knowing before you build reputation on one and then move.
+
+Nothing to act on here. The record is right; you're still just missing `_dmarc`.
 
 <!-- xgd-chat-end -->
