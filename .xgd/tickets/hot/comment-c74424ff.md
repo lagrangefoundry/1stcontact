@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-06T00:23:04.009910+00:00'
+updated_at: '2026-09-06T00:24:08.121984+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2481,5 +2481,44 @@ Two smaller things I wrote in: the operator address is a **parameter, not a lite
 <!-- xgd-chat role="user" ts="2026-09-06T00:23:03.873473+00:00" -->
 #### You
 Did you answer the questions from REQ-190?
+
+<!-- xgd-turn id="775e4c2d-dee1-4c77-b6ed-be3e1c924691-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:24:08.026088+00:00" -->
+#### Claude
+Let me actually check rather than assert.
+
+REQ-190's own questions: yes, all answered. But auditing it just now, its blast-radius section raises something it never closes.
+
+Yes — all of them, though checking properly turned up one I'd missed.
+
+## The four REQ-190 posed
+
+| Question | Answer | Whose |
+|---|---|---|
+| Rebaseline or migrate? | **Rebaseline**, one baseline replacing `0001`–`0008`, wipe the remote | yours |
+| How far does the sweep go? | **The whole schema**, not just identity | yours — *"this applies to everything"* |
+| Phone: channels table or sibling? | **Sibling table** — a postal address is a compound with no uniqueness constraint, so one table with a `kind` would carry columns two of three kinds never use | CHAT-38, recorded in REQ-191 |
+| The hardcoded operator email | **The seed is dropped entirely** — REQ-185's `PLATFORM_ADMINS` bootstrap already writes all four rows | fell out of your question 2 |
+
+That last one wasn't in the original list; it emerged from you asking what the consequences were.
+
+## The one I'd missed
+
+REQ-190's blast-radius section names R2 as affected and then stops. **Wiping D1 deletes every row that references an object; it deletes no objects.** So `t/1stcontact/blob/…` and `draft/1stcontact/<slug>/assets/…` would survive with nothing pointing at them.
+
+That matters more than clutter. DOC-37 erasure is implemented by deleting under a tenant prefix. After the re-key, an erasure request resolves the contact's *new* business key and deletes under *that* prefix — leaving anything under the old prefix untouched, permanently, by a mechanism that reports success. A leftover that survives its own erasure path is the worst shape this could take.
+
+So both buckets get emptied with the wipe, and I've added an acceptance criterion that an erasure after the rebaseline reaches every object with none stranded. The `xgd` site's 9 assets are unaffected — they're in `storage/sites/xgd/draft/assets/` and come back with the re-push.
+
+## Still open, but not REQ-190's
+
+Three things sit in DOC-44 rather than the rebaseline, and none blocks the baseline since the pipeline stage is just a stored string:
+
+- pipeline stages after `Invited`
+- whether *Operator* is the right word
+- whether an organisation contact can hold person contacts
+
+And from CHAT-39, much larger and entirely separate: **Access versus your own magic-link auth.** That one shapes the beta flow and I'd not let it drift far.
 
 <!-- xgd-chat-end -->
