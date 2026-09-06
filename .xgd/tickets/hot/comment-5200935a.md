@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:19:04.610978+00:00'
+updated_at: '2026-09-06T23:25:12.507525+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1370,5 +1370,11 @@ Past authentication your invitee meets `no_membership` and gets "your access has
 For a beta I'd take the holding page — auto-provisioning a business per invitee is a much larger commitment, and you can provision manually from the Contacts tab while the numbers are small. Tell me which and I'll write it.
 
 Separately, still unfiled from earlier: the `DENIED_MESSAGE` bug (one constant for all five `DenialReason` values, telling a fresh invitee their access "ended", with the reason never reaching the log). Small and self-contained. Want that one too?
+
+<!-- xgd-turn id="78300143-842e-4aa0-a786-61cb985d0086-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:25:12.462651+00:00" -->
+#### You
+auto-provisioning a business per invitee is a much larger commitment <-- sorry maybe you missed that it is part of the requirement. I'm not sure how else you think it could work. When an invitee signs up they will land on an onboarding flow. since we don't have an onboarding flow right now I would like them to go straight to the Site tab of the app
 
 <!-- xgd-chat-end -->
