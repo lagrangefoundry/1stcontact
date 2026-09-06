@@ -233,7 +233,7 @@ describe('REQ-180 — why a business lapsed', () => {
     const email = anEmail()
     const live = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Studio',
     })
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
@@ -263,7 +263,7 @@ describe('REQ-180 — why a business lapsed', () => {
     const theirs = anEmail()
     const live = await inviteAccount(identityEnv(), { email: mine, accountName: 'Salon', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Studio',
     })
     const stranger = await inviteAccount(identityEnv(), { email: theirs, accountName: 'Theirs' })

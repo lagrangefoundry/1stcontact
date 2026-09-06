@@ -52,7 +52,7 @@ if (loaded) {
   const [businesses, aiStatus] = loaded
   mountBuilder(root, {
     businesses: businesses.businesses,
-    account: businesses.account,
+    person: businesses.person,
     aiStatus,
     publish: (slug) => publishSite(slug),
     editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },

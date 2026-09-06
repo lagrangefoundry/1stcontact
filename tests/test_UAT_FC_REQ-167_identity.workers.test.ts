@@ -215,12 +215,20 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
         `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
     )
       .bind(PLATFORM, PLATFORM, email)
-      .first<{ id: string; invited_at: string | null; first_seen_at: string | null }>()
+      .first<{
+        id: string
+        account_id: string
+        invited_at: string | null
+        first_seen_at: string | null
+      }>()
     expect(user?.invited_at, 'an invited user is not stamped as invited').toBeTruthy()
     expect(user?.first_seen_at, 'an invited user has already been seen').toBeNull()
 
+    // THE OWNER IS THE ACCOUNT ([[REQ-194]]). It was the person's key, because
+    // an account WAS a person; the invite mints an account beside the contact
+    // and that is what a business belongs to.
     const business = await provisionBusiness(identityEnv(), {
-      accountUserId: user!.id,
+      accountId: user!.account_id,
       name: 'A Business',
     })
 
@@ -304,7 +312,9 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
 
     expect(first.businessId).not.toBe(second.businessId)
     for (const id of [first.businessId, second.businessId]) {
-      expect(id).toMatch(/^acct_[0-9a-f]{32}$/)
+      // `biz_` SINCE [[REQ-194]] — the `acct_` prefix names accounts, which now
+      // have a table and keys of their own.
+      expect(id).toMatch(/^biz_[0-9a-f]{32}$/)
       expect(id.toLowerCase()).not.toContain('sarah')
       expect(id.toLowerCase()).not.toContain('chen')
       expect(id.toLowerCase()).not.toContain('catering')
@@ -325,11 +335,11 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     const email = anEmail()
     await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
     await provisionBusiness(identityEnv(), {
-      accountUserId: (await env.DB.prepare(
-        `SELECT u.id FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+      accountId: (await env.DB.prepare(
+        `SELECT u.account_id FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
       )
         .bind(PLATFORM, PLATFORM, email)
-        .first<{ id: string }>())!.id,
+        .first<{ account_id: string }>())!.account_id,
       name: 'Casefold',
     })
 

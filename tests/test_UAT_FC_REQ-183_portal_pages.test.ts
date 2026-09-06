@@ -6,7 +6,7 @@ import { validateSite } from '../packages/site-schema/src/index'
 import { getModule, latestModuleVersion } from '../packages/framework/src/modules/registry'
 import { validateBehaviorSlots } from '../packages/framework/src/modules/behavior'
 import { accountPortalMeta } from '../packages/framework/src/modules/account-portal/meta'
-import { accountLine, holdingsLine } from '../packages/framework/src/modules/account-portal/client.js'
+import { identityLine, holdingsLine } from '../packages/framework/src/modules/account-portal/client.js'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { renderSiteFiles } from '../tools/generate/src/render/render'
 import { assembleSite } from '../tools/generate/src/store/assemble'
@@ -280,9 +280,13 @@ describe('REQ-183 — the portal answers about the caller and nobody else', () =
     // The email is the fallback and not the ornament: it is what Access verified
     // ([[DOC-40]] §2), so it is always true, while a display name is a label
     // somebody may never have set.
-    expect(accountLine({ name: 'Alice', email: 'a@example.test' })).toBe('Alice — a@example.test')
-    expect(accountLine({ name: null, email: 'a@example.test' })).toBe('a@example.test')
-    expect(accountLine(null)).toBe('')
+    // `identityLine` SINCE [[REQ-194]] — it names the PERSON reading the portal.
+    // It was `accountLine` over a payload field called `account` that carried a
+    // person's display name and their verified address, which is what an account
+    // looked like while it had no table.
+    expect(identityLine({ name: 'Alice', email: 'a@example.test' })).toBe('Alice — a@example.test')
+    expect(identityLine({ name: null, email: 'a@example.test' })).toBe('a@example.test')
+    expect(identityLine(null)).toBe('')
   })
 })
 
@@ -344,8 +348,8 @@ describe('REQ-183 — the client only ever subtracts', () => {
       asked = { url, init }
       return new Response(
         JSON.stringify({
-          account: { name: 'Alice', email: 'alice@example.test' },
-          businesses: [{ id: 'acct_a', name: 'Salon', selectable: true }],
+          person: { name: 'Alice', email: 'alice@example.test' },
+          businesses: [{ id: 'biz_a', name: 'Salon', selectable: true }],
         }),
         { headers: { 'content-type': 'application/json' } },
       )
@@ -376,9 +380,9 @@ describe('REQ-183 — the avatar links out rather than owning the surface', () =
       const host = dom.window.document.getElementById('host') as HTMLElement
       openAccountSurface({
         host,
-        account: { name: 'Alice', email: 'alice@example.test' },
-        businesses: [{ id: 'acct_a', name: 'Salon', selectable: true }],
-        selected: 'acct_a',
+        person: { name: 'Alice', email: 'alice@example.test' },
+        businesses: [{ id: 'biz_a', name: 'Salon', selectable: true }],
+        selected: 'biz_a',
       })
 
       // An anchor rather than a click handler: the portal is a page, so a middle

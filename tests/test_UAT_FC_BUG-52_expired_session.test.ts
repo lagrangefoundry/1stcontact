@@ -126,12 +126,12 @@ describe('BUG-52 — a refusal is no longer a default', () => {
     // session and sign somebody out for no reason.
     const { result, seen } = await watching(async () => ({
       businesses: await fetchBusinesses(
-        answers({ account: { email: 'a@b.c' }, businesses: [{ id: 'acct_1' }] }) as never,
+        answers({ person: { email: 'a@b.c' }, businesses: [{ id: 'biz_1' }] }) as never,
       ),
       status: await fetchAiStatus(answers({ ai: true }) as never),
       sites: await fetchSites(answers([{ slug: 'bakery', latest: 1 }]) as never),
     }))
-    expect(result.businesses.account).toEqual({ email: 'a@b.c' })
+    expect(result.businesses.person).toEqual({ email: 'a@b.c' })
     expect(result.businesses.businesses).toHaveLength(1)
     expect(result.status).toEqual({ ai: true, message: null })
     expect(result.sites).toEqual([{ slug: 'bakery', latest: 1 }])
@@ -149,7 +149,7 @@ describe('BUG-52 — a refusal is no longer a default', () => {
       businesses: await fetchBusinesses(failing as never),
     }))
     expect(result.status).toEqual({ ai: true, message: null })
-    expect(result.businesses).toEqual({ account: null, businesses: [] })
+    expect(result.businesses).toEqual({ person: null, businesses: [] })
     expect(seen).toEqual([])
   })
 })

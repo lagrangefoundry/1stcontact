@@ -137,7 +137,7 @@ async function aWhollyLapsedAccount(): Promise<{
   const email = anEmail()
   const first = await invite({ email, accountName: 'Salon', endsAt: null })
   const second = await provisionBusiness(identityEnv(), {
-    accountUserId: first.user.id,
+    accountId: first.user.account_id,
     name: 'Studio',
   })
   await lapse(first.businessId)
@@ -202,7 +202,7 @@ describe('REQ-178 — the resolver answers "no business"', () => {
     const email = anEmail()
     const dead = await invite({ email, accountName: 'Lapsed', endsAt: null })
     const live = await provisionBusiness(identityEnv(), {
-      accountUserId: dead.user.id,
+      accountId: dead.user.account_id,
       name: 'Live',
     })
     await lapse(dead.businessId)
@@ -234,11 +234,11 @@ describe('REQ-178 — what the admitted session reaches', () => {
     const response = await ask(BUSINESSES_PATH, await mint(email))
     expect(response.status).toBe(200)
     const payload = (await response.json()) as {
-      account: { email: string } | null
+      person: { email: string } | null
       businesses: Array<{ id: string; selectable: boolean; lapse: { reason: string } | null }>
     }
 
-    expect(payload.account?.email).toBe(email)
+    expect(payload.person?.email).toBe(email)
     expect(payload.businesses.map((b) => b.id).sort()).toEqual([first, second].sort())
     expect(payload.businesses.every((b) => b.selectable === false)).toBe(true)
     expect(payload.businesses.every((b) => b.lapse?.reason === 'expired')).toBe(true)

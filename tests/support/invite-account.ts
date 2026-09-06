@@ -90,7 +90,9 @@ export async function inviteAccount(
   }
 
   const business: BusinessResult = await provisionBusiness(env, {
-    accountUserId: user.id,
+    // THE ACCOUNT'S KEY ([[REQ-194]]). `invitePerson` minted it alongside the
+    // person, so the account this business belongs to is the one on their row.
+    accountId: user.account_id,
     // The address is a fallback LABEL for the business, not a claim on the grant
     // ([[REQ-191]]): `provisionBusiness` takes no address any more, because a
     // grant names its subject by key.

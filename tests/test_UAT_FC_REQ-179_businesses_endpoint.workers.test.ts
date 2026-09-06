@@ -180,7 +180,7 @@ describe('REQ-179 — the businesses endpoint', () => {
       endsAt: null,
     })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
     })
 
@@ -199,8 +199,8 @@ describe('REQ-179 — the businesses endpoint', () => {
 
     // …and the account, in the same call, because it is what the avatar surface
     // shows and it is the one thing here that is NOT business-scoped.
-    expect(body.account?.email).toBe(email)
-    expect(body.account?.name).toBe('Sam Salon')
+    expect(body.person?.email).toBe(email)
+    expect(body.person?.name).toBe('Sam Salon')
   })
 
   it('test_UAT_FC_REQ-179_a_lapsed_business_is_listed_and_marked_unselectable', async () => {
@@ -208,7 +208,7 @@ describe('REQ-179 — the businesses endpoint', () => {
     const email = anEmail()
     const live = await invite({ email, accountName: 'Live', endsAt: null })
     const gone = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Gone',
     })
     await lapse(gone.businessId)
@@ -271,7 +271,7 @@ describe('REQ-179 — the businesses endpoint', () => {
     ])
     // No admission means no account to report, and saying so is better than
     // inventing one.
-    expect(body.account).toBeNull()
+    expect(body.person).toBeNull()
   })
 
   it('test_UAT_FC_REQ-179_the_answer_is_never_cacheable', async () => {

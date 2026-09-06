@@ -112,7 +112,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     const email = anEmail()
     const first = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
     })
 
@@ -144,7 +144,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     const email = anEmail()
     const first = await inviteAccount(identityEnv(), { email, accountName: 'One', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Two',
     })
     await siteIn({ businessId: second.businessId }, 'second-only')
@@ -225,7 +225,7 @@ describe('REQ-168 — resolution authorises the target', () => {
     const email = anEmail()
     const first = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Lapsed',
     })
     await lapse(second.businessId)
@@ -249,7 +249,7 @@ describe('REQ-168 — resolution authorises the target', () => {
     const email = anEmail()
     const oldest = await inviteAccount(identityEnv(), { email, accountName: 'Oldest', endsAt: null })
     const newer = await provisionBusiness(identityEnv(), {
-      accountUserId: oldest.user.id,
+      accountId: oldest.user.account_id,
       name: 'Newer',
     })
     await lapse(oldest.businessId)
@@ -323,7 +323,7 @@ describe('REQ-168 — a deactivated business is not offered', () => {
     const email = anEmail()
     const live = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Suspended',
     })
     await env.DB.prepare('UPDATE tenants SET status = ? WHERE id = ?')
