@@ -35,11 +35,11 @@ import seedSql from '../db/dev-seed.sql?raw'
  */
 
 /** `TENANT_ID` — the deployment's own business. Pinned to wrangler.toml node-side. */
-const PLATFORM = 'acct_51a6746495c8057e886ff98d4208e6b9'
+const PLATFORM = 'biz_51a6746495c8057e886ff98d4208e6b9'
 
-const PLUMBING = 'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61'
-const LETTINGS = 'acct_7b93de5140fa4c28bd06e91a7c4f83b2'
-const OLD_SALON = 'acct_2e58ca6f9d074b13a8fe30dd51b6947c'
+const PLUMBING = 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61'
+const LETTINGS = 'biz_7b93de5140fa4c28bd06e91a7c4f83b2'
+const OLD_SALON = 'biz_2e58ca6f9d074b13a8fe30dd51b6947c'
 
 const ALICE = 'alice@plumbing.example'
 /** The same person, at the address that is not flagged primary ([[REQ-191]]). */

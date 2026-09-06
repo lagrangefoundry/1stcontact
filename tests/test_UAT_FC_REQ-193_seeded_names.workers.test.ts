@@ -27,8 +27,8 @@ import seedSql from '../db/dev-seed.sql?raw'
  * resolver stops returning her.
  */
 
-const PLATFORM = 'acct_51a6746495c8057e886ff98d4208e6b9'
-const PLUMBING = 'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61'
+const PLATFORM = 'biz_51a6746495c8057e886ff98d4208e6b9'
+const PLUMBING = 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61'
 
 function identityEnv(): IdentityEnv {
   return { DB: env.DB as D1Database, SITES: env.SITES as R2Bucket, TENANT_ID: PLATFORM }

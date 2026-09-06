@@ -504,7 +504,7 @@ describe('REQ-193 — every reader goes through the name table', () => {
     expect((results ?? []).map((c) => c.name)).not.toContain('display_name')
   })
 
-  it('test_UAT_FC_REQ-193_the_account_switcher_names_the_account_from_the_name_table', async () => {
+  it('test_UAT_FC_REQ-193_the_account_switcher_names_the_person_from_the_name_table', async () => {
     // THE ONE READER OUTSIDE THE PEOPLE TAB. It read `users.display_name`, so
     // dropping the column would have left the chrome showing nobody's name at
     // all — silently, because the field is optional and a null reads as "not
@@ -521,9 +521,13 @@ describe('REQ-193 — every reader goes through the name table', () => {
     )
 
     expect(response.status).toBe(200)
-    const payload = await response.json<{ account: { name: string | null; email: string } }>()
-    expect(payload.account.name).toBe('Alice Adams')
-    expect(payload.account.email).toBe(owner)
+    // THE KEY IS `person` SINCE [[REQ-194]]. The surface is still the account
+    // switcher — that is the noun a person looks for — but what it names is the
+    // human who is signed in, and the payload says so now that an account is a
+    // row of its own rather than a person standing in for one.
+    const payload = await response.json<{ person: { name: string | null; email: string } }>()
+    expect(payload.person.name).toBe('Alice Adams')
+    expect(payload.person.email).toBe(owner)
   })
 
   it('test_UAT_FC_REQ-193_the_switcher_says_no_name_rather_than_guessing_one', async () => {
@@ -536,8 +540,8 @@ describe('REQ-193 — every reader goes through the name table', () => {
 
     const payload = businessesPayload(admission, { businessId })
 
-    expect(payload.account?.name).toBeNull()
-    expect(payload.account?.email).toBe(owner)
+    expect(payload.person?.name).toBeNull()
+    expect(payload.person?.email).toBe(owner)
   })
 
   it('test_UAT_FC_REQ-193_an_invite_gives_a_person_their_first_name_and_never_renames_them', async () => {
