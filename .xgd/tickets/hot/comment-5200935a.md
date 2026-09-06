@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:45:55.255935+00:00'
+updated_at: '2026-09-06T22:46:51.521171+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -955,5 +955,41 @@ Next: **Contacts tab → `+`** → add a contact → tick it → **Invite**. The
 <!-- xgd-chat role="user" ts="2026-09-06T22:45:53.532864+00:00" -->
 #### You
 [mail] not sent (no provider configured): to=dennis-1c-test@westhead.me subject=Your invitation <-- console output
+
+<!-- xgd-turn id="967371bb-b1dd-40b9-96ed-2a093bf9f9fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:46:51.171166+00:00" -->
+#### Claude
+That's the full invite path working — contact added, template rendered, message composed, capturing mailer logging instead of sending. Let me confirm REQ-198 recorded it.
+
+Recorded exactly as designed — including `address_id`, so a bounce attaches to the address rather than the person. Let me pull the rendered body to check the CTA substituted.
+
+The invite is exactly right — welcome, button CTA, **and** the paste-fallback with the full URL, no unsubstituted tokens. All three parts REQ-197 demanded.
+
+The CTA is `http://127.0.0.1:8788` — the deployment origin, as `invites.ts` intends.
+
+Now walk step 4: sign in at the sim as `dennis-1c-test@westhead.me`, then open `http://127.0.0.1:8788`.
+
+I can tell you what you'll hit, and it's worth seeing yourself. Your invited contact has an active `users` row and an address, but **no membership** — `invitePerson` deliberately writes neither a membership nor an entitlement (DOC-42 §5). So `admit` returns `no_membership`, which lands on the same single `DENIED_MESSAGE`:
+
+> Your access to 1st Contact has ended. Please get in touch and we will sort it out.
+
+That's the admitted-but-unentitled wall, and the walkthrough has now put a concrete face on it. Two separate problems, and the second is worse than the architectural one:
+
+**The message is actively false here.** It tells a person you invited thirty seconds ago that their access *ended*. Nothing ended — they never had any, and the correct sentence is closer to "you're nearly there" than to "get in touch". `DENIED_MESSAGE` is one constant covering all five `DenialReason` values, and `no_membership`-after-invite is the single most travelled path a beta user will take. Every invitee you send to hits it.
+
+**And nothing distinguishes it server-side either.** The reason never reaches the log — that's what made your own sign-in failure undiagnosable earlier and forced me to read `.dev.vars`. Same gap, hit twice in one session.
+
+So the honest state of your three steps:
+
+| | |
+|---|---|
+| 1. Create a contact | ✅ works |
+| 2. Invite the contact | ✅ works — rendered, recorded, `address_id` and all |
+| 3. Contact signs up and sees the site | ❌ blocked at `admit` |
+
+Steps 1 and 2 are done and correct. Step 3 needs a decision you haven't made yet: **what should an accepted invitee land on?** A holding page, an auto-provisioned business, or their portal. `provisionBusiness` exists but is a manual operator action today.
+
+I'd file two tickets: a **bug** for the denial message and the missing log line (small, self-contained, fixable now), and a **request** for the post-invite landing (needs your decision first). Want me to write them — and which landing do you want?
 
 <!-- xgd-chat-end -->
