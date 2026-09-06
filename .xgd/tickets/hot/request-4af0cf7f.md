@@ -6,7 +6,7 @@ title: 'account-chrome: Sign In and the account portal as an L2 module on any si
   with accounts'
 created_by: xgd
 created_at: '2026-09-06T00:02:10.761978+00:00'
-updated_at: '2026-09-06T20:14:33.971440+00:00'
+updated_at: '2026-09-06T20:49:18.833255+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -17,7 +17,6 @@ fields:
   needs_review: false
   chat_comment: comment-70a8f021
 ---
-
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-134]] (lagrange-framework) for sessions.
 
@@ -318,7 +317,14 @@ carrying `private, no-store`, no etag, and never stored; a request with a sessio
 never reading the shared cache; and the cookie-domain rule both as a unit and end
 to end, where the same cookie on a customer's own host renders signed out.
 
-Regression scope run: the whole node project. Six failures remain and are
-pre-existing on `xgd-working` — the same six fail on a clean checkout of the same
-files (`AC-960`, `AC-1318`, `AC-1319`, two REQ-123 knowledge cases, and REQ-162's
-migration check).
+Regression scope run: the whole suite (376 files, both the `node` and `workers`
+vitest projects). 24 files fail and every one of them fails identically on the
+same tree with this ticket's changes stashed — the failing set is byte-for-byte
+the same list before and after, so this ticket introduces no new failure. They
+are environment failures in areas it does not touch: the shared
+`@lagrangefoundry/ticketing` store in `node_modules` has moved ahead of this
+checkout's D1 fixture (`no such table: ticket_changes`), which takes down every
+`workers` suite that writes a ticket, plus the known-failing webui-scope and
+knowledge suites in the `node` project. Everything this ticket touches passes:
+both REQ-200 UAT files (21 tests) and all seven amended regression files (66
+tests), and `pnpm -r build` typechecks clean.
