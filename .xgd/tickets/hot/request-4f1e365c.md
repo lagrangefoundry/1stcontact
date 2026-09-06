@@ -5,7 +5,7 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T20:22:49.278498+00:00'
+updated_at: '2026-09-06T20:23:21.556490+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -215,3 +215,56 @@ lives.
   it must.
 - The same event arriving on a detail nobody is editing repaints the description
   with what the store now holds.
+
+
+### 14. The rest of the subscription's edges, stated
+
+These are technical consequences of §1–§13 rather than things asked for
+directly, and each one is asserted, so each one is written down.
+
+**The watched set is two filters, not one.** The predicate grammar is a
+conjunction (DOC-8 Appendix B) and has no `OR`, so "material or reference"
+cannot be spelled as a single term — the subscription therefore watches one
+filter per material type, exactly as `listMaterial` issues one list per type and
+for the same reason. It costs nothing: a store fans one tail read out to every
+subscriber (DOC-24 §7.5), so two watches on one store are one read per tick. Both
+filters are built from the same constant the list is, because the failure worth
+designing against is the two drifting apart — which shows the client rows that
+never update, or updates for rows they cannot see.
+
+**A cursor that cannot be parsed is refused, not defaulted.** Answering an
+unparseable `since` with "from now" would be an event gap presented as a working
+subscription, which is the exact failure mode DOC-24 exists to remove. It is a
+400.
+
+**A tab with no feed available is the old tab, not a broken one.** A browser
+without `EventSource`, and a test injecting a transport to assert something else,
+both get the Library that redraws when it wrote — REQ-201's behaviour is an
+improvement to degrade out of, not a dependency to fail on.
+
+**The feed is closed by whatever clears the list, and by teardown.** §5 says a
+business switch closes the subscription and opens a new one, and the host does
+that as `clear()` then `refresh()` — so the close belongs to `clear`, which runs
+*before* the re-read and therefore still happens when the re-read fails. A feed
+closed only by a successful `refresh()` would leave the previous business's
+subscription running under a header naming the new one, which is precisely the
+outcome REQ-181 says a failure there may not produce. Destroying the panel closes
+it too, for the same reason.
+
+**A `reset` re-arms as well as re-reads.** §AC says a reset falls back to
+`refresh()`; what makes that a recovery rather than a redraw is that `refresh()`
+also opens a new subscription from the cursor its own read returned. Afterwards,
+what is on screen and what the feed will deliver describe the same moment again.
+
+## Acceptance criteria (added by §14)
+
+- The subscription's filters are derived from the same constant the list read is,
+  and there is one per material type.
+- A `since` that is not an integer is refused with a 400 rather than treated as
+  "from now".
+- A Library whose transport offers no change feed still lists and still redraws
+  after its own writes.
+- Clearing the list closes the feed, whether or not the re-read that follows
+  succeeds; destroying the panel closes it.
+- After a `reset`, a new subscription is open at the cursor the recovery read
+  returned.
