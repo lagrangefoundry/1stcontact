@@ -5,7 +5,7 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-06T18:31:11.862133+00:00'
+updated_at: '2026-09-06T18:53:16.352407+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -328,4 +328,91 @@ These clauses described the two-phase command and go with it:
   through `bin/access-sim` — and where the product refuses them, the refusal is
   the product's honest answer and not a defect in the fixture
 - the seed creates no platform operator
+- the seed writes to the local D1 unless `--remote` is typed
+
+
+
+## Correction, 2026-09-06: REQ-191 landed, so the cast is complete
+
+The section above said a person with two addresses could not be written by any
+means. That was true when it was written and stopped being true during the same
+session: [[REQ-191]] merged, `users.email` is gone, and `user_emails` holds the
+addresses. The gap is closed and the "still missing" report `bin/seed` was to
+print is deleted rather than kept as a paragraph nobody re-reads.
+
+**Alice holds two addresses**, `alice@plumbing.example` (primary) and
+`alice@oldsalon.example` (not primary), and that is the row of the cast with the
+least else covering it. [[REQ-191]] moved the address off `users` precisely so
+that one human could hold several, and nothing reachable by clicking produces the
+state — so the claim was asserted by the schema and demonstrated by nothing. Two
+things follow and both are checked:
+
+- reached at either address, Alice is the **same `users` row**, holding the same
+  three businesses. That is what the table bought: before it, a second address
+  was a second human who could never be reconciled with the first
+- the primary is still the one **shown**. Signing in at the secondary must not
+  silently relabel her, because `PRIMARY_EMAIL_SQL` is one definition site and two
+  answers to "which address is hers" is what it exists to prevent
+- `is_primary` is set on one and clear on the other. Two primaries violates
+  `idx_user_emails_one_primary`, and zero is legal but falls back to the oldest
+  address — so one-and-one is the state the detail panel is built to render, and
+  the state worth seeding
+
+### The simulator was already broken by it
+
+`bin/access-sim` listed the people to sign in as with `SELECT email FROM users`,
+which [[REQ-191]] made a query against a column that no longer exists. It failed
+silently, because `knownPeople` swallows a failure by design so that a missing
+store degrades to the manual path rather than to a broken page — the degradation
+is right, and it hid a real break: the page kept rendering and simply stopped
+listing anybody.
+
+It reads `user_emails` now and offers **every** address rather than one per
+person, because signing in as the same human at their second address is exactly
+the thing that is newly possible. A regression guard pins the query text, since
+the one reader that cannot report its own failure is the one that needs it.
+
+## Three properties the implementation added
+
+Each is a consequence of the shape above rather than a new requirement, and each
+has a check, so they are written down here rather than discovered later.
+
+- **The seed is not a migration, and must never become one.** `db/migrations/` is
+  applied to every environment forever, which is precisely what made `0005` a
+  defect. `db/dev-seed.sql` sits beside that directory and is reached only by
+  typing the command.
+- **The seed names the tenant `wrangler.toml` configures.** Alice's row has to
+  land in the business `TENANT_ID` names or she is a person in a tenant this
+  deployment never asks about — rows that look perfect and admit nobody. Nothing
+  about the value is derivable, so the two literals are compared.
+- **A seeded member has accepted the CURRENT terms.** `needsAcceptance` compares
+  the stored `tos_version` against `TERMS_VERSION`, not merely the presence of a
+  stamp, so a seed carrying an older string produces somebody who is signed up and
+  still refused by `guardTerms` — which reads as a broken fixture rather than as
+  the re-acceptance it is. Bumping the terms is when this rots, so the two are
+  pinned together.
+
+And one for the simulator: **a wrong `aud` is still refused.** "The minted token
+passed" is equally consistent with a verifier that checks nothing, so the same
+token is put through the same verifier under a different audience and has to fail.
+Without that case the claim that the real gate runs is untested.
+
+## Also landed here
+
+- `bin/access-sim` is committed, per the decision above, with
+  `apps/control-app/ACCESS.md` gaining the section that explains it beside the
+  real settings — including that `PLATFORM_ADMINS` is how somebody privileged
+  comes to exist, since the seed creates nobody.
+- `.dev.vars` and `.dev.vars.*` are gitignored. `--print-env` writes
+  `.dev.vars.local`, and local Access configuration does not belong in the repo.
+
+## Acceptance, final
+
+- one command — `bin/seed` — populates an empty local D1 with the cast
+- re-running it changes nothing, asserted as whole rows and not as "it did not error"
+- every persona and every state in the table is present, including the two addresses
+- each seeded person can be signed in as locally through `bin/access-sim`, without
+  a Cloudflare account; where the product refuses them, the refusal is the
+  product's honest answer and not a defect in the fixture
+- the seed creates no platform operator and confers no hosting capability
 - the seed writes to the local D1 unless `--remote` is typed
