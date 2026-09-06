@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:25:12.507525+00:00'
+updated_at: '2026-09-06T23:27:00.963865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1376,5 +1376,46 @@ Separately, still unfiled from earlier: the `DENIED_MESSAGE` bug (one constant f
 <!-- xgd-chat role="user" ts="2026-09-06T23:25:12.462651+00:00" -->
 #### You
 auto-provisioning a business per invitee is a much larger commitment <-- sorry maybe you missed that it is part of the requirement. I'm not sure how else you think it could work. When an invitee signs up they will land on an onboarding flow. since we don't have an onboarding flow right now I would like them to go straight to the Site tab of the app
+
+<!-- xgd-turn id="78300143-842e-4aa0-a786-61cb985d0086-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:27:00.820628+00:00" -->
+#### Claude
+You're right — I had that backwards. It's a site builder; an invited beta user needs their own business and site or there's nothing for them to sign into. Let me read what provisioning already does.
+
+`addContact` already mints a fresh `accounts` row per contact, so every invitee has their own account and `provisionBusiness` is directly usable. Let me check how the Site tab is addressed.
+
+`SITE_TAB` is already first in `TABS`, so once they own a business the builder opens there naturally. Writing the ticket.
+
+**REQ-203** — *An accepted invitee gets a business, a starter site, and lands on the Site tab*.
+
+Two things I found while writing it that are worth knowing:
+
+**Nothing new is needed.** `provisionBusiness` already writes the whole thing — tenant row, `owner` membership for every person on the owning account, entitlement, and a starter site via `createStarterSite`. And `addContact` already mints an `accounts` row alongside every contact, *including* a Lead nobody will ever bill, specifically so no row names none. So the invitee already has an account and this just passes `users.account_id` through. There's a falsifier against any `INSERT INTO accounts` on this path — minting a second would give one person two accounts and put the payer somewhere no reader looks.
+
+**The idempotency case is real, not theoretical.** The hook is terms acceptance, and `needsAcceptance` compares `tos_version` against `TERMS_VERSION`. So **the day you edit the terms, every existing member re-accepts** — and a naive implementation would provision each of them a second business with a second starter site, on a document revision. The guard is `tenants.owner_account_id`, and it's an acceptance criterion rather than a note.
+
+I put the hook on acceptance rather than redemption because `guardTerms` blocks everything until then, so provisioning earlier would build a business, a site and a grant for someone who closes the tab without agreeing. It's also the fact that makes them a Member under REQ-188.
+
+The grant is open-ended — a dated one would expire someone out of their own business mid-beta, which is the reasoning `0005` used for your own grant.
+
+## Where that leaves the flow
+
+| | |
+|---|---|
+| Add a contact | ✅ REQ-199, working |
+| Invite, render, send, record | ✅ REQ-196/197/198/199, working — real mail through Resend |
+| Invitee authenticates | REQ-202 |
+| Invitee lands somewhere useful | REQ-203 |
+| Sign In from the public site | REQ-200 built; needs REQ-202's endpoint |
+
+REQ-202 and REQ-203 are the two that close it, in that order.
+
+Two loose ends from earlier, both still unfiled:
+
+- The **`DENIED_MESSAGE` bug** — one constant for all five `DenialReason` values, and the reason never reaches the log. REQ-203 removes the invitee from that path but doesn't fix the message or the missing log line, and that gap already cost us a diagnosis when your own sign-in failed.
+- The **`_dmarc` record**, which is still missing and is why your invite went to spam.
+
+Want the bug written up?
 
 <!-- xgd-chat-end -->
