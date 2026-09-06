@@ -15,6 +15,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4f6b5d9b
 ---
 
 **Design ref:** [[CHAT-39]]. First of the onboarding set; the others depend on it.
