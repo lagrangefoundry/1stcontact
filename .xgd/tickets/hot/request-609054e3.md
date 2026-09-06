@@ -6,16 +6,24 @@ title: An accepted invitee gets a business, a starter site, and lands on the Sit
   tab
 created_by: CHAT-39
 created_at: '2026-09-06T23:26:46.818016+00:00'
-updated_at: '2026-09-06T23:57:13.432367+00:00'
+updated_at: '2026-09-06T23:57:33.181142+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-13cf5c3c
+  commits:
+  - working_sha: 55b8557bae24fa43b266c6502243304fb7046e55
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bf7559996e515c35f89bb480d6496f4c786cdd3d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.123
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-202]] for the invitee being able to
