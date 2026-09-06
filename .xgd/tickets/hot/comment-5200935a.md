@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:02:18.599720+00:00'
+updated_at: '2026-09-06T23:09:02.277515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1242,5 +1242,11 @@ Name: @   Type: TXT   Value: v=spf1 include:amazonses.com ~all
 Wait a few minutes, re-invite, and check **Show original** again — you want `dkim=pass` and `dmarc=pass`.
 
 If it still lands in spam after that, it's the remaining items and I'd bet on the `http://127.0.0.1:8788` link, which disappears the moment you send from a real deployment. Not worth chasing until then.
+
+<!-- xgd-turn id="b2d4b04c-60a2-4c63-abff-c027ad1e8d56-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:09:02.107619+00:00" -->
+#### You
+why amazonses.com?
 
 <!-- xgd-chat-end -->
