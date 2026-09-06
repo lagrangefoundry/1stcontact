@@ -36,6 +36,14 @@ touches anything:
 | absent | already holds the name | **keep** — say so, change nothing |
 | absent | does not, or could not be read | **fail**, before anything is uploaded |
 
+A hook may **warn and continue** instead of failing on that last row, and one does:
+`20-resend-api-key` ([[REQ-196]]). The rule is that the outcome must match what a
+deployment without the value actually does. A control app with no `ANTHROPIC_API_KEY`
+cannot take a turn, so that hook aborts; a control app with no `RESEND_API_KEY` selects
+the local mail adapter and delivers nothing, which is survivable only for as long as
+nothing sends. Warning is not a softer failure — it is a different claim, and it stops
+being the right one the moment a route can send.
+
 The guard is about the *store*, not the operator's shell. A hook that tests only the
 environment fails deploys whose secret has been in place for weeks, demanding the operator
 re-supply a value Cloudflare already holds in order to overwrite it with itself.
@@ -84,6 +92,9 @@ Three rules that hold for every hook here:
 No secret was required by REQ-144 — that ticket shipped the mechanism, proved with a
 throwaway value. `ANTHROPIC_API_KEY` arrived with REQ-146 as `10-anthropic-api-key`,
 which needed no change here: the hook contract was already right.
+
+`RESEND_API_KEY` arrived with [[REQ-196]] as `20-resend-api-key` — the same shape, with
+the absent-everywhere row warning rather than failing, for the reason above.
 
 REQ-149 corrected the guard itself. `10-anthropic-api-key` had tested the environment and
 nothing else, so a deploy from a shell without the key was refused even when the Worker had
