@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:57:46.143839+00:00'
+updated_at: '2026-09-06T22:58:34.810468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1152,5 +1152,46 @@ Meanwhile steps 1 and 2 of your walkthrough are genuinely complete: contact adde
 <!-- xgd-chat role="user" ts="2026-09-06T22:57:45.784599+00:00" -->
 #### You
 It went straight to gmail spam!
+
+<!-- xgd-turn id="65805d1f-2817-4905-a4c7-5f2b460ca801-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:58:34.541238+00:00" -->
+#### Claude
+That's actually a good outcome — it delivered, authenticated, and landed. Now it's a content and reputation problem. Let me check one thing in the sender.
+
+Landing in spam is the expected first result here, and there are four contributors. One of them is an artifact of local dev, one is a real defect.
+
+## 1. Your email's only link is `http://127.0.0.1:8788`
+
+That's the button `href` *and* the pasteable URL. A message whose sole call to action points at a non-routable private address is close to a textbook phishing signature. I'd expect this to be the dominant factor.
+
+It's local-dev-only — `invites.ts` sets `ctaUrl` from the request origin, which is right for a real deployment and useless here. So this particular spam verdict doesn't predict production. **Re-test from a deployment, or a `cloudflared tunnel`, before drawing conclusions about the other three.**
+
+## 2. HTML-only with no `text/plain` part — a real gap
+
+`Message.body` is one field and `resendMailer` sends `html:` only. The docstring argues a second body is one more thing every template can get wrong, and that the pasteable-URL paragraph covers clients that mangle the button.
+
+That reasoning is about **rendering**, and it doesn't reach **spam scoring**, which is a different problem. HTML-only messages score worse at Gmail; `multipart/alternative` is a standard positive signal. REQ-197 deferred this as "the body is one thing until there is a reason" — this is the reason arriving.
+
+## 3. Zero sending reputation
+
+`1stcontact.io` verified today and has never sent mail. A brand-new domain sending invites is inherently suspect. This one fixes itself with consistent low volume over days, not with configuration.
+
+## 4. `no-reply@` with no Reply-To
+
+A mild negative, and it's the inbound-mail decision TODO-5 flagged as "a decision, not a step". A sender you can't reply to reads as bulk.
+
+## Do this first
+
+In Gmail, open the message → **⋮ → Show original**. That gives you `spf=`, `dkim=`, `dmarc=` results.
+
+- **All three pass** → your TODO-5 DNS is correct and this is purely content plus reputation, i.e. items 1–4.
+- **Any fail** → the DNS needs fixing and that's the whole story. Check the two traps from TODO-5: a second `v=spf1` record, and DKIM alignment against the `From` domain.
+
+Don't just click "Not spam" and move on — that trains your own filter and tells you nothing about what a beta user will see.
+
+## Worth filing
+
+The text-part gap is a genuine finding with evidence behind it, and it's small: add an optional `text` to `Message`, send `multipart/alternative`, and derive the text from the template body. Want me to write it up as a bug against REQ-196/197? I'd hold it until you've seen the "Show original" output, since that may reprioritise it below whatever the headers say.
 
 <!-- xgd-chat-end -->
