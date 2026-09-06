@@ -5,9 +5,9 @@ type: request
 title: 'The Contacts tab: add a Lead, invite a selection, and see what was sent'
 created_by: xgd
 created_at: '2026-09-06T00:02:09.757977+00:00'
-updated_at: '2026-09-06T19:50:52.171014+00:00'
+updated_at: '2026-09-06T20:55:49.282909+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -122,3 +122,92 @@ contact, and the other selected contacts still send.
 - inviting moves a Lead to Invited, and never sets the Member axis
 - the detail pane lists that contact's messages with subject, date and status
 - a contact with a bounced address is visibly distinguishable in the list
+## What the shape forced, beyond the two acts
+
+Written down because each of these is a decision the implementation had to make
+and none of them is derivable from the sections above.
+
+**The affirmative button counts its recipients — `Send N`.** The dialog acts on a
+selection rather than on a form, so the one number an operator wants before
+pressing it is how many strangers this mails. A button that said `Send` would put
+that number nowhere.
+
+**A per-contact report, and the selection clears only once something was sent.**
+Every selected contact gets a line — sent, failed, or refused with the reason —
+and the dialog stays open on top of it. An operator who has just refused two rows
+out of ten needs the ten still checked to fix the two.
+
+**An empty selection is refused, not answered.** `POST /api/people/invite` with no
+ids is `400`. The button is disabled with nothing checked, so a POST with none is
+a client out of step, and a `200` with an empty list would report a send that
+never happened.
+
+**A `from` in the request body is ignored.** The sending address is the
+deployment's `MAIL_FROM`. A field a client could set and the server quietly
+honoured is what makes display-only a convention of one client rather than a fact;
+not reading it at all is what makes it true.
+
+**`{{cta_url}}` is this origin's front door, resolved from the request.** That is
+where an invitee has to arrive — Access identifies them, admission runs, the terms
+interstitial catches them. A configured constant would be a second answer to
+*where is this deployment*, and a `wrangler dev` session would get it wrong in the
+one way nobody sees: an invite whose only link goes to production.
+
+**The edit is held to the template's declared tokens ([[REQ-197]]).** The
+declaration travels with the draft and comes back with the send, so a body the
+operator has rewritten without `{{cta_url}}` is refused and nothing goes out.
+Deleting the link produces a mail with a dead button and looks entirely normal to
+whoever receives it.
+
+**Opening the modal seeds the `invite` template if the business has never had
+one.** That is a write on a GET, and it is deliberate: the first invite in a fresh
+deployment must not fail for want of content nobody knew they had to write.
+
+**The pipeline moves on the attempt, not on the provider's answer.** `sent` and
+`failed` both move Lead → Invited, because a message the provider refused is still
+an invite this business made and [[REQ-198]]'s record carries the failure where it
+can be read. A contact *refused* for having no primary address is not moved —
+nothing was attempted for them at all.
+
+**One send is sequential, not concurrent.** A provider that rate-limits a burst
+answers with a refusal recorded against a contact whose address was perfectly
+fine, which reads as *their mailbox rejected us* and is nothing of the kind.
+
+**The composition has a file.** `invites.ts` is where `templates.ts`,
+`mail.ts`, `messages.ts` and `people.ts` meet, so the sequence has one home rather
+than being smeared across the route table. The mail port is passed in and never
+imported, which is what keeps [[REQ-196]]'s falsifier — *a code path where running
+the tests can send mail* — closed from this side.
+
+## What this changed elsewhere
+
+**The account fixture adds rather than invites.** `inviteAccount` — the test seed
+for "an account that exists, entitled, with a site" — went through the old
+insert-or-update `invitePerson`, so every suite that needed a person also stamped
+`invited_at` as a side effect. It now calls `addContact`, which is what those
+suites actually wanted; the one case whose subject *is* the distinction
+([[REQ-170]]) performs the second act explicitly.
+
+**The invite is the first product path that writes a ticket from inside the
+Worker.** [[REQ-198]]'s message record is a ticket, so pressing Invite exercises
+the deployed migration's transcription of the ticket store's schema — including
+its change journal, which the store writes in the same batch as the ticket itself.
+A transcription that has fallen behind the component refuses the write outright,
+and the symptom is an invite that fails for a reason that has nothing to do with
+mail.
+
+## Further acceptance
+
+- the affirmative button in the invite modal names how many messages it will send
+- every selected contact gets an outcome line, and the selection survives a send
+  in which nothing was sent
+- inviting with an empty selection is refused rather than answered as a no-op
+- a `from` sent in the request body does not change who the message is from
+- the invite's link is the origin the request arrived on
+- an edited body that no longer carries the template's declared `{{cta_url}}` is
+  refused and no message is sent
+- a business that has never had an `invite` template is given the default when the
+  modal is opened
+- a send the provider refused still moves the contact to Invited and is recorded
+  as `failed`; a contact refused for having no address is not moved
+- the message record written by an invite lands with its change-journal row
