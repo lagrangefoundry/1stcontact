@@ -5,13 +5,13 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T17:36:57.427789+00:00'
+updated_at: '2026-09-06T17:37:01.907304+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
-  story_points: 5
+  story_points: 6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ed878559
