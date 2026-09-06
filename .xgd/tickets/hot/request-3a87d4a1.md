@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T00:29:32.157161+00:00'
+updated_at: '2026-09-06T01:02:45.891596+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -350,3 +350,82 @@ being written into it by this one. Restated:
 
 - `0001`–`0009` are gone, replaced by one baseline that seeds no people and that
   [[REQ-191]], [[REQ-193]], [[REQ-194]] and [[REQ-195]] extend in place
+
+
+## What landed, and the consequences that needed saying
+
+Written while free-coding, because each of these is behaviour a UAT asserts and
+the body above did not name.
+
+### The starter site is called `home`
+
+`createStarterSite` set the starter slug to the BUSINESS ID — a workaround for
+the global claim, so that no two customers could collide on a published name. It
+cost every operator a builder whose only site was called `acct_057f…`. With the
+claim gone the slug is unique only inside its business, so the starter is the
+plain word it always wanted to be, and *"two businesses can each publish a site
+called `home`"* is now the ordinary case rather than a hypothetical.
+
+### A slug is unique INSIDE a business, and a move can collide
+
+The other side of "never global". A slug still has to name at most one site
+within the business that owns it, or the builder could not address one — so
+`sites` carries `UNIQUE (tenant_id, slug)` and a move that would give the
+destination two sites of the same name is refused **by the database**, not by a
+check a caller could forget. The site stays where it was. That is the same
+constraint the worked example meets: `xgd` moving into `xgd.dev` works because
+`xgd` is free there, and would not if the destination already used the name.
+
+### Dropping a site leaves no row and no object
+
+The per-site half of the erasure obligation, and the verb that already performs
+the enumeration described above. `forget` removes every child row, every object
+under `draft/<siteId>/` and `sites/<siteId>/`, and the published address stops
+answering.
+
+### The prefix on a key is a reading aid
+
+`site_…`, `acct_…`, `usr_…` say which table a value in a log came from. Nothing
+parses one and nothing branches on one: two ids sharing a prefix are not related
+and two with different prefixes are not ordered. Worth stating because a prefix
+is the one part of an opaque key that looks like it means something — and
+[[REQ-194]] is about to move `acct_` to a different noun, which only works
+because nothing reads it.
+
+### `site_pages` and `site_assets` keep `name` in their key
+
+`(site_id, name)` is the one composite that survives, and `name` is not an
+exception to the rule. It is a STORE KEY — `home.json`, `logo.svg` — which is how
+the port addresses a page or an asset; it carries no directory component, and
+renaming one is not an operation the product has. It is the unit of change the
+file-backed store has always had, not a label somebody chose.
+
+### The port gained two verbs, and `published_sites` is dropped entirely
+
+- `TenantSiteStore.siteKey(slug)` is the one place a caller may learn a site's
+  key, and its lookup is scoped to the handle's business — which is what the
+  isolation argument rests on now that the child tables carry no business.
+- `TenantSiteStore.siteKeys()` is the erasure enumeration.
+- `published_sites` is **deleted, not re-keyed.** Its only job was making the
+  slug globally unique; the one other fact it held, `first_published_at`, is the
+  earliest row in `site_revisions`. A table that exists to enforce a constraint
+  the rule forbids does not survive the rule.
+
+### Two smaller consequences
+
+- **`publicSiteUrl` takes a key**, and the builder's
+  `/preview/<slug>/published` redirect now resolves the slug through the store
+  first — so a slug this business does not hold is a 404 rather than a redirect
+  to a URL that could only 404 one hop later.
+- **The local builder transport keeps the slug as its key.** On the filesystem a
+  site IS the directory `storage/sites/<slug>/`, there are no businesses to move
+  between, and a rename is `mv`. The rule is about the multi-tenant database;
+  the local authoring tier is unchanged.
+
+### The one place the sweep is deliberately incomplete
+
+`users.email` and `users.display_name` are still columns, and
+`entitlements.email` still names a subject by address. They are [[REQ-191]]'s and
+[[REQ-193]]'s, and both edit this baseline rather than following it — see the
+convention above. The baseline says so at each of those columns, so a reader
+meeting them does not take them for an oversight in this ticket.
