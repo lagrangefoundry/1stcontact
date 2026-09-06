@@ -925,10 +925,10 @@ async function buildMap(
 
   const find = async (query: string): Promise<string[]> => {
     const hits = await lib.search(query, {
-      // Keyed by SOURCE NAME, not a bare index: a KB resolves its index through
-      // the `source` it declares, so the map here must use the same name the
-      // declaration does. Handing over a single index under no name leaves the
-      // KB with nothing to resolve and the search throws before any query runs.
+      // Keyed by the KB's own declared `source`, which is what upstream's
+      // `indexFor` looks the artifact up under (REQ-112). It is deliberately the
+      // same key `sources` uses below: one name now says both which store the
+      // corpus resolves against and which index its vectors are in.
       indexes: { [SHIPPED_SOURCE]: indexSource },
       store: binding.store,
       kbs: binding.kbs,
@@ -1065,6 +1065,12 @@ export async function buildKb(root: string = kbRoot()): Promise<BuildResult> {
  * assistant, one that knows its tools and not the design documents. Throwing here
  * would make an unbuilt KB break the chat panel entirely, which trades a missing
  * capability for a missing product.
+ *
+ * THE INDEXES ARE PASSED AS A MAP AND THAT IS NOT A SPELLING DETAIL. `open` seeds
+ * the document snapshot from them, and the snapshot is what the `document` scope
+ * axis reads — so a runtime handed no indexes does not merely fail to search, it
+ * places no uid at all and refuses every read as `not_in_corpus`. Search and read
+ * are one seam here, not two.
  */
 export async function openKnowledgeRuntime(root: string = kbRoot()): Promise<Untyped | null> {
   if (!existsSync(path.join(corpusDir(root), INDEX_DIR))) return null

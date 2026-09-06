@@ -8,6 +8,7 @@ import {
 } from './generated/ai-knowledge'
 import {
   DEFAULT_CHUNKS_PER_HIT,
+  DEFAULT_SOURCE,
   DEFAULT_TOP_K,
   search as kmSearch,
   searchChunks as kmSearchChunks,
@@ -96,13 +97,19 @@ export interface SessionKnowledge {
  * read against D1, the system map is read out of the bundle, and one
  * `primeSession` call gets both without knowing there were two places to look.
  *
- * `source: null` WITH A `documents` MAP, deliberately. The composite has no
- * single index — that is the point of the two KBs staying independent — and
- * `KnowledgeToolbox.resolvers()` refuses a runtime holding an index it never
+ * NO `indexes` AT ALL, WITH A `documents` MAP, deliberately. The composite holds
+ * no index of its own — that is the point of the two KBs staying independent —
+ * and `KnowledgeToolbox.resolvers()` refuses a runtime holding an index it never
  * loaded, because an unloaded snapshot reads as *unconstrained* on the `document`
  * scope axis and would let a foreign uid through. Declaring no index and
  * supplying the merged snapshot says the true thing: there is nothing unloaded
  * here, and the axis is enforced off both indexes at once.
+ *
+ * The snapshot is merged from the per-KB runtimes rather than rebuilt, so it is
+ * only as good as theirs. A per-KB runtime opened without its `indexes` seeds an
+ * empty snapshot, and this merge would faithfully carry the emptiness through to
+ * a session that could then read nothing — which is why the openers below name
+ * their indexes explicitly.
  */
 function compositeRuntime(perKb: Map<string, Untyped>): Untyped {
   const kbs = new Map<string, Untyped>()
@@ -127,7 +134,7 @@ function compositeRuntime(perKb: Map<string, Untyped>): Untyped {
   // component, and its own is the honest one.
   if (store === null) store = perKb.get(SYSTEM_KB)?.store ?? null
 
-  return new KnowledgeRuntime({ store, kbs, source: null, documents, sources })
+  return new KnowledgeRuntime({ store, kbs, documents, sources })
 }
 
 function asMap(value: Untyped): Map<string, Untyped> {
@@ -197,6 +204,9 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
       const perKb = await Promise.all(
         this.inScope(kb).map(([name, runtime]) =>
           kmSearch(query, {
+            // Each per-KB runtime carries exactly its own index, under the name
+            // its own KB declares, so handing the whole map to a search scoped to
+            // that one KB resolves to that one artifact.
             indexes: runtime.indexes,
             store: runtime.store,
             kbs: runtime.kbs,
@@ -318,13 +328,15 @@ export async function sessionKnowledgeFor(
       await KnowledgeRuntime.open({
         store: project.store,
         kbs: new Map([[PROJECT_KB, kb]]),
-        // KEYED BY SOURCE NAME, exactly as `knowledge.ts` keys its own and as
-        // `system-knowledge.ts` keys the shipped pair. The component resolves
-        // which index to read through `kb.source` and has no default entry, so a
-        // runtime handed a bare artifact has no index for this source and refuses
-        // the search by name rather than returning nothing.
-        indexes: { [kb.source ?? PROJECT_KB]: project.index },
-        chunkIndexes: { [kb.source ?? PROJECT_KB]: project.chunks },
+        // KEYED BY THE NAME THE DECLARATION RESOLVES TO, not by the KB's own
+        // name. `kb/knowledge_bases.json` gives the project KB no `source`, so it
+        // resolves to `DEFAULT_SOURCE`, and that is the key `indexFor` will look
+        // under. The store side would have survived the omission (`storeFor`
+        // falls back to the base store); the index side has no fallback by
+        // design, so an unnamed index is refused rather than quietly ranked as
+        // empty.
+        indexes: { [kb.source ?? DEFAULT_SOURCE]: project.index },
+        chunkIndexes: { [kb.source ?? DEFAULT_SOURCE]: project.chunks },
         embedder: project.embedder,
       }),
     )

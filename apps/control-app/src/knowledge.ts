@@ -1,4 +1,5 @@
 import {
+  DEFAULT_SOURCE,
   WorkersAiEmbedder,
   agglomerativeClusterer,
   buildAwareness,
@@ -333,6 +334,11 @@ export class ProjectKnowledge {
    *
    * Scoped by construction rather than by argument: the store is the tenant's and
    * the index is the tenant's, so there is no `tenant` parameter to get wrong.
+   *
+   * The index goes over as a MAP keyed by the name this KB's declaration resolves
+   * to — `DEFAULT_SOURCE`, since `kb/knowledge_bases.json` gives the project KB no
+   * `source` of its own. One entry, because one index is what a single-KB search
+   * has ever needed; the map is what says WHICH index it is.
    */
   async search(query: string, { topK = 5 }: { topK?: number } = {}): Promise<KnowledgeHit[]> {
     return (await kmSearch(query, {
@@ -340,7 +346,7 @@ export class ProjectKnowledge {
       // own name and not as a bare artifact: the component resolves which index
       // to read through `kb.source`, so a map keyed any other way leaves it with
       // no index for this source and it refuses by name.
-      indexes: { [this.kb.source ?? PROJECT_KB]: this.index },
+      indexes: { [this.kb.source ?? DEFAULT_SOURCE]: this.index },
       store: this.store,
       kbs: this.kbs,
       kb: PROJECT_KB,
