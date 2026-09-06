@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-06T00:58:59.424413+00:00'
+updated_at: '2026-09-06T01:17:38.343640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,33 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="f3ef3c9c-a9e0-43a2-998a-a6373a99060d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T01:17:38.084720+00:00" -->
+#### Claude
+Tests green (branch failures match main's pre-existing set exactly). Now closing the protocol gap — several UATs assert behaviour the body doesn't yet name.
+
+REQ-190 is free-coded and merged back. `xgd-working` is at `e862cec72c`, version 0.2.84, status `free_coded`.
+
+## What landed
+
+**One baseline.** `db/migrations/0001_baseline.sql` replaces `0001`–`0009`. It seeds no people — `0005` hardcoded one personal address into a migration that ran everywhere forever, and `ensurePlatformOperator` already writes the same four rows from `PLATFORM_ADMINS`. The one seeded row is the platform business, whose id is a 128-bit literal `wrangler.toml` and the baseline must agree on.
+
+**The published address is the site's key.** This is the decision I made from the ACs and recorded in the body before coding. `/site/<slug>/` carried no business, so the slug had to be unique across the deployment for the URL to name anything — which is what made a chosen name a key, what stopped two customers publishing `home`, and what turned the refusal into an existence oracle across the tenant barrier. It's `/site/<siteId>/` now. `published_sites` is **deleted, not re-keyed**: its only job was enforcing that constraint, and its one other fact is the earliest row in `site_revisions`. The route grammar is untouched — its pattern already admitted the key's character set — so only the token's meaning changed.
+
+**Only the site's own row names its business.** Child tables carry `site_id` and no `tenant_id`; R2 is `draft/<siteId>/` and `sites/<siteId>/rev/…`. Renaming a business, changing a slug, and moving a site are each one `UPDATE`, asserted in the strong form: nothing else changed, byte for byte. Isolation moved one level in — the handle resolves slug → `sites.id` under `WHERE tenant_id = ?`, and a key is 128 random bits.
+
+**Ordinal is not identity.** `site_revisions.id` and `site_changes.at` stay integers, with a UAT saying so before someone finishes the sweep by hand.
+
+20 new UATs across two files; `newId` moved into `tools/generate/src/store/ids.ts` with a UAT asserting one file calls the CSPRNG.
+
+## Three things worth your attention
+
+1. **The starter site is called `home` now**, not the business id. That was a workaround for the claim that no longer exists, and it's the visible face of the `home`-collision AC.
+2. **Two things I decided rather than asked**, both recorded in the body as decisions: the opaque published address (the ACs left no consistent alternative — with `/site/<slug>/`, "two businesses can each publish `home`" is unsatisfiable), and the ordinal carve-out. If you'd rather have per-business hostnames instead, that reverses a fair amount of this.
+3. **The remote D1 and both R2 buckets still need wiping** — the ticket calls for it and I did not do it; that's an outward-facing action. Local D1 I did wipe, and it needed it: `INSERT OR IGNORE` on a persisted dev database silently keeps a stale row keyed the old way, which shows up as a 403 that reads like an admission bug.
+
+Test suite: 16 failures across 5 files, all in the knowledge/KB index seam and all present on `xgd-working` before this branch. `req115-builder-shell` and `reconciliation-l1-navigation` fail only on the first run after a local-D1 wipe or under parallel load, and pass on a settled run and in isolation.
 
 <!-- xgd-chat-end -->
