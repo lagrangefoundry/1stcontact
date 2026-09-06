@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T00:38:52.356277+00:00'
+updated_at: '2026-09-06T00:40:58.877479+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -513,5 +513,47 @@ Access staying as your personal alternative is fine and I'd stop calling it brea
 #### You
 can you create a TODO ticket for me describing what I need to do to set up Resend.
 Are there any remaining gaps in the flow once these are implemented?
+
+<!-- xgd-turn id="923a5cad-4be4-46a0-a18b-2f726b0488d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:40:58.235610+00:00" -->
+#### Claude
+**TODO-5** created (`kind: user_task`). The two things in it most likely to cost you an afternoon: if `1stcontact.io` already has an SPF record you must **merge into it, not add a second** — two SPF records is a hard fail that breaks *all* mail from the domain — and **start DMARC at `p=none`**, because `p=reject` on day one bins your own mail while you debug it from the outside with no reports.
+
+## Remaining gaps
+
+Yes, several. One is significant.
+
+### The invitee accepts the terms and hits a wall
+
+This is the real one. REQ-188 names it in its own body: *"That an invited contact cannot currently sign in at all is DOC-42 §10.1's admitted-but-unentitled gap, and is a different ticket."*
+
+`admit()` refuses a business with no active entitlement. So your beta invitee clicks the link, gets a session, accepts the T&C, becomes a Member — **and then arrives at a refusal**, because they hold no business and no grant. That's the exact moment the onboarding is supposed to succeed, and right now there is nothing there.
+
+You need to decide what they see. Roughly: a holding page ("thanks, we'll be in touch"), or auto-provisioning a business on acceptance, or dropping them into the portal. `provisionBusiness` exists but is a manual operator action today. **None of the six tickets covers this**, and it's the gap most likely to be discovered by a real beta user rather than by you.
+
+### Which tenant does `resolveSubject` answer in?
+
+`idx_users_tenant_email` is tenant-scoped *deliberately*, so the same address can be two different contacts in two tenants. So "resolve this address to a subject" has no answer without a tenant. On the apex it's `1stcontact`; on a customer's site it's that site's tenant. Straightforward once stated — but it's unstated, and getting it wrong is a cross-tenant identity leak. This belongs in the auth-consumption ticket.
+
+### Nothing mints the invite URL yet
+
+REQ-199 renders `{{cta_url}}` and REQ-134 mints tokens, but nothing joins them. That's the deferred consumption ticket, so it's known rather than surprising — the consequence worth stating plainly is that **REQ-199 cannot send a working invite until that exists.** REQ-197's placeholder contract will correctly refuse the send, which is the right failure, but it means REQ-199 isn't demonstrable alone.
+
+### Turnstile and rate limiting are unassigned
+
+I recommended both, you didn't rule on them, and no ticket contains them. REQ-134 provides `recentTokenCount` but nothing says the host calls it. As written, the sign-in endpoint ships with no throttle.
+
+### Erasure doesn't cascade
+
+DOC-37's obligation now has new surfaces: REQ-198 stores rendered bodies and recipient addresses, and REQ-134 stores sessions keyed by subject. Deleting a contact has to take their messages and sessions with them. REQ-134 avoids storing addresses, which helps, but the `email` tickets hold them by design.
+
+### Three smaller ones
+
+- **Nothing sends the `lapsed` template.** REQ-197 creates it; no ticket triggers it. Deliberate, given you deferred expiry — it'll just sit unused.
+- **The Continue page is unassigned.** REQ-134 requires redemption on POST from a page with a Continue control; no ticket says who serves that page or what it says. Related: when a token *is* expired, that page needs to point at Sign In, or it's a dead end instead of a recoverable one.
+- **You'll see "Sign In" on your own homepage.** You're keeping Access, but an Access JWT doesn't set a session cookie — so `account-chrome` on the apex won't know you're signed in even while you're logged into the builder. Cosmetic, but you'll hit it immediately and it'll look like a bug.
+
+My suggestion: the first one deserves its own ticket and a decision from you before the beta, and items 2–4 fold naturally into the auth-consumption ticket when you write it. Want me to file the post-acceptance landing question?
 
 <!-- xgd-chat-end -->
