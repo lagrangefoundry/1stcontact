@@ -6,9 +6,9 @@ title: An accepted invitee gets a business, a starter site, and lands on the Sit
   tab
 created_by: CHAT-39
 created_at: '2026-09-06T23:26:46.818016+00:00'
-updated_at: '2026-09-06T23:54:46.691104+00:00'
+updated_at: '2026-09-06T23:57:13.432367+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   priority: high
