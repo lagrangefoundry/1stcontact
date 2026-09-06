@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-06T00:26:40.947614+00:00'
+updated_at: '2026-09-06T00:56:42.831667+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -119,5 +119,27 @@ Once those are settled I'll write the plan and the ticket body update.
 <!-- xgd-chat role="user" ts="2026-09-06T00:26:40.659715+00:00" -->
 #### You
 Please read the updates in the ticket and proceed
+
+<!-- xgd-turn id="aefd48df-b36f-40f4-9252-c1ea71bdce05-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:56:42.793599+00:00" -->
+#### Claude
+The ticket's updates settle the seed, the sweep scope and the R2 wipe. Three things it still leaves open are decidable from the ACs themselves — I'll record them as decisions in the body first so the UATs have language to trace to.
+
+One thing to flag: the body currently starts with a **duplicated frontmatter block** (lines 20–37 are a second copy of the YAML header, as body text). That looks like a bad write from an earlier update. I'm appending rather than rewriting, so I won't touch it — but it wants cleaning up before reconciliation reads it.
+
+Now the baseline migration.
+
+Now `revision-model.ts` prefixes, then the store itself.
+
+Now the public-site resolver.
+
+Now `identity.ts` — the `newId` move and the starter site.
+
+Now the REQ-162 migration-binding test and the REQ-180 vocabulary guard.
+
+Now the REQ-190 UATs.
+
+Now the file-level baseline UATs.
 
 <!-- xgd-chat-end -->
