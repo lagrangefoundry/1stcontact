@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:50:03.404866+00:00'
+updated_at: '2026-09-06T22:50:39.923044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1050,5 +1050,11 @@ Restart, then invite a contact whose address is **your Resend signup address**. 
 Remember to remove that `MAIL_FROM` line afterwards. And note `.dev.vars` already has a `MAIL_FROM`-shaped precedent for exactly the duplicate-key trap I hit earlier: last one wins, so check with `grep -n MAIL_FROM apps/control-app/.dev.vars` before and after rather than appending blind.
 
 For deployments the key goes through `bin/deploy.d/secrets/20-resend-api-key` as a `wrangler secret`, never a var.
+
+<!-- xgd-turn id="1001020e-157f-423f-8699-c8ccd48a629a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:50:39.856539+00:00" -->
+#### You
+The domain IS verrified
 
 <!-- xgd-chat-end -->
