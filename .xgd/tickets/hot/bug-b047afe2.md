@@ -5,10 +5,10 @@ type: bug
 title: Every denial says access 'has ended' and none of them says why
 created_by: CHAT-39
 created_at: '2026-09-06T23:38:43.079204+00:00'
-updated_at: '2026-09-06T23:50:08.189250+00:00'
+updated_at: '2026-09-06T23:51:44.700245+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true
