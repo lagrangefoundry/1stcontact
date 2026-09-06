@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-d079cf1f
 ---
 
 # The Account is a table, and a business is owned by one
