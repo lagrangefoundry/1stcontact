@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-06T00:56:42.831667+00:00'
+updated_at: '2026-09-06T00:58:59.424413+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -141,5 +141,14 @@ Now the REQ-162 migration-binding test and the REQ-180 vocabulary guard.
 Now the REQ-190 UATs.
 
 Now the file-level baseline UATs.
+
+<!-- xgd-turn id="f3ef3c9c-a9e0-43a2-998a-a6373a99060d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:58:59.236549+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
