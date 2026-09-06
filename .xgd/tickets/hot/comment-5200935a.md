@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T20:51:36.243871+00:00'
+updated_at: '2026-09-06T20:55:21.764462+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -566,5 +566,67 @@ ok everything except REQ-199 and REQ-200 is implemented. I would like to walk th
 3. Contact Signs-up and sees the sight
 
 Can you help me with the build and start up please?
+
+<!-- xgd-turn id="3b05c8fe-668b-4bfd-b8ea-b7bfff8bfc97-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:55:21.337769+00:00" -->
+#### Claude
+Let me establish what's actually landed first — the repo has been moving.
+
+Repo state differs from your description in one important way. Let me confirm before we start.
+
+Now I have the real picture. Let me check the runtime prerequisites.
+
+Prerequisites are in place (wrangler, `dist-assets`, local D1 state). Seeding first, since a live miniflare holds those SQLite files open.
+
+Local D1 is on the pre-rebaseline schema. Previewing the reset before I wipe anything.
+
+Stopping before the destructive step — and I've found something that changes the plan.
+
+Startup got as far as seeding and stopped on a real problem, and separately the ticket state isn't what you described. Both matter before we go further.
+
+## Two tickets are the reverse of what you said
+
+- **REQ-200 is `free_coded`** — done, commit `9ff5975` "account-chrome L2 module, session-aware apex", with `packages/framework/src/modules/account-chrome/` and two UAT files.
+- **REQ-199 is `free_coding`** with an **empty branch** — `free-REQ-199` exists but has zero commits ahead of `xgd-working`. It was cut and nothing was written.
+
+What *has* landed on `xgd-working`: REQ-196 (`mail.ts`), REQ-197 (`templates.ts`), REQ-198 (`messages.ts`, `email-webhook.ts`), REQ-195 (`contact_events`), REQ-200, and the rebaseline — `db/migrations/0001_baseline.sql` with `users`, `user_emails`, `user_names`, `accounts`.
+
+## The walkthrough can't complete yet, and it's not only REQ-199
+
+**The auth consumption was never built.** The baseline has no `login_tokens` and no `sessions` table, and `router.ts` has no sign-in route. REQ-134 is `ready_to_reconcile` in lagrange-framework, but nothing wires it into 1stcontact. That's the ticket I flagged as deferred and we never wrote.
+
+REQ-200 built the module correctly — `account-chrome/meta.ts` takes `signIn`, `portal` and `businesses` as **config URLs**, per-cookie-domain exactly as designed. It renders the Sign In control. There is simply no endpoint behind it.
+
+Against your three steps:
+
+| Step | State |
+|---|---|
+| 1. Create a contact | No UI — `addContact` doesn't exist (REQ-199). A contact can only be created *by* inviting, or from the seed fixture. |
+| 2. Invite the contact | The DB transition works and writes `contact_events`. **No email is sent** — `invitePerson`'s docstring says so explicitly and points at REQ-197/198 as owning the message and the record. Joining invite → template → mail → record is REQ-199's job. |
+| 3. Contact signs up | **Nothing to sign up with.** No token table, no issue endpoint, no redeem page. |
+
+So the end-to-end needs REQ-199 *plus* an auth-consumption ticket that doesn't exist.
+
+## The startup blocker
+
+`./bin/seed` failed:
+
+```
+ERROR  table tenants has no column named owner_account_id: SQLITE_ERROR
+seed: wrangler refused the seed. Has the schema been applied?
+```
+
+Your local D1 predates the rebaseline — REQ-190 replaced nine migrations with one baseline and wiped rather than migrated, so the local store is on the old schema. The documented fix is `./bin/1c reset --yes`, then apply migrations, then seed.
+
+**I haven't run it.** It removes `apps/control-app/.wrangler/state` — 171 files, 9.1 MB, which is every local site, ticket, chat transcript and revision in your dev store. `storage/` (the git-tracked authored sites) is untouched, so a re-seed and `bin/publish` rebuilds most of it, but any local-only builder work goes. Say the word and I'll do it.
+
+Everything else is ready: wrangler is installed, `dist-assets` is built, and `bin/access-sim` gives us a real signed-in identity through the real Access verification path.
+
+## What I'd suggest
+
+Reset and start the builder regardless — it gets you the Contacts list, the existing invite, and the apex with `account-chrome` rendering its signed-out state, which is worth seeing.
+
+But the thing actually blocking your walkthrough is the auth-consumption work. We now know REQ-134's real surface rather than my guess at it, so that ticket can be written properly — including the two open questions from earlier: **which tenant `resolveSubject` answers in**, and **who serves the Continue page**. Want me to write it?
 
 <!-- xgd-chat-end -->
