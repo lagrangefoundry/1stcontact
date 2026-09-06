@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-55
 created_by: xgd
 created_at: '2026-09-06T00:28:18.898479+00:00'
-updated_at: '2026-09-06T00:34:03.730907+00:00'
+updated_at: '2026-09-06T00:36:15.820386+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,65 @@ Want me to fold these corrections into the ticket body and then scope the fix?
 <!-- xgd-chat role="user" ts="2026-09-06T00:34:03.585640+00:00" -->
 #### You
 Yes
+
+<!-- xgd-turn id="308295de-546b-402d-9bf1-95dcbd58793a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:35:53.584241+00:00" -->
+#### Claude
+I'll write the corrected body, preserving everything that held up.
+
+Ticket body updated. Let me check the protocol's branch step before proposing the fix.
+
+Ticket corrected and branch cut. Here's the fix scope for your sign-off before I write code.
+
+## Where the work lands
+
+**Worktree:** `/Users/martin/.xgd/worktrees/.../free-BUG-55` (branch `free-BUG-55`)
+
+Per the memory note, that worktree will need `src/generated/*` copied from the main checkout or the workerd project dies at import — I'll handle that before running anything.
+
+## The change, in four files
+
+**1. `tools/generate/src/cli/kb.ts`** — the reported failure plus the Node host
+- `928`: `source: indexSource` → `indexes: { [SHIPPED_SOURCE]: indexSource }`
+- `1073-4`: `source`/`chunkSource` → `indexes`/`chunkIndexes`, both keyed `shipped`
+
+**2. `apps/control-app/src/system-knowledge.ts:147-8`** — same rename, keyed `shipped`. The `sources: { [SHIPPED_SOURCE]: store }` line directly below it stays; it's the corpus seam and it's already right. Worth a comment noting the two maps are now keyed alike on purpose — that's the whole content of REQ-112.
+
+**3. `apps/control-app/src/session-knowledge.ts`** — three real sites plus one stale one
+- `315-6`: project runtime opened with `indexes`/`chunkIndexes` keyed `DEFAULT_SOURCE` (`'project'`). I'll import the constant rather than spell the string, since it's upstream's default and not ours to restate.
+- `198`, `227`: the `CoRankedKnowledge` overrides read `runtime.indexes` / `runtime.chunkIndexes`.
+- `128` and the comment above it: drop `source: null`, reword the comment to say "declares no index" in the current vocabulary.
+
+**4. `apps/control-app/src/knowledge.ts:339`** — `ProjectKnowledge.search` → `indexes` keyed `project`.
+
+Untouched: `buildIndex`/`buildChunkIndex` at `kb.ts:1033/1039` and `knowledge.ts:368/371`, and every `source:` in a KB *declaration*.
+
+## The two UATs
+
+`test_UAT_FC_BUG-55_*`, both tracing to acceptance bullets now in the body:
+
+- **`..._a_hit_can_be_searched_and_then_read`** — opens a runtime through the repo's own opener over a small fixture corpus, searches, then `get`s the uid that came back. Fails today twice over: the search throws `KnowledgeConfigError`, and even past that the read refuses `not_in_corpus` off the empty snapshot. This is the one that pins the silent half, which no existing test isolates.
+- **`..._each_knowledge_base_is_keyed_by_its_own_declared_source`** — asserts the system runtime's `indexes` carries `shipped` and the project's carries `project`. Guards the asymmetry: `indexFor` has no fallback, so an unnamed project index is the exact mistake that would still pass a search-only test if the system KB happened to be in scope.
+
+The eleven currently-red tests are the regression evidence; I won't duplicate them.
+
+## The last acceptance bullet — the trigger
+
+This is the piece I'd like a decision on. The suite already catches the skew; nothing runs it after `bin/install` rewrites the shared store. Cheapest honest answer: a preflight in `bin/install` that opens a runtime with the shape this repo calls and fails loudly if the installed component rejects it — a few seconds, no network, no embedder. The alternative (have `bin/install` run the four knowledge suites) is more thorough and much slower.
+
+I'd go with the preflight. Say the word if you'd rather have the full suite run, or want that bullet deferred to its own ticket.
+
+## What I can't verify
+
+`./bin/1c kb build` completing all four stages needs `CLOUDFLARE_API_TOKEN` — the embedder is a real Workers AI call. I'll get the eleven tests green and the new UATs passing, then hand you the build to run. I'll report that stage as unverified rather than assumed.
+
+Shall I implement?
+
+<!-- xgd-turn id="3f1973a8-5911-41e4-b0b1-316563172942-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:36:15.214161+00:00" -->
+#### You
+Please do
 
 <!-- xgd-chat-end -->
