@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T18:15:59.181471+00:00'
+updated_at: '2026-09-06T18:28:38.351762+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,13 @@ If you'd rather keep the in-process call as written, I'll do that instead — bu
 - **`bin/access-sim` gets committed under this ticket** — it's currently untracked.
 
 Tell me on 1 and 2 and I'll cut the branch and build it.
+
+<!-- xgd-turn id="02aec5ab-ca15-402c-a25d-54bb541c8877-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T18:28:37.932784+00:00" -->
+#### You
+I think the "products own entry points" is an unnecessary constraint - its desirable but not required. Please don't overengineer this I want a simple script that populates the test data.
+
+This may only run once? Really don't over engineer
 
 <!-- xgd-chat-end -->
