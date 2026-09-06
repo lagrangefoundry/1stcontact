@@ -6,16 +6,24 @@ title: 'The template ticket type: message bodies are content, with a placeholder
   that refuses'
 created_by: xgd
 created_at: '2026-09-05T23:44:41.124618+00:00'
-updated_at: '2026-09-06T18:55:14.610437+00:00'
+updated_at: '2026-09-06T19:08:25.730046+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ee83c1ee
+  commits:
+  - working_sha: 242a8bf969984f641d5c900b74d3d29ef0d69b90
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bb73eb6d06aa063ee2ace24377823273ca17d98b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.103
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-196]] for delivery; independent of it for authoring.
