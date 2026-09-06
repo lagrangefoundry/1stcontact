@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:27:00.963865+00:00'
+updated_at: '2026-09-06T23:37:35.884406+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1417,5 +1417,13 @@ Two loose ends from earlier, both still unfiled:
 - The **`_dmarc` record**, which is still missing and is why your invite went to spam.
 
 Want the bug written up?
+
+<!-- xgd-turn id="6365cb10-db3a-4d34-b604-eb5b91fb2f19-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:37:35.758289+00:00" -->
+#### You
+yes
+
+Can you also confirm that the contact is going to recieve an email with a unique link that will allow them to login as them?
 
 <!-- xgd-chat-end -->
