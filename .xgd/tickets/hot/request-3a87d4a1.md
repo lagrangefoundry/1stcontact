@@ -5,9 +5,9 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T01:02:45.891596+00:00'
+updated_at: '2026-09-06T01:03:49.198812+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: commits
 status: draft
 fields:
   priority: high
@@ -15,6 +15,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ed878559
+  commits:
+  - working_sha: 5c012c3758da8ff9369cb98ac706c69df44006a8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.83
 ---
 
 ---
