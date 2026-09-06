@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T21:49:49.660672+00:00'
+updated_at: '2026-09-06T21:51:51.237438+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -644,5 +644,52 @@ Next start is a fresh store; seed it with `bin/publish`.
 ```
 
 Both 199 and 200 are now finished - what do I do next?
+
+<!-- xgd-turn id="7550b86a-ab05-4a03-8c9e-8607dd320182-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T21:51:50.679013+00:00" -->
+#### Claude
+REQ-199 and REQ-200 both landed. And I was wrong about one thing that matters: the invite **doesn't** need the magic link — `invites.ts` sets `ctaUrl` to the deployment origin, so the invitee lands at the front door and Access identifies them. Your three-step walkthrough is fully runnable now.
+
+Applying the schema to the fresh store.
+
+Seed succeeded and printed the exact startup recipe. Following it.
+
+Both servers are up. Checking who the sim offers.
+
+Everything's running. Here's your walkthrough.
+
+## Running now
+
+| | |
+|---|---|
+| Access simulator | http://127.0.0.1:8799/login |
+| Builder | http://localhost:8788 |
+
+The builder returns 401 until you log in at the sim — that's the real Access verification path running against keys the sim minted, not a bypass.
+
+`MAIL_FROM` is `no-reply@1stcontact.io` and there's **no `RESEND_API_KEY`**, so `mailerFor` selects the capturing mailer: the invite is composed, rendered and recorded but nothing leaves the machine. That's what you want for a dry run.
+
+## The three steps
+
+**1. Become the operator.** Open http://127.0.0.1:8799/login and sign in as `alice@plumbing.example`. The seed puts her in the **1st Contact** business — she's your operator. (`alice@oldsalon.example` is her second address; REQ-191 made that possible, and either works.) Then open http://localhost:8788.
+
+**2. Add a contact.** Contacts tab → `+` → address and optional name. It lands as a **Lead**, sends nothing, and writes a `contact.created` event.
+
+**3. Invite.** Tick the row → **Invite** → the modal with From (fixed), Subject, `To-List:` and Body prefilled from the `invite` template. Send.
+
+Then check the contact's detail pane — the message history from REQ-198 shows what was composed, with the rendered body. That's where the invite text lives, since no mail is sent locally.
+
+**4. Play the invitee.** Go back to the sim and log in as the address you just invited. `invites.ts` sets `ctaUrl` to the deployment origin, so this is exactly what clicking the button does: front door → `admit` → the terms interstitial → accept → in.
+
+## What I expect you to hit at step 4
+
+The **admitted-but-unentitled** wall I flagged earlier. Your new contact has a `users` row and now a `tos_accepted_at`, but no membership and no entitlement — and `admit` refuses a business with no active grant covering now. REQ-188's body names this explicitly as out of its scope.
+
+I haven't verified it on this store, so it may be that accepting the terms drops them somewhere reasonable. Walk it and see what actually happens — that's the most useful thing this run can tell you, and it's the one unknown left in the flow.
+
+If you do hit the wall, the decision is what an accepted invitee should land on: a holding page, an auto-provisioned business, or the portal. That's the gap with no ticket, and it's the last thing between you and a beta.
+
+Two notes: the seed's `bob/carol/dave` are people of **Alice's Plumbing**, not this deployment, so they'll get `no_user` — that's correct, not a bug. And an access-sim was already running on 8799, so I used it rather than starting a second; the one I launched exited with `EADDRINUSE`.
 
 <!-- xgd-chat-end -->
