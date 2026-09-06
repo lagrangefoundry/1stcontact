@@ -5,16 +5,21 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-09-06T18:27:43.545891+00:00'
+updated_at: '2026-09-06T18:28:11.674327+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4ea78701
+  commits:
+  - working_sha: 0b89a18e8f5f1c2211f1e8825eda8c5c6a968eff
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.86
 ---
 
 # A person's email addresses are a table, not a column
