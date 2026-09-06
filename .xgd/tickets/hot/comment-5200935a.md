@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:28:13.426662+00:00'
+updated_at: '2026-09-06T22:31:18.129477+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -814,5 +814,11 @@ Should list all five (`alice@plumbing.example`, `alice@oldsalon.example`, `bob@`
 6. Back to the sim, sign in as the address you invited. That's what clicking the invite button does, since `ctaUrl` is the deployment origin.
 
 Step 6 is the one worth watching — that's where the admitted-but-unentitled question gets answered. Tell me what you see and we'll take it from there.
+
+<!-- xgd-turn id="c482efb9-dcab-43e7-82b7-5700dff43a7d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:31:17.345395+00:00" -->
+#### You
+Wait there is no way to sign in as me?
 
 <!-- xgd-chat-end -->
