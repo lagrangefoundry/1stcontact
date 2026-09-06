@@ -1,6 +1,11 @@
 import { newId } from '../../../tools/generate/src/store/ids'
 import { d1r2SiteStore, type SiteStoreEnv } from '../../../tools/generate/src/store/d1r2-store'
 import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
+// The event kinds and the insert builder, from the two modules that own them
+// ([[REQ-195]]). `events.ts` declares its own narrow env type rather than
+// importing `IdentityEnv` back from here, so this import is one-way.
+import { CONTACT_CREATED } from './builder/contact-events.js'
+import { contactEventInsert } from './events'
 // The stage value from the module that names it, never a literal — see the
 // same import in `people.ts` ([[DOC-44]] §3, [[REQ-188]]).
 import { INVITED as PIPELINE_INVITED } from './builder/people-axes.js'
@@ -137,7 +142,6 @@ export interface UserRow {
    */
   email: string | null
   status: string
-  display_name: string | null
   /**
    * May this person enter a business they hold no membership on ([[REQ-185]])?
    *
@@ -867,6 +871,14 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
     .first<{ user_id: string }>()
   const userId = existing?.user_id ?? newId('usr')
 
+  //
+  // AND THE PROVENANCE EVENT GOES IN THE SAME BATCH ([[REQ-195]]). Every contact
+  // this system makes says where it came from, and a seeded operator came from
+  // `PLATFORM_ADMINS` — which is a genuinely different origin from an invite and
+  // is worth being able to see months later. Inside the `if`, so the repair path
+  // that runs on EVERY admission by a holder does not append an identical event
+  // per request: this insert happens exactly when the person is created, which
+  // is what makes it provenance rather than a heartbeat.
   if (!existing) {
     await env.DB.batch([
       env.DB.prepare(
@@ -874,6 +886,13 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
           'pipeline_stage, created_at, updated_at, fields) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
       ).bind(userId, platformTenant, 'active', now, PIPELINE_INVITED, now, now, '{}'),
       userEmailInsert(env, { userId, tenantId: platformTenant, email: normalised, now }),
+      contactEventInsert(env, {
+        contactId: userId,
+        businessId: platformTenant,
+        kind: CONTACT_CREATED,
+        detail: { via: 'platform_admins' },
+        now,
+      }),
     ])
   }
 

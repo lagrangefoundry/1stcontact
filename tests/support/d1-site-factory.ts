@@ -47,27 +47,63 @@ export function storeEnv(): SiteStoreEnv {
 const MIGRATIONS = [() => import('../../db/migrations/0001_baseline.sql?raw')]
 
 /**
+ * Split a migration into the statements D1 will be handed one at a time.
+ *
+ * COMMENTS ARE STRIPPED BEFORE THE TERMINATOR IS LOOKED FOR, not after: the
+ * migration's prose explains a design and prose contains semicolons, so
+ * splitting first cuts a comment in half and feeds SQLite the remainder.
+ *
+ * AND A SEMICOLON INSIDE `BEGIN ... END` IS NOT A TERMINATOR ([[REQ-195]]). A
+ * trigger body is a compound statement carrying its own statements, each ended
+ * by a semicolon — so a naive split hands SQLite `CREATE TRIGGER ... BEGIN
+ * SELECT RAISE(ABORT, '...')` with no `END`, which is a syntax error, and then
+ * a bare `END` after it. `wrangler d1 migrations apply` — the path that runs
+ * this file in every real environment — already tracks `BEGIN`/`END` depth, so
+ * without this the harness would refuse a migration production accepts, which
+ * is the drift a hand-written schema in a test helper exists to avoid.
+ */
+export function splitStatements(sql: string): string[] {
+  const body = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+
+  const statements: string[] = []
+  let current = ''
+  let depth = 0
+  for (const chunk of body.split(';')) {
+    current += chunk
+    // The keywords are counted on the text accumulated SO FAR, so a `BEGIN`
+    // opened before this semicolon keeps the statement open across it. `END`
+    // is matched with a word boundary, which `\bEND\b` gives without also
+    // matching `APPEND` or a column called `ended_at`.
+    const opens = (current.match(/\bBEGIN\b/gi) ?? []).length
+    const closes = (current.match(/\bEND\b/gi) ?? []).length
+    depth = opens - closes
+    if (depth > 0) {
+      current += ';'
+      continue
+    }
+    const statement = current.trim()
+    if (statement.length > 0) statements.push(statement)
+    current = ''
+  }
+  const tail = current.trim()
+  if (tail.length > 0) statements.push(tail)
+  return statements
+}
+
+/**
  * Run one migration's SQL.
  *
  * IT USED TO BE EXPORTED, so a suite could re-apply a single migration and prove
  * a DATA migration's idempotence ([[REQ-168]]). There are no data migrations
  * left — the baseline seeds no people ([[REQ-190]]) — and no second file to
  * re-apply, so its only caller is `applySchema` below.
- *
- * Comments are stripped BEFORE splitting on the terminator, not after: the
- * migration's prose explains a design and prose contains semicolons, so splitting
- * first cuts a comment in half and feeds SQLite the remainder.
  */
 async function runMigration(sql: string): Promise<void> {
   const { DB } = storeEnv()
-  const statements = sql
-    .split('\n')
-    .filter((line) => !line.trim().startsWith('--'))
-    .join('\n')
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-  for (const statement of statements) await DB.prepare(statement).run()
+  for (const statement of splitStatements(sql)) await DB.prepare(statement).run()
 }
 
 export async function applySchema(): Promise<void> {

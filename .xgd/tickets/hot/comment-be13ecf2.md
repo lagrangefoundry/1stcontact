@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:51:46.655005+00:00'
+updated_at: '2026-09-06T18:54:46.546505+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -272,5 +272,35 @@ That changes what I'd write up — form 0 comes out of the model as a product fo
 <!-- xgd-chat role="user" ts="2026-09-06T18:51:46.578815+00:00" -->
 #### You
 Yes please create a doc ticket on addressing
+
+<!-- xgd-turn id="9a592854-c708-470f-b96a-1df440bd56d5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T18:54:46.462399+00:00" -->
+#### Claude
+Everything I need. Creating the doc ticket now — no branch, since this is a document rather than code.
+
+**DOC-45** — *Site addressing: what URL reaches a site, and what a name is allowed to mean* (`doc-8f1d018c`, `type: doc`, `doc_kind: architecture`, attributed to CHAT-40).
+
+Twelve sections plus an order of work:
+
+| § | |
+|---|---|
+| 1 | Identity and address are different layers — with the falsifier *"an addressing change whose plan includes re-keying a row"* |
+| 2 | The forms of address, including **form B (share a draft)** as the largest gap, and why it should be publish-to-an-unlisted-address rather than expose-the-live-draft |
+| 3 | A host names a site, not a business |
+| 4 | **Decided:** the `/site/<key>/` grammar is deleted — with the three arguments I'd made for keeping it and why each fails, and what the deletion buys in `routes.ts` |
+| 5 | A public address is a globally unique *attribute* — amends DOC-43 §4 with the namespace carve-out |
+| 6 | **Proposed:** the slug has no job left — the `siteIdOf(slug)` evidence, the two-jobs split, and the closing window |
+| 7–10 | Address at provision; platform detection isn't defensible; the apex as a durability call; the portal on a customer host |
+| 11 | Four open decisions, with recommendations |
+| 12 | What it supersedes — DOC-12 §9 (both bullets), DOC-43 §4 and §9 |
+
+Two things worth flagging:
+
+**§4 is written as decided, §6 as proposed.** You pushed on form 0 and I think that landed; you asked about the slug but I never got your call on `sites.name` uniqueness, so it's recorded as a proposal with the evidence attached rather than as settled. §11 lists it first with my recommendation (no uniqueness at all).
+
+**The git push failed** — `ssh_dispatch_run_fatal: Broken pipe`. The ticket is committed locally and intact; it just hasn't reached the remote. Worth a `git push` when the network's back.
+
+The order of work at the end puts the slug first, deliberately: the domains work would otherwise be built against a token that's scheduled to disappear, and §6's zero-cost window closes on the first real customer. Say the word and I'll scope that one as a request ticket.
 
 <!-- xgd-chat-end -->

@@ -13,8 +13,8 @@ import {
   toMessageRecord,
   EMAIL_TYPE,
   type OutgoingMessage,
-  type SendEmail,
 } from '../apps/control-app/src/messages'
+import type { SendEmail } from '../apps/control-app/src/mail'
 import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 
@@ -64,6 +64,7 @@ function outgoing(over: Partial<OutgoingMessage> = {}): OutgoingMessage {
     contactId: `usr_req198_${seq}`,
     addressId: `uem_req198_${seq}`,
     templateKey: 'invite',
+    templateUid: 'tpl_req198_invite_v1',
     subject: `Welcome ${seq}`,
     from: 'no-reply@1stcontact.io',
     to: `req198-${seq}@example.test`,
@@ -103,6 +104,7 @@ describe('REQ-198 — the type', () => {
         'status',
         'subject',
         'template_key',
+        'template_uid',
         'to',
       ].sort(),
     )
@@ -326,6 +328,10 @@ describe('REQ-198 — the record shape the pane reads', () => {
       contactId: message.contactId,
       addressId: message.addressId,
       templateKey: 'invite',
+      // BOTH, AND NOT ONE OR THE OTHER: the key says which template, the uid
+      // says which version of it ([[REQ-197]] writes a new ticket rather than
+      // editing the live one).
+      templateUid: 'tpl_req198_invite_v1',
       subject: message.subject,
       from: 'no-reply@1stcontact.io',
       to: message.to,

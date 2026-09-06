@@ -5,16 +5,24 @@ type: request
 title: 'Contact events: the immutable spine every interaction hangs off'
 created_by: xgd
 created_at: '2026-09-05T23:30:16.329301+00:00'
-updated_at: '2026-09-06T18:47:30.858546+00:00'
+updated_at: '2026-09-06T19:07:34.461631+00:00'
 completed_at: null
-last_field_updated: status
-status: free_coding
+last_field_updated: story_points
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ac5dfe98
+  commits:
+  - working_sha: 13d686aaf097b2e8450030a9f583a72c46c53883
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: df47207c9ab65aa268cfb8af49535955b8221a18
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.101
 ---
 
 # Contact events: the immutable spine every interaction hangs off
@@ -143,3 +151,120 @@ nothing, and the events table carries the delivery *transitions* anyway — so t
 question is answerable from `contact_events` by `kind`, which is indexed, rather
 than from the messages themselves. That is the better query shape regardless of
 where the message body lives.
+
+
+## What was built, 2026-09-06
+
+The spine, the write path, the emitters that have an act to emit from today, and
+the history on the tab. Recorded here because several of these were decisions
+taken while building rather than restatements of the above.
+
+### Immutability is the schema's, not the application's
+
+`events.ts` exports no update and no delete, and the table does not rely on that:
+a `BEFORE UPDATE` trigger — `contact_events_are_immutable` — refuses an `UPDATE`
+outright. An invariant the code maintains is an invariant that eventually is not
+maintained ([[DOC-45]] §7), and this one fails silently when it fails: an event
+edited in place leaves a timeline that reads perfectly and is untrue.
+
+**`DELETE` is deliberately left reachable.** Erasure is a person's right over
+their own data ([[DOC-37]]) and has to reach these rows; a trigger forbidding
+`DELETE` would break the `ON DELETE CASCADE` from the contact and make the event
+spine the one place a "we deleted them but kept the history" mistake could hide.
+What is forbidden is REWRITING a fact.
+
+This narrows the falsifier above rather than contradicting it: **a correction is
+an appended event that supersedes, never an edit of the row that was wrong.** An
+append-only log that permits in-place corrections is not one.
+
+*Technical consequence:* a trigger body is a compound statement carrying its own
+semicolons, so the test harness's migration splitter now tracks `BEGIN`/`END`
+depth. `wrangler d1 migrations apply` — the path that runs the baseline in every
+real environment — already does; without the fix the harness would refuse a
+migration production accepts.
+
+### `business_id` is derived from the contact and never supplied
+
+Every insert is `INSERT ... SELECT ... FROM users`, so an event cannot be filed
+under a business its contact does not belong to — the isolation is a property of
+the statement rather than of every caller remembering to pass the right value.
+Supplying a business narrows it further to a refusal: a write against a contact
+in another business writes nothing and raises `UnknownContactError`, which is
+what a contact that never existed raises.
+
+### What emits today, and why it is more than "email"
+
+The section above says *no event emission beyond email*. That was written against
+`list.joined` and `consultation.booked` — capabilities that do not exist. Three
+acts that DO exist emit, and the first is load-bearing for this ticket's own
+acceptance: **provenance is unanswerable unless something records a contact
+coming into existence.**
+
+| Act | Event | Where |
+| --- | --- | --- |
+| an invite that creates somebody | `contact.created`, `detail: {via: 'invite'}` | `invitePerson` |
+| an invite, every press | `contact.invited` | `invitePerson` |
+| a seeded operator being created | `contact.created`, `detail: {via: 'platform_admins'}` | `ensurePlatformOperator` |
+| accepting the terms | `member.signed_up`, `detail: {version}` | `acceptTerms` |
+
+**Two events on a fresh invite, because two things happened.** `contact.created`
+is the provenance row and `contact.invited` is the pipeline transition, which will
+happen again. Collapsed into one, a contact added by a surface that does not
+invite ([[REQ-199]]'s `addContact`) would have no provenance at all.
+
+**A second invite is a second event even though no column moves.** `invited_at`
+records when we FIRST asked and is not restamped, so without the event a second
+press is invisible everywhere — and "have we chased them?" is exactly the question
+a history is for.
+
+**Signing up is recorded because it is the contact's own act.** Every other event
+is something the business did; the access axis ([[DOC-44]] §3) is theirs, and the
+event carries the terms version, which the single mutable column forgets the next
+time terms change.
+
+**`email.*` has no emitter here, and that is honest.** There is no sender
+([[REQ-196]]) and no `email` ticket type ([[REQ-198]]), so the delivery events are
+proved through `recordEvent` — the shipped write path those capabilities will
+call — with the message named by `ref`. This ticket builds the spine; it does not
+invent the emitters that do not exist.
+
+### The history on the Contacts tab
+
+It rides on `/api/people/detail` rather than a route of its own: the pane draws it
+in the same paint as the record and the businesses, so a second endpoint would be
+a second round trip for a pane that cannot render without both, and a second
+surface to scope.
+
+- **One sequence, newest first**, ordered by `occurred_at` — inbound and outbound
+  interleaved, never a list per kind.
+- **A kind with no label renders as the dotted string itself.** The set grows and
+  the schema carries no constraint on it, so a panel that branched on kinds would
+  have to be found and edited the day a capability recorded something new — and
+  would draw a blank row until somebody did, which reads as a broken timeline.
+- **`Origin:` is the earliest event, from its own server-side query.** The list is
+  capped (`TIMELINE_LIMIT`); provenance read off its tail would be quietly wrong
+  for exactly the contacts with the longest histories.
+- **The `recorded_at` stamp is drawn only when it differs from `occurred_at`.**
+  They are equal for everything this system does itself, so printing both every
+  time would train the eye to skip the region where an import or a late webhook
+  actually shows up.
+- **The section is drawn even when empty**, unlike `Other addresses`: "we have no
+  record of this person" is a fact about them, and is what every contact created
+  before this table existed truthfully shows.
+- **Placed under `Businesses`.** Everything above it is the current answer; this
+  is how it came to be that answer.
+
+### Also touched
+
+`test_UAT_FC_REQ-190_the_schema_carries_no_composite_key_made_of_data` enumerates
+the schema's keys deliberately rather than loosely, so `contact_events` is named
+in it. Its key is an opaque id and not the natural-looking
+`(contact_id, kind, occurred_at)` composite — which would make two identical facts
+in the same millisecond unrepresentable, and pressing Invite twice in a second is
+two presses.
+
+### Still not in scope
+
+Retention and erasure (unchanged from above — the `DELETE` path is left open for
+it, and what an erasure should DO to an immutable log still needs its own answer),
+the sender, the `email` ticket type, and deriving the pipeline stage from events.

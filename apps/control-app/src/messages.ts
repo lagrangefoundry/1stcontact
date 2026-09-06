@@ -31,6 +31,7 @@
  * the text.
  */
 
+import type { SendEmail } from './mail'
 import type { TicketStore, Ticket, MultiTenantTicketStoreHandle } from './tickets'
 
 /** The ticket type. Spelled once; every query and every create reads it here. */
@@ -53,29 +54,24 @@ export const FAILED = 'failed'
 export const MESSAGE_STATUSES = [QUEUED, SENT, DELIVERED, BOUNCED, FAILED] as const
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number]
 
-/**
- * The sending port, as this module needs it ([[REQ-196]]).
- *
- * DECLARED STRUCTURALLY RATHER THAN IMPORTED, so the recorder depends on the
- * SHAPE of a sender and not on any particular one. `providerId` is not optional
- * because it is the only thing that can later join a delivery or bounce event
- * back to this record; an adapter that discarded it would make
- * {@link applyDeliveryEvent} unimplementable.
- */
-export interface SendEmail {
-  (message: { to: string; from: string; subject: string; body: string }): Promise<{
-    providerId: string
-  }>
-}
-
 /** What the caller asks to send. Everything here is decided before the attempt. */
 export interface OutgoingMessage {
   /** The person. */
   contactId: string
   /** The ADDRESS it went to — a bounce is a fact about one of these, not about a person. */
   addressId: string
-  /** Which template it rendered from. A key, not a ticket uid ([[REQ-197]]). */
+  /** Which template it rendered from — the key the sender asked for ([[REQ-197]]). */
   templateKey: string
+  /**
+   * Which *ticket* said it — `RenderedMessage.templateUid` ([[REQ-197]]).
+   *
+   * BOTH, AND NOT ONE OR THE OTHER. The key says which template this was; the
+   * uid says which VERSION of it, and replacing a template writes a new ticket
+   * rather than editing the live one — so without the uid a record made last
+   * month points at whatever the key resolves to today. Optional, because a
+   * message composed without a template ticket still has to be recordable.
+   */
+  templateUid?: string
   subject: string
   from: string
   to: string
@@ -89,6 +85,7 @@ export interface MessageRecord {
   contactId: string
   addressId: string
   templateKey: string
+  templateUid: string | null
   subject: string
   from: string
   to: string
@@ -114,6 +111,7 @@ export function toMessageRecord(ticket: Ticket): MessageRecord {
     contactId: str(f, 'contact_id') ?? '',
     addressId: str(f, 'address_id') ?? '',
     templateKey: str(f, 'template_key') ?? '',
+    templateUid: str(f, 'template_uid'),
     subject: str(f, 'subject') ?? '',
     from: str(f, 'from') ?? '',
     to: str(f, 'to') ?? '',
@@ -168,6 +166,7 @@ export async function sendRecordedEmail(
       contact_id: message.contactId,
       address_id: message.addressId,
       template_key: message.templateKey,
+      ...(message.templateUid ? { template_uid: message.templateUid } : {}),
       subject: message.subject,
       from: message.from,
       to: message.to,

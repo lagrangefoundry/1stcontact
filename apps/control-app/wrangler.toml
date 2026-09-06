@@ -129,12 +129,38 @@ run_worker_first = true
 # Declared on BOTH sides for the reason every var here is: a named environment
 # inherits none, and a break-glass key that silently does not exist in production
 # is one discovered at the worst possible moment. A UAT pins the two together.
+# MAIL_FROM is the address every message this Worker sends comes FROM
+# ([[REQ-196]]).
+#
+# A VAR AND NOT A SECRET, and not a literal at a call site either. It is not a
+# credential — it is printed on every message it sends — and it is a fact about
+# the DEPLOYMENT rather than about any one message, so it belongs where an
+# operator can read it and change it once.
+#
+# THE ADDRESS ONLY WORKS IF DNS SAYS IT DOES. SPF, DKIM and DMARC on
+# `1stcontact.io` are what stand between mail from this address and a spam
+# folder, and they are an operator task with waiting in it rather than a coding
+# one — see apps/control-app/MAIL.md.
+#
+# REPLIES GO NOWHERE, deliberately. `no-reply@` is not a mailbox anybody reads;
+# a reply-to that reaches a human is a separate address and a separate decision.
+#
+# THE CREDENTIAL IS NOT HERE. `RESEND_API_KEY` is a `wrangler secret`, pushed by
+# `bin/deploy.d/secrets/20-resend-api-key`, and its absence is what selects the
+# local adapter that records and sends nothing — so a deployment that never
+# received it does not send mail, rather than sending it from nowhere. A UAT
+# asserts this file names it in neither environment.
+#
+# Declared on BOTH sides for the reason every var here is: a named environment
+# inherits none, and an absent From address is a Worker that refuses to send at
+# the moment it is asked to. A UAT pins the two together.
 [vars]
 TENANT_ID = "acct_51a6746495c8057e886ff98d4208e6b9"
 PLATFORM_ADMINS = ""
 ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
+MAIL_FROM = "no-reply@1stcontact.io"
 
 # The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
 # R2. Declared at the top level for `wrangler dev` and REPEATED under
@@ -259,6 +285,8 @@ TENANT_ID = "acct_51a6746495c8057e886ff98d4208e6b9"
 PLATFORM_ADMINS = ""
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-196]]).
+MAIL_FROM = "no-reply@1stcontact.io"
 
 [env.production.assets]
 directory = "./dist-assets"

@@ -13,6 +13,7 @@ import {
   KB_FIELD,
 } from './generated/knowledge'
 import { UnscopedError, type Scope } from './scope'
+import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -326,6 +327,21 @@ export function productTypePack(): ProductTypePack {
         contact_id: { type: 'string', required: true },
         address_id: { type: 'string', required: true },
         template_key: { type: 'string', required: true },
+        /**
+         * Which TICKET the copy came from ([[REQ-197]]'s `templateUid`).
+         *
+         * BESIDE THE KEY AND NOT INSTEAD OF IT. The key says which template
+         * this was; the uid says which VERSION — replacing a template writes a
+         * new ticket rather than editing the live one, so without this a record
+         * made last month points at whatever the key resolves to today.
+         *
+         * NOT `uid`-TYPED, for the reason `contact_id` is not: a reference
+         * field must resolve at create, and a template superseded and archived
+         * since would then refuse the record of a message it really did send.
+         * Not required, because a message composed without a template ticket is
+         * still a message that has to be recordable.
+         */
+        template_uid: { type: 'string' },
         subject: { type: 'string', required: true },
         from: { type: 'string', required: true },
         to: { type: 'string', required: true },
@@ -434,6 +450,22 @@ export function productTypePack(): ProductTypePack {
      * that does not say what it maps cannot be recycled in place: the lookup is
      * by KB name, and a report missing it is a second untraceable report.
      */
+    /**
+     * A message body — [[REQ-197]], [[DOC-40]] §2.1.
+     *
+     * REGISTERED HERE AND DEFINED IN `templates.ts`, which is the same treatment
+     * `chatSchemas()` gets and for the same reason: the shape belongs beside the
+     * code that reads it back, so the declaration and the renderer cannot drift.
+     * What lives here is the fact that this platform's tickets come in this type
+     * at all — which is the one thing a pack is for.
+     *
+     * IT IS A TENANT TICKET LIKE ANY OTHER, and that is the whole design. A
+     * customer's business holds its own templates for its own contacts through
+     * this same declaration, with no platform-only branch anywhere — the failure
+     * mode [[DOC-40]] §2.1 rule 1 names, avoided by not building a second path.
+     */
+    [TEMPLATE_TYPE]: TEMPLATE_SCHEMA,
+
     [AWARENESS_REPORT_TYPE]: {
       fields: {
         kind: { type: 'string', required: true },
@@ -594,7 +626,19 @@ export interface TicketStore {
   get(a: { uid: string }): Promise<{ ticket: Ticket }>
   resolve_id(a: { id: string }): Promise<{ uid: string }>
   list(a?: { type?: string; limit?: number | 'all' }): Promise<{ tickets: Ticket[] }>
-  query(a: { predicate?: string; limit?: number | 'all' }): Promise<{ tickets: Ticket[] }>
+  /**
+   * `sort` IS NAMED HERE BECAUSE A LOOKUP DEPENDS ON IT ([[REQ-197]]). The
+   * component's read slice has always taken it (`field` ascending, `-field`
+   * descending, uid as tiebreak); this repository simply had no caller that
+   * needed an order until templates made "the newest ticket carrying this key"
+   * the answer to a question. Left unnamed, that call site would have had to
+   * cast around the type it is otherwise checked by.
+   */
+  query(a: {
+    predicate?: string
+    sort?: string
+    limit?: number | 'all'
+  }): Promise<{ tickets: Ticket[] }>
   update(a: {
     uid: string
     patch?: Record<string, unknown>

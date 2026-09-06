@@ -9,7 +9,8 @@ import {
   signWebhook,
   type EmailWebhookEnv,
 } from '../apps/control-app/src/email-webhook'
-import { messagesFor, sendRecordedEmail, type SendEmail } from '../apps/control-app/src/messages'
+import { messagesFor, sendRecordedEmail } from '../apps/control-app/src/messages'
+import type { SendEmail } from '../apps/control-app/src/mail'
 import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/tickets'
 import { applySchema } from './support/d1-site-factory'
 
