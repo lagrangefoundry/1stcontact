@@ -6,10 +6,10 @@ title: 'account-chrome: Sign In and the account portal as an L2 module on any si
   with accounts'
 created_by: xgd
 created_at: '2026-09-06T00:02:10.761978+00:00'
-updated_at: '2026-09-06T00:02:10.761978+00:00'
+updated_at: '2026-09-06T19:52:50.923752+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
