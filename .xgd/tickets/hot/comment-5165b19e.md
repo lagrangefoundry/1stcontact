@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-193
 created_by: xgd
 created_at: '2026-09-06T18:10:30.394776+00:00'
-updated_at: '2026-09-06T18:40:58.441581+00:00'
+updated_at: '2026-09-06T18:41:04.030192+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,14 @@ All 23 pass. Now the browser-side UAT for the tab.
 REQ-191 landed on `xgd-working` while I was working and touches the same files. Let me commit and merge it in now, while I have full context.
 
 Now the remaining conflicted files.
+
+<!-- xgd-turn id="4387d205-f3fd-4290-acc2-3cd39b77aa98-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T18:41:03.389197+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
