@@ -6,10 +6,10 @@ title: 'The template ticket type: message bodies are content, with a placeholder
   that refuses'
 created_by: xgd
 created_at: '2026-09-05T23:44:41.124618+00:00'
-updated_at: '2026-09-05T23:44:53.977151+00:00'
+updated_at: '2026-09-06T18:55:14.610437+00:00'
 completed_at: null
 last_field_updated: body
-status: draft
+status: free_coding
 fields:
   priority: high
   story_points: 2
@@ -104,3 +104,65 @@ should not be smuggled into this one.
 - three templates exist: `invite`, `signin`, `lapsed`
 - the `invite` template contains a welcome message, a button CTA, and the full URL
   as pasteable text with wording explaining why
+
+
+## Decisions taken while implementing
+
+Recorded here because each one is a behaviour the tests pin, and behaviour that
+is only in the code is behaviour the matrix cannot see.
+
+**The body is HTML, and it is one part.** The multipart decision stays deferred
+as stated above — what is decided is the format of the one body there is. It has
+to be markup, because the invite is required to carry its call to action *as a
+button* and a button does not exist in plain text. The pasteable-URL fallback is
+what carries the recipients whose client mangles the button, which is the same
+reason it was required in the first place.
+
+**The type refuses at the write, not at the send.** `template_key` is a closed
+vocabulary (`invite` | `signin` | `lapsed`), and `subject` and a non-empty body
+are both required, so a template missing any of them is never written. An open
+key would let a template be authored as `sign-in` while the sender asks for
+`signin`, and the two would never meet — a lookup that finds nothing at the
+moment somebody is waiting for mail. `placeholders` is optional: a message that
+says the same thing to everybody declares none and renders as written.
+
+**A business that has never had templates is given the three defaults, once.**
+Seed-if-absent, on the same principle — and in the same shape — as the tenant
+registration in `ticketStoreFor`: a business asked for a template it has never
+been given would otherwise fail on a fresh deployment for want of content nobody
+knew they had to write. The seed is written *as a ticket*, so the next act on it
+is ordinary authoring; it is a starting point, not a fallback the sender reaches
+for behind the operator's back. A second pass creates nothing.
+
+**The seed copy names no business.** The same seed is written into whichever
+business asks, so naming 1st Contact in it would put our name in a plumber's mail
+to their own customers — [[DOC-40]] §2.1 rule 1's failure mode reached from the
+copy rather than from the code. Naming the business through a token is worse: it
+would make every send depend on a value the sender has no reason to hold, so the
+refusal would fire on the ordinary path. Putting the business's own name in is an
+edit to the ticket, which is exactly the authoring this type exists for. Each
+seed declares one token, `{{cta_url}}` — the link is the only thing that cannot
+be written in advance and the only thing whose absence is fatal.
+
+**Newest wins, and the old ticket survives.** Several tickets may carry one key;
+the most recently created is the one that sends. Editing in place stays possible
+and is the ordinary case for a typo — what the ordering buys is that rewriting
+the copy wholesale need not destroy the ticket [[REQ-198]]'s records point at.
+(An operator who archives a template will be given the default back the next time
+one is asked for. That is the useful failure of the two: a message type with no
+template cannot be sent at all.)
+
+**The subject is substituted too, and the declaration is checked against the
+body.** A token used in the subject line is filled in; what `placeholders`
+promises is about the body, which is where the call to action lives and where an
+unfilled token does the damage.
+
+**A token in the copy that was never declared refuses as well.** The falsifier
+above is about the rendered *message*, not about the declaration, so a token
+somebody added to the copy and forgot to declare is caught by the same gate.
+Nothing goes out with a hole in it, however the hole got there.
+
+**`TicketStore.query` gains `sort`.** A technical consequence of "newest wins":
+the component's read slice has always taken an order (`field`, or `-field`
+descending); this repository simply had no caller that needed one until the
+lookup did.

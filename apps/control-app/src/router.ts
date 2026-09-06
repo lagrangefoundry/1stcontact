@@ -43,6 +43,8 @@ import {
   setPersonStatus,
   UnknownPersonError,
 } from './people'
+import { currentNameOf, type NamePatch } from './names'
+import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
@@ -574,6 +576,13 @@ export interface BusinessesPayload {
 /**
  * Build it from the admission, or from the scope when there is none.
  *
+ * THE ACCOUNT'S NAME IS PASSED IN, because a name is a row now and not a column
+ * ([[REQ-193]]). This function is pure and stays pure; the route resolves the
+ * current name through `names.ts` — the one place `superseded_at IS NULL` is
+ * written — and hands it over. Reading it off the admission would have meant
+ * either a name on every admission, which is a query on every request for a
+ * value one endpoint uses, or this function reaching for a database.
+ *
  * THE NO-ADMISSION ANSWER IS ONE SELECTABLE BUSINESS, and that is not a
  * placeholder: on the dev-open path `resolveScope` answers from `TENANT_ID`, so
  * there IS exactly one business by construction and reporting it is reporting
@@ -599,10 +608,11 @@ export interface BusinessesPayload {
 export function businessesPayload(
   admission: Admission | null | undefined,
   scope: Scope | null,
+  accountName: string | null = null,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
-      account: { name: admission.user.display_name, email: admission.user.email },
+      account: { name: accountName, email: admission.user.email },
       businesses: admission.businesses.map((b) => ({
         id: b.businessId,
         name: b.name,
@@ -1093,7 +1103,16 @@ async function routeUncached(
      * with one message.
      */
     if (p === BUSINESSES_PATH && method === 'GET') {
-      return json(200, businessesPayload(deps.admission, scope))
+      return json(
+        200,
+        businessesPayload(
+          deps.admission,
+          scope,
+          deps.admission?.ok
+            ? displayNameFrom(await currentNameOf(identityEnv, deps.admission.user.id))
+            : null,
+        ),
+      )
     }
 
     /**
@@ -1271,11 +1290,12 @@ async function routeUncached(
     /**
      * POST /api/people/record — correct who somebody is ([[BUG-54]]).
      *
-     * THE TWO FIELDS THE OPERATOR OWNS, and no others. `email` and
-     * `display_name` are their own answer to a question only they can answer —
-     * a typo in an invited address, a person who has since said what to call
-     * them — and there was no way to correct either. Everything else on the row
-     * is what the system OBSERVED, and `setPersonRecord` will not write it.
+     * THE FIELDS THE OPERATOR OWNS, and no others. The address and every part
+     * of the name are their own answer to a question only they can answer — a
+     * typo in an invited address, a person who has since said what to call them,
+     * a customer who is a Dr — and there was no way to correct any of it.
+     * Everything else on the row is what the system OBSERVED, and
+     * `setPersonRecord` will not write it.
      *
      * `'email' in body` AND NOT `body.email` — the patch distinction. An absent
      * key means leave it alone and a present one means write it, which is what
@@ -1309,8 +1329,28 @@ async function routeUncached(
       const body = await readJsonBody(request)
       const patch: PersonPatch = {}
       if ('email' in body) patch.email = typeof body.email === 'string' ? body.email : ''
-      if ('displayName' in body) {
-        patch.displayName = typeof body.displayName === 'string' ? body.displayName : null
+      /**
+       * THE NAME PARTS ARRIVE FLAT AND ARE GATHERED HERE ([[REQ-193]]).
+       *
+       * The record pane commits one field at a time, so the body it posts is
+       * `{id, knownAs}` — the same flat patch shape the address already uses.
+       * The model underneath is a name RECORD, so the route collects whichever
+       * parts arrived into one; sending them nested would make the client know
+       * that a name is a row, which is exactly the thing it should not have to.
+       *
+       * `nameReason` ONLY TRAVELS WITH PARTS. On its own it would be a request
+       * to record a supersession that changes nothing, which `writeName` would
+       * correctly decline — so it is read only when there is a name to write.
+       */
+      const name: NamePatch = {}
+      for (const part of NAME_PART_NAMES) {
+        if (part in body) {
+          name[part as keyof NamePatch] = typeof body[part] === 'string' ? body[part] : null
+        }
+      }
+      if (Object.keys(name).length > 0) {
+        patch.name = name
+        patch.nameReason = typeof body.nameReason === 'string' ? body.nameReason : null
       }
       const id = typeof body.id === 'string' ? body.id : ''
       return json(200, await setPersonRecord(identityEnv, scope, id, patch))

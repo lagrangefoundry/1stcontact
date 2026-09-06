@@ -56,6 +56,14 @@ import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
 import { EMAIL_SHAPE_ERROR, isEmailShape } from './email-shape.js'
 import {
+  CHANGED,
+  displayNameOf,
+  formerlyLabel,
+  greetingOf,
+  NAME_PARTS,
+  NO_NAME_YET,
+} from './people-name.js'
+import {
   ACCESS_STATES,
   PIPELINE_STAGES,
   accessLabel,
@@ -127,7 +135,6 @@ const RECORD_FIELDS = [
     required: true,
     validate: (value) => (isEmailShape(value) ? null : EMAIL_SHAPE_ERROR),
   },
-  { name: 'displayName', label: 'Name' },
   // THE TWO AXES, ADJACENT AND SEPARATE ([[DOC-44]] §3). Beside them `invitedAt`
   // says WHEN we asked and `termsAcceptedAt` says when they came — the acts the
   // two axes are the current answer to, which is why all four are worth a row.
@@ -139,6 +146,34 @@ const RECORD_FIELDS = [
   { name: 'lastSeenAt', label: 'Last seen', locked: true },
   { name: 'termsAcceptedAt', label: 'Terms accepted', locked: true },
   { name: 'createdAt', label: 'Created', locked: true },
+]
+
+/**
+ * Their name — its own section, and every box optional but the first
+ * ([[REQ-193]]).
+ *
+ * A SECTION AND NOT SEVEN MORE ROWS UNDER "WHO THEY ARE". The address, the two
+ * axes and the stamps are facts the SYSTEM observed; the name is the one thing
+ * on this pane the operator authors, and they will be back in it — correcting a
+ * spelling, adding the Dr, writing down that Robert is Bob. Mixed into the
+ * observations it is seven editable boxes hidden among eight locked ones.
+ *
+ * BUILT FROM `NAME_PARTS`, so a part added to the model appears here without
+ * this file being edited — the rule the pipeline facet already follows, and the
+ * reason the name-change dialog below can be the same list a second time without
+ * being a second copy.
+ *
+ * `greeting` AND `formerly` ARE DERIVED AND LOCKED, and they are here rather
+ * than nowhere because both are otherwise invisible. The greeting is the
+ * highest-frequency read in the whole record and an operator filling in
+ * `knownAs` has no other way to see what it did; `formerly` is what the search
+ * below will match on, and a row found by a name that is nowhere on the screen
+ * is a search result that looks like a bug.
+ */
+const NAME_FIELDS = [
+  ...NAME_PARTS.map((part) => ({ name: part.name, label: part.label })),
+  { name: 'greeting', label: 'Greeting', locked: true },
+  { name: 'formerly', label: 'Formerly', locked: true },
 ]
 
 const EMPTY_DETAIL = 'Select a person.'
@@ -200,6 +235,28 @@ function axisValues(person) {
 }
 
 /**
+ * The name pane's values: the seven parts, flattened, plus the two derived rows.
+ *
+ * FLATTENED BECAUSE THE FIELDS ARE FLAT AND THE MODEL IS NOT. A name is a record
+ * on the server ([[REQ-193]]) and the widget commits one named field at a time,
+ * so this is the one place the two shapes meet — and it is the same flattening
+ * the transport posts back, which is why the route can gather the parts again
+ * without the client ever knowing a name is a row.
+ *
+ * A PERSON WITH NO NAME GETS EMPTY BOXES, not absent ones. Every part is
+ * optional and the pane is where one gets written for the first time, so there
+ * is nothing to hide.
+ */
+function nameValues(person) {
+  const values = {}
+  for (const part of NAME_PARTS) values[part.name] = person.name?.[part.name] ?? ''
+  const greeting = greetingOf(person)
+  values.greeting = greeting ? `Hi ${greeting},` : NO_NAME_YET
+  values.formerly = formerlyLabel(person.formerNames) ?? ''
+  return values
+}
+
+/**
  * The two axes, defined once in `people-axes.js` and re-exported here.
  *
  * RE-EXPORTED RATHER THAN REDEFINED. The rules are model facts ([[DOC-44]] §3)
@@ -212,13 +269,18 @@ export { accessOf, stageOf }
 /**
  * What the name column says for somebody who has none yet ([[REQ-189]]).
  *
- * IT IS A SENTENCE AND NOT A DASH, because today it is what EVERY row says:
- * nothing in this system can set `display_name` yet ([[REQ-183]] §5), so a
- * blank or a glyph would read as a column that is broken rather than as a fact
- * about the person. The wording says which of the two it is. Exported so the
- * evidence asserts the string rather than restating it.
+ * IT IS A SENTENCE AND NOT A DASH, because a blank or a glyph reads as a column
+ * that is broken rather than as a fact about the person, and the wording says
+ * which of the two it is. It also covers the row whose name has been REDACTED
+ * ([[REQ-193]], [[DOC-37]]): erasure clears the text and keeps the row, and what
+ * is left has to read as "no name" rather than as a rendering fault.
+ *
+ * DEFINED IN `people-name.js` AND RE-EXPORTED HERE, the same way the two axes
+ * are: the resolver that decides an empty displayed name means "none" and the
+ * string that says so belong together, and the evidence asserts the string
+ * rather than restating it.
  */
-export const NO_NAME_YET = 'No name yet'
+export { NO_NAME_YET }
 
 /**
  * The list row: the name, the address, where they stand, and whether they are in.
@@ -241,9 +303,16 @@ export const NO_NAME_YET = 'No name yet'
  */
 function renderRow(person) {
   const row = el('div', 'builder-people__row')
-  const name = el('span', 'builder-people__who', person.displayName || NO_NAME_YET)
-  if (!person.displayName) name.classList.add('builder-people__noname')
+  const shown = displayNameOf(person)
+  const name = el('span', 'builder-people__who', shown || NO_NAME_YET)
+  if (!shown) name.classList.add('builder-people__noname')
   row.append(name)
+  // WHY THIS ROW MATCHED, WHEN IT MATCHED ON A NAME THAT IS NO LONGER THE NAME
+  // ([[REQ-193]]). Searching *Sarah Jones* returns the row that now says *Sarah
+  // Patel*, and without this the operator is looking at a result they cannot
+  // account for. Only names the server marked `changed` ever arrive here.
+  const formerly = formerlyLabel(person.formerNames)
+  if (formerly) row.append(el('span', 'builder-people__formerly', formerly))
   row.append(el('span', 'builder-people__email', person.email))
   row.append(el('span', 'builder-people__stage', stageLabel(stageOf(person))))
   if (isMember(person)) {
@@ -593,7 +662,7 @@ export function createPeoplePanel(options = {}) {
     nameField.type = 'text'
     nameField.className = 'builder-people__fulfil-name'
     nameField.placeholder = 'Business name'
-    nameField.value = subject.displayName ?? ''
+    nameField.value = displayNameOf(subject) ?? ''
     modal.panel.append(nameField)
 
     const said = el('p', 'builder-people__fulfil-said', '')
@@ -625,13 +694,106 @@ export function createPeoplePanel(options = {}) {
     return modal
   }
 
+  /**
+   * A real name change, recorded as one ([[REQ-193]]).
+   *
+   * A DIALOG AND NOT A CHECKBOX BESIDE THE BOXES, because it is a different act
+   * rather than a different setting on the same one. The record pane corrects a
+   * value that was always wrong; this says the value was right and the person is
+   * now called something else — and the old name survives it, searchable, shown
+   * as *formerly*. A toggle would leave the two one mis-click apart, and the
+   * mis-click that matters surfaces a name somebody deliberately left behind.
+   *
+   * IT COMMITS ALL SEVEN PARTS AT ONCE, which the record pane deliberately never
+   * does. A name change is one transition and the supersession records it once;
+   * seven field-at-a-time commits would write seven rows into the history for a
+   * single event, and the timeline is the thing this table exists to keep.
+   *
+   * PREFILLED FROM THE CURRENT NAME, because most of a name survives a marriage.
+   * The operator edits the parts that moved.
+   *
+   * BUILT FROM `NAME_PARTS`, the same list the pane above uses — so this cannot
+   * be the surface that forgets a part.
+   */
+  function openRename(subject, view) {
+    const modal = createModalShell({ host: element, title: 'Record a name change' })
+    modal.panel.append(el('h2', 'builder-modal__title', 'Record a name change'))
+    modal.panel.append(
+      el(
+        'p',
+        'builder-people__rename-hint',
+        'Use this when they are genuinely called something else now — not to fix a ' +
+          'spelling. The name they had stays on their record, is found by search, ' +
+          'and shows as “formerly”.',
+      ),
+    )
+
+    const boxes = new Map()
+    for (const part of NAME_PARTS) {
+      const label = el('label', 'builder-people__rename-field')
+      label.append(el('span', 'builder-people__rename-label', part.label))
+      const box = document.createElement('input')
+      box.type = 'text'
+      box.className = 'builder-people__rename-box'
+      box.name = part.name
+      box.value = subject.name?.[part.name] ?? ''
+      label.append(box)
+      boxes.set(part.name, box)
+      modal.panel.append(label)
+    }
+
+    const said = el('p', 'builder-people__rename-said', '')
+    said.hidden = true
+    modal.panel.append(said)
+
+    const save = modalButton(
+      'Record it',
+      'builder-modal__btn builder-modal__btn--primary',
+      async () => {
+        save.disabled = true
+        try {
+          const patch = { nameReason: CHANGED }
+          for (const [name, box] of boxes) patch[name] = box.value
+          await transport.saveRecord(subject.id, patch)
+          await refresh()
+          // REOPENED, because the pane behind this dialog now says something
+          // untrue in two places at once: the name, and the *formerly* line that
+          // has just acquired an entry.
+          await reopen(subject.id, view)
+          modal.close()
+        } catch (err) {
+          said.textContent = err instanceof Error ? err.message : String(err)
+          said.hidden = false
+          save.disabled = false
+        }
+      },
+    )
+    modal.panel.append(
+      modalFooter([save, modalButton('Close', 'builder-modal__btn', () => modal.close())]),
+    )
+    modal.mount()
+    boxes.get(NAME_PARTS[0].name)?.focus()
+    return modal
+  }
+
   function matches(person) {
     // AND, NOT OR. The two axes are independent, so narrowing on both is the
     // conjunction — which is what makes "invited and never came" reachable.
     if (filter.stage && stageOf(person) !== filter.stage) return false
     if (filter.access && accessOf(person) !== filter.access) return false
     if (!filter.text) return true
-    const haystack = `${person.email} ${person.displayName ?? ''}`.toLowerCase()
+    // FORMER NAMES ARE SEARCHED AND CORRECTIONS ARE NOT ([[REQ-193]]). *Sarah
+    // Jones; oh, she is Sarah Patel now* is the search an operator actually
+    // runs, and history is a table rather than an audit log precisely so it can
+    // be answered. The filtering of WHICH former names travel is the server's:
+    // a `corrected` typo never reaches this array, so this cannot match one.
+    const haystack = [
+      person.email ?? '',
+      displayNameOf(person) ?? '',
+      ...(person.formerNames ?? []),
+    ]
+      .join(' ')
+      .toLowerCase()
     return haystack.includes(filter.text)
   }
 
@@ -677,9 +839,11 @@ export function createPeoplePanel(options = {}) {
      *
      * ONE FIELD PER CALL, which is the `auto` commit mode: the changes object
      * carries the single field just confirmed, so the route is handed a patch
-     * and never a whole record. That is what lets it leave `display_name`
-     * alone while the address changes, rather than writing back a stale copy
-     * of every other value the pane happened to be holding.
+     * and never a whole record. That is what lets it leave the name alone while
+     * the address changes, rather than writing back a stale copy of every other
+     * value the pane happened to be holding — and, since a name is a row that is
+     * SUPERSEDED rather than updated ([[REQ-193]]), what stops an address
+     * correction from writing a name transition that never happened.
      *
      * A REJECTION IS THE ERROR REPORT. The widget rolls the cell back to the
      * last-known-good value and prints the message inline, so a refusal the
@@ -699,6 +863,7 @@ export function createPeoplePanel(options = {}) {
         // refresh below redraws from the same server.
         Object.assign(detail.person, saved)
         record.setValues({ ...detail.person, ...axisValues(detail.person) })
+        name.setValues(nameValues(detail.person))
         await refresh()
       },
     })
@@ -728,6 +893,46 @@ export function createPeoplePanel(options = {}) {
       }
       addresses.append(list)
     }
+
+    /**
+     * Their name — the operator's own surface, and the one they curate on
+     * ([[REQ-193]]).
+     *
+     * ITS OWN SECTION, BESIDE THE ADDRESSES AND NOT AMONG THEM. Both are
+     * multi-valued and neither is multi-valued along the same axis: a person
+     * holds several addresses AT ONCE, and several names OVER TIME. So the
+     * addresses list what else is true now and this shows the one that is
+     * current — with what used to be true on the `Formerly` row.
+     *
+     * EDITING HERE IS A CORRECTION, and that is why it is the plain path. The
+     * common case by far is a typo, an autocorrect, a spelling somebody finally
+     * got right — and a correction must not become a searchable, displayable
+     * former name. So this posts no reason at all and the server defaults it to
+     * `corrected`: the common case and the safe case are the same case, and the
+     * operator has to do nothing to get it.
+     *
+     * A REAL NAME CHANGE IS THE BUTTON BELOW, which is the deliberate act. Two
+     * surfaces because they are two facts, not two spellings of one — and the
+     * asymmetry is on purpose: getting this wrong in the safe direction leaves a
+     * stale typo out of a search, and getting it wrong the other way surfaces a
+     * deadname.
+     */
+    const nameSection = section(view, 'Their name')
+    const name = mountFields(nameSection, {
+      schema: NAME_FIELDS,
+      values: nameValues(detail.person),
+      editable: true,
+      onCommit: async (changes) => {
+        const saved = await transport.saveRecord(detail.person.id, changes)
+        Object.assign(detail.person, saved)
+        name.setValues(nameValues(detail.person))
+        await refresh()
+      },
+    })
+    const renamed = el('button', 'builder-people__rename', 'Record a name change')
+    renamed.type = 'button'
+    renamed.addEventListener('click', () => openRename(detail.person, view))
+    nameSection.append(renamed)
 
     /**
      * WHAT THEY RUN AND WHAT THEY HOLD, IN ONE TABLE ([[REQ-189]]).

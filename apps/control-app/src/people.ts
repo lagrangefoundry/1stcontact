@@ -65,6 +65,22 @@ import {
   USER_ID_BY_EMAIL_SQL,
   userEmailInsert,
 } from './identity'
+// THE NAME IS A TABLE, AND THIS MODULE DOES NOT KNOW ITS PREDICATE ([[REQ-193]]).
+// `superseded_at IS NULL` is written in `names.ts` and nowhere else; what this
+// file holds is the join fragment and the lift, so a reader here cannot forget
+// the filter and show a name the person used to have.
+import {
+  CURRENT_NAME_COLUMNS,
+  CURRENT_NAME_JOIN,
+  formerNamesIn,
+  formerNamesOf,
+  InvalidNameError,
+  nameFromJoin,
+  writeName,
+  type JoinedName,
+  type NamePatch,
+  type PersonName,
+} from './names'
 import type { Scope } from './scope'
 
 /**
@@ -102,7 +118,32 @@ export interface Person {
    * replaced could not represent ([[DOC-42]] §4.1).
    */
   email: string | null
-  displayName: string | null
+  /**
+   * Their name right now, or null when they have none yet ([[REQ-193]]).
+   *
+   * THE RECORD AND NOT A STRING. A `displayName` field beside it would be a
+   * second representation of the same fact in one payload — free to disagree,
+   * and the thing this ticket's "no `sort_name`" rule refuses one table down.
+   * What to show is `name.displayName`, resolved by `displayNameOf` in
+   * `builder/people-name.js`, which both sides of the seam read.
+   *
+   * THE SAME SHAPE AS THE ADDRESS ONE ROW UP, AND A DIFFERENT AXIS. An address
+   * is multi-valued NOW, so the list carries the primary and the detail carries
+   * the rest; a name is multi-valued OVER TIME, so the list carries the current
+   * one and `formerNames` carries what is safe to show of the rest.
+   */
+  name: PersonName | null
+  /**
+   * The names they used to have that are safe to surface ([[REQ-193]]).
+   *
+   * `changed` ONLY, FILTERED BY THE SERVER. The operator has to be able to find
+   * *Sarah Jones* and be shown *Sarah Patel*, and the list is searched in the
+   * browser — so the former names have to travel. A `corrected` supersession is
+   * a typo kept for audit and never leaves `names.ts`, which is what makes "a
+   * client cannot surface a deadname" a property of this payload rather than a
+   * rule every client has to remember.
+   */
+  formerNames: string[]
   /** `active` is the member relation; anything else is refused `user_inactive`. */
   status: string
   /** When the invite was sent. A record of an act, never the pipeline stage. */
@@ -181,12 +222,11 @@ export interface PersonDetail {
   grants: Grant[]
 }
 
-interface UserRecord {
+interface UserRecord extends JoinedName {
   id: string
   /** Joined from `user_emails`, never a column on `users` ([[REQ-191]]). */
   email: string | null
   status: string
-  display_name: string | null
   invited_at: string | null
   first_seen_at: string | null
   last_seen_at: string | null
@@ -196,31 +236,37 @@ interface UserRecord {
 }
 
 /**
- * The person's own columns, plus the primary address joined on ([[REQ-191]]).
+ * Every read of a person: their own columns, the primary address joined on
+ * ([[REQ-191]]) and the current name joined on ([[REQ-193]]).
  *
  * ALIASED OFF `u`, because {@link PRIMARY_EMAIL_SQL} is a correlated subquery and
- * has to name the row it correlates with. Every query below therefore reads
- * `FROM users u`, and the aliases keep the record shape identical to what it was
- * when the address was a column — so nothing downstream of {@link toPerson} had
- * to learn that the address moved.
+ * has to name the row it correlates with — and because the name join needs the
+ * same handle. Every query below therefore reads {@link USER_SOURCE}.
+ *
+ * BOTH ARRIVE ON THIS QUERY RATHER THAN AFTER IT. A second round trip would need
+ * the ids of everybody in the business as bind variables, which is a limit the
+ * model knows nothing about and a list that is unbounded by design.
  */
 const USER_COLUMNS =
   `u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.status AS status, ` +
-  'u.display_name AS display_name, u.invited_at AS invited_at, ' +
+  'u.invited_at AS invited_at, ' +
   'u.first_seen_at AS first_seen_at, u.last_seen_at AS last_seen_at, ' +
   'u.tos_accepted_at AS tos_accepted_at, u.pipeline_stage AS pipeline_stage, ' +
-  'u.created_at AS created_at'
+  `u.created_at AS created_at, ${CURRENT_NAME_COLUMNS}`
 
 /** `user_emails` rows as the pane wants them — the storage shape stays in `identity.ts`. */
 function toPersonEmail(row: UserEmailRow): PersonEmail {
   return { id: row.id, email: row.email, isPrimary: row.is_primary === 1, createdAt: row.created_at }
 }
 
-function toPerson(row: UserRecord): Person {
+const USER_SOURCE = `FROM users u ${CURRENT_NAME_JOIN}`
+
+function toPerson(row: UserRecord, formerNames: string[] = []): Person {
   return {
     id: row.id,
     email: row.email,
-    displayName: row.display_name,
+    name: nameFromJoin(row),
+    formerNames,
     status: row.status,
     invitedAt: row.invited_at,
     firstSeenAt: row.first_seen_at,
@@ -244,12 +290,16 @@ function toPerson(row: UserRecord): Person {
  */
 export async function peopleOf(env: IdentityEnv, scope: Scope): Promise<Person[]> {
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? ` +
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? ` +
       'ORDER BY u.created_at ASC, u.id ASC',
   )
     .bind(scope.businessId)
     .all<UserRecord>()
-  return (results ?? []).map(toPerson)
+  // ONE QUERY FOR THE WHOLE BUSINESS, not one per person: the list is searched
+  // in the browser, so every row needs its safe former names and a query each
+  // would make the tab's cost linear in the size of the customer base.
+  const formerly = await formerNamesIn(env, scope.businessId)
+  return (results ?? []).map((row) => toPerson(row, formerly.get(row.id) ?? []))
 }
 
 /**
@@ -266,7 +316,7 @@ export async function personDetail(
   personId: string,
 ): Promise<PersonDetail | null> {
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
@@ -294,9 +344,10 @@ export async function personDetail(
 
   const businessIds = (operates.results ?? []).map((b) => b.business_id)
   const grants = await grantsFor(env, personId, businessIds)
+  const formerly = await formerNamesOf(env, personId)
 
   return {
-    person: toPerson(row),
+    person: toPerson(row, formerly),
     emails: emails.map(toPersonEmail),
     operates: (operates.results ?? []).map((b) => ({
       businessId: b.business_id,
@@ -455,10 +506,11 @@ export class InvalidInviteError extends Error {}
  * [[REQ-189]]'s territory or later; this one writes the first address of a
  * person it creates and nothing else.
  *
- * `display_name` IS FILLED IN AND NEVER OVERWRITTEN. A name typed at the invite
- * is a courtesy for a row that has none; editing an existing one is [[REQ-183]]
- * §5's surface, and letting the invite do it would give the tab a second,
- * undeclared way to rename a person.
+ * A NAME TYPED HERE IS FILLED IN AND NEVER OVERWRITTEN. It is a courtesy for a
+ * person who has none; editing an existing one is {@link setPersonRecord}'s
+ * surface, and letting the invite do it would give the tab a second, undeclared
+ * way to rename somebody — and would write a supersession into their name
+ * history for an act that was not a rename at all ([[REQ-193]]).
  *
  * NO ENTITLEMENT IS WRITTEN, deliberately ([[DOC-42]] §5). The Portal is what
  * membership IS — a member reaches their own payments, details and delete button
@@ -492,7 +544,7 @@ export async function invitePerson(
 
   const now = new Date().toISOString()
   const existing = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users u ` +
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} ` +
       `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
   )
     .bind(scope.businessId, scope.businessId, email)
@@ -511,14 +563,20 @@ export async function invitePerson(
     // stage that exists then has to answer, which is exactly the decision a
     // derived state would have hidden.
     await env.DB.prepare(
-      'UPDATE users SET invited_at = COALESCE(invited_at, ?), ' +
-        'display_name = COALESCE(display_name, ?), pipeline_stage = ?, ' +
+      'UPDATE users SET invited_at = COALESCE(invited_at, ?), pipeline_stage = ?, ' +
         'updated_at = ? WHERE id = ?',
     )
-      .bind(now, displayName, PIPELINE_INVITED, now, existing.id)
+      .bind(now, PIPELINE_INVITED, now, existing.id)
       .run()
+    // THE COALESCE ON THE NAME IS NOW THE ABSENCE OF A ROW, and it is the same
+    // rule: a name is written only for somebody who has none. `writeName` on a
+    // person who already has one would supersede it, which is a rename, and an
+    // invite is not one.
+    if (displayName && !nameFromJoin(existing)) {
+      await writeName(env, existing.id, { displayName })
+    }
     const row = await env.DB.prepare(
-      `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
+      `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
     )
       .bind(scope.businessId, existing.id)
       .first<UserRecord>()
@@ -539,15 +597,16 @@ export async function invitePerson(
   const id = newId('usr')
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO users (id, tenant_id, status, display_name, platform_operator, ' +
+      'INSERT INTO users (id, tenant_id, status, platform_operator, ' +
         'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
-        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-    ).bind(id, scope.businessId, 'active', displayName, now, PIPELINE_INVITED, now, now, '{}'),
+        'VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)',
+    ).bind(id, scope.businessId, 'active', now, PIPELINE_INVITED, now, now, '{}'),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
   ])
+  if (displayName) await writeName(env, id, { displayName })
 
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
+    `SELECT ${USER_COLUMNS} ${USER_SOURCE} WHERE u.tenant_id = ? AND u.id = ?`,
   )
     .bind(scope.businessId, id)
     .first<UserRecord>()
@@ -591,10 +650,11 @@ export async function setPersonStatus(
 }
 
 /**
- * The two fields of a person's record an operator owns ([[BUG-54]]).
+ * The fields of a person's record an operator owns ([[BUG-54]], [[REQ-193]]).
  *
  * A PATCH: an absent key is "leave it alone", and is not the same as `null`.
- * `displayName: null` clears the name; `displayName` absent does not touch it.
+ * `name: {displayName: null}` clears the name; an absent `name` does not touch
+ * it.
  * The panel commits one field at a time, so in practice exactly one key
  * arrives — but the distinction has to be in the type, because the alternative
  * is a route that writes back whatever the caller was holding for every column
@@ -602,7 +662,22 @@ export async function setPersonStatus(
  */
 export interface PersonPatch {
   email?: string
-  displayName?: string | null
+  /**
+   * The parts of their name to change ([[REQ-193]]). Absent means leave the
+   * name alone entirely; present with one key changes that part and carries the
+   * rest forward.
+   */
+  name?: NamePatch
+  /**
+   * Why the name is being replaced — `changed` for a real name change, anything
+   * else (including nothing) for a correction.
+   *
+   * IT IS A SEPARATE KEY AND NOT A FLAG ON THE PARTS, because it is a fact about
+   * the TRANSITION rather than about any part of the name. The default is the
+   * safe one and the deliberate one is the explicit act: a typo fixed at the
+   * keyboard must not become a searchable, displayable former name.
+   */
+  nameReason?: string | null
 }
 
 /** Refused because of what was typed — a bad address, or one already taken. */
@@ -629,7 +704,20 @@ function isDuplicateEmail(err: unknown): boolean {
 }
 
 /**
- * Correct who somebody is ([[BUG-54]]).
+ * Correct who somebody is ([[BUG-54]], [[REQ-193]]).
+ *
+ * THE OPERATOR IS THE CURATOR, AND THIS IS THE SURFACE THEY CURATE ON. The
+ * small business owner is the one who corrects a misspelled contact, who knows
+ * that Robert is Bob, who knows this customer is a Dr — and the name fields are
+ * designed for them. A contact's own self-declaration is simpler and will not
+ * fill most of them in, which is why every part but the displayed name is
+ * optional and why *just my name* is a complete answer.
+ *
+ * THE NAME IS A ROW AND CHANGING IT IS A SUPERSESSION, not an UPDATE. So this
+ * route carries `nameReason` beside the parts: without it, every correction of
+ * a typo would be recorded as a former name, and former names are searched and
+ * shown. `writeName` defaults it to `corrected` and only an explicit `changed`
+ * makes the old name visible.
  *
  * THE AUTHORITY, AND THE PANEL'S CHECK IS NOT. `builder/people.js` refuses a
  * malformed address inline so the operator sees it while still looking at the
@@ -672,31 +760,23 @@ export async function setPersonRecord(
   if (email !== undefined && !isEmailShape(email)) {
     throw new InvalidPersonRecordError(`Email ${EMAIL_SHAPE_ERROR}.`)
   }
-  if (email === undefined && patch.displayName === undefined) {
+  if (email === undefined && patch.name === undefined) {
     throw new InvalidPersonRecordError('Nothing to change.')
   }
 
   const now = new Date().toISOString()
 
-  // THE PERSON IS RESOLVED FIRST, AND IT IS THE SCOPE CHECK ([[REQ-191]]).
-  // The address lives in another table now, so an `UPDATE ... WHERE tenant_id =
-  // ? AND id = ?` no longer touches every field this patch can change — and a
-  // write to `user_emails` keyed on `user_id` alone would carry no tenant at
-  // all. Asking once, here, keeps one non-oracle answer for both: a caller in
-  // one business guessing an id from another is told what a caller guessing an
-  // id that never existed is told.
+  // THE PERSON IS RESOLVED FIRST, AND IT IS THE SCOPE CHECK ([[REQ-191]],
+  // [[REQ-193]]). Neither the address nor the name lives on `users` any more, so
+  // an `UPDATE ... WHERE tenant_id = ? AND id = ?` no longer touches anything
+  // this patch can change — and a write to `user_emails` or `user_names` keyed on
+  // `user_id` alone would carry no tenant at all. Asking once, here, keeps one
+  // non-oracle answer for all of them: a caller in one business guessing an id
+  // from another is told what a caller guessing an id that never existed is told.
   const found = await env.DB.prepare('SELECT id FROM users u WHERE u.tenant_id = ? AND u.id = ?')
     .bind(scope.businessId, personId)
     .first<{ id: string }>()
   if (!found) throw new UnknownPersonError()
-
-  if (patch.displayName !== undefined) {
-    // EMPTY BECOMES NULL rather than an empty string, so "no name" has one
-    // representation — the one the list already draws `No name yet` for.
-    await env.DB.prepare('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?')
-      .bind((patch.displayName ?? '').trim() || null, now, personId)
-      .run()
-  }
 
   if (email !== undefined) {
     // IT REWRITES THE PRIMARY ROW RATHER THAN ADDING ONE. This route corrects
@@ -729,6 +809,18 @@ export async function setPersonRecord(
       throw err
     }
     await env.DB.prepare('UPDATE users SET updated_at = ? WHERE id = ?').bind(now, personId).run()
+  }
+
+  if (patch.name !== undefined) {
+    // THE MESSAGE IS THE OPERATOR'S, so a refusal about the name reads the same
+    // way a refusal about the address does — beside the box it is about, rather
+    // than as a 500.
+    try {
+      await writeName(env, personId, patch.name, patch.nameReason)
+    } catch (err) {
+      if (err instanceof InvalidNameError) throw new InvalidPersonRecordError(err.message)
+      throw err
+    }
   }
 
   const detail = await personDetail(env, scope, personId)

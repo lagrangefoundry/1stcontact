@@ -137,7 +137,6 @@ export interface UserRow {
    */
   email: string | null
   status: string
-  display_name: string | null
   /**
    * May this person enter a business they hold no membership on ([[REQ-185]])?
    *

@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#
+# `bin/seed` — put the development fixture into D1 (REQ-192).
+#
+# WHY THIS EXISTS. REQ-190 replaced nine migrations with one baseline and wiped
+# the database rather than migrating it, so a fresh clone comes up with a schema
+# and no people. Everything that used to be in the local D1 arrived from a
+# migration that has since been deleted, a test fixture, and a series of
+# `wrangler d1 execute` statements typed into a terminal during CHAT-23 — none of
+# it repeatable, none of it written down. `db/dev-seed.sql` is the written-down
+# version and this feeds it to wrangler.
+#
+# LOCAL BY DEFAULT, AND `--remote` HAS TO BE TYPED. That is a safety property
+# rather than a convenience. The fixture carries `alice@plumbing.example` and
+# `bob@example.com`, and a fixture reaching a real deployment is the same defect
+# REQ-190 just took out of migration `0005` — invented people in a database
+# customers are in. Defaulting to local means the destructive target is named out
+# loud by whoever meant it.
+#
+# IT DOES NOT SEED AN OPERATOR. `PLATFORM_ADMINS` in `apps/control-app/wrangler.toml`
+# (or a `.dev.vars` override) is how somebody gets into an empty deployment, and
+# there is exactly one way to write those rows — see `ensurePlatformOperator`.
+#
+# Usage:
+#   ./bin/seed              # the local D1 that `wrangler dev` serves
+#   ./bin/seed --remote     # the deployed one. Read the paragraph above first.
+#   ./bin/seed --help
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+seed_file="$repo_root/db/dev-seed.sql"
+
+target="--local"
+for arg in "$@"; do
+  case "$arg" in
+    --remote) target="--remote" ;;
+    --local)  target="--local" ;;
+    -h|--help)
+      sed -n '2,26p' "${BASH_SOURCE[0]}" | sed 's|^# \{0,1\}||'
+      exit 0
+      ;;
+    *)
+      echo "seed: unknown argument '$arg' (try --help)" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ "$target" = "--remote" ]; then
+  echo "seed: writing the DEVELOPMENT FIXTURE to the REMOTE D1." >&2
+  echo "seed: this puts invented people into the database real customers are in." >&2
+fi
+
+# `--file`, not `--command`, so SQLite parses the statements rather than this
+# script guessing where they end. The file's prose contains semicolons and
+# apostrophes, both of which a shell-side splitter gets wrong.
+#
+# WRANGLER'S OUTPUT IS HELD BACK UNLESS SOMETHING FAILS. It prints a JSON result
+# object per statement — nineteen of them, all empty, because every statement is
+# an INSERT — and that scrolls the only part an operator came to read off the
+# screen. On a failure the whole thing is emitted, because then it is the answer.
+if ! output=$(cd "$repo_root/apps/control-app" \
+      && npx wrangler d1 execute DB "$target" --file "$seed_file" 2>&1); then
+  echo "$output" >&2
+  echo "seed: wrangler refused the seed (see above). Has the schema been applied?" >&2
+  echo "seed:   cd apps/control-app && npx wrangler d1 migrations apply DB $target" >&2
+  exit 1
+fi
+
+cat <<'REPORT'
+
+Seeded (db/dev-seed.sql, idempotent — re-running changes nothing):
+
+  alice@plumbing.example   signed up; owns three businesses
+  alice@oldsalon.example   the SAME person, a second and non-primary address
+    Alice's Plumbing       an open-ended grant
+    Alice's Lettings       an open-ended grant — several businesses, one account
+    Alice's Old Salon      a grant that ENDED: present in the switcher, unselectable
+  bob@example.com          in Alice's Plumbing — invited, and signed up
+  carol@example.com        in Alice's Plumbing — invited, never came
+  dave@example.com         in Alice's Plumbing — a lead, never invited
+
+NOT seeded, deliberately:
+
+  the platform operator    PLATFORM_ADMINS writes those rows, and nothing else may
+  any site                 these are identity fixtures; `1c push <slug>` adds one
+
+To sign in as any of them, without a Cloudflare account:
+
+  ./bin/access-sim --print-env > .dev.vars.local
+  ./bin/access-sim &
+  cd apps/control-app && npx wrangler dev --port 8788 \
+    --env-file .dev.vars --env-file ../../.dev.vars.local
+
+  then open http://127.0.0.1:8799/login
+
+Only Alice reaches the builder, at either of her addresses — she is one person
+with two, which is what REQ-191 moved the address off `users` to make possible.
+The other three are people of Alice's business, not of this deployment's, so
+`admit` answers `no_user`: Bob's login reaches no app because Alice's Plumbing
+does not have one (DOC-42 §1).
+REPORT
