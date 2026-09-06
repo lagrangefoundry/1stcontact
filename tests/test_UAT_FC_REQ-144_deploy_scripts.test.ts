@@ -35,9 +35,8 @@ function existsSync(file: string): boolean {
  */
 function fakeOrigin(overrides: Record<string, Response> = {}) {
   const origin = 'https://example.test'
-  const slug = 'acme'
-  const draft = 'abc123def456'
-  const root = `${origin}/site/${slug}/draft/${draft}`
+  const siteKey = 'site_a3f9c1d2e4b5f6a7'
+  const root = `${origin}/site/${siteKey}`
 
   const html =
     '<!doctype html><html><head>' +
@@ -46,31 +45,24 @@ function fakeOrigin(overrides: Record<string, Response> = {}) {
     '</head><body><img src="./assets/logo.svg" alt=""></body></html>'
   const css = '@font-face{font-family:X;src:url("./fonts/x.woff2") format("woff2")}'
 
+  // The PUBLISHED policy (BUG-57). The draft channel this fake used to model —
+  // immutable caching and a noindex — went with the channel itself (REQ-149 D7).
   const page = (body: string, type: string) =>
     new Response(body, {
       status: 200,
-      headers: {
-        'content-type': type,
-        'cache-control': 'public, max-age=31536000, immutable',
-        'x-robots-tag': 'noindex',
-      },
+      headers: { 'content-type': type, 'cache-control': 'public, max-age=60' },
     })
 
-  const notFound = (draftChannel: boolean) =>
+  const notFound = () =>
     new Response('Not Found', {
       status: 404,
-      headers: draftChannel
-        ? { 'content-type': 'text/plain; charset=utf-8', 'x-robots-tag': 'noindex' }
-        : { 'content-type': 'text/plain; charset=utf-8' },
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
     })
 
   const table: Record<string, () => Response> = {
     [`${origin}/`]: () =>
       new Response('Hello', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } }),
-    [`${origin}/site/${slug}`]: () =>
-      new Response(null, { status: 301, headers: { location: `/site/${slug}/` } }),
-    [`${origin}/site/${slug}/`]: () => notFound(false),
-    [root]: () => new Response(null, { status: 301, headers: { location: `/site/${slug}/draft/${draft}/` } }),
+    [root]: () => new Response(null, { status: 301, headers: { location: `/site/${siteKey}/` } }),
     [`${root}/`]: () => page(html, 'text/html; charset=utf-8'),
     [`${root}/theme.css`]: () => page(css, 'text/css; charset=utf-8'),
     [`${root}/app.js`]: () => page('export {}', 'text/javascript; charset=utf-8'),
@@ -84,10 +76,10 @@ function fakeOrigin(overrides: Record<string, Response> = {}) {
     if (override) return override.clone()
     const hit = table[url]
     if (hit) return hit()
-    return notFound(url.includes('/draft/'))
+    return notFound()
   }
 
-  return { origin, slug, draft, root, fetch: fetchImpl }
+  return { origin, siteKey, root, fetch: fetchImpl }
 }
 
 describe('REQ-144 — build, deploy and smoke scripts', () => {
@@ -305,7 +297,7 @@ bucket_name = "1stcontact-sites"
 
   /** Asset discovery finds what a rendered page actually references. */
   it('test_UAT_FC_REQ-144_asset_discovery_follows_document_relative_references', () => {
-    const base = 'https://example.test/site/acme/draft/abc123def456/'
+    const base = 'https://example.test/site/site_a3f9c1d2e4b5f6a7/'
     const found = referencedAssets(
       '<link rel="stylesheet" href="./theme.css">' +
         '<script src="./app.js"></script>' +
@@ -337,8 +329,7 @@ bucket_name = "1stcontact-sites"
     const fake = fakeOrigin()
     const report = await runSmoke({
       origin: fake.origin,
-      slug: fake.slug,
-      draft: fake.draft,
+      siteKey: fake.siteKey,
       fetch: fake.fetch,
     })
 
@@ -353,7 +344,7 @@ bucket_name = "1stcontact-sites"
         .filter((c: { status: string }) => c.status === 'skip')
         .map((c: { name: string }) => c.name),
     ).toEqual(['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed'])
-    expect(report.checks.map((c: { name: string }) => c.name)).toContain('draft_assets_resolve')
+    expect(report.checks.map((c: { name: string }) => c.name)).toContain('published_assets_resolve')
   })
 
   /**
@@ -366,20 +357,20 @@ bucket_name = "1stcontact-sites"
   it.each([
     {
       what: 'a referenced asset that 404s',
-      url: 'https://example.test/site/acme/draft/abc123def456/theme.css',
+      url: 'https://example.test/site/site_a3f9c1d2e4b5f6a7/theme.css',
       response: () => new Response('Not Found', { status: 404 }),
-      check: 'draft_assets_resolve',
+      check: 'published_assets_resolve',
     },
     {
       what: 'a font served as the wrong type',
-      url: 'https://example.test/site/acme/draft/abc123def456/fonts/x.woff2',
+      url: 'https://example.test/site/site_a3f9c1d2e4b5f6a7/fonts/x.woff2',
       response: () =>
         new Response('font', { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
-      check: 'draft_assets_resolve',
+      check: 'published_assets_resolve',
     },
     {
-      what: 'a preview that lost its noindex',
-      url: 'https://example.test/site/acme/draft/abc123def456/',
+      what: 'a published page cached under the wrong policy',
+      url: 'https://example.test/site/site_a3f9c1d2e4b5f6a7/',
       response: () =>
         new Response('<html></html>', {
           status: 200,
@@ -388,23 +379,23 @@ bucket_name = "1stcontact-sites"
             'cache-control': 'public, max-age=31536000, immutable',
           },
         }),
-      check: 'draft_cache_and_robots_policy',
+      check: 'published_cache_policy',
     },
     {
       what: 'a lost trailing-slash redirect',
-      url: 'https://example.test/site/acme/draft/abc123def456',
+      url: 'https://example.test/site/site_a3f9c1d2e4b5f6a7',
       response: () => new Response('Not Found', { status: 404 }),
-      check: 'draft_root_redirects',
+      check: 'published_root_redirects',
     },
     {
       what: 'a 404 that reveals the site exists',
-      url: 'https://example.test/site/acme/',
+      url: 'https://example.test/site/site_a3f9c1d2e4b5f6a7/',
       response: () =>
-        new Response('No published revision for acme', {
+        new Response('No published revision for site_a3f9c1d2e4b5f6a7', {
           status: 404,
           headers: { 'content-type': 'text/plain; charset=utf-8' },
         }),
-      check: 'unpublished_slug_indistinguishable',
+      check: 'unpublished_site_indistinguishable',
     },
     {
       what: 'an apex that stopped resolving',
@@ -416,8 +407,7 @@ bucket_name = "1stcontact-sites"
     const fake = fakeOrigin({ [url]: response() })
     const report = await runSmoke({
       origin: fake.origin,
-      slug: fake.slug,
-      draft: fake.draft,
+      siteKey: fake.siteKey,
       fetch: fake.fetch,
     })
 
@@ -436,7 +426,7 @@ bucket_name = "1stcontact-sites"
     const skipped = report.checks
       .filter((c: { status: string }) => c.status === 'skip')
       .map((c: { name: string }) => c.name)
-    expect(skipped).toContain('draft_assets_resolve')
+    expect(skipped).toContain('published_assets_resolve')
     expect(skipped).toContain('published_root_redirects')
   })
 

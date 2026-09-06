@@ -412,9 +412,18 @@ describe('REQ-147 — the builder is private', () => {
     expect(report.failed.find((c: { name: string }) => c.name === check).detail).toMatch(detail)
   })
 
-  /** Nothing to test against is skipped, never quietly counted as protected. */
+  /**
+   * Nothing to test against is skipped, never quietly counted as protected.
+   *
+   * The origin is a NON-DEFAULT one, which is what "nothing to test against"
+   * means for the Access check now: against the apex this repo deploys the
+   * control origin is derived and the gate is checked without being named
+   * ([[BUG-57]]), so the skip that has to be proved is the one for an origin
+   * whose control app this repo cannot know.
+   */
   it('test_UAT_FC_REQ-147_smoke_skips_the_access_checks_when_no_origin_is_given', async () => {
     const report = await runSmoke({
+      origin: 'https://staging.example',
       fetch: async () => new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } }),
     })
 
@@ -423,6 +432,32 @@ describe('REQ-147 — the builder is private', () => {
       .map((c: { name: string }) => c.name)
     expect(skipped).toContain('control_app_challenges_unauthenticated')
     expect(skipped).toContain('control_app_workers_dev_closed')
+  })
+
+  /**
+   * The other half of the same property: on the apex the repo DOES deploy, the
+   * gate is not skipped. A check that only ever skipped was the defect BUG-57
+   * found — a smoke run that reported "protected" having asked nobody.
+   */
+  it('test_UAT_FC_REQ-147_smoke_checks_the_access_gate_without_being_told_where_it_is', async () => {
+    const asked: string[] = []
+    const report = await runSmoke({
+      fetch: async (input: string | URL) => {
+        asked.push(String(input))
+        return String(input).startsWith('https://app.')
+          ? new Response(null, {
+              status: 302,
+              headers: { location: 'https://uat-team.cloudflareaccess.com/cdn-cgi/access/login/x' },
+            })
+          : new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } })
+      },
+    })
+
+    const gate = report.checks.find(
+      (c: { name: string }) => c.name === 'control_app_challenges_unauthenticated',
+    )
+    expect(gate.status).toBe('pass')
+    expect(asked).toContain('https://app.1stcontact.io/')
   })
 
   /**
