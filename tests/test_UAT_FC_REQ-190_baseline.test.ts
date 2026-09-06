@@ -48,14 +48,24 @@ function code(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
 }
 
-/** Every `.ts`/`.js` file under the source roots, repo-relative. */
+/**
+ * Every authored `.ts`/`.js` file under the source roots.
+ *
+ * BUILD OUTPUT IS EXCLUDED, and the dot-directory rule is the load-bearing part
+ * of that. the `index.js` wrangler writes under
+ * `apps/control-app/.wrangler/tmp/` is a BUNDLE — every
+ * module in the Worker's graph concatenated — written by `unstable_dev` and left
+ * behind by whichever suite ran last. A scan that read it would find every
+ * symbol in the repository in one file, so both checks below would pass or fail
+ * depending on which tests had run first, which is worse than not checking.
+ */
+const GENERATED = new Set(['node_modules', 'dist', 'dist-assets', 'generated'])
+
 function sourceFiles(): string[] {
   const found: string[] = []
   const walk = (dir: string): void => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'dist-assets') {
-        continue
-      }
+      if (entry.name.startsWith('.') || GENERATED.has(entry.name)) continue
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) walk(full)
       else if (/\.(ts|js)$/.test(entry.name)) found.push(full)
