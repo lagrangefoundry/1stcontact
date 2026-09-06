@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-ac5dfe98
 ---
 
 # Contact events: the immutable spine every interaction hangs off
