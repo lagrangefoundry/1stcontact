@@ -5,10 +5,10 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-09-06T18:54:23.573770+00:00'
+updated_at: '2026-09-06T18:54:27.884882+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 2
