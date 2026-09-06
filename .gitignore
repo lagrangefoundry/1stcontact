@@ -62,6 +62,10 @@
 # Environment files
 .env
 .env.local
+# wrangler's local secret file, and the layer `bin/access-sim --print-env` writes
+# over it. Both hold local Access configuration and neither belongs in the repo.
+.dev.vars
+.dev.vars.*
 
 # macOS
 .DS_Store
