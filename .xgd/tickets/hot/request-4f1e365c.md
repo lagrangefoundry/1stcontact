@@ -13,6 +13,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-c12372db
 ---
 
 **Design ref:** DOC-24 `Ticket Change Notification` in lagrange-framework (`doc-5eb8c6fb`).
