@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:45:17.231443+00:00'
+updated_at: '2026-09-05T23:59:59.938181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -457,5 +457,14 @@ Note: the framework repo's push failed on proxy auth, so REQ-134's commit is loc
 **The published stealth site** — this one has a genuine design question rather than a dependency. You want it to be a real published 1c site, which means the content is *authored*, not coded. But the Sign In control and the signed-in chrome ("My Businesses", portal icon) are application behaviour. So: does the Worker inject that chrome into any published site it serves on the apex, or does the site get a component slot the builder can place? The first is quicker; the second is the thing that generalises, and REQ-192-era work on behavior modules in L1 slots may already be the mechanism.
 
 Tell me how you want the addresses handled and the chrome question, and I'll write those two. The auth-consumption ticket I'd hold until you've built REQ-134 and know what its surface actually looks like.
+
+<!-- xgd-turn id="b2b1e073-26ae-461c-9ca7-31b36e7b72e9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T23:59:59.757890+00:00" -->
+#### You
+does Invite silently use the primary - yes - there must be a clearly defined default address use that.
+ok we can keep Access as an alternative - but I'm the only one to use it - probably an acceptable long-term state
+
+That is expected behavior for ANY 1c site - we may allow L1 to put the account portal icon and the sign in link in different locations and we should certainly allow them to get different styles but they are features of ALL 1c sites - actually I take that back - there may be sites with NO users  - so they are features of any sites which have users. OK?
 
 <!-- xgd-chat-end -->
