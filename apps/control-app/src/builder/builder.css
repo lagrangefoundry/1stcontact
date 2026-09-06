@@ -1398,7 +1398,8 @@ body {
 
 .builder-people__stage,
 .builder-people__access,
-.builder-people__suspended {
+.builder-people__suspended,
+.builder-people__bounced {
   flex: none;
   font-size: 0.72em;
   line-height: 1.6;
@@ -1419,6 +1420,20 @@ body {
  * being lost. `--shell-danger` is not a declared shell token, hence the literal.
  */
 .builder-people__suspended {
+  color: var(--shell-danger, #b91c1c);
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+/*
+ * A bad address, visible from the list (REQ-198).
+ *
+ * THE SAME ACCENT AS `__suspended` AND FOR THE SAME REASON: it fires on the
+ * exception, and it carries the word `bounced` so the fact survives a monochrome
+ * display or a screen reader with this rule ignored entirely. Both may appear on
+ * one row — someone suspended whose address also bounced is two separate facts
+ * and the row says both.
+ */
+.builder-people__bounced {
   color: var(--shell-danger, #b91c1c);
   border-color: var(--shell-danger, #b91c1c);
 }
@@ -1589,6 +1604,88 @@ body {
   padding: 3px 8px;
   font-size: 13px;
   color: var(--shell-fg);
+}
+
+/*
+ * What we have said to this person (REQ-198).
+ *
+ * THE ADDRESS LIST'S METRICS, for the reason that block gives: these are two
+ * quiet lists of facts in one pane, and a second type scale would make them read
+ * as different kinds of thing when they are not.
+ *
+ * ONE FLEX ROW PER MESSAGE, truncating on the subject. The subject is still
+ * readable cut short; the date and the status are not, so they are `flex: none`
+ * — the same division `builder-people__row` makes between a name and a pill.
+ */
+/* The two empty states in this pane are different facts, so they are two hooks
+   — but they read alike, so the metrics are `builder-people__empty`'s. */
+.builder-people__msgempty {
+  margin: 0;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-muted);
+}
+
+.builder-people__messages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.builder-people__message {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.builder-people__msgsubject {
+  flex: 1 1 auto;
+  min-width: 4ch;
+  color: var(--shell-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-people__msgwhen {
+  flex: none;
+  font-size: 12px;
+  color: var(--shell-muted);
+  white-space: nowrap;
+}
+
+/*
+ * THE STATUS IS DRAWN BY ONE RULE AND ACCENTED BY ATTRIBUTE, the idiom the
+ * facets use for their axis. The five values are one kind of fact, so a class
+ * per value would be five hooks for a decision that belongs in one place — and
+ * the two that need an accent are named here rather than at the call site.
+ */
+.builder-people__msgstatus {
+  flex: none;
+  font-size: 0.72em;
+  line-height: 1.6;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-border);
+  color: var(--shell-muted);
+  white-space: nowrap;
+}
+
+.builder-people__msgstatus[data-status='bounced'],
+.builder-people__msgstatus[data-status='failed'] {
+  color: var(--shell-danger, #b91c1c);
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+/* The provider's own words about a failure. It wraps rather than truncates —
+   the reason is the whole content of the row, and half of it is no use. */
+.builder-people__msgfailure {
+  flex: 1 1 100%;
+  font-size: 12px;
+  color: var(--shell-danger, #b91c1c);
 }
 
 /*

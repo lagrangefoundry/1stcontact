@@ -560,6 +560,20 @@ export async function fetchPerson(id, fetchImpl = fetch) {
 }
 
 /**
+ * What we have said to one person, and whether it arrived ([[REQ-198]]).
+ *
+ * A SECOND CALL RATHER THAN A FIELD ON THE DETAIL. The detail is identity-schema
+ * data and this is the tenant's ticket store; keeping them apart lets the pane
+ * draw who somebody is without waiting on a second store, which is the read most
+ * likely to be slow.
+ */
+export async function fetchPersonMessages(id, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped(`/api/people/messages?id=${encodeURIComponent(id)}`))
+  if (!res.ok) throw new Error(`GET /api/people/messages → ${res.status}`)
+  return res.json()
+}
+
+/**
  * Correct who somebody is: the address, and every part of the name ([[BUG-54]],
  * [[REQ-193]]).
  *
