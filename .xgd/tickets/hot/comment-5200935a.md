@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:37:35.884406+00:00'
+updated_at: '2026-09-06T23:38:58.057577+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1425,5 +1425,48 @@ Want the bug written up?
 yes
 
 Can you also confirm that the contact is going to recieve an email with a unique link that will allow them to login as them?
+
+<!-- xgd-turn id="6365cb10-db3a-4d34-b604-eb5b91fb2f19-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:38:57.881004+00:00" -->
+#### Claude
+256 bits from the platform CSPRNG, base64url, keyed to the subject, single-use. Let me check the logging convention before writing the bug.
+
+**BUG-62** — *Every denial says access "has ended" and none of them says why*. It carries your own sign-in failure as the evidence for the second half: nothing in the running system said why, and the answer was found by reading `.dev.vars`.
+
+## On your question — no, not today
+
+I can confirm this concretely, because I read the message you actually sent. Its only link is:
+
+```
+http://127.0.0.1:8788
+```
+
+That's the bare origin. It is **identical for every recipient**, carries no identity, and authenticates nobody. Emma's email and Dennis's email contain the same URL. In production it would be `https://app.1stcontact.io` — still the same for everyone, which is why Cloudflare Access has to challenge them with its own OTP.
+
+## After REQ-202, yes
+
+`buildUrl({token, purpose: 'invite'})` produces a per-contact URL carrying a token that is:
+
+- **256 bits from the platform CSPRNG**, base64url — `ID_BYTES = 32`
+- **keyed to that subject** — `login_tokens.subject_id`, minted per issue
+- **single-use** — `used_at`, set by a conditional `UPDATE` checking rows-affected
+- **30-day expiry** for invites, 30 minutes for sign-ins
+
+Clicking it → Continue page → POST redeems → session cookie → signed in as them, with no Access challenge.
+
+Three properties worth being explicit about, because they're consequences rather than choices:
+
+**It is a bearer credential.** Anyone holding that URL signs in as that contact. Forwarding the invite email forwards the account. That's inherent to magic links everywhere; the mitigations are single-use and expiry, and both are present.
+
+**It is deliberately not bound to a device or browser.** That's what makes "request on laptop, open mail on phone" work — the failure mode of "hardening" it is the one that gives magic links a bad name.
+
+**Single-use is why redemption is a POST behind a Continue button.** A mail scanner fetching the URL would otherwise burn the token before the recipient ever clicked.
+
+## Current state
+
+REQ-202 and REQ-203 are the two remaining tickets. Until REQ-202 lands, an invite is a real, delivered, well-formed email whose link does not log anyone in — which is exactly what you saw when Emma's link hit `no Access token was presented`.
+
+Still outstanding and not a ticket: the missing `_dmarc.1stcontact.io` TXT record, which is why the mail went to spam.
 
 <!-- xgd-chat-end -->
