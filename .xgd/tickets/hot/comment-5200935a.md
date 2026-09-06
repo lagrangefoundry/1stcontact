@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:17:04.914248+00:00'
+updated_at: '2026-09-06T23:19:04.610978+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1325,5 +1325,50 @@ Want me to write the first two? And which landing do you want for an accepted in
 **In production:** Cloudflare Access *would* challenge them and it would work — at the cost of the thing we flagged in the first conversation. They'd get **a second, Cloudflare-branded email** with a 6-digit code before ever seeing your welcome page. Two emails per invite, and the first thing a beta user meets isn't yours.
 
 So `invites.ts` isn't broken. It implements the option we called (a) — keep Access, accept the double email — and you're seeing its cost. WHAT! I thought we agreed that we were going to go to the trouble of developing this ourselves and not use the Cloudflare access controls. That was the decision that we made and we had three tickets based on that what's going on
+
+<!-- xgd-turn id="cf96cc9f-a1c6-48b8-8483-023ffd2dee43-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:19:04.206519+00:00" -->
+#### Claude
+You're right, and my last message mischaracterised it. Nobody chose option (a). Let me say what actually happened.
+
+The decision stands and REQ-134 **is built** — it's `ready_to_reconcile` in lagrange-framework. What's missing is the piece I chose not to write. When I handed you the six tickets I said:
+
+> **The auth-consumption ticket** — wiring 1stcontact's two ports to REQ-134 and standing the sign-in routes up. I've deliberately not written it: it should be written against the component's actual surface once you've built it, not against my guess at it.
+
+That was defensible then and I never came back to it. You asked "what do I do next?" and I answered with startup commands instead of "write the consumption ticket." So REQ-199 got implemented against a dependency that didn't exist — and with nothing to mint a token from, `ctaUrl` could only be the bare origin. That's a gap left by a missing ticket, not an implemented option. Calling it "option (a)" was wrong.
+
+REQ-134's surface is now known, which is the condition I was waiting for. Let me write it against the real thing.
+
+The component came out exactly as specified — 30 min / 30 days / 90 days, `SameSite=Lax`, and it grew a third port (`buildUrl`) I hadn't anticipated. Writing the ticket against the real surface.
+
+**REQ-202** — *Consume auth-passwordless: sessions, sign-in routes, and the invite link carries a token*.
+
+Written against the component's real surface rather than my earlier guess. Two things differ from what I'd sketched:
+
+- It takes **three** ports, not two — `buildUrl({token, purpose})` was added, which is what makes the invite URL constructible.
+- The defaults already match everything we settled: sign-in 30 min, invite 30 days, session 90 days, `HttpOnly; Secure; SameSite=Lax`. Nothing needs overriding.
+
+The ticket settles the two questions I'd left open:
+
+**Which tenant `resolveSubject` answers in** — the tenant of the host the request arrived on, one instance per resolved tenant. `idx_users_tenant_email` is tenant-scoped on purpose, so a `resolveSubject` that searched across tenants would be a cross-tenant identity leak in the shape of a helper. There's a falsifier on it: any query without a `tenant_id`.
+
+**Who serves the Continue page** — the control-app, since redemption sets the session and that's where identity lives.
+
+It also folds in the `invites.ts` change rather than splitting it, because splitting ships a half that changes nothing observable — the invite stays broken until both halves land.
+
+Access stays as your own route in, as you decided. It becomes a second supported producer of the same verified identity, not a legacy mode — `admit` already consumes only that, so it's additive.
+
+## What's still not covered
+
+Past authentication your invitee meets `no_membership` and gets "your access has ended". REQ-202 explicitly does not fix that, because it needs a decision rather than code: **where should an accepted invitee land?**
+
+- a holding page
+- an auto-provisioned business
+- their portal
+
+For a beta I'd take the holding page — auto-provisioning a business per invitee is a much larger commitment, and you can provision manually from the Contacts tab while the numbers are small. Tell me which and I'll write it.
+
+Separately, still unfiled from earlier: the `DENIED_MESSAGE` bug (one constant for all five `DenialReason` values, telling a fresh invitee their access "ended", with the reason never reaching the log). Small and self-contained. Want that one too?
 
 <!-- xgd-chat-end -->
