@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T18:58:41.530971+00:00'
+updated_at: '2026-09-06T19:12:34.143123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -114,5 +114,14 @@ All 17 failures are pre-existing (confirmed with my work stashed). Now the ticke
 Both are strictly superseded by the branch versions (backed up to `.xgd/tmp/premerge/`). Merging:
 
 A concurrent session is merging REQ-197 into `xgd-working`. Let me check whether that settled before touching anything:
+
+<!-- xgd-turn id="322b1930-6b53-4d6c-8f8b-352f056528ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:12:34.058764+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
