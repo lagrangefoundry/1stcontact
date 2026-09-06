@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:48:37.985790+00:00'
+updated_at: '2026-09-06T18:51:46.655005+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -266,5 +266,11 @@ So: delete it because it has no job and its absence simplifies the resolver — 
 Form 0 is the only public address that exists **today**, so it can't just go. It stays until form 2 ships, and *"the `/site/<key>/` grammar is deleted"* becomes an acceptance criterion of the domains ticket rather than a separate cleanup. Which also means the order matters: kill the slug, then domains-and-delete-form-0, because otherwise the domains work gets built against a token that's already scheduled to disappear.
 
 That changes what I'd write up — form 0 comes out of the model as a product form entirely, and the "one canonical address, everything else redirects" rule collapses to "a site has one address, on its own host." Simpler. Want me to scope that now against CHAT-40, or keep pulling on it?
+
+<!-- xgd-turn id="9a592854-c708-470f-b96a-1df440bd56d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T18:51:46.578815+00:00" -->
+#### You
+Yes please create a doc ticket on addressing
 
 <!-- xgd-chat-end -->
