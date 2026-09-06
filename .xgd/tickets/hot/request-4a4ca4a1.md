@@ -5,10 +5,10 @@ type: request
 title: The Account is a table, and a business is owned by one
 created_by: xgd
 created_at: '2026-09-05T22:45:59.255932+00:00'
-updated_at: '2026-09-05T22:45:59.255932+00:00'
+updated_at: '2026-09-06T18:36:02.421480+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 3
