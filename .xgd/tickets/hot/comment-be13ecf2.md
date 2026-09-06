@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:10:36.414608+00:00'
+updated_at: '2026-09-06T18:38:21.608692+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,13 @@ Two things I'd like your call on before I write anything up:
 
 1. **Is 1b (share a draft with a client) in scope for this conversation, or a separate thread?** I think it's the highest-value gap on the list and the only one that needs a new secret, but it's also the only one that isn't strictly about *addressing*.
 2. **Do you want this as a doc, or as tickets?** My read: one doc — the addressing model, with the uniqueness-scope table and the canonical rule — since it amends DOC-43 (§4's uniqueness-scope reasoning) and DOC-12 §9's per-business-hostname sketch, both of which currently under-describe this. Then tickets fall out of it cleanly: the `site_domains` table plus wildcard subdomain, then custom hostnames, then the share link.
+
+<!-- xgd-turn id="2a327b3f-6a6b-4334-bdd5-0a53c0429996-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T18:38:21.543679+00:00" -->
+#### You
+What is the usecase for form 0 isn't it covered by form 2?
+
+Do we even need a slug now? Form 1 can be addressed with the SHA
 
 <!-- xgd-chat-end -->
