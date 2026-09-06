@@ -24,9 +24,9 @@ import {
  * internal — schema columns, R2 keys, store handles; *Business* is what a person
  * reads ([[REQ-180]] §3). The columns used to say `account_id` while holding a
  * tenant id, and [[REQ-184]] renamed them `business_id` once `entitlements`
- * acquired a real account subject. The id VALUES still read `acct_…` and are left
- * alone — opaque, permanent and in R2 keys — but nothing here repeats the
- * confusion.
+ * acquired a real account subject. The id VALUES read `biz_…` since [[REQ-194]]
+ * gave the account a table and a key of its own, so an id reading `acct_` in a log
+ * is an account and nothing else.
  */
 
 /**

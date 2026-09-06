@@ -544,10 +544,23 @@ const ADMIN_ONLY_MESSAGE = 'Not found.'
  *
  * TWO THINGS IN ONE CALL, because the chrome needs both before it can draw
  * anything and they come from one source. The businesses half is the switcher's
- * list; the account half is what the avatar surface shows — and the account is
- * the one thing in this product that is NOT business-scoped ([[DOC-40]] §2), so
- * a second endpoint for it would be a second round trip for a value the first
- * one already holds.
+ * list; the other half is who is signed in — which is the one thing in this
+ * product that is NOT business-scoped ([[DOC-40]] §2), so a second endpoint for
+ * it would be a second round trip for a value the first one already holds.
+ *
+ * THAT HALF IS CALLED `person` AND USED TO BE CALLED `account` ([[REQ-194]]). It
+ * has always carried a person's `display_name` and their verified address, and
+ * calling it an account was the API surface of the missing table: an account is
+ * the payer and the owner of businesses, and a receipt is not addressed to
+ * whoever happens to be signed in. The account has a table now, so the label goes
+ * back to the noun it was always holding.
+ *
+ * AND THE ACCOUNT IS DELIBERATELY NOT ADDED BESIDE IT. What an account holds —
+ * its plan, its invoices, its details — is the customer portal's subject
+ * ([[DOC-40]] §2.1), and putting the beginnings of it on the chrome's own
+ * endpoint is how the bespoke admin billing page gets built. This endpoint
+ * answers facts about the SESSION, which is exactly what a portal on another
+ * origin cannot state.
  *
  * LAPSED BUSINESSES ARE RETURNED, MARKED. `admit` returns them deliberately —
  * "your grant expired" and "that business does not exist" need to look different
@@ -561,12 +574,14 @@ const ADMIN_ONLY_MESSAGE = 'Not found.'
  */
 export interface BusinessesPayload {
   /**
+   * WHO IS SIGNED IN ([[REQ-194]]) — a person, under the noun for one.
+   *
    * `email` IS NULLABLE ([[REQ-191]]). It is the person's PRIMARY address, joined
    * from `user_emails` rather than read off a column, and a contact reached only
    * by phone holds none — the shape the old column could not represent. The
    * chrome already renders whichever of name and address it has.
    */
-  account: { name: string | null; email: string | null } | null
+  person: { name: string | null; email: string | null } | null
   /**
    * `lapse` IS PRESENT EXACTLY WHEN `selectable` IS FALSE ([[REQ-180]] §1).
    *
@@ -620,11 +635,11 @@ export interface BusinessesPayload {
 export function businessesPayload(
   admission: Admission | null | undefined,
   scope: Scope | null,
-  accountName: string | null = null,
+  personName: string | null = null,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
-      account: { name: accountName, email: admission.user.email },
+      person: { name: personName, email: admission.user.email },
       businesses: admission.businesses.map((b) => ({
         id: b.businessId,
         name: b.name,
@@ -634,7 +649,7 @@ export function businessesPayload(
     }
   }
   return {
-    account: null,
+    person: null,
     businesses: scope
       ? [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }]
       : [],
@@ -1211,7 +1226,11 @@ async function routeUncached(
       if (!account) return json(404, { error: 'No account with that email address.' })
 
       const business = await provisionBusiness(identityEnv, {
-        accountUserId: account.id,
+        // THE ACCOUNT'S KEY, NOT A PERSON'S ([[REQ-194]]). `findAccount` used to
+        // return a `UserRow` and this line used to read `account.id` off it, which
+        // is where "an account is a user" actually cost something: the business
+        // being created recorded a person as its owner.
+        accountId: account.id,
         name,
         plan: typeof body.plan === 'string' ? body.plan : undefined,
         endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,

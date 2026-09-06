@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-193
 created_by: xgd
 created_at: '2026-09-06T18:10:30.394776+00:00'
-updated_at: '2026-09-06T19:03:35.580065+00:00'
+updated_at: '2026-09-06T19:44:23.380426+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -130,5 +130,35 @@ REQ-193 is landed and at `free_coded`.
 - **The branch worktree is still on disk.** `xgd branch clean REQ-193` refuses because REQ-196 now holds the merge lock, and manual removal hits the sandbox protection on git worktree metadata. The merge is landed and all four SHAs are ancestors of `xgd-working`, so this is cleanup only — re-run `xgd branch clean REQ-193` once REQ-196 releases.
 
 Ticket is at `free_coded` with `story_points: 5`, version `0.2.93`. Promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="6b9743bf-d781-4bd7-bab1-dfc6a1e2d905-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:43:54.157689+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-REQ-193` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-193`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="6b9743bf-d781-4bd7-bab1-dfc6a1e2d905-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T19:44:22.989658+00:00" -->
+#### Claude
+The code work is done and landed; the only outstanding item is the leftover branch. Retrying the clean:
+
+The lock had been released, so the clean succeeded: worktree removed, branch deleted, lock released. All four commits are still ancestors of `xgd-working`.
+
+REQ-193 free-coding is complete:
+
+- **Status** `free_coded`, **version** `0.2.93`, **story_points** 5, four SHAs recorded in `fields.commits`.
+- `user_names` in the baseline with the partial unique index; `users.display_name` dropped; one resolver in `names.ts`; name section, greeting, name-change dialog, `formerly …` in the list, account switcher rewired; REQ-192's seed moved onto the name table carrying four distinct name shapes.
+- 45 REQ-193 UATs, 141 passing across the regression scope, `pnpm build` clean.
+
+Two things from the previous turn still stand and are recorded in the ticket body: the one-line `SHIPPED_SOURCE` re-export is an incidental repair of a BUG-55 typecheck break, not names work; and five knowledge-surface test files fail on `xgd-working` independently of this ticket.
+
+Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->

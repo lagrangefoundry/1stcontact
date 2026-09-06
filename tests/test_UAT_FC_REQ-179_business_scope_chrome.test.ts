@@ -83,7 +83,8 @@ const SITES_OF: Record<string, Array<{ slug: string; latest: number | null }>> =
   acct_studio: [{ slug: 'studio-site', latest: 1 }],
 }
 
-const ACCOUNT = { name: 'Sam Salon', email: 'sam@example.test' }
+/** Who is signed in — a PERSON, and named for one since [[REQ-194]]. */
+const PERSON = { name: 'Sam Salon', email: 'sam@example.test' }
 
 /**
  * The same account with every grant lapsed — what [[DOC-42]] §10.1 made
@@ -122,7 +123,7 @@ function mount(over: Record<string, unknown> = {}) {
   const asked = { sessions: [] as string[], lists: 0, uploads: [] as unknown[], palettes: [] as unknown[] }
   const app = mountBuilder(root, {
     businesses: BUSINESSES,
-    account: ACCOUNT,
+    person: PERSON,
     storage: memoryStorage(),
     loadSites: async (businessId: string | null) => SITES_OF[businessId ?? ''] ?? [],
     chatTransport: {
@@ -218,7 +219,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — the selector is shell chrome', ()
     expect(dialog).toBeTruthy()
     // It states who is signed in and which businesses that identity reaches —
     // including the lapsed one, marked, for the reason the switcher shows it.
-    expect(dialog.textContent).toContain(ACCOUNT.email)
+    expect(dialog.textContent).toContain(PERSON.email)
     expect(dialog.textContent).toContain('Salon')
     expect(dialog.querySelector('[data-lapsed="true"]')!.textContent).toContain('Gone')
   })
@@ -503,7 +504,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — an account with nothing selectabl
       // assertion above is about the scope and not about a seam that never runs.
       const live = mountBuilder(document.body.appendChild(document.createElement('div')), {
         businesses: [{ id: 'acct_salon', name: 'Salon', selectable: true }],
-        account: ACCOUNT,
+        person: PERSON,
         storage: memoryStorage(),
       })
       await settle()

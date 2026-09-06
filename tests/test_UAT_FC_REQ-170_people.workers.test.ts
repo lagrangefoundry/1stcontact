@@ -171,7 +171,7 @@ describe('REQ-170 — the four relations are not the same table', () => {
     const email = anEmail()
     const invited = await inviteAccount(identityEnv(), { email, accountName: "Alice's Plumbing" })
     await provisionBusiness(identityEnv(), {
-      accountUserId: invited.user.id,
+      accountId: invited.user.account_id,
       name: "Alice's Second",
     })
 

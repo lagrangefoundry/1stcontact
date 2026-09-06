@@ -196,10 +196,14 @@ export async function fetchBusinesses(fetchImpl = fetch) {
   try {
     const res = await send(fetchImpl, '/api/businesses')
     if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
-    if (!res.ok) return { account: null, businesses: [] }
+    if (!res.ok) return { person: null, businesses: [] }
     const body = await res.json()
     return {
-      account: body?.account ?? null,
+      // `person` AND NOT `account` ([[REQ-194]]). This half has always been who
+      // is signed in; it was labelled with the other noun while the account had
+      // no table, and an account is the payer rather than whoever is at the
+      // keyboard.
+      person: body?.person ?? null,
       businesses: Array.isArray(body?.businesses) ? body.businesses : [],
     }
   } catch (error) {
@@ -209,7 +213,7 @@ export async function fetchBusinesses(fetchImpl = fetch) {
     // are then indistinguishable — an empty switcher and an avatar with no
     // account behind it reads as a deleted account rather than an expired login.
     if (isSessionEnded(error)) throw error
-    return { account: null, businesses: [] }
+    return { person: null, businesses: [] }
   }
 }
 

@@ -6,10 +6,10 @@ import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   admit,
   ensurePlatformOperator,
-  findAccount,
   type IdentityEnv,
   STARTER_SLUG,
 } from '../apps/control-app/src/identity'
+import { personByEmail } from './support/person'
 import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
@@ -127,7 +127,11 @@ async function invite(spec: Parameters<typeof inviteAccount>[1]) {
  */
 async function admin(email: string) {
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
+  // THE PERSON, NOT THE ACCOUNT ([[REQ-194]]). `acceptTerms` stamps a `users`
+  // row; `findAccount` answers with the payer now, and stamping an account id
+  // would silently accept nothing and leave every later request on the terms
+  // interstitial.
+  const account = await personByEmail(identityEnv(), PLATFORM, email)
   if (!account) throw new Error('the seeded operator was not readable back')
   await acceptTerms(identityEnv(), account.id)
   return account
@@ -378,6 +382,6 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     )
     const body = (await response.json()) as Record<string, unknown>
 
-    expect(Object.keys(body).sort()).toEqual(['account', 'businesses'])
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
   })
 })

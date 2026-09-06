@@ -71,6 +71,7 @@ import { CONTACT_CREATED, CONTACT_INVITED } from './builder/contact-events.js'
 import { contactEventInsert, eventsOf, provenanceOf, type ContactEvent } from './events'
 import type { IdentityEnv, UserEmailRow } from './identity'
 import {
+  accountInsert,
   emailsOf,
   newId,
   normaliseEmail,
@@ -132,6 +133,16 @@ export interface Person {
    */
   email: string | null
   /**
+   * The ACCOUNT this contact belongs to ([[REQ-194]], [[DOC-42]] §6).
+   *
+   * REPORTED SO THAT THE TWO NOUNS ARE VISIBLY DIFFERENT ON THIS SURFACE. The
+   * grants below name their subject by account key, and an operator looking at a
+   * grant against `acct_…` needs somewhere to see which person that is. It is
+   * many-to-one: two people on one account are two rows here carrying the same
+   * value, which is what v1 does not yet produce and the schema already allows.
+   */
+  accountId: string
+  /**
    * Their name right now, or null when they have none yet ([[REQ-193]]).
    *
    * THE RECORD AND NOT A STRING. A `displayName` field beside it would be a
@@ -191,7 +202,7 @@ export interface Grant {
    * the one with no membership to borrow it from — a grant against a business
    * this person does not run, which is a support arrangement or a mistake and
    * is precisely the mismatch the joined table exists to surface. Left to the
-   * id it would read as an opaque `acct_…` beside real names, which is the
+   * id it would read as an opaque `biz_…` beside real names, which is the
    * cell an operator would skip.
    *
    * THE SAME METADATA-ONLY JOIN `operates` ALREADY MAKES: `tenants.name` for a
@@ -257,6 +268,7 @@ interface UserRecord extends JoinedName {
   id: string
   /** Joined from `user_emails`, never a column on `users` ([[REQ-191]]). */
   email: string | null
+  account_id: string
   status: string
   invited_at: string | null
   first_seen_at: string | null
@@ -279,8 +291,8 @@ interface UserRecord extends JoinedName {
  * model knows nothing about and a list that is unbounded by design.
  */
 const USER_COLUMNS =
-  `u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.status AS status, ` +
-  'u.invited_at AS invited_at, ' +
+  `u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.account_id AS account_id, ` +
+  'u.status AS status, u.invited_at AS invited_at, ' +
   'u.first_seen_at AS first_seen_at, u.last_seen_at AS last_seen_at, ' +
   'u.tos_accepted_at AS tos_accepted_at, u.pipeline_stage AS pipeline_stage, ' +
   `u.created_at AS created_at, ${CURRENT_NAME_COLUMNS}`
@@ -296,6 +308,7 @@ function toPerson(row: UserRecord, formerNames: string[] = []): Person {
   return {
     id: row.id,
     email: row.email,
+    accountId: row.account_id,
     name: nameFromJoin(row),
     formerNames,
     status: row.status,
@@ -374,7 +387,11 @@ export async function personDetail(
     }>()
 
   const businessIds = (operates.results ?? []).map((b) => b.business_id)
-  const grants = await grantsFor(env, personId, businessIds)
+  // BY ACCOUNT, NOT BY PERSON ([[REQ-194]]). This passed `personId` while an
+  // account WAS a person, so a grant naming a subject could only ever be found
+  // for the one person whose id it happened to equal. The subject is an account
+  // key, so the lookup is the account key.
+  const grants = await grantsFor(env, row.account_id, businessIds)
   const formerly = await formerNamesOf(env, personId)
 
   // BOTH READS ARE SCOPED AGAIN rather than trusting the row above. They are two
@@ -409,10 +426,17 @@ export async function personDetail(
  * written so far is; an account-subject grant says "this account may reach this
  * thing" and is what a customer's paywall will write. Showing only one would
  * make the editor lie about which it was changing.
+ *
+ * THE SUBJECT IS AN ACCOUNT KEY AND THIS TAKES ONE ([[REQ-194]]). It took a
+ * person id, because in code an account was a person — so a grant naming an
+ * account would have been invisible here the moment an account held anybody but
+ * the person whose id it was written as. The caller reads the account off the
+ * person; two people on one account see the same grants, which is what belonging
+ * to an account means.
  */
 async function grantsFor(
   env: IdentityEnv,
-  personId: string,
+  accountId: string,
   businessIds: string[],
 ): Promise<Grant[]> {
   // LEFT JOIN, not an inner one: a grant naming a business whose `tenants` row
@@ -428,7 +452,7 @@ async function grantsFor(
     `SELECT ${columns} FROM entitlements e LEFT JOIN tenants t ON t.id = e.business_id ` +
       'WHERE e.account_id = ? ORDER BY e.starts_at ASC',
   )
-    .bind(personId)
+    .bind(accountId)
     .all<GrantRecord>()
   rows.push(...(own.results ?? []))
 
@@ -659,10 +683,23 @@ export async function invitePerson(
   // was supposed to open. The second is the hosting capability, which no invite
   // may ever confer.
   //
-  // THE PERSON AND THEIR FIRST ADDRESS GO AS ONE BATCH ([[REQ-191]]). They are
-  // one fact in two rows now, and a person written without an address is a person
-  // nothing can find — not `admit`, not the next invite, not this function on its
-  // second press. The address is the primary one, because it is their only one.
+  // THE PERSON, THEIR ACCOUNT AND THEIR FIRST ADDRESS GO AS ONE BATCH
+  // ([[REQ-191]], [[REQ-194]]). They are one fact in three rows now, and a person
+  // written without an address is a person nothing can find — not `admit`, not
+  // the next invite, not this function on its second press. The address is the
+  // primary one, because it is their only one.
+  //
+  // ONE ACCOUNT PER CONTACT, AND THAT IS v1 RATHER THAN THE MODEL ([[REQ-194]]).
+  // Every contact belongs to an account, so every contact gets one minted here —
+  // including a lead nobody will ever bill, because "belongs to an account" with
+  // exceptions is a nullable column and an empty chair, which is the state this
+  // ticket removed from `entitlements`. Joining a SECOND person to an existing
+  // account is this same insert with an `account_id` that already exists; nothing
+  // in the product does it yet, and the schema needs no change when something does.
+  //
+  // THE ACCOUNT IS NAMED AFTER NOTHING when no display name was typed. Its `name`
+  // is a billing label, not the person's name — the person's name is on the
+  // person — so a contact captured with nothing but an address leaves it null.
   //
   // AND TWO EVENTS, BECAUSE TWO THINGS HAPPENED ([[REQ-195]]). This press both
   // made a contact and asked them in, and those are separate facts with separate
@@ -676,12 +713,24 @@ export async function invitePerson(
   // `now`, so the tie is broken by insertion order — which is the order they are
   // written in here, and is why the batch is not reordered for tidiness.
   const id = newId('usr')
+  const accountId = newId('acct')
   await env.DB.batch([
+    accountInsert(env, { id: accountId, tenantId: scope.businessId, name: displayName, now }),
     env.DB.prepare(
-      'INSERT INTO users (id, tenant_id, status, platform_operator, ' +
+      'INSERT INTO users (id, tenant_id, account_id, status, platform_operator, ' +
         'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
-        'VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)',
-    ).bind(id, scope.businessId, 'active', now, PIPELINE_INVITED, now, now, '{}'),
+        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+    ).bind(
+      id,
+      scope.businessId,
+      accountId,
+      'active',
+      now,
+      PIPELINE_INVITED,
+      now,
+      now,
+      '{}',
+    ),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
     contactEventInsert(env, {
       contactId: id,
@@ -926,7 +975,16 @@ export async function setPersonRecord(
 export interface GrantSpec {
   /** The OBJECT — which business the access is to. Required. */
   businessId: string
-  /** The SUBJECT. Null opens a per-business capacity grant ([[REQ-184]]). */
+  /**
+   * The SUBJECT — an `accounts.id` ([[REQ-194]]). Null opens a per-business
+   * capacity grant ([[REQ-184]]) and is what every row written by provisioning is.
+   *
+   * IT IS AN ACCOUNT KEY AND WAS ALWAYS MEANT TO BE. Until accounts had a table
+   * the only key anyone could put here was a person's, which is the confusion
+   * [[DOC-42]] §6 names; the reader ({@link personDetail}) now looks a grant up by
+   * the account the person belongs to, so a subject written as a person id would
+   * simply never be found.
+   */
   accountId?: string | null
   plan: string
   startsAt?: string

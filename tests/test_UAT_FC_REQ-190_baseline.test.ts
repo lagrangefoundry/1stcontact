@@ -183,7 +183,10 @@ describe('REQ-190 — one baseline', () => {
     // `user_emails` IS THE ONE REQ-191 ADDED AND `user_names` THE ONE REQ-193
     // DID, and both are the rule restated rather than exceptions to it: the
     // address and the name are attributes with keys of their own, where each
-    // used to BE — or to sit on — the key of the person holding it.
+    // used to BE — or to sit on — the key of the person holding it. `accounts`
+    // is [[REQ-194]]'s, and the same restatement once more: the payer is a row
+    // with a key, where it used to be whichever `users` row happened to stand in
+    // for one.
     //
     // `contact_events` IS REQ-195's, AND IS THE SAME RULE UNDER PRESSURE. An
     // event has a natural-looking composite — the contact, the kind and the
@@ -192,6 +195,7 @@ describe('REQ-190 — one baseline', () => {
     // hold: pressing Invite twice in a second is two presses.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
     expect(single.sort()).toEqual([
+      'id',
       'id',
       'id',
       'id',

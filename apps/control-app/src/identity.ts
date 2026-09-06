@@ -141,6 +141,21 @@ export interface UserRow {
    * hold, and the reason this one is nullable rather than defaulted to ''.
    */
   email: string | null
+  /**
+   * The ACCOUNT this contact belongs to ([[REQ-194]], [[DOC-42]] §6).
+   *
+   * NOT THE SAME NOUN AS `id`, and the difference is what this column exists to
+   * hold. An account is the payer and the owner of businesses; a person is
+   * somebody a business knows. They were one thing while `findAccount` returned a
+   * `UserRow` and an entitlement's subject was a person's key, and one thing
+   * cannot express what [[DOC-42]] §6 requires — an account with several people
+   * on it.
+   *
+   * NEVER NULL. Every writer of a `users` row mints or names an account in the
+   * same batch, so no reader has an absent case to handle. Two people on one
+   * account is two rows carrying the same value here.
+   */
+  account_id: string
   status: string
   /**
    * May this person enter a business they hold no membership on ([[REQ-185]])?
@@ -261,11 +276,13 @@ export interface AdmittedBusiness {
    * `account_id` in `0004` and always held a tenant id; `0006` renamed it, because
    * once `entitlements.account_id` started meaning an actual account, two adjacent
    * tables carrying that name with opposite meanings was worse than either alone.
-   * The id VALUES still read `acct_…` and are left alone — they are opaque,
-   * permanent and present in R2 keys, so renaming the prefix buys a data migration
-   * for nothing ([[REQ-180]] §3). An account id and a business id are both opaque
-   * strings, so the type system is the only place that confusion can be caught,
-   * and the field name is where it is caught.
+   * AND THE VALUES READ `biz_…` NOW ([[REQ-194]]). They read `acct_…` while
+   * `newId('acct')` minted them and the account had no table of its own, which was
+   * defensible only for as long as nothing else could be an account id. Accounts
+   * exist and carry keys, so the prefix was freed for the noun it names — REQ-190
+   * was reminting every key anyway, which made this the cheap moment. An account id
+   * and a business id are both opaque strings, so the type system is the only place
+   * that confusion can be caught, and the field name is where it is caught.
    */
   businessId: string
   /** `tenants.name` — the human label, which may change. */
@@ -498,13 +515,98 @@ export function userEmailInsert(
   )
 }
 
+/**
+ * An account — the payer, and the owner of businesses ([[REQ-194]], [[DOC-40]] §2).
+ *
+ * IT IS RELATIVE TO A BUSINESS, exactly the way a level is ([[DOC-42]] §6, §3).
+ * Alice is an account of 1st Contact; Bob is an account of Alice's Plumbing. So
+ * this row is tenant-scoped like every other identity row, and "an account" is
+ * never shorthand for "a row in the platform's own tenant" — that reading is
+ * [[DOC-40]] §2.1 rule 1's failure mode, and it is what the missing table was
+ * causing in practice.
+ *
+ * `name` IS A BILLING LABEL AND IS USUALLY NULL TODAY. It is the entity a receipt
+ * is addressed to, which is not a person's name; a contact's own name stays on
+ * the contact. Nothing in v1 sets it except an invite that was given one.
+ */
+export interface AccountRow {
+  id: string
+  tenant_id: string
+  name: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * The statement that mints one account, as a statement rather than a call.
+ *
+ * A BUILDER SO IT CAN GO IN A BATCH, for the reason {@link userEmailInsert} is
+ * one: a person, their address and their account are one fact arriving in three
+ * rows, and a person written against an account that does not exist is a person
+ * `users.account_id`'s foreign key refuses. Every writer of a `users` row sends
+ * the three together.
+ *
+ * IT MINTS PER PERSON, WHICH IS v1 AND NOT THE MODEL. One contact, one account,
+ * because nothing in the product joins a second person to an existing one yet
+ * ([[REQ-194]]). Doing so is binding this account's id into another `users` row —
+ * a row, not a migration — which is the property the table exists to buy.
+ */
+export function accountInsert(
+  env: IdentityEnv,
+  spec: { id: string; tenantId: string; name?: string | null; now?: string },
+): D1PreparedStatement {
+  const now = spec.now ?? new Date().toISOString()
+  return env.DB.prepare(
+    'INSERT INTO accounts (id, tenant_id, name, status, created_at, updated_at, fields) ' +
+      "VALUES (?, ?, ?, 'active', ?, ?, '{}')",
+  ).bind(spec.id, spec.tenantId, spec.name ?? null, now, now)
+}
+
+/** One account by key, or null. */
+export async function accountById(
+  env: IdentityEnv,
+  accountId: string,
+): Promise<AccountRow | null> {
+  return env.DB.prepare(
+    'SELECT id, tenant_id, name, status, created_at, updated_at FROM accounts WHERE id = ?',
+  )
+    .bind(accountId)
+    .first<AccountRow>()
+}
+
+/**
+ * Every person on one account, oldest first ([[REQ-194]]).
+ *
+ * IT RETURNS THE SET AND HAS NO `LIMIT 1`, which is the falsifier this ticket
+ * names. v1 puts one contact on each account, so every caller sees a
+ * single-element list — and the day a second is added, a caller that took the
+ * head would silently have made one of the two people the account.
+ */
+export async function peopleOnAccount(
+  env: IdentityEnv,
+  accountId: string,
+): Promise<string[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT id FROM users WHERE account_id = ? ORDER BY created_at ASC, id ASC',
+  )
+    .bind(accountId)
+    .all<{ id: string }>()
+  return (results ?? []).map((r) => r.id)
+}
+
 /** What provisioning one business is told. */
 export interface BusinessSpec {
   /**
-   * The account that will own it — a `users` row in the PLATFORM's tenant,
-   * which is what [[DOC-40]] §2.1 means by 1st Contact being its own tenant.
+   * The ACCOUNT that will own it ([[REQ-194]]) — `accounts.id`, not a person's.
+   *
+   * IT WAS `accountUserId` AND HELD A PERSON, which made the owner of a business
+   * whoever happened to be passed rather than the payer, and made "an account
+   * with two people" unrepresentable. The account owns; every person on it is
+   * written an `owner` membership by this call, so one person behaves exactly as
+   * before and two behave the way the model says.
    */
-  accountUserId: string
+  accountId: string
   /** The business's human label, which `tenants.name` holds and may change. */
   name: string
   /**
@@ -567,12 +669,28 @@ export async function provisionBusiness(
   env: IdentityEnv,
   spec: BusinessSpec,
 ): Promise<BusinessResult> {
-  if (spec.accountUserId.trim() === '') throw new Error('A business needs an account to belong to.')
+  const accountId = (spec.accountId ?? '').trim()
+  if (accountId === '') throw new Error('A business needs an account to belong to.')
   const name = spec.name.trim()
   if (name === '') throw new Error('A business needs a name.')
 
+  // THE ACCOUNT IS READ BACK BEFORE ANYTHING IS WRITTEN ([[REQ-194]]). A business
+  // whose `owner_account_id` names no row is a business with no payer, and
+  // nothing downstream would notice: the switcher joins through `memberships`,
+  // so the missing owner is invisible until somebody tries to bill it.
+  const account = await accountById(env, accountId)
+  if (!account) throw new Error('No such account.')
+
+  // EVERY PERSON ON THE ACCOUNT, NOT THE FIRST ONE. v1 has exactly one, so this
+  // is one membership — and it is written this way so that the second person an
+  // account gains is an operator of its businesses by construction rather than
+  // by a repair somebody has to remember. An account with nobody on it cannot
+  // own a business, because nobody could open it.
+  const people = await peopleOnAccount(env, accountId)
+  if (people.length === 0) throw new Error('An account with nobody on it cannot own a business.')
+
   const now = new Date().toISOString()
-  const businessId = newId('acct')
+  const businessId = newId('biz')
 
   // The tenant first: `forTenant` refuses an unregistered one, so a membership
   // pointing at a business the registry has never heard of would be a row that
@@ -581,15 +699,29 @@ export async function provisionBusiness(
   await d1r2SiteStore(env).createTenant({ id: businessId, name })
 
   await env.DB.batch([
-    env.DB.prepare(
-      'INSERT INTO memberships (id, user_id, business_id, role, status, granted_by, granted_at) ' +
-        'VALUES (?, ?, ?, ?, ?, ?, ?)',
-    ).bind(newId('mem'), spec.accountUserId, businessId, 'owner', 'active', spec.grantedBy ?? null, now),
+    // OWNERSHIP IS A COLUMN ON THE BUSINESS ([[REQ-194]]). It used to be inferred
+    // from whichever membership row was written first, which answers a different
+    // question — `memberships` says who may OPERATE, and an account may put
+    // several people on one business. `createTenant` does not take this: it is
+    // the site store's verb and the owner is an identity fact, so the registry
+    // stays ignorant of accounts and this statement says the one thing it knows.
+    env.DB.prepare('UPDATE tenants SET owner_account_id = ? WHERE id = ?').bind(
+      accountId,
+      businessId,
+    ),
+    ...people.map((userId) =>
+      env.DB.prepare(
+        'INSERT INTO memberships (id, user_id, business_id, role, status, granted_by, granted_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).bind(newId('mem'), userId, businessId, 'owner', 'active', spec.grantedBy ?? null, now),
+    ),
     env.DB.prepare(
       // `account_id` IS LEFT UNSET, and that is the grant this writes rather than
       // an omission: provisioning gives a BUSINESS its capacity ([[REQ-184]]), and
       // naming a subject here would make the grant Alice's-personal rather than
       // Alice's-Plumbing's — invisible to every other member the day one is added.
+      // [[REQ-194]] gave the column something real to point at and did not change
+      // that: the capacity grant keeps its NULL subject and keeps its meaning.
       'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, ' +
         'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
@@ -621,7 +753,7 @@ export async function provisionBusiness(
  * SECOND account published, at which point it was refused for a reason its owner
  * could do nothing about. Naming every starter site after its own business id
  * dodged that by making the name unguessable, at the cost of an operator opening
- * the builder and finding their site called `acct_057f…`.
+ * the builder and finding their site called `biz_057f…`.
  *
  * The published address is the site's KEY now and the slug is an attribute,
  * unique only inside the business that owns it. So it can be the plain word it
@@ -632,7 +764,7 @@ export async function provisionBusiness(
  * was the obvious candidate and is the wrong one: it reads as a decision somebody
  * made, so an operator has no reason to change it, and every account's one site
  * would sit under a name that says nothing about the business it belongs to —
- * which is the `acct_057f…` complaint again in a friendlier font. `unnamed` is
+ * which is the `biz_057f…` complaint again in a friendlier font. `unnamed` is
  * the one name that is *visibly* provisional, so the site asks to be named the
  * first time its owner looks at it.
  *
@@ -836,7 +968,7 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   //
   // THE NAME IS NOT THE ID ([[REQ-190]]). It used to be `name: platformTenant`,
   // which was harmless while `TENANT_ID` was the word `1stcontact` and is a
-  // business called `acct_51a6…` now that it is a key. The baseline seeds this
+  // business called `biz_51a6…` now that it is a key. The baseline seeds this
   // row with its real name; `INSERT OR IGNORE` leaves that alone, and this
   // constant is only what an empty database would otherwise be left showing.
   await d1r2SiteStore(env).createTenant({ id: platformTenant, name: PLATFORM_BUSINESS_NAME })
@@ -864,6 +996,13 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // the stage from the stamp, which is precisely what the column exists to stop.
   // Nothing here touches `tos_accepted_at`: the seeded operator still has to
   // accept the terms like anybody else, which is the access axis and is theirs.
+  //
+  // AND THEIR ACCOUNT, WHICH IS THE THIRD ROW ([[REQ-194]]). An operator is a
+  // contact like any other and belongs to an account like any other — the break
+  // glass path writes exactly what an invite writes, or "break glass" would mean
+  // "get a slightly different account". It does NOT make them the owner of the
+  // platform business: `tenants.owner_account_id` is left null there, because who
+  // owns 1st Contact must not mean who logged in first.
   const existing = await env.DB.prepare(
     `SELECT user_id FROM user_emails WHERE tenant_id = ? AND email = ?`,
   )
@@ -880,11 +1019,13 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // per request: this insert happens exactly when the person is created, which
   // is what makes it provenance rather than a heartbeat.
   if (!existing) {
+    const accountId = newId('acct')
     await env.DB.batch([
+      accountInsert(env, { id: accountId, tenantId: platformTenant, now }),
       env.DB.prepare(
-        'INSERT INTO users (id, tenant_id, status, platform_operator, invited_at, ' +
-          'pipeline_stage, created_at, updated_at, fields) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
-      ).bind(userId, platformTenant, 'active', now, PIPELINE_INVITED, now, now, '{}'),
+        'INSERT INTO users (id, tenant_id, account_id, status, platform_operator, invited_at, ' +
+          'pipeline_stage, created_at, updated_at, fields) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)',
+      ).bind(userId, platformTenant, accountId, 'active', now, PIPELINE_INVITED, now, now, '{}'),
       userEmailInsert(env, { userId, tenantId: platformTenant, email: normalised, now }),
       contactEventInsert(env, {
         contactId: userId,
@@ -950,7 +1091,8 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
 }
 
 /**
- * The account an operator named, by the address it logs in with ([[REQ-180]]).
+ * The account an operator named, by an address one of its people logs in with
+ * ([[REQ-180]], [[REQ-194]]).
  *
  * IT EXISTS SO THAT NOTHING OUTSIDE THIS MODULE HAS TO KNOW WHERE ACCOUNTS LIVE.
  * "The platform's own tenant" is `TENANT_ID`, and [[REQ-168]] deliberately left
@@ -968,12 +1110,21 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
  * to an operator who mistyped one, and it is not a disclosure: reaching this
  * function at all requires owning the 1st Contact business
  * ({@link ownsPlatformBusiness}).
+ *
+ * IT RETURNS AN ACCOUNT AND NOT A PERSON ([[REQ-194]]). It used to return a
+ * `UserRow`, which is what "in code, an account IS a user" looked like at the one
+ * call site that most needed the distinction — `provisionBusiness`, where the
+ * value becomes the owner of a business. The address still reaches the person,
+ * because an address is how a person is reached; what comes back is the account
+ * that person belongs to.
  */
-export async function findAccount(env: IdentityEnv, email: string): Promise<UserRow | null> {
+export async function findAccount(env: IdentityEnv, email: string): Promise<AccountRow | null> {
   const platformTenant = requirePlatformTenant(env)
   const normalised = normaliseEmail(email)
   if (normalised === '') return null
-  return findUser(env, platformTenant, normalised)
+  const user = await findUser(env, platformTenant, normalised)
+  if (!user) return null
+  return accountById(env, user.account_id)
 }
 
 /**

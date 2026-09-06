@@ -55,7 +55,7 @@ describe('REQ-178 — admission returns the set', () => {
     const email = anEmail()
     const first = await inviteAccount(identityEnv(), { email, accountName: 'Salon', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
     })
 
@@ -101,7 +101,7 @@ describe('REQ-178 — denial is per business', () => {
     const email = anEmail()
     const live = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
     const dead = await provisionBusiness(identityEnv(), {
-      accountUserId: live.user.id,
+      accountId: live.user.account_id,
       name: 'Lapsed',
     })
     await lapse(dead.businessId)
@@ -134,7 +134,7 @@ describe('REQ-178 — denial is per business', () => {
     const email = anEmail()
     const first = await inviteAccount(identityEnv(), { email, accountName: 'One', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Second',
     })
     await lapse(first.businessId)
@@ -181,11 +181,11 @@ describe('REQ-178 — denial is per business', () => {
     const email = anEmail()
     const kept = await inviteAccount(identityEnv(), { email, accountName: 'Kept', endsAt: null })
     const revoked = await provisionBusiness(identityEnv(), {
-      accountUserId: kept.user.id,
+      accountId: kept.user.account_id,
       name: 'Revoked',
     })
     const expired = await provisionBusiness(identityEnv(), {
-      accountUserId: kept.user.id,
+      accountId: kept.user.account_id,
       name: 'Expired',
     })
 
@@ -236,7 +236,7 @@ describe('REQ-178 — provisioning a second business', () => {
       note: 'first',
     })
     const added = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.user.id,
+      accountId: invited.user.account_id,
       name: 'By invite',
       plan: 'pro',
       endsAt: null,
@@ -296,7 +296,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const email = anEmail()
     const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     const added = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.user.id,
+      accountId: invited.user.account_id,
       name: 'Second',
     })
 
@@ -322,12 +322,12 @@ describe('REQ-178 — provisioning a second business', () => {
     // not enforce here: a membership pointing at nobody, or a business labelled
     // with the empty string, is a row that cannot be repaired from the outside.
     await expect(
-      provisionBusiness(identityEnv(), { accountUserId: '  ', name: 'Nameless owner' }),
+      provisionBusiness(identityEnv(), { accountId: '  ', name: 'Nameless owner' }),
     ).rejects.toThrow(/account/i)
     const email = anEmail()
     const invited = await inviteAccount(identityEnv(), { email, endsAt: null })
     await expect(
-      provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: '   ' }),
+      provisionBusiness(identityEnv(), { accountId: invited.user.account_id, name: '   ' }),
     ).rejects.toThrow(/name/i)
   })
 

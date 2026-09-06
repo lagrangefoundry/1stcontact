@@ -5,16 +5,27 @@ type: request
 title: The Account is a table, and a business is owned by one
 created_by: xgd
 created_at: '2026-09-05T22:45:59.255932+00:00'
-updated_at: '2026-09-06T18:36:02.421480+00:00'
+updated_at: '2026-09-06T19:44:00.871784+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: ready_to_reconcile
 fields:
   priority: high
-  story_points: 3
+  story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d079cf1f
+  commits:
+  - working_sha: d1b3fa897b668717020ae152ac2920087d9e3e88
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7ea4e12b724f90d5cfc114c31a105c8d811ea5e0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e1fbf4319d33b5bc75c34e641ba367d3e2bcd8c8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.114
 ---
 
 # The Account is a table, and a business is owned by one
@@ -56,8 +67,23 @@ anywhere to put the noun when it stops being one person.
 - **a contact belongs to an account** — the `account_id` column on the person.
 - **a business is owned by an account**, not by whoever happens to hold the first
   membership row.
-- **`entitlements.account_id` is populated** — the subject is the account, which
-  is what [[REQ-184]] reserved it for and what [[DOC-42]] §6 requires.
+- **`entitlements.account_id` names a real account** — the subject is the
+  account, which is what [[REQ-184]] reserved it for and what [[DOC-42]] §6
+  requires. The lookup that reads it moves from the person id to the account key,
+  and the column gains the index [[REQ-184]] deliberately declined while nothing
+  read it. The per-business capacity grant provisioning writes keeps its `NULL`
+  subject: a business's plan is the business's, not its inviter's personally.
+- **`findAccount` answers with an account**, not with the `UserRow` that stood in
+  for one — the value goes on to become a business's owner, which is where the
+  simplification actually cost something.
+- **`/api/businesses` says `person`** where it said `account`. The surface is
+  still the account switcher, because that is the noun somebody looks for; what
+  it names is the human who is signed in, and the payload stops calling them an
+  account now that an account is a row.
+- **the development fixture (`db/dev-seed.sql`) grows the accounts it needs** —
+  four payers, one per seeded contact, and three businesses that all name Alice's
+  account as their owner. That last part is the shape `owner_account_id` exists
+  for and nothing reachable by clicking produces it.
 
 `memberships (person, business, role)` **stays as it is**. It is not ownership
 once the account owns; it is the relation that says which people may operate
@@ -83,6 +109,34 @@ between a table definition and a second rebaseline.
 **Falsifier:** a query that assumes one contact per account — `LIMIT 1` over an
 account's people, or a foreign key pointing at a person where the payer is meant.
 
+**Stated as behaviour, `provisionBusiness` writes a membership for EVERY person
+on the owning account.** It is the falsifier's positive form: a `LIMIT 1` there
+would silently make one of two people the account and leave the other unable to
+open the business their account pays for. v1 never produces the two-person case,
+so it is built by hand to be checked.
+
+**`account_id` on the person is `NOT NULL`**, and that is the reason "belongs to
+an account" needs no exceptions anywhere downstream. Every path that makes a
+person mints an account beside them — the invite, and the break-glass operator —
+so there is no row naming none and no reader with a missing case to handle. A
+person written without one is refused by the schema rather than by a check
+somebody has to remember.
+
+## Two edges the ownership column does not have
+
+**The platform business is owned by nobody.** 1st Contact is not somebody's
+product — it is the business whose product is businesses ([[DOC-42]] §8) — so its
+`owner_account_id` is null. Letting `ensurePlatformOperator` fill it would make
+"who owns 1st Contact" mean "who logged in first", which is worse than saying
+nothing. The operator still gets an account of their own, exactly like any
+invited contact.
+
+**Provisioning refuses an owner that does not exist, or one that holds nobody**,
+before writing any row. A business with no payer is not broken in a way anything
+would notice — the switcher joins through `memberships`, so it stays invisible
+until somebody tries to bill it — which is precisely why the refusal has to be at
+the write.
+
 ## The `acct_` prefix is on the wrong noun
 
 `newId('acct')` mints **business** ids (`identity.ts`, `provisionBusiness`), so
@@ -104,3 +158,7 @@ a business prefix and `acct_` is freed for the thing it names.
   grant keeps its `NULL` subject and its meaning ([[REQ-184]])
 - no permission check anywhere reads `role`
 - no id prefixed `acct_` is a business
+- `findAccount` returns an account, and the chrome is told who is signed in under
+  the noun for a person
+- the platform business names no owner; provisioning refuses an absent or empty
+  one

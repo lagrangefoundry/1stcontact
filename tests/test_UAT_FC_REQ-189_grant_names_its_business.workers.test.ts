@@ -67,9 +67,13 @@ describe('REQ-189 — the grant names its business', () => {
       accountName: 'Somebody Else Ltd',
     })
 
+    // THE SUBJECT IS THE HOLDER'S ACCOUNT ([[REQ-194]]) — it was `holder.user.id`,
+    // which is what a grant's subject looked like while an account was a person.
+    // The detail pane looks a grant up by the account the person belongs to, so
+    // the old spelling would simply not be found.
     await openGrant(identityEnv(), {
       businessId: other.businessId,
-      accountId: holder.user.id,
+      accountId: holder.user.account_id,
       plan: 'support',
     })
 

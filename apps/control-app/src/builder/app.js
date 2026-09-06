@@ -76,8 +76,14 @@ export function mountBuilder(root, options = {}) {
      * See {@link blockTabs}.
      */
     businesses = [],
-    /** Who is signed in, for the avatar and the account surface behind it. */
-    account = null,
+    /**
+     * Who is signed in, for the avatar and the account surface behind it.
+     *
+     * A PERSON, AND NAMED FOR ONE ([[REQ-194]]). It was `account`, which is the
+     * payer and the owner of businesses — a different noun, which now has a table
+     * and a key of its own.
+     */
+    person = null,
     /**
      * The sites of the SELECTED business.
      *
@@ -183,7 +189,7 @@ export function mountBuilder(root, options = {}) {
       { id: 'about', content: 'About', onClick: (s) => s.openAbout() },
       {
         id: ACCOUNT_ACTION_ID,
-        content: accountAvatar(account),
+        content: accountAvatar(person),
         title: ACCOUNT_LABEL,
         ariaLabel: ACCOUNT_LABEL,
         onClick: () =>
@@ -192,7 +198,7 @@ export function mountBuilder(root, options = {}) {
             // is: the `--shell-*` tokens and the app font are declared on
             // `.shell`, and a dialog beside it resolves neither.
             host: shell.element,
-            account,
+            person,
             businesses,
             selected: currentBusiness,
           }),

@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-194
 created_by: xgd
 created_at: '2026-09-06T18:29:31.343201+00:00'
-updated_at: '2026-09-06T19:12:40.546410+00:00'
+updated_at: '2026-09-06T19:33:16.644858+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,54 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="62427919-2fc2-4146-a9ac-91042add1e1b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T19:33:16.599299+00:00" -->
+#### Claude
+Now people.ts — six conflicts.
+
+Now the REQ-193 payload assertions that my rename broke.
+
+Now confirming the remaining failures are pre-existing on `xgd-working`.
+
+Now the version bump and final commit.
+
+Now merging back into `xgd-working` under the lock.
+
+REQ-194 is free-coded and merged into `xgd-working`.
+
+## What landed
+
+**Schema** (`db/migrations/0001_baseline.sql`)
+- `accounts` — the payer, opaque `acct_` key, `tenant_id` for where it's known, `name`, `status`, `fields`.
+- `users.account_id` — `NOT NULL`, FK to `accounts`. Many-to-one, defaulting to one-to-one.
+- `tenants.owner_account_id` — a business names its owner. Null on the platform business, deliberately.
+- `idx_entitlements_account` — the index REQ-184 declined while nothing read it.
+- Business ids reminted `acct_` → `biz_`; `acct_` is freed for the noun that owns it.
+
+**Code**
+- `findAccount` returns an account, not a `UserRow`.
+- `invitePerson` / `ensurePlatformOperator` mint an account beside the person.
+- `provisionBusiness` takes an `accountId`, refuses one that doesn't exist or holds nobody, and writes a membership for *every* person on the owning account — the positive form of the ticket's `LIMIT 1` falsifier.
+- `grantsFor` looks up by account key rather than person id; the capacity grant keeps its `NULL` subject.
+- `/api/businesses` reports `person`, named from the REQ-193 name table.
+- `db/dev-seed.sql` mints four accounts and points all three of Alice's businesses at hers.
+
+**Evidence** — 15 UATs across `tests/test_UAT_FC_REQ-194_accounts.test.ts` and `.workers.test.ts`.
+
+## Merge
+
+The branch was 81 commits behind and crossed REQ-193 (names off `users`) and REQ-195 (`contact_events`). Resolved by hand — the `Person` payload now carries `accountId` beside `name`/`formerNames`, and the users INSERT keeps `account_id` while dropping `display_name`.
+
+## Tests
+
+Typecheck clean. Full suite: **2902 passed, 17 failed**. All failures pre-existing — the five knowledge suites (REQ-123, REQ-158, REQ-160, `reconciliation-assistant-conversation-knowledge`, `bug32-webui-scope-rebrand`) fail identically on `xgd-working`; `req115-builder-shell` and `REQ-150_plain_vite_bootstrap` are parallel-load flakes that pass in isolation and `req115` also fails on `xgd-working`.
+
+## One correction I made to the ticket
+
+The body said `entitlements.account_id` **is populated**. It isn't, and shouldn't be — provisioning still writes the capacity grant with a `NULL` subject, because a business's plan is the business's, not its inviter's personally. What changed is what a *non-null* value means: it names an `accounts` key now. I've reworded the body and the SQL prose accordingly, and added language for four behaviours the UATs assert that the body didn't yet motivate (the `NOT NULL` refusal, membership-for-every-person, the unowned platform business, and provisioning's two refusals).
+
+Ticket is at `free_coded`, `story_points: 5`, version `0.2.114`, three SHAs recorded. Branch cleaned. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->

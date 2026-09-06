@@ -28,7 +28,7 @@ const ERROR_SELECTOR = '[data-account-error]'
 const REVEAL_SELECTOR = 'button[aria-expanded]'
 
 /**
- * How an account is named on its own portal.
+ * How the person reading this portal is named on it.
  *
  * THE EMAIL IS THE FALLBACK AND NOT THE ORNAMENT. It is the identity the login
  * verified ([[DOC-40]] §2), so it is always true; a display name is a label
@@ -36,12 +36,18 @@ const REVEAL_SELECTOR = 'button[aria-expanded]'
  * as a failure to load rather than as a name nobody has set — which is the same
  * reasoning the avatar surface already uses.
  *
+ * IT IS THE PERSON AND NOT THE ACCOUNT ([[REQ-194]]). It was `accountLine`, over
+ * a payload field called `account` that carried a person's display name and their
+ * verified address — which is what the account looked like while it had no table.
+ * The account is the payer and the owner of businesses; a portal's first line is
+ * "you are signed in as", so it names the person and the noun says so.
+ *
  * Pure and exported so both branches are provable without a DOM.
  */
-export function accountLine(account) {
-  if (!account || typeof account !== 'object') return ''
-  const email = typeof account.email === 'string' ? account.email.trim() : ''
-  const name = typeof account.name === 'string' ? account.name.trim() : ''
+export function identityLine(person) {
+  if (!person || typeof person !== 'object') return ''
+  const email = typeof person.email === 'string' ? person.email.trim() : ''
+  const name = typeof person.name === 'string' ? person.name.trim() : ''
   if (name && email) return name + ' — ' + email
   return name || email
 }
@@ -125,7 +131,7 @@ export async function loadAccount(section, fetchImpl) {
   }
 
   if (!payload || typeof payload !== 'object') return
-  fill(section.querySelector(IDENTITY_SELECTOR), accountLine(payload.account))
+  fill(section.querySelector(IDENTITY_SELECTOR), identityLine(payload.person))
   fill(section.querySelector(HOLDINGS_SELECTOR), holdingsLine(payload.businesses))
 }
 

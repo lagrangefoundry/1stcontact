@@ -6,12 +6,12 @@ import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   admit,
   ensurePlatformOperator,
-  findAccount,
   PRIMARY_EMAIL_SQL,
   provisionBusiness,
   USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { personByEmail } from './support/person'
 import { seedContact } from './support/contact'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf, writeName } from '../apps/control-app/src/names'
@@ -114,7 +114,11 @@ async function anAccount(email: string, name = 'A Business') {
 /** An owner of the 1st Contact business, seeded the way production seeds one. */
 async function anOperator(email: string) {
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
+  // THE PERSON, NOT THE ACCOUNT ([[REQ-194]]). `acceptTerms` stamps a `users`
+  // row; `findAccount` answers with the payer now, and stamping an account id
+  // would silently accept nothing and leave every later request on the terms
+  // interstitial.
+  const account = await personByEmail(identityEnv(), PLATFORM, email)
   if (!account) throw new Error('the seeded operator was not readable back')
   await acceptTerms(identityEnv(), account.id)
   return account
@@ -520,7 +524,7 @@ describe('REQ-186 — the invite writes no entitlement', () => {
     expect(bare.ok === false && bare.reason).toBe('no_membership')
 
     const business = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.person.id,
+      accountId: invited.person.accountId,
       name: "Alice's Plumbing",
     })
 

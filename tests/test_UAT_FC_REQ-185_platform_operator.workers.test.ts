@@ -9,6 +9,7 @@ import {
   type Admission,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { personByEmail } from './support/person'
 import { inviteAccount } from './support/invite-account'
 import { resolveScope, ScopeRefusedError } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
@@ -95,7 +96,7 @@ describe('REQ-185 — the two capabilities are separately observable', () => {
     const customerEmail = anEmail()
     await ensurePlatformOperator(identityEnv(), ownerEmail)
     // The ownership half alone: take the hosting column back off.
-    const owner = await findAccount(identityEnv(), ownerEmail)
+    const owner = await personByEmail(identityEnv(), PLATFORM, ownerEmail)
     await env.DB.prepare('UPDATE users SET platform_operator = 0 WHERE id = ?')
       .bind(owner?.id ?? '')
       .run()
