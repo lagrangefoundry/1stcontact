@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:35:18.527492+00:00'
+updated_at: '2026-09-06T22:37:19.091410+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -909,5 +909,11 @@ cd apps/control-app && npx wrangler d1 execute DB --local \
 ```
 
 Empty means it never ran — which would point at the var not reaching the Worker rather than at the seed.
+
+<!-- xgd-turn id="fdd8a6aa-a924-42df-8caf-d6f4e070e700-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:37:18.851613+00:00" -->
+#### You
+I can't get martin or martin-github to work - I have tried both
 
 <!-- xgd-chat-end -->
