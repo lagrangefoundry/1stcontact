@@ -14,6 +14,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4ea78701
 ---
 
 # A person's email addresses are a table, not a column
