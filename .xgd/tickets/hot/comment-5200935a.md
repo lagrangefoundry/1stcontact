@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:27:33.681330+00:00'
+updated_at: '2026-09-06T22:28:13.426662+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -748,5 +748,71 @@ The walkthrough from my last message is unchanged apart from the port — log in
 I killed 35981 but I see no server running on 8800
 
 Lets walk through it please - can you first give me the commands to clean up and then the commands to start the server
+
+<!-- xgd-turn id="d96b796e-501d-4eea-b9b8-7dd4b3e92f65-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:28:13.161056+00:00" -->
+#### Claude
+Both my background servers died with the previous session — that's why 8800 is empty. Let me check what's actually running now.
+
+Everything I started died with my session — that's expected, background shells don't outlive the process. **Run these in your own terminal so the servers persist.**
+
+Current state: ports 8788, 8799 and 8800 are all free. Your D1 is migrated and seeded (5 addresses intact), so no need to redo that.
+
+## Cleanup
+
+Four stray sims left over from other agent sessions:
+
+```bash
+kill 20544 32856 41609 67717
+```
+
+That's every `access-sim` except none — all four are strays on 8801–8804. Verify with:
+
+```bash
+pgrep -fl access-sim
+```
+
+Should print nothing.
+
+## Start — terminal 1 (the Access simulator)
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+./bin/access-sim --print-env > .dev.vars.local
+./bin/access-sim
+```
+
+Leave it running. It prints its sign-in URL on boot. The `--print-env` line regenerates `.dev.vars.local` for the default port 8799 — it currently still points at 8800 from my last attempt, so don't skip it.
+
+## Start — terminal 2 (the builder)
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 --env-file .dev.vars --env-file ../../.dev.vars.local
+```
+
+Wait for `Ready on http://localhost:8788`.
+
+## Check before you walk it
+
+```bash
+curl -s http://127.0.0.1:8799/login | grep -oE '[a-z@.]+example[a-z.]*'
+```
+
+Should list all five (`alice@plumbing.example`, `alice@oldsalon.example`, `bob@`, `carol@`, `dave@`). If it's empty, the sim is stale again — restart terminal 1.
+
+`curl -o /dev/null -w '%{http_code}' http://localhost:8788/` should give **401**. That's correct: the Access gate is live and you aren't signed in yet.
+
+## Then the walkthrough
+
+1. Open **http://127.0.0.1:8799/login** → click `alice@plumbing.example`. She's the operator of the 1st Contact business.
+2. Open **http://localhost:8788** → Contacts tab.
+3. **`+`** → add a contact with any address. Lands as a **Lead**, sends nothing.
+4. Tick its row → **Invite** → the modal with From / Subject / `To-List:` / Body. Send.
+5. Open that contact's detail pane — the message history shows the composed invite with its rendered body. No `RESEND_API_KEY` is set, so the capturing mailer records it instead of sending.
+6. Back to the sim, sign in as the address you invited. That's what clicking the invite button does, since `ctaUrl` is the deployment origin.
+
+Step 6 is the one worth watching — that's where the admitted-but-unentitled question gets answered. Tell me what you see and we'll take it from there.
 
 <!-- xgd-chat-end -->
