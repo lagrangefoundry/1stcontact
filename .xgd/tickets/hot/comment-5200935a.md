@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:40:33.251712+00:00'
+updated_at: '2026-09-06T22:41:03.315284+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -921,5 +921,33 @@ I can't get martin or martin-github to work - I have tried both
 <!-- xgd-chat role="user" ts="2026-09-06T22:40:32.891739+00:00" -->
 #### You
 This builder has no Anthropic API key, so nothing that needs the assistant can run — no conversation, and no describing the material you upload. Set ANTHROPIC_API_KEY on the deployment and reload.
+
+<!-- xgd-turn id="f75aa159-6f8a-466d-a033-195c9be944c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:41:03.143583+00:00" -->
+#### Claude
+You're in — that message is the chat panel, which means sign-in worked.
+
+That notice is a side effect of how we started wrangler. `1c builder` normally layers a **third** env file holding your personal key; we invoked wrangler directly with only two.
+
+It exists and holds **only** `ANTHROPIC_API_KEY`, so adding it can't clobber your Access or `PLATFORM_ADMINS` vars.
+
+Restart terminal 2 with the third file appended:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Later files win, which is why the key goes last. This is exactly the layering `1c builder` does for you — `dev-env.ts` looks for `$HOME/Documents/secrets/1c.dev.env` by default, overridable with `ONECONTACT_SECRETS`. I dropped it when I switched to invoking wrangler directly to get the access-sim vars in.
+
+**This doesn't block your walkthrough.** The assistant is only needed for the chat panel and for describing uploaded material. Adding a contact, inviting, and the terms gate need none of it — so if you'd rather not restart again, carry on and the notice is just noise.
+
+Where you are now: signed in as `martin@westhead.me`, `ensurePlatformOperator` has written your `users` row, `user_emails` row, owner membership on 1st Contact, and the entitlement. You can blank `PLATFORM_ADMINS` whenever you like — the rows persist, which is what makes it break-glass rather than a standing second auth path.
+
+Next: **Contacts tab → `+`** → add a contact → tick it → **Invite**. Then open that contact's detail pane to see the composed message, since the capturing mailer records rather than sends.
 
 <!-- xgd-chat-end -->
