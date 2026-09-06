@@ -492,7 +492,7 @@ export async function provisionBusiness(
  * IT USED TO BE THE BUSINESS ID, and that was a workaround for the defect this
  * ticket removed. A published address was claimed globally — `published_sites`
  * was keyed by slug alone, because `/site/<slug>/` carried no business — so a
- * starter site called `home` for everybody would have worked perfectly until the
+ * starter site with one name for everybody would have worked perfectly until the
  * SECOND account published, at which point it was refused for a reason its owner
  * could do nothing about. Naming every starter site after its own business id
  * dodged that by making the name unguessable, at the cost of an operator opening
@@ -500,10 +500,32 @@ export async function provisionBusiness(
  *
  * The published address is the site's KEY now and the slug is an attribute,
  * unique only inside the business that owns it. So it can be the plain word it
- * always wanted to be: two businesses each have a site called `home`, both
+ * always wanted to be: two businesses each have a site under the same name, both
  * publish it, and neither can see that the other exists.
+ *
+ * THE WORD IS `unnamed`, AND THAT IS A PROMPT RATHER THAN A DESCRIPTION. `home`
+ * was the obvious candidate and is the wrong one: it reads as a decision somebody
+ * made, so an operator has no reason to change it, and every account's one site
+ * would sit under a name that says nothing about the business it belongs to —
+ * which is the `acct_057f…` complaint again in a friendlier font. `unnamed` is
+ * the one name that is *visibly* provisional, so the site asks to be named the
+ * first time its owner looks at it.
+ *
+ * It is not reserved and nothing enforces it. An operator who keeps it keeps it;
+ * the slug is an ordinary attribute and renaming it is one `UPDATE` (the move
+ * this ticket's worked example is built on). What the word buys is that the
+ * default is legible as a default.
  */
-export const STARTER_SLUG = 'home'
+export const STARTER_SLUG = 'unnamed'
+
+/**
+ * What the starter site calls itself, distinct from {@link STARTER_SLUG} because
+ * the two are different kinds of thing: the slug is a URL-safe attribute the
+ * store addresses by, and this is prose that reaches a rendered `<title>`. Both
+ * say the same word so the site reads as unnamed wherever it is looked at, and
+ * they are separate so that fixing one's spelling never silently rewrites a key.
+ */
+export const STARTER_NAME = 'Unnamed'
 
 async function createStarterSite(env: IdentityEnv, businessId: string): Promise<string> {
   const store = await d1r2SiteStore(env).forTenant(businessId)
@@ -518,7 +540,7 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
   //
   // REACHABLE NOW, AND THAT IS THE CHANGE ([[REQ-190]]). While the starter slug
   // was the business id it could not collide with anything, so this branch was a
-  // guard against a failure that could not happen. `home` is a fixed slug per
+  // guard against a failure that could not happen. `unnamed` is a fixed slug per
   // business, exactly like `PORTAL_SLUG`, so provisioning twice into one business
   // — which `provisionBusiness` does not do today and a repair path might —
   // reaches it. It is here
@@ -532,7 +554,7 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
   // already has a site already has that.
   if (await store.createDraft(slug)) {
     await store.write(slug, {
-      siteJson: starterSiteJson(slug),
+      siteJson: starterSiteJson(slug, STARTER_NAME),
       pages: [{ name: 'home.json', page: starterHomePage(slug, STARTER_HEADING) }],
     })
   }
