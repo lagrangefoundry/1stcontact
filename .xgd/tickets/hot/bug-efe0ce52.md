@@ -6,16 +6,21 @@ title: 'public-site: /site/<key>/ returns 500 — deployed Worker predates the R
   baseline'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T20:44:03.515198+00:00'
-updated_at: '2026-09-06T22:00:18.326560+00:00'
+updated_at: '2026-09-06T22:01:27.703691+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-595c6424
   severity: high
+  commits:
+  - working_sha: 73392632bbfc86344a8379894a945c8e49359a8d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.121
 ---
 
 ## Symptom
