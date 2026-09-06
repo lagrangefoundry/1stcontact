@@ -171,18 +171,23 @@ describe('REQ-190 — one baseline', () => {
       ['tenant_id', 'type'], // counters
     ])
     // And every table keyed on a single column keys on an opaque TEXT id:
-    // `tenants`, `sites`, `users`, `memberships`, `entitlements` and `tickets`.
-    // SEVEN, NOT SIX — `tenants` is declared twice, because the ticket store's
+    // `tenants`, `sites`, `users`, `user_emails`, `memberships`, `entitlements`,
+    // `ticket_change_floor` and `tickets`.
+    // NINE, NOT EIGHT — `tenants` is declared twice, because the ticket store's
     // DDL is the component's own, transcribed, and its `IF NOT EXISTS` CREATE is
     // the no-op the header describes. Spelling that out here rather than
     // loosening the assertion: the duplicate is load-bearing (a UAT asserts
     // every `SCHEMA_STATEMENTS` entry appears verbatim) and a reader who tidied
     // it away would break that check instead of this one.
     //
+    // `user_emails` IS THE ONE REQ-191 ADDED, and it is the rule restated rather
+    // than an exception to it: the address is an attribute with a key of its own,
+    // where it used to BE the key of the person holding it.
+    //
     // `ticket_change_floor` keys on `tenant_id` — one retention floor per
     // business, and the business id is itself an opaque key. (`ticket_changes`
     // keys on `seq`, an INTEGER ordinal, which this TEXT-only match skips.)
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
-    expect(single.sort()).toEqual(['id', 'id', 'id', 'id', 'id', 'id', 'tenant_id', 'uid'])
+    expect(single.sort()).toEqual(['id', 'id', 'id', 'id', 'id', 'id', 'id', 'tenant_id', 'uid'])
   })
 })

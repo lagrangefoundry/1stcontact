@@ -8,9 +8,11 @@ import {
   DENIED_MESSAGE,
   IdentityNotConfiguredError,
   newId,
+  PRIMARY_EMAIL_SQL,
   provisionBusiness,
   STARTER_HEADING,
   STARTER_SLUG,
+  USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { invitePerson } from '../apps/control-app/src/people'
@@ -150,12 +152,21 @@ describe('REQ-167 — the migration', () => {
     // Asserted over the DDL WITH ITS PROSE STRIPPED: this file argues at length
     // about check constraints, and matching the word in a comment would be a
     // test that fails on its own explanation.
+    //
+    // AND OVER THIS TABLE RATHER THAN THE WHOLE FILE ([[REQ-191]]). It used to
+    // be file-wide, which was true while nothing anywhere declared a CHECK and
+    // says more than this ticket ever meant. `user_emails.email` declares one
+    // deliberately — it refuses an address that is not casefolded, which is an
+    // invariant about NORMALISATION and not a closed set of allowed values.
+    // Narrowing to `entitlements` keeps the claim the one being made: `plan` and
+    // `status` must stay open, because their sets grow.
     const ddl = migration
       .split('\n')
       .filter((line) => !line.trim().startsWith('--'))
       .join('\n')
-    expect(ddl).toMatch(/CREATE TABLE IF NOT EXISTS entitlements/)
-    expect(ddl).not.toMatch(/CHECK/i)
+    const entitlements = /CREATE TABLE IF NOT EXISTS entitlements \(([\s\S]*?)\);/.exec(ddl)
+    expect(entitlements, 'the baseline declares an entitlements table').not.toBeNull()
+    expect(entitlements![1]).not.toMatch(/CHECK/i)
   })
 
   it('test_UAT_FC_REQ-167_an_account_may_hold_several_grants_at_once', async () => {
@@ -199,8 +210,11 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
     expect(invited.created).toBe(true)
 
-    const user = await env.DB.prepare('SELECT * FROM users WHERE tenant_id = ? AND email = ?')
-      .bind(PLATFORM, email)
+    const user = await env.DB.prepare(
+      `SELECT u.*, ${PRIMARY_EMAIL_SQL} AS email FROM users u ` +
+        `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+    )
+      .bind(PLATFORM, PLATFORM, email)
       .first<{ id: string; invited_at: string | null; first_seen_at: string | null }>()
     expect(user?.invited_at, 'an invited user is not stamped as invited').toBeTruthy()
     expect(user?.first_seen_at, 'an invited user has already been seen').toBeNull()
@@ -208,7 +222,6 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     const business = await provisionBusiness(identityEnv(), {
       accountUserId: user!.id,
       name: 'A Business',
-      email,
     })
 
     const membership = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ?')
@@ -219,13 +232,17 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
 
     const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE business_id = ?')
       .bind(business.businessId)
-      .first<{ plan: string; source: string; status: string; email: string }>()
+      .first<{ plan: string; source: string; status: string; account_id: string | null }>()
     expect(grant?.plan).toBe('pro')
     expect(grant?.source).toBe('admin_grant')
     expect(grant?.status).toBe('active')
-    // Both keys are kept: the email is the claim key for a grant made before an
-    // account exists, and the audit record of who it was made to.
-    expect(grant?.email).toBe(email)
+    // THE SUBJECT IS A KEY AND THIS GRANT NAMES NONE ([[REQ-184]], [[REQ-191]]).
+    // There used to be an `email` column here, asserted as "the claim key for a
+    // grant made before an account exists" — a string foreign key to a person,
+    // which an address change could leave pointing at nobody. What provisioning
+    // writes is a per-business CAPACITY grant, and `account_id` null is what
+    // says so.
+    expect(grant?.account_id).toBeNull()
 
     // The account is a REGISTERED tenant, not just an id on a membership row —
     // `forTenant` refuses an unregistered one, so a membership pointing at an
@@ -308,11 +325,12 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     const email = anEmail()
     await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
     await provisionBusiness(identityEnv(), {
-      accountUserId: (await env.DB.prepare('SELECT id FROM users WHERE tenant_id = ? AND email = ?')
-        .bind(PLATFORM, email)
+      accountUserId: (await env.DB.prepare(
+        `SELECT u.id FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+      )
+        .bind(PLATFORM, PLATFORM, email)
         .first<{ id: string }>())!.id,
       name: 'Casefold',
-      email,
     })
 
     const admitted = await admit(identityEnv(), `  ${email.toUpperCase()} `)

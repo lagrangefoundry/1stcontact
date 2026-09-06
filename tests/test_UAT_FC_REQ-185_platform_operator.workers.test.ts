@@ -55,9 +55,11 @@ async function makeHost(userId: string): Promise<void> {
 }
 
 const membershipCount = async (email: string): Promise<number> => {
+  // Joined through `user_emails` ([[REQ-191]]): the address is a row of its own
+  // now, and `users` has no column to match on.
   const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM memberships m JOIN users u ON u.id = m.user_id ' +
-      'WHERE u.tenant_id = ? AND u.email = ? AND m.business_id = ?',
+    'SELECT COUNT(*) AS n FROM memberships m JOIN user_emails e ON e.user_id = m.user_id ' +
+      'WHERE e.tenant_id = ? AND e.email = ? AND m.business_id = ?',
   )
     .bind(PLATFORM, email, PLATFORM)
     .first<{ n: number }>()

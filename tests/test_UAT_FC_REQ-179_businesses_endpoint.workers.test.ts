@@ -182,7 +182,6 @@ describe('REQ-179 — the businesses endpoint', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
-      email,
     })
 
     const response = await ask(await mint(email))
@@ -211,7 +210,6 @@ describe('REQ-179 — the businesses endpoint', () => {
     const gone = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Gone',
-      email,
     })
     await lapse(gone.businessId)
 

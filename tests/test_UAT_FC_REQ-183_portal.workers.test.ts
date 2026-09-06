@@ -4,6 +4,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
+  PRIMARY_EMAIL_SQL,
   provisionBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
@@ -152,7 +153,12 @@ const ask = async (path: string, token: string): Promise<Response> =>
 
 /** The rows that must survive the visit ([[REQ-183]] §4.1). */
 async function accountFootprint(email: string): Promise<Record<string, unknown>> {
-  const user = await env.DB.prepare('SELECT id, email, status FROM users WHERE email = ?')
+  // Reached through `user_emails` ([[REQ-191]]), which is the only place an
+  // address lives now — and through ANY of a person's addresses.
+  const user = await env.DB.prepare(
+    `SELECT u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.status AS status FROM users u ` +
+      'WHERE u.id IN (SELECT user_id FROM user_emails WHERE email = ?)',
+  )
     .bind(email)
     .first<{ id: string; email: string; status: string }>()
   if (!user) return { user: null, memberships: 0, entitlements: 0 }
@@ -276,7 +282,6 @@ describe('REQ-183 — who reaches it, and who does not', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
-      email,
     })
     await lapse(first.businessId)
     await lapse(second.businessId)
@@ -338,7 +343,6 @@ describe('REQ-183 — no deletion mechanism is built', () => {
     await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
-      email,
     })
     const before = await accountFootprint(email)
     expect(before.memberships).toBe(2)

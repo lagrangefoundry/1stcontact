@@ -1441,6 +1441,25 @@ body {
   color: var(--shell-muted);
 }
 
+/* The addresses a person holds beyond their primary one (REQ-191). The metrics
+   are `builder-people__empty`'s, because this reads as a quiet list of facts in
+   the same pane and a second scale would make it look like a different kind of
+   thing. No bullets: the section heading already says what these are. */
+.builder-people__addresses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.builder-people__address {
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /*
  * The joined table (REQ-189) — ONE ROW PER BUSINESS, carrying the membership
  * facts and the grant facts as columns.
