@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-05T23:55:31.536672+00:00'
+updated_at: '2026-09-06T00:02:02.979274+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2450,5 +2450,11 @@ Hybrid. **Bootstrap the operator in-process** with one `ensurePlatformOperator` 
 One loose end either way: the seed needs an operator address from somewhere, and it shouldn't be hardcoded — same defect as the migration, smaller blast radius. A parameter or an env var.
 
 Want me to write that into REQ-192? It's a change to *how* the seed works, not to what it produces.
+
+<!-- xgd-turn id="f5a2c793-c026-4858-ad46-410ce492aebe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:02:02.860646+00:00" -->
+#### You
+Yes - let me restate what I think you're saying. The boot strap cannot use the HTTP calls. We need a separate script to set up the initial user conditions. That's fine please add it to 192
 
 <!-- xgd-chat-end -->
