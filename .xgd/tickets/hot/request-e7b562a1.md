@@ -15,6 +15,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6a277a28
 ---
 
 **Design ref:** [[CHAT-39]]. Consumes `@lagrangefoundry/auth-passwordless` ([[REQ-134]] in
