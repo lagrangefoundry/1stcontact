@@ -5,9 +5,9 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-09-06T18:54:27.884882+00:00'
+updated_at: '2026-09-06T19:13:37.527862+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -164,6 +164,20 @@ record already carries, and the two would be free to disagree.
 - a message that failed says why, on the row, because the reason is the only
   thing that tells the operator whether pressing Invite again will help
 - a contact with a bounced address carries a marker in the list itself
+
+### There is no call site in this ticket
+
+Nothing in the product sends mail yet, and this ticket does not add the first
+thing that does. It adds the record, the webhook and the two reads the Contacts
+tab makes; the surface that composes *render a template, send it, record it* is
+the invite modal in [[REQ-199]], over [[REQ-196]]'s adapter and [[REQ-197]]'s
+templates. That is why the acceptance below is stated against `sendRecordedEmail`
+rather than against pressing a button.
+
+The signing secret is `EMAIL_WEBHOOK_SECRET`, pushed with `wrangler secret` and
+never committed. Absent, the endpoint refuses everything rather than accepting
+unverified events — which is the right failure, and is why it is not a deploy
+blocker before the provider is configured.
 
 ## Acceptance (added by implementation)
 
