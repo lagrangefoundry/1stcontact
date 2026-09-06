@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:57:24.605498+00:00'
+updated_at: '2026-09-06T22:57:46.143839+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1146,5 +1146,11 @@ The status will sit at `sent` forever on this machine. REQ-198's delivery and bo
 That's expected rather than broken, but it does mean the dashboard is your only feedback loop until this runs somewhere Resend can call back. If you want that loop closed locally, a tunnel (`cloudflared tunnel --url http://localhost:8788`) pointed at the webhook route would do it — worth it only if you're debugging bounces specifically.
 
 Meanwhile steps 1 and 2 of your walkthrough are genuinely complete: contact added, template rendered with a working CTA and paste-fallback, message composed, sent through Resend, and recorded against both the contact and the address. The remaining unknown is step 3, where Dennis or Emma clicking that link hits `no_membership`.
+
+<!-- xgd-turn id="65805d1f-2817-4905-a4c7-5f2b460ca801-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:57:45.784599+00:00" -->
+#### You
+It went straight to gmail spam!
 
 <!-- xgd-chat-end -->
