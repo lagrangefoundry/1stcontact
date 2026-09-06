@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:39:15.637108+00:00'
+updated_at: '2026-09-06T20:39:40.940819+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -273,5 +273,52 @@ grep is /usr/bin/grep
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="584bd60a-3974-44c6-83b8-3f3068c8e0b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:39:40.439449+00:00" -->
+#### Claude
+Found it. Look at the `typeset -p` output — there's no `export` on it:
+
+```
+typeset RESEND_API_KEY=...          ← yours, plain shell variable
+export FOO=''                       ← what an exported var looks like
+```
+
+That's the second line from my earlier test. zsh prints the `export` attribute when it's set. Yours doesn't have it, so the variable never entered the environment — which is exactly why `/usr/bin/env` finds nothing and why the hook took the `warn` branch. Every observation now agrees.
+
+The odd part is that you *typed* `export`. Since `env` and `grep` came back clean, check the one command we haven't:
+
+```bash
+type export
+whence -a export
+```
+
+If `export` is a function or alias — some secret-hygiene plugins and shell wrappers define one — that's the whole story.
+
+**Immediate fix**, which works even if `export` is shadowed:
+
+```bash
+typeset -gx RESEND_API_KEY
+/usr/bin/env | grep -c '^RESEND_API_KEY='     # want 1
+```
+
+`typeset -gx` sets the export attribute on the existing value, and as a builtin with explicit flags it's harder to shadow.
+
+Then:
+
+```bash
+bin/deploy --dry-run control-app
+```
+
+You want `would push RESEND_API_KEY to 1stcontact-control-app` beside the ANTHROPIC line. If that looks right, drop `--dry-run`.
+
+**If you'd rather not fight the shell**, this sidesteps `export` entirely:
+
+```bash
+RESEND_API_KEY="$(cat ~/Documents/secrets/resend_1c_transactinal_send)" bin/deploy control-app
+```
+
+A prefix assignment goes straight into the child's environment for that one command — the same mechanism `bin/deploy:163` uses to hand `DEPLOY_ENV` and friends to the hooks. It also can't leave a live credential sitting in your interactive shell, which is the better habit for this anyway.
 
 <!-- xgd-chat-end -->
