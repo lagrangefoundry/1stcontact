@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:50:39.923044+00:00'
+updated_at: '2026-09-06T22:51:11.658665+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1056,5 +1056,54 @@ For deployments the key goes through `bin/deploy.d/secrets/20-resend-api-key` as
 <!-- xgd-chat role="user" ts="2026-09-06T22:50:39.856539+00:00" -->
 #### You
 The domain IS verrified
+
+<!-- xgd-turn id="1001020e-157f-423f-8699-c8ccd48a629a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:51:11.294096+00:00" -->
+#### Claude
+Then it's just the key. Let me check what a successful send looks like so you can confirm it took.
+
+Verified domain means you only need the key.
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+```
+
+Restart terminal 2 with all three env files:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Then just **re-invite Dennis** — tick the row and press Invite again. There's no already-invited skip: `invitePerson` won't restamp `invited_at`, but the send happens every press, and REQ-198 records each one as a separate message. That's by design, so chasing a contact is visible.
+
+## Confirming it worked
+
+The `[mail] not sent (no provider configured)` line disappears — that string only exists in the capturing adapter.
+
+Then check the record carries a provider id:
+
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --local \
+  --command "SELECT substr(fields,1,400) FROM tickets WHERE type='email' ORDER BY rowid DESC LIMIT 1"
+```
+
+You want `provider_id` populated. `resendMailer` treats accepted-with-no-id as a **failure**, deliberately — REQ-198 joins bounce webhooks on that value, so a missing id would be a hole that only surfaced the first time something bounced.
+
+## If it refuses
+
+You'll get a `MailSendError` carrying Resend's own words and the HTTP status, truncated to one useful sentence. The likely candidates on a verified domain are a bad key or a `from` that isn't on the verified domain — `MAIL_FROM` is `no-reply@1stcontact.io` from `wrangler.toml`, so check you haven't got a stale override:
+
+```bash
+grep -n MAIL_FROM apps/control-app/.dev.vars
+```
+
+Should return nothing. If you added the `onboarding@resend.dev` line from my last message, remove it — with the domain verified you don't want it, and last-one-wins means it would silently take precedence.
+
+Once the mail actually lands in Dennis's inbox, steps 1 and 2 are done for real, and the only thing left is what he sees when he clicks — which is the `no_membership` wall and the decision about where an accepted invitee should land.
 
 <!-- xgd-chat-end -->
