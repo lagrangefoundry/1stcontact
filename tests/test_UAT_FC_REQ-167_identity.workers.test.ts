@@ -10,6 +10,7 @@ import {
   newId,
   provisionBusiness,
   STARTER_HEADING,
+  STARTER_SLUG,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { invitePerson } from '../apps/control-app/src/people'
@@ -256,12 +257,13 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
 
     // THE SLUG IS A WORD AGAIN ([[REQ-190]]). It used to be the account id, and
     // that was a collision property rather than a naming preference:
-    // `published_sites` claimed a slug GLOBALLY, so a starter site called `home`
-    // for everybody would have been refused for the second account that
-    // published, for a reason its owner could do nothing about. The published
-    // address is the site's own key now and the slug is unique only inside the
-    // business, so it can be the plain word it always wanted to be.
-    expect(result.siteSlug).toBe('home')
+    // `published_sites` claimed a slug GLOBALLY, so one starter name shared by
+    // everybody would have been refused for the second account that published,
+    // for a reason its owner could do nothing about. The published address is
+    // the site's own key now and the slug is unique only inside the business, so
+    // it can be the plain word it always wanted to be. Which word, and why it is
+    // a prompt rather than a description, is REQ-190's own UAT.
+    expect(result.siteSlug).toBe(STARTER_SLUG)
   })
 
   it('test_UAT_FC_REQ-167_the_account_id_is_opaque_and_not_a_function_of_the_invite', async () => {

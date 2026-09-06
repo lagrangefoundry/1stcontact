@@ -26,12 +26,20 @@ import { RESPONSIVE_VIEWPORTS } from './capture/values-diff'
  */
 export const STARTER_WIDTHS: readonly number[] = RESPONSIVE_VIEWPORTS.map((v) => v.width)
 
-export function starterSiteJson(slug: string): Record<string, unknown> {
+/**
+ * @param name What the site calls itself — the `<title>` suffix every rendered
+ *   page carries. Defaults to the slug, which is what `1c new` wants: an
+ *   authored site is named by its author, so the slug IS the name. [[REQ-190]]'s
+ *   provisioning passes its own for the same reason {@link starterHomePage}
+ *   takes a heading — a site nobody has named yet should say so, rather than
+ *   assert a name derived from a placeholder.
+ */
+export function starterSiteJson(slug: string, name: string = slug): Record<string, unknown> {
   return {
     id: slug,
     config: {
-      businessName: slug,
-      tagline: `${slug} — built with 1st Contact`,
+      businessName: name,
+      tagline: `${name} — built with 1st Contact`,
     },
     theme: defaultTokens,
     nav: { pattern: 'top-tabs', entries: [] },

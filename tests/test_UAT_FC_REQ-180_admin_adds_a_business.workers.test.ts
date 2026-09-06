@@ -8,6 +8,7 @@ import {
   ensurePlatformOperator,
   findAccount,
   type IdentityEnv,
+  STARTER_SLUG,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -304,7 +305,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     // merely present. Called `home` — a word, not the business id ([[REQ-190]]):
     // the starter slug was the id only to dodge the global published-slug claim,
     // and there is no claim to dodge now.
-    expect(created.siteSlug).toBe('home')
+    expect(created.siteSlug).toBe(STARTER_SLUG)
   })
 
   it('test_UAT_FC_REQ-180_creating_an_account_provisions_its_first_business', async () => {

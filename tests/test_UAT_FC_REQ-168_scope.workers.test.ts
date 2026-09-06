@@ -5,6 +5,7 @@ import {
   provisionBusiness,
   type Admission,
   type IdentityEnv,
+  STARTER_SLUG,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import {
@@ -131,8 +132,8 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     // partly by accident. A slug is unique only inside its business now, so two
     // lists that both contain `home` and differ in everything else is the
     // barrier being proved rather than a naming coincidence standing in for it.
-    expect(await listSites(a)).toEqual(['home', 'salon-only'])
-    expect(await listSites(b)).toEqual(['home', 'studio-only'])
+    expect(await listSites(a)).toEqual(['salon-only', STARTER_SLUG])
+    expect(await listSites(b)).toEqual(['studio-only', STARTER_SLUG])
   })
 
   /**
@@ -162,8 +163,8 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     // And the prefix does not reach the route table: `/api/sites` answered, not
     // a 404 for a path with `/b/<id>` still on the front of it.
     expect(await listSites(scope, `/b/${second.businessId}`)).toEqual([
-      'home',
       'second-only',
+      STARTER_SLUG,
     ])
   })
 

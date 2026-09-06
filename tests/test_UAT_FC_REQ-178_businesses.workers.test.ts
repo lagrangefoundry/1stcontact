@@ -4,6 +4,7 @@ import {
   admit,
   provisionBusiness,
   type IdentityEnv,
+  STARTER_SLUG,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
@@ -285,8 +286,8 @@ describe('REQ-178 — provisioning a second business', () => {
     expect(added.businessId).not.toBe(invited.businessId)
     // THE STARTER SLUG IS A WORD ([[REQ-190]]) — the same word for both, which is
     // exactly what the old global slug claim made impossible.
-    expect(added.siteSlug).toBe('home')
-    expect(invited.siteSlug).toBe('home')
+    expect(added.siteSlug).toBe(STARTER_SLUG)
+    expect(invited.siteSlug).toBe(STARTER_SLUG)
   })
 
   it('test_UAT_FC_REQ-178_a_second_business_is_immediately_operable', async () => {
@@ -347,7 +348,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const again = await inviteAccount(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
     expect(again.businessId).not.toBe(invited.businessId)
-    expect(again.siteSlug).toBe('home')
+    expect(again.siteSlug).toBe(STARTER_SLUG)
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
