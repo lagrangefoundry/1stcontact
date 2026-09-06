@@ -5,15 +5,20 @@ type: bug
 title: Every denial says access 'has ended' and none of them says why
 created_by: CHAT-39
 created_at: '2026-09-06T23:38:43.079204+00:00'
-updated_at: '2026-09-06T23:49:13.644394+00:00'
+updated_at: '2026-09-06T23:50:05.126887+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5d576c05
+  commits:
+  - working_sha: 1a34cd0cd1f0f5d7c71ca3220efa1e666520c0a5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.122
 ---
 
 **Found while walking the invite flow end to end ([[CHAT-39]]).** Two defects in one
