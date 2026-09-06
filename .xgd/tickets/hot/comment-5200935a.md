@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:49:27.821251+00:00'
+updated_at: '2026-09-06T22:50:03.404866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -997,5 +997,58 @@ I'd file two tickets: a **bug** for the denial message and the missing log line 
 <!-- xgd-chat role="user" ts="2026-09-06T22:49:27.149872+00:00" -->
 #### You
 Wait That message said no email was configured or sent - that is the stage we are at - how do I configure the email to be sent?
+
+<!-- xgd-turn id="bf7f70d3-c6b7-4322-aa4c-d6ff7980e444-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:50:03.324461+00:00" -->
+#### Claude
+Right — `[mail] not sent (no provider configured)` is the capturing adapter. `mailerFor` has no mode flag: an empty `RESEND_API_KEY` *is* what selects it.
+
+```js
+const apiKey = (env.RESEND_API_KEY ?? '').trim()
+if (apiKey === '') return capturingMailer(...).send
+return resendMailer(apiKey, deps.fetch)
+```
+
+So you configure sending by supplying the credential.
+
+## Local dev
+
+It's a bearer credential that can send as your domain, so it belongs in your secrets file — already layered in, mode `600`, outside the repo:
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+```
+
+Then restart terminal 2 with all three `--env-file` flags. `MAIL_FROM` is already set to `no-reply@1stcontact.io` from `wrangler.toml`, so nothing else changes.
+
+## But the key alone won't deliver to Dennis
+
+This is the part that will bite you. **Resend refuses to send from an unverified domain.** Until `1stcontact.io` is verified you can only send from their shared `onboarding@resend.dev` sender, and only to the address you signed up with. A key plus `MAIL_FROM=no-reply@1stcontact.io` on an unverified domain gets rejected at the API — you'll see a `MailSendError` rather than a delivered invite.
+
+So the real answer is **TODO-5** — that's the ticket with the full procedure. The short form:
+
+1. Sign up at resend.com
+2. Add `1stcontact.io` as a sending domain
+3. Paste the SPF/DKIM/DMARC records it returns into Cloudflare DNS
+4. Verify
+5. Create an API key scoped to **sending only**
+
+Watch the two traps I wrote into TODO-5: **merge into any existing SPF record** rather than adding a second (two `v=spf1` records is a hard fail that breaks all mail from the domain), and **start DMARC at `p=none`**.
+
+## If you want to see a real email in the next five minutes
+
+Skip verification and send one to yourself only:
+
+```bash
+echo 'RESEND_API_KEY=re_xxxxxxxxxxxx' >> ~/Documents/secrets/1c.dev.env
+echo 'MAIL_FROM = "onboarding@resend.dev"' >> apps/control-app/.dev.vars
+```
+
+Restart, then invite a contact whose address is **your Resend signup address**. That proves the whole path — template → render → Resend → inbox — without waiting on DNS.
+
+Remember to remove that `MAIL_FROM` line afterwards. And note `.dev.vars` already has a `MAIL_FROM`-shaped precedent for exactly the duplicate-key trap I hit earlier: last one wins, so check with `grep -n MAIL_FROM apps/control-app/.dev.vars` before and after rather than appending blind.
+
+For deployments the key goes through `bin/deploy.d/secrets/20-resend-api-key` as a `wrangler secret`, never a var.
 
 <!-- xgd-chat-end -->
