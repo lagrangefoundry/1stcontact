@@ -468,10 +468,15 @@ export class InvalidInviteError extends Error {}
  * who can sign in and cannot reach their own erasure control ([[DOC-37]]).
  * Access to the app is a separate grant and `provisionBusiness` writes it.
  *
- * AND NO MAIL IS SENT. There is no sender in this repository. The invite is a
- * database transition and the person is admitted the next time they pass the
- * front door; naming that here is the point, because an "invite" that silently
- * sends nothing is a feature an operator will assume exists and will not check.
+ * AND NO MAIL IS SENT — still, and now for a different reason ([[REQ-196]]).
+ * There IS a sender in this repository: `mail.ts` is the port, with Resend
+ * behind it in a deployment that holds a credential and a local adapter that
+ * records and delivers nothing in one that does not. This function does not call
+ * it, because the MESSAGE is [[REQ-197]]'s and the record of what was sent is
+ * [[REQ-198]]'s. The invite remains a database transition and the person is
+ * admitted the next time they pass the front door; naming that here is the
+ * point, because an "invite" that silently sends nothing is a feature an
+ * operator will assume exists and will not check.
  */
 export async function invitePerson(
   env: IdentityEnv,

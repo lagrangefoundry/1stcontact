@@ -62,6 +62,7 @@ import { systemKnowledge } from './system-knowledge'
 import { sessionKnowledgeFor } from './session-knowledge'
 import { anthropicImageDescriber, type DescribeImage, type DescribeText } from './describe'
 import { FetchRefusedError } from './fetch-guard'
+import type { MailEnv } from './mail'
 import {
   ingestFetch,
   ingestUpload,
@@ -248,7 +249,13 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown>> 
   return JSON.parse(body) as Record<string, unknown>
 }
 
-export interface RouterEnv extends StoreEnv, TicketStoreEnv {
+/**
+ * `MailEnv` IS EXTENDED RATHER THAN RESTATED ([[REQ-196]]). `RESEND_API_KEY` and
+ * `MAIL_FROM` are declared once, in `mail.ts`, beside the code that reads them —
+ * a second copy here would be free to drift by a character in silence, and the
+ * symptom of that drift is mail that is never sent.
+ */
+export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -374,10 +381,12 @@ const NO_STORE = 'no-store, must-revalidate'
  * Listed rather than swept out of `env`, because `env` also carries bindings and
  * ordinary vars — `TENANT_ID` is a short, common word, and scrubbing it out of
  * error messages would destroy diagnostics to protect nothing. What belongs here
- * is only what is a CREDENTIAL, and today that is one key.
+ * is only what is a CREDENTIAL: the model key, and since [[REQ-196]] the mail
+ * provider's, which can send as our own domain and is the more damaging of the
+ * two to leak into a message somebody is shown.
  */
 function secretsOf(env: RouterEnv): Array<string | undefined> {
-  return [env.ANTHROPIC_API_KEY]
+  return [env.ANTHROPIC_API_KEY, env.RESEND_API_KEY]
 }
 
 /**
