@@ -5,9 +5,9 @@ type: request
 title: A person's name is a table, and every part of it is optional
 created_by: xgd
 created_at: '2026-09-05T21:48:44.015345+00:00'
-updated_at: '2026-09-06T18:15:30.469567+00:00'
+updated_at: '2026-09-06T18:56:54.645075+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -194,3 +194,89 @@ it. Separable in review and in acceptance, not in deployment — same as
 - `users.display_name` is gone and every reader goes through the name table
 - the Users list and detail panel show a name where one exists, and read as *no
   name yet* where one does not
+
+
+## What curation actually looks like, and the consequences it forced
+
+The sections above specify the shape. Building it settled a set of behaviours the
+shape implies but does not state, each of which is now pinned by a UAT.
+
+### Writing is a patch, and a no-op writes no history
+
+The record pane commits **one field per call**. A part absent from the patch is
+carried forward from the current row; a part present and empty is cleared. This
+is what lets `known_as` be corrected without sending back a stale copy of the
+other six — and, since a name is a row that is *superseded* rather than updated,
+what stops an address correction from writing a name transition that never
+happened.
+
+**Committing a field to the value it already held writes nothing.** Focus, blur,
+no edit is something a record pane does constantly, and each one would otherwise
+leave a supersession behind — filling the timeline with transitions that never
+occurred and burying the one that did.
+
+### An empty displayed name means *no name*, not *a nameless name*
+
+`display_name` is the only `NOT NULL` column, so clearing it is not an edit to a
+field but a decision about whether the person has a name at all.
+
+- Cleared while nothing else is set → the row is superseded and the person has no
+  name. That is the state the list draws as *no name yet*.
+- Cleared while parts remain → **refused**, with a message saying so. There is
+  nothing to hang the parts off, and the alternative — inventing a display name
+  out of the parts — is exactly the assembly this model exists to avoid.
+
+### Recording a name change is a separate, deliberate act
+
+Because `corrected` is the default (above), the operator needs a way to say *this
+is a real change*, and it must not be the same gesture as fixing a typo. It is
+its own control: a dialog, prefilled from the current name because most of a name
+survives a marriage, which sends every part at once and marks the supersession
+`changed`. Editing a field in the pane sends that part alone and no reason at
+all, and is therefore a correction.
+
+A reason the route does not recognise is a correction. The unsafe value is never
+the one reached by accident.
+
+### The greeting is visible while the name is being filled in
+
+`known_as` is the highest-frequency read in the record, so the pane shows the
+resolved greeting — `known_as`, then `given_name`, then `display_name` — and
+updates it as parts are edited. The person entering the data can see the
+consequence of what they typed, which is the only way *Robert who everyone calls
+Bob* ever gets fixed. **No title ever appears in a greeting**; that is what makes
+`title` safe to leave unasked.
+
+### Every reader, including the ones outside the Users tab
+
+Dropping `users.display_name` reaches further than `peopleOf` and `personDetail`.
+The account switcher named the account from that column and now reads the name
+table, saying *no name* rather than assembling one. The invite path gives a
+person their first name row and never renames somebody who already has one.
+
+### The name vocabulary is declared once
+
+The parts, their labels, and the greeting's fallback chain are one module that
+both the Worker and the browser panel import. Two lists of seven fields free to
+disagree is a defect waiting for the eighth.
+
+### Search says why it matched
+
+A row matched on a former name shows *formerly …* so the operator understands
+why a search for *Sarah Jones* returned *Sarah Patel*. Only `changed` rows travel
+to the client; the `corrected` filter is server-side, so the client is never the
+thing deciding which former names may be shown.
+
+## Incidental repair, not part of this intent
+
+`apps/control-app/src/system-knowledge.ts` did not re-export `SHIPPED_SOURCE`,
+which its own consumer `session-knowledge.ts` imports from it — a typecheck
+break inherited from [[BUG-55]] that made `pnpm build` fail on `xgd-working`
+before this ticket started. One line, fixed here because the build has to pass
+for this work to be verifiable. It is named so reconciliation does not attribute
+it to names.
+
+Five test files fail on this branch and failed identically before it —
+`bug32-webui-scope-rebrand`, `reconciliation-assistant-conversation-knowledge`,
+`REQ-123_session_knowledge`, `REQ-158_system_kb`, `REQ-160_two_kb_session`. All
+are knowledge-surface drift from other in-flight work; none touch names.
