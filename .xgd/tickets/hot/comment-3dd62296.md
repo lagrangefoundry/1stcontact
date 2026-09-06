@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-199
 created_by: xgd
 created_at: '2026-09-06T19:45:47.660547+00:00'
-updated_at: '2026-09-06T20:16:39.930945+00:00'
+updated_at: '2026-09-06T20:30:59.236374+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,14 @@ Now the route-level coverage for `/api/people/add` and the invite draft, driven 
 Now the wider regression scope.
 
 Now the REQ-188 axes suites.
+
+<!-- xgd-turn id="79c3d0b3-aba5-409f-aa37-7a82bbb77339-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:30:58.228242+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
