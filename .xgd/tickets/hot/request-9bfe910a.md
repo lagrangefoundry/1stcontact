@@ -5,16 +5,36 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-09-06T19:17:35.802454+00:00'
+updated_at: '2026-09-06T19:46:38.561239+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-b6d07352
+  commits:
+  - working_sha: 5360036587e3ed413b6b48e2ce1f339eaccba4ce
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3c6d47d1a4959a135fc44d3992a07696dd0c8ba6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 39bd0f6a3c90d2c3df3ce0169bce056c25dc6968
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2700bf90b5490f3b02db26196f3b863358eb5fb4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: eec028deaeece091b678984390640f171a58b327
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1ff5b509bfc8ae150fb09697b149737d99e7560f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.117
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-196]] and [[REQ-197]].
