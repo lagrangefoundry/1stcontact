@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-06T17:23:37.475954+00:00'
+updated_at: '2026-09-06T17:40:35.538301+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,97 @@ I would like the start site to be called "Unnamed" to encorage the user to find 
 **Two things I decided rather than asked**, both recorded in the body as decisions: the opaque published address (the ACs left no consistent alternative — with `/site/<slug>/`, "two businesses can each publish `home`" is unsatisfiable), and the ordinal carve-out. If you'd rather have per-business hostnames instead, that reverses a fair amount of this. <-- I don't fully understand this, but I need to. We have not discussed hostnames. I fully expect all businesses to own their own eventually.
 
 Can you wipe my D1 and R2 buckets please? You should have an API key in the env
+
+<!-- xgd-turn id="45d2b045-0255-41ab-8003-350f6e12d033-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T17:40:35.213655+00:00" -->
+#### Claude
+I'll take these in order: explain the address decision (that's the one you need to understand before the rest matters), then the "Unnamed" change, then the wipe.
+
+Now let me check what credentials are available for the wipe.
+
+Let me read the ticket body before changing anything.
+
+Now `identity.ts` — the slug, its rationale, and the display name.
+
+Now the REQ-190 UAT. Let me see the existing workers test file's shape.
+
+Now the new UAT for the `Unnamed` behaviour itself.
+
+Green. Full sweep to confirm the remaining failures match the pre-existing baseline.
+
+Clean. Now the ticket body — the section that names the starter site.
+
+Code change landed. Now the wipe.
+
+41 objects, all under the old `tenant/slug` key scheme. Deleting.
+
+Bucket empty. Now D1 — drop the old schema and apply the new baseline.
+
+All three done. The hostname question first, since my earlier sentence was misleading.
+
+## Hostnames — I mis-stated this, and the correction matters
+
+**What I wrote:** *"If you'd rather have per-business hostnames instead, that reverses a fair amount of this."*
+
+**That's wrong.** Hostnames and what I built are not alternatives. What I built is the precondition for hostnames. Here's the actual chain.
+
+### The defect
+
+The public URL was `/site/<slug>/`. Nothing in that URL says which business. So for the URL to name exactly one site, the slug had to be unique **across the whole deployment** — enforced by a global unique index on `published_sites`. Three consequences:
+
+- A name the operator typed was doing a key's job — the thing this ticket exists to stop.
+- Two customers couldn't both publish `home`; the second was refused.
+- The refusal leaked across the tenant barrier: try `home`, get refused, now you know another business on the platform holds it.
+
+### The three ways out
+
+| | | |
+|---|---|---|
+| **(a)** | put the business in the **host** — `alicesplumbing.com/about` | slug only needs to be unique *within* the business |
+| **(b)** | put the key in the **path** — `/site/<siteId>/about` | slug stops being an addressing token at all |
+| **(c)** | keep the global claim, drop the AC | the defect stays |
+
+(a) and (b) reach the *same schema*. Both need exactly one thing: `UNIQUE (tenant_id, slug)` instead of `UNIQUE (slug)`. That is what landed — `db/migrations/0001_baseline.sql:113`.
+
+So when hostnames arrive, nothing in the schema reverses. You add a `domains` table (or a column on `tenants`, which today has only `id, name, status, config, created_at`) mapping host → business, and the public resolver gains a first step: host → business, then `WHERE tenant_id = ? AND slug = ?`. That query is already the shape the store uses. **Additive, not a reversal.**
+
+The option that *would* have blocked hostnames is **(c)** — keeping "a slug identifies a site deployment-wide" baked in, which is precisely the assumption a custom domain breaks. That's the one I ruled out, and it's the one my sentence should have named.
+
+### What it does genuinely cost you
+
+The interim address — before a customer has bought a domain — is now `1stcontact.io/site/site_a3f9…/`, which is unreadable. Under the old scheme it was `1stcontact.io/site/alices-plumbing/`: pretty, and globally claimed.
+
+That's a real product regression on one surface, and it has a cheap fix that is (a) in its least expensive form: **a wildcard subdomain**. `alice.1stcontact.io` — one wildcard DNS record, one wildcard cert, no per-customer provisioning. Uniqueness then scopes to one column on the business rather than a global claim on every site name every business owns, which is a much smaller thing to contend over. Custom domains layer on top later through the same host→business step.
+
+I'd suggest that as the next ticket. It needs no schema change to what just landed.
+
+## The starter site
+
+`unnamed` / `Unnamed`, landed as `19c5e62c64`.
+
+Both surfaces say it, because an operator meets the site twice: the slug (`unnamed`) is what the store addresses and the builder lists; `config.businessName` (`Unnamed`) is prose and reaches every rendered page's `<title>`. Two constants rather than one derived from the other, so editing the prose can't silently rewrite a key.
+
+It deliberately isn't the *business* name either, though provisioning knows it — a site isn't a business, an account will own several, and a name asserted on the owner's behalf is still one they never chose. Same objection as `home`, from the other side.
+
+New UAT `test_UAT_FC_REQ-190_a_new_account_finds_its_one_site_visibly_unnamed` pins both surfaces, that it isn't the business name, and that renaming it is one `UPDATE`. Five existing UATs reached for the starter by the literal `'home'`; those are fixtures, not assertions, so they read `STARTER_SLUG` now — two of them also reorder, because the store sorts slugs and `unnamed` is no longer alphabetically first.
+
+Ticket at `free_coded`, version 0.2.85, merged to `xgd-working` at `ae7e655715`.
+
+## The wipe — done, with one thing you should know
+
+**R2 `1stcontact-sites`:** 41 objects deleted, 0 remaining. All of them were old-scheme (`draft/1stcontact/xgd/…`, `sites/xgd/preview/…`, plus audit and chat logs).
+
+**D1 `1stcontact` (remote):** it was on `0001_site_store` + `0002_revisions` — pre-identity entirely, no `users`/`memberships`/`entitlements`/`tickets` had ever been applied there. Dropped all seven app tables, cleared `d1_migrations`, applied `0001_baseline.sql`. Now: `counters, entitlements, memberships, site_assets, site_changes, site_pages, site_revisions, sites, tickets, users` — and the seeded platform business is `acct_51a6746495c8057e886ff98d4208e6b9`, which matches both `TENANT_ID` literals in `wrangler.toml` (lines 133, 257).
+
+**Local D1:** was already baselined; had a stray `acct_uatwestheadme` test tenant left from a run. Cleared, so local now matches remote exactly — one tenant, no users, no sites.
+
+**⚠️ The `1stcontact-material` bucket does not exist.** `wrangler r2 bucket list` returns only `1stcontact-sites`. The `BLOBS` binding is declared in `wrangler.toml` at both the top level and `[env.production]`, so a production deploy will either fail at upload or bind nothing and throw on the first blob call. Nothing to wipe there — it needs creating:
+
+```
+npx wrangler r2 bucket create 1stcontact-material
+```
+
+I didn't create it: it's an outward-facing resource you didn't ask for, and it may be that the binding is ahead of the feature deliberately. Say the word and I'll run it.
 
 <!-- xgd-chat-end -->
