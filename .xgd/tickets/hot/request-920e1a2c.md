@@ -6,16 +6,24 @@ title: 'Email sending: a sendEmail port, a Resend adapter, and a verified sendin
   domain'
 created_by: xgd
 created_at: '2026-09-05T23:44:40.147333+00:00'
-updated_at: '2026-09-06T18:57:19.614586+00:00'
+updated_at: '2026-09-06T19:04:31.496978+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4f6b5d9b
+  commits:
+  - working_sha: 164e51cba73f93580ddad61fe30a7332d891092f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b3b210b025a0d63a16044f8a0027aff66e0ff17c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.98
 ---
 
 **Design ref:** [[CHAT-39]]. First of the onboarding set; the others depend on it.
