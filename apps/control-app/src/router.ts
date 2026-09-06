@@ -59,6 +59,7 @@ import {
   type IdentityEnv,
 } from './identity'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
+import { bouncedContactIds, messagesFor } from './messages'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
 import { sessionKnowledgeFor } from './session-knowledge'
@@ -504,6 +505,17 @@ export const PERSON_STATUS_PATH = '/api/people/status'
 export const PERSON_RECORD_PATH = '/api/people/record'
 /** Where a business's owner turns a contact into a member ([[REQ-186]]). */
 export const PERSON_INVITE_PATH = '/api/people/invite'
+
+/**
+ * What we have said to one person, and whether it arrived ([[REQ-198]]).
+ *
+ * A ROUTE OF ITS OWN RATHER THAN A FIELD ON THE DETAIL. The detail pane answers
+ * *who is this and what do they hold*, which is identity-schema data; this
+ * answers *what did we send them*, which is the tenant's ticket store. Two
+ * stores, two reads, and the pane that draws both can fill one in while the
+ * other is still coming.
+ */
+export const PERSON_MESSAGES_PATH = '/api/people/messages'
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -1270,6 +1282,24 @@ async function routeUncached(
         people: await peopleOf(identityEnv, scope),
         canFulfil: ownsPlatformBusiness(identityEnv, deps.admission),
         canInvite: ownsBusiness(deps.admission, scope.businessId),
+        /**
+         * The contacts holding a bounced message ([[REQ-198]], [[REQ-199]]).
+         *
+         * REPORTED WITH THE LIST BECAUSE THAT IS WHERE IT IS NEEDED. A bad
+         * address is the most valuable signal a beta produces and it is worth
+         * nothing if it takes a click to find, so the list itself has to be able
+         * to mark the row — which means the list's own read has to carry it.
+         *
+         * A SEPARATE ARRAY AND NOT A FIELD ON EACH PERSON. `peopleOf` is the
+         * identity schema and knows nothing of messages; merging the two here
+         * would put a ticket-store fact on a row whose shape is a `users` row,
+         * and every other reader of that shape would inherit a field that is
+         * sometimes there.
+         *
+         * ONE EXTRA QUERY, SCOPED LIKE EVERY OTHER. It reads this business's own
+         * `email` records and no others.
+         */
+        bounced: await bouncedContactIds(await openTickets()),
       })
     }
 
@@ -1295,6 +1325,28 @@ async function routeUncached(
       const detail = await personDetail(identityEnv, requireScope(), id)
       if (!detail) return json(404, { error: 'No such person in this business.' })
       return json(200, detail)
+    }
+
+    /**
+     * GET /api/people/messages?id= — what we have said to this person ([[REQ-198]]).
+     *
+     * SCOPED BY THE STORE HANDLE AND NOT BY THE QUERY. `openTickets` binds the
+     * business into the handle, so this read cannot reach another business's
+     * messages even given a contact id from one — the same guarantee
+     * `personDetail` gets from scoping by tenant AND id, obtained here
+     * structurally instead.
+     *
+     * NO EXISTENCE CHECK ON THE CONTACT, deliberately. An unknown id returns an
+     * empty list rather than a 404, which is the same answer a real contact with
+     * no messages gives — so this route is not a second way to ask whether a
+     * person exists, which `/api/people/detail` is careful not to be.
+     */
+    if (p === PERSON_MESSAGES_PATH && method === 'GET') {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      // `openTickets` requires the scope and binds it into the handle, so there
+      // is no separate scope check here that could disagree with the one the
+      // read is actually performed under.
+      return json(200, { messages: await messagesFor(await openTickets(), id) })
     }
 
     /**

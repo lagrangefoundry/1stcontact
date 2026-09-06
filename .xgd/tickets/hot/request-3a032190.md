@@ -5,16 +5,27 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-06T18:53:16.352407+00:00'
+updated_at: '2026-09-06T19:21:15.464302+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-33d260ac
+  commits:
+  - working_sha: 3d9529a4913eeecc0d6084bb2759170c9e2744d4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a89fc80a4304a1f7afd7972025ba81fd172b7e33
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7c25b0c830f5bd55912919df264db0e583279214
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.113
 ---
 
 # Regenerate the test data as a command, not as hand-written SQL
