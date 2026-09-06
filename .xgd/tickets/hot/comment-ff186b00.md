@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:30:34.606045+00:00'
+updated_at: '2026-09-06T20:31:24.133654+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,32 @@ env.MAIL_FROM ("no-reply@1stcontact.io")                                 Environ
 The 
 
 RESEND_API_KEY is set in the environment
+
+<!-- xgd-turn id="73144f8f-102a-47bd-b71e-a0296ac040df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:31:24.079161+00:00" -->
+#### Claude
+The hook reads nothing but the environment — `[[ -n "${RESEND_API_KEY:-}" ]]`, exactly the shape `10-anthropic-api-key` uses. And in your run that one printed **"would push ANTHROPIC_API_KEY"**, which means env passthrough into hooks is working: `bin/deploy` prefixes `DEPLOY_*` onto the child, it doesn't scrub anything.
+
+So the shell that ran `bin/deploy` genuinely had `RESEND_API_KEY` empty. The overwhelmingly likely cause is **it's a shell variable, not an exported one** — `RESEND_API_KEY='re_...'` without `export`. That's nasty precisely because `echo $RESEND_API_KEY` prints it back perfectly; only a child process can tell the difference.
+
+Run this in the same terminal (prints lengths and counts, never the key):
+
+```bash
+printf 'shell var: %s chars\n' "${#RESEND_API_KEY}"
+env | grep -c '^RESEND_API_KEY='
+```
+
+- `chars` > 0 but count `0` → not exported. Fix: `export RESEND_API_KEY`
+- both zero → it's set in a different tab, or in a file `bin/deploy` doesn't read (it sources no `.env`, no `.dev.vars`, no direnv)
+- both non-zero → something stranger, tell me the numbers
+
+## One thing to check while you're there
+
+The hook does `printf '%s' "$RESEND_API_KEY" | wrangler secret put` — no trimming. If you set it via `$(pbpaste)` or a heredoc, a trailing newline goes into the secret verbatim. That fails *later* and confusingly: the deploy succeeds, the name shows in the dashboard, and every Resend call returns 401. `${#RESEND_API_KEY}` should be exactly the key's length — a Resend key is `re_` plus the token, no whitespace.
+
+## The `ACCESS_DEV_OPEN` warning is a false positive
+
+Ignore it. `wrangler.toml:283` says it explicitly — *"No `ACCESS_DEV_OPEN` here, and that absence is the security control (REQ-145)."* The var opens the Access gate for local dev; it is top-level only, on purpose, and wrangler's "you probably want this in production too" heuristic is wrong in this case. Adding it to `[env.production.vars]` to silence the warning would open the gate on the deployed Worker.
 
 <!-- xgd-chat-end -->
