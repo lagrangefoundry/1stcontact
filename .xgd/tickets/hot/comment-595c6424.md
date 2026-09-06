@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-57
 created_by: xgd
 created_at: '2026-09-06T20:44:32.622200+00:00'
-updated_at: '2026-09-06T21:47:15.159879+00:00'
+updated_at: '2026-09-06T22:02:49.984965+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,56 @@ BUG-57 is filled in with the diagnosis. One thing I flagged there but didn't act
 <!-- xgd-chat role="user" ts="2026-09-06T21:47:14.924867+00:00" -->
 #### You
 ok smoke passed - but why are 9 of 11 tests being skipped? Can we either update them or remove them?
+
+<!-- xgd-turn id="d2fa62f6-0500-4ce0-b1ec-3daa7f46d859-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:02:49.899898+00:00" -->
+#### Claude
+Let me check a few things before proposing.
+
+Here's what the 9 skips actually are — two very different problems:
+
+Now the smoke script itself.
+
+Now the option handling and the checks themselves.
+
+Now the `bin/smoke` launcher docs, which still advertise `--slug`/`--draft`.
+
+Now let me sanity-check the script runs and behaves.
+
+The derivation as written would guess wrong for a non-default `--origin` and produce a false failure. Tightening it:
+
+Now the two existing test files that assert the old behaviour.
+
+Now AC-1336 through AC-1340.
+
+That's the known worktree artifact — generated sources aren't checked in.
+
+Now the ticket language for what the implementation refined, before committing.
+
+Done. Merged to `xgd-working` as `7339263`, BUG-57 is `free_coded` at 0.2.121.
+
+**Why 9 skipped — two unrelated causes:**
+
+**Five were dead.** `draft_root_redirects`, `draft_index_serves_html`, `draft_cache_and_robots_policy`, `draft_miss_is_noindex_404`, `draft_assets_resolve` all addressed `/site/<slug>/draft/<sha>/…`. REQ-149 D7 deleted that channel with the `1c deploy` that was its only producer — `routes.ts` treats `draft` as an ordinary segment again. Without `--draft` they skipped forever; *with* it they'd have failed against a route the grammar no longer has.
+
+**Four were argument-gated**, two of those arguments stale or derivable.
+
+**What I did:**
+
+- **Removed** the five draft checks and `--draft` — not stubbed; `--draft` is now a rejected argument so the old invocation says so.
+- **Ported their value** onto the published channel, gated on the same site key the other checks needed: `published_index_serves_html`, `published_cache_policy` (pins `PUBLISHED_CACHE` against the Worker's own value — nothing asserted that before), `published_miss_is_404`, `published_assets_resolve` (the asset crawl incl. one level into CSS — the most valuable check in the file, and it could never run).
+- **Renamed** `--slug` → `--site-key`, `unknown_slug_not_found` → `unknown_site_not_found`, `unpublished_slug_indistinguishable` → `unpublished_site_indistinguishable`. The segment has been a 128-bit site key since REQ-190.
+- **Defaulted `--control-origin`** to `https://app.1stcontact.io` when `--origin` is the apex that names it, so the REQ-147 gate runs on a bare `bin/smoke`.
+
+One judgment call worth flagging: I did **not** generalise that default to `app.<host>` of any `--origin`, which was my first cut. Against an origin with no `app.` sibling the fetch throws and the check reports a *failing* control gate for a host that was never the control app — a false alarm on "the builder is not public" is worse than a skip. Any other origin must name `--control-origin`.
+
+`--workers-dev-origin` stays explicit and stays skipped by default: the hostname embeds the account subdomain, which is nowhere in the repo.
+
+**Result:** 11 checks → 9, none unreachable. A bare run goes 2 passed/9 skipped → **3 passed/6 skipped**; with `--site-key` against a published site, 8 run. UATs assert this as a property, not a count: supplying every input leaves nothing skipped, and every skip names the one argument that would run it.
+
+Tests: 70 passing across the new BUG-57 suite and the three existing suites I had to update (REQ-144, REQ-147, the story-d5167ced reconciliation suite all asserted the draft channel).
+
+One caveat on verification: `./bin/smoke` can't reach the network from my sandbox — Node's fetch ignores `HTTPS_PROXY` and this Node predates `--use-env-proxy`, so every check reports `threw: fetch failed`. I verified against production by driving `runSmoke` with a curl-backed fetch: 3 passed, 7 skipped, `control_app_challenges_unauthenticated` correctly seeing the 302 to `lagrangefoundry.cloudflareaccess.com`. Worth re-running `bin/smoke` yourself to confirm in a normal shell.
 
 <!-- xgd-chat-end -->
