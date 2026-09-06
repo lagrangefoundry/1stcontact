@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-06T01:17:38.343640+00:00'
+updated_at: '2026-09-06T17:23:37.475954+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -178,5 +178,15 @@ REQ-190 is free-coded and merged back. `xgd-working` is at `e862cec72c`, version
 3. **The remote D1 and both R2 buckets still need wiping** — the ticket calls for it and I did not do it; that's an outward-facing action. Local D1 I did wipe, and it needed it: `INSERT OR IGNORE` on a persisted dev database silently keeps a stale row keyed the old way, which shows up as a 403 that reads like an admission bug.
 
 Test suite: 16 failures across 5 files, all in the knowledge/KB index seam and all present on `xgd-working` before this branch. `req115-builder-shell` and `reconciliation-l1-navigation` fail only on the first run after a local-D1 wipe or under parallel load, and pass on a settled run and in isolation.
+
+<!-- xgd-turn id="45d2b045-0255-41ab-8003-350f6e12d033-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T17:23:36.904123+00:00" -->
+#### You
+I would like the start site to be called "Unnamed" to encorage the user to find a name for it.
+
+**Two things I decided rather than asked**, both recorded in the body as decisions: the opaque published address (the ACs left no consistent alternative — with `/site/<slug>/`, "two businesses can each publish `home`" is unsatisfiable), and the ordinal carve-out. If you'd rather have per-business hostnames instead, that reverses a fair amount of this. <-- I don't fully understand this, but I need to. We have not discussed hostnames. I fully expect all businesses to own their own eventually.
+
+Can you wipe my D1 and R2 buckets please? You should have an API key in the env
 
 <!-- xgd-chat-end -->
