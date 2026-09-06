@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-06T23:27:15.820249+00:00'
+updated_at: '2026-09-06T23:40:27.893871+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -47,5 +47,11 @@ I pushed all three from `storage/sites/`. `/api/sites` now returns `1stcontact`,
 My preferred fix is teaching `bin/access-sim` a service-token exchange, so `--client-id`/`--client-secret` work locally exactly as against Cloudflare — that leaves `push.ts`'s reasoning intact and keeps the local-only behaviour in the local-only tool. The ticket lists two alternatives. Say the word and I'll cut a branch.
 
 One cleanup: a throwaway proxy is still listening on `127.0.0.1:8790` — the sandbox refused to kill it. Run `kill 83847`.
+
+<!-- xgd-turn id="5959617b-90e1-4722-b91e-e47f46314026-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:40:27.832875+00:00" -->
+#### You
+please fix access-sim
 
 <!-- xgd-chat-end -->
