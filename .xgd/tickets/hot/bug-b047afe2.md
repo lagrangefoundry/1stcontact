@@ -13,6 +13,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-5d576c05
 ---
 
 **Found while walking the invite flow end to end ([[CHAT-39]]).** Two defects in one
