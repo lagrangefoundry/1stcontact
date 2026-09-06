@@ -16,7 +16,7 @@ import {
   recordEvent,
 } from '../apps/control-app/src/events'
 import { ensurePlatformOperator, type IdentityEnv } from '../apps/control-app/src/identity'
-import { invitePerson, personDetail } from '../apps/control-app/src/people'
+import { addContact, markInvited, personDetail } from '../apps/control-app/src/people'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import { seedContact } from './support/contact'
@@ -38,7 +38,7 @@ import { seedContact } from './support/contact'
  * append-only log maintained by discipline is a log that is eventually edited,
  * and the edit is silent: a rewritten event leaves a timeline that reads
  * perfectly and is untrue. The emission is driven through the shipped functions
- * (`invitePerson`, `acceptTerms`, `ensurePlatformOperator`), never through a
+ * (`addContact`, `acceptTerms`, `ensurePlatformOperator`), never through a
  * second copy of their SQL written here.
  *
  * WHAT IT SEEDS DIRECTLY, AND WHY THAT IS HONEST. `email.sent`, `email.bounced`,
@@ -262,21 +262,22 @@ describe('REQ-195 — provenance is the earliest event', () => {
 })
 
 describe('REQ-195 — the acts that exist today emit', () => {
-  it('test_UAT_FC_REQ-195_an_invite_records_both_the_contact_and_the_asking', async () => {
-    // TWO EVENTS BECAUSE TWO THINGS HAPPENED. `contact.created` is where this
-    // person came from — the provenance row — and `contact.invited` is the
-    // pipeline transition, which will happen again. Collapsed into one, a
-    // contact added by a surface that does NOT invite ([[REQ-199]]) would have
-    // no provenance at all.
-    const made = await invitePerson(identityEnv(), scope(), { email: anEmail() })
+  it('test_UAT_FC_REQ-195_adding_a_contact_records_where_they_came_from', async () => {
+    // ONE EVENT, AND IT IS THE PROVENANCE ROW. Adding and inviting came apart in
+    // [[REQ-199]]: `contact.created` is where this person came from — a question
+    // no column on `users` answers — and `contact.invited` is the pipeline
+    // transition, written by the other act and written again every press.
+    // Collapsed into one, a contact added by the surface that does NOT invite
+    // would have no provenance at all.
+    const made = await addContact(identityEnv(), scope(), { email: anEmail() })
     expect(made.created).toBe(true)
 
     const history = await eventsOf(identityEnv(), scope(), made.person.id)
-    expect(kinds(history)).toEqual([CONTACT_INVITED, CONTACT_CREATED])
+    expect(kinds(history)).toEqual([CONTACT_CREATED])
 
     const origin = await provenanceOf(identityEnv(), scope(), made.person.id)
     expect(origin?.kind).toBe(CONTACT_CREATED)
-    expect(origin?.detail).toEqual({ via: 'invite' })
+    expect(origin?.detail).toEqual({ via: 'add' })
   })
 
   it('test_UAT_FC_REQ-195_a_second_invite_is_a_second_event_even_when_no_column_moves', async () => {
@@ -286,13 +287,13 @@ describe('REQ-195 — the acts that exist today emit', () => {
     // invisible. The stamp and the log answer two different questions and only
     // one of them had an answer before.
     const email = anEmail()
-    const first = await invitePerson(identityEnv(), scope(), { email })
-    const again = await invitePerson(identityEnv(), scope(), { email })
-    expect(again.created).toBe(false)
-    expect(again.person.id).toBe(first.person.id)
-    expect(again.person.invitedAt).toBe(first.person.invitedAt)
+    const made = await addContact(identityEnv(), scope(), { email })
+    const first = await markInvited(identityEnv(), scope(), made.person.id)
+    const again = await markInvited(identityEnv(), scope(), made.person.id)
+    expect(again.id).toBe(first.id)
+    expect(again.invitedAt).toBe(first.invitedAt)
 
-    const history = await eventsOf(identityEnv(), scope(), first.person.id)
+    const history = await eventsOf(identityEnv(), scope(), made.person.id)
     expect(kinds(history)).toEqual([CONTACT_INVITED, CONTACT_INVITED, CONTACT_CREATED])
   })
 
@@ -301,7 +302,7 @@ describe('REQ-195 — the acts that exist today emit', () => {
     // event here is something the business did; this is the one the contact did,
     // and a history of what we did with the most important thing they did
     // missing is a history that reads as one-sided because it is.
-    const made = await invitePerson(identityEnv(), scope(), { email: anEmail() })
+    const made = await addContact(identityEnv(), scope(), { email: anEmail() })
     await acceptTerms(identityEnv(), made.person.id, '2026-09-01')
 
     const history = await eventsOf(identityEnv(), scope(), made.person.id)
@@ -384,7 +385,7 @@ describe('REQ-195 — the detail the Contacts tab reads', () => {
     // and travels with the detail the pane draws from. What writes the ticket is
     // that ticket's business; that the record reaches the person it was sent to
     // is this one's.
-    const made = await invitePerson(identityEnv(), scope(), { email: anEmail() })
+    const made = await addContact(identityEnv(), scope(), { email: anEmail() })
     await recordEvent(identityEnv(), scope(), {
       contactId: made.person.id,
       kind: EMAIL_SENT,
@@ -393,7 +394,7 @@ describe('REQ-195 — the detail the Contacts tab reads', () => {
     })
 
     const detail = await personDetail(identityEnv(), scope(), made.person.id)
-    expect(kinds(detail!.events)).toEqual([EMAIL_SENT, CONTACT_INVITED, CONTACT_CREATED])
+    expect(kinds(detail!.events)).toEqual([EMAIL_SENT, CONTACT_CREATED])
     expect(detail!.events[0].ref).toBe('email-9f2c')
     expect(detail!.provenance?.kind).toBe(CONTACT_CREATED)
   })

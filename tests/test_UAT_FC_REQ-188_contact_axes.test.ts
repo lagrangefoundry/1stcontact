@@ -169,27 +169,29 @@ function transportOver(people: Person[]) {
     theyAcceptTheTerms: (email: string) => {
       rows.find((p) => p.email === email)!.termsAcceptedAt = '2026-09-03T12:00:00.000Z'
     },
-    invite: async (email: string, displayName: string | null) => {
-      const normalised = String(email ?? '').trim().toLowerCase()
-      if (normalised === '') throw new Error('An invite needs an email address.')
-      const existing = rows.find((p) => p.email === normalised)
-      if (existing) {
-        // THE STAMP IS KEPT AND THE STAGE IS ASSIGNED, which is what the origin
-        // does ([[REQ-188]]): `invited_at` records when, the stage records where.
-        existing.invitedAt ??= '2026-09-02T10:00:00.000Z'
-        existing.pipelineStage = 'invited'
-        return { created: false, person: { ...existing } }
-      }
-      const made = person({
-        id: `usr_${rows.length + 1}`,
-        email: normalised,
-        name: displayName ? named(displayName) : null,
-        invitedAt: '2026-09-02T10:00:00.000Z',
-        pipelineStage: 'invited',
-      })
-      rows.push(made)
-      return { created: true, person: { ...made } }
-    },
+    inviteDraft: async () => ({
+      from: 'no-reply@example.test',
+      subject: 'Your invitation',
+      body: '<p><a href="{{cta_url}}">Accept</a></p>',
+      declared: ['cta_url'],
+      templateKey: 'invite',
+      templateUid: 'tkt_invite',
+    }),
+    /**
+     * The invite as a SELECTION since [[REQ-199]] — ids, not an address.
+     *
+     * IT MOVES ONE AXIS AND TOUCHES THE OTHER NOT AT ALL, which is what the
+     * origin does ([[REQ-188]]): `invited_at` records when, the stage records
+     * where, and `tos_accepted_at` is nobody's business but the person's.
+     */
+    invite: async (ids: string[]) => ({
+      results: (ids ?? []).map((id) => {
+        const row = rows.find((p) => p.id === id)!
+        row.invitedAt ??= '2026-09-02T10:00:00.000Z'
+        row.pipelineStage = 'invited'
+        return { contactId: id, who: row.email, to: row.email, status: 'sent', reason: null }
+      }),
+    }),
   }
 }
 
@@ -289,19 +291,28 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-188 — the tab draws two axes', () => {
   })
 
   it('test_UAT_FC_REQ-188_inviting_moves_the_stage_and_confers_no_membership', async () => {
-    // THE OPERATOR'S TRANSITION, AND ITS CEILING. The row moves along one axis,
-    // the other is untouched, and the sentence they are shown says so — an invite
-    // that reported a membership would be the old model surviving in the place
-    // they actually read.
+    // THE OPERATOR'S TRANSITION, AND ITS CEILING. The row moves along one axis
+    // and the other is untouched — an invite that conferred a membership would
+    // be the old model surviving in the place an operator actually looks.
+    //
+    // TICKED AND SENT, since [[REQ-199]]: the gesture is a selection over rows
+    // that already exist, not an address typed into a form.
     await panelOver()
 
-    const invite = root.querySelector('.builder-people__invite') as HTMLButtonElement
-    invite.click()
-    ;(root.querySelector('.builder-people__invite-email') as HTMLInputElement).value =
-      'lead@example.test'
+    const box = ([...root.querySelectorAll('.builder-people__check')] as HTMLInputElement[]).find(
+      // BY THE NAME THE ROW SHOWS, which is the checkbox's accessible name and
+      // is how an operator finds the row too.
+      (node) => (node.getAttribute('aria-label') ?? '').includes('Cara'),
+    )!
+    box.checked = true
+    box.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    ;(root.querySelector('.builder-people__invite') as HTMLButtonElement).click()
+    await settle()
+    await settle()
     const dialog = [...root.querySelectorAll('.builder-modal')].at(-1) as HTMLElement
     ;([...dialog.querySelectorAll('button')] as HTMLButtonElement[])
-      .find((b) => b.textContent === 'Invite')!
+      .find((b) => (b.textContent ?? '').startsWith('Send'))!
       .click()
     await settle()
     await settle()
@@ -309,8 +320,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-188 — the tab draws two axes', () => {
     expect(stages()).toEqual(['Invited', 'Invited', 'Invited', 'Lead'])
     // Cara moved stage and gained nothing else: still the same two members.
     expect(members()).toEqual(['Member', 'Member'])
-    expect(said().textContent).toMatch(/invited/i)
-    expect(said().textContent, 'the invite claimed to make a member').not.toMatch(/member/i)
+    // AND THE REPORT SAYS WHAT HAPPENED WITHOUT CLAIMING A MEMBERSHIP. The
+    // button cannot make a member — only the person can, by signing up — so a
+    // sentence claiming one would be the old two-state model surviving in the
+    // one place the operator actually reads.
+    const report = [...root.querySelectorAll('.builder-people__outcome')]
+      .map((n) => n.textContent ?? '')
+      .join(' ')
+    expect(report).toContain('lead@example.test')
+    expect(report, 'the invite claimed to make a member').not.toMatch(/member/i)
   })
 
   it('test_UAT_FC_REQ-188_signing_up_adds_a_member_badge_with_no_operator_action', async () => {
@@ -334,19 +352,23 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-188 — the tab draws two axes', () => {
     ])
   })
 
-  it('test_UAT_FC_REQ-188_the_dialog_does_not_promise_a_membership_the_button_cannot_confer', async () => {
-    // PART OF THE FEATURE, in the same way "no message is sent" is. The operator
-    // is told what the button actually does — marks them invited — and what has
-    // to happen next, by whom, for that to become a membership.
+  it('test_UAT_FC_REQ-188_no_control_on_this_tab_promises_a_membership_it_cannot_confer', async () => {
+    // THE CEILING, STATED WHERE THE OPERATOR READS IT. Only the person makes
+    // themselves a member, by signing up; nothing on this tab can, so nothing on
+    // it may say otherwise.
+    //
+    // IT USED TO BE THE INVITE DIALOG'S HINT and [[REQ-199]] replaced that
+    // dialog with a message composer, which carries no such sentence. The claim
+    // moved to the control that DOES make a person: the add dialog says they are
+    // recorded as a lead and that inviting is a separate press.
     await panelOver()
-    ;(root.querySelector('.builder-people__invite') as HTMLButtonElement).click()
+    ;(root.querySelector('.builder-people__add') as HTMLButtonElement).click()
+    await settle()
 
-    const hint = root.querySelector('.builder-people__invite-hint')?.textContent ?? ''
-    expect(hint).toMatch(/invited/i)
-    expect(hint).toMatch(/accept the terms/i)
-    expect(hint, 'the hint still says the invite makes a member').not.toMatch(
-      /become a member here/i,
-    )
+    const hint = root.querySelector('.builder-people__add-hint')?.textContent ?? ''
+    expect(hint).toMatch(/lead/i)
+    expect(hint).toMatch(/invite/i)
+    expect(hint, 'a control on this tab claimed to make a member').not.toMatch(/member/i)
   })
 
   it('test_UAT_FC_REQ-188_each_axis_has_one_definition', async () => {

@@ -76,6 +76,9 @@ function workerEnv(): Env {
     ACCESS_DEV_OPEN: '',
     ACCESS_TEAM_DOMAIN: TEAM,
     ACCESS_AUD: AUD,
+    // THE SENDING ADDRESS, because the invite really sends since [[REQ-199]].
+    // No `RESEND_API_KEY`, so `mailerFor` returns the adapter that cannot send.
+    MAIL_FROM: 'no-reply@example.test',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   } as Env
 }
@@ -214,13 +217,15 @@ describe('REQ-188 — two axes, moved by two parties', () => {
     const operator = anEmail()
     await anOperator(operator)
     const invitee = anEmail()
-    await addContact(PLATFORM, invitee)
+    const inviteeId = await addContact(PLATFORM, invitee)
     expect(await axesFor(invitee), 'not a lead before the invite').toEqual({
       stage: 'lead',
       access: 'not_member',
     })
 
-    const response = await postInvite(await mint(operator), { email: invitee })
+    // A SELECTION SINCE [[REQ-199]] — the rows an operator ticked, not an
+    // address typed into a form.
+    const response = await postInvite(await mint(operator), { ids: [inviteeId] })
     expect(response.status).toBe(200)
 
     expect(await axesFor(invitee)).toEqual({ stage: 'invited', access: 'not_member' })
@@ -242,15 +247,22 @@ describe('REQ-188 — two axes, moved by two parties', () => {
     // Entitled, because `admit` refuses an unentitled account at the door today
     // ([[DOC-42]] §10.1) and this ticket does not change who may sign in.
     await inviteAccount(identityEnv(), { email, accountName: 'Theirs', endsAt: null })
-    expect(await axesFor(email), 'invited is not yet signed up').toEqual({
-      stage: 'invited',
+    // A LEAD AND NOT YET SIGNED UP. The fixture ADDS rather than invites since
+    // [[REQ-199]] — an account is a person, an account row and an address, and
+    // `invited_at` is no longer part of that shape — so this row sits at the
+    // first stage on one axis and at nothing on the other, which is exactly the
+    // combination the assertion below is about.
+    expect(await axesFor(email), 'a fresh account is not yet signed up').toEqual({
+      stage: 'lead',
       access: 'not_member',
     })
 
     const response = await postAccept(await mint(email))
     expect(response.ok, await response.text()).toBe(true)
 
-    expect(await axesFor(email)).toEqual({ stage: 'invited', access: 'member' })
+    // SIGNING UP MOVED THE ACCESS AXIS AND NOT THE PIPELINE, which is the
+    // independence claim in one line: the stage is exactly where it was.
+    expect(await axesFor(email)).toEqual({ stage: 'lead', access: 'member' })
   })
 
   it('test_UAT_FC_REQ-188_a_member_this_business_never_invited_is_still_a_lead', async () => {

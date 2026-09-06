@@ -5,9 +5,16 @@
  * WHAT THIS FILE PROVES, next to its origin sibling. That one proves the row and
  * the gate; this one proves the operator can reach them: that the control is on
  * the uniform tab rather than in a platform console, that it appears on *you own
- * this business* and not on *you are 1st Contact*, that it says out loud that no
- * message is sent, and that a contact promoted is reported as a promotion rather
- * than as a new person.
+ * this business* and not on *you are 1st Contact*, that a refusal is put in
+ * front of the operator rather than swallowed, and that invite-then-provision
+ * composes into a level-one customer.
+ *
+ * TWO OF ITS CASES WERE SUPERSEDED BY [[REQ-199]] AND ARE GONE. The dialog used
+ * to promise that *no message is sent* and the invite used to CREATE a contact
+ * from an address typed into it; both were true and neither is now. Inviting
+ * sends real mail, and adding is the `+` control's own act — so the two cases
+ * that pinned the old behaviour were removed rather than adjusted, and
+ * `test_UAT_FC_REQ-199_contacts_tab` carries what replaced them.
  *
  * MOUNTED AGAINST THE ACTUALLY-INSTALLED COMPONENTS, on the pattern the REQ-161
  * suite established: the only double is the HTTP call, because that is the
@@ -108,7 +115,7 @@ const person = (over: Partial<Person> & { id: string; email: string }): Person =
  */
 function transportOver(people: Person[], canInvite = true, canFulfil = false) {
   const rows = people.map((p) => ({ ...p }))
-  const invited: Array<{ email: string; displayName: string | null }> = []
+  const invited: Array<{ ids: string[]; subject: string; body: string }> = []
   const provisioned: Array<{ accountEmail: string; name: string }> = []
   return {
     invited,
@@ -131,26 +138,49 @@ function transportOver(people: Person[], canInvite = true, canFulfil = false) {
       provisioned.push({ accountEmail, name })
       return { businessId: 'acct_1', name, siteSlug: 'acct_1' }
     },
-    invite: async (email: string, displayName: string | null) => {
+    // ADD IS ITS OWN CALL SINCE [[REQ-199]], and it leaves the pipeline at Lead.
+    add: async (email: string, displayName: string | null) => {
       const normalised = String(email ?? '').trim().toLowerCase()
-      if (normalised === '') throw new Error('An invite needs an email address.')
-      invited.push({ email: normalised, displayName })
+      if (normalised === '') throw new Error('A contact needs an email address.')
       const existing = rows.find((p) => p.email === normalised)
-      if (existing) {
-        // Both, as the origin writes them ([[REQ-188]]): the stamp is kept and
-        // the stage is assigned.
-        existing.invitedAt ??= '2026-09-02T10:00:00.000Z'
-        existing.pipelineStage = 'invited'
-        return { created: false, person: { ...existing } }
-      }
+      if (existing) return { created: false, person: { ...existing } }
       const made = person({
         id: `usr_${rows.length + 1}`,
         email: normalised,
         name: displayName ? named(displayName) : null,
-        pipelineStage: 'invited',
+        pipelineStage: 'lead',
+        invitedAt: null,
       })
       rows.push(made)
       return { created: true, person: { ...made } }
+    },
+    inviteDraft: async () => ({
+      from: 'no-reply@example.test',
+      subject: 'Your invitation',
+      body: '<p><a href="{{cta_url}}">Accept</a></p>',
+      declared: ['cta_url'],
+      templateKey: 'invite',
+      templateUid: 'tkt_invite',
+    }),
+    // IT MOVES ROWS THAT EXIST rather than appending, because that is the
+    // behaviour the control has to REPORT — and a double that created would let
+    // a panel that still took an address pass.
+    invite: async (ids: string[], subject: string, body: string) => {
+      if (!Array.isArray(ids) || ids.length === 0) {
+        throw new Error('Nobody was selected, so there is nobody to invite.')
+      }
+      invited.push({ ids: [...ids], subject, body })
+      return {
+        results: ids.map((id) => {
+          const row = rows.find((p) => p.id === id)
+          if (!row) return { contactId: id, who: id, to: null, status: 'refused', reason: 'gone' }
+          // Both, as the origin writes them ([[REQ-188]]): the stamp is kept and
+          // the stage is assigned.
+          row.invitedAt ??= '2026-09-02T10:00:00.000Z'
+          row.pipelineStage = 'invited'
+          return { contactId: id, who: row.email, to: row.email, status: 'sent', reason: null }
+        }),
+      }
     },
   }
 }
@@ -201,13 +231,45 @@ const dialog = () =>
   ([...root.querySelectorAll('.builder-modal')].at(-1) ?? null) as HTMLElement | null
 const field = (cls: string) => root.querySelector(`.${cls}`) as HTMLInputElement
 const said = () => root.querySelector('.builder-people__invite-said') as HTMLElement
-
-async function invite(email: string, name = '') {
-  inviteButton()!.click()
-  field('builder-people__invite-email').value = email
-  field('builder-people__invite-name').value = name
+/** Add a contact through the `+` control ([[REQ-199]]). */
+async function add(email: string, name = '') {
+  ;(root.querySelector('.builder-people__add') as HTMLButtonElement).click()
+  await settle()
+  field('builder-people__add-email').value = email
+  field('builder-people__add-name').value = name
   const buttons = [...dialog()!.querySelectorAll('button')] as HTMLButtonElement[]
-  buttons.find((b) => b.textContent === 'Invite')!.click()
+  buttons.find((b) => b.textContent === 'Add')!.click()
+  await settle()
+  await settle()
+  buttons.find((b) => b.textContent === 'Close')!.click()
+  await settle()
+}
+
+/**
+ * Tick the rows and press Invite — the gesture the tab performs since
+ * [[REQ-199]].
+ *
+ * IT IS A SELECTION AND NOT A FORM. The dialog composes a message over whoever
+ * is checked; there is no address to type into it, because creating a contact is
+ * the `+` control's own act on its own path.
+ */
+async function invite(...labels: string[]) {
+  // ROWS ARE FOUND BY THEIR CHECKBOX'S ACCESSIBLE NAME, which is how an operator
+  // finds them too: the person's name if they have one, else their address.
+  for (const label of labels) {
+    const target = ([...root.querySelectorAll('.builder-people__check')] as HTMLInputElement[]).find(
+      (node) => (node.getAttribute('aria-label') ?? '').includes(label),
+    )
+    if (!target) throw new Error(`no row is checkable for ${label}`)
+    target.checked = true
+    target.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+  await settle()
+  inviteButton()!.click()
+  await settle()
+  await settle()
+  const buttons = [...dialog()!.querySelectorAll('button')] as HTMLButtonElement[]
+  buttons.find((b) => (b.textContent ?? '').startsWith('Send'))!.click()
   await settle()
   await settle()
 }
@@ -248,46 +310,29 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — the invite is a control on the un
     expect(detail.querySelector('.builder-people__fulfil')).toBeNull()
   })
 
-  it('test_UAT_FC_REQ-186_the_dialog_says_no_message_is_sent', async () => {
-    // PART OF THE FEATURE, not decoration. There is no sender in this system, so
-    // an operator who reads "Invite" and is told nothing will assume a message
-    // went out and will not check.
-    await panelOver()
-    inviteButton()!.click()
-    const hint = root.querySelector('.builder-people__invite-hint')
-    expect(hint?.textContent ?? '').toMatch(/no message is sent/i)
-  })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — what the operator is told', () => {
-  it('test_UAT_FC_REQ-186_inviting_a_new_address_adds_them_to_the_list', async () => {
-    const { transport } = await panelOver()
-
-    await invite('bob@example.test', 'Bob')
-
-    expect(transport.invited).toEqual([{ email: 'bob@example.test', displayName: 'Bob' }])
-    expect(said().hidden).toBe(false)
-    expect(said().textContent).toContain('bob@example.test')
-    // The list is RE-READ rather than patched locally: the row that matters is the
-    // one the business actually holds, and a list mutated client-side would
-    // diverge from it the first time the origin decided something different.
-    const listed = [...root.querySelectorAll('.builder-people__who')].map((n) => n.textContent)
-    expect(listed).toContain('Bob')
-  })
-
-  it('test_UAT_FC_REQ-186_promoting_a_contact_is_reported_as_a_promotion', async () => {
+  it('test_UAT_FC_REQ-186_inviting_a_contact_is_reported_and_moves_them_along_the_pipeline', async () => {
     // The transition made visible ([[DOC-42]] §9). It is the same row moving
-    // between two states, and saying so at the moment it happens is the only
-    // place that movement is legible anywhere in the product.
-    await panelOver()
+    // along one axis, and saying so at the moment it happens is the only place
+    // that movement is legible anywhere in the product.
+    //
+    // SINCE [[REQ-199]] THE GESTURE IS A SELECTION: the operator ticks the rows
+    // and presses Invite, and what goes up is a list of ids rather than an
+    // address typed into a form.
+    const { transport } = await panelOver()
 
     await invite('contact@example.test')
 
-    expect(said().textContent).toMatch(/already known/i)
-    // And the row now reads as INVITED on the pipeline axis ([[REQ-188]],
-    // [[DOC-44]] §3). The invite moves that axis one step and touches access not
-    // at all; neither of these two contacts has signed up, so neither carries a
-    // member badge — which is the assertion that would have caught the old model.
+    expect(transport.invited).toHaveLength(1)
+    expect(transport.invited[0].ids).toEqual(['usr_2'])
+    // The list is RE-READ rather than patched locally: the row that matters is
+    // the one the business actually holds, and a list mutated client-side would
+    // diverge from it the first time the origin decided something different.
+    // Both rows read as INVITED on the pipeline axis ([[REQ-188]], [[DOC-44]]
+    // §3) — `usr_1` was already, `usr_2` has just moved — and the invite touches
+    // access not at all, so neither carries a member badge.
     const stages = [...root.querySelectorAll('.builder-people__stage')].map((n) => n.textContent)
     expect(stages).toEqual(['Invited', 'Invited'])
     expect(root.querySelectorAll('.builder-people__access')).toHaveLength(0)
@@ -297,12 +342,28 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — what the operator is told', () =>
     // A failed invite must not close the dialog silently and leave the operator
     // believing it worked. The sentence the origin sent is what is shown, because
     // 403 and 400 mean different things and a number does not say which.
-    await panelOver()
+    const { panel } = await panelOver()
+    void panel
 
-    await invite('   ')
+    // Ticked, then the row disappears from under the selection — which is what a
+    // stale client looks like from the server's side, and the refusal it earns.
+    const box = root.querySelector('.builder-people__check') as HTMLInputElement
+    box.checked = true
+    box.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    inviteButton()!.click()
+    await settle()
+    await settle()
+    const buttons = [...dialog()!.querySelectorAll('button')] as HTMLButtonElement[]
+    const send = buttons.find((b) => (b.textContent ?? '').startsWith('Send'))!
+    // The list changes underneath: the selection now names nobody the server
+    // will accept, which is the shape of every refusal this dialog can meet.
+    ;(root.querySelector('.builder-people__check') as HTMLInputElement).checked = false
+    send.click()
+    await settle()
+    await settle()
 
     expect(said().hidden).toBe(false)
-    expect(said().textContent).toContain('needs an email address')
     expect(dialog(), 'the dialog closed over a refusal').not.toBeNull()
   })
 })
@@ -316,12 +377,17 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-186 — the two controls compose', () => 
     // decomposition is only real if BOTH controls are reachable.
     const { panel, transport } = await panelOver(true, true)
 
-    await invite('alice@plumbing.test', 'Alice')
-    expect(transport.invited).toEqual([{ email: 'alice@plumbing.test', displayName: 'Alice' }])
+    // THREE STEPS SINCE [[REQ-199]], not two, and the first one is the point:
+    // adding is what makes a person, and inviting is what asks them in.
+    await add('alice@plumbing.test')
+    const added = transport.rows.find((p) => p.email === 'alice@plumbing.test')!
+    await invite('alice@plumbing.test')
+    expect(transport.invited.at(-1)?.ids).toEqual([added.id])
     // Done with the invite; the operator closes it and goes to the person.
     ;([...dialog()!.querySelectorAll('button')] as HTMLButtonElement[])
       .find((b) => b.textContent === 'Close')!
       .click()
+    await settle()
 
     const invitee = transport.rows.find((p) => p.email === 'alice@plumbing.test')!
     panel.listDetail.select(invitee.id)

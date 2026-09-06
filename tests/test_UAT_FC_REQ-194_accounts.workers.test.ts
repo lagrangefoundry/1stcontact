@@ -11,7 +11,7 @@ import {
   provisionBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import { invitePerson, openGrant, personDetail } from '../apps/control-app/src/people'
+import { addContact, openGrant, personDetail } from '../apps/control-app/src/people'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
 import { seedContact } from './support/contact'
@@ -31,7 +31,7 @@ import { seedContact } from './support/contact'
  * WHAT MAKES IT EVIDENCE. Every assertion runs inside workerd against a real D1
  * with the deployed baseline applied by the same helper the store suites use, so
  * what is proved is the schema that will ship. The behaviour is driven through
- * the shipped functions (`invitePerson`, `provisionBusiness`, `admit`,
+ * the shipped functions (`addContact`, `provisionBusiness`, `admit`,
  * `personDetail`, `openGrant`), never through a second copy of their SQL written
  * here — the two places a fixture writes rows directly are `seedContact`, which
  * is how a suite builds the shape v1 does not produce, and the schema refusals,
@@ -70,7 +70,7 @@ describe('REQ-194 — the account is a table', () => {
     // the account. There is no state where a person names none: the column is
     // NOT NULL, which is the difference between this and the empty chair
     // `entitlements.account_id` was.
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, {
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, {
       email: anEmail(),
       displayName: 'Alice Waters',
     })
@@ -167,7 +167,7 @@ describe('REQ-194 — the account is a table', () => {
     // second person to an existing account — and the point of the table is that
     // doing so is a ROW rather than a migration, which can only be shown by
     // writing the row. `seedContact` takes an existing account for exactly this.
-    const first = await invitePerson(identityEnv(), { businessId: PLATFORM }, {
+    const first = await addContact(identityEnv(), { businessId: PLATFORM }, {
       email: anEmail(),
       displayName: 'Alice',
     })

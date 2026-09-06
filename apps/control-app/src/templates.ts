@@ -79,6 +79,35 @@ export interface RenderedMessage {
 }
 
 /**
+ * Copy to render, WHEREVER IT CAME FROM ([[REQ-199]]).
+ *
+ * THE TEMPLATE IS ONE SOURCE OF THIS AND NO LONGER THE ONLY ONE. The invite
+ * modal prefills its Subject and Body from the `invite` template and lets the
+ * operator change them *for this send* — so what is rendered is not always what
+ * a ticket says, and {@link renderCopy} has to be able to take the edited text.
+ *
+ * `declared` STILL COMES FROM THE TEMPLATE, AND THAT IS THE POINT. An operator
+ * who deletes `{{cta_url}}` out of the body has deleted the only route in, and
+ * the message would go out looking perfectly ordinary with a dead button. The
+ * declaration is the template's promise about what its copy must carry, so it
+ * travels with the edited text and refuses it — which is [[REQ-197]]'s first
+ * refusal doing exactly the job it was written for, one surface further along.
+ *
+ * THE TEMPLATE'S IDENTITY TRAVELS WITH IT TOO, both halves. [[REQ-198]]'s record
+ * names which template a message came from even when the operator changed the
+ * words, because *which template was this* and *what did this person receive*
+ * are two different questions and the record answers both.
+ */
+export interface MessageCopy {
+  subject: string
+  body: string
+  /** The tokens the template promises its body carries. Absent reads as none. */
+  declared?: readonly string[]
+  templateKey: string
+  templateUid: string
+}
+
+/**
  * The render refused — [[REQ-197]]'s central promise.
  *
  * IT NAMES THE TEMPLATE AND THE TOKEN, both, because neither alone is
@@ -179,15 +208,50 @@ export function renderTemplate(
   template: Ticket,
   values: Record<string, string | null | undefined> = {},
 ): RenderedMessage {
-  const key = String(template.fields.template_key ?? template.type)
-  const subject = String(template.fields.subject ?? '')
-  const body = template.body ?? ''
+  return renderCopy(copyOf(template), values)
+}
+
+/**
+ * The copy a template holds, as the thing that renders it takes.
+ *
+ * ONE PLACE THAT READS A TEMPLATE TICKET'S FIELDS. The invite modal has to
+ * prefill from a template and then render something else ([[REQ-199]]), so
+ * "where the subject lives on a template ticket" is asked in two moments and
+ * must have one answer.
+ */
+export function copyOf(template: Ticket): MessageCopy {
+  return {
+    subject: String(template.fields.subject ?? ''),
+    body: template.body ?? '',
+    declared: declaredTokens(template),
+    templateKey: String(template.fields.template_key ?? template.type),
+    templateUid: template.uid,
+  }
+}
+
+/**
+ * The same three refusals, over copy that may have been edited ([[REQ-199]]).
+ *
+ * THE REFUSALS DO NOT WEAKEN BECAUSE A HUMAN TYPED THE WORDS. If anything the
+ * edited case is the one they exist for: a template is written once and read by
+ * whoever wrote it, and a subject-and-body edited in a modal at the moment
+ * somebody is about to press send is where a `{{cta_url}}` gets deleted by
+ * accident. The refusal names the template it came from, which is still the
+ * right thing to name — it is the copy's origin and the place to go and look.
+ */
+export function renderCopy(
+  copy: MessageCopy,
+  values: Record<string, string | null | undefined> = {},
+): RenderedMessage {
+  const key = copy.templateKey
+  const subject = copy.subject ?? ''
+  const body = copy.body ?? ''
   const refuse = (token: string, reason: string): never => {
-    throw new TemplateRefusedError(key, template.uid, token, reason)
+    throw new TemplateRefusedError(key, copy.templateUid, token, reason)
   }
 
   const inBody = tokensIn(body)
-  for (const token of declaredTokens(template)) {
+  for (const token of copy.declared ?? []) {
     if (!inBody.includes(token)) {
       refuse(token, 'is declared by this template and does not appear in its body')
     }
@@ -209,7 +273,7 @@ export function renderTemplate(
     refuse(leftover[0], 'was left unsubstituted, so the message would have gone out with a hole in it')
   }
 
-  return { ...rendered, templateKey: key, templateUid: template.uid }
+  return { ...rendered, templateKey: key, templateUid: copy.templateUid }
 }
 
 /**

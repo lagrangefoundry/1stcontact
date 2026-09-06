@@ -488,7 +488,7 @@ export async function emailsOf(env: IdentityEnv, userId: string): Promise<UserEm
  *
  * A BUILDER SO IT CAN GO IN A BATCH. A person and their first address are one
  * fact arriving in two rows, and the two writers of it ({@link
- * ensurePlatformOperator} and `invitePerson`) both send them as a batch — a
+ * ensurePlatformOperator} and `addContact`) both send them as a batch — a
  * person written without an address is a person nothing can find, which is a
  * worse state than the write having failed.
  *

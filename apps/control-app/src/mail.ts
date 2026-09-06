@@ -2,7 +2,7 @@
  * The sender ([[REQ-196]]) — the one way anything in this repository puts a
  * message in front of a person who is not already looking at the builder.
  *
- * THERE WAS NO SENDER, and `invitePerson` said so in its own docstring for
+ * THERE WAS NO SENDER, and the invite said so in its own docstring for
  * exactly as long as that was true: *"an 'invite' that silently sends nothing is
  * a feature an operator will assume exists and will not check."* This file is
  * what makes it exist. It does not make the invite send anything — the message
@@ -49,12 +49,21 @@ export interface Message {
   from: string
   subject: string
   /**
-   * HTML, IN ONE PART. The port shape [[REQ-196]] specifies is `body`, singular,
-   * and this is it — the Resend adapter sends it as `html`.
+   * THE MESSAGE, AND IT IS HTML — one body, still singular ([[REQ-196]] shape,
+   * [[REQ-197]]'s decision, [[REQ-199]]'s first actual send).
    *
-   * [[REQ-197]] decided the body is HTML because its templates carry their call to
-   * action as a button, and a button does not exist in plain text. There is no
-   * derived plain-text alternative: multipart is a later intent's concern.
+   * THIS SAID "PLAIN TEXT" AND THE ADAPTER SENT IT AS `text`, which was right
+   * while nothing sent anything. [[REQ-197]] then wrote the copy, and required
+   * the invite to carry its call to action AS A BUTTON — which does not exist in
+   * plain text. Delivered as `text`, that template arrives as a screenful of
+   * visible `<p>` and `<a href=…>` markup: a message that looks broken to the
+   * one stranger it was written for, and looks fine everywhere on our side.
+   *
+   * STILL ONE FIELD AND NOT TWO. A second `text` alternative is a second thing
+   * every template must decide about and a second body that can disagree with
+   * the first; the template's own pasteable-URL paragraph is what carries the
+   * recipients whose client mangles the button, which is the job a text
+   * alternative would otherwise have been carrying.
    */
   body: string
 }
@@ -196,6 +205,9 @@ export function resendMailer(apiKey: string, fetchImpl: typeof fetch = fetch): S
           // An array because the API takes one, even for a single recipient.
           to: [message.to],
           subject: message.subject,
+          // `html` AND NOT `text` — see {@link Message.body}. The one template
+          // this repository ships puts its call to action in an anchor, and
+          // `text` would deliver the markup for somebody to read.
           html: message.body,
         }),
       })

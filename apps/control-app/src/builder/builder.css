@@ -1329,8 +1329,51 @@ body {
   border-radius: var(--shell-radius);
 }
 
+/*
+ * ADD IS THE SAME CONTROL WEARING ONE CHARACTER (REQ-199). It shares the invite's
+ * rule rather than getting its own, because they are the same kind of thing in
+ * the same row of chrome; what differs is that a `+` needs a square rather than a
+ * word's worth of padding.
+ */
+.builder-people__add {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  cursor: pointer;
+  padding: var(--builder-control-padding);
+  min-width: 2.2em;
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+.builder-people__add[hidden],
 .builder-people__invite[hidden] {
   display: none;
+}
+
+/*
+ * DISABLED RATHER THAN ABSENT (REQ-199). With nothing ticked the invite cannot
+ * act, and a control that vanished would teach nothing — an operator who has
+ * never used the tab would have no way to discover that ticking rows is what
+ * makes inviting possible. So it stays visible, reads as unavailable, and its
+ * tooltip says what it needs.
+ */
+.builder-people__invite:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/*
+ * THE ROW'S TICK (REQ-199). `flex: none` for the reason the pills have it — a
+ * half-drawn checkbox reads as a rendering fault — and the margin buys the
+ * separation the row's baseline alignment does not.
+ */
+.builder-people__check {
+  flex: none;
+  margin: 0 2px 0 0;
+  align-self: center;
+  cursor: pointer;
 }
 
 /*
@@ -1801,6 +1844,8 @@ body {
 
 .builder-people__invite-email,
 .builder-people__invite-name,
+.builder-people__add-email,
+.builder-people__add-name,
 .builder-people__fulfil-name {
   display: block;
   width: 100%;
@@ -1815,6 +1860,7 @@ body {
 }
 
 .builder-people__invite-hint,
+.builder-people__add-hint,
 .builder-people__fulfil-who {
   margin: 0 0 10px;
   font-size: 13px;
@@ -1824,6 +1870,7 @@ body {
 /* One place for both the refusal and the outcome, so it may not be quiet enough
    to miss — it is the only thing that says whether the invite happened. */
 .builder-people__invite-said,
+.builder-people__add-said,
 .builder-people__fulfil-said {
   margin: 4px 0 0;
   padding: 6px 8px;
@@ -1833,8 +1880,110 @@ body {
 }
 
 .builder-people__invite-said[hidden],
+.builder-people__add-said[hidden],
 .builder-people__fulfil-said[hidden] {
   display: none;
+}
+
+/*
+ * THE COMPOSER (REQ-199).
+ *
+ * IT LOOKS LIKE A MESSAGE because it is one. From, Subject, To-List, Body, in
+ * the order a person composing mail reads them — the operator is about to write
+ * to strangers on behalf of their business, and a dialog that hid the words
+ * behind "Send invite?" would be asking them to trust copy they have never seen.
+ *
+ * LABELS IN A FIXED COLUMN, so the four values line up and the eye reads down
+ * them. `ch` rather than `px` because the widest label is `To-List:` and the
+ * measure that matters is characters.
+ */
+.builder-people__compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(70ch, 70vw);
+}
+
+.builder-people__field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.builder-people__label {
+  flex: none;
+  width: 9ch;
+  font-size: 13px;
+  color: var(--shell-muted);
+}
+
+/*
+ * `To-List:` IS UNUSUAL ON PURPOSE and the hover is what makes it legible rather
+ * than a typo (REQ-199). The dotted underline is the only affordance saying
+ * there is something to hover; without it the tooltip exists for the reader who
+ * already knew to look, which is nobody.
+ */
+.builder-people__label--explained {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.builder-people__from {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 13px;
+  /* DISPLAY ONLY, and it has to LOOK it (REQ-199). An arbitrary sender fails
+     DKIM and lands the message in spam, so this is deliberately not a box — a
+     greyed-out input would still read as a field somebody could enable. */
+  color: var(--shell-fg);
+}
+
+.builder-people__subject,
+.builder-people__tolist,
+.builder-people__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.builder-people__tolist,
+.builder-people__body {
+  resize: vertical;
+}
+
+/* The recipients are read back, never typed, so the field says so by being
+   quieter than the two the operator may edit. */
+.builder-people__tolist {
+  background: var(--shell-surface);
+  color: var(--shell-muted);
+}
+
+/*
+ * ONE LINE PER SELECTED CONTACT (REQ-199), including the ones that worked — a
+ * report listing only failures leaves "nine sent" to be inferred from an
+ * absence.
+ *
+ * THE ACCENT IS SPENT ON THE EXCEPTION, the idiom the message list already uses:
+ * the status is data about the line rather than a class per value, and only the
+ * two outcomes that need acting on are accented. Not colour alone — every line
+ * says what happened in words.
+ */
+.builder-people__outcome {
+  margin: 0;
+  font-size: 13px;
+}
+
+.builder-people__outcome[data-status='refused'],
+.builder-people__outcome[data-status='failed'] {
+  color: #b91c1c;
 }
 
 /*
