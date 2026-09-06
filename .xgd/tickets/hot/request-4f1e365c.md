@@ -5,7 +5,7 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T19:59:12.799447+00:00'
+updated_at: '2026-09-06T20:22:49.278498+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -184,3 +184,34 @@ and a baseline that has never been applied is not re-based by editing it.
   one re-read of that item, and the detail repaints with what the store now
   holds. The same event for a material whose detail is not open causes no read.
 - A `description_status` change redraws the row from the event alone.
+
+
+### 13. The re-read never overwrites an open editor
+
+§11 forces a request when a body change lands on the open detail. That request
+has a cost §11 did not name: the detail's description is an *editable* field, and
+repainting it while the client is halfway through correcting it would take their
+half-written sentence off the screen and put ours there instead. The background
+re-describe pass is exactly the write that does this, and it is one of the two
+writes this ticket exists to deliver — so the two behaviours meet on the same
+field, on purpose.
+
+**An open editor wins.** The re-read is skipped entirely — not performed and
+discarded — so a client who is typing pays nothing and loses nothing. Their own
+commit is about to overwrite that text anyway, and losing what somebody typed is
+a worse failure than showing a description one save behind.
+
+The signal is the component's own **control cell**, not `isDirty()`. This field
+is `commit: 'auto'`, which writes straight through and stages nothing, so
+`isDirty()` reads false for the entire time somebody is typing into it — it
+describes the *buffered* commit mode. What the component actually does on entering
+edit mode is replace its read cell with a control cell, and that is where the fact
+lives.
+
+## Acceptance criteria (added by §13)
+
+- A body change arriving while the description editor is open leaves what the
+  operator has typed exactly as it is, and does not spend a read discovering that
+  it must.
+- The same event arriving on a detail nobody is editing repaints the description
+  with what the store now holds.
