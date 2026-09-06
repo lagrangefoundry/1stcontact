@@ -15,7 +15,7 @@ import {
   USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import { invitePerson } from '../apps/control-app/src/people'
+import { addContact } from '../apps/control-app/src/people'
 import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
@@ -200,6 +200,12 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
    * business, so it could not express a member of a customer's business
    * ([[DOC-42]] §1). What the account still needs is unchanged — every row below
    * is the same row — and the cases here prove the pair still assembles it.
+   *
+   * AND SINCE [[REQ-199]] THE FIRST OF THOSE CALLS IS `addContact`. Adding and
+   * inviting came apart, and what an ACCOUNT needs is the first: a person, an
+   * account and an address. `invited_at` is no longer part of that shape — a
+   * lead nobody has asked in is an ordinary account row — so the stamp is
+   * asserted absent here and is the invite's own evidence elsewhere.
    */
   it('test_UAT_FC_REQ-167_an_invite_plus_a_business_creates_user_membership_grant_and_a_site', async () => {
     // The acceptance in its plainest form: afterwards every row the login path
@@ -207,7 +213,7 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     // values, because functions that reported what they meant to write would
     // pass this test having written nothing.
     const email = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email })
     expect(invited.created).toBe(true)
 
     const user = await env.DB.prepare(
@@ -221,8 +227,11 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
         invited_at: string | null
         first_seen_at: string | null
       }>()
-    expect(user?.invited_at, 'an invited user is not stamped as invited').toBeTruthy()
-    expect(user?.first_seen_at, 'an invited user has already been seen').toBeNull()
+    // NEITHER STAMP IS SET BY ADDING SOMEBODY ([[REQ-199]]). `invited_at` says
+    // when we asked and nobody has asked; `first_seen_at` says when they came
+    // and nobody has come.
+    expect(user?.invited_at, 'adding a contact asked them something').toBeNull()
+    expect(user?.first_seen_at, 'an added contact has already been seen').toBeNull()
 
     // THE OWNER IS THE ACCOUNT ([[REQ-194]]). It was the person's key, because
     // an account WAS a person; the invite mints an account beside the contact
@@ -333,7 +342,7 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     // different case finds the row the invite wrote. The invite's own half is
     // [[REQ-186]]'s, where the transition is.
     const email = anEmail()
-    await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    await addContact(identityEnv(), { businessId: PLATFORM }, { email })
     await provisionBusiness(identityEnv(), {
       accountId: (await env.DB.prepare(
         `SELECT u.account_id FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,

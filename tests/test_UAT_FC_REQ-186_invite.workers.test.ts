@@ -13,7 +13,7 @@ import {
 } from '../apps/control-app/src/identity'
 import { personByEmail } from './support/person'
 import { seedContact } from './support/contact'
-import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { addContact, markInvited, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf, writeName } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PEOPLE_PATH, PERSON_INVITE_PATH } from '../apps/control-app/src/router'
@@ -28,11 +28,12 @@ import { inviteAccount } from './support/invite-account'
  * D1 with the deployed schema and a real RS256 Access token verified against a
  * real JWKS. The gate is the whole ticket — reusing the FULFILMENT gate would
  * mean only 1st Contact could invite anybody and would foreclose level 2
- * ([[DOC-42]] §7) — and a suite that called `invitePerson` with a scope it built
+ * ([[DOC-42]] §7) — and a suite that called the invite with a scope it built
  * itself would prove the SQL and say nothing about the authorisation, which is
  * the half that can silently be wrong.
  *
- * THE OTHER HALF IS THE ROW SHAPE, and those cases call `invitePerson` directly:
+ * THE OTHER HALF IS THE ROW SHAPE, and those cases call `addContact` and
+ * `markInvited` directly:
  * that the same call from two businesses differs only in `tenant_id`, that a
  * contact is UPDATED rather than duplicated, and that no entitlement is written.
  * Each is a named falsifier in [[DOC-42]] — §3's "a branch on which level a row
@@ -61,6 +62,11 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
     ACCESS_DEV_OPEN: '',
     ACCESS_TEAM_DOMAIN: TEAM,
     ACCESS_AUD: AUD,
+    // THE SENDING ADDRESS, because the invite really sends now ([[REQ-199]]).
+    // No `RESEND_API_KEY`, deliberately: `mailerFor` picks its adapter by
+    // whether the deployment holds a credential, so this env cannot reach a
+    // provider even if something here tried to.
+    MAIL_FROM: 'no-reply@example.test',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...overrides,
   } as Env
@@ -124,7 +130,13 @@ async function anOperator(email: string) {
   return account
 }
 
-/** POST the invite, optionally naming a business in the path ([[REQ-179]]'s prefix). */
+/**
+ * POST the invite, optionally naming a business in the path ([[REQ-179]]'s prefix).
+ *
+ * THE BODY IS A LIST OF IDS SINCE [[REQ-199]]. The invite acts on the rows an
+ * operator ticked, so every contact it names already exists; creating one is
+ * `/api/people/add`, which is a different act on a different path.
+ */
 const postInvite = async (
   token: string | null,
   body: unknown,
@@ -174,7 +186,7 @@ const rowsFor = async (tenantId: string, email: string) => {
 }
 
 /** A contact: known to a business, never invited, and MAY become a member. */
-async function addContact(tenantId: string, email: string, displayName: string | null = null) {
+async function seedLead(tenantId: string, email: string, displayName: string | null = null) {
   return seedContact(identityEnv(), {
     id: `usr_contact_${(seq += 1)}`,
     tenantId,
@@ -213,9 +225,16 @@ describe('REQ-186 — one control, both levels', () => {
     const account = await anAccount(owner, "Alice's Plumbing")
     const invitee = anEmail()
 
-    const response = await postInvite(await mint(owner), { email: invitee }, account.businessId)
+    // THE CONTACT EXISTS FIRST ([[REQ-199]]). Adding and inviting are two acts:
+    // `+` records a Lead, and Invite asks the rows an operator ticked. So the
+    // person is added and then invited, which is the sequence the tab performs.
+    const contactId = await seedLead(account.businessId, invitee)
+    const response = await postInvite(await mint(owner), { ids: [contactId] }, account.businessId)
     expect(response.status).toBe(200)
-    expect((await response.json<{ created: boolean }>()).created).toBe(true)
+    const answer = await response.json<{ results: Array<{ status: string; to: string }> }>()
+    expect(answer.results).toHaveLength(1)
+    expect(answer.results[0].status).toBe('sent')
+    expect(answer.results[0].to).toBe(invitee)
 
     const listed = await peopleOf(identityEnv(), { businessId: account.businessId })
     const them = listed.find((p) => p.email === invitee)
@@ -241,8 +260,14 @@ describe('REQ-186 — one control, both levels', () => {
     const bob = anEmail()
     const account = await anAccount(anEmail(), "Alice's Plumbing")
 
-    await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: alice })
-    await invitePerson(identityEnv(), { businessId: account.businessId }, { email: bob })
+    const aliceAdded = await addContact(identityEnv(), { businessId: PLATFORM }, { email: alice })
+    await markInvited(identityEnv(), { businessId: PLATFORM }, aliceAdded.person.id)
+    const bobAdded = await addContact(
+      identityEnv(),
+      { businessId: account.businessId },
+      { email: bob },
+    )
+    await markInvited(identityEnv(), { businessId: account.businessId }, bobAdded.person.id)
 
     const [aliceRow] = await rowsFor(PLATFORM, alice)
     const [bobRow] = await rowsFor(account.businessId, bob)
@@ -276,7 +301,7 @@ describe('REQ-186 — one control, both levels', () => {
     // tenant_id", from the reading side.
     const account = await anAccount(anEmail(), "Alice's Plumbing")
     const bob = anEmail()
-    await invitePerson(identityEnv(), { businessId: account.businessId }, { email: bob })
+    await addContact(identityEnv(), { businessId: account.businessId }, { email: bob })
 
     const hers = await peopleOf(identityEnv(), { businessId: account.businessId })
     expect(hers.map((p) => p.email)).toContain(bob)
@@ -292,33 +317,59 @@ describe('REQ-186 — a transition, not a creation', () => {
     // becoming a SECOND row with the same address — the exact case [[DOC-40]]
     // cites as the reason contacts and users are one table. From then on the CRM
     // and the User tab can disagree about a person who is both.
+    //
+    // SINCE [[REQ-199]] THE INVITE CANNOT INSERT AT ALL, and that is a stronger
+    // form of the same guarantee: it takes a contact id rather than an address,
+    // so there is no branch left that could write a second row. The claim is
+    // asserted against D1 anyway, because what the falsifier names is the row
+    // count and not the shape of the call.
     const account = await anAccount(anEmail(), "Alice's Plumbing")
     const email = anEmail()
-    const contactId = await addContact(account.businessId, email)
+    const contactId = await seedLead(account.businessId, email)
 
     const before = await rowsFor(account.businessId, email)
     expect(before).toHaveLength(1)
     expect(before[0].invited_at, 'a contact has not been invited').toBeNull()
 
-    const outcome = await invitePerson(identityEnv(), { businessId: account.businessId }, { email })
+    const moved = await markInvited(identityEnv(), { businessId: account.businessId }, contactId)
 
-    expect(outcome.created, 'a contact promoted is not a creation').toBe(false)
+    expect(moved.id, 'the transition moved somebody else').toBe(contactId)
     const after = await rowsFor(account.businessId, email)
     expect(after, 'the invite inserted a second row for one address').toHaveLength(1)
     expect(after[0].id, 'the invite replaced the row rather than moving it').toBe(contactId)
     expect(after[0].invited_at, 'the transition did not stamp the row').toBeTruthy()
   })
 
+  it('test_UAT_FC_REQ-186_an_id_that_names_nobody_here_cannot_be_invited', async () => {
+    // THE OTHER HALF OF "IT CANNOT INSERT" ([[REQ-199]]). Scoped by tenant AND
+    // id, so a caller in one business naming a row in another is refused rather
+    // than mailing somebody else's customer — and not-found and not-yours are
+    // the same answer, which is what stops this being an existence oracle.
+    const mine = await anAccount(anEmail(), 'Mine')
+    const theirs = await anAccount(anEmail(), 'Theirs')
+    const email = anEmail()
+    const contactId = await seedLead(theirs.businessId, email)
+
+    await expect(
+      markInvited(identityEnv(), { businessId: mine.businessId }, contactId),
+    ).rejects.toThrow()
+    const after = await rowsFor(theirs.businessId, email)
+    expect(after[0].invited_at, 'a contact in another business was invited').toBeNull()
+  })
+
   it('test_UAT_FC_REQ-186_a_differently_cased_address_is_the_same_person', async () => {
-    // `idx_users_tenant_email` is byte-exact, which is what `0005` records: a
-    // differently-cased row is a second person `admit` — which normalises — would
-    // never find. So the address is casefolded on the way in and the second
-    // invite finds the first one's row.
+    // `idx_user_emails_tenant_email` is byte-exact, which is what `0005` records:
+    // a differently-cased row is a second person `admit` — which normalises —
+    // would never find. So the address is casefolded on the way in and the
+    // second add finds the first one's row.
+    //
+    // IT IS `addContact`'S PROPERTY SINCE [[REQ-199]], because that is the act
+    // that takes an address now. The claim is unchanged and the surface moved.
     const account = await anAccount(anEmail(), "Alice's Plumbing")
     const email = anEmail()
 
-    const first = await invitePerson(identityEnv(), { businessId: account.businessId }, { email })
-    const again = await invitePerson(
+    const first = await addContact(identityEnv(), { businessId: account.businessId }, { email })
+    const again = await addContact(
       identityEnv(),
       { businessId: account.businessId },
       { email: `  ${email.toUpperCase()} ` },
@@ -332,25 +383,24 @@ describe('REQ-186 — a transition, not a creation', () => {
   it('test_UAT_FC_REQ-186_re_inviting_a_member_does_not_restamp_when_they_were_invited', async () => {
     // `invited_at` records WHEN this person was invited. Overwriting it on a
     // second press would falsify the one fact in the row the invite exists to
-    // write — and a name somebody already set would go the same way, which is
-    // [[REQ-183]] §5's surface and not this one's.
+    // write. The stage is assigned rather than coalesced, and the asymmetry is
+    // the point: one answers "when did this happen" and the other "where are
+    // they now".
     const account = await anAccount(anEmail(), "Alice's Plumbing")
-    const email = anEmail()
-    const first = await invitePerson(
-      identityEnv(),
-      { businessId: account.businessId },
-      { email, displayName: 'Bob Smith' },
-    )
+    const scope = { businessId: account.businessId }
+    const added = await addContact(identityEnv(), scope, {
+      email: anEmail(),
+      displayName: 'Bob Smith',
+    })
 
-    const again = await invitePerson(
-      identityEnv(),
-      { businessId: account.businessId },
-      { email, displayName: 'Robert Smith' },
-    )
+    const first = await markInvited(identityEnv(), scope, added.person.id)
+    const again = await markInvited(identityEnv(), scope, added.person.id)
 
-    expect(again.created).toBe(false)
-    expect(again.person.invitedAt).toBe(first.person.invitedAt)
-    expect(again.person.name?.displayName).toBe('Bob Smith')
+    expect(again.invitedAt).toBe(first.invitedAt)
+    expect(again.pipelineStage).toBe('invited')
+    // AND A NAME SOMEBODY ALREADY SET SURVIVES, which is [[REQ-193]]'s surface
+    // and not this one's — the invite writes no name at all now.
+    expect(again.name?.displayName).toBe('Bob Smith')
   })
 
   it('test_UAT_FC_REQ-186_an_invite_with_no_address_is_refused_as_the_callers_mistake', async () => {
@@ -361,7 +411,7 @@ describe('REQ-186 — a transition, not a creation', () => {
     const owner = anEmail()
     const account = await anAccount(owner, "Alice's Plumbing")
 
-    const response = await postInvite(await mint(owner), { email: '   ' }, account.businessId)
+    const response = await postInvite(await mint(owner), { ids: [] }, account.businessId)
     expect(response.status).toBe(400)
   })
 })
@@ -383,7 +433,8 @@ describe('REQ-186 — who may invite', () => {
       account.businessId,
     ])
 
-    const response = await postInvite(await mint(alice), { email: anEmail() }, account.businessId)
+    const contactId = await seedLead(account.businessId, anEmail())
+    const response = await postInvite(await mint(alice), { ids: [contactId] }, account.businessId)
     expect(response.status).toBe(200)
   })
 
@@ -400,7 +451,7 @@ describe('REQ-186 — who may invite', () => {
 
     const response = await postInvite(
       await mint(alice),
-      { email: 'req186-notinvited@example.test' },
+      { ids: ['usr_req186_notinvited'] },
       PLATFORM,
     )
 
@@ -422,7 +473,7 @@ describe('REQ-186 — who may invite', () => {
     // is still refused here.
     const response = await postInvite(
       await mint(operatorEmail),
-      { email: anEmail() },
+      { ids: ['usr_req186_someone'] },
       someoneElse.businessId,
     )
 
@@ -435,19 +486,25 @@ describe('REQ-186 — who may invite', () => {
     // there to own anything. A door onto creating people that opens only when
     // authentication is switched off is a shape that reads as a feature and would
     // eventually be relied upon — the same argument `/api/admin/businesses`
-    // makes for itself.
+    // makes for itself. Stronger since [[REQ-199]]: this route now sends real
+    // mail to real strangers.
     const email = anEmail()
+    const contactId = await seedLead(PLATFORM, email)
     const response = await worker.fetch(
       new Request(`https://app.example${PERSON_INVITE_PATH}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ ids: [contactId] }),
       }),
       workerEnv({ ACCESS_DEV_OPEN: '1', ACCESS_TEAM_DOMAIN: '', ACCESS_AUD: '' }),
     )
 
     expect(response.status).toBe(403)
-    expect(await rowsFor(PLATFORM, email)).toHaveLength(0)
+    // THE ROW IS UNTOUCHED, which is what "may not" means here: the contact
+    // exists — a fixture put them there — and the loopback caller moved nothing.
+    const [row] = await rowsFor(PLATFORM, email)
+    expect(row.id).toBe(contactId)
+    expect(row.invited_at, 'the loopback path invited somebody').toBeNull()
   })
 
   it('test_UAT_FC_REQ-186_the_list_reports_who_may_invite_separately_from_who_may_fulfil', async () => {
@@ -488,11 +545,12 @@ describe('REQ-186 — the invite writes no entitlement', () => {
     const before = await env.DB.prepare('SELECT COUNT(*) AS n FROM entitlements').first<{
       n: number
     }>()
-    const invited = await invitePerson(
+    const invited = await addContact(
       identityEnv(),
       { businessId: account.businessId },
       { email: bob },
     )
+    await markInvited(identityEnv(), { businessId: account.businessId }, invited.person.id)
     const after = await env.DB.prepare('SELECT COUNT(*) AS n FROM entitlements').first<{
       n: number
     }>()
@@ -512,7 +570,8 @@ describe('REQ-186 — the invite writes no entitlement', () => {
     // `provisionInvite` decomposed into the two steps §9 describes, and this
     // asserts the composition rather than the halves.
     const alice = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: alice })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: alice })
+    await markInvited(identityEnv(), { businessId: PLATFORM }, invited.person.id)
 
     // INVITED AND NO MORE IS `no_membership`, and that is the composition being
     // load-bearing rather than a gap in it. `admit` requires a relationship with

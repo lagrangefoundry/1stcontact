@@ -10,6 +10,7 @@ import {
 import { seedContact } from './support/contact'
 import { inviteAccount } from './support/invite-account'
 import {
+  markInvited,
   openGrant,
   peopleOf,
   personDetail,
@@ -87,7 +88,14 @@ describe('REQ-170 — the people of the business you are in', () => {
   it('test_UAT_FC_REQ-170_a_contact_is_listed_and_is_distinguishable_from_a_member', async () => {
     const memberEmail = anEmail()
     const contactEmail = anEmail()
-    await inviteAccount(identityEnv(), { email: memberEmail, accountName: 'A Business' })
+    const seeded = await inviteAccount(identityEnv(), { email: memberEmail, accountName: 'A Business' })
+    // THE INVITE IS ITS OWN CALL ([[REQ-199]]). Adding somebody and asking them
+    // in came apart into two functions, so a fixture that seeds an account no
+    // longer stamps `invited_at` as a side effect — and it should not, because
+    // most contacts are never invited at all. What this case is about is
+    // unchanged: a row that WAS invited reads differently from one that was not,
+    // and saying so now takes the second act explicitly.
+    await markInvited(identityEnv(), { businessId: PLATFORM }, seeded.user.id)
     await addContact(PLATFORM, contactEmail)
 
     const people = await peopleOf(identityEnv(), { businessId: PLATFORM })

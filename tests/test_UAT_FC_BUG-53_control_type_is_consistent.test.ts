@@ -135,15 +135,39 @@ const PERSON = {
   createdAt: '2026-09-01T09:00:00.000Z',
 }
 
+/** The copy the invite dialog prefills from ([[REQ-197]], [[REQ-199]]). */
+const DRAFT = {
+  from: 'no-reply@example.test',
+  subject: 'Come and build your site',
+  body: 'Hello — {{cta_url}}',
+  declared: ['cta_url'],
+  templateKey: 'invite',
+  templateUid: 'doc_invite_1',
+}
+
 /** `canInvite`/`canFulfil` both true: this suite needs both dialogs reachable. */
 function transport() {
   return {
-    list: async () => ({ people: [{ ...PERSON }], canInvite: true, canFulfil: true }),
-    item: async () => ({ person: { ...PERSON }, operates: [], grants: [] }),
+    list: async () => ({ people: [{ ...PERSON }], canInvite: true, canFulfil: true, bounced: [] }),
+    item: async () => ({ person: { ...PERSON }, emails: [], operates: [], grants: [], events: [] }),
+    messages: async () => ({ messages: [] }),
     saveStatus: async () => ({}),
+    saveRecord: async () => ({}),
     grant: async () => ({}),
     revoke: async () => {},
-    invite: async () => ({ created: true, person: { ...PERSON } }),
+    // THE TWO ACTS ARE TWO CALLS ([[REQ-199]]). Adding creates a Lead and sends
+    // nothing; inviting takes the checked ids and reports one outcome each.
+    add: async () => ({ created: true, person: { ...PERSON } }),
+    inviteDraft: async () => ({ ...DRAFT }),
+    invite: async (ids: string[]) => ({
+      results: ids.map((id) => ({
+        contactId: id,
+        who: id,
+        to: 'alice@example.test',
+        status: 'sent',
+        reason: null,
+      })),
+    }),
     fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
   }
 }
@@ -188,6 +212,21 @@ async function usersTab() {
 }
 
 const click = (sel: string) => (root.querySelector(sel) as HTMLElement).click()
+
+/**
+ * Check the first row, because Invite acts on a SELECTION now ([[REQ-199]]).
+ *
+ * IT IS NOT SETUP NOISE. The button is disabled with nothing checked — disabled
+ * rather than absent, so the control teaches what it needs — so a click on it
+ * opens no dialog at all, and this suite's claim is about what a dialog renders.
+ */
+async function tickFirstRow() {
+  const box = root.querySelector('.builder-people__check') as HTMLInputElement
+  expect(box, 'no row carries a checkbox to select with').toBeTruthy()
+  box.checked = true
+  box.dispatchEvent(new Event('change', { bubbles: true }))
+  await settle()
+}
 
 describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — one control size, declared once', () => {
   it('test_UAT_FC_BUG-53_every_control_the_report_named_takes_one_declared_size', async () => {
@@ -293,6 +332,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — nothing these surfaces emit is uns
     // it while rendering at the browser's defaults inside an otherwise styled
     // dialog. Every `builder-` class, including the dialog chrome's own.
     await usersTab()
+    await tickFirstRow()
     click('.builder-people__invite')
     await settle()
     click('.builder-people__fulfil')
@@ -333,9 +373,15 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — nothing these surfaces emit is uns
     // its confirming button `--primary` and leaves the dismissing one plain.
     // These two did neither, because their class matched nothing at all.
     await usersTab()
+    await tickFirstRow()
 
+    // THE INVITE'S AFFIRMATIVE BUTTON COUNTS ITS RECIPIENTS ([[REQ-199]]). It
+    // acts on a checked selection rather than on a form, so the label says how
+    // many messages pressing it sends — one per contact, each with exactly one
+    // recipient. The claim here is unchanged: whatever that button says, it is
+    // marked as the affirmative action the way every other dialog marks its own.
     for (const [opener, affirm] of [
-      ['.builder-people__invite', 'Invite'],
+      ['.builder-people__invite', 'Send 1'],
       ['.builder-people__fulfil', 'Provision'],
     ] as const) {
       click(opener)

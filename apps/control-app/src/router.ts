@@ -31,9 +31,9 @@ import {
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import {
-  InvalidInviteError,
+  addContact,
+  InvalidContactError,
   InvalidPersonRecordError,
-  invitePerson,
   openGrant,
   peopleOf,
   personDetail,
@@ -43,6 +43,12 @@ import {
   setPersonStatus,
   UnknownPersonError,
 } from './people'
+import {
+  inviteDraft,
+  invitePeople,
+  UnknownInviteeError,
+  type InviteResult,
+} from './invites'
 import { currentNameOf, type NamePatch } from './names'
 import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
@@ -71,7 +77,8 @@ import { systemKnowledge } from './system-knowledge'
 import { sessionKnowledgeFor } from './session-knowledge'
 import { anthropicImageDescriber, type DescribeImage, type DescribeText } from './describe'
 import { FetchRefusedError } from './fetch-guard'
-import type { MailEnv } from './mail'
+import { mailerFor, mailFrom, MailNotConfiguredError, type MailEnv, type SendEmail } from './mail'
+import { TemplateRefusedError } from './templates'
 import {
   ingestFetch,
   ingestUpload,
@@ -359,6 +366,19 @@ export interface RouterDeps {
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
   /**
+   * The mail port ([[REQ-196]]), injected so the invite is provable offline
+   * ([[REQ-199]]).
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to {@link mailerFor}, which picks
+   * its adapter by whether the deployment holds a credential. It is here so a
+   * UAT can OBSERVE what was sent — how many messages, to whom, with what
+   * subject — which the capturing adapter alone cannot report from behind
+   * `mailerFor`. It cannot become a way to send mail from a test: the injected
+   * double is the test's own, and the default still has no path to a provider
+   * without a real key.
+   */
+  sendEmail?: SendEmail
+  /**
    * Who is asking, for {@link BUSINESSES_PATH} alone ([[REQ-179]]).
    *
    * INJECTED RATHER THAN RECOMPUTED. `index.ts` already ran `admit` — ahead of
@@ -519,7 +539,27 @@ export const PERSON_STATUS_PATH = '/api/people/status'
  * that only meant to fix a typo in their name.
  */
 export const PERSON_RECORD_PATH = '/api/people/record'
-/** Where a business's owner turns a contact into a member ([[REQ-186]]). */
+/**
+ * Where a business's owner ADDS a contact — the fundamental act ([[REQ-199]]).
+ *
+ * ITS OWN PATH, AND NOT A FLAG ON THE INVITE. Adding somebody and asking them in
+ * are two acts, and the tab performs them from two controls; one route taking an
+ * `alsoInvite` boolean would make the difference between recording a person and
+ * emailing a stranger a field in a JSON body, which is the kind of parameter
+ * that eventually arrives wrong from a client nobody remembered to update.
+ */
+export const PERSON_ADD_PATH = '/api/people/add'
+
+/**
+ * Where a business's owner invites a SELECTION of contacts ([[REQ-186]],
+ * [[REQ-199]]).
+ *
+ * TWO VERBS ON ONE PATH, AND THEY ARE THE SAME SUBJECT. `GET` answers *what
+ * would this send* — the From, and the Subject and Body the `invite` template
+ * carries — which is what the modal opens with. `POST` sends it, with whatever
+ * the operator changed. Two paths would let the prefill and the send disagree
+ * about which template they mean.
+ */
 export const PERSON_INVITE_PATH = '/api/people/invite'
 
 /**
@@ -1453,13 +1493,75 @@ async function routeUncached(
     }
 
     /**
-     * POST /api/people/invite — the verb that turns a contact into a member
-     * ([[REQ-186]], [[DOC-42]] §9).
+     * POST /api/people/add — the fundamental act ([[REQ-199]]).
+     *
+     * IT ADDS A CONTACT AND DOES NOTHING ELSE. The new row is a **Lead**
+     * ([[DOC-44]] §4), no mail is sent and `invited_at` is not stamped, because
+     * most contacts are never invited at all and the surface that records one
+     * must not also ask them to sign up.
+     *
+     * THE SAME GATE AS THE INVITE, AND FOR THE SAME REASON. `ownsBusiness` is
+     * [[DOC-42]] §7's first condition alone — *you own this business* — which is
+     * uniform and true of Alice on hers. Reusing the fulfilment gate here would
+     * mean only 1st Contact may write down a contact, which forecloses level 2
+     * exactly as it would for the invite.
+     */
+    if (p === PERSON_ADD_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner of this business may add contacts to it.' })
+      }
+      const body = await readJsonBody(request)
+      return json(
+        200,
+        await addContact(identityEnv, scope, {
+          email: typeof body.email === 'string' ? body.email : '',
+          displayName: typeof body.displayName === 'string' ? body.displayName : null,
+        }),
+      )
+    }
+
+    /**
+     * GET /api/people/invite — what the modal opens with ([[REQ-199]]).
+     *
+     * IT ANSWERS *WHAT WOULD THIS SEND*, not *what did we send*. From, Subject
+     * and Body, the last two prefilled from this business's `invite` template
+     * ([[REQ-197]]) and editable in the modal FOR THIS SEND ONLY. The template
+     * ticket is untouched by anything on this path — editing one is a different
+     * act with a different surface, and a modal that quietly rewrote it would
+     * let a one-off change to one invite alter what every later invite says.
+     *
+     * IT SEEDS THE TEMPLATE IF THE BUSINESS HAS NEVER HAD ONE, because
+     * `templateFor` does. That is a write on a GET, and it is the same
+     * seed-if-absent `ticketStoreFor` makes for tenant registration: a business
+     * asked for its invite copy for the first time is given the default rather
+     * than an empty box, and the very next act on it is ordinary authoring.
+     *
+     * THE GATE IS THE INVITE'S, because this is the invite's first half. What it
+     * discloses is the copy this business would send, which is not a secret from
+     * its own owner and is nobody else's business at all.
+     */
+    if (p === PERSON_INVITE_PATH && method === 'GET') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner of this business may invite people to it.' })
+      }
+      return json(200, await inviteDraft(await openTickets(), mailFrom(env)))
+    }
+
+    /**
+     * POST /api/people/invite — invite the checked contacts ([[REQ-186]],
+     * [[REQ-199]], [[DOC-42]] §9).
+     *
+     * IT TAKES IDS AND NOT AN ADDRESS. The tab checks rows and presses Invite,
+     * so every contact named here already exists; creating one is
+     * `/api/people/add`, which is a different act on a different path
+     * ([[REQ-199]]).
      *
      * ONE CONTROL FOR BOTH LEVELS, and there is no branch here on which one it
      * is. The invite writes into whichever business `requireScope` resolved, so
-     * called from 1st Contact it makes Alice and called from Alice's business it
-     * makes Bob — same route, same rows, differing only in `users.tenant_id`.
+     * called from 1st Contact it moves Alice and called from Alice's business it
+     * moves Bob — same route, same rows, differing only in `users.tenant_id`.
      * A level is a position and not a property ([[DOC-42]] §3), so a route that
      * asked which level it was standing at would be that section's falsifier.
      *
@@ -1479,10 +1581,26 @@ async function routeUncached(
      * about the caller, which is the status the rest of this system gives one.
      *
      * AND IT REFUSES WITH NO ADMISSION AT ALL, which is the dev-open loopback
-     * path. There is nobody there to own anything, and a door onto creating
+     * path. There is nobody there to own anything, and a door onto mailing
      * people that opens only when authentication is switched off is a shape that
      * reads as a feature and would eventually be relied upon — the same argument
-     * `/api/admin/businesses` makes for itself.
+     * `/api/admin/businesses` makes for itself. It is a stronger argument here
+     * than it was for the transition alone: this route now sends real mail to
+     * real strangers.
+     *
+     * THE `From` IN THE BODY IS IGNORED IF ONE IS SENT. The sending address is
+     * `MAIL_FROM`, and an arbitrary sender fails DKIM and lands in spam — so the
+     * modal shows it and does not offer it, and the route does not read it
+     * either. A field a client could set and the server ignores is a field that
+     * eventually gets believed; not reading it is what makes the display-only
+     * claim true rather than a convention of one client.
+     *
+     * `{{cta_url}}` IS THIS ORIGIN'S FRONT DOOR, resolved from the request. That
+     * is where an invitee has to arrive: Access identifies them, `admit` runs,
+     * the terms interstitial catches them and they land wherever they are
+     * entitled to. A configured constant would be a second answer to "where is
+     * this deployment", and a `wrangler dev` session would get it wrong — which
+     * shows up as an invite whose only link goes to production.
      */
     if (p === PERSON_INVITE_PATH && method === 'POST') {
       const scope = requireScope()
@@ -1497,13 +1615,51 @@ async function routeUncached(
         return json(403, { error: 'Only an owner of this business may invite people to it.' })
       }
       const body = await readJsonBody(request)
-      return json(
-        200,
-        await invitePerson(identityEnv, scope, {
-          email: typeof body.email === 'string' ? body.email : '',
-          displayName: typeof body.displayName === 'string' ? body.displayName : null,
-        }),
+      const ids = Array.isArray(body.ids)
+        ? body.ids.filter((id): id is string => typeof id === 'string' && id !== '')
+        : []
+      // AN EMPTY SELECTION IS THE CALLER'S MISTAKE AND NOT A NO-OP SUCCESS. The
+      // button is disabled with nothing checked, so a POST with no ids is a
+      // client that got out of step — and answering 200 with an empty list would
+      // report a send that never happened.
+      if (ids.length === 0) {
+        return json(400, { error: 'Nobody was selected, so there is nobody to invite.' })
+      }
+      const store = await openTickets()
+      const from = mailFrom(env)
+      // THE COPY IS TAKEN ONLY WHEN BOTH HALVES ARRIVE. A body with a subject and
+      // no text — or the reverse — is a client that sent half a form, and
+      // filling the gap from the template would send a message that is neither
+      // what the operator typed nor what the template says.
+      const subject = typeof body.subject === 'string' ? body.subject : null
+      const text = typeof body.body === 'string' ? body.body : null
+      const draft = await inviteDraft(store, from)
+      const results: InviteResult[] = await invitePeople(
+        {
+          env: identityEnv,
+          scope,
+          store,
+          send: deps.sendEmail ?? mailerFor(env, { fetch: deps.fetch }),
+          from,
+          ctaUrl: new URL(request.url).origin,
+          copy:
+            subject !== null && text !== null
+              ? {
+                  subject,
+                  body: text,
+                  // THE DECLARATION TRAVELS WITH THE EDIT AND IS NEVER TAKEN FROM
+                  // IT ([[REQ-197]]). It is the template's promise about what its
+                  // copy must carry, so an operator who deletes `{{cta_url}}` out
+                  // of the body is refused rather than mailing a dead button.
+                  declared: draft.declared,
+                  templateKey: draft.templateKey,
+                  templateUid: draft.templateUid,
+                }
+              : undefined,
+        },
+        ids,
       )
+      return json(200, { results })
     }
 
     /**
@@ -2146,11 +2302,35 @@ async function routeUncached(
     // to the one person whose problem is a payment.
     if (err instanceof NoBusinessError) throw err
 
-    // AN INVITE WITH NO ADDRESS IS THE CALLER'S MISTAKE ([[REQ-186]]) — 400, and
+    // AN ADD WITH NO ADDRESS IS THE CALLER'S MISTAKE ([[REQ-199]]) — 400, and
     // not the 500 below, which would report "the builder broke" for an empty box
     // and send the operator back to retry the one thing that cannot work.
-    if (err instanceof InvalidInviteError) {
+    if (err instanceof InvalidContactError) {
       return json(400, { error: scrub(err.message) })
+    }
+
+    // A REFUSED TEMPLATE IS COPY THAT CANNOT BE SENT TO ANYBODY ([[REQ-197]],
+    // [[REQ-199]]) — 400, because the operator deleted the token out of the
+    // modal's body or the template has come apart from its own declaration, and
+    // both are things they can go and fix. The sentence names the template and
+    // the token, which is what makes it actionable.
+    if (err instanceof TemplateRefusedError) {
+      return json(400, { error: scrub(err.message) })
+    }
+
+    // NO SENDING ADDRESS IS THE DEPLOYMENT'S FAULT AND NOT THE OPERATOR'S — 503,
+    // because retrying will not help and the remedy is `wrangler.toml`. Reported
+    // as a 500 it would read as a crash; reported as a 400 it would send them
+    // back to correct a form that is perfectly correct.
+    if (err instanceof MailNotConfiguredError) {
+      return json(503, { error: scrub(err.message) })
+    }
+
+    // AN ID THAT NAMES NOBODY HERE IS THE SAME ANSWER AS NOT FOUND ([[REQ-199]]),
+    // for `personDetail`'s reason: 404 rather than a message distinguishing "no
+    // such contact" from "not yours", which would make this an existence oracle.
+    if (err instanceof UnknownInviteeError) {
+      return json(404, { error: scrub(err.message) })
     }
 
     // A BAD ADDRESS, OR ONE ALREADY TAKEN, IS THE OPERATOR'S TYPO ([[BUG-54]]) —

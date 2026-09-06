@@ -4,7 +4,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import { admit, type IdentityEnv } from '../apps/control-app/src/identity'
-import { invitePerson, peopleOf, personDetail } from '../apps/control-app/src/people'
+import { addContact, peopleOf, personDetail } from '../apps/control-app/src/people'
 import {
   currentNameOf,
   formerNamesOf,
@@ -111,7 +111,7 @@ async function aBusinessWithSomebodyInIt(displayName: string | null = null) {
   })
   await acceptTerms(identityEnv(), seeded.user.id)
   const contact = anEmail()
-  const invited = await invitePerson(
+  const invited = await addContact(
     identityEnv(),
     { businessId: seeded.businessId },
     { email: contact, displayName },
@@ -550,7 +550,7 @@ describe('REQ-193 — every reader goes through the name table', () => {
     // supersession for an act that was not a rename at all.
     const { businessId, contact, personId } = await aBusinessWithSomebodyInIt('Bob Smith')
 
-    const again = await invitePerson(
+    const again = await addContact(
       identityEnv(),
       { businessId },
       { email: contact, displayName: 'Robert Smith' },

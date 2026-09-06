@@ -61,7 +61,10 @@ describe('REQ-196 — a sendEmail port, with Resend behind it', () => {
       from: 'no-reply@1stcontact.io',
       to: ['alice@example.com'],
       subject: 'Your 1st Contact invitation',
-      text: 'Alice — your builder is ready.',
+      // `html` AND NOT `text` ([[REQ-199]]). The one template this repository
+      // ships puts its call to action in an anchor, and `text` would deliver the
+      // markup for the recipient to read.
+      html: 'Alice — your builder is ready.',
     })
   })
 

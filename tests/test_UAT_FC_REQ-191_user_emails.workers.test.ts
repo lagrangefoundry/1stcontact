@@ -9,7 +9,7 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import {
-  invitePerson,
+  addContact,
   openGrant,
   peopleOf,
   personDetail,
@@ -39,7 +39,7 @@ import { seedContact } from './support/contact'
  * — because an invariant asserted by reading a row back is an invariant the
  * application could be maintaining by hand, which is the arrangement this ticket
  * exists to replace. The behaviour is driven through the shipped functions
- * (`admit`, `invitePerson`, `personDetail`, `setPersonRecord`), never through a
+ * (`admit`, `addContact`, `personDetail`, `setPersonRecord`), never through a
  * second copy of their SQL written here.
  *
  * WHAT IT DELIBERATELY DOES NOT DRIVE. Nothing in the product adds a SECOND
@@ -84,7 +84,7 @@ describe('REQ-191 — the shape', () => {
     // beside it, and neither displaces the other.
     const first = anEmail()
     const second = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: first })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: first })
     await addAddress(invited.person.id, PLATFORM, second)
 
     const held = await emailsOf(identityEnv(), invited.person.id)
@@ -127,8 +127,8 @@ describe('REQ-191 — the shape', () => {
     // existence oracle across the barrier, telling one business that another
     // already knows an address.
     const email = anEmail()
-    const here = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
-    const there = await invitePerson(identityEnv(), { businessId: OTHER }, { email })
+    const here = await addContact(identityEnv(), { businessId: PLATFORM }, { email })
+    const there = await addContact(identityEnv(), { businessId: OTHER }, { email })
 
     expect(there.created).toBe(true)
     expect(there.person.id).not.toBe(here.person.id)
@@ -158,7 +158,7 @@ describe('REQ-191 — the shape', () => {
     ).rejects.toThrow(/CHECK constraint failed/i)
 
     // And the shipped writer normalises, so the check never fires for it.
-    const invited = await invitePerson(
+    const invited = await addContact(
       identityEnv(),
       { businessId: PLATFORM },
       { email: `  ${typed} ` },
@@ -234,7 +234,7 @@ describe('REQ-191 — what reads it', () => {
     // human twice.
     const first = anEmail()
     const second = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: first })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: first })
     await addAddress(invited.person.id, PLATFORM, second)
 
     const listed = (await peopleOf(identityEnv(), { businessId: PLATFORM })).find(
@@ -254,11 +254,11 @@ describe('REQ-191 — what reads it', () => {
     // to prevent, at the one surface whose whole job is to avoid it.
     const first = anEmail()
     const second = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: first })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: first })
     await addAddress(invited.person.id, PLATFORM, second)
 
     const before = await countPeople(PLATFORM)
-    const again = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: second })
+    const again = await addContact(identityEnv(), { businessId: PLATFORM }, { email: second })
 
     expect(again.created).toBe(false)
     expect(again.person.id).toBe(invited.person.id)
@@ -277,7 +277,7 @@ describe('REQ-191 — what reads it', () => {
     const first = anEmail()
     const second = anEmail()
     const corrected = anEmail()
-    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: first })
+    const invited = await addContact(identityEnv(), { businessId: PLATFORM }, { email: first })
     await addAddress(invited.person.id, PLATFORM, second)
 
     const saved = await setPersonRecord(
@@ -296,7 +296,7 @@ describe('REQ-191 — what reads it', () => {
     // AND A DUPLICATE IS A SENTENCE, NOT A 500. The constraint is on
     // `user_emails` now, so the code that recognises it has to name that table.
     const rival = anEmail()
-    await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: rival })
+    await addContact(identityEnv(), { businessId: PLATFORM }, { email: rival })
     await expect(
       setPersonRecord(identityEnv(), { businessId: PLATFORM }, invited.person.id, { email: rival }),
     ).rejects.toBeInstanceOf(InvalidPersonRecordError)
