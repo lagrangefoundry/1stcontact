@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:59:52.650805+00:00'
+updated_at: '2026-09-06T23:02:18.599720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1199,5 +1199,48 @@ The text-part gap is a genuine finding with evidence behind it, and it's small: 
 <!-- xgd-chat role="user" ts="2026-09-06T22:59:52.607065+00:00" -->
 #### You
 I don't want to go too deep in this - it said DMARC failed
+
+<!-- xgd-turn id="54a1128f-fba5-4837-a2ab-726fa3b8f730-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:02:18.527787+00:00" -->
+#### Claude
+DMARC fail explains the spam verdict entirely — ignore everything I said about content and reputation, that's all secondary. Let me check your DNS directly.
+
+Definitive answer: **`1stcontact.io` has no TXT records at all** — no SPF, and no DMARC record at `_dmarc.1stcontact.io`. Let me check whether the DKIM key is published.
+
+One missing DNS record. Here's the complete picture:
+
+| Record | Status |
+|---|---|
+| `resend._domainkey.1stcontact.io` | ✅ DKIM key published |
+| `send.1stcontact.io` | ✅ SPF `v=spf1 include:amazonses.com ~all` |
+| `1stcontact.io` | no TXT at all (no SPF) |
+| `_dmarc.1stcontact.io` | ❌ **no DMARC record** |
+
+You added Resend's two records — DKIM on the apex, SPF on the `send.` return-path subdomain — which is why Resend reports the domain verified. **Resend treats DMARC as recommended, not required, so verification passes without it.** That's the trap; TODO-5 lists it as step 2 precisely because it's the one Resend won't nag you about.
+
+## The fix — one TXT record in Cloudflare DNS
+
+```
+Name:  _dmarc
+Type:  TXT
+Value: v=DMARC1; p=none; rua=mailto:dmarc@1stcontact.io
+```
+
+Keep `p=none` as TODO-5 says. Point `rua` at a mailbox you actually read, or drop it — but a policy with no reporting address tells you nothing when this goes wrong later.
+
+That should be enough on its own: your DKIM key is on the apex, so it signs `d=1stcontact.io`, which aligns with `From: no-reply@1stcontact.io`. DMARC passes on DKIM alignment alone. SPF won't align (Resend's return path is `send.1stcontact.io`) and doesn't need to — DMARC passes if *either* aligns.
+
+Optionally add an apex SPF too, harmless and one less oddity:
+
+```
+Name: @   Type: TXT   Value: v=spf1 include:amazonses.com ~all
+```
+
+## Then
+
+Wait a few minutes, re-invite, and check **Show original** again — you want `dkim=pass` and `dmarc=pass`.
+
+If it still lands in spam after that, it's the remaining items and I'd bet on the `http://127.0.0.1:8788` link, which disappears the moment you send from a real deployment. Not worth chasing until then.
 
 <!-- xgd-chat-end -->
