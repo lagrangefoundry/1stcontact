@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-55
 created_by: xgd
 created_at: '2026-09-06T00:28:18.898479+00:00'
-updated_at: '2026-09-06T00:36:15.820386+00:00'
+updated_at: '2026-09-06T00:54:32.675813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,104 @@ Shall I implement?
 <!-- xgd-chat role="user" ts="2026-09-06T00:36:15.214161+00:00" -->
 #### You
 Please do
+
+<!-- xgd-turn id="3f1973a8-5911-41e4-b0b1-316563172942-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:54:32.636460+00:00" -->
+#### Claude
+Now let me confirm the baseline in the worktree before changing anything.
+
+Baseline confirmed: 14 failures across 4 files (I under-counted earlier at 11 — that figure omitted the REQ-158 file I'd run separately). I'll correct the ticket. First, the code.
+
+Now `system-knowledge.ts`:
+
+Now `session-knowledge.ts` — the four sites. Let me read the surrounding context first.
+
+Now the project runtime open and `ProjectKnowledge.search`:
+
+Now let me verify no `source:`/`chunkSource:` read-side sites remain, then run the suites.
+
+The tests call the seam directly too — they carry the same pre-REQ-112 shape. Let me enumerate every remaining site repo-wide.
+
+Both files need the import. Let me add it.
+
+That suite is fully green. Now the other three:
+
+The `indexes` seam is now clear — the error moved. What's left is a second, independent skew. Let me look at it.
+
+False alarm — cwd had reset; the edits are all correctly in the worktree. Let me re-check the remaining skew from there.
+
+Zero `KnowledgeConfigError` remain — every one of the 13 is the *priming* seam, a different break. Let me write the BUG-55 UATs, then report the scope question.
+
+Now I'll write the BUG-55 UATs, reusing that scaffolding pattern.
+
+Now the critical check — do they actually fail without the fix?
+
+Both fail against the pre-fix code with the exact reported error. Restoring the fix:
+
+Now the `bin/install` preflight. Let me see how `bin/install` is structured.
+
+`bin/install` lives in the framework repo, not here. Let me look at this repo's own shared-store guard, which already exists.
+
+Now I'll add the seam-shape check alongside the presence check.
+
+Now wire it into the preflight:
+
+Typecheck baseline matches — no new errors from my changes. Now a UAT for the seam check:
+
+All three green. Now let me check for regressions across the wider suite.
+
+Full run surfaced two things I caused plus one call site I missed. Let me sweep properly this time.
+
+Now let me establish a clean HEAD baseline for the full suite, so I can separate my changes from pre-existing failures.
+
+HEAD baseline is **30 failed**; my branch was **28 failed** — and the baseline confirms REQ-159/161/163 were failing at `knowledge.ts:338`, which my fix covers. Let me restore and re-run now that `dist-assets` exists.
+
+My redirect only captured stdout, so those counts are unreliable — the real numbers are from the terminal: **HEAD 30 failed / 2666 passed → branch 17 failed / 2694 passed**. Let me settle the one suite I'm unsure about.
+
+Passes in isolation on both — a suite-interaction flake, not mine. Let me smoke-test the new preflight path:
+
+Now let me update the ticket with the corrected numbers and what's out of scope.
+
+Now let me commit.
+
+Need the gating command with a version bump. Let me check which versions are already claimed.
+
+Done and merged. Here's what landed and what didn't.
+
+## The fix
+
+`indexes`/`chunkIndexes` — a map keyed by source name — replaces the singular `source` at every read call site. Seven in `src/`, plus three test files that reach the seam directly (a signature change strands the tests exactly as it strands the code). `buildIndex`/`buildChunkIndex` untouched; REQ-112 never moved them.
+
+The `KnowledgeRuntime.open` sites were the ones worth the care. `open` sweeps unknown keys into `...rest` and stores them nowhere, so `runtime.source` was `undefined` with no error at the seam that dropped it — and since `open` seeds its document snapshot *from* the indexes, a runtime given none placed no uid and refused every read as `not_in_corpus`. Search and read had to move together; fixing only search would have looked finished.
+
+The project KB is keyed `DEFAULT_SOURCE`, not by its own name — it declares no `source`, and `indexFor` has no fallback the way `storeFor` does.
+
+**Preflight:** the shared-store check has always asked whether a component is *present*, never whether it's *compatible* — exactly the gap an out-of-band store falls through. It now resolves a KB through the installed component's own `indexFor`: one pure call, no network, no embedder. On its own line, so a narrow pass can't read as a broad one. (`bin/install` turned out to live in `lagrange-framework`, unreachable from here — the check went where this repo can actually run it.)
+
+## Results
+
+Full suite: **30 failures → 17**, 2666 → 2694 passing. Zero `KnowledgeConfigError` anywhere. New UATs verified red against the pre-fix code with the exact reported error, then green.
+
+Of the 17 remaining, 2 are pre-existing and unrelated (`bug32` fails identically at HEAD; `l1-navigation` passes in isolation on both HEAD and branch — a suite-interaction flake).
+
+## What I did not fix, and why
+
+The other 15 are a **second, independent skew** I hit partway through. `ai-knowledge` made `KnowledgeDocs.documents()` a coroutine; the installed `ai` still iterates it synchronously in `assemblePrimingPrompt`. The two installed components contradict *each other* — no call site here can reconcile that. Worse, framework HEAD has moved past both: it deletes `ai_knowledge/js/src/docs.js` outright ("KM priming providers replace KnowledgeDocs", 2026-09-03) and rebuilds `ai` priming around an entry model with no "documents" in it. Upstream is self-consistent; the installed store is a mix of two moments.
+
+That's a migration, not a keyword change. I recorded it in a "what this does NOT fix" section on BUG-55 rather than absorb it silently — it wants its own ticket, which I haven't created since you didn't ask.
+
+## Corrections to what I told you earlier
+
+- **"eleven failing tests across three files"** was wrong twice over. The real figure at the branch point is 30 suite-wide, with `KnowledgeConfigError` spanning **seven** files — REQ-159, REQ-161 and REQ-163 also died at `knowledge.ts:338`, which my earlier survey missed. The ticket now carries the correct list.
+- I also missed one call site in my first sweep (`REQ-165:236`, written as shorthand `source,` rather than `source:`). The full-suite run caught it; it's fixed.
+
+## Unverified
+
+`./bin/1c kb build` completing all four stages — it needs `CLOUDFLARE_API_TOKEN` for the real Workers AI embedder. Everything upstream of that boundary is verified against the real component with a stub embedder, but the end-to-end build is yours to run.
+
+One thing I left alone: `session-knowledge.ts:16` imports `SHIPPED_SOURCE` from `./system-knowledge`, which never re-exports it — a `tsc` error that predates this work and fails identically at HEAD. Out of scope, but it'll bite a typechecked build.
+
+**Ticket:** `free_coded`, version 0.2.82, commits `798310c3` + `7b67e13c`, merged to `xgd-working`, worktree cleaned.
 
 <!-- xgd-chat-end -->
