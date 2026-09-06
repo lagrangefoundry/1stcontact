@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-190
 created_by: xgd
 created_at: '2026-09-05T22:15:59.310471+00:00'
-updated_at: '2026-09-05T22:21:33.606978+00:00'
+updated_at: '2026-09-06T00:26:40.947614+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -113,5 +113,11 @@ That's fine and doesn't need them built — the ACs are *schema properties*, and
 5. **Scope of the fs store.** `storage/sites/<slug>/` is git-tracked, has no tenant, and is keyed by a human-chosen directory name (`xgd`, `gigabytealchemy`). My read is the rule is about the multi-tenant database and the local authoring tier stays slug-keyed — but the ticket says "across the schema" and should say which schema.
 
 Once those are settled I'll write the plan and the ticket body update.
+
+<!-- xgd-turn id="aefd48df-b36f-40f4-9252-c1ea71bdce05-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:26:40.659715+00:00" -->
+#### You
+Please read the updates in the ticket and proceed
 
 <!-- xgd-chat-end -->
