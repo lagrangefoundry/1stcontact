@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:36:08.604100+00:00'
+updated_at: '2026-09-06T20:36:40.384429+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,31 @@ Ignore it. `wrangler.toml:283` says it explicitly — *"No `ACCESS_DEV_OPEN` her
 I exported it, when I run 
 
 echo $RESEND_API_KEY I see it.
+
+<!-- xgd-turn id="69370383-01ac-4de0-ac60-5864568f6b5d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:36:40.051276+00:00" -->
+#### Claude
+`echo` can't tell you that. It reads shell variables and exported variables identically — that's exactly the case I flagged, and your `echo` result is fully consistent with the var not being exported. `env` lists *only* exported vars, which is why it's the test that settles it:
+
+```bash
+env | grep -c '^RESEND_API_KEY='
+```
+
+`0` = not exported (fix: `export RESEND_API_KEY`). `1` = exported, and then it's something else.
+
+I've now checked both ends and neither can be the cause:
+
+- `bin/deploy` does no env scrubbing — no `env -i`, no `unset`, no re-exec. The `DEPLOY_*` prefix form at `bin/deploy:163` *adds* to the child environment.
+- Your own run proves passthrough works: `secrets/10-anthropic-api-key` printed **"would push ANTHROPIC_API_KEY"**, and that hook reads its value the same way — `[[ -n "${ANTHROPIC_API_KEY:-}" ]]`, same file shape, same directory, same invocation.
+
+So one variable reached the hook and the other didn't, in one process, through a script that touches neither. The difference is on the export side.
+
+Two other things worth ruling out with the same command, if it comes back `1`:
+
+- **Different tab.** The export and the `bin/deploy` need to be the same shell. If you exported, then opened a new tab, the new one doesn't have it.
+- **Subshell.** `(export RESEND_API_KEY=...)` or setting it inside a `| while` pipeline in zsh dies with the subshell.
+
+Paste the number and I'll take it from there.
 
 <!-- xgd-chat-end -->
