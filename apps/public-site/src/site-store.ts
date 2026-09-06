@@ -25,15 +25,23 @@ import {
  *
  * LIVE IS DERIVED — `MAX(id)` over the revision log, never a stored pointer
  * (DOC-12 §4). There is nothing here that could disagree with the log it reads.
+ *
+ * A URL NAMES A SITE BY ITS KEY NOW ([[REQ-190]]). `/site/<slug>/` used to carry
+ * a chosen name and no business, so a slug had to be unique across the entire
+ * deployment for it to name one site — which is why there was a `published_sites`
+ * table to claim it in, why two businesses could not both publish `home`, and why
+ * the refusal told the second one that the first existed. The segment is the
+ * site's own 128-bit key now: it names exactly one site by construction, so the
+ * claim table is gone and the join with it.
  */
 export interface SiteStore {
   /**
    * The R2 key prefix holding the site's live rendered output, or `null` when
    * the site does not exist or has never published.
    */
-  resolve(slug: string): Promise<string | null>
+  resolve(siteKey: string): Promise<string | null>
   /** The revision id currently served as the site's published output, or `null`. */
-  live(slug: string): Promise<number | null>
+  live(siteKey: string): Promise<number | null>
 }
 
 /**
@@ -58,15 +66,22 @@ export interface SiteDatabase {
 }
 
 /**
- * {@link SiteStore} over the `published_sites` / `site_revisions` tables.
+ * {@link SiteStore} over `site_revisions`.
  *
- * WHY THE JOIN. Revisions are keyed `(tenant_id, slug, id)` because the draft
- * side is tenanted to the bone, and this Worker is handed a slug with no tenant
- * in it — `/site/<slug>/` is the public grammar and carries no account. So the
- * claim table, which is keyed by slug alone precisely because a published
- * address is global, is what says which account's revisions to read
- * (REQ-149 D2). A query that skipped it and matched on `slug` across every
- * tenant would serve whichever account happened to sort first.
+ * THE JOIN IS GONE, AND SO IS THE TABLE IT REACHED THROUGH ([[REQ-190]]).
+ * Revisions used to be keyed `(tenant_id, slug, id)` while this Worker was
+ * handed a slug with no business in it, so it read `published_sites` — a table
+ * whose only job was to make the slug globally unique — to learn whose revisions
+ * to serve. Both halves of that were the same defect: a chosen name doing a
+ * key's job. Revisions are keyed `(site_id, id)` now and the URL carries the
+ * site key, so one indexed read answers the question with nothing to reconcile.
+ *
+ * IT STILL CANNOT SERVE ACROSS THE BARRIER, by a stronger mechanism than the
+ * join was. A site key is 128 random bits; a request that does not already have
+ * one cannot produce one, and one that has it is naming a site whose owner
+ * published it deliberately. Deleting a business cascades `sites` and
+ * `site_revisions` with it, so an ended account stops serving for the same reason
+ * it did when the claim row cascaded.
  *
  * One instance per request: the lookup is memoised for the life of the instance,
  * which collapses a request's several reads into one and keeps a single response
@@ -77,31 +92,27 @@ export class D1SiteStore implements SiteStore {
 
   constructor(private readonly db: SiteDatabase) {}
 
-  async resolve(slug: string): Promise<string | null> {
-    const live = await this.live(slug)
+  async resolve(siteKey: string): Promise<string | null> {
+    const live = await this.live(siteKey)
     if (live === null) return null
     // Built from the DATABASE's value, never from anything the URL supplied: the
-    // only untrusted component that reaches a key is the slug, and the route
+    // only untrusted component that reaches a key is the site key, and the route
     // grammar has already refused anything that is not a plain name.
-    return publishedOutPrefix(slug, live)
+    return publishedOutPrefix(siteKey, live)
   }
 
-  live(slug: string): Promise<number | null> {
-    const cached = this.cache.get(slug)
+  live(siteKey: string): Promise<number | null> {
+    const cached = this.cache.get(siteKey)
     if (cached) return cached
-    const pending = this.read(slug)
-    this.cache.set(slug, pending)
+    const pending = this.read(siteKey)
+    this.cache.set(siteKey, pending)
     return pending
   }
 
-  private async read(slug: string): Promise<number | null> {
+  private async read(siteKey: string): Promise<number | null> {
     const row = await this.db
-      .prepare(
-        'SELECT MAX(r.id) AS live FROM published_sites p ' +
-          'JOIN site_revisions r ON r.tenant_id = p.tenant_id AND r.slug = p.slug ' +
-          'WHERE p.slug = ?',
-      )
-      .bind(slug)
+      .prepare('SELECT MAX(id) AS live FROM site_revisions WHERE site_id = ?')
+      .bind(siteKey)
       .first<{ live: number | null }>()
     return row?.live ?? null
   }

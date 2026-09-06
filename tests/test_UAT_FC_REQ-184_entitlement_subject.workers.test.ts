@@ -110,33 +110,21 @@ describe('REQ-184 — the columns say what they hold', () => {
     expect(entitlements).toContain('account_id')
   })
 
-  it('test_UAT_FC_REQ-184_the_rename_carries_every_existing_grant_forward', async () => {
-    // The migration is applied to a database that ALREADY HOLDS rows written
-    // through the old name: `0005` seeds the operator's membership and grant
-    // against `account_id`, and `0006` runs afterwards. If the rename dropped and
-    // recreated the column — the tempting way to write it — those rows would
-    // still be there and their ids would be NULL, which is a lost grant that
-    // reports as "never granted" rather than as an error.
-    const membership = await env.DB.prepare(
-      'SELECT COUNT(*) AS n FROM memberships WHERE business_id = ?',
-    )
-      .bind('1stcontact')
-      .first<{ n: number }>()
-    expect(Number(membership?.n ?? 0)).toBe(1)
-
-    const seeded = await env.DB.prepare(
-      'SELECT business_id, account_id, plan, status FROM entitlements WHERE business_id = ?',
-    )
-      .bind('1stcontact')
-      .first<{ business_id: string; account_id: string | null; plan: string; status: string }>()
-    expect(seeded?.business_id).toBe('1stcontact')
-    expect(seeded?.plan).toBe('pro')
-    expect(seeded?.status).toBe('active')
-    // A grant written before there was a subject to name is a per-business
-    // capacity grant, and NULL is what says so — not a missing value to be
-    // backfilled later.
-    expect(seeded?.account_id).toBeNull()
-  })
+  /**
+   * THE RENAME THIS CASE GUARDED NO LONGER HAPPENS ([[REQ-190]]).
+   *
+   * It asserted that `0006`'s `account_id` -> `business_id` rename carried
+   * forward the rows `0005` had already written under the old name — that the
+   * migration had not been written the tempting way, dropping and recreating the
+   * column and leaving every seeded grant NULL. Both migrations are gone: the
+   * baseline creates `business_id` outright, so there is no rename to get wrong,
+   * and it seeds no people, so there are no pre-existing rows for one to damage.
+   *
+   * The claim that outlived them — a grant written with no subject reads NULL,
+   * and NULL means "a per-business capacity grant" rather than a value somebody
+   * forgot — is asserted below against the shipped write path, which is where it
+   * was always the stronger test.
+   */
 
   it('test_UAT_FC_REQ-184_provisioning_writes_capacity_and_names_no_subject', async () => {
     // What the shipped write path does, read back out of the database rather

@@ -108,14 +108,31 @@ async function publish(slug: string, message?: string): Promise<Response> {
 }
 
 /** A site imported and published once. Returns its slug and live revision. */
-async function publishedSite(): Promise<{ slug: string; id: number }> {
+/**
+ * A published site, and BOTH of its names ([[REQ-190]]).
+ *
+ * The `slug` is what the business calls it and is what the builder's routes
+ * take; the `siteKey` is what the PUBLIC address is made of and what every R2
+ * key is built from. They used to be the same string, which is what made a
+ * chosen name a key — so the two are returned separately here and each test
+ * uses the one it actually means.
+ */
+async function publishedSite(): Promise<{ slug: string; id: number; siteKey: string }> {
   const site = pureL1Site()
   await importSite(site)
   const res = await publish(site.slug, 'first')
   expect(res.status).toBe(200)
   const body = (await res.json()) as { id: number; published: boolean }
   expect(body.published).toBe(true)
-  return { slug: site.slug, id: body.id }
+  return { slug: site.slug, id: body.id, siteKey: await siteKeyOf(site.slug) }
+}
+
+/** The site's key, asked of the store rather than assumed from the slug. */
+async function siteKeyOf(slug: string, tenantId: string = TENANT): Promise<string> {
+  const store = await d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(tenantId)
+  const key = await store.siteKey(slug)
+  expect(key, `no site '${slug}' in ${tenantId}`).not.toBeNull()
+  return key!
 }
 
 describe('REQ-149 — publish in the cloud', () => {
@@ -145,17 +162,23 @@ describe('REQ-149 — publish in the cloud', () => {
     // store's own keys — `site.json`, `pages/home.json` — not a filesystem's.
     expect(body.changes.added).toContain('site.json')
     expect(body.changes.added).toContain('pages/home.json')
-    expect(body.url).toBe(`https://1stcontact.io/site/${site.slug}/`)
+    // THE URL IS BUILT FROM THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). The slug
+    // is what this business calls the site and means nothing outside it; the
+    // published address is the key, which names exactly one site by
+    // construction and is why there is no claim to make.
+    const siteKey = await siteKeyOf(site.slug)
+    expect(siteKey).not.toBe(site.slug)
+    expect(body.url).toBe(`https://1stcontact.io/site/${siteKey}/`)
 
     // The rendered bytes really are in the bucket, under the revision's own key.
-    const html = await env.SITES.get(`sites/${site.slug}/rev/0001/out/index.html`)
+    const html = await env.SITES.get(`sites/${siteKey}/rev/0001/out/index.html`)
     expect(html).not.toBeNull()
     expect(await html!.text()).toContain('theme.css')
 
     // `source/` travels with `out/`, so R2 holds a COMPLETE revision — this is
     // the only copy of what the definition looked like at r1, and it is what
     // makes a checkout possible at all.
-    const frozen = await env.SITES.get(`sites/${site.slug}/rev/0001/source/site.json`)
+    const frozen = await env.SITES.get(`sites/${siteKey}/rev/0001/source/site.json`)
     expect(frozen).not.toBeNull()
   })
 
@@ -163,22 +186,22 @@ describe('REQ-149 — publish in the cloud', () => {
     // AC-2. public-site resolves the live revision through its existing seam,
     // now reading D1 instead of a manifest object — and the interface it reads
     // through did not change, which is what the seam was for.
-    const { slug } = await publishedSite()
+    const { siteKey } = await publishedSite()
 
-    const res = await serve(`/site/${slug}/`)
+    const res = await serve(`/site/${siteKey}/`)
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8')
     expect(await res.text()).toContain('theme.css')
 
     // The page is only served if what it asks for is served too: a page that
     // 200s while its stylesheet 404s is a broken page, not a served one.
-    const css = await serve(`/site/${slug}/theme.css`)
+    const css = await serve(`/site/${siteKey}/theme.css`)
     expect(css.status).toBe(200)
     expect((await css.text()).length).toBeGreaterThan(0)
 
     // AC-9 — no manifest object exists any more. D1 is the only record, so
     // there is nothing in the bucket that could disagree with it.
-    expect(await env.SITES.get(`sites/${slug}/manifest.json`)).toBeNull()
+    expect(await env.SITES.get(`sites/${siteKey}/manifest.json`)).toBeNull()
   })
 
   it('test_UAT_FC_REQ-149_publishing_an_unchanged_draft_is_a_no_op', async () => {
@@ -241,7 +264,7 @@ describe('REQ-149 — publish in the cloud', () => {
   it('test_UAT_FC_REQ-149_an_invalid_draft_publishes_nothing', async () => {
     // AC-5. Validation happens before any write, so a broken draft costs the
     // author an error message and costs the published site nothing at all.
-    const { slug } = await publishedSite()
+    const { slug, siteKey } = await publishedSite()
     const store = await d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(TENANT)
 
     await store.write(slug, { siteJson: { nonsense: true } })
@@ -252,50 +275,41 @@ describe('REQ-149 — publish in the cloud', () => {
 
     // Nothing was minted, and the live site is exactly what it was.
     expect(await store.revisions(slug)).toHaveLength(1)
-    const served = await serve(`/site/${slug}/`)
+    const served = await serve(`/site/${siteKey}/`)
     expect(served.status).toBe(200)
   })
 
-  it('test_UAT_FC_REQ-149_a_second_tenant_cannot_publish_over_a_claimed_slug', async () => {
-    // AC-8 / D2. The published side has no tenant in its keys — `/site/<slug>/`
-    // is the public grammar — so without a claim, tenant B publishing `home`
-    // would silently overwrite tenant A's live site.
-    const { slug } = await publishedSite()
-    const before = await (await serve(`/site/${slug}/`)).text()
-
-    const root = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
-    await root.createTenant({ id: OTHER_TENANT, name: OTHER_TENANT })
-    const intruder = await root.forTenant(OTHER_TENANT)
-    // A same-named site inside the OTHER account, which is legal: the draft side
-    // is tenanted, so both accounts may own a site called this.
-    await intruder.createDraft(slug)
-    const seed = siteSeed({ slug })
-    await intruder.write(slug, {
-      siteJson: seed.siteJson as Record<string, unknown>,
-      pages: Object.entries(seed.pages).map(([name, page]) => ({
-        name,
-        page: page as Record<string, unknown>,
-      })),
-    })
-
-    await expect(publishSite(intruder, slug, { message: 'mine now' })).rejects.toThrow(
-      /already in use by another account/,
-    )
-
-    // The refusal happens before a byte is written, so the live site is
-    // untouched — byte for byte, not merely still 200.
-    expect(await (await serve(`/site/${slug}/`)).text()).toBe(before)
-    expect(await intruder.revisions(slug)).toHaveLength(0)
-  })
+  /**
+   * REQ-149's SLUG CLAIM IS GONE, AND ITS PROPERTY INVERTED ([[REQ-190]]).
+   *
+   * The test that stood here asserted AC-8 / D2: a second business publishing a
+   * slug the first already held was refused before a byte was written, because
+   * `/site/<slug>/` was the public grammar and without a claim tenant B would
+   * have silently overwritten tenant A's live site.
+   *
+   * BOTH HALVES OF THAT WERE THE SAME DEFECT. The overwrite was real, and the
+   * claim genuinely prevented it — but it prevented it by making a name a key,
+   * which cost the second business a name it could do nothing about and told it,
+   * by refusing, that another business on the deployment already had one. The
+   * published address is the site's own key now, so there is nothing to overwrite
+   * and nothing to claim.
+   *
+   * The property that replaces it is the positive one, and it is REQ-190's:
+   * `test_UAT_FC_REQ-190_two_businesses_each_publish_a_site_called_home`. AC-8's
+   * real content — a refused publish leaves the live site untouched — is still
+   * proved above by `test_UAT_FC_REQ-149_an_invalid_draft_publishes_nothing`.
+   */
 
   it('test_UAT_FC_REQ-149_the_builder_redirects_the_published_channel_to_public_site', async () => {
     // D4. One serving path for published bytes. The builder does not proxy them:
     // that would duplicate the resolve-and-serve logic public-site owns.
-    const { slug } = await publishedSite()
+    const { slug, siteKey } = await publishedSite()
 
     const res = await call(`/preview/${slug}/published/`)
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe(`https://1stcontact.io/site/${slug}/`)
+    // The builder's own routes take the SLUG, because that is what the operator
+    // typed; what it redirects to is built from the KEY ([[REQ-190]]).
+    expect(res.headers.get('location')).toBe(`https://1stcontact.io/site/${siteKey}/`)
   })
 
   it('test_UAT_FC_REQ-149_build_artifacts_serve_when_the_store_has_no_tenant', async () => {

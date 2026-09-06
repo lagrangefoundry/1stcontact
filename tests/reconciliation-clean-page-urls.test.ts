@@ -681,7 +681,9 @@ describe('STORY — a clean page URL resolves the same in preview and in product
     // it addresses a page like any other, and a site may legitimately have one.
     expect(parseRoute(`${base}/draft/not-hex/whitepapers`)).toMatchObject({
       kind: 'asset',
-      slug: SLUG,
+      // The first segment is the site's KEY now ([[REQ-190]]) — this fixture's
+      // `SLUG` is the token it puts there, and the grammar is unchanged.
+      siteKey: SLUG,
       path: 'draft/not-hex/whitepapers',
     })
 

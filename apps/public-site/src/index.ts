@@ -108,7 +108,7 @@ async function serve(
   store: SiteStore,
   bucket: R2Bucket,
 ): Promise<Response> {
-  const prefix = await store.resolve(target.slug)
+  const prefix = await store.resolve(target.siteKey)
   // An unknown slug and a site with nothing published are one answer, not two: a
   // 404 that said which would answer questions about sites the asker has no
   // business knowing exist.

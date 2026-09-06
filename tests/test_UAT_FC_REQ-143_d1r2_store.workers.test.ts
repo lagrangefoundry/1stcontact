@@ -241,11 +241,22 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
 
     // R2 holds the object with the content type the store derived, so a response
     // built from it is labelled without a second guess at the extension.
+    //
+    // THE KEY IS `draft/<siteId>/assets/…` ([[REQ-190]]). It used to be
+    // `draft/<tenant>/<slug>/assets/…`, which recorded both the name the site
+    // might be renamed away from and the business it might be moved out of, in
+    // every object it owned — so a move was an object-store copy. The key is
+    // asked of the store rather than composed from `DEFAULT_TENANT` and `slug`,
+    // which is the same discipline the published fixture follows: a test that
+    // rebuilt the layout by hand would prove only that someone copied it right
+    // once.
     const { SITES } = storeEnv()
-    const object = await SITES.get(`draft/${DEFAULT_TENANT}/${slug}/assets/mark.svg`)
+    const siteId = await store.siteKey(slug)
+    expect(siteId).not.toBeNull()
+    const object = await SITES.get(`draft/${siteId}/assets/mark.svg`)
     expect(object).not.toBeNull()
     expect(object!.httpMetadata?.contentType).toBe('image/svg+xml')
-    expect((await SITES.get(`draft/${DEFAULT_TENANT}/${slug}/assets/photo.png`))!.httpMetadata
+    expect((await SITES.get(`draft/${siteId}/assets/photo.png`))!.httpMetadata
       ?.contentType).toBe('image/png')
 
     // An unknown name is null, and so is one that tries to leave the assets

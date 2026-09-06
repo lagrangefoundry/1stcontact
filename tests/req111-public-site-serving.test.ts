@@ -351,12 +351,12 @@ describe('REQ-111 — public-site serves published sites', () => {
     expect(parseRoute('/')).toEqual({ kind: 'apex' })
     expect(parseRoute('/site/acme/')).toEqual({
       kind: 'asset',
-      slug: 'acme',
+      siteKey: 'acme',
       path: 'index.html',
     })
     expect(parseRoute('/site/acme/about.html')).toMatchObject({
       kind: 'asset',
-      slug: 'acme',
+      siteKey: 'acme',
       path: 'about.html',
     })
     expect(parseRoute('/site/acme')).toEqual({
@@ -367,7 +367,7 @@ describe('REQ-111 — public-site serves published sites', () => {
     // into an extra path segment.
     expect(parseRoute('/site/acme/assets/my%20logo.svg')).toMatchObject({
       kind: 'asset',
-      slug: 'acme',
+      siteKey: 'acme',
       path: 'assets/my logo.svg',
     })
 
@@ -379,12 +379,12 @@ describe('REQ-111 — public-site serves published sites', () => {
     // changed by it.)
     expect(parseRoute('/site/acme/draft/')).toMatchObject({
       kind: 'asset',
-      slug: 'acme',
+      siteKey: 'acme',
       path: 'draft',
     })
     expect(parseRoute('/site/acme/draft/abcdef123456/')).toMatchObject({
       kind: 'asset',
-      slug: 'acme',
+      siteKey: 'acme',
       path: 'draft/abcdef123456',
     })
 

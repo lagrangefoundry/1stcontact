@@ -60,10 +60,14 @@ export class FakeBucket {
 /**
  * A D1 handle answering the one query {@link D1SiteStore} makes.
  *
- * Keyed by slug, holding the live revision id — which is the whole of what the
- * real query computes (`MAX(id)` over the revision log, joined through the
- * published-slug claim). A slug with no entry answers `null`, which is how both
- * "no such site" and "never published" reach the Worker.
+ * Keyed by the SITE'S KEY, holding the live revision id — which is the whole of
+ * what the real query computes, `MAX(id)` over that site's revision log. There
+ * is no join to fake any more ([[REQ-190]]): the query used to reach
+ * `site_revisions` THROUGH `published_sites`, because the URL carried a slug
+ * with no business in it and something had to say whose revisions to serve. The
+ * URL carries the site's key now, so the claim table is gone and one indexed
+ * read answers it. A key with no entry answers `null`, which is how both "no
+ * such site" and "never published" reach the Worker.
  */
 export class FakeDatabase implements SiteDatabase {
   /** Counts queries, so a test can prove the store was memoised or cached past. */
@@ -76,8 +80,8 @@ export class FakeDatabase implements SiteDatabase {
       bind: (...values: unknown[]) => ({
         first: async <T,>(): Promise<T | null> => {
           this.queries++
-          const slug = String(values[0])
-          const found = this.live.get(slug)
+          const siteKey = String(values[0])
+          const found = this.live.get(siteKey)
           return { live: found ?? null } as T
         },
       }),
@@ -100,7 +104,8 @@ export interface PublishedFixture {
 }
 
 /**
- * Seed `content` as revision `id` of `slug`, exactly where a publish would put it.
+ * Seed `content` as revision `id` of `siteKey`, exactly where a publish would
+ * put it.
  *
  * `content` is what `publishSite` hands the store, so a caller passes the output
  * of a real render rather than invented HTML — the bytes are the product's, and
@@ -108,11 +113,11 @@ export interface PublishedFixture {
  */
 export function seedPublished(
   fixture: PublishedFixture,
-  slug: string,
+  siteKey: string,
   id: number,
   content: RevisionContent,
 ): void {
-  const out = publishedOutPrefix(slug, id)
+  const out = publishedOutPrefix(siteKey, id)
   for (const [rel, text] of content.out) {
     fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(text, 'utf8'))
   }
@@ -120,7 +125,7 @@ export function seedPublished(
     fixture.bucket.objects.set(`${out}/assets/${name}`, Buffer.from(bytes))
   }
 
-  const source = publishedSourcePrefix(slug, id)
+  const source = publishedSourcePrefix(siteKey, id)
   if (content.source.siteJson !== null) {
     fixture.bucket.objects.set(
       `${source}/site.json`,
@@ -140,8 +145,8 @@ export function seedPublished(
   // Live is the HIGHEST id, derived exactly as the real query derives it — a
   // fixture that let an older publish win would be testing a rule the product
   // does not have.
-  const current = fixture.db.live.get(slug)
-  if (current === undefined || id > current) fixture.db.live.set(slug, id)
+  const current = fixture.db.live.get(siteKey)
+  if (current === undefined || id > current) fixture.db.live.set(siteKey, id)
 }
 
 export function emptyPublished(): PublishedFixture {
