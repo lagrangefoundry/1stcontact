@@ -5,9 +5,9 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-09-06T23:27:01.108792+00:00'
+updated_at: '2026-09-06T23:43:32.399029+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -92,8 +92,8 @@ But `push.ts` only knows one inbound credential: the `CF-Access-Client-Id` /
 `CF-Access-Client-Secret` service-token pair, which the real Access edge exchanges
 for a JWT. access-sim implements no such exchange, and the raw
 `cf-access-jwt-assertion` header path was deliberately removed from `push.ts`
-(its doc comment explains why: that header is what Access *sets* on the forwarded
-request, and a deployed edge refuses a request that arrives carrying one).
+(BUG-36 — that header is what Access *sets* on the forwarded request, and a
+deployed edge refuses a request that arrives carrying one).
 
 So against a sim-gated local builder, `bin/publish` fails with:
 
@@ -108,41 +108,106 @@ CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and
 — advice that cannot be followed, because `bin/access-token` provisions against
 real Cloudflare and the sim would not honour the result.
 
-Getting a site in required hand-rolling a throwaway loopback proxy that injects a
-sim-minted `cf-access-jwt-assertion` header and forwards to 8788. That is the gap:
-the local harness has no supported path from `1c push` to a gated local builder.
+## What to build
 
-The shape of the fix is not yet decided. Candidates:
+**`bin/access-sim` becomes what the real Access edge is: a reverse proxy in front
+of the builder that turns a credential into an identity on the forwarded
+request.** Nothing changes in `push.ts`, in `1c push`, or in the Worker — the
+credential shape the client sends is already the production one, and the missing
+half was always on the far side.
 
-- `bin/access-sim` grows a service-token exchange, so `--client-id` /
-  `--client-secret` work locally exactly as they do against Cloudflare. Keeps one
-  credential shape everywhere and needs no change to `push.ts`.
-- `1c push` regains a local-only raw-JWT option, gated so it cannot be aimed at a
-  non-loopback origin.
-- `1c push` learns to fetch a token from a sim named by an env var.
+The simulator keeps its own endpoints and proxies everything else to the builder
+origin it already knows about (its `--builder` flag, today used only for the
+`/login` redirect). Concretely:
 
-Preference is the first: it leaves `push.ts`'s reasoning about inbound
-credentials intact and confines the local-only behaviour to the local-only tool.
+1. **Service-token exchange.** A proxied request carrying `CF-Access-Client-Id`
+   and `CF-Access-Client-Secret` that match the simulator's configured pair is
+   forwarded to the builder with a freshly minted `cf-access-jwt-assertion`
+   header. That is precisely what Cloudflare does at the edge, and it is why the
+   header belongs here and not in `push.ts`.
 
-## Secondary: a signed-out builder gives the operator nothing to act on
+2. **A wrong or half credential is refused and nothing is forwarded.** A client
+   id with the wrong secret must not reach the builder at all. Half a pair is
+   treated as no pair, matching `1c push`'s own "both or neither" rule.
 
-The 401 body names Cloudflare Access, which is accurate but not actionable when
-the gate is a loopback simulator the operator started themselves. Worth
-considering: when `ACCESS_TEAM_DOMAIN` resolves to loopback, say so and name
-`<team-domain>/login`.
+3. **A browser cookie is passed through untouched.** A request carrying
+   `CF_Authorization` is forwarded as it arrived and the Worker verifies it, as
+   it does today. The simulator does not re-sign what it has already minted.
+
+4. **A proxied request with no credential at all gets a 302 to `/login`**, which
+   is the shape real Access answers a browser with, and which turns the current
+   dead end — a bare 401 naming Cloudflare — into a way in.
+
+5. **The simulator's own endpoints keep priority** over the proxy:
+   `/cdn-cgi/access/certs`, `/login` and `/mint` are answered by the simulator
+   and are never forwarded. The control app's router has no route of any of those
+   names, so nothing is shadowed.
+
+6. **`--print-token` prints the pair**, in `NAME=value` form for `eval`, and the
+   startup banner names it alongside the existing lines. The pair defaults to
+   well-known values (`--client-id`, `--client-secret` override them). A
+   well-known default is not a weakening here and the reason is structural:
+   `/mint` already hands anyone a token for any address with no credential at
+   all, and the process binds to loopback. What the pair buys is that the
+   *client* side is byte-identical to production.
+
+### The one place the simulator deliberately differs from Cloudflare
+
+A real Access service token authenticates as a non-human `common_name` and
+carries no email. `verifyAccessJwt` accepts that — it reports the identity as
+`service-token:<name>` — but `admit` does not: it opens with
+`if (!email) return { ok: false, reason: 'no_email' }`, because DOC-40 §2 makes
+the verified email the identity and there is nothing to look a service token up
+by. So a faithfully-shaped service token is refused one layer further in.
+
+The simulator therefore binds its pair to an **address** and mints an ordinary
+identity token, defaulting to the first entry of `PLATFORM_ADMINS` (read from
+`apps/control-app/.dev.vars`, falling back to `wrangler.toml`) and overridable
+with `--service-email`. Local automation stands for a person, because a person is
+the only thing this platform can currently admit. When no address can be
+determined the exchange refuses and says so rather than minting for nobody.
+
+This difference is stated in the banner and in `ACCESS.md` rather than left to be
+discovered.
+
+### Related finding, recorded and NOT fixed here
+
+**`bin/publish --production` is refused by `admit` for the same reason.** The
+deployed path sends a real service token, Access mints a `common_name` JWT, and
+`admit` answers `no_email` — so the automation identity BUG-36 provisioned has no
+seat in the identity model REQ-167 onwards built. `ACCESS.md`'s claim that a
+service token is accepted "on the same terms as a human identity" is true of
+`verifyAccessJwt` and false of the request as a whole.
+
+Giving a service token a seat is a design question — which account owns it, which
+businesses it may write to, how it is granted and revoked — and it is not this
+bug's. Recorded here so it is not rediscovered from the symptom.
 
 ## Test plan
 
-To be settled once the fix shape is chosen. Whatever lands needs a UAT that
-drives the real entry point — `1c push` against a sim-gated Worker — and asserts
-the site actually appears in the store, not merely that the request was accepted.
+UATs in `tests/test_UAT_FC_BUG-59_access_sim_service_token.test.ts`, driving a
+real `bin/access-sim` process pointed at a stub builder started by the test, so
+what is asserted is what the simulator actually forwards:
+
+- a matching pair is exchanged for a `cf-access-jwt-assertion` the product's own
+  `verifyAccessJwt` accepts, carrying the bound address;
+- a wrong secret is refused and the stub builder sees no request at all;
+- a `CF_Authorization` cookie is forwarded byte-for-byte and no assertion header
+  is added;
+- an uncredentialed proxied request answers 302 to `/login`;
+- `/cdn-cgi/access/certs` and `/login` are still the simulator's own once the
+  proxy exists;
+- `--print-token` emits both halves of the pair;
+- the method, path and body of a POST survive the hop, which is the property
+  `1c push` depends on.
 
 ## Notes
 
-- A throwaway proxy is still listening on `127.0.0.1:8790` from this session; the
-  sandbox refused to kill it. Run `kill 83847` to stop it. It holds a 30-day
-  sim-minted token for `martin@westhead.me` and forwards to 8788.
-- `apps/control-app/.dev.vars` was edited at 15:38 today, changing
+- A throwaway proxy is still listening on `127.0.0.1:8790` from the diagnosis
+  session; the sandbox refused to kill it. Run `kill 83847` to stop it. It holds a
+  30-day sim-minted token for `martin@westhead.me` and forwards to 8788. It is
+  superseded by this ticket's work.
+- `apps/control-app/.dev.vars` was edited at 15:38 on 2026-09-06, changing
   `PLATFORM_ADMINS` from `martin-github@westhead.me` to `martin@westhead.me`
   (`.dev.vars~` holds the previous version). Not a cause here — the running
   server admits `martin@westhead.me` fine.
