@@ -5,13 +5,13 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-09-06T18:28:11.674327+00:00'
+updated_at: '2026-09-06T18:28:15.863559+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
-  story_points: 3
+  story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-4ea78701
