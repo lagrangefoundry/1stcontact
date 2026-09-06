@@ -6,16 +6,24 @@ title: 'account-chrome: Sign In and the account portal as an L2 module on any si
   with accounts'
 created_by: xgd
 created_at: '2026-09-06T00:02:10.761978+00:00'
-updated_at: '2026-09-06T20:49:18.833255+00:00'
+updated_at: '2026-09-06T20:50:43.717843+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-70a8f021
+  commits:
+  - working_sha: 9ff59758e8a8fb437ca22812fc3f855c3329655c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 75e14bcf4cc1935a0023bbe93ff7c3d235139e02
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.119
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-134]] (lagrange-framework) for sessions.
