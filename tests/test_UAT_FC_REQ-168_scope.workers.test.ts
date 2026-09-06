@@ -114,7 +114,6 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
-      email,
     })
 
     const a: Scope = { businessId: first.businessId }
@@ -147,7 +146,6 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Two',
-      email,
     })
     await siteIn({ businessId: second.businessId }, 'second-only')
 
@@ -229,7 +227,6 @@ describe('REQ-168 — resolution authorises the target', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Lapsed',
-      email,
     })
     await lapse(second.businessId)
 
@@ -254,7 +251,6 @@ describe('REQ-168 — resolution authorises the target', () => {
     const newer = await provisionBusiness(identityEnv(), {
       accountUserId: oldest.user.id,
       name: 'Newer',
-      email,
     })
     await lapse(oldest.businessId)
 
@@ -329,7 +325,6 @@ describe('REQ-168 — a deactivated business is not offered', () => {
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Suspended',
-      email,
     })
     await env.DB.prepare('UPDATE tenants SET status = ? WHERE id = ?')
       .bind('suspended', dead.businessId)

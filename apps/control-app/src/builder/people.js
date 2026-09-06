@@ -861,8 +861,40 @@ export function createPeoplePanel(options = {}) {
     })
 
     /**
+     * THE OTHER ADDRESSES, READ-ONLY ([[REQ-191]]).
+     *
+     * SHOWN ONLY WHEN THERE ARE SOME. A person holds as many addresses as they
+     * have; the row above and the `Email` field both show the PRIMARY one, so a
+     * section that appeared for everybody would say "and no others" to the whole
+     * list and mean nothing. It appears exactly when there is something the pane
+     * would otherwise be hiding — which is the case that lets an operator invite
+     * the same human twice.
+     *
+     * READ-ONLY BECAUSE NOTHING ADDS ONE YET. Which surface adds an address and
+     * re-primaries it is [[REQ-189]]'s territory or later; editing the `Email`
+     * field rewrites the primary row and leaves these alone. A control that
+     * appeared to offer more than that would be the shape that reads as
+     * supported and is not.
+     */
+    const others = (detail.emails ?? []).filter((entry) => !entry.isPrimary)
+    if (others.length > 0) {
+      const addresses = section(view, 'Other addresses')
+      const list = el('ul', 'builder-people__addresses')
+      for (const entry of others) {
+        list.append(el('li', 'builder-people__address', entry.email))
+      }
+      addresses.append(list)
+    }
+
+    /**
      * Their name — the operator's own surface, and the one they curate on
      * ([[REQ-193]]).
+     *
+     * ITS OWN SECTION, BESIDE THE ADDRESSES AND NOT AMONG THEM. Both are
+     * multi-valued and neither is multi-valued along the same axis: a person
+     * holds several addresses AT ONCE, and several names OVER TIME. So the
+     * addresses list what else is true now and this shows the one that is
+     * current — with what used to be true on the `Formerly` row.
      *
      * EDITING HERE IS A CORRECTION, and that is why it is the plain path. The
      * common case by far is a typo, an autocorrect, a spelling somebody finally

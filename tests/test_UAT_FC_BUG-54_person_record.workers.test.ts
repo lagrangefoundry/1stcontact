@@ -3,7 +3,12 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { ensurePlatformOperator, findAccount, type IdentityEnv } from '../apps/control-app/src/identity'
+import {
+  ensurePlatformOperator,
+  findAccount,
+  PRIMARY_EMAIL_SQL,
+  type IdentityEnv,
+} from '../apps/control-app/src/identity'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -154,8 +159,10 @@ const rowById = async (
   id: string,
 ): Promise<UserRowShape & { displayName: string | null }> => {
   const row = await env.DB.prepare(
-    'SELECT id, email, status, invited_at, tos_accepted_at, created_at ' +
-      'FROM users WHERE tenant_id = ? AND id = ?',
+    `SELECT u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, ` +
+      'u.status AS status, u.invited_at AS invited_at, ' +
+      'u.tos_accepted_at AS tos_accepted_at, u.created_at AS created_at ' +
+      'FROM users u WHERE u.tenant_id = ? AND u.id = ?',
   )
     .bind(tenantId, id)
     .first<UserRowShape>()

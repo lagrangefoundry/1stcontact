@@ -57,7 +57,6 @@ describe('REQ-178 — admission returns the set', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Studio',
-      email,
     })
 
     const result = await admit(identityEnv(), email)
@@ -104,7 +103,6 @@ describe('REQ-178 — denial is per business', () => {
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Lapsed',
-      email,
     })
     await lapse(dead.businessId)
 
@@ -138,7 +136,6 @@ describe('REQ-178 — denial is per business', () => {
     const second = await provisionBusiness(identityEnv(), {
       accountUserId: first.user.id,
       name: 'Second',
-      email,
     })
     await lapse(first.businessId)
     await lapse(second.businessId)
@@ -186,12 +183,10 @@ describe('REQ-178 — denial is per business', () => {
     const revoked = await provisionBusiness(identityEnv(), {
       accountUserId: kept.user.id,
       name: 'Revoked',
-      email,
     })
     const expired = await provisionBusiness(identityEnv(), {
       accountUserId: kept.user.id,
       name: 'Expired',
-      email,
     })
 
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE business_id = ?')
@@ -243,7 +238,6 @@ describe('REQ-178 — provisioning a second business', () => {
     const added = await provisionBusiness(identityEnv(), {
       accountUserId: invited.user.id,
       name: 'By invite',
-      email,
       plan: 'pro',
       endsAt: null,
       grantedBy: 'operator',
@@ -259,8 +253,12 @@ describe('REQ-178 — provisioning a second business', () => {
       )
         .bind(accountId)
         .first<{ user_id: string; role: string; status: string }>()
+      // NO `email` COLUMN TO COMPARE ([[REQ-191]]). A grant used to carry the
+      // address it was made to beside `account_id`, which is a string foreign
+      // key to a person — and the two paths could only agree on it because both
+      // wrote the same string. A grant names its subject by key.
       const grant = await env.DB.prepare(
-        'SELECT email, plan, source, status, ends_at, granted_by, note FROM entitlements ' +
+        'SELECT account_id, plan, source, status, ends_at, granted_by, note FROM entitlements ' +
           'WHERE business_id = ?',
       )
         .bind(accountId)
@@ -300,7 +298,6 @@ describe('REQ-178 — provisioning a second business', () => {
     const added = await provisionBusiness(identityEnv(), {
       accountUserId: invited.user.id,
       name: 'Second',
-      email,
     })
 
     const result = await admit(identityEnv(), email)

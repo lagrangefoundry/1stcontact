@@ -7,9 +7,12 @@ import {
   admit,
   ensurePlatformOperator,
   findAccount,
+  PRIMARY_EMAIL_SQL,
   provisionBusiness,
+  USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { seedContact } from './support/contact'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf, writeName } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -146,12 +149,16 @@ const getPeople = async (token: string, businessId: string | null = null): Promi
     workerEnv(),
   )
 
+// THE ADDRESS IS JOINED, and the match is on ANY of them ([[REQ-191]]): a
+// person is found by every address they hold, which is what stops an invite at a
+// second address making a second person.
 const rowsFor = async (tenantId: string, email: string) => {
   const { results } = await env.DB.prepare(
-    'SELECT id, tenant_id, email, status, invited_at FROM users ' +
-      'WHERE tenant_id = ? AND email = ?',
+    `SELECT u.id AS id, u.tenant_id AS tenant_id, ${PRIMARY_EMAIL_SQL} AS email, ` +
+      'u.status AS status, u.invited_at AS invited_at ' +
+      `FROM users u WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
   )
-    .bind(tenantId, email)
+    .bind(tenantId, tenantId, email)
     .all<{
       id: string
       tenant_id: string
@@ -164,19 +171,12 @@ const rowsFor = async (tenantId: string, email: string) => {
 
 /** A contact: known to a business, never invited, and MAY become a member. */
 async function addContact(tenantId: string, email: string, displayName: string | null = null) {
-  const id = `usr_contact_${(seq += 1)}`
-  const now = new Date().toISOString()
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, tenantId, email, 'active', now, now)
-    .run()
-  // THE NAME IS A ROW OF ITS OWN ([[REQ-193]]) and is written through the one
-  // module that writes them, so this fixture cannot be a second answer to what
-  // "has a name" means in the database.
-  if (displayName) await writeName(identityEnv(), id, { displayName })
-  return id
+  return seedContact(identityEnv(), {
+    id: `usr_contact_${(seq += 1)}`,
+    tenantId,
+    email,
+    displayName,
+  })
 }
 
 beforeAll(async () => {
@@ -522,7 +522,6 @@ describe('REQ-186 — the invite writes no entitlement', () => {
     const business = await provisionBusiness(identityEnv(), {
       accountUserId: invited.person.id,
       name: "Alice's Plumbing",
-      email: alice,
     })
 
     const admitted = await admit(identityEnv(), alice)

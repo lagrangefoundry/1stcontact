@@ -139,7 +139,6 @@ async function aWhollyLapsedAccount(): Promise<{
   const second = await provisionBusiness(identityEnv(), {
     accountUserId: first.user.id,
     name: 'Studio',
-    email,
   })
   await lapse(first.businessId)
   await lapse(second.businessId)
@@ -205,7 +204,6 @@ describe('REQ-178 — the resolver answers "no business"', () => {
     const live = await provisionBusiness(identityEnv(), {
       accountUserId: dead.user.id,
       name: 'Live',
-      email,
     })
     await lapse(dead.businessId)
 

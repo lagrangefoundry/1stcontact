@@ -3,7 +3,13 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { ensurePlatformOperator, findAccount, type IdentityEnv } from '../apps/control-app/src/identity'
+import {
+  ensurePlatformOperator,
+  findAccount,
+  USER_ID_BY_EMAIL_SQL,
+  type IdentityEnv,
+} from '../apps/control-app/src/identity'
+import { seedContact } from './support/contact'
 import { peopleOf, type Person } from '../apps/control-app/src/people'
 import { acceptTerms, TERMS_ACCEPT_PATH, TERMS_VERSION } from '../apps/control-app/src/terms'
 import { PERSON_INVITE_PATH } from '../apps/control-app/src/router'
@@ -128,15 +134,7 @@ async function anOperator(email: string): Promise<string> {
  * that wrote the value would prove that this file can spell it.
  */
 async function addContact(tenantId: string, email: string): Promise<string> {
-  const id = `usr_contact_${(seq += 1)}`
-  const now = new Date().toISOString()
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, tenantId, email, 'active', now, now)
-    .run()
-  return id
+  return seedContact(identityEnv(), { id: `usr_contact_${(seq += 1)}`, tenantId, email })
 }
 
 /** Read one contact back through the query the tab itself uses. */
@@ -266,7 +264,6 @@ describe('REQ-188 — two axes, moved by two parties', () => {
     await provisionBusiness(identityEnv(), {
       accountUserId: id,
       name: 'Self-served',
-      email,
       endsAt: null,
     })
     expect(await axesFor(email)).toEqual({ stage: 'lead', access: 'not_member' })
@@ -287,17 +284,19 @@ describe('REQ-188 — two axes, moved by two parties', () => {
     const stamped = anEmail()
     await addContact(PLATFORM, stamped)
     await env.DB.prepare(
-      "UPDATE users SET invited_at = ?, pipeline_stage = 'lead' WHERE tenant_id = ? AND email = ?",
+      "UPDATE users SET invited_at = ?, pipeline_stage = 'lead' WHERE tenant_id = ? " +
+        `AND id = ${USER_ID_BY_EMAIL_SQL}`,
     )
-      .bind(new Date().toISOString(), PLATFORM, stamped)
+      .bind(new Date().toISOString(), PLATFORM, PLATFORM, stamped)
       .run()
 
     const staged = anEmail()
     await addContact(PLATFORM, staged)
     await env.DB.prepare(
-      "UPDATE users SET pipeline_stage = 'invited' WHERE tenant_id = ? AND email = ?",
+      "UPDATE users SET pipeline_stage = 'invited' WHERE tenant_id = ? " +
+        `AND id = ${USER_ID_BY_EMAIL_SQL}`,
     )
-      .bind(PLATFORM, staged)
+      .bind(PLATFORM, PLATFORM, staged)
       .run()
 
     expect((await axesFor(stamped)).stage, 'a stamp decided the stage').toBe('lead')

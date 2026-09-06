@@ -125,13 +125,12 @@ describe('REQ-180 — why a business lapsed', () => {
       .bind(first, invite.businessId)
       .run()
     await env.DB.prepare(
-      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
-        'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, ' +
+        'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
       .bind(
         'ent_req180_renewal',
         invite.businessId,
-        email,
         'pro',
         'admin_grant',
         'active',
@@ -189,13 +188,12 @@ describe('REQ-180 — why a business lapsed', () => {
       .bind(iso(-86_400_000), invite.businessId)
       .run()
     await env.DB.prepare(
-      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
-        'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, ' +
+        'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
       .bind(
         'ent_req180_future',
         invite.businessId,
-        email,
         'pro',
         'admin_grant',
         'active',
@@ -237,7 +235,6 @@ describe('REQ-180 — why a business lapsed', () => {
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Studio',
-      email,
     })
     await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
       .bind(iso(-1_000), dead.businessId)
@@ -268,7 +265,6 @@ describe('REQ-180 — why a business lapsed', () => {
     const dead = await provisionBusiness(identityEnv(), {
       accountUserId: live.user.id,
       name: 'Studio',
-      email: mine,
     })
     const stranger = await inviteAccount(identityEnv(), { email: theirs, accountName: 'Theirs' })
     await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
