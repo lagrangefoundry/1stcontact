@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-194
 created_by: xgd
 created_at: '2026-09-06T18:29:31.343201+00:00'
-updated_at: '2026-09-06T18:59:49.156026+00:00'
+updated_at: '2026-09-06T19:12:40.546410+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,14 @@ Now the payload rename in existing UATs, and the portal / baseline assertions.
 Now the remaining workers suites.
 
 Now a full run to confirm only the pre-existing failures remain.
+
+<!-- xgd-turn id="62427919-2fc2-4146-a9ac-91042add1e1b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:12:39.102317+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
