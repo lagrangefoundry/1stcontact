@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:46:53.827103+00:00'
+updated_at: '2026-09-06T18:48:37.985790+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -224,5 +224,47 @@ Want me to scope (1) and (2) against CHAT-40 now? I'd want your call on the auto
 <!-- xgd-chat role="user" ts="2026-09-06T18:46:53.244293+00:00" -->
 #### You
 Again explain the need for Form 0? It exposes a site as 1stcontact even if it has a full domain name - maybe that would be clear from the HTML/CSS structure anyway?
+
+<!-- xgd-turn id="6e9bc4a7-e365-4ea4-8e4a-18a97f235ced-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T18:48:37.825551+00:00" -->
+#### Claude
+Fair challenge. Let me check the three things I based that argument on, because I think at least one of them doesn't survive.
+
+I checked the three things I based that argument on, and it mostly doesn't hold. Straight answer first: **form 0 has no permanent job. It's a bootstrap, and it should be deleted when form 2 ships.**
+
+## Why my "substrate address" argument was wrong
+
+- **CI/tests don't need it.** Workerd tests construct requests with arbitrary origins — `new Request('https://1stcontact.io/site/...')` (`tests/test_UAT_FC_REQ-149_publish_in_the_cloud.workers.test.ts:66`), `https://app.example/...` elsewhere. No DNS is ever involved, so a host-based resolver tests exactly as easily as a path-based one. Just construct `new Request('https://alice.1stc.site/about')`.
+- **The screenshot worker doesn't use it.** `shotPreview` goes through `PreviewRenderer` and `previewOriginResolver` (`shot.ts:107-121`) against the preview channel — that's form 1, not form 0. I cited it wrongly.
+- **`1c serve` doesn't use it either.** That's the file-backed authoring tier, `storage/sites/<dir>/` — a different tier that never touches D1 keys or domains.
+
+What's actually left is one narrow case: `wrangler dev` on `localhost:8787`, where a host-only resolver finds no site. And that doesn't need a second grammar — it needs **a `site_domains` row mapping `localhost` to whichever site you're working on.** Configuration as data, not a special case in code. `alice.localhost`, `bob.localhost` if you want several (Chrome and Firefox resolve any `*.localhost` to loopback natively).
+
+## What deleting it actually buys
+
+More than I'd credited. The public grammar loses its prefix entirely — a site sits at the **root of its host**:
+
+- `parseRoute`'s `SITE_SEGMENT` check and `siteKey` extraction go away; the path is just the path
+- `SITE_KEY_PATTERN` and `isValidSiteKey` go away
+- the whole `{ kind: 'redirect' }` route case goes away — it exists *only* because a site served under a prefix breaks document-relative asset references when the trailing slash is missing (`routes.ts:35-44`). At the root there's no prefix and no hazard.
+
+So the resolver ends up with exactly one rule — `host → site_domains → site_id → live revision` — and no fallback grammar to keep consistent with it. That's a better argument for deleting form 0 than anything about exposure.
+
+## On the exposure point
+
+Your instinct is right, but not quite for the reason you gave, and it's worth separating two things:
+
+**Does it put "1stcontact" in Alice's customers' address bars?** No — with the 301 I proposed, a visitor never sees it. But that's a weaker guarantee than it sounds, because *an address that exists is an address that leaks*: into referrer headers, browser history, an email sent before the domain was configured, a QR code printed on a van. A redirect doesn't un-print the van. "It doesn't exist" beats "it redirects."
+
+**Would it be obvious from the HTML/CSS anyway?** Yes — and that part we should stop trying to defend. Server headers, framework class conventions, asset paths, `<meta generator>`, CT logs for issued certs. Every Squarespace, Wix and Shopify site is identifiable in about ten seconds and nobody treats it as a defect. The property worth having isn't *secrecy about who hosts this*; it's that the customer's address bar says their name and the visible chrome doesn't advertise us. Forms 2 and 3 deliver that in full, and form 0 contributes nothing either way.
+
+So: delete it because it has no job and its absence simplifies the resolver — not because it leaks the platform, which is unpreventable and fine.
+
+## Sequencing
+
+Form 0 is the only public address that exists **today**, so it can't just go. It stays until form 2 ships, and *"the `/site/<key>/` grammar is deleted"* becomes an acceptance criterion of the domains ticket rather than a separate cleanup. Which also means the order matters: kill the slug, then domains-and-delete-form-0, because otherwise the domains work gets built against a token that's already scheduled to disappear.
+
+That changes what I'd write up — form 0 comes out of the model as a product form entirely, and the "one canonical address, everything else redirects" rule collapses to "a site has one address, on its own host." Simpler. Want me to scope that now against CHAT-40, or keep pulling on it?
 
 <!-- xgd-chat-end -->
