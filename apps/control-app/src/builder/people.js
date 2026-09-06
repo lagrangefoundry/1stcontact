@@ -64,6 +64,7 @@ import {
   stageLabel,
   stageOf,
 } from './people-axes.js'
+import { eventLabel } from './contact-events.js'
 import {
   fetchPeople,
   fetchPerson,
@@ -305,6 +306,45 @@ export function joinBusinesses(operates = [], grants = []) {
   for (const business of operates) bucket(business.businessId, business.name).membership = business
   for (const grant of grants) bucket(grant.businessId, grant.businessName).grants.push(grant)
   return rows
+}
+
+/**
+ * A stamp, as this pane prints every stamp ([[REQ-195]]).
+ *
+ * THE STORED VALUE, TRIMMED — never `toLocaleString`. The record fields above
+ * print `invitedAt`, `firstSeenAt` and the rest exactly as the server sent them,
+ * so a history in the reader's own timezone beside a record in UTC would put two
+ * different clocks in one pane and invite an operator to compare them. Seconds
+ * and the `T` go because nobody reads either; the day and the minute stay.
+ *
+ * A VALUE IT CANNOT PARSE COMES BACK WHOLE rather than blank. This is a log, and
+ * a row whose time renders as nothing is indistinguishable from a row that
+ * failed to load.
+ */
+export function formatWhen(iso) {
+  const value = String(iso ?? '')
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)
+    ? `${value.slice(0, 10)} ${value.slice(11, 16)}`
+    : value
+}
+
+/**
+ * One line of history: what happened, when, and — only when they differ — when
+ * we learned of it ([[REQ-195]]).
+ *
+ * THE SECOND STAMP IS SHOWN ONLY WHEN IT IS NEWS. `occurredAt` and `recordedAt`
+ * are the same value for everything this system does itself, so printing both
+ * every time would put a redundant clause on every row and train the eye to skip
+ * the region where the one interesting case — an imported signup that happened
+ * in March, a bounce we heard about a day late — actually appears.
+ *
+ * PURE AND EXPORTED, because that difference is the claim and it is provable
+ * without a DOM.
+ */
+export function describeEvent(event) {
+  const when = formatWhen(event?.occurredAt)
+  const learned = formatWhen(event?.recordedAt)
+  return { label: eventLabel(event?.kind), when, learned: learned === when ? null : learned }
 }
 
 /**
@@ -759,6 +799,64 @@ export function createPeoplePanel(options = {}) {
           await reopen(detail.person.id, view)
         }),
       )
+    }
+
+    /**
+     * WHAT HAS HAPPENED TO THEM ([[REQ-195]]).
+     *
+     * ONE SEQUENCE, NEWEST FIRST, AND NOT ONE LIST PER KIND. A message we sent,
+     * a bounce that came back, a reply, the invite, the day they signed up — a
+     * reader asking "what is going on with this person" wants them interleaved,
+     * and two lists side by side make them do that join by eye and get it wrong
+     * on the one occasion it matters.
+     *
+     * IT RENDERS A KIND IT HAS NEVER SEEN. The set grows ([[DOC-44]] §4) and
+     * `eventLabel` falls back to the dotted string itself, so a capability that
+     * starts recording something new appears here without this file being
+     * edited — and nothing in this section branches on a kind, which is what
+     * would otherwise have to be found and extended the day it did.
+     *
+     * THE SECTION IS DRAWN EVEN WHEN IT IS EMPTY, unlike `Other addresses`
+     * above. An empty address list means "there is nothing more to say"; an
+     * empty history means "we have no record of this person", which is a fact
+     * about them worth stating — and it is what every contact created before
+     * this table existed truthfully shows.
+     *
+     * `Origin` IS THE EARLIEST EVENT AND COMES FROM THE SERVER'S OWN QUERY,
+     * never from the end of this list. The list is capped; provenance taken off
+     * its tail would be quietly wrong for exactly the contacts with the longest
+     * histories.
+     *
+     * LAST OF THE READ-ONLY SECTIONS, under the businesses. Everything above is
+     * the current answer — who they are, where they can be reached, what they
+     * run and hold — and this is how it came to be that answer. A log read
+     * before the state it explains is a log read without the thing it is about.
+     */
+    const history = section(view, 'History')
+    if (detail.provenance) {
+      const origin = describeEvent(detail.provenance)
+      history.append(
+        el('p', 'builder-people__origin', `Origin: ${origin.label}, ${origin.when}`),
+      )
+    }
+    const events = Array.isArray(detail.events) ? detail.events : []
+    if (events.length === 0) {
+      history.append(el('p', 'builder-people__empty', 'Nothing recorded yet.'))
+    } else {
+      // AN `<ol>`, because the order is the meaning. A history in an unordered
+      // list is a history a stylesheet is free to reflow.
+      const lines = el('ol', 'builder-people__events')
+      for (const event of events) {
+        const said = describeEvent(event)
+        const line = el('li', 'builder-people__event')
+        line.append(el('span', 'builder-people__eventkind', said.label))
+        line.append(el('span', 'builder-people__eventwhen', said.when))
+        if (said.learned) {
+          line.append(el('span', 'builder-people__eventlearned', `recorded ${said.learned}`))
+        }
+        lines.append(line)
+      }
+      history.append(lines)
     }
 
     /**

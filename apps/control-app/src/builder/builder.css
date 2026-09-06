@@ -1460,6 +1460,62 @@ body {
   white-space: nowrap;
 }
 
+/* The history (REQ-195). Its metrics are `builder-people__empty`'s, because it
+   reads as a quiet list of facts in the same pane and a second scale would make
+   it look like a different kind of thing. No markers: the heading already says
+   what these are, and a numbered list would number them the wrong way round —
+   they are newest first. */
+.builder-people__events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Three parts on one line: what happened, when, and — rarely — when we learned
+   of it. The kind takes the space it needs and the stamps sit at the end, so a
+   column of dates lines up down the pane and can be scanned without reading. */
+.builder-people__event {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-muted);
+  min-width: 0;
+}
+
+.builder-people__eventkind {
+  color: var(--shell-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pushed to the end, and never wrapped: a stamp broken over two lines stops
+   being a stamp. */
+.builder-people__eventwhen {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The second stamp is the exception and is drawn as one — quieter than the
+   first, and after it, so the ordinary reading of a row is unaffected. */
+.builder-people__eventlearned {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Where the contact came from. Above the list rather than inside it, because it
+   is a summary of the list and not a member of it. */
+.builder-people__origin {
+  margin: 0;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-fg);
+}
+
 /*
  * The joined table (REQ-189) — ONE ROW PER BUSINESS, carrying the membership
  * facts and the grant facts as columns.

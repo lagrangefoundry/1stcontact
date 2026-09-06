@@ -1227,12 +1227,21 @@ async function routeUncached(
     }
 
     /**
-     * GET /api/people/detail?id= — one person, with what they run and hold.
+     * GET /api/people/detail?id= — one person, with what they run, what they
+     * hold, and what has happened to them.
      *
      * NOT FOUND AND NOT IN THIS BUSINESS ARE THE SAME ANSWER, which is what stops
      * this becoming the existence oracle `identity.ts` and `scope.ts` both refuse
      * to be: `personDetail` scopes by tenant AND id, so a caller in one business
      * guessing an id from another learns nothing a stranger could not.
+     *
+     * THE HISTORY TRAVELS WITH THE DETAIL AND NOT ON A ROUTE OF ITS OWN
+     * ([[REQ-195]]). The pane draws it in the same paint as the record and the
+     * businesses, so a second endpoint would be a second round trip for a pane
+     * that cannot render without both — and a second surface to scope, which is
+     * one more place the tenant barrier depends on somebody remembering it.
+     * `events` is capped and `provenance` is its own query, so the cap can never
+     * silently redefine where a contact came from.
      */
     if (p === PERSON_DETAIL_PATH && method === 'GET') {
       const id = new URL(request.url).searchParams.get('id') ?? ''

@@ -42,6 +42,13 @@
  * is 1st Contact's product-fulfilment action. One function doing both can only
  * express a person who owns a business, which is level 1 and nothing else.
  *
+ * AND THE HISTORY IS A FIFTH RELATION, WHICH IS A LOG AND NOT A STATE
+ * ([[REQ-195]]). `contact_events` records what HAPPENED to a person — added,
+ * invited, signed up, mailed — and is appended to rather than written over. The
+ * four axes above are the current answer; the history is how it came to be that
+ * answer, and it is the only one of the five that can say a thing happened
+ * twice.
+ *
  * THE READ NEVER LEAVES THE TENANT. The list is `users WHERE tenant_id = ?` and
  * nothing else. The operated-businesses column joins `memberships` onto
  * `tenants` for a NAME, which is metadata about the join and not the content of
@@ -56,6 +63,12 @@ import { EMAIL_SHAPE_ERROR, isEmailShape } from './builder/email-shape.js'
 // the seam can reach it; a string literal written here would be a second answer
 // to what `invited` is spelt like, free to drift by one character in silence.
 import { INVITED as PIPELINE_INVITED, LEAD as PIPELINE_LEAD } from './builder/people-axes.js'
+// THE EVENT KINDS COME FROM THE MODULE THAT NAMES THEM, for the same reason the
+// stages do: `builder/contact-events.js` has no imports precisely so both sides
+// of the seam can reach it, and a literal written here would be a second answer
+// to what `contact.invited` is spelt like ([[REQ-195]]).
+import { CONTACT_CREATED, CONTACT_INVITED } from './builder/contact-events.js'
+import { contactEventInsert, eventsOf, provenanceOf, type ContactEvent } from './events'
 import type { IdentityEnv, UserEmailRow } from './identity'
 import {
   emailsOf,
@@ -179,6 +192,24 @@ export interface PersonDetail {
   emails: PersonEmail[]
   operates: OperatedBusiness[]
   grants: Grant[]
+  /**
+   * What has happened to them, newest first and capped ([[REQ-195]]).
+   *
+   * ONE SEQUENCE, inbound and outbound together, because a reader interleaving
+   * two lists by eye is a reader who will get the order wrong on the one
+   * occasion it matters.
+   */
+  events: ContactEvent[]
+  /**
+   * Where they came from — the EARLIEST event, read by its own query.
+   *
+   * NOT THE TAIL OF `events`, which is capped: provenance taken off a truncated
+   * list is quietly wrong for exactly the contacts with the longest histories,
+   * which are the ones an operator is most likely to ask about. Null for a
+   * contact whose history predates the spine, which is honest rather than
+   * invented.
+   */
+  provenance: ContactEvent | null
 }
 
 interface UserRecord {
@@ -295,6 +326,13 @@ export async function personDetail(
   const businessIds = (operates.results ?? []).map((b) => b.business_id)
   const grants = await grantsFor(env, personId, businessIds)
 
+  // BOTH READS ARE SCOPED AGAIN rather than trusting the row above. They are two
+  // more queries against a table that carries its own `business_id`, and a read
+  // that took the scope on trust would be the one place the barrier depended on
+  // a caller's memory ([[REQ-195]]).
+  const events = await eventsOf(env, scope, personId)
+  const provenance = await provenanceOf(env, scope, personId)
+
   return {
     person: toPerson(row),
     emails: emails.map(toPersonEmail),
@@ -306,6 +344,8 @@ export async function personDetail(
       revokedAt: b.revoked_at,
     })),
     grants,
+    events,
+    provenance,
   }
 }
 
@@ -472,6 +512,15 @@ export class InvalidInviteError extends Error {}
  * database transition and the person is admitted the next time they pass the
  * front door; naming that here is the point, because an "invite" that silently
  * sends nothing is a feature an operator will assume exists and will not check.
+ *
+ * IT APPENDS TO THE CONTACT'S HISTORY, ONE EVENT PER ACT ([[REQ-195]]). A fresh
+ * person gets `contact.created` — the provenance row, which is where they came
+ * from and is a question no column on `users` answers — and `contact.invited`.
+ * Somebody already known gets `contact.invited` alone, every press, including
+ * the presses that change no column at all. That is what makes chasing a
+ * contact visible: the stamp says when we FIRST asked and the events say how
+ * many times we have, and only one of those two questions has an answer today
+ * without them.
  */
 export async function invitePerson(
   env: IdentityEnv,
@@ -505,13 +554,28 @@ export async function invitePerson(
     // arrives, whether an invite may move somebody BACK to it is a question the
     // stage that exists then has to answer, which is exactly the decision a
     // derived state would have hidden.
-    await env.DB.prepare(
-      'UPDATE users SET invited_at = COALESCE(invited_at, ?), ' +
-        'display_name = COALESCE(display_name, ?), pipeline_stage = ?, ' +
-        'updated_at = ? WHERE id = ?',
-    )
-      .bind(now, displayName, PIPELINE_INVITED, now, existing.id)
-      .run()
+    //
+    // AND THE PRESS ITSELF IS RECORDED, EVERY TIME ([[REQ-195]]). The row's
+    // stamp answers "when was this person invited" and must not move; the event
+    // answers "what did we do, and when" and there is one per act. A second
+    // press that changed no column and left no trace would make re-inviting
+    // somebody invisible — which is precisely the history an operator asking
+    // "have we chased them?" is looking for. In the same batch as the update,
+    // because a transition recorded by a separate round trip is a transition
+    // that can be missing from the history of a row that shows it happened.
+    await env.DB.batch([
+      env.DB.prepare(
+        'UPDATE users SET invited_at = COALESCE(invited_at, ?), ' +
+          'display_name = COALESCE(display_name, ?), pipeline_stage = ?, ' +
+          'updated_at = ? WHERE id = ?',
+      ).bind(now, displayName, PIPELINE_INVITED, now, existing.id),
+      contactEventInsert(env, {
+        contactId: existing.id,
+        businessId: scope.businessId,
+        kind: CONTACT_INVITED,
+        now,
+      }),
+    ])
     const row = await env.DB.prepare(
       `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
     )
@@ -531,6 +595,18 @@ export async function invitePerson(
   // one fact in two rows now, and a person written without an address is a person
   // nothing can find — not `admit`, not the next invite, not this function on its
   // second press. The address is the primary one, because it is their only one.
+  //
+  // AND TWO EVENTS, BECAUSE TWO THINGS HAPPENED ([[REQ-195]]). This press both
+  // made a contact and asked them in, and those are separate facts with separate
+  // futures: `contact.created` is the provenance row — where this person came
+  // from, which is a question no column answers — and `contact.invited` is the
+  // pipeline transition, which will happen again the next time somebody presses
+  // the button. Collapsed into one event, a contact added by a later surface
+  // that does NOT invite ([[REQ-199]]) would have no provenance at all.
+  //
+  // `contact.created` IS STAMPED FIRST AND ORDERS FIRST. Both carry the same
+  // `now`, so the tie is broken by insertion order — which is the order they are
+  // written in here, and is why the batch is not reordered for tidiness.
   const id = newId('usr')
   await env.DB.batch([
     env.DB.prepare(
@@ -539,6 +615,19 @@ export async function invitePerson(
         'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
     ).bind(id, scope.businessId, 'active', displayName, now, PIPELINE_INVITED, now, now, '{}'),
     userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
+    contactEventInsert(env, {
+      contactId: id,
+      businessId: scope.businessId,
+      kind: CONTACT_CREATED,
+      detail: { via: 'invite' },
+      now,
+    }),
+    contactEventInsert(env, {
+      contactId: id,
+      businessId: scope.businessId,
+      kind: CONTACT_INVITED,
+      now,
+    }),
   ])
 
   const row = await env.DB.prepare(

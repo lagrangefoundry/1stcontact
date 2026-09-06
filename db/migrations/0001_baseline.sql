@@ -371,6 +371,97 @@ CREATE INDEX IF NOT EXISTS idx_user_emails_user ON user_emails (user_id);
 -- first because every read of this table already is.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_stage ON users (tenant_id, pipeline_stage);
 
+-- ---------------------------------------------------------------------------
+-- The event spine
+-- ---------------------------------------------------------------------------
+
+-- WHAT HAPPENED TO A CONTACT, ONE ROW PER FACT (REQ-195, DOC-44 §4.1).
+--
+-- WHY A TABLE AND NOT A `source` COLUMN ON `users`. DOC-44 §4.1 settled that the
+-- pipeline stage over-claims unless we record where a contact came from, and the
+-- cheap answer fails on the example that motivated it: somebody who joined the
+-- mailing list and LATER booked a consultation has two entry facts, and a column
+-- keeps one. Both are events. Store the events and provenance is the earliest
+-- row, every later signal survives, and the stage becomes something a rule can
+-- derive rather than something a hand must remember to set.
+--
+-- IT IS IMMUTABLE, AND THAT IS THE WHOLE DISCIPLINE. An event says *this
+-- happened, at this time*. Anything that CHANGES is state and lives elsewhere —
+-- which earns its keep immediately on email: a message's delivery outcome moves
+-- (queued, sent, delivered, bounced), so the message is a record with mutable
+-- state and the events are `email.sent`, `email.delivered`, `email.bounced` —
+-- three rows, not one row rewritten three times. Written the other way round the
+-- timeline silently loses the bounce the moment a retry succeeds.
+--
+-- SO THERE IS NO `status` COLUMN HERE, and its absence is a falsifier rather
+-- than an omission. A status on an event is the invitation to rewrite it.
+--
+-- `occurred_at` AND `recorded_at` ARE BOTH NEEDED. An imported contact's
+-- mailing-list signup happened before we knew of it, and a bounce webhook
+-- arrives after the bounce. One column would make an import read as a flood of
+-- activity today, which is the reading a timeline exists to prevent.
+--
+-- `kind` IS A DOTTED STRING AND CARRIES NO CHECK. DOC-44 §4 says the set of
+-- things that can happen to a contact grows; a constraint that has to be
+-- migrated for every new one is a constraint that will be worked around. The
+-- names live in `apps/control-app/src/builder/contact-events.js`, in one place,
+-- where an unknown value still renders.
+--
+-- `ref` POINTS AT A DETAIL RECORD WHERE ONE EXISTS and is null where the event
+-- is the whole fact. `list.joined` needs no detail row; `email.sent` names the
+-- `email` ticket carrying what was actually sent (REQ-198). It is deliberately
+-- unindexed: nothing reads events BY ref yet, and an index with no reader is a
+-- guess at a query nobody has written.
+--
+-- `business_id` IS DERIVED FROM THE CONTACT AND NEVER SUPPLIED. Every insert is
+-- `INSERT ... SELECT ... FROM users` (`contactEventInsert`), so an event cannot
+-- be filed under a business its contact does not belong to. It is stored rather
+-- than joined for because every read of this table is scoped by it, and a scope
+-- that needed a join is a scope somebody eventually writes without.
+CREATE TABLE IF NOT EXISTS contact_events (
+  id          TEXT PRIMARY KEY,
+  contact_id  TEXT NOT NULL,
+  business_id TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  occurred_at TEXT NOT NULL,
+  recorded_at TEXT NOT NULL,
+  ref         TEXT,
+  detail      TEXT NOT NULL DEFAULT '{}',
+  FOREIGN KEY (contact_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- The timeline: one contact's history, scoped by business, in the order it
+-- happened. `occurred_at` and not `recorded_at`, because the sequence a reader
+-- wants is the sequence of events and not the sequence of our learning of them.
+CREATE INDEX IF NOT EXISTS idx_contact_events_contact
+  ON contact_events (business_id, contact_id, occurred_at);
+
+-- "Every address that bounced this week", and every question of that shape.
+-- The delivery TRANSITIONS are rows here even though the message itself is a
+-- ticket (REQ-198), so the question is answered by an index over this table
+-- rather than by scanning ticket fields.
+CREATE INDEX IF NOT EXISTS idx_contact_events_kind
+  ON contact_events (business_id, kind, occurred_at);
+
+-- IMMUTABILITY IS THE SCHEMA'S, NOT THE APPLICATION'S. `events.ts` exports no
+-- update path, but an invariant the code maintains is an invariant that
+-- eventually is not maintained (DOC-45 §7) — and this failure is silent, because
+-- an event edited in place leaves a timeline that reads perfectly and is untrue.
+-- The database refuses instead.
+--
+-- UPDATE ONLY, AND DELETE DELIBERATELY LEFT ALONE. Erasure is a person's right
+-- over their own data (DOC-37) and it has to reach these rows; a trigger that
+-- forbade DELETE would break the cascade above and make the event spine the one
+-- place a "we deleted them but kept the history" mistake could hide. What is
+-- forbidden is REWRITING a fact, which is the only thing an append-only log
+-- cannot survive. A correction is an appended event that supersedes, never an
+-- edit of the row that was wrong.
+CREATE TRIGGER IF NOT EXISTS contact_events_are_immutable
+BEFORE UPDATE ON contact_events
+BEGIN
+  SELECT RAISE(ABORT, 'contact_events is append-only');
+END;
+
 -- The join: which people may operate which businesses. `expires_at` is what a
 -- time-boxed support grant will use; `revoked_at` is a withdrawal that refuses
 -- independently of any date.
