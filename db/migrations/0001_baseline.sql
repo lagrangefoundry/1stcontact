@@ -287,6 +287,59 @@ CREATE TABLE IF NOT EXISTS counters (
   PRIMARY KEY (tenant_id, type)
 );
 
+-- THE TICKET CHANGE LOG (REQ-201, upstream REQ-136, DOC-24 §2), transcribed
+-- from `SCHEMA_STATEMENTS` like everything above it.
+--
+-- IT IS WRITTEN BY THE STORAGE LAYER, IN THE SAME BATCH AS THE WRITE IT
+-- DESCRIBES, and that placement is the whole reason it is a table rather than an
+-- in-process registry. The Library's most interesting writes are not made by the
+-- Library — an AI description lands from `describeCapture` after the upload has
+-- returned, and from a background re-describe pass after that — so the only
+-- place that can see every write is the one every writer goes through.
+--
+-- `changed` CARRIES PRIOR VALUES, which is the one thing unrecoverable after the
+-- fact: `after` plus the `from` side of each changed path IS the before-image, so
+-- deciding whether a write moved a ticket into or out of a subscriber's set is a
+-- pure function of one row and never a second read.
+--
+-- NO BODIES IN EITHER COLUMN. A body change is recorded as presence, because a
+-- log carrying bodies would be larger than the store it describes — which is why
+-- REQ-201's Library re-reads the one open item when an event names `body`
+-- instead of painting a payload that does not exist.
+CREATE TABLE IF NOT EXISTS ticket_changes (
+  seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT    NOT NULL,
+  uid       TEXT    NOT NULL,
+  human_id  TEXT,
+  type      TEXT    NOT NULL,
+  version   INTEGER NOT NULL,
+  at        TEXT    NOT NULL,
+  cause     TEXT    NOT NULL,
+  changed   TEXT    NOT NULL DEFAULT '{}',
+  after     TEXT
+);
+
+-- The tail read: `seq > cursor` within ONE tenant's scope. A subscription is a
+-- read, so it is scoped exactly as every other read is (DOC-8 §6.6) — this index
+-- is the shape that makes the scoped tail cheap as well as correct.
+CREATE INDEX IF NOT EXISTS idx_ticket_changes_tenant_seq
+  ON ticket_changes (tenant_id, seq);
+-- EXACTLY ONE RECORD PER WRITE, ENFORCED BY THE SCHEMA. A write produces exactly
+-- one new `version` for its ticket, so `(tenant_id, uid, version)` identifies it
+-- uniquely and the writer's `INSERT OR IGNORE` cannot log a second record for a
+-- version another writer already logged.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ticket_changes_write
+  ON ticket_changes (tenant_id, uid, version);
+
+-- The retention floor (DOC-24 §6.4). Pruning deletes rows; this remembers how
+-- far it got, so a consumer whose cursor predates the window is told `reset` —
+-- and re-reads its set — rather than being served a partial history it cannot
+-- tell from a complete one.
+CREATE TABLE IF NOT EXISTS ticket_change_floor (
+  tenant_id      TEXT PRIMARY KEY,
+  pruned_through INTEGER NOT NULL DEFAULT 0
+);
+
 -- ---------------------------------------------------------------------------
 -- Identity
 -- ---------------------------------------------------------------------------

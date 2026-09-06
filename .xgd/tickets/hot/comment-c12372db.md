@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-201
 created_by: xgd
 created_at: '2026-09-06T19:45:57.601473+00:00'
-updated_at: '2026-09-06T19:51:33.403232+00:00'
+updated_at: '2026-09-06T20:25:34.419162+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,91 @@ I could write both halves against a fake store and ship code that typechecks and
 **Q3 — one consequence worth your sign-off.** DOC-24 lists `body` in `UNLOGGED_PATHS`: the log records that a body moved, never what it now says. So AC1 ("the AI description appears on the already-open tab") cannot be served from the event alone. The list row is fine — `description_status` is a *field* and travels in full. But to show the **text**, the client must re-fetch `transport.item(uid)` when a body-change event names the material whose detail is currently open. One extra request, only for the open detail, only when its body actually changed. That's the honest reading of the mechanism rather than a gap in it — confirming you're happy with it before I write the AC language for it.
 
 Nothing else is unclear. Say go on Q1/Q2 (and Q3 if you disagree) and I'll cut the branch and build it.
+
+<!-- xgd-turn id="1e610051-c667-4f8e-8f37-f2caa899fa90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:58:17.284346+00:00" -->
+#### You
+1. installed
+   2. We just blew away the database - no migration needed
+   3. Yes agreed - it is safer to force a request
+
+<!-- xgd-turn id="1e610051-c667-4f8e-8f37-f2caa899fa90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:25:34.179597+00:00" -->
+#### Claude
+The install landed. Cutting the branch and scoping the ticket.
+
+Now let me look at the existing material-surface workers test and the router's SSE plumbing to place the new route.
+
+Now implementing. Starting with the migration and the store surface.
+
+The schema transcription matches upstream. Now the store surface.
+
+Now the `TicketStore` interface — naming `watch`, `changes` and the change head.
+
+Now the `ChangeEvent` and `TicketSubscription` types, next to `Ticket`:
+
+Now the material projection — filter, field scope and the event → row mapping:
+
+Now the change-subscription section in `material.ts`, right after `listMaterial`:
+
+Now the router — the list route's cursor and the SSE subscription route:
+
+Now the `deps.tickets` signature and the two routes:
+
+Now `streamMaterialChanges`, next to the other SSE helpers:
+
+Server side typechecks. Now the client transport:
+
+Now the panel itself — the largest piece:
+
+Now the event application and subscription lifecycle:
+
+Now `clear()`, the transport default, and `destroy()`:
+
+Now update the module header, which still says the tab only redraws when it wrote:
+
+The schema comes from the migration I edited, so the change tables land automatically. Now the origin-contract suite:
+
+All 15 origin-contract UATs pass against real D1. Now the panel suite:
+
+Now the panel suite:
+
+The guard was wrong — `isDirty()` only tracks *buffered* mode, and this field is `commit: 'auto'`, so it is always false. Fixing it to read the component's actual edit state:
+
+Now the regression sweep across everything that touches what I changed:
+
+Clean. Now adding the ticket language for the guard the test uncovered:
+
+Tracing each UAT back to ticket language — six need it. Adding that now:
+
+Final verification before committing:
+
+Done. REQ-201 is `free_coded` at 0.2.118, merged into `xgd-working`.
+
+## What landed
+
+**Server.** `material.ts` gains the change feed beside `listMaterial` — not in a module of its own, because the subscription and the list describe the same set and the failure worth designing against is their drifting apart. Both derive from `MATERIAL_TYPES`, both project through the same `rowOf`, so an event ships a finished `MaterialRow` with no second D1 read.
+
+`GET /api/material/changes` is SSE with the change `seq` as the frame's `id:`, which makes reconnect the browser's job — `EventSource` re-presents it as `Last-Event-ID` and the route prefers that over `?since`. A `ready` frame goes out first carrying the opening cursor, so a drop before the first event still leaves a cursor to resume from. `GET /api/material` now answers `{material, seq}` with the head read *before* the list, so a write in that window lands in both the page and the replay rather than in neither.
+
+Scope is structural, not checked: `ticketStoreFor` carries `WHERE tenant_id = ?` into the change tail exactly as into a list, and `forTenant` is terminal. Asserted directly with a second tenant writing more, and louder, than the first.
+
+**Client.** `library.js` subscribes on mount from the list's cursor and splices events into the existing render path. The component contract is unchanged — still `listDetail.setItems(visible())`. A business switch stays clear-and-re-read: `clear()` closes the feed (so it still closes when the re-read fails) and `refresh()` opens one under the new scope.
+
+**Two things worth flagging.**
+
+The tailer runs at 2s here, not the component's 50ms default. An open tab at 50ms is twenty D1 reads a second for as long as it lives, for a description that arrives seconds after an upload anyway.
+
+And the open-editor guard was wrong first time. The `body` re-read collides with the description's own editor, and `isDirty()` looked like the signal — but it reports the *buffered* commit mode's staging map, and that field is `commit: 'auto'`, which writes straight through and stages nothing. So `isDirty()` reads false the entire time somebody is typing. The test caught it; the guard now reads the component's control cell, which is where edit mode actually lives.
+
+## Tests
+
+31 new UATs across two suites — the origin contract through `route()` against real D1 with a change log written by the component's own accessor, and the tab against the actually-installed components. The panel suite's hardest claims are about what *doesn't* happen: a subscription that re-read the list on every event would pass every "the row changed" case and fail only the selection, rail and scroll ones.
+
+Full suite: 7 files fail, all pre-existing (verified against `main` before merging — the same 7 KB/webui suites, per prior sessions). The one regression I did cause was `test_UAT_FC_REQ-190_the_schema_carries_no_composite_key_made_of_data`; `ticket_change_floor` is keyed by `tenant_id`, an opaque 128-bit surrogate, so I extended the enumeration rather than loosening it.
+
+The ticket body now carries §7–§14 recording every decision the UATs assert, including the ones I made myself.
 
 <!-- xgd-chat-end -->

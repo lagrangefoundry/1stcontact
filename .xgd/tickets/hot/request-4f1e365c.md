@@ -5,15 +5,23 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T18:58:50.855290+00:00'
+updated_at: '2026-09-06T20:30:49.919238+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c12372db
+  commits:
+  - working_sha: ad4562818c1090acc3174845d19b56d10bb3f6a5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9ede4efd15ed134a19245b2ce423788eb6a874b5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.118
 ---
 
 **Design ref:** DOC-24 `Ticket Change Notification` in lagrange-framework (`doc-5eb8c6fb`).
@@ -95,3 +103,176 @@ Subscribe it, per DOC-24.
   the previous business is applied after the switch.
 - After a disconnect and reconnect the list converges via a catch-up read, not a full reload.
 - A `reset` falls back to the existing `refresh()`.
+
+
+## Scoping decisions (settled before implementation)
+
+These fix the parts §Scope leaves to the implementer, and every UAT below traces
+to one of them.
+
+### 7. The transport is `EventSource`, and the cursor is the SSE `id:` field
+
+`GET /api/material/changes` answers `text/event-stream` and writes `id: <seq>`
+on every frame, in the framing `streamTurn`/`streamTail` already established
+(`data: {json}` + a blank line). That makes the browser hold the cursor: an
+`EventSource` re-presents the last `id:` it saw as `Last-Event-ID` on reconnect,
+and the route reads that header when the query string carries no `since`. §4's
+"the client holds its cursor and presents it on reconnect" is therefore
+satisfied by a browser primitive rather than by a hand-rolled reconnect loop
+with its own backoff — reconnect is the one part of a subscription nobody should
+be writing twice.
+
+### 8. `/api/material` returns the cursor it read at
+
+The list read grows one field: `{material, seq}`. §1 requires the subscription
+to start from the initial read's cursor so nothing between load and subscribe is
+lost, and the only place that cursor can honestly come from is the read itself.
+A client that took the head *after* listing would have a window; one that took
+it before would replay.
+
+### 9. A frame carries a rendered row, not a raw ticket
+
+The change event's after-image carries `{uid, type, title, fields, links,
+version, created_at, updated_at}` — which is every input `rowOf()` reads. So the
+route projects it through the same `rowOf` the list read uses and ships a
+finished `MaterialRow`, with no second D1 read per event and no second row shape
+for the pane to learn. `enter` and `update` carry the row; `exit` carries the
+uid alone, because there is nothing left to draw.
+
+### 10. The tailer polls at 2s in this deployment, not the component's 50ms
+
+The component defaults `changePollMs` to 50 because its own suite drives it. An
+open Library tab at that cadence is twenty D1 reads a second for as long as the
+tab is open. The description this whole ticket exists to deliver arrives
+"seconds later", so two seconds of latency is inside the behaviour and twenty
+reads a second is not — the store handle opened for a subscription passes
+`changePollMs` explicitly, and the number is stated at the call site rather than
+inherited.
+
+### 11. A body change is a signal to re-read, not a payload
+
+DOC-24 lists `body` in `UNLOGGED_PATHS`: the log records **that** a body moved
+and never what it now says, because a log carrying bodies would be larger than
+the store. The Library's description *is* that body.
+
+So the two halves of a description landing are served differently, and both are
+in scope:
+
+- The **row** needs nothing extra. `description_status` and
+  `description_model` are fields, so they travel in the event in full and the
+  list redraws from the payload alone.
+- The **text** requires a re-read. When an `update` names `body` for the
+  material whose detail is currently open, the pane re-fetches that one item
+  through the existing `transport.item()` path and repaints. It is one request,
+  for one material, only when a detail is open on it, and only when the body
+  actually changed — and it is the honest reading of the mechanism rather than a
+  gap in it. Forcing the request is also the safer of the two options: the pane
+  renders what the store holds rather than what an event implied.
+
+A detail that is not open re-reads nothing; the row it would have shown is
+already correct.
+
+### 12. The change log's tables join the baseline migration
+
+`ticket_changes` and `ticket_change_floor` are the component's own DDL and
+`SCHEMA_STATEMENTS` now carries them, so `0001_baseline.sql` gains them too —
+edited in place, on the grounds its own header states for its siblings. There is
+no separate migration, because the database has been wiped rather than migrated
+and a baseline that has never been applied is not re-based by editing it.
+
+## Acceptance criteria (added by the decisions above)
+
+- The list read hands back the cursor it read at, and the subscription opens
+  from that cursor rather than from the head at subscribe time.
+- Every frame carries its `seq` as the SSE `id:`, and a reconnect presenting
+  `Last-Event-ID` resumes from it without the query string naming a cursor.
+- An event's payload is a material row of the same shape the list read returns,
+  built without a second read of the store.
+- An `update` naming `body` for the material whose detail is open causes exactly
+  one re-read of that item, and the detail repaints with what the store now
+  holds. The same event for a material whose detail is not open causes no read.
+- A `description_status` change redraws the row from the event alone.
+
+
+### 13. The re-read never overwrites an open editor
+
+§11 forces a request when a body change lands on the open detail. That request
+has a cost §11 did not name: the detail's description is an *editable* field, and
+repainting it while the client is halfway through correcting it would take their
+half-written sentence off the screen and put ours there instead. The background
+re-describe pass is exactly the write that does this, and it is one of the two
+writes this ticket exists to deliver — so the two behaviours meet on the same
+field, on purpose.
+
+**An open editor wins.** The re-read is skipped entirely — not performed and
+discarded — so a client who is typing pays nothing and loses nothing. Their own
+commit is about to overwrite that text anyway, and losing what somebody typed is
+a worse failure than showing a description one save behind.
+
+The signal is the component's own **control cell**, not `isDirty()`. This field
+is `commit: 'auto'`, which writes straight through and stages nothing, so
+`isDirty()` reads false for the entire time somebody is typing into it — it
+describes the *buffered* commit mode. What the component actually does on entering
+edit mode is replace its read cell with a control cell, and that is where the fact
+lives.
+
+## Acceptance criteria (added by §13)
+
+- A body change arriving while the description editor is open leaves what the
+  operator has typed exactly as it is, and does not spend a read discovering that
+  it must.
+- The same event arriving on a detail nobody is editing repaints the description
+  with what the store now holds.
+
+
+### 14. The rest of the subscription's edges, stated
+
+These are technical consequences of §1–§13 rather than things asked for
+directly, and each one is asserted, so each one is written down.
+
+**The watched set is two filters, not one.** The predicate grammar is a
+conjunction (DOC-8 Appendix B) and has no `OR`, so "material or reference"
+cannot be spelled as a single term — the subscription therefore watches one
+filter per material type, exactly as `listMaterial` issues one list per type and
+for the same reason. It costs nothing: a store fans one tail read out to every
+subscriber (DOC-24 §7.5), so two watches on one store are one read per tick. Both
+filters are built from the same constant the list is, because the failure worth
+designing against is the two drifting apart — which shows the client rows that
+never update, or updates for rows they cannot see.
+
+**A cursor that cannot be parsed is refused, not defaulted.** Answering an
+unparseable `since` with "from now" would be an event gap presented as a working
+subscription, which is the exact failure mode DOC-24 exists to remove. It is a
+400.
+
+**A tab with no feed available is the old tab, not a broken one.** A browser
+without `EventSource`, and a test injecting a transport to assert something else,
+both get the Library that redraws when it wrote — REQ-201's behaviour is an
+improvement to degrade out of, not a dependency to fail on.
+
+**The feed is closed by whatever clears the list, and by teardown.** §5 says a
+business switch closes the subscription and opens a new one, and the host does
+that as `clear()` then `refresh()` — so the close belongs to `clear`, which runs
+*before* the re-read and therefore still happens when the re-read fails. A feed
+closed only by a successful `refresh()` would leave the previous business's
+subscription running under a header naming the new one, which is precisely the
+outcome REQ-181 says a failure there may not produce. Destroying the panel closes
+it too, for the same reason.
+
+**A `reset` re-arms as well as re-reads.** §AC says a reset falls back to
+`refresh()`; what makes that a recovery rather than a redraw is that `refresh()`
+also opens a new subscription from the cursor its own read returned. Afterwards,
+what is on screen and what the feed will deliver describe the same moment again.
+
+## Acceptance criteria (added by §14)
+
+- The subscription's filters are derived from the same constant the list read is,
+  and there is one per material type.
+- A `since` that is not an integer is refused with a 400 rather than treated as
+  "from now".
+- A Library whose transport offers no change feed still lists and still redraws
+  after its own writes.
+- Clearing the list closes the feed, whether or not the re-read that follows
+  succeeds; destroying the panel closes it.
+- After a `reset`, a new subscription is open at the cursor the recovery read
+  returned.
