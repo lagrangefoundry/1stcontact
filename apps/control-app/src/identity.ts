@@ -118,7 +118,6 @@ export interface UserRow {
   tenant_id: string
   email: string
   status: string
-  display_name: string | null
   /**
    * May this person enter a business they hold no membership on ([[REQ-185]])?
    *

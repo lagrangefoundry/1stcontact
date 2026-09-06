@@ -1362,13 +1362,28 @@ body {
   white-space: nowrap;
 }
 
-/* Nothing can set `display_name` yet (REQ-183 §5), so this is what every row
-   says today. Quieter than a name and NOT an error colour: it is a fact about
-   the person, not a fault in the cell. */
+/* What a row says for somebody with no name, and for one whose name has been
+   erased (REQ-193, DOC-37). Quieter than a name and NOT an error colour: it is a
+   fact about the person, not a fault in the cell. */
 .builder-people__noname {
   color: var(--shell-muted);
   font-style: italic;
   font-weight: 400;
+}
+
+/* WHY THIS ROW MATCHED (REQ-193). It sits between the name and the address
+   because that is where the eye lands after reading a name that is not the one
+   it searched for — and it truncates with them rather than instead of them,
+   since of the three it is the one whose absence costs least. */
+.builder-people__formerly {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .builder-people__email {
@@ -1406,6 +1421,66 @@ body {
 .builder-people__suspended {
   color: var(--shell-danger, #b91c1c);
   border-color: var(--shell-danger, #b91c1c);
+}
+
+/*
+ * A REAL NAME CHANGE IS A BUTTON AND NOT A CHECKBOX (REQ-193). It sits under the
+ * name section it acts on, quiet — the ordinary act on that section is editing a
+ * box, and this one is rare and deliberate. Its metrics are the fulfilment
+ * button's, since both are "open a dialog that does something consequential".
+ */
+.builder-people__rename {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  cursor: pointer;
+  margin-top: 8px;
+  padding: var(--builder-control-padding);
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+/* The dialog: one labelled box per part, stacked, because seven side by side is
+   a form and this is a correction of one or two of them. */
+.builder-people__rename-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.builder-people__rename-label {
+  flex: 0 0 10ch;
+  font-size: 12px;
+  color: var(--shell-muted);
+}
+
+.builder-people__rename-box {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  padding: var(--builder-control-padding);
+}
+
+/* THE SENTENCE IS PART OF THE CONTROL, not decoration: an operator who reaches
+   for this to fix a spelling has to be told, before they press it, that the old
+   name will be kept and shown. */
+.builder-people__rename-hint {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--shell-muted);
+}
+
+.builder-people__rename-said {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--shell-danger, #b91c1c);
 }
 
 /* --- the detail pane ---------------------------------------------------------- */

@@ -14,6 +14,8 @@ import {
   SESSION_UNREACHABLE,
   SessionEndedError,
 } from './session.js'
+// THE NAME'S WIRE KEYS, from the one module that declares the parts ([[REQ-193]]).
+import { NAME_PART_NAMES } from './people-name.js'
 
 /**
  * WHICH BUSINESS EVERY URL BELOW IS ABOUT ([[REQ-179]]).
@@ -554,18 +556,26 @@ export async function fetchPerson(id, fetchImpl = fetch) {
 }
 
 /**
- * Correct who somebody is: the address, the name ([[BUG-54]]).
+ * Correct who somebody is: the address, and every part of the name ([[BUG-54]],
+ * [[REQ-193]]).
  *
  * A PATCH AND NOT A RECORD. The fields panel commits one field at a time, so
- * what arrives here is `{email}` or `{displayName}` and the route changes only
- * what it was given. Sending the whole record instead would write back every
- * other value this pane happened to be holding — including one a concurrent
- * edit had already moved on from.
+ * what arrives here is `{email}` or `{knownAs}` and the route changes only what
+ * it was given. Sending the whole record instead would write back every other
+ * value this pane happened to be holding — including one a concurrent edit had
+ * already moved on from.
  *
- * ONLY THE TWO KEYS ARE FORWARDED, chosen here rather than spread. The panel's
- * change object is the widget's, and a route that took whatever it was handed
- * would grow whatever the widget's schema grows — silently, and on a table
- * where the other columns are the record of what the system observed.
+ * ONLY THE DECLARED KEYS ARE FORWARDED, chosen here rather than spread. The
+ * panel's change object is the widget's, and a route that took whatever it was
+ * handed would grow whatever the widget's schema grows — silently, and on a
+ * table where the other columns are the record of what the system observed. The
+ * name's own keys come from `people-name.js`, so a part added to the model
+ * travels without this file being edited and cannot be a box that saves nothing.
+ *
+ * `nameReason` IS FORWARDED AND IS NEVER SUPPLIED HERE. The record pane omits it
+ * and the server reads that as a correction; only the name-change dialog sends
+ * `changed`, because a former name that is searched and displayed has to come
+ * from a deliberate act ([[REQ-193]]).
  *
  * THE MESSAGE IS READ BACK on a refusal, like the invite's. 400 here is a
  * malformed address or one somebody in this business already holds, and those
@@ -575,7 +585,8 @@ export async function fetchPerson(id, fetchImpl = fetch) {
 export async function savePersonRecord(id, patch = {}, fetchImpl = fetch) {
   const body = { id }
   if ('email' in patch) body.email = patch.email
-  if ('displayName' in patch) body.displayName = patch.displayName
+  for (const key of NAME_PART_NAMES) if (key in patch) body[key] = patch[key]
+  if ('nameReason' in patch) body.nameReason = patch.nameReason
   const res = await send(fetchImpl, scoped('/api/people/record'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

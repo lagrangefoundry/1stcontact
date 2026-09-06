@@ -288,14 +288,17 @@ CREATE TABLE IF NOT EXISTS counters (
 -- THE ADDRESS IS STILL A COLUMN HERE, AND THAT IS REQ-191's, NOT THIS TICKET'S.
 -- `UNIQUE (tenant_id, email)` makes the address the person — one human, one
 -- address, and changing it mutates the key `admit` resolves them through.
--- REQ-191 moves it to `user_emails` and drops the column, editing THIS FILE. The
--- same is true of `display_name` and REQ-193's `user_names`.
+-- REQ-191 moves it to `user_emails` and drops the column, editing THIS FILE.
+--
+-- THE NAME IS NO LONGER A COLUMN HERE, AND THAT IS REQ-193's ARRIVING. It was
+-- `display_name TEXT` — one nullable free-text field with no given name to sort
+-- by, no honorific to open a letter with, and no record that a name ever
+-- changed. It is `user_names` below.
 CREATE TABLE IF NOT EXISTS users (
   id             TEXT PRIMARY KEY,
   tenant_id      TEXT NOT NULL,
   email          TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'active',
-  display_name   TEXT,
   -- Entry to a business without a membership (DOC-40 §6, REQ-185). The ownership
   -- half is `memberships.role`; these are two independent facts and are asked by
   -- two different readers.
@@ -324,6 +327,104 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, em
 -- Read by the pipeline facet's "who did I ask who never came". Scoped by business
 -- first because every read of this table already is.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_stage ON users (tenant_id, pipeline_stage);
+
+-- A PERSON'S NAME, WHICH IS A TABLE AND EVERY PART OF WHICH IS OPTIONAL
+-- (REQ-193, CHAT-38). The product is called 1st Contact; if it cannot hold a
+-- person's name correctly it is broken at the first thing it does.
+--
+-- NAMES ARE TEMPORAL WHERE ADDRESSES ARE PLURAL, and the two tables look alike
+-- enough that the difference is worth stating here rather than being inferred
+-- from the absent column. An address is multi-valued NOW — several at once, one
+-- of them primary. A name is multi-valued over TIME — exactly one current, and a
+-- history that has to be searchable. So this table carries no `is_primary`, and
+-- the partial unique index that would enforce *one primary address* enforces
+-- *one current name* instead. Same pattern, same enforcement by constraint
+-- rather than by application code, one axis removed.
+--
+-- "LEGAL NAME" VERSUS "WHAT THEY GO BY" IS NOT A SECOND ROW. It looks like
+-- concurrent multiplicity and is not: you always know which of the two you want,
+-- so it is two columns — `display_name` and `known_as`. A `kind` column that only
+-- ever holds one of two values and is always filtered to a specific one is a
+-- table pretending to be columns.
+--
+-- `display_name` IS STORED AND NEVER ASSEMBLED, and it is the only NOT NULL
+-- field here. Everything else is a parse of it, kept for salutation and sorting,
+-- and allowed to be empty. Rendering a name by concatenating parts is where the
+-- internationalisation horror stories actually come from — mononyms (Prince,
+-- Sukarno), family-name-first cultures, Spanish double surnames, patronymics —
+-- and storing what to show is correct for all of them with no cultural logic at
+-- all. It is also why this table can stop at seven parts instead of modelling
+-- the world.
+--
+-- NOTHING ELSE IS NOT NULL, AND THAT IS LOAD-BEARING. A required `family_name`
+-- makes a mononym unrepresentable.
+--
+-- `middle_names` AND NOT A MIDDLE INITIAL: an initial costs the same bytes and
+-- carries strictly less — `M.` derives from `Michael`, never the reverse.
+-- `suffix` IS FREE TEXT, which dissolves the *do we need 2nd, 3rd, 4th* question
+-- and carries post-nominals (`PhD`, `MBE`, `RN`) in the same field; what it must
+-- never become is an enum of {Jr, Sr}. `title` IS FREE TEXT AND NEVER REQUIRED,
+-- because no enum survives `Dr`, `Rev`, `Cpt`, `Prof`, `Rt Hon` — and because a
+-- Mr/Mrs/Ms picker asks a customer for gender and marital status this product
+-- has no purpose for, which is unnecessary data under UK and EU minimisation and
+-- the classic way to give offence at first contact.
+--
+-- THERE IS NO `sort_name`. Sorting is `COALESCE(family_name, display_name)`,
+-- imperfect for *van der Berg* and accepted: a third representation of the same
+-- fact is a third thing nobody maintains.
+--
+-- `superseded_reason` EXISTS BEFORE ANYTHING READS IT, and that is deliberate.
+-- Two supersessions identical in this schema are completely different facts.
+-- `corrected` means the old value was never right — a typo, an autocorrect,
+-- `Marting` — kept for audit, never searched, never displayed. `changed` means a
+-- genuine former name: searchable, and displayable as *formerly*. Getting it
+-- wrong in the safe direction leaves a stale typo out of a search; getting it
+-- wrong the other way surfaces a deadname, or greets somebody by a name they
+-- deliberately left behind. `corrected` IS THE DEFAULT, because corrections are
+-- common and accidental where name changes are rare and deliberate — so the
+-- common case and the safe case are the same case, and a supersession recorded
+-- with no reason at all is treated as a correction.
+--
+-- HISTORY IS DATA AND NOT A TRAIL, which is why it lives here rather than in an
+-- audit log: the operator needs to FIND a person by the name they used to have —
+-- *Sarah Jones; oh, she is Sarah Patel now* — and a log is not indexed for that.
+--
+-- THE TEXT IS REDACTABLE AND THE ROW IS NOT. Erasure (DOC-37) reaches names, and
+-- what it removes is the text; the row and its timeline stay, so the record that
+-- a name changed on a date survives the removal of what it was.
+--
+-- ONE COST THIS LEAVES IN PLACE, written down before somebody meets it in the
+-- wild: names hang off `users`, which is tenant-scoped, so Bob-of-Alice's-Plumbing
+-- and Bob-of-1st-Contact hold different name rows and a marriage is an update
+-- once per business that knows him. That follows from DOC-42 §1 and is not a
+-- defect.
+CREATE TABLE IF NOT EXISTS user_names (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL,
+  display_name      TEXT NOT NULL,
+  known_as          TEXT,
+  title             TEXT,
+  given_name        TEXT,
+  middle_names      TEXT,
+  family_name       TEXT,
+  suffix            TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL,
+  -- Null while current. The partial index below is what makes that mean
+  -- something.
+  superseded_at     TEXT,
+  -- 'corrected' or 'changed'. Null is read as 'corrected' — see above.
+  superseded_reason TEXT,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- EXACTLY ONE CURRENT NAME PER PERSON, ENFORCED HERE AND NOT IN CODE. A second
+-- live row is a database error rather than a list that silently picks one.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_names_current
+  ON user_names (user_id) WHERE superseded_at IS NULL;
+
+-- The history read: every name this person has held, current or not.
+CREATE INDEX IF NOT EXISTS idx_user_names_user ON user_names (user_id);
 
 -- The join: which people may operate which businesses. `expires_at` is what a
 -- time-boxed support grant will use; `revoked_at` is a withdrawal that refuses

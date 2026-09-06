@@ -11,6 +11,7 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
+import { currentNameOf, writeName } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PEOPLE_PATH, PERSON_INVITE_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
@@ -147,7 +148,7 @@ const getPeople = async (token: string, businessId: string | null = null): Promi
 
 const rowsFor = async (tenantId: string, email: string) => {
   const { results } = await env.DB.prepare(
-    'SELECT id, tenant_id, email, status, display_name, invited_at FROM users ' +
+    'SELECT id, tenant_id, email, status, invited_at FROM users ' +
       'WHERE tenant_id = ? AND email = ?',
   )
     .bind(tenantId, email)
@@ -156,7 +157,6 @@ const rowsFor = async (tenantId: string, email: string) => {
       tenant_id: string
       email: string
       status: string
-      display_name: string | null
       invited_at: string | null
     }>()
   return results ?? []
@@ -167,11 +167,15 @@ async function addContact(tenantId: string, email: string, displayName: string |
   const id = `usr_contact_${(seq += 1)}`
   const now = new Date().toISOString()
   await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, display_name, created_at, updated_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) ' +
+      'VALUES (?, ?, ?, ?, ?, ?)',
   )
-    .bind(id, tenantId, email, 'active', displayName, now, now)
+    .bind(id, tenantId, email, 'active', now, now)
     .run()
+  // THE NAME IS A ROW OF ITS OWN ([[REQ-193]]) and is written through the one
+  // module that writes them, so this fixture cannot be a second answer to what
+  // "has a name" means in the database.
+  if (displayName) await writeName(identityEnv(), id, { displayName })
   return id
 }
 
@@ -242,14 +246,16 @@ describe('REQ-186 — one control, both levels', () => {
     expect(bobRow.tenant_id).toBe(account.businessId)
     expect(aliceRow.tenant_id).not.toBe(bobRow.tenant_id)
 
-    // Everything else about the two rows is the same shape.
-    const shape = (row: typeof aliceRow) => ({
+    // Everything else about the two rows is the same shape — the name included,
+    // read through `currentNameOf` because a name is a row now ([[REQ-193]]) and
+    // the claim is that neither level gets a different one.
+    const shape = async (row: typeof aliceRow) => ({
       status: row.status,
-      displayName: row.display_name,
+      displayName: (await currentNameOf(identityEnv(), row.id))?.displayName ?? null,
       invited: row.invited_at !== null,
       id: /^usr_[0-9a-f]{32}$/.test(row.id),
     })
-    expect(shape(bobRow)).toEqual(shape(aliceRow))
+    expect(await shape(bobRow)).toEqual(await shape(aliceRow))
 
     // AND THE SCHEMA CARRIES NO LEVEL TO BRANCH ON. Read from the database rather
     // than asserted about the migration text, so a column added later is caught.
@@ -340,7 +346,7 @@ describe('REQ-186 — a transition, not a creation', () => {
 
     expect(again.created).toBe(false)
     expect(again.person.invitedAt).toBe(first.person.invitedAt)
-    expect(again.person.displayName).toBe('Bob Smith')
+    expect(again.person.name?.displayName).toBe('Bob Smith')
   })
 
   it('test_UAT_FC_REQ-186_an_invite_with_no_address_is_refused_as_the_callers_mistake', async () => {
