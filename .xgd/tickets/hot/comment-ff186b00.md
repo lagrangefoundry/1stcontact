@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:41:34.884144+00:00'
+updated_at: '2026-09-06T20:43:09.532116+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -349,5 +349,77 @@ alias export-cloudflare-key='export=CLOUDFLARE_API_TOKEN="$(< ~/Documents/secret
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="0072782f-8b0b-4d85-9282-89aa4087d918-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:43:09.278843+00:00" -->
+#### Claude
+Found it — and the mechanism is nastier than a typo.
+
+Reproduced exactly:
+
+```
+zsh -f:
+  alias export='CLOUDFLARE_API_TOKEN="$(< …)"'
+  export RESEND_API_KEY="re_realkey"
+
+  typeset -p        → typeset RESEND_API_KEY=re_realkey     (no export attribute)
+  env | grep -c     → 0
+  echo $RESEND_API_KEY → re_realkey
+```
+
+All three of your symptoms, from that one alias.
+
+## What's happening
+
+zsh expands aliases on the **first word** of a command, and an alias named `export` shadows the builtin. So when you typed:
+
+```bash
+export RESEND_API_KEY="$(cat ~/Documents/secrets/resend_1c_transactinal_send)"
+```
+
+the shell actually ran:
+
+```bash
+CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)" RESEND_API_KEY="$(cat …)"
+```
+
+A command line that is *only* assignments with no command word doesn't create a child environment — the assignments apply to the current shell as ordinary parameters. The word `export` never executed as a builtin at all. That's why the value is there when you `echo` it and absent from `env`: it was assigned, just never exported. Your `bin/deploy` run was reporting the truth the whole time.
+
+## Fix, in your current shell
+
+```bash
+unalias export
+export RESEND_API_KEY="$(cat ~/Documents/secrets/resend_1c_transactinal_send)"
+/usr/bin/env | grep -c '^RESEND_API_KEY='     # want 1
+bin/deploy --dry-run control-app
+```
+
+## Also fix the two aliases in `~/.zshrc`
+
+Both have `export=` where they want `export ` — a `=` instead of a space:
+
+```bash
+alias export-anthropic-key='export=ANTHROPIC_API_KEY="$(< ~/Documents/secrets/ANTH_KEY)"'
+alias export-cloudflare-key='export=CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"'
+                                   ↑
+```
+
+As written, running either one assigns a shell parameter *named* `export` holding the string `ANTHROPIC_API_KEY=<key>`, and exports nothing. They should be:
+
+```bash
+alias export-anthropic-key='export ANTHROPIC_API_KEY="$(< ~/Documents/secrets/ANTH_KEY)"'
+alias export-cloudflare-key='export CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"'
+```
+
+Worth knowing: I could **not** reproduce the stray `alias export` from that typo — running `export=FOO=bar` creates a parameter and leaves `type export` reporting "reserved word". So the alias came from somewhere else, most likely a line pasted at a prompt at some point. `unalias` clears it for now, but check it isn't persisted:
+
+```bash
+grep -rn "alias export" ~/.zshrc ~/.zshenv ~/.zprofile ~/.oh-my-zsh 2>/dev/null
+```
+
+If nothing turns up, it was transient and a new terminal is clean.
+
+One last note: `ANTHROPIC_API_KEY` *was* visible to the hook in your deploy run, so however that one got exported, it took a different route than the broken alias.
 
 <!-- xgd-chat-end -->
