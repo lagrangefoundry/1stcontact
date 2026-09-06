@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:02:09.546827+00:00'
+updated_at: '2026-09-06T22:27:33.681330+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -740,5 +740,13 @@ The new sim generates a fresh keypair at boot, so any token from the old one is 
 Your stale sim on 8799 is still holding that port, along with sims on 8801 and 8802 from other sessions. Worth killing 35981 when convenient so the default port is clean.
 
 The walkthrough from my last message is unchanged apart from the port — log in as `alice@plumbing.example`, then Contacts → `+` → tick → Invite.
+
+<!-- xgd-turn id="d96b796e-501d-4eea-b9b8-7dd4b3e92f65-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:27:33.509103+00:00" -->
+#### You
+I killed 35981 but I see no server running on 8800
+
+Lets walk through it please - can you first give me the commands to clean up and then the commands to start the server
 
 <!-- xgd-chat-end -->
