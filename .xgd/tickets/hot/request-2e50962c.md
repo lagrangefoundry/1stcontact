@@ -5,9 +5,9 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-09-06T18:13:48.471553+00:00'
+updated_at: '2026-09-06T18:27:43.545891+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -150,3 +150,96 @@ acceptance, not in deployment.
 - `entitlements` names its subject by key, not by address
 - inviting a person at a secondary address matches the existing person and does
   not create a second one
+
+
+## What landed
+
+The shape above, plus the decisions the implementation had to make. Each of
+these has a UAT, so each of them is recorded here.
+
+### The schema
+
+`user_emails` is in `0001_baseline.sql`, edited in place. Casefolding is enforced
+by `CHECK (email = lower(trim(email)) AND email <> '')` — a forgotten
+`normaliseEmail` is now a failed write rather than a person `admit` will never
+find. `is_primary` is *at most* one per person, by partial unique index; zero is
+representable, and is what a contact with no address at all holds. `user_emails`
+declares `FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE`, so
+erasure ([[DOC-37]]) reaches a person's addresses without a second sweep.
+
+`users.email`, `idx_users_tenant_email`, `entitlements.email` and
+`idx_entitlements_email` are all gone.
+
+### The address is nullable, because a contact may hold none
+
+`UserRow.email` and `Person.email` survive as **read-model** fields carrying the
+PRIMARY address, joined rather than selected — every surface that shows a person
+shows one address. Both are `string | null`: a contact reached only by phone is
+the shape [[DOC-42]] §4.1 names and the column could not represent, and
+defaulting it to `''` would hide that. `BusinessesPayload.account.email` is
+nullable for the same reason; the chrome already renders whichever of name and
+address it has.
+
+The primary is resolved with a fallback to the oldest address, so a person
+holding addresses and no primary shows one they can actually be reached at
+rather than a blank cell.
+
+### `admit` presents the primary, whichever address was used
+
+Resolution matches ANY address; the admission then carries the primary one, so
+the chrome shows a person one identity rather than whichever address they
+happened to type.
+
+### Correcting an address rewrites the primary row
+
+`setPersonRecord` owns *who somebody is*, so an address correction rewrites the
+primary `user_emails` row rather than adding a second one — leaving the wrong
+address behind as a second identity would keep resolving the person the
+correction was meant to stop resolving. It inserts when there is no primary row
+to rewrite, which is how a phone-only contact gains an address. Nothing here adds
+a second address; that surface is [[REQ-189]]'s territory or later, as above.
+
+The duplicate-address refusal now names `user_emails`; left pointing at `users`
+it would have matched nothing and reported a typo to the operator as a 500.
+
+### The person and their first address are written as one batch
+
+`invitePerson` and `ensurePlatformOperator` both write `users` and `user_emails`
+in a single `DB.batch`. A person written without an address is a person nothing
+can find — not the front door, not the next invite — which is a worse state than
+the write having failed. `ensurePlatformOperator` resolves the person's key from
+`user_emails` first and binds both inserts to it, replacing an
+`INSERT ... WHERE NOT EXISTS` over a column that no longer exists; it stays
+idempotent, which matters because every admission by a holder runs it.
+
+### `provisionBusiness` takes no address
+
+`BusinessSpec.email` is removed along with the column it fed. Who a grant is for
+is `account_id`; who made it is `granted_by`; and the membership written in the
+same batch is the record of whose business it is.
+
+### The detail pane shows the other addresses, read-only
+
+`personDetail` returns `emails` — every address, primary first — and the pane
+renders the non-primary ones under an *Other addresses* heading that appears
+only when there are some. Without it a second address exists in the database and
+nowhere on screen, which is the state that lets an operator invite one human
+twice. There is no control in it, because nothing in the product adds or
+re-primaries an address yet.
+
+### Two assertions elsewhere had to change
+
+[[REQ-167]]'s *plan and status carry no check constraint* was written file-wide,
+which was true while nothing anywhere declared a CHECK and says more than that
+ticket meant. It is narrowed to the `entitlements` table: `user_emails.email`
+declares one deliberately, and it is about normalisation rather than a closed set
+of allowed values. [[REQ-190]]'s single-opaque-key census gains `user_emails` —
+the rule restated, not an exception to it.
+
+### Test fixtures
+
+Seeding a contact is two rows now, so `tests/support/contact.ts` holds the one
+copy of it. Four suites had their own single-`INSERT` version; four copies of a
+two-row write is four places for one of them to be forgotten, and the failure is
+quiet — a person with no address reads as an admission bug rather than as a
+fixture that wrote half a contact.
