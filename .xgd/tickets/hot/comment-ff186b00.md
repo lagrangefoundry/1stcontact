@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:39:40.940819+00:00'
+updated_at: '2026-09-06T20:41:34.884144+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -320,5 +320,34 @@ RESEND_API_KEY="$(cat ~/Documents/secrets/resend_1c_transactinal_send)" bin/depl
 ```
 
 A prefix assignment goes straight into the child's environment for that one command — the same mechanism `bin/deploy:163` uses to hand `DEPLOY_ENV` and friends to the hooks. It also can't leave a live credential sitting in your interactive shell, which is the better habit for this anyway.
+
+<!-- xgd-turn id="0072782f-8b0b-4d85-9282-89aa4087d918-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:41:34.455738+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % type export 
+export is an alias for CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+oops
+
+```
+((.venv-working) ) martin@nyx 1stcontact % tail ~/.zshrc 
+export PATH="$(brew --prefix bison)/bin:$(brew --prefix gettext)/bin:$PATH"
+
+umask 002
+alias set-to-martion='export CLAUDE_CONFIG_DIR="$HOME/.claude-xgd" && echo -ne "\033]0;martoin-claude\007"'
+alias set-to-three='export CLAUDE_CONFIG_DIR="$HOME/.claude-three" && echo -ne "\033]0;three-claude\007"'
+alias set-to-one='export CLAUDE_CONFIG_DIR="$HOME/.claude" && echo -ne "\033]0;martin-claude\007"'
+change_claude() { export CLAUDE_CONFIG_DIR="$HOME/.claude-$1" && echo -ne "\033]0;$1-claude\007" }
+which_claude() { echo $CLAUDE_CONFIG_DIR }
+alias export-anthropic-key='export=ANTHROPIC_API_KEY="$(< ~/Documents/secrets/ANTH_KEY)"'
+alias export-cloudflare-key='export=CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"'
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
