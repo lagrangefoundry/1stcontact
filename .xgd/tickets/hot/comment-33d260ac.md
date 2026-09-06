@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T19:22:46.074614+00:00'
+updated_at: '2026-09-06T19:43:39.691477+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,11 @@ Free-coding of REQ-192 is complete.
 ## On the promotion
 
 It took many attempts. `move-to-free-coded` requires the version-bump commit to be the tip of `xgd-working`, but every `xgd ticket` call by any agent commits there and bypasses the merge lock — so a concurrent commit lands on top within seconds and the gate refuses. It succeeded at **0.2.113**, and the burnt version numbers between 0.2.104 and 0.2.112 are the cost of the retries. Ticket is `free_coded` with three commits recorded; the branch and worktree are cleaned up. I've saved both that race and the "repo moves under you" hazard to memory.
+
+<!-- xgd-turn id="928dd8eb-42af-4901-8bca-9e79c67d3e60-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:43:39.353688+00:00" -->
+#### You
+Please report an xgd bug for this xgd report-bug
 
 <!-- xgd-chat-end -->
