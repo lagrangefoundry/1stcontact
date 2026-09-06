@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:38:21.608692+00:00'
+updated_at: '2026-09-06T18:40:50.730128+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -129,5 +129,94 @@ Two things I'd like your call on before I write anything up:
 What is the usecase for form 0 isn't it covered by form 2?
 
 Do we even need a slug now? Form 1 can be addressed with the SHA
+
+<!-- xgd-turn id="2a327b3f-6a6b-4334-bdd5-0a53c0429996-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T18:40:50.146307+00:00" -->
+#### Claude
+Both questions cut in the same direction. Let me check the code before I answer, because the second one depends on what the slug is actually still doing.
+
+Checked the code. Both answers are "yes, and further than you'd think" — here's the evidence.
+
+## Form 0: mostly redundant, but it has one job that isn't about production
+
+You're right that form 2 covers form 0's *product* use. If every site gets a platform subdomain, `1stcontact.io/site/site_a3f9…/` is an ugly second address for something that already has a readable one, and I flagged the canonicalisation problem that creates last turn.
+
+The job it keeps is: **addressing a site where there is no DNS to address it by.** Host→site resolution needs a real namespace and a wildcard cert. Path→site works on `localhost:8787`. So `1c serve`, the workerd dev server, CI, and the screenshot worker all need a path grammar, and none of them can have a host mapping.
+
+So form 0 isn't a fourth product address — it's the **substrate** address. Which resolves the duplicate-address worry cleanly:
+
+- **In production**, a site always has an active domain, so form 0 always 301s to the canonical. Nothing links to it, nothing indexes it.
+- **In dev/CI**, there is no domain row, so form 0 serves, and it's the only address.
+
+One obligation falls out: **the label must be auto-assigned at provision**, or there's a window where a site has no canonical address and form 0 becomes a public address by default. Slugified business name, short discriminator on collision, freely changeable afterwards — the ordinary signup-name flow. Same shape as REQ-190's `unnamed`: the default exists and visibly asks to be changed, rather than blocking the customer on a choice before they have anything.
+
+## The slug: it's already vestigial, and the code says so
+
+This is the stronger of your two questions. Look at what the store port actually does:
+
+```
+tools/generate/src/store/d1r2-store.ts
+  createDraft(slug) → siteIdOf(slug) → ...
+  hasDraft(slug)    → siteIdOf(slug) → ...
+  readPages(slug)   → siteIdOf(slug) → ...
+  listAssets(slug)  → siteIdOf(slug) → ...
+  forget(slug)      → siteIdOf(slug) → ...
+  siteKey(slug)     → siteIdOf(slug)          ← a method whose entire job is the conversion
+```
+
+**Every port method takes a slug and immediately spends a D1 round trip undoing it.** There's a public `siteKey(slug)` whose only purpose is to expose that conversion to callers — and it's called from exactly two places (`router.ts:1454`, `router.ts:1921`), both of which just want to build a public URL.
+
+The slug is a pure indirection layer that every single call has to unwind. And there's nothing left underneath it:
+
+- child tables are `PRIMARY KEY (site_id, name)` — no slug (`0001_baseline.sql:129`, `:141`)
+- R2 is `draft/<siteId>/` and `sites/<siteId>/rev/` — no slug
+- `published_sites` is deleted — no global claim
+- the public address is the key today and the host tomorrow — not the slug
+
+What's left is `UNIQUE (tenant_id, slug)` on `sites` and the string in `/preview/<slug>/draft/`. That's it.
+
+### It's two jobs wearing one name
+
+1. **A URL-safe addressing token** in the preview URL. This should be the key. It's an iframe `src` and an open-in-new-tab that the operator *looks at* rather than shares — readability buys nothing, and it costs a lookup on every call.
+2. **The human label the builder lists sites by.** This should be `sites.name`: prose, no character restrictions, **and no uniqueness constraint at all.**
+
+So the collapse is:
+
+| today | after |
+|---|---|
+| `sites.slug` + `UNIQUE (tenant_id, slug)` | `sites.name` — prose, unconstrained |
+| `STARTER_SLUG='unnamed'` + `businessName='Unnamed'` | one constant, `Unnamed` |
+| `siteIdOf(slug)` on every port call | gone — the port takes a key |
+| `siteKey(slug)` | gone — the caller already holds it |
+| slug-shape refusal in the port | gone (public-site's key pattern stays) |
+
+Renaming a site becomes *entirely* unconstrained — no claim, no refusal, no error path, not even within the business. Two sites called "Shop" is the operator's problem, not a schema violation.
+
+That's REQ-190's own rule followed one step further than it went. It said a slug is an attribute, then left a unique index on it — which is a key doing its job in a smaller room. And there's a tell: REQ-190 justified keeping two constants as *"so editing the prose can't silently rewrite a key."* That argument only holds while the slug is a key or an address. Remove both jobs and the justification evaporates on its own, which is decent evidence the job really is gone.
+
+### Two things this does *not* reach
+
+**Page slugs stay.** `site_pages.name` — `home.json`, `about.json` — is the path *after* the host (`alicesplumbing.com/about`). That's a genuine public address and it genuinely must be readable. Nobody wants `alicesplumbing.com/page_a3f9…`. Worth stating explicitly, because "do we need slugs" reads as if it might reach these.
+
+**The file-backed tier keeps directory names.** `storage/sites/xgd/` is git-tracked, single-user, has no tenant and nothing to collide with; `storage/sites/site_a3f9…/` would be miserable to work in. That's a directory name in a filesystem, not a slug in a schema. REQ-190's transcript left this open (question 5: *"the ticket says 'across the schema' and should say which schema"*) — this is the answer, and it should be written down rather than inferred.
+
+### The thing that makes this urgent rather than tidy
+
+Dropping the column is a schema change, and the baseline has now been applied to remote and local D1. But there's one tenant, no users and no sites in either, so it's still a wipe-and-reapply that costs nothing.
+
+**That window closes the moment there is a real customer**, and after that the same change is a create-copy-drop-rename migration on every child table. If we're doing it, the argument for doing it now is much stronger than the argument for the change itself.
+
+---
+
+I haven't traced every call site — I checked the schema, the store port and the two `siteKey` callers. `import-site.ts` and `assemble.ts` both carry a `slug` and I don't yet know which side of the fs/D1 line they fall on.
+
+Where I'd go next, in order:
+
+1. **Write the addressing model down as a doc** — the four forms, form 0 as substrate, host→site, one canonical address. It amends DOC-43 §4 and DOC-12 §9, both of which currently under-describe this.
+2. **Kill the slug** as its own ticket, and do it before the domains work, because the domains work would otherwise be built on top of a token that's about to disappear.
+3. **Then** `site_domains` + wildcard subdomain, then custom hostnames, then the share link.
+
+Want me to scope (1) and (2) against CHAT-40 now? I'd want your call on the auto-assigned-label rule and on whether `sites.name` gets *any* uniqueness (I'd say none) before writing either.
 
 <!-- xgd-chat-end -->
