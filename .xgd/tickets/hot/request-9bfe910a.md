@@ -5,7 +5,7 @@ type: request
 title: 'The email ticket type: every outgoing message is a record on the contact'
 created_by: xgd
 created_at: '2026-09-05T23:44:42.099725+00:00'
-updated_at: '2026-09-06T19:13:37.527862+00:00'
+updated_at: '2026-09-06T19:17:35.802454+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -179,6 +179,32 @@ never committed. Absent, the endpoint refuses everything rather than accepting
 unverified events — which is the right failure, and is why it is not a deploy
 blocker before the provider is configured.
 
+### The record names both the template key and the template ticket
+
+[[REQ-197]] landed while this was being built, and its `RenderedMessage` carries
+a `templateUid` *"so [[REQ-198]]'s record can name the exact copy"*. So the
+record stores both: the key says WHICH template this was, the uid says WHICH
+VERSION of it. Replacing a template writes a new ticket rather than editing the
+live one, so without the uid a record made last month points at whatever the key
+resolves to today. It is optional and is not `uid`-typed — a reference field must
+resolve at create, and a template superseded and archived since must not make the
+record of a message it really did send unwritable.
+
+`SendEmail` is imported from [[REQ-196]]'s `mail.ts` rather than re-declared
+here. The seam is unchanged — the recorder still takes the sender as an argument
+and imports no adapter — but there is one definition of the port's shape instead
+of two that can drift.
+
+### Contact events are deliberately not written here
+
+[[REQ-195]]'s spine names `email.sent` / `email.delivered` / `email.bounced` as
+events this work produces. It landed with no writers at all — not even the invite
+writes one — so wiring producers is a step of its own per producer, and doing it
+from inside the recorder would mean widening both `sendRecordedEmail` and
+`applyDeliveryEvent` to carry a database and a business they otherwise do not
+need. It belongs with the call site ([[REQ-199]]), where both are already in
+hand.
+
 ## Acceptance (added by implementation)
 
 - the webhook refuses a request whose timestamp is far outside now, so a captured
@@ -187,3 +213,4 @@ blocker before the provider is configured.
   writing anything
 - `sendRecordedEmail` takes the sending port as an argument and imports no adapter
 - a failed send's reason is stored on the record and shown on the row
+- the record names the template ticket as well as the template key
