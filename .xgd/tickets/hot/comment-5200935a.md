@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T00:02:29.577363+00:00'
+updated_at: '2026-09-06T00:38:52.356277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -506,5 +506,12 @@ Access staying as your personal alternative is fine and I'd stop calling it brea
 2. **REQ-134's commit is still local** — that repo's push failed on proxy auth.
 
 **One sequencing note:** REQ-199 depends on the rebaseline (REQ-190/191) landing, since it's written against multiple addresses and `is_primary`. REQ-196, 197, 198 and 200 don't — they can proceed in parallel.
+
+<!-- xgd-turn id="923a5cad-4be4-46a0-a18b-2f726b0488d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:38:52.239609+00:00" -->
+#### You
+can you create a TODO ticket for me describing what I need to do to set up Resend.
+Are there any remaining gaps in the flow once these are implemented?
 
 <!-- xgd-chat-end -->
