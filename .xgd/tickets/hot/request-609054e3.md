@@ -15,6 +15,7 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-13cf5c3c
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-202]] for the invitee being able to
