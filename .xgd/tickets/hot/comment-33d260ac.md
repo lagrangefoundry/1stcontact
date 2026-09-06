@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-192
 created_by: xgd
 created_at: '2026-09-06T18:10:22.354594+00:00'
-updated_at: '2026-09-06T19:43:39.691477+00:00'
+updated_at: '2026-09-06T19:45:30.324564+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,24 @@ It took many attempts. `move-to-free-coded` requires the version-bump commit to 
 <!-- xgd-chat role="user" ts="2026-09-06T19:43:39.353688+00:00" -->
 #### You
 Please report an xgd bug for this xgd report-bug
+
+<!-- xgd-turn id="928dd8eb-42af-4901-8bca-9e79c67d3e60-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T19:45:28.026543+00:00" -->
+#### Claude
+Filed as **BUG-1340** (`bug-5794c720`) against the `xgd` project, severity high.
+
+**The defect:** `move-to-free-coded` requires the version-carrying commit to *be* the tip of `xgd-working` — a precondition the caller establishes and then cannot hold, because other sessions commit to that branch continuously. I backed the report with what the repo actually records: **77 commits landed on `xgd-working` during the 25-minute promotion window, 27 of them `xgd(ticket)` commits and the rest branch merges.** The specific commit that beat me while I *held* the merge lock was `5c77f692` — `Merge branch 'free-REQ-198' into xgd-working`.
+
+Two contributing causes I could evidence rather than guess:
+
+- `xgd(ticket)` commits bypass the merge lock, so holding it doesn't quiesce the branch.
+- The command spends ~15s loading its index *after* the caller has set up the precondition and *before* testing it (`index_load_ms: 3681 / 3180 / 2023` per attempt, 14–20s per attempt end to end). That's the window.
+
+**The message is also part of the problem.** "Someone else already published this version — re-run `xgd_version_bump`, recommit, and retry" is wrong in the common case (nobody published it; a later commit inherited it), and following its advice re-enters the same race. That is what burnt 0.2.87–0.2.90, 0.2.104, 0.2.106 and 0.2.113. I said plainly in the report that 0.2.107–0.2.112 were my own shell-quoting mistake, not xgd's.
+
+I proposed four fixes in preference order, the first being to ask whether the bump is an *ancestor* of the tip rather than the tip itself — which preserves what the rule is actually for (attributing the bump to a recorded commit) without caring what lands afterwards.
+
+I also included, clearly labelled as not a defect, a note that the `invalid SHA` message quotes an 81-character string and reports it as "not 40 characters" — naming whitespace as the cause would have saved a round trip.
 
 <!-- xgd-chat-end -->
