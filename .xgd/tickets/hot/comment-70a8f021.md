@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-200
 created_by: xgd
 created_at: '2026-09-06T19:45:54.827375+00:00'
-updated_at: '2026-09-06T20:16:46.895964+00:00'
+updated_at: '2026-09-06T20:30:46.492632+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,14 @@ Now the routes change for the apex, then `index.ts`:
 Now the UATs:
 
 Now the public-site UATs:
+
+<!-- xgd-turn id="7053a0fe-277e-48a4-b1aa-f7a0932e3349-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:30:46.045289+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
