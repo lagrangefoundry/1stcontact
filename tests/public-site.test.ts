@@ -17,9 +17,13 @@ describe('public-site worker', () => {
   })
 
   it('test_UAT_FC_REQ-1_public_site_returns_placeholder', async () => {
+    // [[REQ-200]] — the held-back string literal is gone: the apex is a real
+    // published 1c site, named by `APEX_SITE_KEY`. This dev config names none
+    // (a local `wrangler dev` has nothing published until somebody publishes),
+    // so the apex answers exactly as an unpublished site does rather than with
+    // a placeholder nobody chose.
     const res = await worker.fetch('/')
-    expect(res.status).toBe(200)
-    expect(await res.text()).toBe('Hello from 1stcontact.io')
+    expect(res.status).toBe(404)
     expect(res.headers.get('content-type')).toContain('text/plain')
   })
 })

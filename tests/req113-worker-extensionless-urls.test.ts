@@ -173,9 +173,17 @@ describe('REQ-113 — the Worker resolves extensionless page URLs', () => {
       '/site/acme/%2e%2e/secret',
       '/site/acme/%zz/page',
       '/site/../page',
-      '/notsite/acme/page',
     ]) {
       expect(parseRoute(bad).kind, bad).toBe('not-found')
     }
+
+    // [[REQ-200]] — a first segment that is not `site` is no longer a rejection:
+    // the apex is a published site served at the root of this host, so that path
+    // is one of ITS pages and gets the same clean-URL rule every other page has.
+    expect(parseRoute('/notsite/acme/page')).toMatchObject({
+      kind: 'apex',
+      path: 'notsite/acme/page',
+      htmlFallback: 'notsite/acme/page.html',
+    })
   })
 })

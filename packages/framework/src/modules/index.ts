@@ -6,6 +6,18 @@ export { CATALOG, catalog, getModuleMeta } from './catalog'
 export { getModuleCss, getModuleClientJs } from './styles'
 export { contactFormMeta } from './contact-form/meta'
 export { carouselMeta } from './carousel/meta'
+export { accountChromeMeta } from './account-chrome/meta'
+// [[REQ-200]] — the state marker and its transform, exported so the Worker that
+// serves published bytes rewrites the attribute the component emits rather than
+// one somebody restated.
+export {
+  ACCOUNT_CHROME_STATE_ATTR,
+  ACCOUNT_CHROME_BUSINESSES_ATTR,
+  ACCOUNT_CHROME_SIGNED_OUT,
+  hasAccountChrome,
+  applyAccountChromeSession,
+} from './account-chrome/session'
+export type { AccountChromeSession } from './account-chrome/session'
 export { renderMarkdown, CALLOUT_CSS } from './markdown'
 export {
   resolveTextStyle,

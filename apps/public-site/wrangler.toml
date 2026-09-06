@@ -4,6 +4,22 @@ compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# [[REQ-200]] — the apex is a published 1c site now, not a string literal.
+#
+# `APEX_SITE_KEY` names the site served at the root of this host; it is
+# configuration and never a URL segment, so no request can ask for another one.
+# It is empty here because a local `wrangler dev` has no published apex until
+# somebody publishes one — set it in `.dev.vars` to work on the apex locally.
+#
+# The two session vars are how this Worker knows which cookie to read and which
+# host it was issued for. Reading it decides WHICH STATE of `account-chrome`
+# renders and nothing else: no page is gated and no published content varies.
+# Empty means this deployment issues no sessions, so every visitor is signed out.
+[vars]
+APEX_SITE_KEY = ""
+SESSION_COOKIE_NAME = ""
+SESSION_COOKIE_DOMAIN = ""
+
 # The bucket the control-app publishes rendered revisions to (REQ-110/REQ-111).
 # Declared at the top level for `wrangler dev` and repeated under
 # [env.production] because a named environment does not inherit bindings.
@@ -42,6 +58,15 @@ routes = [
   { pattern = "1stcontact.io", custom_domain = true },
   { pattern = "*.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
+
+# A named environment inherits no vars, so the apex and session configuration is
+# repeated rather than assumed. `SESSION_COOKIE_DOMAIN` is the apex domain, which
+# is what lets `1stcontact.io` and `app.1stcontact.io` share one session while a
+# customer's own domain has its own — see `session.ts`.
+[env.production.vars]
+APEX_SITE_KEY = ""
+SESSION_COOKIE_NAME = "session"
+SESSION_COOKIE_DOMAIN = "1stcontact.io"
 
 [[env.production.r2_buckets]]
 binding = "SITES"

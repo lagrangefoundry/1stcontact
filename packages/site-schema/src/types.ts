@@ -34,6 +34,7 @@ import type {
   shadowTokensSchema,
   textRunSchema,
   textRunGradientSchema,
+  siteCapabilitiesSchema,
   siteConfigSchema,
   siteSchema,
   spacingTokensSchema,
@@ -51,6 +52,8 @@ import type {
 
 export type Site = z.infer<typeof siteSchema>
 export type SiteConfig = z.infer<typeof siteConfigSchema>
+/** [[REQ-200]] — the site-level capability declarations a module may read. */
+export type SiteCapabilities = z.infer<typeof siteCapabilitiesSchema>
 export type ThemeTokens = z.infer<typeof themeTokensSchema>
 export type TypographyTokens = z.infer<typeof typographyTokensSchema>
 export type FontFace = z.infer<typeof fontFaceSchema>

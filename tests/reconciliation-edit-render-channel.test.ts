@@ -195,6 +195,15 @@ interface SeamCase {
   /** The module's presentation seam. */
   slot: string
   config: Record<string, unknown>
+  /**
+   * [[REQ-200]] — site-level capabilities the module is gated on, if any.
+   *
+   * A behaviour may be a feature of the SITE rather than of the page
+   * (`account-chrome` on a site with accounts), and one whose capability is not
+   * declared renders nothing at all — which would make its seam unprovable here
+   * for a reason that is not a defect. Absent for a module with no such gate.
+   */
+  capabilities?: Record<string, unknown>
   /** The seam's value, carrying two items of copy plus whatever the module needs. */
   slotValue: unknown
   /** The first and second addresses of the seam's own namespace. */
@@ -260,6 +269,31 @@ const SEAM_CASES: SeamCase[] = [
     },
     addresses: ['0.0', '0.1'],
   },
+  {
+    // [[REQ-200]] — the account chrome. Four seams; the signed-out one is where a
+    // site's own words around the Sign In control live, so it is the one whose
+    // addressability a copy edit depends on.
+    type: 'account-chrome',
+    version: 1,
+    instance: 'chrome',
+    slot: 'signedOut',
+    config: {
+      signIn: 'https://app.example/sign-in',
+      portal: 'https://app.example/account',
+      businesses: 'https://app.example/builder',
+    },
+    capabilities: { accounts: true },
+    slotValue: {
+      kind: 'container',
+      layout: 'stack',
+      children: [
+        { kind: 'text', text: SEAM_COPY_ONE },
+        { kind: 'text', text: SEAM_COPY_TWO },
+        { kind: 'control', control: 'signIn' },
+      ],
+    },
+    addresses: ['0.0', '0.1'],
+  },
 ]
 
 /**
@@ -295,6 +329,14 @@ function seamCaseFor(def: BehaviorDefinition): SeamCase {
 /** A fresh site whose home page mounts `seam`'s module with two items of copy. */
 function seedSeamPage(cwd: string, slug: string, seam: SeamCase): Record<string, unknown> {
   cmdNew(slug, { cwd })
+  if (seam.capabilities) {
+    // The site declares what it HAS before the page mounts a behaviour that is a
+    // feature of having it ([[REQ-200]]).
+    const sitePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'site.json')
+    const site = JSON.parse(readFileSync(sitePath, 'utf8'))
+    site.config.capabilities = seam.capabilities
+    writeFileSync(sitePath, JSON.stringify(site, null, 2))
+  }
   const homePath = homeJsonPath(cwd, slug)
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
   home.l1.root = {

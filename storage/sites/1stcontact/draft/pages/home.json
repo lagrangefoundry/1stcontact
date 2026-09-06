@@ -1,0 +1,424 @@
+{
+  "id": "home",
+  "slug": "home",
+  "title": "Home",
+  "seoMeta": {
+    "title": "1st Contact",
+    "description": "1st Contact."
+  },
+  "modules": [
+    {
+      "id": "chrome",
+      "type": "account-chrome",
+      "version": 1,
+      "slot": "account-chrome",
+      "config": {
+        "signIn": "https://app.1stcontact.io/sign-in",
+        "portal": "https://app.1stcontact.io/account",
+        "businesses": "https://app.1stcontact.io/builder"
+      },
+      "slots": {
+        "signedOut": {
+          "kind": "control",
+          "control": "signIn",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 15,
+            "fontWeight": 500
+          },
+          "padding": {
+            "topPx": 8,
+            "rightPx": 12,
+            "bottomPx": 8,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "hug"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "opacity": 0.7
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          }
+        },
+        "signedIn": {
+          "kind": "control",
+          "control": "portal",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 15,
+            "fontWeight": 500
+          },
+          "padding": {
+            "topPx": 8,
+            "rightPx": 12,
+            "bottomPx": 8,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "hug"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "opacity": 0.7
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          }
+        },
+        "businesses": {
+          "kind": "control",
+          "control": "businesses",
+          "axes": {
+            "color": "#0f172b",
+            "fontSizePx": 15,
+            "fontWeight": 500
+          },
+          "padding": {
+            "topPx": 8,
+            "rightPx": 12,
+            "bottomPx": 8,
+            "leftPx": 12
+          },
+          "sizing": {
+            "width": {
+              "mode": "hug"
+            }
+          },
+          "interaction": {
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            },
+            "hover": {
+              "opacity": 0.7
+            },
+            "focus": {
+              "ring": {
+                "widthPx": 2,
+                "color": "#0f172b",
+                "offsetPx": 2
+              }
+            }
+          }
+        },
+        "dialog": {
+          "kind": "container",
+          "layout": "stack",
+          "gapPx": 12,
+          "axes": {
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8
+          },
+          "padding": {
+            "topPx": 24,
+            "rightPx": 24,
+            "bottomPx": 24,
+            "leftPx": 24
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 380
+            }
+          },
+          "children": [
+            {
+              "kind": "control",
+              "control": "email",
+              "axes": {
+                "color": "#0f172b",
+                "fontSizePx": 16,
+                "surfaceFill": "#ffffff",
+                "borderRadiusPx": 8,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#e5e7eb"
+                }
+              },
+              "padding": {
+                "topPx": 12,
+                "rightPx": 12,
+                "bottomPx": 12,
+                "leftPx": 12
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 44
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 120,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": "#0f172b"
+                  }
+                },
+                "focus": {
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#0f172b",
+                    "offsetPx": 2
+                  }
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "control": "submit",
+              "axes": {
+                "color": "#ffffff",
+                "fontSizePx": 16,
+                "fontWeight": 600,
+                "textAlign": "center",
+                "surfaceFill": "#0f172b",
+                "borderRadiusPx": 8
+              },
+              "padding": {
+                "topPx": 12,
+                "rightPx": 24,
+                "bottomPx": 12,
+                "leftPx": 24
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 120,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "opacity": 0.9
+                },
+                "focus": {
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#0f172b",
+                    "offsetPx": 2
+                  }
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "control": "dismiss",
+              "axes": {
+                "color": "#0f172b",
+                "fontSizePx": 14,
+                "textAlign": "center"
+              },
+              "padding": {
+                "topPx": 8,
+                "rightPx": 8,
+                "bottomPx": 8,
+                "leftPx": 8
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 120,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "opacity": 0.7
+                },
+                "focus": {
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#0f172b",
+                    "offsetPx": 2
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "l1": {
+    "widths": [
+      320,
+      375,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "background": {
+      "ref": "paper"
+    },
+    "textColor": {
+      "ref": "ink"
+    },
+    "root": {
+      "kind": "container",
+      "id": "root",
+      "layout": "stack",
+      "align": "center",
+      "sizing": {
+        "width": {
+          "mode": "fluid"
+        }
+      },
+      "children": [
+        {
+          "kind": "container",
+          "id": "header",
+          "layout": "row",
+          "distribution": "between",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 1100
+            }
+          },
+          "padding": {
+            "topPx": 24,
+            "rightPx": 32,
+            "bottomPx": 24,
+            "leftPx": 32
+          },
+          "children": [
+            {
+              "kind": "text",
+              "text": "1st Contact",
+              "axes": {
+                "color": {
+                  "ref": "ink"
+                },
+                "fontSizePx": 18,
+                "fontWeight": 700,
+                "letterSpacingPx": -0.2
+              }
+            },
+            {
+              "kind": "slot",
+              "id": "account-chrome",
+              "name": "account-chrome",
+              "behavior": "account-chrome"
+            }
+          ]
+        },
+        {
+          "kind": "container",
+          "id": "hero",
+          "layout": "stack",
+          "align": "center",
+          "gapPx": 20,
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 720
+            }
+          },
+          "padding": {
+            "topPx": 140,
+            "rightPx": 32,
+            "bottomPx": 180,
+            "leftPx": 32
+          },
+          "children": [
+            {
+              "kind": "text",
+              "text": "1st Contact",
+              "axes": {
+                "color": {
+                  "ref": "ink"
+                },
+                "fontSizePx": 56,
+                "fontWeight": 700,
+                "lineHeightPx": 62,
+                "letterSpacingPx": -1.5,
+                "textAlign": "center"
+              }
+            },
+            {
+              "kind": "text",
+              "text": "Websites that look after themselves.",
+              "axes": {
+                "color": {
+                  "ref": "muted"
+                },
+                "fontSizePx": 20,
+                "lineHeightPx": 30,
+                "textAlign": "center"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "container",
+          "id": "footer",
+          "layout": "row",
+          "distribution": "center",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "padding": {
+            "topPx": 32,
+            "rightPx": 32,
+            "bottomPx": 48,
+            "leftPx": 32
+          },
+          "children": [
+            {
+              "kind": "text",
+              "text": "\u00a9 1st Contact",
+              "axes": {
+                "color": {
+                  "ref": "muted"
+                },
+                "fontSizePx": 13,
+                "textAlign": "center"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
