@@ -464,11 +464,77 @@ export async function publishSite(slug, fetchImpl = fetch) {
  * URL prefix `scoped()` writes, and a business holds one site in v1 — so a slug
  * here could only ever repeat what the prefix already says. Material belongs to
  * the business, not to one of its sites.
+ *
+ * IT ANSWERS `{material, seq}` NOW (REQ-201). `seq` is the change cursor the
+ * origin read BEFORE it listed, and it is what {@link subscribeMaterial} opens
+ * from — which is the only way to be sure a write landing between the load and
+ * the subscription is in one of them. The other order would put it in neither.
  */
 export async function fetchMaterial(fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/material'))
   if (!res.ok) throw new Error(`GET /api/material → ${res.status}`)
   return res.json()
+}
+
+/**
+ * Watch this business's material for changes (REQ-201, DOC-24).
+ *
+ * `EventSource` RATHER THAN THE HAND-ROLLED READER {@link postEventStream} IS.
+ * That one exists because the chat routes are POSTs and a POST cannot be an
+ * `EventSource`; this route is a GET precisely so it can be. What the browser
+ * then does for free is the part of a subscription least worth writing twice —
+ * it reconnects with backoff, and it re-presents the last `id:` it saw as
+ * `Last-Event-ID`, so a dropped connection resumes at the exact record it
+ * stopped on. The origin seeds that id with a `ready` frame before anything can
+ * move it, so there is no window in which the browser has no cursor to present.
+ *
+ * `since` SEEDS THE FIRST CONNECTION ONLY, and it comes from the list read
+ * rather than from here: `fetchMaterial` returns the cursor the origin read
+ * at BEFORE it listed, so nothing that lands between the load and the
+ * subscription is missed. Every reconnect after that carries the header instead.
+ *
+ * SCOPED LIKE EVERY OTHER READ. `scoped()` puts the business in the path, so the
+ * feed a tab opens is the feed for the business the header names — the origin
+ * binds the tenant into the store handle from that prefix, and there is no
+ * cross-business form of this URL to construct.
+ *
+ * RETURNS A CLOSER AND NOTHING ELSE. A business switch closes one and opens
+ * another under the new scope, which is the whole of the caller's business with
+ * it.
+ *
+ * @param {number} since the cursor `fetchMaterial` returned
+ * @param {(change: object) => void} onChange one frame, already parsed
+ * @param {object} [opts]
+ * @param {typeof EventSource} [opts.EventSourceImpl] the constructor, injected
+ *   by tests — jsdom has no `EventSource`, and a suite driving this would be
+ *   asserting a polyfill rather than the contract.
+ * @returns {{close: () => void}}
+ */
+export function subscribeMaterial(since, onChange, { EventSourceImpl = globalThis.EventSource } = {}) {
+  if (typeof EventSourceImpl !== 'function') {
+    // NOT AN ERROR, AND NOT SILENT EITHER. A browser without `EventSource` still
+    // gets a working Library — it is the one that refreshes only when it wrote,
+    // which is exactly what this tab did before REQ-201. Throwing would trade a
+    // missing improvement for a broken tab.
+    return { close: () => {} }
+  }
+  const source = new EventSourceImpl(scoped(`/api/material/changes?since=${encodeURIComponent(since)}`))
+  source.onmessage = (event) => {
+    let change
+    try {
+      change = JSON.parse(event.data)
+    } catch {
+      // A frame we cannot parse is one we cannot act on, and there is no
+      // operator-facing thing to say about it. The next one still arrives.
+      return
+    }
+    onChange(change)
+  }
+  // NO `onerror` HANDLER, deliberately. `EventSource` reconnects on its own and
+  // an error is how it announces that it is about to — handling it here could
+  // only mean either duplicating that retry or closing a connection the browser
+  // was going to repair.
+  return { close: () => source.close() }
 }
 
 /** One piece of material with its description — the row plus the body. */

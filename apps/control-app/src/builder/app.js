@@ -519,6 +519,12 @@ export function mountBuilder(root, options = {}) {
    * That makes a business switch a DIFFERENT LIST rather than the same list
    * redrawn — `selectBusiness` clears it and re-reads it, and a site change does
    * nothing to it at all.
+   *
+   * IT IS ALSO WHY THE CHANGE FEED IS THE PANEL'S AND NOT THIS FILE'S
+   * ([[REQ-201]]). A subscription is scoped exactly as the read it accompanies,
+   * so it has to be opened and closed by whatever opens and closes the list —
+   * and that is `refresh`/`clear`, which this host already calls in the right
+   * order for the right reason.
    */
   const library = createLibraryPanel({
     storage: shell.storage(STORAGE_KEYS.library),
@@ -784,6 +790,13 @@ export function mountBuilder(root, options = {}) {
     // the re-read is allowed to fail, the rows are dropped first. Leaving the
     // previous business's material on screen under a header naming this one is
     // the one outcome a failure here may not produce.
+    //
+    // THE CHANGE FEED RIDES ON THIS PAIR AND NEEDS NOTHING ADDED HERE
+    // ([[REQ-201]]). `clear` closes the subscription raised under the OLD
+    // business and `refresh` opens one under the new scope, from the cursor its
+    // own read returned. That places both halves inside the panel, which is
+    // where they can be true of every caller rather than of this one — and it is
+    // why a switch remains a clear-and-re-read and never a patch.
     library.clear()
     await library.refresh().catch(() => {})
     people.clear()

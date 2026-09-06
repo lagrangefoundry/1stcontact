@@ -50,7 +50,7 @@ import {
   type MaterialKind,
 } from './describe'
 import { guardedFetch, tooBig } from './fetch-guard'
-import type { Ticket, TicketStore } from './tickets'
+import type { ChangeEvent, Ticket, TicketStore, TicketSubscription } from './tickets'
 
 /**
  * The per-blob ceiling ([[DOC-38]] §14), which is the component's and not a
@@ -840,6 +840,160 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
     .flatMap((page) => page.tickets)
     .map(rowOf)
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+}
+
+// --- the change feed the Library subscribes to (REQ-201, DOC-24) -------------
+//
+// WHY THIS LIVES BESIDE `listMaterial` AND NOT IN A MODULE OF ITS OWN. The
+// subscription and the list describe THE SAME SET, and the one failure worth
+// designing against is that they stop doing so — a filter that drifts from
+// `MATERIAL_TYPES` shows the client rows that never update, or updates for rows
+// they cannot see. Both are built from the same constant, in the same file, and
+// both project through the same {@link rowOf}. There is one definition of "the
+// client's material" and this is the file it is in.
+
+/**
+ * How often the tailer reads D1 while a Library tab is open ([[REQ-201]] §10).
+ *
+ * THE COMPONENT DEFAULTS TO 50ms AND THAT IS WRONG HERE. Fifty milliseconds is
+ * right for a suite driving a subscription and ruinous for a browser tab left
+ * open all afternoon: twenty D1 reads a second, indefinitely, for a description
+ * that arrives seconds after an upload anyway. Two seconds is inside the
+ * behaviour the ticket is about and is three orders of magnitude cheaper.
+ *
+ * ONE TAILER SERVES EVERY SUBSCRIPTION ON A STORE ([[DOC-24]] §7.5), so this is
+ * the cost of an open TAB and not of a filter — the two watches below read once
+ * between them, per tick.
+ */
+export const MATERIAL_CHANGE_POLL_MS = 2000
+
+/**
+ * What the Library's subscription watches, as one filter per material type.
+ *
+ * TWO WATCHES RATHER THAN ONE PREDICATE, for exactly the reason
+ * {@link listMaterial} issues two lists: the predicate grammar is a CONJUNCTION
+ * ([[DOC-8]] Appendix B) and has no `OR`, so "material or reference" cannot be
+ * spelled as one term. Two filters that cannot be mis-spelled beat one string
+ * that can — and they cost nothing, because a store fans one tail read out to
+ * every subscriber rather than polling per subscription.
+ */
+export const MATERIAL_CHANGE_FILTERS = MATERIAL_TYPES.map((type) => `type=${type}`)
+
+/**
+ * The paths a Library tab actually redraws for ([[REQ-201]] §3).
+ *
+ * `title` is the row's label, `body` is the description the detail renders, and
+ * `fields` covers the whole §9 rights block plus `placed_on`, `kind`, `role` and
+ * `description_status` — every value either pane reads. What it leaves out is
+ * `status` and `links`, which no material surface draws.
+ *
+ * IT RESTRICTS `update` AND NOTHING ELSE. [[DOC-24]] §5 is normative about this
+ * and it is not an optimisation gap: a material that leaves the set without
+ * touching a watched field must still leave the screen, or the row sits there
+ * for ever with no signal that anything is wrong.
+ */
+export const MATERIAL_CHANGE_FIELDS = ['title', 'body', 'fields']
+
+/**
+ * One change to the client's material, as the browser receives it.
+ *
+ * THE ROW IS THE LIST'S OWN ROW, not a fourth shape. The change record's
+ * after-image carries `{uid, type, title, fields, updated_at}` — every input
+ * {@link rowOf} reads — so an event is projected through the same function the
+ * list read uses, and the pane splices in something indistinguishable from what
+ * it would have got by re-reading. No second D1 read, and no second row shape.
+ */
+export interface MaterialChange {
+  /** The log position. The client's cursor, and the SSE frame's `id`. */
+  seq: number
+  /** What happened to the LIST: a row arrived, left, or changed in place. */
+  kind: 'enter' | 'exit' | 'update'
+  /**
+   * What happened to the TICKET.
+   *
+   * CARRIED BECAUSE THE TAB IS ENTITLED TO TELL THEM APART ([[REQ-201]]): an
+   * `enter` whose cause is `create` is a material that has just been uploaded,
+   * and one whose cause is `update` is a material an edit brought into scope.
+   * Neither is reconstructible from `kind`.
+   */
+  cause: ChangeEvent['cause']
+  uid: string
+  /**
+   * The row, for `enter` and `update`. Null on `exit`, because there is nothing
+   * left to draw and the uid is the whole of what the pane needs to drop it.
+   */
+  row: MaterialRow | null
+  /**
+   * True when this write moved the BODY — the description.
+   *
+   * THE LOG SAYS THAT IT MOVED AND NEVER WHAT IT NOW SAYS ([[DOC-24]] §6.2): a
+   * change log carrying bodies would be larger than the store. So this is a
+   * signal to re-read, not a payload, and the pane re-fetches the one item it
+   * has open rather than painting a value it was not sent. Forcing the request
+   * is also the safer half of the choice — what gets drawn is what the store
+   * holds, not what an event implied.
+   */
+  body_changed: boolean
+}
+
+/**
+ * Project a change event into a material change, or null if it is not one.
+ *
+ * NULL IS REACHABLE AND IS NOT A DEFECT. `exit` by `delete` has no after-image
+ * at all, and a record whose after-image is not material is one the filter
+ * should never have matched — both answer "nothing for this pane to do" rather
+ * than throwing into a stream the operator is watching.
+ */
+export function materialChangeOf(event: ChangeEvent): MaterialChange | null {
+  const base = {
+    seq: event.seq,
+    kind: event.kind,
+    cause: event.cause,
+    uid: event.uid,
+    // `changed` HOLDS `body` AS PRESENCE, so its mere KEY is the signal — there
+    // is no value to compare and asking for one would be asking the log for the
+    // one thing it does not keep.
+    body_changed: Object.prototype.hasOwnProperty.call(event.changed ?? {}, 'body'),
+  }
+  // AN `exit` NEEDS NO ROW, and on a `delete` there is no after-image to build
+  // one from. Both are the same answer to the pane: drop this uid.
+  if (event.kind === 'exit' || event.ticket == null) return { ...base, row: null }
+  if (!(MATERIAL_TYPES as readonly string[]).includes(event.ticket.type)) return null
+  // `rowOf` READS NO BODY AND NO `human_id`, which is what makes this projection
+  // total over the after-image rather than a partial row with holes in it.
+  return { ...base, row: rowOf(event.ticket as Ticket) }
+}
+
+/**
+ * Subscribe to this business's material, from `since`.
+ *
+ * TENANT-SCOPED BY THE HANDLE AND BY NOTHING ELSE, exactly as every read here
+ * is. `store` arrived from `ticketStoreFor`, whose accessor carries
+ * `WHERE tenant_id = ?` into the change tail as readily as into a list, and
+ * `forTenant` is terminal — so there is no widening available to this function
+ * and none it could be asked for. A change feed that crossed businesses would be
+ * a scope leak through a new door ([[DOC-8]] §6.6).
+ *
+ * `onChange` IS CALLED ONCE PER EVENT, IN `seq` ORDER, and a throw from it stops
+ * this subscriber at the record it failed on rather than advancing past it —
+ * the component's contract, relied on here so a failed write to a closing SSE
+ * stream does not silently swallow the event.
+ */
+export async function watchMaterial(
+  store: TicketStore,
+  since: number,
+  onChange: (change: MaterialChange) => unknown,
+  opts: { onReset?: (info: { floor: number }) => unknown } = {},
+): Promise<TicketSubscription[]> {
+  const deliver = async (event: ChangeEvent): Promise<void> => {
+    const change = materialChangeOf(event)
+    if (change) await onChange(change)
+  }
+  return Promise.all(
+    MATERIAL_CHANGE_FILTERS.map((filter) =>
+      store.watch({ filter, fields: MATERIAL_CHANGE_FIELDS, since }, deliver, opts),
+    ),
+  )
 }
 
 /** Raised for a uid that is not this tenant's material. */
