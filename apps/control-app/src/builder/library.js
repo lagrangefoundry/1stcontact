@@ -13,6 +13,24 @@
  * three host-injected functions it asks for — how a row looks, what a detail
  * contains, and what the filter means.
  *
+ * IT IS SUBSCRIBED, NOT POLLED, AND NOT "REFRESHED WHEN WE WROTE" (REQ-201,
+ * DOC-24). This tab used to redraw only when it was the one that wrote, which
+ * mattered here more than on any panel whose writes are all human: the Library's
+ * most interesting writes are NOT MADE BY THE LIBRARY. Every material is a
+ * ticket with an AI-written body, and the body arrives from `describeCapture`
+ * after the upload has already returned — and again from a background
+ * re-describe pass. So the common sequence was an operator uploading, a row
+ * appearing with no description, the AI writing one seconds later, and the tab
+ * showing the empty version until something unrelated forced a full re-read.
+ * `subscribe` opens a change feed over this business's material and `applyChange`
+ * splices the result into the list the host was already drawing.
+ *
+ * THE COMPONENT CONTRACT DID NOT CHANGE, and that is the measure of whether this
+ * was done right. It still ends at `listDetail.setItems(visible())`; what is new
+ * is that the host knows WHICH material moved, so a description landing on one
+ * row leaves the selection, the collapse-to-rail state and the detail's
+ * persisted scroll on another exactly where they were.
+ *
  * BUSINESS-SCOPED, AND THE SITE IS NOT A DIMENSION OF IT (REQ-181). A business
  * holds ONE site in v1, so "on this site" and "on the site" are the same
  * sentence and there is no other site for a material to be on. The Library is
@@ -56,6 +74,7 @@ import {
   fetchMaterialItem,
   materialFileUrl,
   saveMaterialDescription,
+  subscribeMaterial,
 } from './api.js'
 import { UPLOAD_AREAS } from './config.js'
 import {
@@ -251,7 +270,9 @@ function el(tag, className, text) {
  *
  * @param {object} [options]
  * @param {Storage} [options.storage]  the shell's namespaced handle
- * @param {object}  [options.transport] `{list, item, save, fileUrl}` — injected by tests
+ * @param {object}  [options.transport] `{list, item, save, fileUrl, subscribe}`
+ *   — injected by tests. `subscribe` is optional: absent, the tab redraws only
+ *   when it wrote, which is what it did before REQ-201.
  * @param {Promise<void>} [options.markdownReady] when the markdown engines have
  *   settled (BUG-42); injected by tests so the cold-load repaint is observable.
  * @param {() => Element|null} [options.getModalHost] where an expanded reader
@@ -267,6 +288,12 @@ export function createLibraryPanel(options = {}) {
       item: fetchMaterialItem,
       save: saveMaterialDescription,
       fileUrl: materialFileUrl,
+      // OPTIONAL AT THE SEAM, AND THE PANEL CHECKS FOR IT (REQ-201). A suite
+      // that injects a transport to assert something else entirely should not
+      // have to supply a change feed it is not asking about — and a browser with
+      // no `EventSource` returns a closer that does nothing, so the tab degrades
+      // to exactly the "refresh when we wrote" behaviour it had before.
+      subscribe: subscribeMaterial,
     },
     markdownReady = defaultMarkdownReady,
     getModalHost = () => null,
@@ -277,6 +304,24 @@ export function createLibraryPanel(options = {}) {
   /** Everything the business has. The filter narrows this; it never re-fetches. */
   let all = []
   const filter = { text: '', role: '', kind: '' }
+
+  /**
+   * The live subscription, and the detail currently open (REQ-201).
+   *
+   * `subscription` IS ONE AT A TIME AND IS THE SCOPE'S. A business switch closes
+   * it and opens another, because the new one is a feed over a DIFFERENT LIST —
+   * the same argument that makes a switch a clear-and-re-read rather than a
+   * patch. Nothing here reuses a subscription across scopes, and an event
+   * arriving from a closed one is dropped rather than applied.
+   *
+   * `openItem` IS WHAT THE DETAIL PANE IS SHOWING, and it exists for one reason:
+   * the change log carries a body change as PRESENCE and never as content
+   * (DOC-24 §6.2), so the description this whole feature is about cannot be
+   * painted from an event. It has to be re-read — and re-reading is only worth
+   * doing for the material somebody is actually looking at.
+   */
+  let subscription = null
+  let openItem = null
 
   // --- the filter, in the list header's own slot --------------------------------
   const controls = el('div', 'builder-library__filter')
@@ -439,6 +484,46 @@ export function createLibraryPanel(options = {}) {
     const host = el('div', 'builder-library__description')
     view.append(host)
 
+    /**
+     * Re-read this material and repaint what it says (REQ-201).
+     *
+     * THE ONE THING AN EVENT CANNOT CARRY. A change record holds the body as
+     * presence and never as content (DOC-24 §6.2), so when the AI writes a
+     * description seconds after the upload — which is the case this tab could
+     * not handle at all — the feed can say WHICH material moved and not what it
+     * now says. This is the request that answers that, for the one material the
+     * client is actually looking at.
+     *
+     * IT NEVER OVERWRITES AN OPEN EDITOR. `setValues` rebuilds the cell, so a
+     * background re-describe landing while the operator is mid-correction would
+     * take their half-written sentence off the screen and put ours there
+     * instead. Losing what somebody typed is a worse failure than showing a
+     * description one save behind, so an open editor simply wins — their commit
+     * is about to overwrite this text anyway.
+     *
+     * AND THE TEST FOR "OPEN" IS THE CELL, NOT `isDirty()`. That is not a
+     * shortcut: `isDirty` reports the BUFFERED commit mode's staging map, and
+     * this field is `commit: 'auto'` — which writes straight through and stages
+     * nothing, so `isDirty()` is false the entire time somebody is typing. The
+     * component expresses edit mode by replacing its read cell with a control
+     * cell, which is where the fact actually lives.
+     */
+    async function reload() {
+      if (!description || host.querySelector('.fields-control-cell')) return
+      let item
+      try {
+        item = await transport.item(row.uid)
+      } catch {
+        // The row is still on screen and still correct; a failed re-read has
+        // nothing useful to say and the next event will try again.
+        return
+      }
+      status.textContent = item.body ? '' : NO_DESCRIPTION
+      // `setValues` re-renders the read cell, and the observer below repaints
+      // the markdown off the back of that — so this is one call and not two.
+      description.setValues({ body: item.body ?? '' })
+    }
+
     void (async () => {
       let item
       try {
@@ -488,11 +573,21 @@ export function createLibraryPanel(options = {}) {
       // And once more when the engines land, for a detail opened during a cold
       // load: the paint above will have escaped the source, honestly and wrongly.
       void markdownReady.then(() => paintDescription(host))
+
+      // REGISTERED ONLY ONCE THE FIELD EXISTS, because `reload` writes through
+      // it. Before this line the pane is still fetching its first copy, and a
+      // body event arriving in that window needs no help: the fetch already in
+      // flight will bring the new text.
+      openItem = { uid: row.uid, reload }
     })()
 
     return {
       element: view,
       destroy() {
+        // ONLY IF IT IS STILL OURS. `list-detail` builds the incoming detail
+        // before it destroys the outgoing one, so a blind `openItem = null`
+        // here would unregister the pane that has just replaced this one.
+        if (openItem?.uid === row.uid) openItem = null
         repaint?.disconnect()
         shown.destroy()
         fields?.destroy()
@@ -599,12 +694,124 @@ export function createLibraryPanel(options = {}) {
     emptyDetail: EMPTY_DETAIL,
   })
 
-  /** Re-read the business's material and redraw. Called after every upload. */
+  /**
+   * Re-read the business's material and redraw.
+   *
+   * STILL HERE, AND STILL THE ANSWER TO THREE THINGS (REQ-201). The subscription
+   * replaced "refresh only when we wrote" for ordinary traffic, but it did not
+   * replace this: a business switch is a DIFFERENT LIST and is cleared and
+   * re-read rather than patched; a `reset` means the cursor fell below the
+   * retention floor and a partial history would be worse than none; and an
+   * upload still refreshes, because the row it produces carries fields the
+   * origin decides after the bytes leave here.
+   *
+   * IT ALSO RE-ARMS THE SUBSCRIPTION, from the cursor THIS read returned. That
+   * is what makes it a genuine recovery and not just a redraw: after it, what is
+   * on screen and what the feed will deliver describe the same moment.
+   */
   async function refresh() {
-    const { material } = await transport.list()
+    const { material, seq } = await transport.list()
     all = Array.isArray(material) ? material : []
     apply()
+    if (typeof seq === 'number') await subscribe(seq)
     return all
+  }
+
+  /**
+   * Open the change feed for this business, from `since` (REQ-201, DOC-24).
+   *
+   * THE CURSOR COMES FROM THE READ AND NOT FROM HERE. `transport.list()` answers
+   * with the position the origin was at BEFORE it listed, so a write that lands
+   * between the two is in the page and in the replay — which patches a row we
+   * already drew, and is idempotent. Taking the cursor after the read instead
+   * would leave that write in neither, and the tab would never learn of it.
+   *
+   * CLOSE-THEN-OPEN, ALWAYS. Re-arming without closing would leave two feeds
+   * running, and after a business switch one of them would be the previous
+   * business's.
+   */
+  async function subscribe(since) {
+    unsubscribe()
+    if (!transport.subscribe) return
+    // CAPTURED, AND COMPARED ON EVERY EVENT. `subscription` is reassigned by the
+    // next `subscribe`, so an in-flight frame from the feed we just closed is
+    // recognised by the handle it was raised under rather than by a flag some
+    // other path has to remember to set.
+    const mine = { closed: false }
+    subscription = mine
+    const handle = transport.subscribe(since, (change) => {
+      if (mine.closed || subscription !== mine) return
+      applyChange(change)
+    })
+    mine.close = () => handle.close()
+  }
+
+  /** Close the feed, if one is open. Idempotent, and safe before the first open. */
+  function unsubscribe() {
+    if (!subscription) return
+    subscription.closed = true
+    subscription.close?.()
+    subscription = null
+  }
+
+  /**
+   * Apply one change to what is on screen (REQ-201 §2).
+   *
+   * THE COMPONENT CONTRACT DOES NOT MOVE. The host still ends at
+   * `listDetail.setItems(visible())` — what changed is that it now knows WHICH
+   * material moved, so the selection, the collapse-to-rail state and the detail
+   * pane's persisted scroll all survive an event for a different row. Rebuilding
+   * the list from a full re-read would have thrown all three away on every
+   * description the AI wrote.
+   *
+   * A ROW THE FILTER EXCLUDES IS STILL APPLIED, and that is deliberate rather
+   * than an oversight: `all` is the business's material and `visible()` is the
+   * question asked of it. Filtering on the way IN would make what the client
+   * sees depend on which filter happened to be set when an event arrived —
+   * clearing the search box would then reveal a stale list. `visible()` runs
+   * after, so an excluded material updates silently and correctly.
+   */
+  function applyChange(change) {
+    if (!change || typeof change !== 'object') return
+    // THE FEED SAYS IT LOST HISTORY (DOC-24 §6.4). The cursor fell below the
+    // retention floor, so the events between then and now cannot be served and
+    // must not be pretended into. The honest recovery is the one this panel
+    // already has.
+    if (change.kind === 'reset') {
+      void refresh().catch(() => {})
+      return
+    }
+    if (typeof change.uid !== 'string' || change.uid === '') return
+    const at = all.findIndex((row) => row.uid === change.uid)
+
+    if (change.kind === 'exit') {
+      // ARCHIVED, DELETED, OR EDITED OUT OF SCOPE — the tab had no path to learn
+      // any of the three, and they are one outcome to a list: the row goes.
+      if (at !== -1) all.splice(at, 1)
+      apply()
+      return
+    }
+    if (!change.row) return
+
+    if (at === -1) {
+      // NEWEST FIRST, which is `listMaterial`'s own order — so a material that
+      // arrives by event lands where the same material would have landed had the
+      // list been re-read. `cause` distinguishes a newly created ticket from one
+      // an edit brought into scope; both are rows here, and the origin carries
+      // the distinction for a caller that wants it.
+      all.unshift(change.row)
+    } else {
+      // PATCHED IN PLACE, NOT REPLACED. Same object, so anything holding this
+      // row — an open detail's `onCommit` closes over one — keeps seeing the
+      // current values instead of a copy that stopped moving.
+      Object.assign(all[at], change.row)
+    }
+    apply()
+
+    // THE DESCRIPTION, WHICH THE EVENT COULD NOT CARRY. See `reload`: the log
+    // records that a body moved and never what it now says, so the one open
+    // detail re-reads and every other material costs nothing.
+    if (change.body_changed && openItem?.uid === change.uid) void openItem.reload()
   }
 
   /**
@@ -617,6 +824,13 @@ export function createLibraryPanel(options = {}) {
    * under a header naming this one is not.
    */
   function clear() {
+    // THE FEED GOES WITH THE ROWS (REQ-201). A subscription raised under the
+    // previous business is a read in the previous business's scope, and leaving
+    // it open across a switch is exactly the leak §6 rules out — not because it
+    // could reach the new business's material, but because it would keep
+    // delivering the OLD one's into a tab whose header names another. Closed
+    // here rather than in the host, so every caller of `clear` gets it.
+    unsubscribe()
     all = []
     apply()
   }
@@ -629,6 +843,9 @@ export function createLibraryPanel(options = {}) {
     /** Everything currently shown, for a host that wants to report a count. */
     getRows: () => visible(),
     destroy() {
+      // BEFORE THE COMPONENT GOES. An open feed outliving the panel would
+      // deliver into `listDetail` after it was destroyed.
+      unsubscribe()
       listDetail.destroy()
       element.remove()
     },

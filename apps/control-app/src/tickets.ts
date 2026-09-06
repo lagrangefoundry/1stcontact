@@ -539,7 +539,10 @@ export class BlobsNotConfiguredError extends Error {
  * {@link ticketStoreFor}; reaching for this one to avoid resolving a scope would
  * be re-introducing the unscoped read the component refuses to provide.
  */
-export function ticketStoreBase(env: TicketStoreEnv): MultiTenantTicketStoreHandle {
+export function ticketStoreBase(
+  env: TicketStoreEnv,
+  opts: TicketStoreOptions = {},
+): MultiTenantTicketStoreHandle {
   if (!env.BLOBS) throw new BlobsNotConfiguredError()
   return new MultiTenantTicketStore(new Accessor(env.DB), productTypePack(), {
     // UNSCOPED on purpose: `forTenant` binds the accessor and every
@@ -547,7 +550,29 @@ export function ticketStoreBase(env: TicketStoreEnv): MultiTenantTicketStoreHand
     // pre-scoped blob store in would be the one wiring mistake the component's
     // single wiring point exists to make impossible.
     blobs: new R2BlobStore(env.BLOBS),
+    ...(opts.changePollMs == null ? {} : { changePollMs: opts.changePollMs }),
   })
+}
+
+/**
+ * What a caller may tune about the store it opens ([[REQ-201]]).
+ *
+ * ONE OPTION, AND IT EXISTS BECAUSE THE DEFAULT IS WRONG HERE. The component
+ * polls its change log every 50ms, which is right for a suite that drives a
+ * subscription and wrong for a browser tab left open on a Library: twenty D1
+ * reads a second, for as long as the tab lives, for a description that arrives
+ * "seconds later" anyway.
+ *
+ * SO IT IS NAMED AT THE CALL SITE THAT WANTS IT AND NOWHERE ELSE. Every request
+ * route opens a store without it and pays nothing, because nothing polls until
+ * something subscribes ({@link MATERIAL_CHANGE_POLL_MS} is the one caller).
+ * Making the slow cadence the default would silently slow the component's own
+ * tests down; making it implicit would leave the number nobody chose to be the
+ * one that ships.
+ */
+export interface TicketStoreOptions {
+  /** Tailer cadence for `watch`, in ms. Omitted → the component's own default. */
+  changePollMs?: number
 }
 
 /** The base handle's surface, as far as this repository types it. */
@@ -597,10 +622,14 @@ export interface MultiTenantTicketStoreHandle {
  * registry check, and a handle cached across requests would carry a check made
  * against a tenant row that may since have been deactivated.
  */
-export async function ticketStoreFor(env: TicketStoreEnv, scope: Scope): Promise<TicketStore> {
+export async function ticketStoreFor(
+  env: TicketStoreEnv,
+  scope: Scope,
+  opts: TicketStoreOptions = {},
+): Promise<TicketStore> {
   const tenantId = scope.businessId
   if (tenantId === '') throw new UnscopedError('ticketStoreFor')
-  const base = ticketStoreBase(env)
+  const base = ticketStoreBase(env, opts)
   if (!(await base.accessor.getTenant(tenantId))) {
     await base.registerTenant({ id: tenantId, name: tenantId })
   }
@@ -664,6 +693,49 @@ export interface TicketStore {
    */
   detach(a: { uid: string }): Promise<{ attachment: Ticket }>
   /**
+   * Subscribe to the change log in scope — [[REQ-201]], upstream [[DOC-24]].
+   *
+   * `scope` takes `{filter}` (a query predicate, so there is no second filter
+   * dialect to learn), an optional `fields` restriction, and an optional `since`
+   * cursor. Omitting `since` starts from now; supplying one replays from there.
+   *
+   * A SUBSCRIPTION IS A READ, so this is tenant-scoped by exactly the mechanism
+   * every other read on this handle is — the accessor carries
+   * `WHERE tenant_id = ?` into the tail as readily as into a list. There is no
+   * cross-tenant feed and no way to ask for one: `forTenant` is terminal
+   * ([[DOC-8]] §6.6), and a change feed that crossed businesses would be a scope
+   * leak through a new door.
+   *
+   * `fields` RESTRICTS `update` AND NOTHING ELSE. `enter` and `exit` arrive
+   * whatever field caused them ([[DOC-24]] §5) — a material that leaves the set
+   * without touching a watched field must still leave the screen.
+   */
+  watch(
+    scope: { filter: string; fields?: string[]; since?: number },
+    handler: (event: ChangeEvent) => unknown,
+    opts?: { onReset?: (info: { floor: number }) => unknown },
+  ): Promise<TicketSubscription>
+  /**
+   * Stop this store's tailer and drop every subscription it holds.
+   *
+   * NOT OPTIONAL HOUSEKEEPING. The tailer polls on an interval, so a
+   * subscription left open when its reader has gone is a timer reading D1 for
+   * nobody. The SSE route calls this from the stream's `cancel`.
+   */
+  closeWatches(): void
+  /**
+   * The accessor's change-log head, for the ONE caller that needs a cursor
+   * without an event — the list read ([[REQ-201]] §8).
+   *
+   * NAMED HERE, rather than reached for with a cast, on the grounds the blob
+   * handle below is named: it is a scoped primitive and the type should say so.
+   * The list route reads the head BEFORE it lists, because a write landing
+   * between the two is then in both the page and the replay — which patches a
+   * row twice and is idempotent — where the other order would leave it in
+   * neither.
+   */
+  accessor: { changeHead(): Promise<number> }
+  /**
    * The tenant-bound blob handle, for reading an attachment's bytes back.
    *
    * NAMED HERE rather than reached for with a cast at the one call site that
@@ -693,4 +765,51 @@ export interface Ticket {
   archived: boolean
   created_at: string
   updated_at: string
+}
+
+/**
+ * One change, as `watch` delivers it and `changes` returns it ([[DOC-24]] §4.1).
+ *
+ * `kind` AND `cause` SAY DIFFERENT THINGS AND NEITHER IS RECONSTRUCTIBLE FROM
+ * THE OTHER. `kind` is what happened to the SUBSCRIBER'S SET — the material
+ * entered it, left it, or moved within it. `cause` is what happened to the
+ * TICKET — it was created, updated, archived, unarchived or deleted. A material
+ * that appears in the Library because it was just uploaded and one that appears
+ * because an edit brought it into scope are both `enter`, and the tab is
+ * entitled to tell them apart.
+ */
+export interface ChangeEvent {
+  /** The log position. Monotonic in scope; this is the cursor. */
+  seq: number
+  /** What happened to the subscriber's set. */
+  kind: 'enter' | 'exit' | 'update'
+  /** What happened to the ticket itself. */
+  cause: 'create' | 'update' | 'archive' | 'unarchive' | 'delete'
+  uid: string
+  id: string | null
+  type: string
+  version: number
+  at: string
+  /**
+   * Which paths moved, and what they held before.
+   *
+   * `body` APPEARS HERE AS PRESENCE, NEVER AS CONTENT — `{changed: true}` with no
+   * `from`. The log deliberately carries no bodies, so a consumer that needs the
+   * new text re-reads the one item rather than painting a payload that does not
+   * exist. That is the whole of [[REQ-201]] §11.
+   */
+  changed: Record<string, { from?: unknown; to?: unknown; changed?: boolean }>
+  /**
+   * The after-image: the canonical ticket shape MINUS the body, and null on a
+   * `delete`. Everything {@link MaterialRow} is built from is here, which is why
+   * an event can be projected into a row with no second read of the store.
+   */
+  ticket: Omit<Ticket, 'body' | 'human_id' | 'archived'> | null
+}
+
+/** A live subscription. The only thing a caller does with one is close it. */
+export interface TicketSubscription {
+  close(): void
+  /** Drive one tail pass by hand — for a host with its own loop, and for tests. */
+  poll(): Promise<void>
 }

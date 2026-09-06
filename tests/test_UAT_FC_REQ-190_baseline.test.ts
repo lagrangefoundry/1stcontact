@@ -193,6 +193,18 @@ describe('REQ-190 — one baseline', () => {
     // instant — and keying on it would make two identical facts at the same
     // millisecond unrepresentable, which is exactly what a log must be able to
     // hold: pressing Invite twice in a second is two presses.
+    //
+    // `tenant_id` IS [[REQ-201]]'s, AND IT IS THE RULE RATHER THAN A HOLE IN IT.
+    // `ticket_change_floor` holds ONE row per business — how far the change
+    // log's retention sweep has got in that business's scope — so the business
+    // IS the identity of the row and there is nothing else for it to be keyed
+    // by. The value is `tenants.id`, which this file's own header establishes as
+    // 128 opaque bits from a CSPRNG; keying on it is keying on a surrogate, not
+    // on a name somebody chose. The sibling table `ticket_changes` is keyed by
+    // `seq`, an INTEGER, and is therefore outside this match by construction —
+    // `seq` ORDERS the log and randomising it would destroy the only thing it
+    // means, which is the exemption the header already grants
+    // `site_revisions.id` and `site_changes.at`.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
     expect(single.sort()).toEqual([
       'id',
@@ -205,6 +217,7 @@ describe('REQ-190 — one baseline', () => {
       'id',
       'id',
       'id',
+      'tenant_id',
       'uid',
     ])
   })

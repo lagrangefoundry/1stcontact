@@ -58,7 +58,13 @@ import {
   type BusinessLapse,
   type IdentityEnv,
 } from './identity'
-import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
+import {
+  ticketStoreFor,
+  type TicketStore,
+  type TicketStoreEnv,
+  type TicketStoreOptions,
+  type TicketSubscription,
+} from './tickets'
 import { bouncedContactIds, messagesFor } from './messages'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
@@ -70,6 +76,7 @@ import {
   ingestFetch,
   ingestUpload,
   listMaterial,
+  MATERIAL_CHANGE_POLL_MS,
   materialFile,
   MaterialRejectedError,
   NotMaterialError,
@@ -77,7 +84,9 @@ import {
   promoteToSiteAsset,
   readMaterial,
   reviseDescription,
+  watchMaterial,
   type IndexMaterial,
+  type MaterialChange,
   type MaterialRole,
 } from './material'
 
@@ -315,8 +324,15 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv {
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
-  /** The ticket store the ingestion routes write material into ([[REQ-163]]). */
-  tickets?: (env: RouterEnv, scope: Scope) => Promise<TicketStore>
+  /**
+   * The ticket store the ingestion routes write material into ([[REQ-163]]).
+   *
+   * `opts` IS THE SUBSCRIPTION'S ([[REQ-201]]). Every route but one opens this
+   * without options; the Library's change feed asks for a slower tailer cadence
+   * than the component's default, and a double that ignored the argument would
+   * be a double the poll-cadence claim could not be made against.
+   */
+  tickets?: (env: RouterEnv, scope: Scope, opts?: TicketStoreOptions) => Promise<TicketStore>
   /**
    * The system knowledge base the chat session searches ([[REQ-158]]).
    *
@@ -1618,7 +1634,51 @@ async function routeUncached(
      * enforces.
      */
     if (p === '/api/material' && method === 'GET') {
-      return json(200, { material: await listMaterial(await openTickets()) })
+      const tickets = await openTickets()
+      // THE HEAD IS READ BEFORE THE LIST, AND THE ORDER IS THE WHOLE POINT
+      // ([[REQ-201]] §8). A write landing between the two is then in the page
+      // AND in the replay the subscription opens with — which patches a row it
+      // already drew, and is idempotent. The other order puts that write in
+      // NEITHER, which is a material the tab never learns about.
+      const seq = await tickets.accessor.changeHead()
+      return json(200, { material: await listMaterial(tickets), seq })
+    }
+
+    /**
+     * The Library's change feed ([[REQ-201]], [[DOC-24]]).
+     *
+     * WHY A SUBSCRIPTION AND NOT A POLL. The Library's most interesting writes
+     * are not made by the Library: every material is a ticket with an AI-written
+     * body, and the body arrives from `describeCapture` after the upload has
+     * already returned — and again from a background re-describe pass. So the
+     * common sequence is an operator uploading, a row appearing with no
+     * description, and the description landing seconds later into a tab that has
+     * no way to hear about it.
+     *
+     * SCOPED EXACTLY AS THE READ ABOVE IS, and by the same mechanism rather than
+     * by a check written here: `openSubscriptionTickets` goes through
+     * `ticketStoreFor`, whose accessor carries `WHERE tenant_id = ?` into the
+     * change tail. A subscription is a read ([[DOC-8]] §6.6), and this route has
+     * no widening available to it.
+     *
+     * THE CURSOR IS THE CLIENT'S. `Last-Event-ID` — which a browser's
+     * `EventSource` re-presents automatically on reconnect — wins over `?since`,
+     * which seeds only the first connection. Neither present means "from now",
+     * which is the right answer for a subscriber that has read nothing.
+     */
+    if (p === '/api/material/changes' && method === 'GET') {
+      const resumed = request.headers.get('last-event-id')
+      const asked = resumed ?? url.searchParams.get('since')
+      const since = asked == null ? null : Number(asked)
+      if (since != null && !Number.isSafeInteger(since)) {
+        return json(400, { error: 'since must be an integer change cursor' })
+      }
+      return streamMaterialChanges(
+        await (deps.tickets ?? ticketStoreFor)(env, requireScope(), {
+          changePollMs: MATERIAL_CHANGE_POLL_MS,
+        }),
+        since,
+      )
     }
 
     if (p === '/api/material/item' && method === 'GET') {
@@ -2347,6 +2407,180 @@ function streamTail(
       'x-content-type-options': 'nosniff',
     },
   })
+}
+
+/**
+ * The Library's material, as a live stream of changes ([[REQ-201]], [[DOC-24]]).
+ *
+ * SAME FRAMING AS {@link streamTurn} AND {@link streamTail} — `data: {json}` and
+ * a blank line — plus the one thing those two have no use for: an `id:` line
+ * carrying the change cursor. That single addition is what makes reconnect free.
+ * A browser's `EventSource` remembers the last `id:` it saw and re-presents it
+ * as `Last-Event-ID`, so a dropped connection resumes at the exact record it
+ * stopped on, through code nobody wrote. Reconnect with backoff is the part of a
+ * subscription least worth implementing twice.
+ *
+ * A `ready` FRAME GOES OUT FIRST, AND IT IS NOT A GREETING. It carries the
+ * cursor this connection actually opened at, as its `id:`. Without it a
+ * connection that drops before the first real event leaves `Last-Event-ID`
+ * unset, and the reconnect starts from "now" — silently skipping everything that
+ * happened in between. Seeding the id is what makes the gap unconstructible.
+ *
+ * WHAT THE HEARTBEAT IS FOR. An SSE comment (`: ping`) every
+ * {@link SSE_HEARTBEAT_MS} keeps an idle connection from being reaped by an
+ * intermediary. A reap is survivable — the cursor makes the reconnect lossless —
+ * but it is a reconnect per idle period on every open tab, for nothing.
+ *
+ * NOTHING HERE IS HELD OPEN WITH `waitUntil`, and the omission is deliberate on
+ * the grounds {@link streamTail} states: a subscriber WRITES NOTHING. There is
+ * no audit to flush and no drain to protect, so when the client goes there is
+ * genuinely nothing left to finish.
+ *
+ * TEARDOWN IS THE PART THAT MATTERS. A tailer polls on an interval, so a
+ * subscription outliving its reader is a timer reading D1 for nobody. It is
+ * reached two ways, because a client can leave two ways: `cancel` fires when the
+ * stream is dropped, and a failed `enqueue` catches the case where the write is
+ * what discovers it.
+ */
+function streamMaterialChanges(store: TicketStore, since: number | null): Response {
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // OMITTED `since` MEANS "FROM NOW", and the head is resolved here rather
+      // than left to the component so the `ready` frame can state it. A cursor
+      // the client cannot see is a cursor it cannot resume from.
+      const cursor = since ?? (await store.accessor.changeHead())
+
+      let live = true
+      let heartbeat: ReturnType<typeof setInterval> | null = null
+      let subscriptions: TicketSubscription[] = []
+
+      const teardown = (): void => {
+        if (!live) return
+        live = false
+        if (heartbeat != null) clearInterval(heartbeat)
+        heartbeat = null
+        for (const sub of subscriptions) sub.close()
+        // BOTH, because they answer different questions. Closing the
+        // subscriptions drops the handlers; `closeWatches` stops the store's
+        // shared tailer and its timer, which is the thing actually reading D1.
+        store.closeWatches()
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client; closing it twice is not a failure
+          // worth reporting to nobody.
+        }
+      }
+
+      /**
+       * Write one frame, and treat a failure as the client having left.
+       *
+       * ENQUEUEING ONTO AN ABANDONED STREAM THROWS, and that throw is the most
+       * reliable signal there is that the reader has gone — more reliable than
+       * `cancel`, which a runtime is not obliged to deliver promptly. Returning
+       * false rather than rethrowing is what lets the caller stop cleanly.
+       */
+      const write = (text: string): boolean => {
+        if (!live) return false
+        try {
+          controller.enqueue(encoder.encode(text))
+          return true
+        } catch {
+          teardown()
+          return false
+        }
+      }
+
+      const send = (seq: number, event: unknown): boolean =>
+        write(`id: ${seq}\ndata: ${JSON.stringify(event)}\n\n`)
+
+      // The cursor, stated, before anything can move it. See the header.
+      if (!send(cursor, { kind: 'ready', seq: cursor })) return
+
+      try {
+        subscriptions = await watchMaterial(
+          store,
+          cursor,
+          (change: MaterialChange) => {
+            // A FALSE RETURN IS NOT SWALLOWED. `watchMaterial` promises the
+            // component's contract — a throwing handler leaves the cursor where
+            // it was — so a frame that could not be written must throw rather
+            // than let the subscription advance past an event nobody received.
+            // The subscription is already torn down by then; this only keeps the
+            // record from being marked delivered.
+            if (!send(change.seq, change)) throw new StreamClosedError()
+          },
+          {
+            /**
+             * The cursor predates the retention floor ([[DOC-24]] §6.4).
+             *
+             * A partial history is worse than none, because the consumer cannot
+             * tell it from a complete one. So the client is TOLD, and falls back
+             * to the full re-read it already has — `refresh()`, the path a
+             * business switch uses. Saying nothing here is the failure mode this
+             * whole design exists to remove.
+             */
+            onReset: ({ floor }) => {
+              send(floor, { kind: 'reset', seq: floor })
+            },
+          },
+        )
+      } catch (err) {
+        // A REFUSED SUBSCRIPTION IS A FRAME, not a torn connection. The status
+        // line went out with the `ready` frame, so there is no status code left
+        // to change and the honest place to report it is the channel the client
+        // is already reading.
+        if (!(err instanceof StreamClosedError)) {
+          send(cursor, { kind: 'error', message: err instanceof Error ? err.message : String(err) })
+        }
+        teardown()
+        return
+      }
+
+      heartbeat = setInterval(() => {
+        // A COMMENT FRAME, which SSE defines and every client ignores — the
+        // cheapest thing that is still bytes on the wire.
+        write(`: ping\n\n`)
+      }, SSE_HEARTBEAT_MS)
+      // A heartbeat must never be the reason a runtime holds an isolate open.
+      if (typeof (heartbeat as { unref?: () => void })?.unref === 'function') {
+        ;(heartbeat as unknown as { unref: () => void }).unref()
+      }
+    },
+
+    cancel() {
+      // The other way a client leaves. `teardown` is idempotent, so whichever of
+      // the two arrives first is the one that does the work.
+      store.closeWatches()
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+      // A change feed that a proxy answered from cache would be a tab watching a
+      // recording of a conversation that has moved on.
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+/** How often an idle change feed says something, so nothing reaps it. */
+const SSE_HEARTBEAT_MS = 20_000
+
+/**
+ * Raised inside a change handler when the frame could not be written.
+ *
+ * A TYPE RATHER THAN A BARE `Error` so the registration path above can tell "the
+ * client left mid-subscribe" from "the subscription was refused" — the first has
+ * nobody left to report to and the second must be reported.
+ */
+class StreamClosedError extends Error {
+  readonly name = 'StreamClosedError'
 }
 
 /** Render `rel` out of a draft-side channel and answer with it. */
