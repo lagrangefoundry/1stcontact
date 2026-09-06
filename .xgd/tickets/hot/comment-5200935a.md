@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:46:51.521171+00:00'
+updated_at: '2026-09-06T22:49:27.821251+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -991,5 +991,11 @@ So the honest state of your three steps:
 Steps 1 and 2 are done and correct. Step 3 needs a decision you haven't made yet: **what should an accepted invitee land on?** A holding page, an auto-provisioned business, or their portal. `provisionBusiness` exists but is a manual operator action today.
 
 I'd file two tickets: a **bug** for the denial message and the missing log line (small, self-contained, fixable now), and a **request** for the post-invite landing (needs your decision first). Want me to write them — and which landing do you want?
+
+<!-- xgd-turn id="bf7f70d3-c6b7-4322-aa4c-d6ff7980e444-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:49:27.149872+00:00" -->
+#### You
+Wait That message said no email was configured or sent - that is the stage we are at - how do I configure the email to be sent?
 
 <!-- xgd-chat-end -->
