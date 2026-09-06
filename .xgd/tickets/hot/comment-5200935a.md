@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-05T23:59:59.938181+00:00'
+updated_at: '2026-09-06T00:02:29.577363+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -466,5 +466,45 @@ does Invite silently use the primary - yes - there must be a clearly defined def
 ok we can keep Access as an alternative - but I'm the only one to use it - probably an acceptable long-term state
 
 That is expected behavior for ANY 1c site - we may allow L1 to put the account portal icon and the sign in link in different locations and we should certainly allow them to get different styles but they are features of ALL 1c sites - actually I take that back - there may be sites with NO users  - so they are features of any sites which have users. OK?
+
+<!-- xgd-turn id="b2b1e073-26ae-461c-9ca7-31b36e7b72e9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:02:29.377429+00:00" -->
+#### Claude
+Yes, OK — and that's a better framing than mine. Let me check the module mechanism exists before I write it that way.
+
+Mechanism confirmed — `packages/framework/src/l2/` with `contact-form` as precedent and a preset registry keyed by behavior id. Your framing drops straight into it.
+
+One constraint your generalisation surfaces, which I'll write into the ticket: the session cookie's `Domain` is host configuration in REQ-134, and a customer site on `alicesplumbing.com` **cannot read a `.1stcontact.io` cookie**. So sessions are per-cookie-domain — sites on `*.1stcontact.io` share one, a custom domain gets its own. Fine for the beta, but nothing may be built assuming a global session.
+
+All six tickets are written.
+
+| | Repo | Ticket |
+|---|---|---|
+| **REQ-134** | lagrange-framework | Passwordless sessions: magic-link tokens and cookie sessions, as a component |
+| **REQ-196** | 1stcontact | Email sending: `sendEmail` port, Resend adapter, verified domain |
+| **REQ-197** | 1stcontact | The `template` ticket type, with a placeholder contract that refuses |
+| **REQ-198** | 1stcontact | The `email` ticket type: every outgoing message is a record on the contact |
+| **REQ-199** | 1stcontact | The Contacts tab: add a Lead, invite a selection, see what was sent |
+| **REQ-200** | 1stcontact | `account-chrome`: Sign In and account portal as an L2 module on any site with accounts |
+
+All `draft`. Your three answers went in as written:
+
+- **REQ-199** sends to the primary address only, and *refuses by name* when a contact has none rather than falling back to "the first one" — with the other selected contacts still sending. REQ-191's partial unique index means the default address is a schema guarantee, not a rule the tab maintains.
+- **REQ-200** is built as an L2 behavior module next to `contact-form`, registered in `l2/presets.ts`, placeable in any L1 slot, with a preset so a site can use it without authoring L1. Enabled by declaration per site — I wrote in why it can't be derived: the first member signs up *by using the Sign In control*, so deriving from "has members" would hide it precisely when it's needed.
+- I took your "My Businesses" correction one step further. Rather than a platform special case, the builder link appears when the signed-in person **operates at least one business** — a fact about the person, not the site. That makes it a general rule that happens to be true of one person today, and an agency customer would see it and be right to. The module carries an explicit falsifier against any branch on *which* site or business it's rendering for.
+
+Access staying as your personal alternative is fine and I'd stop calling it break-glass — it's a second supported identity producer, and `access.ts` already returns the same verified identity `admit()` consumes, so it costs nothing to keep.
+
+## What's left
+
+**The auth-consumption ticket** — wiring 1stcontact's two ports (`resolveSubject`, `sendLoginEmail`) to REQ-134 and standing the sign-in routes up. I've deliberately not written it: it should be written against the component's actual surface once you've built it, not against my guess at it. REQ-200 assumes only that a session exists and that its cookie domain is configurable.
+
+**Two things that don't need a ticket and are worth starting now:**
+
+1. **The Resend domain setup.** It's the only item with waiting in it, and it gates any end-to-end test of REQ-197 through REQ-200.
+2. **REQ-134's commit is still local** — that repo's push failed on proxy auth.
+
+**One sequencing note:** REQ-199 depends on the rebaseline (REQ-190/191) landing, since it's written against multiple addresses and `is_primary`. REQ-196, 197, 198 and 200 don't — they can proceed in parallel.
 
 <!-- xgd-chat-end -->
