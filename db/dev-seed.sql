@@ -61,13 +61,55 @@
 -- The deployment's OWN business is not created here. `0001_baseline.sql` seeds
 -- it, because `TENANT_ID` names it and `forTenant` refuses an unregistered
 -- tenant. Seeding it twice would be the duplication this file's header refuses.
-INSERT OR IGNORE INTO tenants (id, name, status, config, created_at) VALUES
-  ('acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'Alice''s Plumbing', 'active', '{}',
-   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  ('acct_7b93de5140fa4c28bd06e91a7c4f83b2', 'Alice''s Lettings', 'active', '{}',
-   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  ('acct_2e58ca6f9d074b13a8fe30dd51b6947c', 'Alice''s Old Salon', 'active', '{}',
-   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+--
+-- ALL THREE NAME THE SAME OWNER ACCOUNT (REQ-194), and that is the fixture's
+-- point rather than a shortcut. One payer holding three businesses is the shape
+-- `owner_account_id` exists for; had ownership stayed on `memberships`, the
+-- three would have been owned by "whoever holds the first membership row" and
+-- the question of who pays would have had no place to be asked.
+INSERT OR IGNORE INTO tenants
+  (id, name, status, config, owner_account_id, created_at)
+VALUES
+  ('biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'Alice''s Plumbing', 'active', '{}',
+   'acct_a1c04f7b28d6431e95bf03ca7e12d648', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  ('biz_7b93de5140fa4c28bd06e91a7c4f83b2', 'Alice''s Lettings', 'active', '{}',
+   'acct_a1c04f7b28d6431e95bf03ca7e12d648', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  ('biz_2e58ca6f9d074b13a8fe30dd51b6947c', 'Alice''s Old Salon', 'active', '{}',
+   'acct_a1c04f7b28d6431e95bf03ca7e12d648', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
+-- ---------------------------------------------------------------------------
+-- The accounts (REQ-194)
+-- ---------------------------------------------------------------------------
+--
+-- THE PAYERS, AND THEY COME BEFORE THE PEOPLE because `users.account_id` is a
+-- foreign key onto this table and `NOT NULL`. Every contact belongs to an
+-- account, including Dave — a lead nobody will ever bill — because "belongs to
+-- an account, except sometimes" is a nullable column and an empty chair.
+--
+-- ONE ACCOUNT EACH, WHICH IS v1 AND NOT THE MODEL. Two people on one account is
+-- two `users` rows carrying the same `account_id`, and nothing here does it
+-- because nothing in the product does it yet. The seed states the ordinary case;
+-- the schema is what says the extraordinary one needs no migration.
+--
+-- `tenant_id` IS WHERE THE ACCOUNT IS KNOWN, exactly as it is on the person it
+-- was minted with — Alice's is known to 1st Contact, the others to Alice's
+-- Plumbing. It is not "which business this account owns", which is
+-- `tenants.owner_account_id` and points the other way.
+INSERT OR IGNORE INTO accounts
+  (id, tenant_id, name, status, created_at, updated_at, fields)
+VALUES
+  ('acct_a1c04f7b28d6431e95bf03ca7e12d648', 'biz_51a6746495c8057e886ff98d4208e6b9', 'Alice Adams',
+   'active', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
+  ('acct_b0b52e91c4a7460d83fe1725ad96c30f', 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'Bob Brennan',
+   'active', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
+  ('acct_ca401d63f8b24e79ab05c81e37f9d5b2', 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'Carol Chen',
+   'active', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
+  ('acct_da7e6b05913c4f28ae7013dc5b840f91', 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', NULL,
+   'active', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}');
 
 -- ---------------------------------------------------------------------------
 -- The people
@@ -132,27 +174,31 @@ INSERT OR IGNORE INTO tenants (id, name, status, config, created_at) VALUES
 -- disagreeing except a check that compares them, and
 -- `test_UAT_FC_REQ-192_the_seed_names_the_configured_tenant` is that check.
 INSERT OR IGNORE INTO users
-  (id, tenant_id, status, platform_operator, tos_version,
+  (id, tenant_id, account_id, status, platform_operator, tos_version,
    tos_accepted_at, invited_at, pipeline_stage, first_seen_at, last_seen_at,
    created_at, updated_at, fields)
 VALUES
   ('usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_51a6746495c8057e886ff98d4208e6b9', 'active', 0,
+   'biz_51a6746495c8057e886ff98d4208e6b9', 
+   'acct_a1c04f7b28d6431e95bf03ca7e12d648', 'active', 0,
    '2026-09-01', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-120 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_b62f8d40a1e74c93bf5017ce8a2d6b39',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 
+   'acct_b0b52e91c4a7460d83fe1725ad96c30f', 'active', 0,
    '2026-09-01', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-20 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_07ce39b5f8a2416d9e40bc71d3ab8f52',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 
+   'acct_ca401d63f8b24e79ab05c81e37f9d5b2', 'active', 0,
    NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), 'invited', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}'),
   ('usr_d13a5e8c26f04b7793ca0f61e8b47205',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'active', 0,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 
+   'acct_da7e6b05913c4f28ae7013dc5b840f91', 'active', 0,
    NULL, NULL,
    NULL, 'lead', NULL, NULL,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '{}');
@@ -185,19 +231,19 @@ INSERT OR IGNORE INTO user_emails
   (id, user_id, tenant_id, email, is_primary, created_at, updated_at)
 VALUES
   ('eml_3f8a2c61d0e94b57ac82f19b6d40e735', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_51a6746495c8057e886ff98d4208e6b9', 'alice@plumbing.example', 1,
+   'biz_51a6746495c8057e886ff98d4208e6b9', 'alice@plumbing.example', 1,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-121 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   ('eml_c05d7e394ab8412f9673ba1ecd82605f', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_51a6746495c8057e886ff98d4208e6b9', 'alice@oldsalon.example', 0,
+   'biz_51a6746495c8057e886ff98d4208e6b9', 'alice@oldsalon.example', 0,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   ('eml_86b1f0d2597c43ae8025ecb37f4a9d18', 'usr_b62f8d40a1e74c93bf5017ce8a2d6b39',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'bob@example.com', 1,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'bob@example.com', 1,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-21 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   ('eml_2d94a7c8103e4b6fbe57018da6c3f92b', 'usr_07ce39b5f8a2416d9e40bc71d3ab8f52',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'carol@example.com', 1,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'carol@example.com', 1,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   ('eml_59e0c31b7f2a48d6ba94ef073c81e072', 'usr_d13a5e8c26f04b7793ca0f61e8b47205',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'dave@example.com', 1,
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'dave@example.com', 1,
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
 
 -- ---------------------------------------------------------------------------
@@ -304,13 +350,13 @@ INSERT OR IGNORE INTO memberships
   (id, user_id, business_id, role, status, granted_by, granted_at, expires_at, revoked_at)
 VALUES
   ('mem_9d20fb6c48e7415f8a3e1c07b95da2f4', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'owner', 'active', 'dev-seed',
+   'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61', 'owner', 'active', 'dev-seed',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days'), NULL, NULL),
   ('mem_5c7e13a9f0b64d82be91470ac6d3f85e', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_7b93de5140fa4c28bd06e91a7c4f83b2', 'owner', 'active', 'dev-seed',
+   'biz_7b93de5140fa4c28bd06e91a7c4f83b2', 'owner', 'active', 'dev-seed',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 days'), NULL, NULL),
   ('mem_e84f2b071da54c69ac30fd5be2917c6d', 'usr_4a1cb8e07f3d492ea60b25d8fc19e73a',
-   'acct_2e58ca6f9d074b13a8fe30dd51b6947c', 'owner', 'active', 'dev-seed',
+   'biz_2e58ca6f9d074b13a8fe30dd51b6947c', 'owner', 'active', 'dev-seed',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days'), NULL, NULL);
 
 -- THE GRANTS, AND THE THIRD IS WHY THIS FILE EXISTS.
@@ -326,25 +372,29 @@ VALUES
 -- leave one of those branches untested by inspection.
 --
 -- `account_id` IS NULL ON ALL THREE, which is the grant `provisionBusiness`
--- writes: a per-business capacity with no subject (REQ-184). It is an empty chair
--- and is correctly labelled as one — REQ-194 is what fills it. There is no
+-- writes: a per-business capacity with no subject (REQ-184). NULL is the value
+-- and not a gap — a business's plan is the business's, not its inviter's
+-- personally, so naming a subject here would be wrong the day a second person
+-- joins the account. What REQ-194 changed is what a NON-null value means: the
+-- subject is an `accounts` key now, so a grant naming one is found by that key
+-- rather than by the person id an account used to be confused with. There is no
 -- `email` column to name a subject by any more (REQ-191): a grant says whose it
 -- is by key or not at all.
 INSERT OR IGNORE INTO entitlements
   (id, business_id, account_id, plan, source, status, starts_at, ends_at,
    revoked_at, subscription_ref, granted_by, note, created_at, updated_at)
 VALUES
-  ('ent_1f6bd903c5a8427e91d47ab0e836c2f5', 'acct_c1f0a4b7e2d84936ab5107cc9e3f2d61',
+  ('ent_1f6bd903c5a8427e91d47ab0e836c2f5', 'biz_c1f0a4b7e2d84936ab5107cc9e3f2d61',
    NULL, 'pro', 'admin_grant', 'active',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days'), NULL, NULL, NULL, 'dev-seed',
    'Development fixture (REQ-192).',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  ('ent_a70c48eb2d914f35bc6810de9f27a3b1', 'acct_7b93de5140fa4c28bd06e91a7c4f83b2',
+  ('ent_a70c48eb2d914f35bc6810de9f27a3b1', 'biz_7b93de5140fa4c28bd06e91a7c4f83b2',
    NULL, 'pro', 'admin_grant', 'active',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 days'), NULL, NULL, NULL, 'dev-seed',
    'Development fixture (REQ-192).',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  ('ent_36e9051ac7bd48f2803e1b6ad5c4f907', 'acct_2e58ca6f9d074b13a8fe30dd51b6947c',
+  ('ent_36e9051ac7bd48f2803e1b6ad5c4f907', 'biz_2e58ca6f9d074b13a8fe30dd51b6947c',
    NULL, 'pro', 'admin_grant', 'active',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days'), NULL, NULL, 'dev-seed',
