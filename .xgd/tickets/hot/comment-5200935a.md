@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:34:28.491004+00:00'
+updated_at: '2026-09-06T22:35:18.527492+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -874,5 +874,40 @@ I'd do it as yourself first, since that's the actual beta path. Everything else 
 <!-- xgd-chat role="user" ts="2026-09-06T22:34:28.137612+00:00" -->
 #### You
 Your access to 1st Contact has ended. Please get in touch and we will sort it out.
+
+<!-- xgd-turn id="c281edcb-8f27-4874-aefc-afdb766e9a0b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:35:18.421180+00:00" -->
+#### Claude
+That's `DENIED_MESSAGE` — the single message shown for **any** refused admission, deliberately not distinguishing the reason to the visitor. So this isn't a lapse; it's `admit` refusing outright. The real reason is in the logs.
+
+Found it — and it's my mistake. I appended with `>>` without checking whether the key already existed:
+
+Fixed. You already had `PLATFORM_ADMINS = "martin@westhead.me"` on line 29 — my `>>` appended a second line below it, and dotenv takes the **last** value, so the var was silently `martin-github@westhead.me`. Signing in as `martin@westhead.me` therefore matched no admin and `admit` refused you. I've deleted my line; yours is back.
+
+## Do this
+
+Restart the builder (terminal 2) — `.dev.vars` is read at startup, so the edit won't take effect otherwise. Then:
+
+```
+http://127.0.0.1:8799/login?email=martin@westhead.me
+```
+
+## One thing to note about the message you saw
+
+`DENIED_MESSAGE` is a single constant shown for **every** refused admission — `no_user`, `user_inactive`, `no_entitlement`, all of them. That's deliberate: a visitor isn't told which. But it means the message you got is genuinely ambiguous, and I read it as a lapse at first glance, which it wasn't.
+
+It also cost us a diagnosis: `admit`'s `DenialReason` never reached the builder log, so there was nothing to grep. Working out *why* you were refused required reading `.dev.vars` rather than any log line. Worth a bug — a refusal an operator can't diagnose from a running system is a gap, and the fix is server-side only (log the reason, keep telling the visitor nothing). Say the word and I'll file it.
+
+## If it still refuses
+
+Then `ensurePlatformOperator` isn't finding a path, and the next thing to check is whether it wrote rows at all:
+
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --local \
+  --command "SELECT u.id, u.platform_operator, e.email FROM users u JOIN user_emails e ON e.user_id=u.id WHERE e.email LIKE '%westhead%'"
+```
+
+Empty means it never ran — which would point at the var not reaching the Worker rather than at the seed.
 
 <!-- xgd-chat-end -->
