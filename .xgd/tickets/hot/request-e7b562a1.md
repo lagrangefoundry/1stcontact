@@ -6,10 +6,10 @@ title: 'Consume auth-passwordless: sessions, sign-in routes, and the invite link
   a token'
 created_by: CHAT-39
 created_at: '2026-09-06T23:18:52.431716+00:00'
-updated_at: '2026-09-06T23:18:52.431716+00:00'
+updated_at: '2026-09-06T23:47:57.287358+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
