@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T00:40:58.877479+00:00'
+updated_at: '2026-09-06T20:51:36.243871+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -555,5 +555,16 @@ DOC-37's obligation now has new surfaces: REQ-198 stores rendered bodies and rec
 - **You'll see "Sign In" on your own homepage.** You're keeping Access, but an Access JWT doesn't set a session cookie — so `account-chrome` on the apex won't know you're signed in even while you're logged into the builder. Cosmetic, but you'll hit it immediately and it'll look like a bug.
 
 My suggestion: the first one deserves its own ticket and a decision from you before the beta, and items 2–4 fold naturally into the auth-consumption ticket when you write it. Want me to file the post-acceptance landing question?
+
+<!-- xgd-turn id="3b05c8fe-668b-4bfd-b8ea-b7bfff8bfc97-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:51:36.173613+00:00" -->
+#### You
+ok everything except REQ-199 and REQ-200 is implemented. I would like to walk through a full end-to-end cycle:
+1. Create a contact 
+2. Invite the contact
+3. Contact Signs-up and sees the sight
+
+Can you help me with the build and start up please?
 
 <!-- xgd-chat-end -->
