@@ -1,3 +1,5 @@
+import { MEMBER_SIGNED_UP } from './builder/contact-events.js'
+import { contactEventInsert } from './events'
 import type { Admission, IdentityEnv, UserRow } from './identity'
 import { splitBusinessPrefix } from './scope'
 
@@ -107,6 +109,23 @@ export function needsAcceptance(
  * IDEMPOTENT by construction: re-accepting the same version rewrites the same
  * value and moves the timestamp forward, which is the honest reading of a second
  * click.
+ *
+ * AND IT APPENDS `member.signed_up` ([[REQ-195]]). This is the moment a contact
+ * becomes a member — the access axis, and the one transition on it that is the
+ * person's OWN act rather than something the business did to them ([[DOC-44]]
+ * §3) — so a contact history without it would be a history of what we did with
+ * the most important thing they did missing. The column is the state and the
+ * event is the act, which is the same division the invite makes.
+ *
+ * ONE EVENT PER ACCEPTANCE, INCLUDING A SECOND VERSION. Accepting new terms two
+ * months later is a new act with a new date, and the event carries the version
+ * it was — which is what makes "who has accepted which terms, and when" a
+ * question the log answers rather than one the single mutable stamp forgets.
+ *
+ * THE BUSINESS IS NOT PASSED AND IS NOT NEEDED. `contactEventInsert` derives it
+ * from the contact's own row, which is what lets this function keep the two
+ * arguments it has always had — there is no scope at this call site, because
+ * accepting the terms happens at the front door before any business is chosen.
  */
 export async function acceptTerms(
   env: IdentityEnv,
@@ -115,11 +134,17 @@ export async function acceptTerms(
   now: Date = new Date(),
 ): Promise<void> {
   const stamp = now.toISOString()
-  await env.DB.prepare(
-    'UPDATE users SET tos_version = ?, tos_accepted_at = ?, updated_at = ? WHERE id = ?',
-  )
-    .bind(version, stamp, stamp, userId)
-    .run()
+  await env.DB.batch([
+    env.DB.prepare(
+      'UPDATE users SET tos_version = ?, tos_accepted_at = ?, updated_at = ? WHERE id = ?',
+    ).bind(version, stamp, stamp, userId),
+    contactEventInsert(env, {
+      contactId: userId,
+      kind: MEMBER_SIGNED_UP,
+      detail: { version },
+      now: stamp,
+    }),
+  ])
 }
 
 function escapeHtml(value: string): string {

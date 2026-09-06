@@ -56,8 +56,30 @@ function memoryStorage() {
   }
 }
 
+/**
+ * A name record, as `names.ts` reports one ([[REQ-193]]).
+ *
+ * THE PANEL READS `person.name`, NOT `person.displayName`. A name is a row now,
+ * and the displayed value is one field of it — so a fixture that kept the old
+ * flat key would be testing a payload the server no longer sends.
+ */
+const named = (displayName: string, over: Record<string, unknown> = {}) => ({
+  id: `nam_${displayName.replace(/\W+/g, '_')}`,
+  displayName,
+  knownAs: null,
+  title: null,
+  givenName: null,
+  middleNames: null,
+  familyName: null,
+  suffix: null,
+  createdAt: '2026-09-01T09:00:00.000Z',
+  updatedAt: '2026-09-01T09:00:00.000Z',
+  ...over,
+})
+
 const person = (over: Record<string, unknown>) => ({
-  displayName: null,
+  name: null,
+  formerNames: [],
   status: 'active',
   invitedAt: '2026-09-01T10:00:00.000Z',
   firstSeenAt: null,
@@ -143,10 +165,10 @@ const DETAIL = {
 }
 
 const PEOPLE = [
-  person({ id: 'usr_1', email: 'alice@example.test', displayName: 'Alice Adams' }),
-  // Nothing in the system can set `display_name` yet (REQ-183 §5), so this is
-  // what every row looks like today — and the reason the empty state matters.
-  person({ id: 'usr_2', email: 'nameless@example.test', displayName: null }),
+  person({ id: 'usr_1', email: 'alice@example.test', name: named('Alice Adams') }),
+  // A contact who has not been given a name yet — every part of a name is
+  // optional, and having none at all is an ordinary state ([[REQ-193]]).
+  person({ id: 'usr_2', email: 'nameless@example.test', name: null }),
 ]
 
 const revoked: string[] = []
@@ -282,9 +304,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-189 — the list shows the name when ther
   })
 
   it('test_UAT_FC_REQ-189_a_row_with_no_name_reads_as_no_name_yet_and_not_as_a_broken_cell', async () => {
-    // It will be empty for everybody until something can set `display_name`
-    // (REQ-183 §5). That is the reason the empty state has to say which of the
-    // two it is — in words, and quietly rather than in an error colour.
+    // A contact captured from a form arrives with an address and nothing else,
+    // so this state is permanent and common rather than transitional. That is
+    // why it says which of the two it is — in words, and quietly rather than in
+    // an error colour.
     await panel()
     const nameless = [...root.querySelectorAll('.builder-people__row')][1]
     const cell = nameless.querySelector('.builder-people__who')!

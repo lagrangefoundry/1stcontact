@@ -1,0 +1,195 @@
+#!/usr/bin/env node
+//
+// `bin/access-sim` — a local stand-in for Cloudflare Access, so `wrangler dev`
+// can be driven as a real signed-in person.
+//
+// WHY THIS EXISTS. Local dev has two modes and neither gets you an identity.
+// `ACCESS_DEV_OPEN` (wrangler.toml) skips the gate entirely — `isUnconfiguredLocalDev`
+// returns true only when BOTH Access vars are empty — so `admit` never runs, no
+// person is resolved, and `resolveScope` answers from `TENANT_ID`. That is the
+// right default for the suites and useless for looking at the product, because
+// every identity-shaped surface (the Users tab, the switcher, the portal, the
+// terms gate) is exactly what it bypasses. The other mode wants a real Access
+// token, which needs a real Cloudflare account and a real login.
+//
+// SO THIS EXERCISES THE REAL GATE RATHER THAN BYPASSING IT. `access.ts` fetches
+// <ACCESS_TEAM_DOMAIN>/cdn-cgi/access/certs and verifies an RS256 JWT against the
+// published key, checking `aud`, `iss`, `exp`, `nbf` and `iat`. `normaliseTeamDomain`
+// accepts an `http://` prefix, so pointing that var at this server means every one
+// of those checks runs for real — against keys this process minted. Nothing in the
+// Worker is stubbed, mocked or branched: the difference between this and production
+// is which team domain published the JWKS.
+//
+// IT IS NOT A BACKDOOR, and the reason is that it cannot reach a deployed Worker.
+// It signs with a keypair generated at boot and served from loopback; a deployment
+// whose ACCESS_TEAM_DOMAIN points at Cloudflare will refuse every token this mints,
+// because the signature will not verify against Cloudflare's keys. The way to
+// misuse it is to repoint a deployment's team domain at localhost, which is not a
+// mistake, and which `wrangler.toml` records a UAT against for `ACCESS_DEV_OPEN`
+// on the same principle.
+//
+// TOKENS ARE LONG-LIVED BY DEFAULT (30 days). A test session that expires inside a
+// sitting makes every bug look like the harness running down — [[BUG-52]] was
+// diagnosed through exactly that confusion. Deployed session lifetime is a
+// different question and is [[REQ-187]]'s.
+//
+// Usage:
+//   ./bin/access-sim [--port 8799] [--aud local-dev-aud]
+//
+// Then, in another shell, point the Worker at it and start the builder:
+//   ./bin/access-sim --print-env > .dev.vars.local
+//   cd apps/control-app && npx wrangler dev --port 8788 \
+//     --env-file .dev.vars --env-file ../../.dev.vars.local
+//
+// Open http://127.0.0.1:8799/login and pick a person. The cookie it sets is sent
+// to the builder because cookies ignore the port.
+import http from 'node:http'
+import crypto from 'node:crypto'
+
+const arg = (name, fallback) => {
+  const i = process.argv.indexOf(`--${name}`)
+  return i === -1 ? fallback : process.argv[i + 1]
+}
+
+const PORT = Number(arg('port', process.env.SIM_PORT || 8799))
+const AUD = arg('aud', process.env.SIM_AUD || 'local-dev-aud')
+const BUILDER = arg('builder', process.env.SIM_BUILDER || 'http://127.0.0.1:8788')
+const DEFAULT_TTL = 60 * 60 * 24 * 30
+const ISS = `http://127.0.0.1:${PORT}`
+
+// The `kid` carries the pid so a RESTARTED sim is picked up at once. `access.ts`
+// caches the JWKS for an hour and force-refreshes on a `kid` it has not seen,
+// treating it as a key rotation — which is exactly what a restart is. A stable
+// `kid` would leave the Worker verifying against the dead process's public key
+// until the cache expired.
+const KID = `local-dev-${process.pid}`
+
+if (process.argv.includes('--print-env')) {
+  process.stdout.write(`ACCESS_TEAM_DOMAIN="${ISS}"\nACCESS_AUD="${AUD}"\n`)
+  process.exit(0)
+}
+
+const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
+const jwk = publicKey.export({ format: 'jwk' })
+const b64u = (buf) => Buffer.from(buf).toString('base64url')
+
+/** One Access-shaped JWT. The claim set is what `verifyAccessJwt` reads, no more. */
+function mint(email, ttl = DEFAULT_TTL) {
+  const now = Math.floor(Date.now() / 1000)
+  const header = b64u(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: KID }))
+  const payload = b64u(
+    JSON.stringify({ iss: ISS, aud: AUD, email, sub: email, iat: now, nbf: now, exp: now + ttl }),
+  )
+  const signed = `${header}.${payload}`
+  const sig = crypto.sign('sha256', Buffer.from(signed), {
+    key: privateKey,
+    padding: crypto.constants.RSA_PKCS1_PADDING,
+  })
+  return `${signed}.${b64u(sig)}`
+}
+
+const page = (body) =>
+  `<!doctype html><meta charset="utf-8"><title>access-sim</title>` +
+  `<style>body{font:15px/1.5 system-ui;margin:3rem auto;max-width:34rem}` +
+  `a{display:block;padding:.4rem 0}code{background:#f4f4f5;padding:.1rem .3rem}</style>${body}`
+
+http
+  .createServer(async (req, res) => {
+    const url = new URL(req.url, ISS)
+
+    // What `access.ts` fetches. `alg` and `use` are the team's own statement
+    // about its keys and are published here rather than read from any token.
+    if (url.pathname === '/cdn-cgi/access/certs') {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      return res.end(JSON.stringify({ keys: [{ ...jwk, kid: KID, alg: 'RS256', use: 'sig' }] }))
+    }
+
+    // The whole point of the tool: become somebody, in one click. The people
+    // offered are whoever the seeded stores actually contain, asked for at
+    // request time so the list cannot drift from the database.
+    if (url.pathname === '/login') {
+      const email = url.searchParams.get('email')
+      if (email) {
+        // Cookies are scoped by HOST and ignore the PORT, so a cookie set on
+        // 127.0.0.1:8799 is sent to the builder on 127.0.0.1:8788. It is NOT sent
+        // to `localhost:8788` — a different cookie host — which is why the
+        // redirect below names the same host the operator will browse.
+        res.writeHead(302, {
+          'set-cookie': `CF_Authorization=${mint(email)}; Path=/; Max-Age=${DEFAULT_TTL}`,
+          location: BUILDER,
+        })
+        return res.end()
+      }
+      const people = await knownPeople()
+      const list = people.length
+        ? people.map((e) => `<a href="/login?email=${encodeURIComponent(e)}">${e}</a>`).join('')
+        : `<p>No seeded people found. Run the seed, or use ` +
+          `<code>/login?email=you@example.com</code> directly.</p>`
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      return res.end(page(`<h1>Sign in as</h1>${list}<p>Then: <a href="${BUILDER}">the builder</a></p>`))
+    }
+
+    // The token on its own, for curl and for the suites.
+    if (url.pathname === '/mint') {
+      const email = url.searchParams.get('email')
+      if (!email) {
+        res.writeHead(400, { 'content-type': 'text/plain' })
+        return res.end('?email= is required\n')
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' })
+      return res.end(`${mint(email, Number(url.searchParams.get('ttl') || DEFAULT_TTL))}\n`)
+    }
+
+    res.writeHead(404, { 'content-type': 'text/plain' })
+    res.end('not found\n')
+  })
+  .listen(PORT, '127.0.0.1', () => {
+    console.log(`access-sim on ${ISS}`)
+    console.log(`  sign in   ${ISS}/login`)
+    console.log(`  token     ${ISS}/mint?email=you@example.com`)
+    console.log(`  jwks      ${ISS}/cdn-cgi/access/certs`)
+    console.log(`  aud       ${AUD}`)
+    console.log(`\n  point the Worker at it:  ./bin/access-sim --print-env > .dev.vars.local`)
+  })
+
+/**
+ * Who the local D1 knows about, best-effort.
+ *
+ * READ THROUGH `wrangler d1 execute` rather than by opening the SQLite file,
+ * because miniflare's on-disk layout is its own business and a hard-coded path
+ * would be a second definition of where the store lives. A failure here is not an
+ * error: the tool still mints for any address typed into the URL, so an empty
+ * list degrades to the manual path rather than to a broken page.
+ *
+ * FROM `user_emails`, NOT FROM `users` ([[REQ-191]]). The address used to be a
+ * column on the person and this query used to read it there; REQ-191 moved it to
+ * a table so that one human could hold several, and a `SELECT email FROM users`
+ * now fails outright — which this function catches, so the symptom was not an
+ * error but a login page that had silently stopped listing anybody.
+ *
+ * EVERY ADDRESS IS OFFERED AND NOT JUST THE PRIMARY, which is the whole reason
+ * the table exists: signing in as the same person at their second address is the
+ * thing that is now possible and was not, and a list showing one address each
+ * would be the old shape wearing the new schema. Ordered by person, primary
+ * first, so the two addresses of one human sit together.
+ */
+async function knownPeople() {
+  const { execFile } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const path = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps/control-app')
+  try {
+    const { stdout } = await promisify(execFile)(
+      'npx',
+      ['wrangler', 'd1', 'execute', 'DB', '--local', '--json', '--command',
+       'SELECT ue.email AS email FROM user_emails ue JOIN users u ON u.id = ue.user_id ' +
+       'ORDER BY u.created_at, u.id, ue.is_primary DESC, ue.created_at'],
+      { cwd: appDir, timeout: 60_000 },
+    )
+    const parsed = JSON.parse(stdout.slice(stdout.indexOf('[')))
+    return (parsed[0]?.results ?? []).map((r) => r.email)
+  } catch {
+    return []
+  }
+}

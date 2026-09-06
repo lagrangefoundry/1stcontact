@@ -45,10 +45,45 @@ function memoryStorage() {
   }
 }
 
+
+/**
+ * A name record, as the origin reports one ([[REQ-193]]).
+ *
+ * THE PANEL READS `person.name` — a name is a row now, and the displayed value
+ * is one field of it. A fixture keeping the old flat `displayName` would be
+ * asserting against a payload the server no longer sends.
+ */
+interface PersonName {
+  id: string
+  displayName: string
+  knownAs: string | null
+  title: string | null
+  givenName: string | null
+  middleNames: string | null
+  familyName: string | null
+  suffix: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+const named = (displayName: string): PersonName => ({
+  id: `nam_${displayName.replace(/\W+/g, '_')}`,
+  displayName,
+  knownAs: null,
+  title: null,
+  givenName: null,
+  middleNames: null,
+  familyName: null,
+  suffix: null,
+  createdAt: '2026-09-01T09:00:00.000Z',
+  updatedAt: '2026-09-01T09:00:00.000Z',
+})
+
 interface Person {
   id: string
   email: string
-  displayName: string | null
+  name: PersonName | null
+  formerNames: string[]
   status: string
   invitedAt: string | null
   firstSeenAt: string | null
@@ -59,7 +94,8 @@ interface Person {
 }
 
 const person = (over: Partial<Person> & { id: string; email: string }): Person => ({
-  displayName: null,
+  name: null,
+  formerNames: [],
   status: 'active',
   invitedAt: null,
   firstSeenAt: null,
@@ -74,18 +110,18 @@ const person = (over: Partial<Person> & { id: string; email: string }): Person =
  * FOUR PEOPLE, BECAUSE TWO AXES HAVE FOUR CORNERS ([[DOC-44]] §3) — and the two
  * the earlier three-value model could not draw are the last two here.
  */
-const LEAD = person({ id: 'usr_1', email: 'lead@example.test', displayName: 'Cara' })
+const LEAD = person({ id: 'usr_1', email: 'lead@example.test', name: named('Cara') })
 const INVITED = person({
   id: 'usr_2',
   email: 'invited@example.test',
-  displayName: 'Ivan',
+  name: named('Ivan'),
   invitedAt: '2026-09-01T10:00:00.000Z',
   pipelineStage: 'invited',
 })
 const INVITED_MEMBER = person({
   id: 'usr_3',
   email: 'member@example.test',
-  displayName: 'Mena',
+  name: named('Mena'),
   invitedAt: '2026-09-01T10:00:00.000Z',
   pipelineStage: 'invited',
   // Seen BEFORE they accepted, which is the ordinary case: `admit` stamps
@@ -98,7 +134,7 @@ const INVITED_MEMBER = person({
 const SELF_SERVED = person({
   id: 'usr_4',
   email: 'self@example.test',
-  displayName: 'Sam',
+  name: named('Sam'),
   firstSeenAt: '2026-09-02T09:00:00.000Z',
   termsAcceptedAt: '2026-09-02T09:00:01.000Z',
 })
@@ -147,7 +183,7 @@ function transportOver(people: Person[]) {
       const made = person({
         id: `usr_${rows.length + 1}`,
         email: normalised,
-        displayName: displayName || null,
+        name: displayName ? named(displayName) : null,
         invitedAt: '2026-09-02T10:00:00.000Z',
         pipelineStage: 'invited',
       })

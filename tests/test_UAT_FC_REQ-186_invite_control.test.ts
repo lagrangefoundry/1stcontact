@@ -38,10 +38,44 @@ function memoryStorage() {
   }
 }
 
+
+/**
+ * A name record, as the origin reports one ([[REQ-193]]).
+ *
+ * THE PANEL READS `person.name` — a name is a row now, and the displayed value
+ * is one field of it.
+ */
+interface PersonName {
+  id: string
+  displayName: string
+  knownAs: string | null
+  title: string | null
+  givenName: string | null
+  middleNames: string | null
+  familyName: string | null
+  suffix: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+const named = (displayName: string): PersonName => ({
+  id: `nam_${displayName.replace(/\W+/g, '_')}`,
+  displayName,
+  knownAs: null,
+  title: null,
+  givenName: null,
+  middleNames: null,
+  familyName: null,
+  suffix: null,
+  createdAt: '2026-09-01T09:00:00.000Z',
+  updatedAt: '2026-09-01T09:00:00.000Z',
+})
+
 interface Person {
   id: string
   email: string
-  displayName: string | null
+  name: PersonName | null
+  formerNames: string[]
   status: string
   invitedAt: string | null
   firstSeenAt: string | null
@@ -52,7 +86,8 @@ interface Person {
 }
 
 const person = (over: Partial<Person> & { id: string; email: string }): Person => ({
-  displayName: null,
+  name: null,
+  formerNames: [],
   status: 'active',
   invitedAt: '2026-09-01T10:00:00.000Z',
   firstSeenAt: null,
@@ -111,7 +146,7 @@ function transportOver(people: Person[], canInvite = true, canFulfil = false) {
       const made = person({
         id: `usr_${rows.length + 1}`,
         email: normalised,
-        displayName: displayName || null,
+        name: displayName ? named(displayName) : null,
         pipelineStage: 'invited',
       })
       rows.push(made)
@@ -139,7 +174,7 @@ beforeEach(() => {
 })
 
 const EXISTING = [
-  person({ id: 'usr_1', email: 'alice@example.test', displayName: 'Alice' }),
+  person({ id: 'usr_1', email: 'alice@example.test', name: named('Alice') }),
   // A LEAD: known here, never invited, and MAY become a member ([[DOC-44]] §4).
   person({
     id: 'usr_2',

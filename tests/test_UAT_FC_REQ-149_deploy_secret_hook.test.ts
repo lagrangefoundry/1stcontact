@@ -1,84 +1,20 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { describe, it, expect, afterAll } from 'vitest'
+import { secretHookHarness, type HookRun } from './support/secret-hook'
 
-// The hook talks to Cloudflare through `npx wrangler`. Put a stub of that name
-// first on PATH and the hook's decision table becomes testable without a
-// network, a Worker, or a real credential — which is the only way to exercise
-// the branch that matters here (the value is absent locally and present
-// remotely), since a test can never legitimately hold the real key.
-const HOOK = resolve('bin/deploy.d/secrets/10-anthropic-api-key')
+// The harness — a stub `npx wrangler` first on PATH — is shared with the other
+// hooks in `bin/deploy.d/secrets/` ([[REQ-196]]). It was written here first, for
+// one hook; the contract it exercises belongs to the DIRECTORY, so a second copy
+// would be two descriptions of one contract free to disagree.
+const harness = secretHookHarness('bin/deploy.d/secrets/10-anthropic-api-key', 'ANTHROPIC_API_KEY')
 
-const STUB = `#!/usr/bin/env bash
-set -euo pipefail
-# invoked as: npx wrangler secret <verb> ...
-if [[ "\${3:-}" == "list" ]]; then
-  [[ "\${STUB_LIST_FAILS:-0}" == "1" ]] && { echo "could not reach the API" >&2; exit 1; }
-  cat "\$STUB_LIST_JSON"
-  exit 0
-fi
-if [[ "\${3:-}" == "put" ]]; then
-  cat > "\$STUB_PUT_RECORD"     # the value arrives on stdin
-  echo "Success! Uploaded secret \${4:-}"
-  exit 0
-fi
-echo "stub: unexpected argv: \$*" >&2
-exit 99
-`
+afterAll(() => harness.dispose())
 
-let dir: string
-let putRecord: string
-let listJson: string
-
-beforeAll(() => {
-  dir = mkdtempSync(join(tmpdir(), 'req149-secret-hook-'))
-  mkdirSync(join(dir, 'bin'))
-  mkdirSync(join(dir, 'app'))
-  writeFileSync(join(dir, 'bin', 'npx'), STUB)
-  chmodSync(join(dir, 'bin', 'npx'), 0o755)
-  putRecord = join(dir, 'put-record')
-  listJson = join(dir, 'list.json')
-})
-
-afterAll(() => rmSync(dir, { recursive: true, force: true }))
-
-type Opts = {
-  key?: string          // ANTHROPIC_API_KEY in the operator's shell
-  stored?: string[]     // secret names the Worker already holds
-  listFails?: boolean   // the store could not be read at all
-  dryRun?: boolean
-  app?: string
+type Opts = Omit<HookRun, 'value'> & {
+  key?: string // ANTHROPIC_API_KEY in the operator's shell
 }
 
 function runHook(o: Opts) {
-  rmSync(putRecord, { force: true })
-  writeFileSync(listJson, JSON.stringify((o.stored ?? []).map((name) => ({ name, type: 'secret_text' })), null, 2))
-
-  const env: Record<string, string> = {
-    PATH: `${join(dir, 'bin')}:${process.env.PATH}`,
-    HOME: dir,
-    STUB_LIST_JSON: listJson,
-    STUB_PUT_RECORD: putRecord,
-    STUB_LIST_FAILS: o.listFails ? '1' : '0',
-    DEPLOY_APP: o.app ?? 'control-app',
-    DEPLOY_APP_DIR: join(dir, 'app'),
-    DEPLOY_ENV: 'production',
-    DEPLOY_WORKER_NAME: '1stcontact-control-app',
-    DEPLOY_DRY_RUN: o.dryRun ? '1' : '0',
-    DEPLOY_REPO_ROOT: dir,
-  }
-  // ANTHROPIC_API_KEY is added only when the case says so — the child never
-  // inherits the developer's own shell, so "absent" means absent.
-  if (o.key !== undefined) env.ANTHROPIC_API_KEY = o.key
-
-  const r = spawnSync('bash', [HOOK], { env, encoding: 'utf8' })
-  return {
-    code: r.status,
-    out: `${r.stdout}${r.stderr}`,
-    pushed: existsSync(putRecord) ? readFileSync(putRecord, 'utf8') : null,
-  }
+  return harness.run({ ...o, value: o.key })
 }
 
 describe('REQ-149 — the deploy secret hook asks the store, not only the shell', () => {
