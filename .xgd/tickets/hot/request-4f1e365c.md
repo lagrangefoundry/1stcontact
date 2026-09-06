@@ -5,15 +5,23 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T20:23:21.556490+00:00'
+updated_at: '2026-09-06T20:24:53.108700+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c12372db
+  commits:
+  - working_sha: ad4562818c1090acc3174845d19b56d10bb3f6a5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9ede4efd15ed134a19245b2ce423788eb6a874b5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.118
 ---
 
 **Design ref:** DOC-24 `Ticket Change Notification` in lagrange-framework (`doc-5eb8c6fb`).
