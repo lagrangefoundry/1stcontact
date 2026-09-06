@@ -14,6 +14,7 @@ fields:
   story_points: 2
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-b6d07352
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-196]] and [[REQ-197]].
