@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-201
 created_by: xgd
 created_at: '2026-09-06T19:45:57.601473+00:00'
-updated_at: '2026-09-06T19:51:33.403232+00:00'
+updated_at: '2026-09-06T19:58:17.340393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,13 @@ I could write both halves against a fake store and ship code that typechecks and
 **Q3 — one consequence worth your sign-off.** DOC-24 lists `body` in `UNLOGGED_PATHS`: the log records that a body moved, never what it now says. So AC1 ("the AI description appears on the already-open tab") cannot be served from the event alone. The list row is fine — `description_status` is a *field* and travels in full. But to show the **text**, the client must re-fetch `transport.item(uid)` when a body-change event names the material whose detail is currently open. One extra request, only for the open detail, only when its body actually changed. That's the honest reading of the mechanism rather than a gap in it — confirming you're happy with it before I write the AC language for it.
 
 Nothing else is unclear. Say go on Q1/Q2 (and Q3 if you disagree) and I'll cut the branch and build it.
+
+<!-- xgd-turn id="1e610051-c667-4f8e-8f37-f2caa899fa90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:58:17.284346+00:00" -->
+#### You
+1. installed
+   2. We just blew away the database - no migration needed
+   3. Yes agreed - it is safer to force a request
 
 <!-- xgd-chat-end -->
