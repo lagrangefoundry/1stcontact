@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:31:57.900004+00:00'
+updated_at: '2026-09-06T22:34:28.491004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -868,5 +868,11 @@ You now have a choice, and they exercise different things:
 - **As `alice@plumbing.example`** — an ordinary owner, no `platform_operator`. Better for checking the Contacts tab behaves the same viewed from a customer's business, which is DOC-42 §3's whole claim.
 
 I'd do it as yourself first, since that's the actual beta path. Everything else in the walkthrough is unchanged.
+
+<!-- xgd-turn id="c281edcb-8f27-4874-aefc-afdb766e9a0b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:34:28.137612+00:00" -->
+#### You
+Your access to 1st Contact has ended. Please get in touch and we will sort it out.
 
 <!-- xgd-chat-end -->
