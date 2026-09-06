@@ -282,6 +282,73 @@ export function productTypePack(): ProductTypePack {
     },
 
     /**
+     * One outgoing message, as it was sent — [[REQ-198]], [[CHAT-39]].
+     *
+     * A TICKET PER MESSAGE, IN THE TENANT'S OWN STORE. The Contacts detail pane
+     * reads them, so an operator looking at a person can see what we have said
+     * to them and whether it arrived. It lives beside that business's own
+     * material rather than in a platform table for the reason [[DOC-40]] §2.1
+     * rule 1 gives: a customer's business sends mail to its own contacts through
+     * the same type and the same code, and a platform-only message log would be
+     * that rule's named failure mode.
+     *
+     * `contact_id` AND `address_id`, NOT JUST THE CONTACT. A bounce is a fact
+     * about an ADDRESS. [[REQ-191]] gives a contact several of them, so a record
+     * naming only the person could not say which one is bad — which is most of
+     * the value of keeping the record at all.
+     *
+     * AND BOTH ARE `string`, NOT `uid`. A `uid` field is a reference to another
+     * TICKET and the store refuses a create whose reference does not resolve.
+     * These are keys into the identity schema — a `users` row and a
+     * `user_emails` row — so declaring them `uid` would make every send fail
+     * validation at the moment it was supposed to leave evidence.
+     *
+     * THE BODY IS THE RENDERED MESSAGE AND NOT A REFERENCE TO THE TEMPLATE. The
+     * template changes; what we sent does not. The question this record answers
+     * months later is *what did this person actually receive*, and a template
+     * reference answers a different question badly. `template_key` is kept
+     * beside it because "which template did this come from" is also worth
+     * asking — it is simply not the same question.
+     *
+     * `status` IS A FIELD AND NOT THE TICKET'S OWN STATUS. The five values are a
+     * delivery lifecycle owned by this type; the ticket status column carries
+     * the store's own vocabulary, and borrowing it would mean the webhook and
+     * the archive lifecycle wrote the same column for unrelated reasons.
+     *
+     * REQUIRED IS EXACTLY WHAT IS TRUE AT `queued`. The record is written BEFORE
+     * the provider is called ([[REQ-198]]), so `provider_id`, `sent_at` and
+     * `failure` cannot be required — they are what the attempt returns. What is
+     * required is everything the operator already decided by pressing the
+     * button, which is what makes a crashed send legible rather than invisible.
+     */
+    email: {
+      fields: {
+        contact_id: { type: 'string', required: true },
+        address_id: { type: 'string', required: true },
+        template_key: { type: 'string', required: true },
+        subject: { type: 'string', required: true },
+        from: { type: 'string', required: true },
+        to: { type: 'string', required: true },
+        status: {
+          type: 'enum',
+          enum: ['queued', 'sent', 'delivered', 'bounced', 'failed'],
+          required: true,
+          default: 'queued',
+        },
+        provider_id: { type: 'string' },
+        queued_at: { type: 'string', required: true },
+        sent_at: { type: 'string' },
+        /** Why a send failed, in the provider's own words. Absent unless it did. */
+        failure: { type: 'string' },
+      },
+      // NOT `non_empty`. An empty body is a template that rendered to nothing,
+      // which is a bug worth recording as what was sent rather than one worth
+      // refusing to record — the record is the evidence, and evidence that
+      // refuses to be written is the failure this ticket exists to prevent.
+      body: { required: true },
+    },
+
+    /**
      * The chat session and its transcript comment — [[DOC-10]] §8.
      *
      * IMPORTED, NOT RESTATED. The AI component owns this shape because
@@ -422,6 +489,44 @@ export class BlobsNotConfiguredError extends Error {
 }
 
 /**
+ * The store's UNSCOPED base handle — the control plane, and nothing else.
+ *
+ * IT READS NOTHING. The component refuses every data-plane call on a base
+ * accessor, deliberately and with no escape hatch, so what this returns can do
+ * exactly two things: list the tenant registry, and hand back an ordinary scoped
+ * store for one of them. That is the sanctioned shape for the one job in this
+ * system that genuinely has no tenant to start from ([[DOC-40]] §7): a delivery
+ * webhook knows a provider's message id and cannot know whose business sent it.
+ *
+ * SEARCH WIDE, READ DEEP. The caller lists, takes one scoped handle per tenant,
+ * and reads through it — the same handle every other read in the system uses,
+ * with the same refusals. No second query surface exists, which is precisely
+ * what makes the cross-tenant case safe to have at all.
+ *
+ * IT IS NOT EXPORTED FOR CONVENIENCE. Anything that HAS a scope must take
+ * {@link ticketStoreFor}; reaching for this one to avoid resolving a scope would
+ * be re-introducing the unscoped read the component refuses to provide.
+ */
+export function ticketStoreBase(env: TicketStoreEnv): MultiTenantTicketStoreHandle {
+  if (!env.BLOBS) throw new BlobsNotConfiguredError()
+  return new MultiTenantTicketStore(new Accessor(env.DB), productTypePack(), {
+    // UNSCOPED on purpose: `forTenant` binds the accessor and every
+    // tenant-partitioned port together, from one validated id. Handing a
+    // pre-scoped blob store in would be the one wiring mistake the component's
+    // single wiring point exists to make impossible.
+    blobs: new R2BlobStore(env.BLOBS),
+  })
+}
+
+/** The base handle's surface, as far as this repository types it. */
+export interface MultiTenantTicketStoreHandle {
+  accessor: { getTenant(id: string): Promise<unknown> }
+  listTenants(): Promise<Array<{ id: string; status: string }>>
+  registerTenant(spec: { id: string; name: string }): Promise<unknown>
+  forTenant(tenantId: string): Promise<TicketStore>
+}
+
+/**
  * The ticket store for this request, tenant-scoped and attachment-capable.
  *
  * IT REFUSES TO BUILD WITHOUT A BLOB STORE, which is a decision made here rather
@@ -463,15 +568,7 @@ export class BlobsNotConfiguredError extends Error {
 export async function ticketStoreFor(env: TicketStoreEnv, scope: Scope): Promise<TicketStore> {
   const tenantId = scope.businessId
   if (tenantId === '') throw new UnscopedError('ticketStoreFor')
-  if (!env.BLOBS) throw new BlobsNotConfiguredError()
-
-  const base = new MultiTenantTicketStore(new Accessor(env.DB), productTypePack(), {
-    // UNSCOPED on purpose: `forTenant` binds the accessor and every
-    // tenant-partitioned port together, from one validated id. Handing a
-    // pre-scoped blob store in would be the one wiring mistake the component's
-    // single wiring point exists to make impossible.
-    blobs: new R2BlobStore(env.BLOBS),
-  })
+  const base = ticketStoreBase(env)
   if (!(await base.accessor.getTenant(tenantId))) {
     await base.registerTenant({ id: tenantId, name: tenantId })
   }

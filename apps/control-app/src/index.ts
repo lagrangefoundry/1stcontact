@@ -1,5 +1,10 @@
 import { guardAccess, type AccessEnv } from './access'
 import {
+  EMAIL_WEBHOOK_PATH,
+  handleEmailWebhook,
+  type EmailWebhookEnv,
+} from './email-webhook'
+import {
   admit,
   DENIED_MESSAGE,
   type Admission,
@@ -60,7 +65,7 @@ import { guardTerms } from './terms'
  * and every API route, not merely un-navigated-to.
  */
 
-export interface Env extends AccessEnv, RouterEnv, IdentityEnv {
+export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
@@ -250,6 +255,37 @@ export default {
     // log line needs is who it happened to — which only exists here.
     let admission: Admission | null = null
     try {
+      /**
+       * THE ONE ROUTE AHEAD OF THE GATE ([[REQ-198]]).
+       *
+       * Everything below this line is ordered so that no route can be reached
+       * without a verified identity, and this is the single deliberate
+       * exception: an email provider posting a bounce cannot present an Access
+       * token, so a delivery webhook behind the gate is a delivery webhook that
+       * never fires.
+       *
+       * WHAT REPLACES THE GATE IS THE SIGNATURE, and it is not weaker for being
+       * different. `handleEmailWebhook` refuses before it parses, before it
+       * looks anything up and before a store handle exists — the same shape as
+       * the three checks below — and it fails closed when the secret is
+       * unconfigured, so a deployment that forgot it is refused rather than
+       * open.
+       *
+       * IT IS MATCHED ON PATH AND METHOD, EXACTLY. A prefix match here would be
+       * a way to reach anything under `/api/email/` unauthenticated, which is
+       * the kind of hole that is written once and found years later.
+       *
+       * THE HANDLER OWNS ITS OWN FRESHNESS HEADER, the same division `route`
+       * keeps: every response it makes carries `no-store`, so wrapping it here
+       * would be a second place the same header is decided.
+       */
+      if (
+        new URL(request.url).pathname === EMAIL_WEBHOOK_PATH &&
+        request.method === 'POST'
+      ) {
+        return (await handleEmailWebhook(request, env)).response
+      }
+
       // The business the caller is ASKING for. Whether they may have it is
       // `resolveScope`'s question, and asking it here rather than in the router
       // is what keeps authorisation ahead of routing.

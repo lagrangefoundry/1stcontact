@@ -67,6 +67,7 @@ import {
 import {
   fetchPeople,
   fetchPerson,
+  fetchPersonMessages,
   invitePerson,
   openGrant,
   provisionBusinessFor,
@@ -239,7 +240,7 @@ export const NO_NAME_YET = 'No name yet'
  * scans this list for is who signed up, and a column reading "Not a member"
  * against most rows would spend the eye's attention on the ordinary case.
  */
-function renderRow(person) {
+function renderRow(person, bounced = new Set()) {
   const row = el('div', 'builder-people__row')
   const name = el('span', 'builder-people__who', person.displayName || NO_NAME_YET)
   if (!person.displayName) name.classList.add('builder-people__noname')
@@ -259,7 +260,53 @@ function renderRow(person) {
     // needs to see at a glance is the person who can no longer sign in.
     row.append(el('span', 'builder-people__suspended', person.status))
   }
+  if (bounced.has(person.id)) {
+    // A BAD ADDRESS IS VISIBLE FROM THE LIST ([[REQ-198]], [[REQ-199]]). It is
+    // the most valuable signal a beta produces and it is worth nothing if it
+    // takes a click to find — so it is a pill on the row, on the same idiom the
+    // suspended one uses, and for the same reason: it fires on the exception.
+    row.append(el('span', 'builder-people__bounced', 'bounced'))
+  }
   return row
+}
+
+/**
+ * When something happened, said shortly.
+ *
+ * TRIMMED FROM THE ISO STRING RATHER THAN FORMATTED. A locale-formatted date is
+ * a second reading of a value the record pane already shows verbatim, and the
+ * two would disagree about the timezone the moment anybody looked. This is the
+ * same string with the seconds and the `Z` dropped, which is what a list needs.
+ */
+export function shortWhen(iso) {
+  if (typeof iso !== 'string' || iso.length < 16) return iso ?? ''
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)}`
+}
+
+/**
+ * One message, as the detail pane lists it ([[REQ-198]]).
+ *
+ * THE STATUS IS AN ATTRIBUTE AND NOT A CLASS PER VALUE, the idiom the facets
+ * above already use: one rule describes a status pill, and the sheet says which
+ * of the five deserves an accent. A class per value would be five hooks for a
+ * decision that belongs in one place.
+ *
+ * A FAILURE PRINTS ITS REASON. "Failed" alone tells an operator nothing about
+ * whether pressing Invite again will help; "domain not verified" and "mailbox
+ * full" call for opposite actions, and the reason is on the record precisely so
+ * it can be read here.
+ */
+function messageLine(message) {
+  const line = el('li', 'builder-people__message')
+  line.append(el('span', 'builder-people__msgsubject', message.subject || '(no subject)'))
+  line.append(el('span', 'builder-people__msgwhen', shortWhen(message.queuedAt)))
+  const status = el('span', 'builder-people__msgstatus', message.status)
+  status.dataset.status = message.status
+  line.append(status)
+  if (message.failure) {
+    line.append(el('span', 'builder-people__msgfailure', message.failure))
+  }
+  return line
 }
 
 /**
@@ -401,18 +448,27 @@ function businessTable(rows, onRevoke) {
 }
 
 export function createPeoplePanel(options = {}) {
-  const {
-    storage,
-    transport = {
-      list: fetchPeople,
-      item: fetchPerson,
-      saveRecord: savePersonRecord,
-      grant: openGrant,
-      revoke: revokeGrant,
-      invite: invitePerson,
-      fulfil: provisionBusinessFor,
-    },
-  } = options
+  /**
+   * The transport, MERGED OVER THE DEFAULTS rather than replaced by them.
+   *
+   * A host — or a suite — that supplies some of these must still get the rest,
+   * because the alternative is that adding a call here silently breaks every
+   * caller that wrote its object before the call existed. It breaks in the worst
+   * way, too: the panel renders, the new section reports that it could not read
+   * anything, and nothing says the object was simply short a key.
+   */
+  const { storage } = options
+  const transport = {
+    list: fetchPeople,
+    item: fetchPerson,
+    messages: fetchPersonMessages,
+    saveRecord: savePersonRecord,
+    grant: openGrant,
+    revoke: revokeGrant,
+    invite: invitePerson,
+    fulfil: provisionBusinessFor,
+    ...(options.transport ?? {}),
+  }
 
   const element = el('div', 'builder-people')
 
@@ -420,6 +476,15 @@ export function createPeoplePanel(options = {}) {
   let all = []
   let canFulfil = false
   let canInvite = false
+  /**
+   * The contacts holding a bounced message, as `/api/people` reported them.
+   *
+   * A SET BESIDE THE ROWS RATHER THAN A FIELD ON THEM. The rows are the identity
+   * schema's shape and this is a fact from the ticket store; merging it in would
+   * put a field on `person` that is sometimes there, and every other reader of a
+   * person would inherit the ambiguity.
+   */
+  let bounced = new Set()
   const filter = { text: '', stage: '', access: '' }
 
   const controls = el('div', 'builder-people__filter')
@@ -730,6 +795,47 @@ export function createPeoplePanel(options = {}) {
     }
 
     /**
+     * WHAT WE HAVE SAID TO THEM, AND WHETHER IT ARRIVED ([[REQ-198]]).
+     *
+     * MOST RECENT FIRST, because the question an operator opens this pane with
+     * is *did the thing I just did work*, and the answer to that is at the top.
+     *
+     * FETCHED AFTER THE RECORD IS ALREADY DRAWN. It is a second store — the
+     * tenant's tickets rather than the identity schema — so awaiting it before
+     * the record above would leave the whole pane blank on the slower of the
+     * two reads. The section appears when its answer does.
+     *
+     * A FAILED READ SAYS SO IN THE SECTION. An empty list and a list that could
+     * not be read look identical, and only one of them means "we have never
+     * written to this person" — which is exactly the conclusion an operator
+     * would draw and act on.
+     */
+    const messages = section(view, 'Messages')
+    try {
+      const answer = await transport.messages(detail.person.id)
+      const sent = Array.isArray(answer.messages) ? answer.messages : []
+      if (sent.length === 0) {
+        messages.append(el('p', 'builder-people__msgempty', 'Nothing has been sent to them yet.'))
+      } else {
+        const list = el('ul', 'builder-people__messages')
+        for (const message of sent) list.append(messageLine(message))
+        messages.append(list)
+      }
+    } catch (err) {
+      messages.append(
+        el(
+          'p',
+          // ITS OWN CLASS AND NOT `__empty`. The two sections' empty states are
+          // different facts — "they run nothing" is about the person, "nothing
+          // has been sent" is about us — and a shared hook would let a reader
+          // (or a selector) treat one as the other.
+          'builder-people__msgempty',
+          `Their messages could not be read: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      )
+    }
+
+    /**
      * WHAT THEY RUN AND WHAT THEY HOLD, IN ONE TABLE ([[REQ-189]]).
      *
      * THE ONLY PLACE A SECOND BUSINESS IS VISIBLE AT ALL. Viewed from 1st
@@ -797,7 +903,9 @@ export function createPeoplePanel(options = {}) {
     getKey: (person) => person.id,
     listTitle: 'Contacts',
     listControls: controls,
-    renderRow,
+    // WRAPPED so the row can see the bounce set without it becoming a field on
+    // the person — the component calls this per row and holds nothing else.
+    renderRow: (person) => renderRow(person, bounced),
     mode: 'no-tab',
     openDetail,
     emptyDetail: EMPTY_DETAIL,
@@ -809,6 +917,7 @@ export function createPeoplePanel(options = {}) {
     all = Array.isArray(answer.people) ? answer.people : []
     canFulfil = answer.canFulfil === true
     canInvite = answer.canInvite === true
+    bounced = new Set(Array.isArray(answer.bounced) ? answer.bounced : [])
     // HIDDEN RATHER THAN NOT BUILT, because the list is re-read on every business
     // switch and a control that was never created for the first business would
     // have to be created for the second — two code paths for one button.
@@ -828,6 +937,7 @@ export function createPeoplePanel(options = {}) {
     all = []
     canFulfil = false
     canInvite = false
+    bounced = new Set()
     invite.hidden = true
     listDetail.setItems([])
   }
