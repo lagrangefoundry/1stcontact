@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:31:18.129477+00:00'
+updated_at: '2026-09-06T22:31:57.900004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -820,5 +820,53 @@ Step 6 is the one worth watching — that's where the admitted-but-unentitled qu
 <!-- xgd-chat role="user" ts="2026-09-06T22:31:17.345395+00:00" -->
 #### You
 Wait there is no way to sign in as me?
+
+<!-- xgd-turn id="c482efb9-dcab-43e7-82b7-5700dff43a7d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:31:57.609262+00:00" -->
+#### Claude
+Right — and that's deliberate. `bin/seed` says so in its header:
+
+> **IT DOES NOT SEED AN OPERATOR.** `PLATFORM_ADMINS` … is how somebody gets into an empty deployment
+
+Let me get you the exact mechanism.
+
+There is — it's `PLATFORM_ADMINS`, and it's deliberately empty by default. `wrangler.toml:119` calls it **break glass**, and the builder log confirmed `PLATFORM_ADMINS ("")`.
+
+The old `0005_operator_membership.sql` used to seed you directly, but REQ-190's rebaseline deleted it — the fixture now carries only Alice and friends, and seeding a real person into a database customers are in was exactly the defect that removal took out.
+
+## How to become yourself
+
+Add one line to `apps/control-app/.dev.vars` (git-ignored, local only):
+
+```bash
+echo 'PLATFORM_ADMINS = "martin-github@westhead.me"' >> apps/control-app/.dev.vars
+```
+
+Use whichever address you want to be — that's the one the retired migration used. Then **restart the builder** (terminal 2), since it's an env change.
+
+Now sign in. The sim mints for *any* address, not just the listed ones — the list is just links:
+
+```
+http://127.0.0.1:8799/login?email=martin-github@westhead.me
+```
+
+On that first admission `ensurePlatformOperator` writes the rows the migration used to: your `users` row and `user_emails` row, an **owner** membership on the 1st Contact business, an entitlement for the platform business's own capacity, and `platform_operator` on the user.
+
+Two properties worth knowing:
+
+- **It's idempotent** — the `WHERE NOT EXISTS` shape. Signing in again finds what it would have written.
+- **Emptying the var afterwards doesn't undo it.** The rows persist. That's what makes it break-glass rather than a permanent second authorisation path — so once you're in, you can blank `PLATFORM_ADMINS` again and stay in.
+
+The var is also why it isn't a hole in the model: it can't be exercised by anyone who can merely receive email, only by someone who can edit deployment config.
+
+## For the walkthrough
+
+You now have a choice, and they exercise different things:
+
+- **As yourself** — platform operator of 1st Contact, with the hosting capability. The realistic beta rehearsal.
+- **As `alice@plumbing.example`** — an ordinary owner, no `platform_operator`. Better for checking the Contacts tab behaves the same viewed from a customer's business, which is DOC-42 §3's whole claim.
+
+I'd do it as yourself first, since that's the actual beta path. Everything else in the walkthrough is unchanged.
 
 <!-- xgd-chat-end -->
