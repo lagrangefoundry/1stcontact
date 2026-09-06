@@ -10,9 +10,14 @@
 # against a fake origin rather than by breaking a real deploy.
 #
 # Usage:
-#   bin/smoke                                       # apex + unknown-slug only
-#   bin/smoke --slug xgd --draft fa0344fb47a8       # the full suite
-#   bin/smoke --origin https://staging.example --slug acme --draft <sha>
+#   bin/smoke                                       # apex, unknown site, control gate
+#   bin/smoke --site-key site_a3f9c1d2e4b5             # the published-channel checks too
+#   bin/smoke --origin https://staging.example --site-key site_a3f9c1d2e4b5
+#
+# `--control-origin` defaults to app.<host> of the origin, so the REQ-147 gate is
+# checked without being told where it is. The published-channel checks need a
+# site key and cannot discover one — a key is 128 random bits and this script
+# takes no dependency that could ask D1 for it.
 #
 # Exits 0 when every check passes, 1 naming the ones that did not.
 

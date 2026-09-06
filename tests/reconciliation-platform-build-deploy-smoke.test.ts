@@ -283,8 +283,13 @@ function hideHookFile(label: string): string {
 
 // ── a live origin that behaves as a correct `public-site` deploy does ────────
 
-const SLUG = 'acme'
-const DRAFT = 'abc123def456'
+/**
+ * The first path segment is the site's own key, not a chosen name ([[REQ-190]]),
+ * and there is one channel to smoke rather than two ([[BUG-57]]) — the
+ * `/site/<slug>/draft/<sha>/` fixture this file used to carry went with the
+ * channel REQ-149 D7 deleted.
+ */
+const SITE_KEY = 'site_a3f9c1d2e4b5f6a7'
 
 interface Reply {
   status: number
@@ -292,15 +297,16 @@ interface Reply {
   body: string
 }
 
+const SITE_ROOT = `/site/${SITE_KEY}`
+
 function correctOrigin(): Map<string, Reply> {
-  const root = `/site/${SLUG}/draft/${DRAFT}`
+  const root = SITE_ROOT
+  // The PUBLISHED policy: brief rather than immutable, because a published URL
+  // is not revision-scoped, and with no `x-robots-tag` because a published site
+  // is meant to be indexed. Both were the draft channel's, and went with it.
   const asset = (body: string, type: string): Reply => ({
     status: 200,
-    headers: {
-      'content-type': type,
-      'cache-control': 'public, max-age=31536000, immutable',
-      'x-robots-tag': 'noindex',
-    },
+    headers: { 'content-type': type, 'cache-control': 'public, max-age=60' },
     body,
   })
   const html =
@@ -311,14 +317,6 @@ function correctOrigin(): Map<string, Reply> {
 
   return new Map<string, Reply>([
     ['/', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Hello' }],
-    [
-      `/site/${SLUG}`,
-      { status: 301, headers: { location: `/site/${SLUG}/` }, body: '' },
-    ],
-    [
-      `/site/${SLUG}/`,
-      { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
-    ],
     [root, { status: 301, headers: { location: `${root}/` }, body: '' }],
     [`${root}/`, asset(html, 'text/html; charset=utf-8')],
     [
@@ -348,8 +346,24 @@ function correctOrigin(): Map<string, Reply> {
 }
 
 /**
- * A `--import` preload that answers `table` and 404s everything else, with the
- * preview channel's noindex on a miss.
+ * The same origin with the site UNPUBLISHED — the case AC-1340 is about.
+ *
+ * A separate fixture rather than the default, because the two cannot be one:
+ * `/site/<key>/` either serves the live revision or answers not-found, and the
+ * published-channel checks need the first while the leak check needs the second.
+ */
+function unpublishedOrigin(): Map<string, Reply> {
+  const table = correctOrigin()
+  table.set(`${SITE_ROOT}/`, {
+    status: 404,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+    body: 'Not Found',
+  })
+  return table
+}
+
+/**
+ * A `--import` preload that answers `table` and 404s everything else.
  *
  * The origin is supplied to the real `smoke.mjs` PROCESS on its own command line
  * and its transport is replaced beneath it, so the exit status, the report
@@ -368,9 +382,7 @@ globalThis.fetch = async (input) => {
   if (hit) {
     return new Response(hit.body === '' ? null : hit.body, { status: hit.status, headers: hit.headers })
   }
-  const headers = { 'content-type': 'text/plain; charset=utf-8' }
-  if (url.pathname.includes('/draft/')) headers['x-robots-tag'] = 'noindex'
-  return new Response('Not Found', { status: 404, headers })
+  return new Response('Not Found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } })
 }
 `
 
@@ -393,9 +405,10 @@ function fakeFetch(table: Map<string, Reply>, origin = 'https://example.test') {
     const url = new URL(String(input))
     const hit = table.get(url.pathname)
     if (hit) return new Response(hit.body === '' ? null : hit.body, { status: hit.status, headers: hit.headers })
-    const headers: Record<string, string> = { 'content-type': 'text/plain; charset=utf-8' }
-    if (url.pathname.includes('/draft/')) headers['x-robots-tag'] = 'noindex'
-    return new Response('Not Found', { status: 404, headers })
+    return new Response('Not Found', {
+      status: 404,
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    })
   }
 }
 
@@ -415,12 +428,11 @@ const FAKE_ORIGIN = 'https://example.test'
 
 async function smoke(
   table: Map<string, Reply>,
-  opts: { slug?: string; draft?: string; maxAssets?: number } = {},
+  opts: { siteKey?: string; maxAssets?: number } = {},
 ): Promise<Report> {
   return (await runSmoke({
     origin: FAKE_ORIGIN,
-    slug: 'slug' in opts ? opts.slug : SLUG,
-    draft: 'draft' in opts ? opts.draft : DRAFT,
+    siteKey: 'siteKey' in opts ? opts.siteKey : SITE_KEY,
     maxAssets: opts.maxAssets,
     fetch: fakeFetch(table),
   })) as Report
@@ -428,21 +440,22 @@ async function smoke(
 
 /**
  * The checks that run against the PUBLIC origin, in the order the script runs
- * them. Ordered, because the skip clauses below are expressed as ranges of it:
- * the first two need only an origin, the next two also need a slug, and the rest
- * also need a preview identifier.
+ * them. Ordered, because the skip clause below is expressed as a range of it:
+ * the first two need only an origin, and the rest also need a site key.
  */
 const SITE_CHECKS = [
   'apex_resolves',
-  'unknown_slug_not_found',
-  'unpublished_slug_indistinguishable',
+  'unknown_site_not_found',
+  'unpublished_site_indistinguishable',
   'published_root_redirects',
-  'draft_root_redirects',
-  'draft_index_serves_html',
-  'draft_cache_and_robots_policy',
-  'draft_miss_is_noindex_404',
-  'draft_assets_resolve',
+  'published_index_serves_html',
+  'published_cache_policy',
+  'published_miss_is_404',
+  'published_assets_resolve',
 ]
+
+/** How many of {@link SITE_CHECKS} run on an origin alone, with no site key. */
+const ORIGIN_ONLY_CHECKS = 2
 
 /**
  * The checks that run against the CONTROL app rather than the public origin
@@ -930,7 +943,7 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-// AC-1336 — the nine checks against a correctly serving origin
+// AC-1336 — every check against a correctly serving origin
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('story-d5167ced — the smoke check against an origin that serves correctly', () => {
@@ -944,8 +957,7 @@ describe('story-d5167ced — the smoke check against an origin that serves corre
     const run = runSmokeCli(
       [
         '--origin', FAKE_ORIGIN,
-        '--slug', SLUG,
-        '--draft', DRAFT,
+        '--site-key', SITE_KEY,
         '--control-origin', FAKE_CONTROL_ORIGIN,
         '--workers-dev-origin', FAKE_WORKERS_DEV_ORIGIN,
       ],
@@ -975,22 +987,33 @@ describe('story-d5167ced — the smoke check against an origin that serves corre
 
 describe('story-d5167ced — each way a deploy is silently broken fails the smoke check', () => {
   it('test_UAT_AC1337_each_breakage_fails_naming_the_check_and_what_it_expected', async () => {
-    const root = `/site/${SLUG}/draft/${DRAFT}`
-    const breakages: Array<{ what: string; at: string; reply: Reply; check: string }> = [
+    const root = SITE_ROOT
+    // `also` names the checks that CORRECTLY fail alongside the owning one,
+    // because one broken response can be several checks' business — a site root
+    // that stops serving is genuinely not serving HTML, not caching it and not
+    // referencing assets. Listing them keeps the assertion exact rather than
+    // loosening it to "contains", which would stop noticing collateral damage.
+    const breakages: Array<{
+      what: string
+      at: string
+      reply: Reply
+      check: string
+      also?: string[]
+    }> = [
       {
         what: 'a referenced asset that is not found',
         at: `${root}/theme.css`,
         reply: { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
-        check: 'draft_assets_resolve',
+        check: 'published_assets_resolve',
       },
       {
         what: 'a font served as generic bytes',
         at: `${root}/fonts/x.woff2`,
         reply: { status: 200, headers: { 'content-type': 'application/octet-stream' }, body: 'font' },
-        check: 'draft_assets_resolve',
+        check: 'published_assets_resolve',
       },
       {
-        what: 'a preview page that lost its non-indexable marking',
+        what: 'a published page cached as if it were immutable',
         at: `${root}/`,
         reply: {
           status: 200,
@@ -1000,23 +1023,49 @@ describe('story-d5167ced — each way a deploy is silently broken fails the smok
           },
           body: '<html><img src="./assets/logo.svg"></html>',
         },
-        check: 'draft_cache_and_robots_policy',
+        check: 'published_cache_policy',
+      },
+      {
+        what: 'a published page served as something other than HTML',
+        at: `${root}/`,
+        reply: {
+          status: 200,
+          headers: {
+            'content-type': 'text/plain; charset=utf-8',
+            'cache-control': 'public, max-age=60',
+          },
+          body: '<html><img src="./assets/logo.svg"></html>',
+        },
+        check: 'published_index_serves_html',
+      },
+      {
+        what: 'a miss that answers with a listing instead of not-found',
+        at: `${root}/smoke-no-such-directory/`,
+        reply: {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+          body: '<html><body>index of /</body></html>',
+        },
+        check: 'published_miss_is_404',
       },
       {
         what: 'a lost trailing-slash redirect',
         at: root,
         reply: { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
-        check: 'draft_root_redirects',
+        check: 'published_root_redirects',
       },
       {
         what: 'a not-found response that reveals a site exists',
-        at: `/site/${SLUG}/`,
+        at: `${root}/`,
         reply: {
           status: 404,
           headers: { 'content-type': 'text/plain; charset=utf-8' },
-          body: `No published revision for ${SLUG}`,
+          body: `No published revision for ${SITE_KEY}`,
         },
-        check: 'unpublished_slug_indistinguishable',
+        check: 'unpublished_site_indistinguishable',
+        // The site root is what these three read, so an unpublished site fails
+        // them too — correctly. The leak is the defect this row is about.
+        also: ['published_index_serves_html', 'published_cache_policy', 'published_assets_resolve'],
       },
       {
         what: 'an apex that stopped responding successfully',
@@ -1026,20 +1075,24 @@ describe('story-d5167ced — each way a deploy is silently broken fails the smok
       },
     ]
 
-    for (const { what, at, reply, check } of breakages) {
+    for (const { what, at, reply, check, also } of breakages) {
       const table = correctOrigin()
       table.set(at, reply)
       const report = await smoke(table)
 
       expect(report.ok, `${what}: the run did not fail`).toBe(false)
-      // Exactly the check that owns the breakage, and no other.
-      expect(report.failed.map((c) => c.name), what).toEqual([check])
-      const failure = report.failed[0]
+      // The check that owns the breakage, plus exactly the ones that share its
+      // response — never a check with no business failing.
+      expect([...report.failed.map((c) => c.name)].sort(), what).toEqual(
+        [check, ...(also ?? [])].sort(),
+      )
+      const failure = report.failed.find((c) => c.name === check)!
       expect(failure.detail.length, `${what}: the failure says nothing about what it expected`).toBeGreaterThan(0)
       // The remaining checks still report their own outcome — the run does not
       // stop at the first failure.
       expect(report.checks.map((c) => c.name)).toEqual(ALL_CHECKS)
-      for (const other of report.checks.filter((c) => c.name !== check)) {
+      const broken = new Set([check, ...(also ?? [])])
+      for (const other of report.checks.filter((c) => !broken.has(c.name))) {
         expect(['pass', 'skip'], `${what}: ${other.name} did not report an outcome`).toContain(other.status)
       }
     }
@@ -1047,13 +1100,13 @@ describe('story-d5167ced — each way a deploy is silently broken fails the smok
     // The exit status is the operator-visible half of the same property.
     const table = correctOrigin()
     table.set('/', { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'boom' })
-    const run = runSmokeCli(['--origin', FAKE_ORIGIN, '--slug', SLUG, '--draft', DRAFT], table)
+    const run = runSmokeCli(['--origin', FAKE_ORIGIN, '--site-key', SITE_KEY], table)
     expect(run.code, run.all).toBe(1)
     expect(run.out).toContain('FAIL  apex_resolves')
     expect(run.out).toContain('Failed: apex_resolves')
     expect(run.out).toContain('Smoke FAILED against')
     // The other checks still report their own outcome in the same run.
-    expect(run.out).toContain('PASS  draft_assets_resolve')
+    expect(run.out).toContain('PASS  published_assets_resolve')
   })
 })
 
@@ -1065,49 +1118,38 @@ describe('story-d5167ced — a check with nothing to test against is skipped', (
   it('test_UAT_AC1338_missing_inputs_are_reported_skipped_with_the_reason_and_counted', async () => {
     const table = correctOrigin()
 
-    // ── no slug: the site and preview checks skip, the origin-level ones run ──
-    const noSlug = await smoke(table, { slug: undefined, draft: undefined })
-    expect(noSlug.ok).toBe(true)
-    const bySlugRun = Object.fromEntries(noSlug.checks.map((c) => [c.name, c]))
-    for (const name of ['apex_resolves', 'unknown_slug_not_found']) {
-      expect(bySlugRun[name].status, `${name} should still run`).toBe('pass')
+    // ── no site key: the published-channel checks skip, the origin-level ones run ──
+    const noSiteKey = await smoke(table, { siteKey: undefined })
+    expect(noSiteKey.ok).toBe(true)
+    const byKeyRun = Object.fromEntries(noSiteKey.checks.map((c) => [c.name, c]))
+    for (const name of SITE_CHECKS.slice(0, ORIGIN_ONLY_CHECKS)) {
+      expect(byKeyRun[name].status, `${name} should still run`).toBe('pass')
     }
-    for (const name of SITE_CHECKS.slice(2)) {
-      expect(bySlugRun[name].status, `${name} should be skipped`).toBe('skip')
+    for (const name of SITE_CHECKS.slice(ORIGIN_ONLY_CHECKS)) {
+      expect(byKeyRun[name].status, `${name} should be skipped`).toBe('skip')
       // The reason names the input that was missing.
-      expect(bySlugRun[name].detail).toContain('--slug')
+      expect(byKeyRun[name].detail).toContain('--site-key')
     }
     // The control app's checks skip for their OWN missing input, not for the
     // one the site checks are waiting on — a skip whose reason named the wrong
     // argument would send an operator to the wrong flag.
     for (const name of ACCESS_CHECKS) {
-      expect(bySlugRun[name].status, `${name} should be skipped`).toBe('skip')
-      expect(bySlugRun[name].detail).not.toContain('--slug')
-      expect(bySlugRun[name].detail).toContain('origin given')
+      expect(byKeyRun[name].status, `${name} should be skipped`).toBe('skip')
+      expect(byKeyRun[name].detail).not.toContain('--site-key')
+      expect(byKeyRun[name].detail).toContain('origin given')
     }
     // Skips are counted SEPARATELY from passes, so a run that proved nothing is
     // visibly a run that proved nothing rather than a green result.
-    const skippedWithoutSlug = ALL_CHECKS.length - 2
-    expect(formatReport(noSlug)).toContain(`2 passed, ${skippedWithoutSlug} skipped.`)
-
-    // ── a slug but no preview identifier: the preview checks alone skip ──
-    const noDraft = await smoke(table, { draft: undefined })
-    expect(noDraft.ok).toBe(true)
-    const byDraftRun = Object.fromEntries(noDraft.checks.map((c) => [c.name, c]))
-    for (const name of SITE_CHECKS.slice(0, 4)) {
-      expect(byDraftRun[name].status, `${name} should still run`).toBe('pass')
-    }
-    for (const name of SITE_CHECKS.slice(4)) {
-      expect(byDraftRun[name].status, `${name} should be skipped`).toBe('skip')
-      expect(byDraftRun[name].detail).toContain('--draft')
-    }
-    expect(formatReport(noDraft)).toContain(`4 passed, ${ALL_CHECKS.length - 4} skipped.`)
+    const skippedWithoutKey = ALL_CHECKS.length - ORIGIN_ONLY_CHECKS
+    expect(formatReport(noSiteKey)).toContain(
+      `${ORIGIN_ONLY_CHECKS} passed, ${skippedWithoutKey} skipped.`,
+    )
 
     // A skipped check never fails the run: the exit status stays zero.
     const run = runSmokeCli(['--origin', FAKE_ORIGIN], table)
     expect(run.code, run.all).toBe(0)
-    expect(run.out).toContain('skip  unpublished_slug_indistinguishable')
-    expect(run.out).toContain(`2 passed, ${skippedWithoutSlug} skipped.`)
+    expect(run.out).toContain('skip  unpublished_site_indistinguishable')
+    expect(run.out).toContain(`${ORIGIN_ONLY_CHECKS} passed, ${skippedWithoutKey} skipped.`)
   })
 })
 
@@ -1115,9 +1157,9 @@ describe('story-d5167ced — a check with nothing to test against is skipped', (
 // AC-1339 — the asset check
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('story-d5167ced — every same-origin asset a preview references resolves', () => {
+describe('story-d5167ced — every same-origin asset a published site references resolves', () => {
   it('test_UAT_AC1339_same_origin_assets_are_checked_including_one_level_into_stylesheets', async () => {
-    const base = `${FAKE_ORIGIN}/site/${SLUG}/draft/${DRAFT}/`
+    const base = `${FAKE_ORIGIN}${SITE_ROOT}/`
 
     // References that are not the deploy's business are EXCLUDED rather than
     // failed: bare fragments, inline data, and anything on another origin.
@@ -1145,7 +1187,7 @@ describe('story-d5167ced — every same-origin asset a preview references resolv
 
     // The font reached from inside the stylesheet is genuinely fetched: breaking
     // only it fails the check, which it could not do if nesting were not followed.
-    const root = `/site/${SLUG}/draft/${DRAFT}`
+    const root = SITE_ROOT
     const wrongType = correctOrigin()
     wrongType.set(`${root}/fonts/x.woff2`, {
       status: 200,
@@ -1153,7 +1195,7 @@ describe('story-d5167ced — every same-origin asset a preview references resolv
       body: 'font',
     })
     const mistyped = await smoke(wrongType)
-    expect(mistyped.failed.map((c) => c.name)).toEqual(['draft_assets_resolve'])
+    expect(mistyped.failed.map((c) => c.name)).toEqual(['published_assets_resolve'])
     expect(mistyped.failed[0].detail).toContain('fonts/x.woff2')
     expect(mistyped.failed[0].detail).toContain('font/woff2')
 
@@ -1162,21 +1204,17 @@ describe('story-d5167ced — every same-origin asset a preview references resolv
     const barePage = correctOrigin()
     barePage.set(`${root}/`, {
       status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'public, max-age=31536000, immutable',
-        'x-robots-tag': 'noindex',
-      },
+      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=60' },
       body: '<!doctype html><html><body><a href="#top">x</a><script src="https://cdn.example.com/x.js"></script></body></html>',
     })
     const bare = await smoke(barePage)
-    expect(bare.failed.map((c) => c.name)).toEqual(['draft_assets_resolve'])
+    expect(bare.failed.map((c) => c.name)).toEqual(['published_assets_resolve'])
     expect(bare.failed[0].detail).toContain('references no same-origin assets')
 
     // The bound is configurable, and stopping at it with references still queued
     // is a FAILURE telling the operator to raise it — never a silent pass.
     const bounded = await smoke(correctOrigin(), { maxAssets: 1 })
-    expect(bounded.failed.map((c) => c.name)).toEqual(['draft_assets_resolve'])
+    expect(bounded.failed.map((c) => c.name)).toEqual(['published_assets_resolve'])
     expect(bounded.failed[0].detail).toContain('stopped after 1 assets')
     expect(bounded.failed[0].detail).toContain('--max-assets')
 
@@ -1196,29 +1234,29 @@ describe('story-d5167ced — every same-origin asset a preview references resolv
 
 describe('story-d5167ced — an unpublished site is indistinguishable from an unknown one', () => {
   it('test_UAT_AC1340_unpublished_and_unknown_answer_identically_and_a_difference_fails', async () => {
-    const CHECK = 'unpublished_slug_indistinguishable'
+    const CHECK = 'unpublished_site_indistinguishable'
     const detailOf = (report: Report): Check => report.checks.find((c) => c.name === CHECK)!
 
     // ── nothing published: both requests answer not-found with identical bodies ──
-    const clean = await smoke(correctOrigin())
+    const clean = await smoke(unpublishedOrigin())
     expect(detailOf(clean).status).toBe('pass')
     expect(detailOf(clean).detail).toContain('identical bodies')
 
     // ── a not-found body that names the site tells a stranger it exists ──
-    const leakyBody = correctOrigin()
-    leakyBody.set(`/site/${SLUG}/`, {
+    const leakyBody = unpublishedOrigin()
+    leakyBody.set(`${SITE_ROOT}/`, {
       status: 404,
       headers: { 'content-type': 'text/plain; charset=utf-8' },
-      body: `No published revision for ${SLUG}`,
+      body: `No published revision for ${SITE_KEY}`,
     })
     const bodyLeak = await smoke(leakyBody)
     expect(bodyLeak.ok).toBe(false)
     expect(detailOf(bodyLeak).status).toBe('fail')
-    expect(detailOf(bodyLeak).detail).toContain(`the 404 body for '${SLUG}' differs`)
+    expect(detailOf(bodyLeak).detail).toContain(`the 404 body for '${SITE_KEY}' differs`)
 
     // ── a differing STATUS leaks the same fact, and says so in as many words ──
-    const leakyStatus = correctOrigin()
-    leakyStatus.set(`/site/${SLUG}/`, {
+    const leakyStatus = unpublishedOrigin()
+    leakyStatus.set(`${SITE_ROOT}/`, {
       status: 403,
       headers: { 'content-type': 'text/plain; charset=utf-8' },
       body: 'Not Found',
@@ -1228,13 +1266,7 @@ describe('story-d5167ced — an unpublished site is indistinguishable from an un
     expect(detailOf(statusLeak).detail).toContain('the difference tells a stranger the site exists')
 
     // ── the site DOES have a live revision: nothing to compare, said as a pass ──
-    const published = correctOrigin()
-    published.set(`/site/${SLUG}/`, {
-      status: 200,
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-      body: '<!doctype html><html></html>',
-    })
-    const live = await smoke(published)
+    const live = await smoke(correctOrigin())
     expect(detailOf(live).status).toBe('pass')
     expect(detailOf(live).detail).toContain('nothing to compare')
   })
