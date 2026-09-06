@@ -16,7 +16,7 @@ import { invitePerson } from '../apps/control-app/src/people'
 import { inviteAccount } from './support/invite-account'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
-import migration from '../db/migrations/0004_identity.sql?raw'
+import migration from '../db/migrations/0001_baseline.sql?raw'
 
 /**
  * REQ-167 — **identity, accounts and entitlement**, in workerd.
@@ -247,17 +247,21 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     expect((results ?? []).map((r) => r.slug)).toEqual([result.siteSlug])
 
     const page = await env.DB.prepare(
-      'SELECT page FROM site_pages WHERE tenant_id = ? AND slug = ? AND name = ?',
+      'SELECT p.page FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
+        'WHERE s.tenant_id = ? AND s.slug = ? AND p.name = ?',
     )
       .bind(result.businessId, result.siteSlug, 'home.json')
       .first<{ page: string }>()
     expect(page?.page).toContain(STARTER_HEADING)
 
-    // The slug is the ACCOUNT ID, and that is a collision property rather than a
-    // naming preference: `published_sites` claims a slug GLOBALLY, so a starter
-    // site called `home` for everybody would be refused for the second account
-    // that published, for a reason its owner could do nothing about.
-    expect(result.siteSlug).toBe(result.businessId)
+    // THE SLUG IS A WORD AGAIN ([[REQ-190]]). It used to be the account id, and
+    // that was a collision property rather than a naming preference:
+    // `published_sites` claimed a slug GLOBALLY, so a starter site called `home`
+    // for everybody would have been refused for the second account that
+    // published, for a reason its owner could do nothing about. The published
+    // address is the site's own key now and the slug is unique only inside the
+    // business, so it can be the plain word it always wanted to be.
+    expect(result.siteSlug).toBe('home')
   })
 
   it('test_UAT_FC_REQ-167_the_account_id_is_opaque_and_not_a_function_of_the_invite', async () => {

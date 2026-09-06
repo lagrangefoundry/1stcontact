@@ -28,65 +28,37 @@ export function storeEnv(): SiteStoreEnv {
 }
 
 /**
- * Apply the schema — EVERY migration, in order.
+ * Apply the schema — ONE baseline ([[REQ-190]]).
  *
- * The migration files are imported as text and executed, rather than restated
+ * The migration file is imported as text and executed, rather than restated
  * here: a fixture with its own CREATE TABLEs proves the fixture's schema, and
  * would keep passing after the real migration drifted from it.
  *
- * THE LIST IS EXPLICIT (REQ-149). A glob would be tidier and would also be
- * unordered, and `0002` alters a table `0001` creates — so the one property that
- * must hold is the one a glob would leave to chance. Adding a migration means
- * adding a line here, which is a diff a reviewer sees.
+ * THE LIST USED TO BE NINE ENTRIES IN A DELIBERATE ORDER, and every comment on
+ * it explained which later migration repaired something an earlier one had left
+ * — `0003` adding the `config` column `0001` created `tenants` without, `0006`
+ * having to run after `0005` because `0005` was written against the old column
+ * names. D1 cannot alter a primary key in place, so re-keying `sites` the
+ * incremental way would have added eight more such rebuilds carrying data that
+ * does not exist. `0001`–`0009` are one file now and the ordering problem is
+ * gone with them; the list stays a list because REQ-192's seed will be the
+ * second entry.
  */
-const MIGRATIONS = [
-  () => import('../../db/migrations/0001_site_store.sql?raw'),
-  () => import('../../db/migrations/0002_revisions.sql?raw'),
-  // REQ-162 — the ticket store. It comes after 0001 and the order is load-bearing
-  // for the same reason 0002's is: 0001 creates `tenants` without the `config`
-  // column the ticket store's accessor writes, and 0003 is what adds it.
-  () => import('../../db/migrations/0003_ticket_store.sql?raw'),
-  // REQ-167 — users, memberships and entitlements. After 0001 because the
-  // account an invite provisions is a `tenants` row, and that table is 0001's.
-  () => import('../../db/migrations/0004_identity.sql?raw'),
-  // REQ-168 — the operator's membership on the platform business. A DATA
-  // migration rather than a schema one, and it is in this list for the reason
-  // the others are: a suite that applied only the schema would prove a database
-  // production does not have. It is idempotent, so re-applying it across suites
-  // in one persisted local D1 is a no-op.
-  () => import('../../db/migrations/0005_operator_membership.sql?raw'),
-  // REQ-184 — `account_id` renamed to `business_id` on both tables, and
-  // `entitlements` given a real account subject. AFTER 0005 and it has to be:
-  // 0005 is a data migration written against the old column names, so a database
-  // that renamed first would refuse to run it ([[DOC-42]] §10.2).
-  () => import('../../db/migrations/0006_entitlement_subject.sql?raw'),
-  // REQ-185 — `platform_admin` splits into `memberships.role` (ownership) and
-  // `platform_operator` (entry without membership). AFTER 0006, which renames
-  // the very column the ownership half moves onto.
-  () => import('../../db/migrations/0007_platform_operator.sql?raw'),
-  // REQ-170 — `entitlements.revoked_at`, so a withdrawn grant is RECORDED rather
-  // than deleted. `memberships` has held the column since 0004 and `entitlements`
-  // had not; the asymmetry was an omission rather than a decision.
-  () => import('../../db/migrations/0008_entitlement_revocation.sql?raw'),
-  // REQ-188 — `users.pipeline_stage`, so where a contact stands in the
-  // relationship is a value of its own rather than something inferred from which
-  // timestamps are set ([[DOC-44]] §4). AFTER 0004, which creates the table, and
-  // it carries a backfill so an existing invited row arrives at `invited`.
-  () => import('../../db/migrations/0009_pipeline_stage.sql?raw'),
-]
+const MIGRATIONS = [() => import('../../db/migrations/0001_baseline.sql?raw')]
 
 /**
  * Run one migration's SQL.
  *
- * EXPORTED so a suite can re-apply a single migration ([[REQ-168]]) — the
- * idempotence of a DATA migration is a property worth proving, and proving it by
- * calling `applySchema` twice would prove the memo below instead.
+ * IT USED TO BE EXPORTED, so a suite could re-apply a single migration and prove
+ * a DATA migration's idempotence ([[REQ-168]]). There are no data migrations
+ * left — the baseline seeds no people ([[REQ-190]]) — and no second file to
+ * re-apply, so its only caller is `applySchema` below.
  *
  * Comments are stripped BEFORE splitting on the terminator, not after: the
  * migration's prose explains a design and prose contains semicolons, so splitting
  * first cuts a comment in half and feeds SQLite the remainder.
  */
-export async function runMigration(sql: string): Promise<void> {
+async function runMigration(sql: string): Promise<void> {
   const { DB } = storeEnv()
   const statements = sql
     .split('\n')

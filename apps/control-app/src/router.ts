@@ -19,7 +19,6 @@ import {
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
-import { SlugClaimedError } from '../../../tools/generate/src/store/d1r2-store'
 import { publicSiteUrl } from './public-url'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
@@ -1421,28 +1420,38 @@ async function routeUncached(
      * implementation and `1c publish` calls the same function against the
      * filesystem store; nothing about what a publish IS is decided in this file.
      *
-     * THE TWO NON-500 FAILURES ARE NAMED, and BOTH ARE MAPPED IN THE CATCH AT
-     * THE BOTTOM rather than here. An invalid draft is an
-     * `InvalidDefinitionError` carrying the path-pointed validation errors the
-     * toolbar shows; a slug another account already publishes under is a 409,
-     * because it is neither a malformed request nor this server breaking — it is
-     * a name that is taken. Catching either locally would mean building an
-     * `error:` value outside the one place that scrubs them (REQ-146 AC4), and
-     * the next such route would inherit the omission.
+     * THE ONE NON-500 FAILURE IS NAMED, AND IT IS MAPPED IN THE CATCH AT THE
+     * BOTTOM rather than here: an invalid draft is an `InvalidDefinitionError`
+     * carrying the path-pointed validation errors the toolbar shows. Catching it
+     * locally would mean building an `error:` value outside the one place that
+     * scrubs them (REQ-146 AC4), and the next such route would inherit the
+     * omission.
+     *
+     * THE SECOND ONE IS GONE ([[REQ-190]]). A publish used to be refusable with
+     * 409 because another business already held the slug — `/site/<slug>/` was
+     * the public grammar, so the name had to be unique across the deployment.
+     * The published address is the site's own key now, so there is no name to be
+     * taken and no refusal to map. Two businesses may each publish `home`.
      */
     if (p === '/api/publish' && method === 'POST') {
       const body = await readJsonBody(request)
       if (typeof body.slug !== 'string' || body.slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const result = await publishSite(await openStore(), body.slug, {
+      const store = await openStore()
+      const result = await publishSite(store, body.slug, {
         message: typeof body.message === 'string' ? body.message : undefined,
       })
+      // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
+      // address; the slug is what this business calls the site and means nothing
+      // outside it. Asked of the store rather than assembled here, because the
+      // store's lookup is the one that is scoped to this business.
+      const siteKey = await store.siteKey(body.slug)
       return json(200, {
         id: result.id,
         changes: result.changes,
         published: result.published,
-        url: publicSiteUrl(body.slug),
+        url: siteKey === null ? null : publicSiteUrl(siteKey),
       })
     }
 
@@ -1900,7 +1909,13 @@ async function routeUncached(
       const slug = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2])
       if (channel === 'published') {
-      return Response.redirect(publicSiteUrl(slug, preview[3] ?? '/'), 302)
+        // Resolved through the store, so the redirect names the site's KEY —
+        // which is the public address ([[REQ-190]]) — and so a slug this
+        // business does not hold is a 404 rather than a redirect to a URL that
+        // could only 404 one hop later.
+        const siteKey = await (await openStore()).siteKey(slug)
+        if (siteKey === null) return text(404, 'Not found')
+        return Response.redirect(publicSiteUrl(siteKey, preview[3] ?? '/'), 302)
       }
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
@@ -1975,12 +1990,6 @@ async function routeUncached(
         code: 'INVALID_DEFINITION',
         errors: err.errors.map((e) => ({ path: e.path, message: scrub(e.message) })),
       })
-    }
-    // A published address another account already owns (REQ-149 D2). 409 rather
-    // than 400 or 500: the request is well-formed and the server is fine — the
-    // name is taken, and the only thing that resolves it is choosing another.
-    if (err instanceof SlugClaimedError) {
-      return json(409, { error: scrub(err.message) })
     }
     // [[REQ-163]] — three refusals a client can act on, and each carries the
     // status that says WHOSE problem it is.

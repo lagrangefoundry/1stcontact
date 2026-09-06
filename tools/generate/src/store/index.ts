@@ -80,7 +80,7 @@ export type {
   TenantRecord,
   TenantSiteStore,
 } from './d1r2-store'
-export { d1r2SiteStore, SlugClaimedError, UnknownTenantError } from './d1r2-store'
+export { d1r2SiteStore, UnknownTenantError } from './d1r2-store'
 
 export { fsSiteStore } from './fs-store'
 export type { MemorySiteSeed, MemorySiteStore } from './memory-store'
