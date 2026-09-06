@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T20:55:21.764462+00:00'
+updated_at: '2026-09-06T21:49:49.660672+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -628,5 +628,21 @@ Everything else is ready: wrangler is installed, `dist-assets` is built, and `bi
 Reset and start the builder regardless — it gets you the Contacts list, the existing invite, and the apex with `account-chrome` rendering its signed-out state, which is worth seeing.
 
 But the thing actually blocking your walkthrough is the auth-consumption work. We now know REQ-134's real surface rather than my guess at it, so that ticket can be written properly — including the two open questions from earlier: **which tenant `resolveSubject` answers in**, and **who serves the Continue page**. Want me to write it?
+
+<!-- xgd-turn id="7550b86a-ab05-4a03-8c9e-8607dd320182-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T21:49:48.980292+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c reset --yes
+Emptied the local dev store:
+  apps/control-app/.wrangler/state
+
+Next start is a fresh store; seed it with `bin/publish`.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Both 199 and 200 are now finished - what do I do next?
 
 <!-- xgd-chat-end -->
