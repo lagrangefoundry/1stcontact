@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:38:11.816663+00:00'
+updated_at: '2026-09-06T20:39:15.637108+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -257,5 +257,21 @@ bin/deploy --dry-run control-app
 You want to see `would push RESEND_API_KEY to 1stcontact-control-app` next to the ANTHROPIC line.
 
 One thing your command already got right, worth noting since it's the trap I mentioned last time: `"$(cat file)"` strips trailing newlines, so a file saved with a trailing `\n` still yields a clean key. Confirm with `printf '%s' "${#RESEND_API_KEY}"` — it should equal the key's exact length with no whitespace.
+
+<!-- xgd-turn id="584bd60a-3974-44c6-83b8-3f3068c8e0b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:39:15.533149+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % typeset -p RESEND_API_KEY
+typeset RESEND_API_KEY=...deleted...
+((.venv-working) ) martin@nyx 1stcontact % type env grep
+env is /usr/bin/env
+grep is /usr/bin/grep
+((.venv-working) ) martin@nyx 1stcontact % /usr/bin/env | grep -c '^RESEND_API_KEY='
+0
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
