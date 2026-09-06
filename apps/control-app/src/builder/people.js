@@ -787,7 +787,13 @@ export function createPeoplePanel(options = {}) {
     // runs, and history is a table rather than an audit log precisely so it can
     // be answered. The filtering of WHICH former names travel is the server's:
     // a `corrected` typo never reaches this array, so this cannot match one.
-    const haystack = `${person.email} ${displayNameOf(person) ?? ''} ${(person.formerNames ?? []).join(' ')}`.toLowerCase()
+    const haystack = [
+      person.email ?? '',
+      displayNameOf(person) ?? '',
+      ...(person.formerNames ?? []),
+    ]
+      .join(' ')
+      .toLowerCase()
     return haystack.includes(filter.text)
   }
 
@@ -833,9 +839,11 @@ export function createPeoplePanel(options = {}) {
      *
      * ONE FIELD PER CALL, which is the `auto` commit mode: the changes object
      * carries the single field just confirmed, so the route is handed a patch
-     * and never a whole record. That is what lets it leave `display_name`
-     * alone while the address changes, rather than writing back a stale copy
-     * of every other value the pane happened to be holding.
+     * and never a whole record. That is what lets it leave the name alone while
+     * the address changes, rather than writing back a stale copy of every other
+     * value the pane happened to be holding — and, since a name is a row that is
+     * SUPERSEDED rather than updated ([[REQ-193]]), what stops an address
+     * correction from writing a name transition that never happened.
      *
      * A REJECTION IS THE ERROR REPORT. The widget rolls the cell back to the
      * last-known-good value and prints the message inline, so a refusal the

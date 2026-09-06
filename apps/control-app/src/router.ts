@@ -1281,11 +1281,12 @@ async function routeUncached(
     /**
      * POST /api/people/record — correct who somebody is ([[BUG-54]]).
      *
-     * THE TWO FIELDS THE OPERATOR OWNS, and no others. `email` and
-     * `display_name` are their own answer to a question only they can answer —
-     * a typo in an invited address, a person who has since said what to call
-     * them — and there was no way to correct either. Everything else on the row
-     * is what the system OBSERVED, and `setPersonRecord` will not write it.
+     * THE FIELDS THE OPERATOR OWNS, and no others. The address and every part
+     * of the name are their own answer to a question only they can answer — a
+     * typo in an invited address, a person who has since said what to call them,
+     * a customer who is a Dr — and there was no way to correct any of it.
+     * Everything else on the row is what the system OBSERVED, and
+     * `setPersonRecord` will not write it.
      *
      * `'email' in body` AND NOT `body.email` — the patch distinction. An absent
      * key means leave it alone and a present one means write it, which is what
