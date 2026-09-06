@@ -5,7 +5,7 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-05T23:45:10.090840+00:00'
+updated_at: '2026-09-06T00:02:41.328321+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -156,3 +156,72 @@ than a look.
   restored from the file-backed store rather than from D1
 - the seed creates no platform operator; `PLATFORM_ADMINS` is the documented way
   to bring up an empty deployment
+
+
+## The bootstrap phase cannot go over HTTP
+
+Established 2026-09-05 ([[CHAT-23]]), and it follows from [[REQ-190]] dropping the
+operator seed.
+
+After the wipe and the baseline the database is empty. Every privileged route
+needs an `admission`, and `admit` needs a `users` row to produce one — so with no
+rows, `/api/admin/businesses` answers 404 and `/api/people/invite` answers 403.
+A seed that drives the product over HTTP **cannot make its first call**: there is
+nobody to authenticate as. Migration `0005` used to paper over this by putting the
+operator in the database ahead of everything; nothing does now, deliberately.
+
+**The escape is that the gates are in the router, not the functions.**
+`provisionBusiness`, `invitePerson`, `openGrant` and `ensurePlatformOperator` are
+all exported and contain no permission checks — the checks live at `router.ts`
+(`ownsPlatformBusiness`, `ownsBusiness`). So an in-process caller with a `DB`
+binding can write the first rows, which is exactly how the suites already work.
+
+### Two phases, one command
+
+**Phase 1 — in process, and exactly one call.** `ensurePlatformOperator(env,
+address)` writes the tenant, the `users` row, the membership and the entitlement.
+It is the same function [[REQ-185]]'s break-glass path invokes, so the seed is not
+a second definition of what an operator is — it is the same one, reached without
+the var.
+
+**Phase 2 — over HTTP, as that operator**, with a token from `bin/access-sim`.
+Every business, invite and grant after the first goes through the real route and
+the real gate.
+
+**One command, not two scripts**, and the reason is not tidiness. Two scripts is
+one that can be run without the other, or in the wrong order, and the failure is a
+half-seeded store that looks seeded. It also keeps this ticket's existing promise
+— *one command, from a fresh clone and an empty D1* — literally true.
+
+### Why phase 2 is worth the trouble
+
+An in-process seed all the way through would be simpler and would prove less.
+This ticket's rationale is that *a seed which succeeds is evidence those paths
+work* — and calling the functions is evidence the **functions** work, not the
+routes or their gates.
+
+The gates are the part most likely to be wrong. [[REQ-186]] names substituting
+`ownsPlatformBusiness` for `ownsBusiness` as the mistake most likely to be made,
+and this session found exactly that substitution once already. A seed that never
+issues an HTTP request would never catch it.
+
+So phase 1 is kept to the single call that cannot be made any other way, and
+everything reachable over HTTP goes over HTTP.
+
+### The operator address is a parameter
+
+Not a literal in the seed. Hardcoding it here is the same defect [[REQ-190]] just
+removed from the migration, with a smaller blast radius but the same shape: a
+personal address baked into a path that runs in every environment. A flag or an
+env var, defaulted to nothing.
+
+## Added acceptance
+
+- the seed is one command; there is no second script an operator must remember
+- phase 1 makes exactly one in-process call, `ensurePlatformOperator`, and writes
+  nothing else directly
+- every persona, business, invite and grant after the operator is created over
+  HTTP through the routes a person would use
+- the seed refuses to run against a store that already has an operator, rather
+  than half-seeding it
+- the operator address is supplied, not hardcoded
