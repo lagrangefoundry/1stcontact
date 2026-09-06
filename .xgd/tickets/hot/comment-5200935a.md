@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:41:03.315284+00:00'
+updated_at: '2026-09-06T22:45:55.255935+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -949,5 +949,11 @@ Later files win, which is why the key goes last. This is exactly the layering `1
 Where you are now: signed in as `martin@westhead.me`, `ensurePlatformOperator` has written your `users` row, `user_emails` row, owner membership on 1st Contact, and the entitlement. You can blank `PLATFORM_ADMINS` whenever you like — the rows persist, which is what makes it break-glass rather than a standing second auth path.
 
 Next: **Contacts tab → `+`** → add a contact → tick it → **Invite**. Then open that contact's detail pane to see the composed message, since the capturing mailer records rather than sends.
+
+<!-- xgd-turn id="967371bb-b1dd-40b9-96ed-2a093bf9f9fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:45:53.532864+00:00" -->
+#### You
+[mail] not sent (no provider configured): to=dennis-1c-test@westhead.me subject=Your invitation <-- console output
 
 <!-- xgd-chat-end -->
