@@ -15,6 +15,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-70a8f021
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-134]] (lagrange-framework) for sessions.
