@@ -5,7 +5,7 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T00:23:54.647058+00:00'
+updated_at: '2026-09-06T00:29:32.157161+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -233,3 +233,120 @@ So both buckets are emptied as part of the wipe: `1stcontact-sites` and
 - no object survives the rebaseline under a prefix no row references
 - an erasure request after the rebaseline reaches every object belonging to the
   contact, with none stranded under a pre-rebaseline prefix
+
+
+## What the published address is — decided, 2026-09-05
+
+The acceptance criteria above already decide this between them and it is worth
+writing out, because it is the one place the sweep reaches outside the database.
+
+`/site/<slug>/` carries no business ([[REQ-111]], `routes.ts`), so `public-site`
+resolves a site from the slug alone — which is exactly why `published_sites` keys
+on the slug **globally**, and why two businesses cannot both publish `home`. No
+change to the keys fixes that on its own: as long as the public URL is a chosen
+name, that name has to be unique across the deployment or it does not name
+anything.
+
+So **the published address becomes the site's key**. `/site/<siteId>/` — the same
+opaque value the joins use, which is what *"the same key is used in joins and in
+URLs, because it is unguessable in both"* already says. The slug stops being an
+address and becomes what the rule says it is: an attribute, unique within its
+business and free to change.
+
+**This is already the status quo for every customer.** `createStarterSite`
+(`identity.ts`) sets the starter slug to the business id precisely to dodge the
+global claim, so every provisioned site's public URL is opaque today. What
+changes is that it becomes the design rather than a workaround, and the operator's
+own hand-named sites (`xgd`, `gigabytealchemy`) join them.
+
+**The route grammar is untouched.** `SLUG_PATTERN` already admits the id's
+character set; what moves is what the segment means. Per-business hostnames
+([[DOC-12]] §9) remain the readable answer and remain purely additive.
+
+`SlugClaimedError` and the claim it enforces are deleted, not relaxed — there is
+nothing left to claim, and a refusal that told one business another already holds
+a name was an existence oracle across the barrier.
+
+## Only the site's own row names its business
+
+The child tables — `site_pages`, `site_assets`, `site_changes`, `site_revisions`,
+`published_sites` — carry `site_id` and **no `tenant_id`**. That is what makes the
+worked example above an update of one column rather than a promise about one.
+
+**Isolation moves one level in, and does not weaken.** The store still binds the
+business into the handle at construction; what the handle now resolves is
+slug → `site_id`, under `WHERE tenant_id = ?`. A site key is unguessable and is
+obtainable only through a business-scoped lookup, so a query that reaches another
+business's rows is not one somebody forgot to filter — it requires a key the
+handle cannot produce.
+
+## Ordinal is not identity
+
+`site_revisions.id` and `site_changes.at` stay integers, and the rule above does
+not reach them. Neither identifies anything: a revision id is a **position in a
+sequence** — live is `MAX(id)` with no head pointer ([[DOC-12]] §4) and the
+published layout is `rev/0001` — and `at` is the journal counter the window is
+trimmed by. Randomising a position destroys the ordering that *is* its meaning.
+`counters.value` is the same fact once more.
+
+The rule is about identity. Where a number orders rather than names, it stays.
+
+## `TENANT_ID` becomes a literal two files must agree on
+
+Once the platform business's id is opaque, `wrangler.toml` and the baseline both
+carry the same random constant, and nothing today would notice them disagreeing —
+the symptom would be `UnknownTenantError` on every deployed request. A UAT pins
+the value in `wrangler.toml` against the value the baseline seeds, in both the
+`[vars]` and `[env.production.vars]` blocks.
+
+The baseline seeds **the platform business row only** — no people, per the
+decision above. `ensurePlatformOperator` writes the rest.
+
+## The baseline is authored here and edited by its siblings
+
+One file, `db/migrations/0001_baseline.sql`, replacing `0001`–`0009`. This ticket
+authors it with the keys right and today's tables on it; [[REQ-191]], [[REQ-193]],
+[[REQ-194]] and [[REQ-195]] **edit that file** rather than adding migrations after
+it. Editing a baseline that has never been applied is not a second rebaseline —
+which is what *"separable in review and in acceptance, not in deployment"* means
+in practice.
+
+`0009_pipeline_stage.sql` ([[REQ-188]]) landed after this ticket's table was
+written and is folded in too, so the list is `0001`–`0009`.
+
+The `acct_` prefix stays on business ids here. Freeing it is [[REQ-194]]'s
+acceptance and its baseline edit; reminting it twice would be churn.
+
+## Erasure enumerates, it does not sweep one prefix
+
+The blast-radius section says the erasure path follows the new keys, and with the
+site prefix no longer carrying a business the two obligations have to be stated
+together:
+
+- a site's objects live under `draft/<siteId>/…` and `sites/<siteId>/rev/…`, so a
+  move copies nothing;
+- erasure for a business reads that business's site ids from D1 and deletes under
+  each, **and** under `t/<tenant>/blob/`, `t/<tenant>/ref/` and `kb/<tenant>/`,
+  which stay business-prefixed because blobs and knowledge belong to the business
+  rather than to a site.
+
+Erasure is not implemented today — [[DOC-37]] is an obligation and the portal
+explains it — so this settles the layout it will be built against rather than
+changing a live path.
+
+## `newId` moves down a layer
+
+It lives in `identity.ts` (`apps/control-app`), and the store that must now mint
+site keys lives in `tools/generate`, which `control-app` imports and never the
+reverse. So `newId` moves into the store layer and `identity.ts` re-exports it —
+one minter, not two, which is the property the rule depends on.
+
+## A correction to the acceptance above
+
+The last criterion still reads *"replaced by one baseline that includes
+[[REQ-191]], [[REQ-193]] and the operator seed"*. The operator seed is dropped —
+see the decision above — and the sibling tickets edit the baseline rather than
+being written into it by this one. Restated:
+
+- `0001`–`0009` are gone, replaced by one baseline that seeds no people and that
+  [[REQ-191]], [[REQ-193]], [[REQ-194]] and [[REQ-195]] extend in place
