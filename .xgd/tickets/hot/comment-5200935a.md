@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:15:59.351868+00:00'
+updated_at: '2026-09-06T23:17:04.914248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1317,5 +1317,13 @@ Three tickets, and I can write the first two now:
 - **Post-invite landing** — needs your decision before it can be written.
 
 Want me to write the first two? And which landing do you want for an accepted invitee — I'd suggest a holding page for the beta, since auto-provisioning a business per invitee is a much bigger commitment and you can always provision manually from the Contacts tab while the numbers are small.
+
+<!-- xgd-turn id="cf96cc9f-a1c6-48b8-8483-023ffd2dee43-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:17:04.850550+00:00" -->
+#### You
+**In production:** Cloudflare Access *would* challenge them and it would work — at the cost of the thing we flagged in the first conversation. They'd get **a second, Cloudflare-branded email** with a 6-digit code before ever seeing your welcome page. Two emails per invite, and the first thing a beta user meets isn't yours.
+
+So `invites.ts` isn't broken. It implements the option we called (a) — keep Access, accept the double email — and you're seeing its cost. WHAT! I thought we agreed that we were going to go to the trouble of developing this ourselves and not use the Cloudflare access controls. That was the decision that we made and we had three tickets based on that what's going on
 
 <!-- xgd-chat-end -->
