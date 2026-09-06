@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:56:33.843728+00:00'
+updated_at: '2026-09-06T22:57:24.605498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1111,5 +1111,40 @@ Once the mail actually lands in Dennis's inbox, steps 1 and 2 are done for real,
 <!-- xgd-chat role="user" ts="2026-09-06T22:56:33.316285+00:00" -->
 #### You
 ok I am not seeing an email
+
+<!-- xgd-turn id="a9ac00cf-1e00-47a1-b374-3ef115680319-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:57:23.611847+00:00" -->
+#### Claude
+That log is my dead instance — yours writes to your own terminal. The database is shared though, and it records the outcome.
+
+Good news — it's already working. The two records tell the story:
+
+| | `provider_id` | |
+|---|---|---|
+| Dennis, 22:45 | `local_6ee91225…` | capturing mailer — before the key |
+| Emma, 22:55 | `82564a32-7864-48e8-bdce-4936094b89a9` | **a real Resend message id** |
+
+Let me confirm that prefix is what I think it is.
+
+Confirmed. `local_` is the capturing mailer's synthetic id; a bare UUID is Resend's.
+
+**Your configuration is working.** The 22:55 send to `emma-1c-test@westhead.me` went to Resend's API, Resend accepted it and returned message id `82564a32-7864-48e8-bdce-4936094b89a9`. `resendMailer` throws on any non-OK response and throws again if no id comes back, so an id in the record means a genuine `200` from Resend.
+
+So the problem isn't configuration — it's what happened after Resend took it.
+
+## Where to look
+
+1. **The Resend dashboard**, message `82564a32-7864-48e8-bdce-4936094b89a9`. It'll show delivered / bounced / complained and the receiving server's response. That's authoritative and nothing local can tell you.
+2. **Spam.** First-ever mail from a newly verified domain with no sending history is the classic case, and `no-reply@` doesn't help.
+3. **Does `emma-1c-test@westhead.me` actually receive?** If `westhead.me` has no catch-all and that alias doesn't exist, it'll be a hard bounce — which the dashboard will show as `bounced`.
+
+## Why the local record can't tell you
+
+The status will sit at `sent` forever on this machine. REQ-198's delivery and bounce webhook is how `sent` becomes `delivered` or `bounced`, and **Resend cannot reach `localhost:8788`** to deliver it. So locally you get "we handed it over" and nothing after.
+
+That's expected rather than broken, but it does mean the dashboard is your only feedback loop until this runs somewhere Resend can call back. If you want that loop closed locally, a tunnel (`cloudflared tunnel --url http://localhost:8788`) pointed at the webhook route would do it — worth it only if you're debugging bounces specifically.
+
+Meanwhile steps 1 and 2 of your walkthrough are genuinely complete: contact added, template rendered with a working CTA and paste-fallback, message composed, sent through Resend, and recorded against both the contact and the address. The remaining unknown is step 3, where Dennis or Emma clicking that link hits `no_membership`.
 
 <!-- xgd-chat-end -->
