@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-198
 created_by: xgd
 created_at: '2026-09-06T18:48:38.719906+00:00'
-updated_at: '2026-09-06T19:19:10.256521+00:00'
+updated_at: '2026-09-06T19:42:51.244770+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -33,5 +33,14 @@ I've read the ticket, its dependencies (REQ-196/197, both in flight in parallel 
 Now the Messages section in the detail pane:
 
 Now update the ticket body with the two integration decisions the merge made possible, then move to `free_coded`.
+
+<!-- xgd-turn id="45c5df3f-b1a8-419c-baff-8c1d6bddcc28-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T19:42:51.140977+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
