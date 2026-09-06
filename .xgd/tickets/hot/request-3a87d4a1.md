@@ -5,9 +5,9 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T01:10:59.837700+00:00'
+updated_at: '2026-09-06T17:36:36.992146+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -369,14 +369,48 @@ being written into it by this one. Restated:
 Written while free-coding, because each of these is behaviour a UAT asserts and
 the body above did not name.
 
-### The starter site is called `home`
+### The starter site is called `unnamed`, and the word is a prompt
 
 `createStarterSite` set the starter slug to the BUSINESS ID — a workaround for
 the global claim, so that no two customers could collide on a published name. It
 cost every operator a builder whose only site was called `acct_057f…`. With the
-claim gone the slug is unique only inside its business, so the starter is the
-plain word it always wanted to be, and *"two businesses can each publish a site
-called `home`"* is now the ordinary case rather than a hypothetical.
+claim gone the slug is unique only inside its business, so the starter is a plain
+word again, and *"two businesses can each publish a site under the same starter
+name"* is now the ordinary case rather than a hypothetical.
+
+**Which word is a product decision, not a leftover.** `home` was the first
+choice and is the wrong one: it reads as a name somebody picked, so nothing about
+it asks to be changed, and every account's one site would then sit under a label
+that says nothing about the business owning it — which is the `acct_057f…`
+complaint again in a friendlier font. The starter is called **`unnamed`**,
+because the one property the default needs is to be *visibly* a default: a site
+called `unnamed` asks to be named the first time its owner looks at it.
+
+**Both surfaces say it**, because an operator meets the site twice. The slug is
+the URL-safe attribute the store addresses by and the builder lists; the site's
+`config.businessName` is prose, and it is the `<title>` suffix on every rendered
+page. So the slug is `unnamed` and the name is `Unnamed` — one word, two forms,
+so the site does not read as provisional in one place and settled in the other.
+They stay two constants rather than one derived from the other, so that changing
+the prose can never silently rewrite a key.
+
+**It is not the business's name either**, though provisioning knows it. A site is
+not a business — an account will own several — and a name asserted on the
+owner's behalf is still a name they never chose. That is the same objection as
+`home`, reached from the other side.
+
+**Nothing reserves the word and nothing enforces it.** The slug is an ordinary
+attribute, so naming the site is the single `UPDATE` the move example above is
+built on, and the site is fully addressable under its new name the moment that
+lands. An operator who keeps `unnamed` keeps it.
+
+**Consequence for the tests already written.** Every UAT that reached for a
+provisioned business's starter site named it `'home'` inline. Those are fixtures
+rather than assertions, so they read the constant now — what those tests actually
+claim is that *every* account is provisioned under the *same* slug and no two
+collide, which is true of any word. The two that assert a *list* of slugs also
+changed order, because the store returns them sorted and `unnamed` is no longer
+alphabetically first.
 
 ### A slug is unique INSIDE a business, and a move can collide
 
