@@ -346,6 +346,12 @@ function writeKnowledgeShim(generatedDir: string): string {
 export const KNOWLEDGE_EXPORTS = [
   'AWARENESS_REPORT_KIND',
   'AWARENESS_REPORT_TYPE',
+  // The name a knowledge base's `source` resolves to when it declares none
+  // ([[BUG-55]]). The project KB declares none, and upstream's `indexFor` — unlike
+  // `storeFor` — has no default entry to fall back on, so the project index has
+  // to be keyed under this name explicitly. Naming the constant rather than
+  // typing `'project'` keeps one answer to "what is a KB's source called".
+  'DEFAULT_SOURCE',
   'KB_FIELD',
   'WorkersAiEmbedder',
   'agglomerativeClusterer',

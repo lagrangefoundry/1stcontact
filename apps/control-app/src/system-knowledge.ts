@@ -144,12 +144,17 @@ export async function systemKnowledge(
   return KnowledgeRuntime.open({
     store,
     kbs: new Map([[SYSTEM_KB, kb]]),
-    source: memoryIndexSource(bundle.index),
-    chunkSource: memoryIndexSource(bundle.chunks),
+    // ALL THREE MAPS ARE KEYED ALIKE, AND THAT IS THE WHOLE OF REQ-112. The KB
+    // declares `source: shipped`; that one name now answers three questions —
+    // which store resolves its corpus, which index holds its document vectors,
+    // and which holds its chunk vectors. Upstream's `indexFor` has no default
+    // entry to fall back on, so a missing key is a refusal rather than an empty
+    // ranking.
+    indexes: { [SHIPPED_SOURCE]: memoryIndexSource(bundle.index) },
+    chunkIndexes: { [SHIPPED_SOURCE]: memoryIndexSource(bundle.chunks) },
     embedder,
-    // The KB declares `source: shipped`, so the library resolves its corpus
-    // against the store named here rather than against a project store that has
-    // never heard of these uids.
+    // The corpus half of the same name: resolved against the store named here
+    // rather than against a project store that has never heard of these uids.
     sources: { [SHIPPED_SOURCE]: store },
   })
 }

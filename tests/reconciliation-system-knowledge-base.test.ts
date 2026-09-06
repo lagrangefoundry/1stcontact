@@ -28,6 +28,7 @@ import {
   inSystemKb,
   readDocTickets,
   resolveDescriber,
+  SHIPPED_SOURCE,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { run } from '../tools/generate/src/cli'
@@ -334,7 +335,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
     }
 
     const hits = await lib.search('what makes the slides rotate automatically on an interval', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'index')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'index')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -356,7 +357,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
     const binding = await bindKb(root)
 
     const hits = await lib.searchChunks('which swatch is the text colour picked from', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'chunks')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'chunks')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,

@@ -61,6 +61,7 @@ import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import {
+  assertIndexSeam as assertIndexSeamImpl,
   assertSharedStore as assertSharedStoreImpl,
   checkSharedStore as checkSharedStoreImpl,
 } from './shared-store'
@@ -236,12 +237,15 @@ export {
 } from './preflight'
 export type { PreflightFinding, PreflightReport, PreflightOptions, Resolver } from './preflight'
 export {
+  assertIndexSeam,
   assertSharedStore,
+  checkIndexSeam,
   checkSharedStore,
   sharedComponents,
   SHARED_SERVER_COMPONENTS,
   SHARED_STORE_INSTALL_COMMAND,
 } from './shared-store'
+export type { IndexSeamProbe, SeamReport } from './shared-store'
 export type {
   ComponentResolver,
   MissingSharedComponent,
@@ -583,10 +587,19 @@ export async function run(argv: string[]): Promise<void> {
           })
         }
         assertSharedStoreImpl()
+        // PRESENT, THEN COMPATIBLE — and in that order, because a component that
+        // is missing cannot be probed for its shape and would report the wrong
+        // failure if it were.
+        await assertIndexSeamImpl()
         console.log(
           `\nPreflight passed: ${store.checked.length} shared components, ` +
             `${declared.length} declared packages.`,
         )
+        // Reported on its own line rather than folded into the sentence above.
+        // That sentence counts things; this one is a yes/no about a signature,
+        // and running them together would have made the counts read as though
+        // they covered the seam too.
+        console.log('Index seam: the installed knowledge component takes `indexes`.')
       } catch (err) {
         fail(err, json)
       }

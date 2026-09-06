@@ -22,6 +22,7 @@ import {
   inSystemKb,
   readDocTickets,
   resolveEmbedder,
+  SHIPPED_SOURCE,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
@@ -153,7 +154,7 @@ describe('REQ-123 — the system knowledge base', () => {
     const binding = await bindKb(root)
 
     const hits = await lib.search('how do slides rotate automatically', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'index')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'index')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -175,7 +176,7 @@ describe('REQ-123 — the system knowledge base', () => {
     const binding = await bindKb(root)
 
     const hits = await lib.searchChunks('text colour picked from the palette', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'chunks')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'chunks')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -281,7 +282,7 @@ async function buildIndexesAndMap(
         describe: describer.describe,
         search: async (query: string) => {
           const hits = await lib.search(query, {
-            source: indexSource,
+            indexes: { [SHIPPED_SOURCE]: indexSource },
             store: binding.store,
             kbs: binding.kbs,
             kb: SYSTEM_KB,

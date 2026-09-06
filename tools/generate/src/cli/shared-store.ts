@@ -24,7 +24,7 @@
  * is a component the import map can name.
  */
 import { CommandError } from './errors'
-import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiPackageDir } from './webui'
+import { sharedModuleUrl, WEBUI_PACKAGES, WEBUI_SCOPE, webuiPackageDir } from './webui'
 
 /**
  * Shared-store components loaded SERVER-side, by name.
@@ -111,5 +111,104 @@ export function assertSharedStore(opts?: { resolve?: ComponentResolver }): void 
       'They are delivered out of band and are never vendored into this repo, so ' +
       '`pnpm install` cannot supply them.',
     hint: `Run \`${SHARED_STORE_INSTALL_COMMAND}\`, then retry.`,
+  })
+}
+
+// ── the seam check: present is not the same as compatible ────────────────────
+
+/**
+ * BUG-55 — whether the installed component still takes the shape we call it with.
+ *
+ * PRESENCE WAS NEVER THE WHOLE QUESTION. Everything above answers "is the
+ * component there", and a store can pass that check completely while holding a
+ * component whose signature moved underneath us. That is not hypothetical: it is
+ * how BUG-55 happened. Upstream REQ-112 made the index seam take a MAP of
+ * indexes by source name where it had taken one index, this repository went on
+ * passing the singular form, and nothing anywhere noticed — not `pnpm install`,
+ * which cannot see a store no lockfile records, and not the preflight, which
+ * asked only whether the directory resolved.
+ *
+ * WHY `indexFor` AND NOT A BROADER PROBE. It is the one function the whole read
+ * half funnels through — `search`, `searchChunks` and the runtime's document
+ * snapshot all resolve their artifact through it — and it is pure: a map, a KB,
+ * no filesystem, no network, no embedder. So the check costs a function call and
+ * still fails for every caller that would have failed.
+ *
+ * WHAT IT DELIBERATELY DOES NOT COVER. One seam, checked positively. It says
+ * nothing about the other seams this repository shares with the store, and a
+ * green result here is not a statement that the store and the repository agree
+ * everywhere — only that they agree about this. A check that implied more than
+ * it tested would be worse than none, because the reason BUG-55 ran for days is
+ * precisely that a passing signal was read as a broader assurance than it was.
+ */
+export interface SeamReport {
+  ok: boolean
+  /** The failure in the component's own words, when it refused. */
+  detail?: string
+}
+
+/** The seam probe, injectable so a UAT can drive the incompatible case. */
+export type IndexSeamProbe = () => Promise<unknown>
+
+/**
+ * Ask the installed component to resolve a KB against a map keyed by its source.
+ *
+ * Positive rather than negative: it performs the resolution this repository
+ * depends on and treats any refusal as disagreement. A component on the old
+ * signature has no `indexFor` at all, and one on a third signature refuses the
+ * map — both land here as the same finding, which is right, because the operator
+ * does the same thing about either.
+ */
+export async function checkIndexSeam(opts?: { probe?: IndexSeamProbe }): Promise<SeamReport> {
+  const probe =
+    opts?.probe ??
+    (async () => {
+      const { indexFor } = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
+      if (typeof indexFor !== 'function') {
+        throw new Error('the knowledge component exports no `indexFor`')
+      }
+      // A stand-in index — `indexFor` selects, it does not read, so nothing here
+      // has to be a real artifact for the resolution to be the real one.
+      const sentinel = {}
+      const resolved = indexFor({ name: 'probe', source: 'probe' }, { probe: sentinel })
+      if (resolved !== sentinel) {
+        throw new Error('`indexFor` did not return the index named by the KB\'s source')
+      }
+      return resolved
+    })
+
+  try {
+    await probe()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * Refuse the build when the store and this repository disagree about the seam.
+ *
+ * `ENVIRONMENT` like its neighbour, and for the same reason: the command and its
+ * input were both fine. What is wrong is the machine, and no re-forming of the
+ * request will help.
+ */
+export async function assertIndexSeam(opts?: { probe?: IndexSeamProbe }): Promise<void> {
+  const report = await checkIndexSeam(opts)
+  if (report.ok) return
+
+  throw new CommandError({
+    code: 'ENVIRONMENT',
+    message:
+      'The installed knowledge component does not take the index seam this repo ' +
+      `calls it with:\n  - ${report.detail}\n` +
+      'One index per SOURCE (upstream REQ-112): `search`, `searchChunks` and ' +
+      '`KnowledgeRuntime.open` take `indexes`/`chunkIndexes` — a map from source ' +
+      'name to index — rather than a single `source`. The store is delivered out ' +
+      'of band, so a lockfile cannot notice it moving.',
+    hint:
+      `Run \`${SHARED_STORE_INSTALL_COMMAND}\` to bring the store up to date. If it ` +
+      'is already current, the component has moved again and the call sites in ' +
+      '`kb.ts`, `session-knowledge.ts`, `system-knowledge.ts` and `knowledge.ts` ' +
+      'are what need changing.',
   })
 }

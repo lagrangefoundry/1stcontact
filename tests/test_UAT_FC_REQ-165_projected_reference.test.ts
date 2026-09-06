@@ -19,6 +19,7 @@ import {
   writeProjections,
   projectedDocument,
   resolveEmbedder,
+  SHIPPED_SOURCE,
   SYSTEM_KB,
   bindKb,
 } from '../tools/generate/src/cli/kb'
@@ -233,7 +234,7 @@ describe('REQ-165 — the projected reference reaches the corpus', () => {
       // takes: a reference document is far too coarse a unit to hand back, and
       // what the assistant needs is the passage that answers the question.
       const hits = await lib.searchChunks('does the carousel component support autoplay', {
-        source,
+        indexes: { [SHIPPED_SOURCE]: source },
         store: binding.store,
         kbs: binding.kbs,
         kb: SYSTEM_KB,
