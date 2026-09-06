@@ -182,8 +182,10 @@ describe('REQ-190 — one baseline', () => {
     //
     // `user_emails` IS THE ONE REQ-191 ADDED, and it is the rule restated rather
     // than an exception to it: the address is an attribute with a key of its own,
-    // where it used to BE the key of the person holding it.
+    // where it used to BE the key of the person holding it. `accounts` is
+    // [[REQ-194]]'s, and the same restatement: the payer is a row with a key,
+    // where it used to be whichever `users` row happened to stand in for one.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
-    expect(single.sort()).toEqual(['id', 'id', 'id', 'id', 'id', 'id', 'id', 'uid'])
+    expect(single.sort()).toEqual(['id', 'id', 'id', 'id', 'id', 'id', 'id', 'id', 'uid'])
   })
 })

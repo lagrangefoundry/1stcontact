@@ -229,6 +229,9 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  *
  * SO WHAT THIS DIALOG MAY EVER HOLD IS BOUNDED, and the bound is the useful part
  * of the decision: who is signed in, and which businesses that identity reaches.
+ * It is still called the ACCOUNT surface — that is the noun a person looks for —
+ * and the person it names is passed as `person` since [[REQ-194]], because the
+ * account is a row now and this dialog is not showing it.
  * Both are facts about the SESSION, which is the one thing a portal rendered on
  * another origin cannot state. Plan, invoices and details are not thin here
  * pending more work; they are absent because they belong somewhere else.
@@ -241,11 +244,11 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  *
  * @param {object} spec
  * @param {Element} [spec.host] inside the shell root — see `modal.js`
- * @param {{name: string|null, email: string}|null} [spec.account]
+ * @param {{name: string|null, email: string}|null} [spec.person] who is signed in
  * @param {Array<{id: string, name?: string, selectable?: boolean, lapse?: object|null}>} [spec.businesses]
  * @param {string|null} [spec.selected]
  */
-export function openAccountSurface({ host = null, account = null, businesses = [], selected = null } = {}) {
+export function openAccountSurface({ host = null, person = null, businesses = [], selected = null } = {}) {
   const modal = createModalShell({ host, title: ACCOUNT_LABEL })
 
   const heading = document.createElement('h2')
@@ -258,7 +261,7 @@ export function openAccountSurface({ host = null, account = null, businesses = [
   // The email is the identity Access verified, so it is what is shown when there
   // is no display name — a blank line where a person's name goes reads as a
   // failure to load rather than as a name nobody has set.
-  who.textContent = account ? [account.name, account.email].filter(Boolean).join(' — ') : 'Not signed in.'
+  who.textContent = person ? [person.name, person.email].filter(Boolean).join(' — ') : 'Not signed in.'
   modal.panel.append(who)
 
   const list = document.createElement('ul')
@@ -325,11 +328,15 @@ export function openAccountSurface({ host = null, account = null, businesses = [
  * A NODE RATHER THAN A STRING, because the shell's action `content` accepts one
  * and the initial is derived rather than fixed — see `config.js` for why it
  * identifies whose account it is instead of merely marking where the account is.
+ *
+ * IT TAKES THE PERSON ([[REQ-194]]). The initial is drawn from who is signed in,
+ * which is what this argument always held; it was called `account` while that
+ * noun had no table of its own, and an account is the payer.
  */
-export function accountAvatar(account) {
+export function accountAvatar(person) {
   const avatar = document.createElement('span')
   avatar.className = 'builder-avatar'
-  const source = account?.name || account?.email || ''
+  const source = person?.name || person?.email || ''
   avatar.textContent = (source.trim()[0] || ACCOUNT_INITIAL_FALLBACK).toUpperCase()
   return avatar
 }

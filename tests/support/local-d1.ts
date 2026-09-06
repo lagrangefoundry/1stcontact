@@ -99,15 +99,21 @@ export function seedIdentity(
 ): { businessId: string } {
   const tenantId = options.tenantId ?? platformBusinessId(repoRoot)
   // Named for what it is ([[REQ-184]]): the row this seeds is a BUSINESS. The id
-  // still reads `acct_…` because those values are opaque, permanent and in R2
-  // keys; only the names say what they mean.
-  const businessId = options.businessId ?? `acct_${email.replace(/[^a-z0-9]/gi, '')}`
+  // reads `biz_…` since [[REQ-194]] gave the account the `acct_` prefix it names.
+  const businessId = options.businessId ?? `biz_${email.replace(/[^a-z0-9]/gi, '')}`
   const userId = `usr_${email.replace(/[^a-z0-9]/gi, '')}`
+  // THE ACCOUNT IS THE OWNER ([[REQ-194]]). `users.account_id` is NOT NULL and
+  // `tenants.owner_account_id` names the payer, so a fixture that seeded only a
+  // person and a membership would write a row the schema refuses and a business
+  // nobody owns.
+  const accountId = `acct_${email.replace(/[^a-z0-9]/gi, '')}`
   const now = new Date().toISOString()
   const sql = [
-    `INSERT OR IGNORE INTO tenants (id, name, status, created_at) VALUES ('${businessId}', '${email}', 'active', '${now}');`,
-    `INSERT OR IGNORE INTO users (id, tenant_id, status, platform_operator, invited_at, created_at, updated_at) ` +
-      `VALUES ('${userId}', '${tenantId}', 'active', 0, '${now}', '${now}', '${now}');`,
+    `INSERT OR IGNORE INTO accounts (id, tenant_id, name, status, created_at, updated_at, fields) ` +
+      `VALUES ('${accountId}', '${tenantId}', NULL, 'active', '${now}', '${now}', '{}');`,
+    `INSERT OR IGNORE INTO tenants (id, name, status, owner_account_id, created_at) VALUES ('${businessId}', '${email}', 'active', '${accountId}', '${now}');`,
+    `INSERT OR IGNORE INTO users (id, tenant_id, account_id, status, platform_operator, invited_at, created_at, updated_at) ` +
+      `VALUES ('${userId}', '${tenantId}', '${accountId}', 'active', 0, '${now}', '${now}', '${now}');`,
     // THE ADDRESS IS ITS OWN ROW ([[REQ-191]]). `users` carries no address column
     // — a person holds as many as they have, and the primary one is the row this
     // seeds. Casefolded because the schema's CHECK refuses anything else.

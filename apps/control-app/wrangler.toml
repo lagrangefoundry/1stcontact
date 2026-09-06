@@ -66,6 +66,11 @@ run_worker_first = true
 # by the opaque value below. The var stays deployment CONFIGURATION rather than a
 # row (REQ-180 D5, DOC-42 §2) — what changed is that it names a key.
 #
+# AND THE PREFIX SAYS `biz` ([[REQ-194]]). It read `acct_` while `newId('acct')`
+# minted business ids and the account had no table; now that accounts exist and
+# carry keys of their own, an id reading `acct_` has to mean an account. The hex
+# is unchanged — the same business, renamed prefix.
+#
 # THE VALUE IS A LITERAL TWO FILES MUST AGREE ON. `db/migrations/0001_baseline.sql`
 # seeds this exact id as the platform business's row, and nothing about the value
 # is derivable, so nothing could notice them disagreeing except a check that
@@ -130,7 +135,7 @@ run_worker_first = true
 # inherits none, and a break-glass key that silently does not exist in production
 # is one discovered at the worst possible moment. A UAT pins the two together.
 [vars]
-TENANT_ID = "acct_51a6746495c8057e886ff98d4208e6b9"
+TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
 PLATFORM_ADMINS = ""
 ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
@@ -254,7 +259,7 @@ head_sampling_rate = 1
 # production; restating it here would open the deployed builder to anyone the
 # moment Access were unconfigured. A UAT asserts this block does not name it.
 [env.production.vars]
-TENANT_ID = "acct_51a6746495c8057e886ff98d4208e6b9"
+TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
 # See the top-level block: break glass, empty until it is needed ([[REQ-185]]).
 PLATFORM_ADMINS = ""
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"

@@ -63,6 +63,20 @@ CREATE TABLE IF NOT EXISTS tenants (
   -- because `0001` had created the table without it, and `Accessor.putTenant`
   -- INSERTs it.
   config     TEXT NOT NULL DEFAULT '{}',
+  -- THE ACCOUNT THAT OWNS THIS BUSINESS (REQ-194, DOC-40 §2).
+  --
+  -- OWNERSHIP USED TO BE INFERRED FROM `memberships`, which is a join saying who
+  -- may OPERATE a business and answers a different question: an account may put
+  -- several people on one business, and reading "the first membership row" as the
+  -- owner makes the payer whichever of them was written first. The business names
+  -- its owner here, once, and `memberships` goes back to meaning only what it says.
+  --
+  -- NULL IS THE PLATFORM BUSINESS AND NOTHING ELSE. 1st Contact is not somebody's
+  -- product — it is the thing whose product is businesses (DOC-42 §8) — so the row
+  -- seeded at the bottom of this file names no owner. Setting one from
+  -- `ensurePlatformOperator` would make "who owns 1st Contact" mean "who logged in
+  -- first", which is worse than saying nothing.
+  owner_account_id TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -277,6 +291,50 @@ CREATE TABLE IF NOT EXISTS counters (
 -- Identity
 -- ---------------------------------------------------------------------------
 
+-- THE PAYER, AND THE OWNER OF BUSINESSES (REQ-194, DOC-40 §2, DOC-42 §6).
+--
+-- IT DID NOT EXIST, AND THE ABSENCE WAS LOAD BEARING RATHER THAN COSMETIC. The
+-- account was simplified down to "a `users` row" — `findAccount` returned a
+-- person, `/api/businesses` reported a person under the label `account`, and a
+-- business was owned by whoever happened to hold the first membership row on it.
+-- That reading cannot express what DOC-42 §6 requires: an entitlement grants an
+-- ACCOUNT access to a THING, and one account may hold several people.
+--
+-- IT IS SCOPED TO A BUSINESS, LIKE EVERY OTHER IDENTITY ROW. "Account" is
+-- relative to the business it is an account of (DOC-42 §6): Alice is an account
+-- of 1st Contact, and Bob is an account of Alice's Plumbing. Defining it as "a
+-- row in the platform's own tenant" would make it platform-only vocabulary,
+-- which is DOC-40 §2.1 rule 1's named failure mode arriving one table lower
+-- down.
+--
+-- `name` IS THE BILLING LABEL AND MAY BE NULL. It is the entity a receipt is
+-- addressed to — "Lagrange Foundry Ltd" — which is not a person's name and is
+-- not known when a contact is first captured. Null means nobody has named it.
+--
+-- IT CARRIES NO FOREIGN KEY TO `tenants`, matching `users`, `memberships` and
+-- `entitlements`, and for the reason a key on `tenants.owner_account_id` would
+-- make plain: the two tables reference each other, so one of the constraints has
+-- to be the one that is written down and the other the one that is not. Neither
+-- is more true than the other, so this file states neither and the UATs drive
+-- the pair instead.
+CREATE TABLE IF NOT EXISTS accounts (
+  id         TEXT PRIMARY KEY,
+  tenant_id  TEXT NOT NULL,
+  name       TEXT,
+  -- 'active' or anything else, exactly like `users.status`. Unconstrained TEXT
+  -- so a state added when billing lands is a code change and not a migration.
+  status     TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  -- The same escape valve `users` and the ticket store's rows carry: a per-account
+  -- fact not worth a column and not worth a migration (a VAT number, a billing
+  -- address) has somewhere to go until it earns one.
+  fields     TEXT NOT NULL DEFAULT '{}'
+);
+
+-- Every account of one business, which is what an operator surface lists.
+CREATE INDEX IF NOT EXISTS idx_accounts_tenant ON accounts (tenant_id);
+
 -- A CONTACT, WHICH IS EVERY ROW IN THIS TABLE (DOC-44 §2). Some of them can sign
 -- in and most cannot; that is `tos_accepted_at`, an ACCESS fact, and it is
 -- independent of `pipeline_stage`, which is where the relationship stands.
@@ -295,6 +353,22 @@ CREATE TABLE IF NOT EXISTS counters (
 CREATE TABLE IF NOT EXISTS users (
   id             TEXT PRIMARY KEY,
   tenant_id      TEXT NOT NULL,
+  -- THE ACCOUNT THIS CONTACT BELONGS TO (REQ-194). NOT NULL, because every
+  -- contact belongs to one: `invitePerson` and `ensurePlatformOperator` mint an
+  -- account alongside the person, so there is no row here that names none and no
+  -- reader has a missing case to handle.
+  --
+  -- MANY-TO-ONE, DEFAULTING TO ONE-TO-ONE. v1 puts exactly one contact on each
+  -- account and nothing adds a second — but a second is a `users` row carrying an
+  -- `account_id` that already exists, which is why this is a column on the person
+  -- rather than a person on the account. Adding the second person later is a row,
+  -- not a migration, and that is the whole of what REQ-194 buys.
+  --
+  -- SO NOTHING MAY READ IT AS ONE-TO-ONE. A `LIMIT 1` over an account's people,
+  -- or a foreign key pointing at a person where the payer is meant, is the defect
+  -- this column exists to remove — see `provisionBusiness`, which writes a
+  -- membership for EVERY person on the owning account.
+  account_id     TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'active',
   display_name   TEXT,
   -- Entry to a business without a membership (DOC-40 §6, REQ-185). The ownership
@@ -312,7 +386,11 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen_at   TEXT,
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL,
-  fields         TEXT NOT NULL DEFAULT '{}'
+  fields         TEXT NOT NULL DEFAULT '{}',
+  -- The one foreign key REQ-194 writes down. It is a parent-child edge with no
+  -- cycle in it, exactly like `user_emails` -> `users`, so it can be enforced
+  -- where the `tenants` <-> `accounts` pair above could not be.
+  FOREIGN KEY (account_id) REFERENCES accounts (id)
 );
 
 -- THE ADDRESSES A CONTACT IS REACHABLE AT (REQ-191). A person has as many as
@@ -431,6 +509,13 @@ CREATE TABLE IF NOT EXISTS entitlements (
 -- subscription — and effective access is the best active grant covering now.
 CREATE INDEX IF NOT EXISTS idx_entitlements_business ON entitlements (business_id, status);
 
+-- AND ONE ON THE SUBJECT, NOW THAT THERE IS A READER (REQ-194). REQ-184 declined
+-- this deliberately — "an index without a reader is a guess at a query nobody has
+-- written" — and the guess is no longer needed: the detail pane asks for every
+-- grant naming one account, which is `WHERE account_id = ?` and is run once per
+-- person an operator opens.
+CREATE INDEX IF NOT EXISTS idx_entitlements_account ON entitlements (account_id);
+
 -- ---------------------------------------------------------------------------
 -- The one seeded row
 -- ---------------------------------------------------------------------------
@@ -439,6 +524,14 @@ CREATE INDEX IF NOT EXISTS idx_entitlements_business ON entitlements (business_i
 -- `forTenant` refuses an unregistered tenant, so without this row a fresh
 -- deployment answers every request from the one path that still reads the var
 -- with `UnknownTenantError`.
+--
+-- ITS PREFIX SAYS `biz` AND NOT `acct` (REQ-194). `newId('acct')` minted BUSINESS
+-- ids, so every business on the deployment read `acct_…` while the noun that
+-- prefix names had no table at all. Now that accounts exist and carry keys of
+-- their own, an id reading `acct_` in a log has to mean an account — so businesses
+-- were reminted under `biz_` and the prefix was freed for the thing it names. The
+-- hex is unchanged: a key is opaque, and reusing the digits keeps this row
+-- recognisably the same business across the rename.
 --
 -- THE ID IS A LITERAL TWO FILES MUST AGREE ON. It is minted once, here, and
 -- copied into `apps/control-app/wrangler.toml` under BOTH `[vars]` and
@@ -450,7 +543,7 @@ CREATE INDEX IF NOT EXISTS idx_entitlements_business ON entitlements (business_i
 -- renaming it touches this row and nothing else in the schema.
 INSERT OR IGNORE INTO tenants (id, name, status, config, created_at)
 VALUES (
-  'acct_51a6746495c8057e886ff98d4208e6b9',
+  'biz_51a6746495c8057e886ff98d4208e6b9',
   '1st Contact',
   'active',
   '{}',

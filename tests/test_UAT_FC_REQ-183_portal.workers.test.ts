@@ -280,7 +280,7 @@ describe('REQ-183 — who reaches it, and who does not', () => {
     const email = anEmail()
     const first = await invite({ email, accountName: 'Salon', endsAt: null })
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
     })
     await lapse(first.businessId)
@@ -341,7 +341,7 @@ describe('REQ-183 — no deletion mechanism is built', () => {
     const email = anEmail()
     const first = await invite({ email, accountName: 'Salon', endsAt: null })
     await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
     })
     const before = await accountFootprint(email)
