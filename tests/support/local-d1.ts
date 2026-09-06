@@ -106,12 +106,17 @@ export function seedIdentity(
   const now = new Date().toISOString()
   const sql = [
     `INSERT OR IGNORE INTO tenants (id, name, status, created_at) VALUES ('${businessId}', '${email}', 'active', '${now}');`,
-    `INSERT OR IGNORE INTO users (id, tenant_id, email, status, platform_operator, invited_at, created_at, updated_at) ` +
-      `VALUES ('${userId}', '${tenantId}', '${email.toLowerCase()}', 'active', 0, '${now}', '${now}', '${now}');`,
+    `INSERT OR IGNORE INTO users (id, tenant_id, status, platform_operator, invited_at, created_at, updated_at) ` +
+      `VALUES ('${userId}', '${tenantId}', 'active', 0, '${now}', '${now}', '${now}');`,
+    // THE ADDRESS IS ITS OWN ROW ([[REQ-191]]). `users` carries no address column
+    // — a person holds as many as they have, and the primary one is the row this
+    // seeds. Casefolded because the schema's CHECK refuses anything else.
+    `INSERT OR IGNORE INTO user_emails (id, user_id, tenant_id, email, is_primary, created_at, updated_at) ` +
+      `VALUES ('eml_${userId}', '${userId}', '${tenantId}', '${email.toLowerCase()}', 1, '${now}', '${now}');`,
     `INSERT OR IGNORE INTO memberships (id, user_id, business_id, role, status, granted_at) ` +
       `VALUES ('mem_${userId}', '${userId}', '${businessId}', 'owner', 'active', '${now}');`,
-    `INSERT OR IGNORE INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, created_at, updated_at) ` +
-      `VALUES ('ent_${userId}', '${businessId}', '${email.toLowerCase()}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
+    `INSERT OR IGNORE INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ` +
+      `VALUES ('ent_${userId}', '${businessId}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
     `UPDATE users SET tos_version = '${TERMS_VERSION}', tos_accepted_at = '${now}' WHERE id = '${userId}';`,
   ].join(' ')
   execFileSync('npx', ['wrangler', 'd1', 'execute', '1stcontact', '--local', '--command', sql], {

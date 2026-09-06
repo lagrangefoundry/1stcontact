@@ -1,4 +1,5 @@
 import {
+  PRIMARY_EMAIL_SQL,
   provisionBusiness,
   type BusinessResult,
   type IdentityEnv,
@@ -65,7 +66,11 @@ export async function inviteAccount(
     displayName: seed.displayName ?? null,
   })
 
-  const user = await env.DB.prepare('SELECT * FROM users WHERE tenant_id = ? AND id = ?')
+  // The primary address is JOINED, because `users` has no address column
+  // ([[REQ-191]]) and `UserRow` is a read model rather than a row.
+  const user = await env.DB.prepare(
+    `SELECT u.*, ${PRIMARY_EMAIL_SQL} AS email FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
+  )
     .bind(platformTenant, invited.person.id)
     .first<UserRow>()
   if (!user) throw new Error('The invited person was not readable back.')
@@ -86,8 +91,10 @@ export async function inviteAccount(
 
   const business: BusinessResult = await provisionBusiness(env, {
     accountUserId: user.id,
-    name: seed.accountName ?? user.email,
-    email: user.email,
+    // The address is a fallback LABEL for the business, not a claim on the grant
+    // ([[REQ-191]]): `provisionBusiness` takes no address any more, because a
+    // grant names its subject by key.
+    name: seed.accountName ?? user.email ?? seed.email,
     plan: seed.plan,
     startsAt: seed.startsAt,
     endsAt: seed.endsAt,

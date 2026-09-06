@@ -537,7 +537,13 @@ const ADMIN_ONLY_MESSAGE = 'Not found.'
  * id and a business id are both opaque strings ([[REQ-168]]).
  */
 export interface BusinessesPayload {
-  account: { name: string | null; email: string } | null
+  /**
+   * `email` IS NULLABLE ([[REQ-191]]). It is the person's PRIMARY address, joined
+   * from `user_emails` rather than read off a column, and a contact reached only
+   * by phone holds none — the shape the old column could not represent. The
+   * chrome already renders whichever of name and address it has.
+   */
+  account: { name: string | null; email: string | null } | null
   /**
    * `lapse` IS PRESENT EXACTLY WHEN `selectable` IS FALSE ([[REQ-180]] §1).
    *
@@ -1167,14 +1173,13 @@ async function routeUncached(
       const business = await provisionBusiness(identityEnv, {
         accountUserId: account.id,
         name,
-        email: account.email,
         plan: typeof body.plan === 'string' ? body.plan : undefined,
         endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,
         // The gate above has already established that this caller owns the 1st
         // Contact business, which is only true of a successful admission — but
         // `ownsPlatformBusiness` is a boolean and not a type predicate (for the
         // reason it gives), so the read is guarded again rather than asserted.
-        grantedBy: admission?.ok ? admission.user.email : undefined,
+        grantedBy: (admission?.ok ? admission.user.email : null) ?? undefined,
         note: typeof body.note === 'string' ? body.note : undefined,
       })
       return json(200, business)

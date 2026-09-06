@@ -7,6 +7,7 @@ import {
   provisionBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { seedContact } from './support/contact'
 import { inviteAccount } from './support/invite-account'
 import {
   openGrant,
@@ -52,15 +53,7 @@ const anEmail = (): string => `req170-${(seq += 1)}@example.test`
 
 /** A contact: known to a business, never invited, and MAY become a member. */
 async function addContact(tenantId: string, email: string): Promise<string> {
-  const id = `usr_contact_${(seq += 1)}`
-  const now = new Date().toISOString()
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, tenantId, email, 'active', now, now)
-    .run()
-  return id
+  return seedContact(identityEnv(), { id: `usr_contact_${(seq += 1)}`, tenantId, email })
 }
 
 beforeAll(async () => {
@@ -138,9 +131,11 @@ describe('REQ-170 — the four relations are not the same table', () => {
     const email = anEmail()
     await inviteAccount(identityEnv(), { email, accountName: "Alice's Plumbing" })
 
+    // Reached through `user_emails` ([[REQ-191]]) — `users` carries no address.
     const onPlatform = await env.DB.prepare(
-      'SELECT COUNT(*) AS n FROM memberships m JOIN users u ON u.id = m.user_id ' +
-        'WHERE u.email = ? AND m.business_id = ?',
+      'SELECT COUNT(*) AS n FROM memberships m ' +
+        'JOIN user_emails e ON e.user_id = m.user_id ' +
+        'WHERE e.email = ? AND m.business_id = ?',
     )
       .bind(email, PLATFORM)
       .first<{ n: number }>()

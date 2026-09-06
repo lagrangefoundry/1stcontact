@@ -32,9 +32,9 @@
 -- platform BUSINESS, because `TENANT_ID` names it and a handle against an
 -- unregistered tenant is refused at construction.
 --
--- ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. REQ-191 (`user_emails`), REQ-193
--- (`user_names`), REQ-194 (`accounts`) and REQ-195 (`contact_events`) land in
--- THIS file. Editing a baseline that has never been applied is not a second
+-- ITS SIBLINGS EDIT IT RATHER THAN FOLLOW IT. REQ-191 (`user_emails`) has, and
+-- REQ-193 (`user_names`), REQ-194 (`accounts`) and REQ-195 (`contact_events`)
+-- will, land in THIS file. Editing a baseline that has never been applied is not a second
 -- rebaseline, which is what "separable in review and in acceptance, not in
 -- deployment" means in practice.
 
@@ -285,15 +285,16 @@ CREATE TABLE IF NOT EXISTS counters (
 -- carry: a per-user fact not worth a column and not worth a migration has
 -- somewhere to go.
 --
--- THE ADDRESS IS STILL A COLUMN HERE, AND THAT IS REQ-191's, NOT THIS TICKET'S.
--- `UNIQUE (tenant_id, email)` makes the address the person — one human, one
--- address, and changing it mutates the key `admit` resolves them through.
--- REQ-191 moves it to `user_emails` and drops the column, editing THIS FILE. The
--- same is true of `display_name` and REQ-193's `user_names`.
+-- THE ADDRESS IS NOT HERE, AND ITS ABSENCE IS THE POINT (REQ-191). This table
+-- used to carry `email TEXT NOT NULL` under `UNIQUE (tenant_id, email)`, which
+-- made the address the PERSON: one human held exactly one, a second address was
+-- a second human who could never be reconciled with the first, and changing
+-- someone's address mutated the key `admit` resolved them through. Addresses are
+-- `user_emails` below. `display_name` is the same defect awaiting REQ-193's
+-- `user_names`.
 CREATE TABLE IF NOT EXISTS users (
   id             TEXT PRIMARY KEY,
   tenant_id      TEXT NOT NULL,
-  email          TEXT NOT NULL,
   status         TEXT NOT NULL DEFAULT 'active',
   display_name   TEXT,
   -- Entry to a business without a membership (DOC-40 §6, REQ-185). The ownership
@@ -314,12 +315,57 @@ CREATE TABLE IF NOT EXISTS users (
   fields         TEXT NOT NULL DEFAULT '{}'
 );
 
+-- THE ADDRESSES A CONTACT IS REACHABLE AT (REQ-191). A person has as many as
+-- they have; the table is the only place any of them is written, and the person
+-- keeps the same key whichever one they are reached at.
+--
+-- `tenant_id` IS CARRIED FROM THE OWNING USER rather than joined for. It is here
+-- so the uniqueness constraint below can be per business without a join, and it
+-- is redundant with `users.tenant_id` in exactly the way an index is: derived,
+-- and worth storing because a constraint has to be able to read it.
+--
+-- `is_primary`, NOT `default`, which is a reserved word in enough dialects to be
+-- worth avoiding.
+--
+-- CASEFOLDED BY THE SCHEMA, NOT BY CONVENTION. `normaliseEmail` is a function
+-- anyone can forget to call and this index is byte-exact, so a differently-cased
+-- address would be a second person `admit` never finds. The CHECK refuses the
+-- unnormalised form outright, so the constraint enforces what the convention
+-- only intended — and a writer that forgets fails loudly at the write rather
+-- than quietly at the next login.
+CREATE TABLE IF NOT EXISTS user_emails (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL,
+  tenant_id  TEXT NOT NULL,
+  email      TEXT NOT NULL CHECK (email = lower(trim(email)) AND email <> ''),
+  is_primary INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
 -- Identity is decided HERE, once, for builder users and captured contacts alike.
 -- Scoped to the business rather than global: two unrelated customers may each
 -- hold a contact with the same address, and a global unique index would make one
 -- of them unrepresentable — and would tell one business that another already
--- knows that address.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tenant_email ON users (tenant_id, email);
+-- knows that address, which is an existence oracle across the barrier.
+--
+-- THE KEY IS GLOBAL AND THE ADDRESS IS NOT, and the two constraints are easy to
+-- run together. `id` is 128 random bits and needs no scope; the address means
+-- one person only within the business that holds it.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_emails_tenant_email
+  ON user_emails (tenant_id, email);
+
+-- EXACTLY ONE PRIMARY PER PERSON, ENFORCED BY THE SCHEMA. A partial unique index
+-- over `user_id` where the flag is set says "at most one" in the one place that
+-- cannot be forgotten; an invariant the application maintains is an invariant
+-- that eventually is not maintained. Zero is representable and is what a person
+-- with no address at all has.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_emails_one_primary
+  ON user_emails (user_id) WHERE is_primary = 1;
+
+-- The reverse lookup: every address of one person, for the detail panel.
+CREATE INDEX IF NOT EXISTS idx_user_emails_user ON user_emails (user_id);
 
 -- Read by the pipeline facet's "who did I ask who never came". Scoped by business
 -- first because every read of this table already is.
@@ -353,8 +399,11 @@ CREATE INDEX IF NOT EXISTS idx_memberships_business ON memberships (business_id)
 -- `account_id` is NULL on every row today and means "a per-business capacity
 -- grant with no subject" — an empty chair, correctly labelled. REQ-194 fills it.
 --
--- `email` NAMES ITS SUBJECT BY ADDRESS, which is a string foreign key to a
--- person and is REQ-191's to remove.
+-- IT NAMES ITS SUBJECT BY KEY AND NOT BY ADDRESS (REQ-191). There used to be an
+-- `email` column beside `account_id`, which is a string foreign key to a person:
+-- the same subject had two representations, an address change had two places to
+-- land, and it could land in one. `account_id` is the only place a grant says
+-- whose it is.
 --
 -- ACCESS AND MONEY ARE SEPARATE. There is no `discount_pct` here and there will
 -- not be one: a comped grant is an entitlement with no subscription, a
@@ -364,7 +413,6 @@ CREATE TABLE IF NOT EXISTS entitlements (
   id           TEXT PRIMARY KEY,
   business_id  TEXT NOT NULL,
   account_id   TEXT,
-  email        TEXT,
   plan         TEXT NOT NULL,
   source       TEXT NOT NULL,
   status       TEXT NOT NULL,
@@ -382,7 +430,6 @@ CREATE TABLE IF NOT EXISTS entitlements (
 -- business accumulates grants over its life — comped, then trial, then
 -- subscription — and effective access is the best active grant covering now.
 CREATE INDEX IF NOT EXISTS idx_entitlements_business ON entitlements (business_id, status);
-CREATE INDEX IF NOT EXISTS idx_entitlements_email ON entitlements (email);
 
 -- ---------------------------------------------------------------------------
 -- The one seeded row

@@ -56,8 +56,15 @@ import { EMAIL_SHAPE_ERROR, isEmailShape } from './builder/email-shape.js'
 // the seam can reach it; a string literal written here would be a second answer
 // to what `invited` is spelt like, free to drift by one character in silence.
 import { INVITED as PIPELINE_INVITED, LEAD as PIPELINE_LEAD } from './builder/people-axes.js'
-import type { IdentityEnv } from './identity'
-import { newId, normaliseEmail } from './identity'
+import type { IdentityEnv, UserEmailRow } from './identity'
+import {
+  emailsOf,
+  newId,
+  normaliseEmail,
+  PRIMARY_EMAIL_SQL,
+  USER_ID_BY_EMAIL_SQL,
+  userEmailInsert,
+} from './identity'
 import type { Scope } from './scope'
 
 /**
@@ -86,7 +93,15 @@ import type { Scope } from './scope'
  */
 export interface Person {
   id: string
-  email: string
+  /**
+   * The PRIMARY address ([[REQ-191]]).
+   *
+   * ONE OF POSSIBLY SEVERAL, and the list shows one because a list shows one
+   * thing per row. The rest are on {@link PersonDetail}. Null is a contact with
+   * no address at all — a person reached only by phone, which the column this
+   * replaced could not represent ([[DOC-42]] §4.1).
+   */
+  email: string | null
   displayName: string | null
   /** `active` is the member relation; anything else is refused `user_inactive`. */
   status: string
@@ -140,16 +155,36 @@ export interface Grant {
   note: string | null
 }
 
-/** Everything the detail pane shows about one person. */
+/** One address, as the detail pane lists it ([[REQ-191]]). */
+export interface PersonEmail {
+  id: string
+  email: string
+  /** Exactly one of a person's addresses may carry this — a partial unique index says so. */
+  isPrimary: boolean
+  createdAt: string
+}
+
+/**
+ * Everything the detail pane shows about one person.
+ *
+ * `emails` IS THE WHOLE SET AND `person.email` IS THE HEAD OF IT ([[REQ-191]]).
+ * Both are here rather than one, because the list and the detail ask different
+ * questions: the row shows who this is, and the pane shows everywhere they can
+ * be reached. A pane that showed only the primary would make a second address
+ * unobservable, which is the state that lets an operator invite the same human
+ * twice.
+ */
 export interface PersonDetail {
   person: Person
+  emails: PersonEmail[]
   operates: OperatedBusiness[]
   grants: Grant[]
 }
 
 interface UserRecord {
   id: string
-  email: string
+  /** Joined from `user_emails`, never a column on `users` ([[REQ-191]]). */
+  email: string | null
   status: string
   display_name: string | null
   invited_at: string | null
@@ -160,9 +195,26 @@ interface UserRecord {
   created_at: string
 }
 
+/**
+ * The person's own columns, plus the primary address joined on ([[REQ-191]]).
+ *
+ * ALIASED OFF `u`, because {@link PRIMARY_EMAIL_SQL} is a correlated subquery and
+ * has to name the row it correlates with. Every query below therefore reads
+ * `FROM users u`, and the aliases keep the record shape identical to what it was
+ * when the address was a column — so nothing downstream of {@link toPerson} had
+ * to learn that the address moved.
+ */
 const USER_COLUMNS =
-  'id, email, status, display_name, invited_at, first_seen_at, last_seen_at, ' +
-  'tos_accepted_at, pipeline_stage, created_at'
+  `u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, u.status AS status, ` +
+  'u.display_name AS display_name, u.invited_at AS invited_at, ' +
+  'u.first_seen_at AS first_seen_at, u.last_seen_at AS last_seen_at, ' +
+  'u.tos_accepted_at AS tos_accepted_at, u.pipeline_stage AS pipeline_stage, ' +
+  'u.created_at AS created_at'
+
+/** `user_emails` rows as the pane wants them — the storage shape stays in `identity.ts`. */
+function toPersonEmail(row: UserEmailRow): PersonEmail {
+  return { id: row.id, email: row.email, isPrimary: row.is_primary === 1, createdAt: row.created_at }
+}
 
 function toPerson(row: UserRecord): Person {
   return {
@@ -192,7 +244,8 @@ function toPerson(row: UserRecord): Person {
  */
 export async function peopleOf(env: IdentityEnv, scope: Scope): Promise<Person[]> {
   const { results } = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? ORDER BY created_at ASC, id ASC`,
+    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? ` +
+      'ORDER BY u.created_at ASC, u.id ASC',
   )
     .bind(scope.businessId)
     .all<UserRecord>()
@@ -213,11 +266,16 @@ export async function personDetail(
   personId: string,
 ): Promise<PersonDetail | null> {
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
+    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
   )
     .bind(scope.businessId, personId)
     .first<UserRecord>()
   if (!row) return null
+
+  // READ AFTER THE SCOPED ROW, never instead of it. `emailsOf` takes a person id
+  // and no tenant — it is a child read, and the row above is what establishes
+  // that this caller may see this person at all.
+  const emails = await emailsOf(env, personId)
 
   const operates = await env.DB.prepare(
     'SELECT m.business_id AS business_id, t.name AS name, m.role AS role, ' +
@@ -239,6 +297,7 @@ export async function personDetail(
 
   return {
     person: toPerson(row),
+    emails: emails.map(toPersonEmail),
     operates: (operates.results ?? []).map((b) => ({
       businessId: b.business_id,
       name: b.name,
@@ -364,8 +423,8 @@ export class InvalidInviteError extends Error {}
  *
  * IT UPDATES, AND INSERTS ONLY WHEN THERE IS NOTHING TO UPDATE. Contact and
  * member are ONE population in two states, and this is the transition between
- * them — so the row `idx_users_tenant_email` already decides is the row that is
- * stamped. [[DOC-42]] §9's own falsifier is *"an invite that inserts rather than
+ * them — so the row `idx_user_emails_tenant_email` already decides is the row
+ * that is stamped. [[DOC-42]] §9's own falsifier is *"an invite that inserts rather than
  * updates"*, and the failure it names is concrete: a contact captured by a form
  * and later invited becomes a SECOND row carrying the same address, which is the
  * exact case [[DOC-40]] cites as the reason contacts and users are one table.
@@ -382,6 +441,19 @@ export class InvalidInviteError extends Error {}
  * fact in the row that this function exists to write. Re-inviting someone already
  * invited — or already a member — is therefore a no-op that reports them back,
  * not an error: the operator asked for a state the system is already in.
+ *
+ * IT MATCHES ON ANY OF THEIR ADDRESSES, NOT ONLY THE PRIMARY ONE ([[REQ-191]]).
+ * A person holds as many addresses as they have, and inviting someone at their
+ * second one has to reach the person their first one reaches — otherwise the
+ * invite creates exactly the duplicate the address table exists to prevent, and
+ * does it at the one surface whose whole job is to avoid making a second row for
+ * somebody already known.
+ *
+ * IT ADDS NO ADDRESS TO A PERSON IT MATCHED. An invite is a pipeline transition,
+ * not an edit of who somebody is — and a match means the address was already
+ * theirs. Which surface ADDS a second address, and re-primaries it, is
+ * [[REQ-189]]'s territory or later; this one writes the first address of a
+ * person it creates and nothing else.
  *
  * `display_name` IS FILLED IN AND NEVER OVERWRITTEN. A name typed at the invite
  * is a courtesy for a row that has none; editing an existing one is [[REQ-183]]
@@ -415,9 +487,10 @@ export async function invitePerson(
 
   const now = new Date().toISOString()
   const existing = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND email = ?`,
+    `SELECT ${USER_COLUMNS} FROM users u ` +
+      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
   )
-    .bind(scope.businessId, email)
+    .bind(scope.businessId, scope.businessId, email)
     .first<UserRecord>()
 
   if (existing) {
@@ -440,7 +513,7 @@ export async function invitePerson(
       .bind(now, displayName, PIPELINE_INVITED, now, existing.id)
       .run()
     const row = await env.DB.prepare(
-      `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
+      `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
     )
       .bind(scope.businessId, existing.id)
       .first<UserRecord>()
@@ -453,17 +526,23 @@ export async function invitePerson(
   // left it unset would produce a member refused `user_inactive` by the door it
   // was supposed to open. The second is the hosting capability, which no invite
   // may ever confer.
+  //
+  // THE PERSON AND THEIR FIRST ADDRESS GO AS ONE BATCH ([[REQ-191]]). They are
+  // one fact in two rows now, and a person written without an address is a person
+  // nothing can find — not `admit`, not the next invite, not this function on its
+  // second press. The address is the primary one, because it is their only one.
   const id = newId('usr')
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, display_name, platform_operator, ' +
-      'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
-      'VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, scope.businessId, email, 'active', displayName, now, PIPELINE_INVITED, now, now, '{}')
-    .run()
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO users (id, tenant_id, status, display_name, platform_operator, ' +
+        'invited_at, pipeline_stage, created_at, updated_at, fields) ' +
+        'VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+    ).bind(id, scope.businessId, 'active', displayName, now, PIPELINE_INVITED, now, now, '{}'),
+    userEmailInsert(env, { userId: id, tenantId: scope.businessId, email, now }),
+  ])
 
   const row = await env.DB.prepare(
-    `SELECT ${USER_COLUMNS} FROM users WHERE tenant_id = ? AND id = ?`,
+    `SELECT ${USER_COLUMNS} FROM users u WHERE u.tenant_id = ? AND u.id = ?`,
   )
     .bind(scope.businessId, id)
     .first<UserRecord>()
@@ -525,16 +604,23 @@ export interface PersonPatch {
 export class InvalidPersonRecordError extends Error {}
 
 /**
- * Is this D1 failure the `(tenant_id, email)` index refusing a duplicate?
+ * Is this D1 failure `idx_user_emails_tenant_email` refusing a duplicate?
  *
  * MATCHED ON THE MESSAGE, because that is what SQLite gives — there is no code
  * on the error to switch on. Deliberately narrow: anything that is not
  * recognisably the unique index is rethrown, so a genuine database failure
  * stays a 500 and is not reported to the operator as "that address is taken".
+ *
+ * IT NAMES `user_emails` NOW ([[REQ-191]]) — the same constraint, moved off
+ * `users` with the column. Left pointing at the old table it would have matched
+ * nothing, and a duplicate address would have reached the operator as a 500.
  */
 function isDuplicateEmail(err: unknown): boolean {
   const said = err instanceof Error ? err.message : String(err)
-  return /UNIQUE constraint failed/i.test(said) && /users\.email|users\.tenant_id/i.test(said)
+  return (
+    /UNIQUE constraint failed/i.test(said) &&
+    /user_emails\.email|user_emails\.tenant_id/i.test(said)
+  )
 }
 
 /**
@@ -548,11 +634,13 @@ function isDuplicateEmail(err: unknown): boolean {
  * one answer to what an address is.
  *
  * CASEFOLDED ON THE WAY IN, for the reason `0005` records and
- * {@link invitePerson} already obeys: the `(tenant_id, email)` index is
+ * {@link invitePerson} already obeys: `idx_user_emails_tenant_email` is
  * byte-exact and `admit` normalises, so an address stored as typed would be a
  * person the front door could no longer find. This is the write that most needs
  * it — an invite at least starts from a fresh row, whereas this can strand a
- * member who was signing in yesterday.
+ * member who was signing in yesterday. The schema refuses the unnormalised form
+ * outright now ([[REQ-191]]), so forgetting it is a failed write rather than a
+ * silent lockout; normalising here is what stops the write failing.
  *
  * A DUPLICATE IS A SENTENCE AND NOT A 500. Two people in one business holding
  * one address is exactly what the index exists to prevent, so hitting it is an
@@ -575,44 +663,68 @@ export async function setPersonRecord(
   personId: string,
   patch: PersonPatch,
 ): Promise<Person> {
-  const sets: string[] = []
-  const binds: unknown[] = []
-
-  if (patch.email !== undefined) {
-    const email = normaliseEmail(patch.email ?? '')
-    if (!isEmailShape(email)) throw new InvalidPersonRecordError(`Email ${EMAIL_SHAPE_ERROR}.`)
-    sets.push('email = ?')
-    binds.push(email)
+  const email = patch.email === undefined ? undefined : normaliseEmail(patch.email ?? '')
+  if (email !== undefined && !isEmailShape(email)) {
+    throw new InvalidPersonRecordError(`Email ${EMAIL_SHAPE_ERROR}.`)
   }
+  if (email === undefined && patch.displayName === undefined) {
+    throw new InvalidPersonRecordError('Nothing to change.')
+  }
+
+  const now = new Date().toISOString()
+
+  // THE PERSON IS RESOLVED FIRST, AND IT IS THE SCOPE CHECK ([[REQ-191]]).
+  // The address lives in another table now, so an `UPDATE ... WHERE tenant_id =
+  // ? AND id = ?` no longer touches every field this patch can change — and a
+  // write to `user_emails` keyed on `user_id` alone would carry no tenant at
+  // all. Asking once, here, keeps one non-oracle answer for both: a caller in
+  // one business guessing an id from another is told what a caller guessing an
+  // id that never existed is told.
+  const found = await env.DB.prepare('SELECT id FROM users u WHERE u.tenant_id = ? AND u.id = ?')
+    .bind(scope.businessId, personId)
+    .first<{ id: string }>()
+  if (!found) throw new UnknownPersonError()
+
   if (patch.displayName !== undefined) {
     // EMPTY BECOMES NULL rather than an empty string, so "no name" has one
     // representation — the one the list already draws `No name yet` for.
-    sets.push('display_name = ?')
-    binds.push((patch.displayName ?? '').trim() || null)
-  }
-  if (sets.length === 0) throw new InvalidPersonRecordError('Nothing to change.')
-
-  const now = new Date().toISOString()
-  sets.push('updated_at = ?')
-  binds.push(now)
-
-  let changed
-  try {
-    changed = await env.DB.prepare(
-      `UPDATE users SET ${sets.join(', ')} WHERE tenant_id = ? AND id = ?`,
-    )
-      .bind(...binds, scope.businessId, personId)
+    await env.DB.prepare('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?')
+      .bind((patch.displayName ?? '').trim() || null, now, personId)
       .run()
-  } catch (err) {
-    if (isDuplicateEmail(err)) {
-      throw new InvalidPersonRecordError('Somebody in this business already has that address.')
-    }
-    throw err
   }
-  // SCOPED BY TENANT AND ID TOGETHER, so a caller in one business guessing an
-  // id from another gets the same answer as one guessing an id that never
-  // existed — the non-oracle rule `personDetail` already keeps.
-  if (!changed.meta?.changes) throw new UnknownPersonError()
+
+  if (email !== undefined) {
+    // IT REWRITES THE PRIMARY ROW RATHER THAN ADDING ONE. This route corrects
+    // who somebody is — a typo in the address they were invited at — and a
+    // correction that left the wrong address behind as a second identity would
+    // keep resolving the person it was meant to stop resolving. ADDING an
+    // address is a different act with a different surface ([[REQ-189]]).
+    //
+    // AND IT INSERTS WHEN THERE IS NOTHING TO REWRITE, so a contact holding no
+    // address — the phone-only shape this table makes representable — gains one
+    // by being given one, rather than silently keeping none.
+    try {
+      const changed = await env.DB.prepare(
+        'UPDATE user_emails SET email = ?, updated_at = ? WHERE user_id = ? AND is_primary = 1',
+      )
+        .bind(email, now, personId)
+        .run()
+      if (!changed.meta?.changes) {
+        await userEmailInsert(env, {
+          userId: personId,
+          tenantId: scope.businessId,
+          email,
+          now,
+        }).run()
+      }
+    } catch (err) {
+      if (isDuplicateEmail(err)) {
+        throw new InvalidPersonRecordError('Somebody in this business already has that address.')
+      }
+      throw err
+    }
+    await env.DB.prepare('UPDATE users SET updated_at = ? WHERE id = ?').bind(now, personId).run()
+  }
 
   const detail = await personDetail(env, scope, personId)
   if (!detail) throw new UnknownPersonError()
@@ -662,9 +774,9 @@ export async function openGrant(env: IdentityEnv, spec: GrantSpec): Promise<Gran
   const startsAt = spec.startsAt ?? now
 
   await env.DB.prepare(
-    'INSERT INTO entitlements (id, business_id, account_id, email, plan, source, status, ' +
+    'INSERT INTO entitlements (id, business_id, account_id, plan, source, status, ' +
       'starts_at, ends_at, granted_by, note, created_at, updated_at) ' +
-      'VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   )
     .bind(
       id,

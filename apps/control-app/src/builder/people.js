@@ -704,6 +704,32 @@ export function createPeoplePanel(options = {}) {
     })
 
     /**
+     * THE OTHER ADDRESSES, READ-ONLY ([[REQ-191]]).
+     *
+     * SHOWN ONLY WHEN THERE ARE SOME. A person holds as many addresses as they
+     * have; the row above and the `Email` field both show the PRIMARY one, so a
+     * section that appeared for everybody would say "and no others" to the whole
+     * list and mean nothing. It appears exactly when there is something the pane
+     * would otherwise be hiding — which is the case that lets an operator invite
+     * the same human twice.
+     *
+     * READ-ONLY BECAUSE NOTHING ADDS ONE YET. Which surface adds an address and
+     * re-primaries it is [[REQ-189]]'s territory or later; editing the `Email`
+     * field rewrites the primary row and leaves these alone. A control that
+     * appeared to offer more than that would be the shape that reads as
+     * supported and is not.
+     */
+    const others = (detail.emails ?? []).filter((entry) => !entry.isPrimary)
+    if (others.length > 0) {
+      const addresses = section(view, 'Other addresses')
+      const list = el('ul', 'builder-people__addresses')
+      for (const entry of others) {
+        list.append(el('li', 'builder-people__address', entry.email))
+      }
+      addresses.append(list)
+    }
+
+    /**
      * WHAT THEY RUN AND WHAT THEY HOLD, IN ONE TABLE ([[REQ-189]]).
      *
      * THE ONLY PLACE A SECOND BUSINESS IS VISIBLE AT ALL. Viewed from 1st

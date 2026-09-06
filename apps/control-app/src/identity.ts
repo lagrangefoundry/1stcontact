@@ -116,7 +116,26 @@ export class IdentityNotConfiguredError extends Error {
 export interface UserRow {
   id: string
   tenant_id: string
-  email: string
+  /**
+   * The PRIMARY address, joined from `user_emails` ([[REQ-191]]).
+   *
+   * NOT A COLUMN ON `users` ANY MORE, and the difference is the whole ticket. It
+   * used to be one, under `UNIQUE (tenant_id, email)`, which made the address the
+   * person: one human held exactly one, a second address was a second human who
+   * could never be reconciled with the first, and changing it mutated the key
+   * `admit` resolved them through. A person now holds as many addresses as they
+   * have and keeps one key whichever of them they are reached at.
+   *
+   * IT SURVIVES ON THIS INTERFACE BECAUSE THIS INTERFACE IS A READ MODEL, not a
+   * row. Every caller that shows a person shows one address, so the read carries
+   * the primary one; a caller that wants all of them asks for all of them
+   * ({@link emailsOf}).
+   *
+   * NULL IS REPRESENTABLE AND IS NOT AN ERROR. A contact reached only by phone
+   * has no address at all ([[DOC-42]] §4.1) — the shape that column could not
+   * hold, and the reason this one is nullable rather than defaulted to ''.
+   */
+  email: string | null
   status: string
   display_name: string | null
   /**
@@ -166,12 +185,16 @@ export interface UserRow {
  * NOTHING MAY ASSERT THAT `account_id` IS A `users.id`. One user is one account
  * today; the day an account has two people on it, that assumption is a migration
  * rather than a row.
+ *
+ * THERE IS NO `email` HERE ANY MORE ([[REQ-191]]). A grant used to carry one
+ * beside `account_id`, which is a string foreign key to a person: the same
+ * subject had two representations, an address change had two places to land, and
+ * it could land in one. A grant names its subject by KEY.
  */
 export interface EntitlementRow {
   id: string
   business_id: string | null
   account_id: string | null
-  email: string | null
   plan: string
   source: string
   status: string
@@ -364,15 +387,111 @@ export const DENIED_MESSAGE =
 export { newId }
 
 /**
- * Email is compared CASEFOLDED, because `idx_users_tenant_email` is not.
+ * Email is compared CASEFOLDED, because `idx_user_emails_tenant_email` is not.
  *
  * SQLite's default collation is byte-exact, so `Sarah@example.com` and
- * `sarah@example.com` would be two rows and two accounts for one person — and
- * the second one would be created by an invite that looked like it had worked.
+ * `sarah@example.com` would be two rows and two people for one human — and the
+ * second one would be created by an invite that looked like it had worked.
  * Normalising on the way in makes the index mean what it is there to mean.
+ *
+ * AND THE SCHEMA NOW REFUSES THE UNNORMALISED FORM OUTRIGHT ([[REQ-191]]).
+ * `user_emails.email` carries `CHECK (email = lower(trim(email)))`, so a writer
+ * that forgets this function fails at the write instead of quietly creating the
+ * person `admit` will never find. This function stays because a caller still has
+ * to normalise what it was TYPED before it can be compared — the check enforces
+ * the invariant, it does not perform the conversion.
  */
 export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase()
+}
+
+/**
+ * The primary address, as a scalar subquery over `user_emails` ([[REQ-191]]).
+ *
+ * ONE DEFINITION SITE, exported because `people.ts` selects people too and a
+ * second copy of this fragment is a second answer to "which address do we show".
+ * It assumes the users table is aliased `u`, which every query using it does.
+ *
+ * IT FALLS BACK TO THE OLDEST ADDRESS rather than returning NULL when no row
+ * carries the flag. The partial unique index guarantees AT MOST one primary and
+ * says nothing about at least one, so a person holding addresses and no primary
+ * is representable — and showing them nothing would be a blank cell where an
+ * address they can actually be reached at exists.
+ */
+export const PRIMARY_EMAIL_SQL =
+  '(SELECT pe.email FROM user_emails pe WHERE pe.user_id = u.id ' +
+  'ORDER BY pe.is_primary DESC, pe.created_at ASC, pe.id ASC LIMIT 1)'
+
+/**
+ * The person this address reaches, within one business — ANY of their addresses,
+ * not only the primary one ([[REQ-191]]).
+ *
+ * WHY ANY AND NOT PRIMARY. Resolving only the primary would mean a person
+ * reached at their second address is a person the system cannot find, so the
+ * front door would refuse them and the invite would create the duplicate this
+ * whole ticket exists to prevent. The address table is the identity, and every
+ * row in it is identity.
+ *
+ * Takes the tenant and the normalised address, in that order.
+ */
+export const USER_ID_BY_EMAIL_SQL =
+  '(SELECT ue.user_id FROM user_emails ue WHERE ue.tenant_id = ? AND ue.email = ?)'
+
+/** One address a person is reachable at. */
+export interface UserEmailRow {
+  id: string
+  email: string
+  is_primary: number
+  created_at: string
+}
+
+/**
+ * Every address one person holds, primary first.
+ *
+ * ORDERED THE SAME WAY {@link PRIMARY_EMAIL_SQL} PICKS, so the head of this list
+ * is the address every other surface is showing. Two orderings would let the
+ * detail panel disagree with the row above it about which address is theirs.
+ */
+export async function emailsOf(env: IdentityEnv, userId: string): Promise<UserEmailRow[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT id, email, is_primary, created_at FROM user_emails WHERE user_id = ? ' +
+      'ORDER BY is_primary DESC, created_at ASC, id ASC',
+  )
+    .bind(userId)
+    .all<UserEmailRow>()
+  return results ?? []
+}
+
+/**
+ * The statement that writes one address, as a statement rather than a call.
+ *
+ * A BUILDER SO IT CAN GO IN A BATCH. A person and their first address are one
+ * fact arriving in two rows, and the two writers of it ({@link
+ * ensurePlatformOperator} and `invitePerson`) both send them as a batch — a
+ * person written without an address is a person nothing can find, which is a
+ * worse state than the write having failed.
+ *
+ * IT NORMALISES rather than trusting the caller. The schema's CHECK would refuse
+ * an unnormalised address anyway; doing it here means the refusal never has to
+ * happen, and there is exactly one place that decides what is stored.
+ */
+export function userEmailInsert(
+  env: IdentityEnv,
+  spec: { userId: string; tenantId: string; email: string; primary?: boolean; now?: string },
+): D1PreparedStatement {
+  const now = spec.now ?? new Date().toISOString()
+  return env.DB.prepare(
+    'INSERT INTO user_emails (id, user_id, tenant_id, email, is_primary, created_at, updated_at) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).bind(
+    newId('eml'),
+    spec.userId,
+    spec.tenantId,
+    normaliseEmail(spec.email),
+    spec.primary === false ? 0 : 1,
+    now,
+    now,
+  )
 }
 
 /** What provisioning one business is told. */
@@ -385,12 +504,15 @@ export interface BusinessSpec {
   /** The business's human label, which `tenants.name` holds and may change. */
   name: string
   /**
-   * The address the grant was made to. [[DOC-40]] §5's entitlement carries both
-   * an account and an email: the email is the claim key for a grant made before
-   * an account exists, and the audit record of who it was made to.
+   * A plan name, not a capability set ([[DOC-40]] §5).
+   *
+   * THERE IS NO `email` BESIDE IT ANY MORE ([[REQ-191]]). It used to be written
+   * into `entitlements.email` as the claim key and the audit record of who a
+   * grant was made to — a string foreign key to a person, which an address
+   * change could leave pointing at nobody. Who a grant is for is `account_id`;
+   * who made it is `granted_by`; and the membership this call writes in the same
+   * batch is the record of whose business it is.
    */
-  email?: string | null
-  /** A plan name, not a capability set ([[DOC-40]] §5). */
   plan?: string
   /** When the grant begins. Defaults to now. */
   startsAt?: string
@@ -464,12 +586,11 @@ export async function provisionBusiness(
       // an omission: provisioning gives a BUSINESS its capacity ([[REQ-184]]), and
       // naming a subject here would make the grant Alice's-personal rather than
       // Alice's-Plumbing's — invisible to every other member the day one is added.
-      'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ends_at, ' +
-        'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, ' +
+        'granted_by, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
       newId('ent'),
       businessId,
-      spec.email ?? null,
       spec.plan ?? 'pro',
       'admin_grant',
       'active',
@@ -716,9 +837,21 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // constant is only what an empty database would otherwise be left showing.
   await d1r2SiteStore(env).createTenant({ id: platformTenant, name: PLATFORM_BUSINESS_NAME })
 
-  // The person. Casefolded on the way in for the reason `normaliseEmail` gives:
-  // `idx_users_tenant_email` is byte-exact, so a differently-cased row would be a
-  // second person this function would never find again.
+  // The person, and their address, which are one fact in two rows ([[REQ-191]]).
+  //
+  // THE ID IS RESOLVED FIRST AND THEN BOUND, where this used to be an
+  // `INSERT ... WHERE NOT EXISTS` over `users.email`. There is no address on
+  // `users` to test any more, and the two rows have to agree on a key that is
+  // minted in JavaScript — so the existence question is asked once, of the table
+  // that now answers it, and both inserts are bound to the same id. They go as a
+  // BATCH: a person written without an address is a person nothing can find,
+  // which is worse than the write having failed.
+  //
+  // IT IS STILL IDEMPOTENT, which is the property that matters here — every
+  // admission by a holder runs this function, so "cheap when there is nothing to
+  // do" is a requirement. A concurrent second run loses to
+  // `idx_user_emails_tenant_email` rather than producing a second person, which
+  // is the same outcome the old `WHERE NOT EXISTS` had against its index.
   //
   // `pipeline_stage` IS WRITTEN AND NOT LEFT TO THE DEFAULT ([[REQ-188]],
   // [[DOC-44]] §4). This insert stamps `invited_at`, so leaving the stage at
@@ -727,47 +860,42 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // the stage from the stamp, which is precisely what the column exists to stop.
   // Nothing here touches `tos_accepted_at`: the seeded operator still has to
   // accept the terms like anybody else, which is the access axis and is theirs.
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, platform_operator, invited_at, ' +
-      'pipeline_stage, created_at, updated_at, fields) SELECT ?, ?, ?, ?, 1, ?, ?, ?, ?, ? ' +
-      'WHERE NOT EXISTS (SELECT 1 FROM users WHERE tenant_id = ? AND email = ?)',
+  const existing = await env.DB.prepare(
+    `SELECT user_id FROM user_emails WHERE tenant_id = ? AND email = ?`,
   )
-    .bind(
-      newId('usr'),
-      platformTenant,
-      normalised,
-      'active',
-      now,
-      PIPELINE_INVITED,
-      now,
-      now,
-      '{}',
-      platformTenant,
-      normalised,
-    )
-    .run()
+    .bind(platformTenant, normalised)
+    .first<{ user_id: string }>()
+  const userId = existing?.user_id ?? newId('usr')
+
+  if (!existing) {
+    await env.DB.batch([
+      env.DB.prepare(
+        'INSERT INTO users (id, tenant_id, status, platform_operator, invited_at, ' +
+          'pipeline_stage, created_at, updated_at, fields) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
+      ).bind(userId, platformTenant, 'active', now, PIPELINE_INVITED, now, now, '{}'),
+      userEmailInsert(env, { userId, tenantId: platformTenant, email: normalised, now }),
+    ])
+  }
 
   // The hosting half, for a person who already had a row without it. Separate
   // from the insert above because the row may predate the var — an operator
   // invited as an ordinary customer and later named here must gain the column,
-  // and an `INSERT ... WHERE NOT EXISTS` says nothing about a row that exists.
+  // and an insert says nothing about a row that exists.
   await env.DB.prepare(
-    'UPDATE users SET platform_operator = 1, updated_at = ? WHERE tenant_id = ? AND email = ? ' +
-      'AND platform_operator = 0',
+    'UPDATE users SET platform_operator = 1, updated_at = ? WHERE id = ? AND platform_operator = 0',
   )
-    .bind(now, platformTenant, normalised)
+    .bind(now, userId)
     .run()
 
-  // The ownership half — the row this function exists for. Inserted FROM a select
-  // over `users` rather than against an id computed above, so it agrees with a
-  // row an earlier run or an invite already wrote.
+  // The ownership half — the row this function exists for. Guarded by
+  // `NOT EXISTS` so it agrees with a row an earlier run or an invite already
+  // wrote rather than adding a second membership onto the same business.
   await env.DB.prepare(
     'INSERT INTO memberships (id, user_id, business_id, role, status, granted_by, granted_at) ' +
-      "SELECT ?, u.id, ?, 'owner', 'active', ?, ? FROM users u " +
-      'WHERE u.tenant_id = ? AND u.email = ? AND NOT EXISTS (' +
-      'SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.business_id = ?)',
+      "SELECT ?, ?, ?, 'owner', 'active', ?, ? WHERE NOT EXISTS (" +
+      'SELECT 1 FROM memberships m WHERE m.user_id = ? AND m.business_id = ?)',
   )
-    .bind(newId('mem'), platformTenant, 'PLATFORM_ADMINS', now, platformTenant, normalised, platformTenant)
+    .bind(newId('mem'), userId, platformTenant, 'PLATFORM_ADMINS', now, userId, platformTenant)
     .run()
 
   // AND THE GRANT, WITHOUT WHICH THE MEMBERSHIP IS HALF A REPAIR. `admit` admits
@@ -781,8 +909,8 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // the platform's own business would expire the operator out of their own
   // deployment at a wall-clock time nobody chose.
   await env.DB.prepare(
-    'INSERT INTO entitlements (id, business_id, email, plan, source, status, starts_at, ' +
-      "ends_at, granted_by, note, created_at, updated_at) SELECT ?, ?, ?, 'pro', 'admin_grant', " +
+    'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ' +
+      "ends_at, granted_by, note, created_at, updated_at) SELECT ?, ?, 'pro', 'admin_grant', " +
       "'active', ?, NULL, ?, ?, ?, ? WHERE NOT EXISTS (" +
       'SELECT 1 FROM entitlements WHERE business_id = ? AND account_id IS NULL ' +
       "AND status = 'active' AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?))",
@@ -790,7 +918,6 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
     .bind(
       newId('ent'),
       platformTenant,
-      normalised,
       now,
       'PLATFORM_ADMINS',
       "The platform business's own capacity, seeded by PLATFORM_ADMINS ([[DOC-40]] §6).",
@@ -830,14 +957,31 @@ export async function findAccount(env: IdentityEnv, email: string): Promise<User
   return findUser(env, platformTenant, normalised)
 }
 
-/** The person, by the identity the index decides ([[DOC-40]] §2). */
+/**
+ * The person, by the identity `user_emails` decides ([[DOC-40]] §2,
+ * [[REQ-191]]).
+ *
+ * RESOLVED THROUGH THE ADDRESS TABLE, and through ANY address in it. This used
+ * to be `WHERE tenant_id = ? AND email = ?` against a column on `users`, which
+ * meant one human could be reached at exactly one address and a second one was a
+ * second person. Matching any of them is what makes the second address reach the
+ * first person — the property {@link USER_ID_BY_EMAIL_SQL} exists for.
+ *
+ * THE TENANT IS ASKED TWICE, deliberately. The subquery scopes the ADDRESS and
+ * the outer clause scopes the PERSON, and an address row whose tenant disagreed
+ * with its owner's would otherwise resolve across the barrier — which is the one
+ * mistake a carried, denormalised `tenant_id` makes available.
+ */
 async function findUser(
   env: IdentityEnv,
   tenantId: string,
   email: string,
 ): Promise<UserRow | null> {
-  return env.DB.prepare('SELECT * FROM users WHERE tenant_id = ? AND email = ?')
-    .bind(tenantId, email)
+  return env.DB.prepare(
+    `SELECT u.*, ${PRIMARY_EMAIL_SQL} AS email FROM users u ` +
+      `WHERE u.tenant_id = ? AND u.id = ${USER_ID_BY_EMAIL_SQL}`,
+  )
+    .bind(tenantId, tenantId, email)
     .first<UserRow>()
 }
 
@@ -1127,7 +1271,7 @@ async function bestActiveGrant(
   now: string,
 ): Promise<EntitlementRow | null> {
   return env.DB.prepare(
-    'SELECT id, business_id, account_id, email, plan, source, status, starts_at, ends_at ' +
+    'SELECT id, business_id, account_id, plan, source, status, starts_at, ends_at ' +
       'FROM entitlements ' +
       'WHERE business_id = ? AND account_id IS NULL AND status = ? AND starts_at <= ? ' +
       'AND (ends_at IS NULL OR ends_at > ?) ' +
