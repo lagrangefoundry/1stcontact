@@ -5,16 +5,27 @@ type: request
 title: The Account is a table, and a business is owned by one
 created_by: xgd
 created_at: '2026-09-05T22:45:59.255932+00:00'
-updated_at: '2026-09-06T19:26:47.763992+00:00'
+updated_at: '2026-09-06T19:32:47.813050+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d079cf1f
+  commits:
+  - working_sha: d1b3fa897b668717020ae152ac2920087d9e3e88
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7ea4e12b724f90d5cfc114c31a105c8d811ea5e0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e1fbf4319d33b5bc75c34e641ba367d3e2bcd8c8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.114
 ---
 
 # The Account is a table, and a business is owned by one
