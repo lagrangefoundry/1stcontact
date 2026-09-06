@@ -5,10 +5,10 @@ type: request
 title: A person's name is a table, and every part of it is optional
 created_by: xgd
 created_at: '2026-09-05T21:48:44.015345+00:00'
-updated_at: '2026-09-06T19:02:51.255399+00:00'
+updated_at: '2026-09-06T19:44:53.568356+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 5
