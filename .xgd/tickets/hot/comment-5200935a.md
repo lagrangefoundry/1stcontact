@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:00:30.441656+00:00'
+updated_at: '2026-09-06T22:02:09.546827+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -697,5 +697,48 @@ Two notes: the seed's `bob/carol/dave` are people of **Alice's Plumbing**, not t
 <!-- xgd-chat role="user" ts="2026-09-06T22:00:30.106597+00:00" -->
 #### You
 http://127.0.0.1:8799/login <-- no longer has the list of roles, we deleted them, I believe the was a ticket for a script to repopulate them (REQ-192)
+
+<!-- xgd-turn id="b9321fa9-a827-45bb-9c92-5a29234519f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T22:02:09.020474+00:00" -->
+#### Claude
+Builder is down (the background shell was stopped). And the sim's list is a real bug — let me look before restarting.
+
+The on-disk query works and returns all five. So the code is fine — the **running sim is a stale process** started before commit `3d9529a` (REQ-192) fixed that query for the new schema. It needs restarting.
+
+Found it — PID 35981 on 8799, plus two other sims on 8801/8802 from other sessions. Restarting the stale one and bringing the builder back up.
+
+Can't kill it — it's your process, outside my sandbox. Rather than block on that, I'll stand up a fresh sim on another port and point the builder at it. The cookie is set on `127.0.0.1` and cookies ignore ports, so this works transparently.
+
+The list is back. Confirming the builder came up against it.
+
+Fixed, and it wasn't REQ-192 being missing — REQ-192 already landed and includes the fix.
+
+## What was wrong
+
+`knownPeople()` in `bin/access-sim` reads the identity list from D1. REQ-191 moved addresses off `users` into `user_emails`, so the old `SELECT email FROM users` began failing outright. The function catches errors deliberately — the comment even names this symptom:
+
+> the symptom was not an error but a login page that had silently stopped listing anybody
+
+Commit `3d9529a` (REQ-192, "the test data is a command, not hand-typed SQL") already rewrote that query to join `user_emails`. I ran it directly and it returns all five people.
+
+**The code was fine. The running process was stale** — started before 11:54 today, so it still held the pre-REQ-191 query in memory. `knownPeople()` runs per request, but a process can't re-read its own source.
+
+I couldn't kill PID 35981 — it's yours, outside my sandbox — so rather than block, I started a fresh sim on **8800** and repointed the builder at it. Cookies ignore ports, so nothing else changes.
+
+## Running now
+
+| | |
+|---|---|
+| Access simulator | **http://127.0.0.1:8800/login** ← new port |
+| Builder | http://localhost:8788 |
+
+The login page now lists all five: `alice@plumbing.example`, `alice@oldsalon.example`, `bob@`, `carol@`, `dave@`.
+
+The new sim generates a fresh keypair at boot, so any token from the old one is now invalid — sign in again from 8800. The `kid` carries the pid precisely so the Worker treats a restart as a key rotation and picks it up immediately rather than caching the dead key for an hour.
+
+Your stale sim on 8799 is still holding that port, along with sims on 8801 and 8802 from other sessions. Worth killing 35981 when convenient so the default port is clean.
+
+The walkthrough from my last message is unchanged apart from the port — log in as `alice@plumbing.example`, then Contacts → `+` → tick → Invite.
 
 <!-- xgd-chat-end -->
