@@ -21,20 +21,36 @@
  *   - the trailing-slash 301 holds. Load-bearing, not cosmetic: rendered pages
  *     reference assets document-relatively, so the missing slash resolves every
  *     one of them a level too high and yields an unstyled page (REQ-109/REQ-111);
- *   - a rendered snapshot's referenced assets ALL return 200, with the content
+ *   - a published site's referenced assets ALL return 200, with the content
  *     type their extension implies — including the ones referenced from inside
  *     CSS, which is where fonts hide;
- *   - `cache-control` and `x-robots-tag` are right on the draft channel;
- *   - an unknown slug 404s, and does so INDISTINGUISHABLY from a slug that
+ *   - `cache-control` is the published policy, and a miss is a 404 rather than a
+ *     listing;
+ *   - an unknown site key 404s, and does so INDISTINGUISHABLY from a key that
  *     exists but has published nothing. A 404 that says which would answer
  *     questions about sites the asker has no business knowing exist.
  *   - the control app is PRIVATE (REQ-147): unauthenticated callers are
  *     challenged rather than served, on the Access hostname AND on the
  *     workers.dev hostname an Access policy cannot cover.
+ *
+ * THERE IS ONE CHANNEL TO SMOKE (REQ-149 D7, [[BUG-57]]). Five checks here used
+ * to address `/site/<slug>/draft/<sha>/…`, behind a `--draft` flag. That channel
+ * was deleted with the `1c deploy` that was the only producer of sha-addressed
+ * snapshots — `apps/public-site/src/routes.ts` treats `draft` as an ordinary
+ * segment again — so those checks could only skip forever, or fail against a
+ * route the grammar no longer has. They are gone rather than stubbed, and what
+ * they were worth (the asset crawl, the cache policy, the 404-on-miss) is
+ * asserted on the published channel instead, where it can actually run.
  */
 
-/** Draft snapshots are content-addressed, so their bytes can never change. */
-const DRAFT_CACHE = 'public, max-age=31536000, immutable'
+/**
+ * Published URLs are not revision-scoped, so they are cached briefly rather than
+ * immutably. Restated from `PUBLISHED_CACHE` in `apps/public-site/src/index.ts`
+ * for the same reason {@link EXPECTED_CONTENT_TYPES} is — this file runs outside
+ * the Worker bundle and cannot import it, so the duplication is across a
+ * deployment boundary and is pinned by a UAT.
+ */
+const PUBLISHED_CACHE = 'public, max-age=60'
 
 /**
  * Extension → the content type the origin must answer with.
@@ -66,8 +82,37 @@ const EXPECTED_CONTENT_TYPES = {
 
 export { EXPECTED_CONTENT_TYPES }
 
-/** A slug nothing will ever deploy. Fixed, so a failure is reproducible. */
-const ABSENT_SLUG = 'smoke-absent-site-do-not-deploy'
+/** A site key nothing will ever deploy. Fixed, so a failure is reproducible. */
+const ABSENT_SITE_KEY = 'smoke-absent-site-do-not-deploy'
+
+/**
+ * The deployment this repo describes: the apex, and the control app beside it.
+ *
+ * Declared as a PAIR because the second is only knowable from the first here.
+ * `apps/control-app/wrangler.toml` declares exactly one route,
+ * `app.1stcontact.io/*`, and public-site owns the `*.1stcontact.io/*` wildcard
+ * with `app` reserved out of it — so for this apex the control origin is a fact
+ * about the deployment rather than an operator's choice, and making the operator
+ * retype it on every run is what left the REQ-147 gate unchecked by default
+ * ([[BUG-57]]).
+ */
+const DEFAULT_ORIGIN = 'https://1stcontact.io'
+const DEFAULT_CONTROL_ORIGIN = 'https://app.1stcontact.io'
+
+/**
+ * The control app's origin for the origin under test, or `undefined`.
+ *
+ * DERIVED FOR THE DEFAULT APEX AND NOTHING ELSE. The tempting generalisation is
+ * `app.<host>` of whatever `--origin` says, and it is wrong: pointed at a
+ * staging or preview origin that has no `app.` sibling, the fetch throws and the
+ * check reports a FAILING control gate for a host that was never the control
+ * app. A false alarm on the one assertion that says "the builder is not public"
+ * is worse than a skip, so anything other than the known apex must be named with
+ * `--control-origin`.
+ */
+function controlOriginFor(origin) {
+  return origin === DEFAULT_ORIGIN ? DEFAULT_CONTROL_ORIGIN : undefined
+}
 
 class Failed extends Error {}
 
@@ -143,13 +188,12 @@ export function referencedFromCss(css, cssUrl) {
  * actually fails.
  */
 export async function runSmoke(options = {}) {
-  const origin = (options.origin ?? 'https://1stcontact.io').replace(/\/+$/, '')
-  const slug = options.slug
-  const draft = options.draft
+  const origin = (options.origin ?? DEFAULT_ORIGIN).replace(/\/+$/, '')
+  const siteKey = options.siteKey
   const doFetch = options.fetch ?? globalThis.fetch
   const maxAssets = options.maxAssets ?? 200
   const strip = (value) => (value ? value.replace(/\/+$/, '') : undefined)
-  const controlOrigin = strip(options.controlOrigin)
+  const controlOrigin = strip(options.controlOrigin) ?? strip(controlOriginFor(origin))
   const workersDevOrigin = strip(options.workersDevOrigin)
   const checks = []
 
@@ -178,66 +222,61 @@ export async function runSmoke(options = {}) {
     return `200 ${res.headers.get('content-type') ?? ''}`
   })
 
-  await check('unknown_slug_not_found', async () => {
-    const res = await get(`${origin}/site/${ABSENT_SLUG}/`)
-    ensure(res.status === 404, `an unknown slug returned ${res.status}, expected 404`)
+  await check('unknown_site_not_found', async () => {
+    const res = await get(`${origin}/site/${ABSENT_SITE_KEY}/`)
+    ensure(res.status === 404, `an unknown site key returned ${res.status}, expected 404`)
     return '404'
   })
 
-  if (slug) {
-    await check('unpublished_slug_indistinguishable', async () => {
-      const absent = await get(`${origin}/site/${ABSENT_SLUG}/`)
-      const known = await get(`${origin}/site/${slug}/`)
+  // ── the published channel (REQ-111) ────────────────────────────────────────
+  //
+  // Every check below needs a site key, and there is no way to discover one from
+  // here: the script takes no dependency, so it cannot ask D1, and a key is 128
+  // random bits, so it cannot be guessed. `--site-key` is therefore the one thing
+  // the operator has to supply, and without it these skip.
+  //
+  // THE SEGMENT IS A KEY, NOT A SLUG ([[REQ-190]]). It used to carry a name the
+  // operator chose, which is why the flag and two of the check names said "slug".
+  // Renamed rather than aliased: an unknown argument is already an error here, so
+  // `--slug` fails loudly instead of quietly smoking the wrong thing.
+  if (siteKey) {
+    const siteRoot = `${origin}/site/${siteKey}`
+
+    await check('unpublished_site_indistinguishable', async () => {
+      const absent = await get(`${origin}/site/${ABSENT_SITE_KEY}/`)
+      const known = await get(`${siteRoot}/`)
       // Either the site has a live revision (200) or it has not (404). Only the
       // second is comparable — and it is the case that leaks, so it is the one
       // worth asserting on.
-      if (known.status === 200) return 'slug has a live revision; nothing to compare'
+      if (known.status === 200) return 'the site has a live revision; nothing to compare'
       ensure(
         known.status === absent.status,
-        `'${slug}' returned ${known.status} but an unknown slug returned ${absent.status} — ` +
-          'the difference tells a stranger the site exists',
+        `'${siteKey}' returned ${known.status} but an unknown site key returned ` +
+          `${absent.status} — the difference tells a stranger the site exists`,
       )
       const knownBody = await known.text()
       const absentBody = await absent.text()
       ensure(
         knownBody === absentBody,
-        `the 404 body for '${slug}' differs from the one for an unknown slug`,
+        `the 404 body for '${siteKey}' differs from the one for an unknown site key`,
       )
       return `both ${known.status}, identical bodies`
     })
 
     await check('published_root_redirects', async () => {
-      const res = await get(`${origin}/site/${slug}`)
-      ensure(res.status === 301, `GET /site/${slug} returned ${res.status}, expected 301`)
+      const res = await get(siteRoot)
+      ensure(res.status === 301, `GET /site/${siteKey} returned ${res.status}, expected 301`)
       const location = res.headers.get('location') ?? ''
       ensure(
-        location.endsWith(`/site/${slug}/`),
-        `redirect went to '${location}', expected it to end with /site/${slug}/`,
-      )
-      return `301 → ${location}`
-    })
-  } else {
-    skip('unpublished_slug_indistinguishable', 'no --slug given')
-    skip('published_root_redirects', 'no --slug given')
-  }
-
-  if (slug && draft) {
-    const draftRoot = `${origin}/site/${slug}/draft/${draft}`
-
-    await check('draft_root_redirects', async () => {
-      const res = await get(draftRoot)
-      ensure(res.status === 301, `GET ${draftRoot} returned ${res.status}, expected 301`)
-      const location = res.headers.get('location') ?? ''
-      ensure(
-        location.endsWith(`/draft/${draft}/`),
-        `redirect went to '${location}', expected it to end with /draft/${draft}/`,
+        location.endsWith(`/site/${siteKey}/`),
+        `redirect went to '${location}', expected it to end with /site/${siteKey}/`,
       )
       return `301 → ${location}`
     })
 
-    await check('draft_index_serves_html', async () => {
-      const res = await get(`${draftRoot}/`)
-      ensure(res.status === 200, `GET ${draftRoot}/ returned ${res.status}, expected 200`)
+    await check('published_index_serves_html', async () => {
+      const res = await get(`${siteRoot}/`)
+      ensure(res.status === 200, `GET ${siteRoot}/ returned ${res.status}, expected 200`)
       const type = res.headers.get('content-type') ?? ''
       ensure(
         type === EXPECTED_CONTENT_TYPES.html,
@@ -246,32 +285,34 @@ export async function runSmoke(options = {}) {
       return `200 ${type}`
     })
 
-    await check('draft_cache_and_robots_policy', async () => {
-      const res = await get(`${draftRoot}/`)
+    await check('published_cache_policy', async () => {
+      const res = await get(`${siteRoot}/`)
       const cache = res.headers.get('cache-control') ?? ''
-      ensure(cache === DRAFT_CACHE, `cache-control was '${cache}', expected '${DRAFT_CACHE}'`)
-      const robots = res.headers.get('x-robots-tag') ?? ''
       ensure(
-        robots.includes('noindex'),
-        `x-robots-tag was '${robots}', expected it to contain 'noindex' — ` +
-          'a preview must not be indexable',
+        cache === PUBLISHED_CACHE,
+        `cache-control was '${cache}', expected '${PUBLISHED_CACHE}'`,
       )
-      return `${cache} / ${robots}`
+      return cache
     })
 
-    await check('draft_miss_is_noindex_404', async () => {
-      const res = await get(`${draftRoot}/smoke-no-such-asset.css`)
-      ensure(res.status === 404, `a missing draft asset returned ${res.status}, expected 404`)
-      const robots = res.headers.get('x-robots-tag') ?? ''
+    await check('published_miss_is_404', async () => {
+      // Named so it cannot collide with a real page: the assertion is about the
+      // bucket's answer to a key nobody uploaded, and a site that happened to
+      // publish this file would turn a pass into a false one.
+      const res = await get(`${siteRoot}/smoke-no-such-asset.css`)
+      ensure(res.status === 404, `a missing published asset returned ${res.status}, expected 404`)
+      // A 404 and never a listing — the bucket's key space is not a browsable
+      // filesystem and must not become one by accident (public-site/index.ts).
+      const res2 = await get(`${siteRoot}/smoke-no-such-directory/`)
       ensure(
-        robots.includes('noindex'),
-        `a draft 404 carried x-robots-tag '${robots}' — the policy must apply to misses too`,
+        res2.status === 404,
+        `a missing published directory returned ${res2.status}, expected 404`,
       )
-      return '404 noindex'
+      return '404 for a missing object and a missing directory'
     })
 
-    await check('draft_assets_resolve', async () => {
-      const indexUrl = `${draftRoot}/`
+    await check('published_assets_resolve', async () => {
+      const indexUrl = `${siteRoot}/`
       const res = await get(indexUrl)
       ensure(res.status === 200, `GET ${indexUrl} returned ${res.status}, expected 200`)
       const html = await res.text()
@@ -323,13 +364,14 @@ export async function runSmoke(options = {}) {
     })
   } else {
     for (const name of [
-      'draft_root_redirects',
-      'draft_index_serves_html',
-      'draft_cache_and_robots_policy',
-      'draft_miss_is_noindex_404',
-      'draft_assets_resolve',
+      'unpublished_site_indistinguishable',
+      'published_root_redirects',
+      'published_index_serves_html',
+      'published_cache_policy',
+      'published_miss_is_404',
+      'published_assets_resolve',
     ]) {
-      skip(name, 'no --slug/--draft given')
+      skip(name, 'no --site-key given')
     }
   }
 
@@ -367,7 +409,10 @@ export async function runSmoke(options = {}) {
         : `${res.status}${location ? ` → ${location}` : ''}`
     })
   } else {
-    skip('control_app_challenges_unauthenticated', 'no --control-origin given')
+    skip(
+      'control_app_challenges_unauthenticated',
+      `no --control-origin given, and ${origin} is not the apex one is known for`,
+    )
   }
 
   if (workersDevOrigin) {
@@ -393,21 +438,26 @@ export async function runSmoke(options = {}) {
   }
 
   const failed = checks.filter((c) => c.status === 'fail')
-  return { ok: failed.length === 0, origin, slug, draft, controlOrigin, workersDevOrigin, checks, failed }
+  return { ok: failed.length === 0, origin, siteKey, controlOrigin, workersDevOrigin, checks, failed }
 }
 
 const USAGE = `bin/smoke — prove a deployed origin actually serves.
 
-  bin/smoke [--origin <url>] [--slug <slug>] [--draft <sha>] [--max-assets <n>]
+  bin/smoke [--origin <url>] [--site-key <key>] [--max-assets <n>]
             [--control-origin <url>] [--workers-dev-origin <url>]
 
   --origin              default https://1stcontact.io
-  --slug                a deployed site; without it the site checks are skipped
-  --draft               a draft snapshot id; without it the snapshot checks are skipped
-  --control-origin      the control app, e.g. https://app.1stcontact.io — asserts an
-                        unauthenticated caller is challenged, not served (REQ-147)
+  --site-key            a published site's key, the first segment of /site/<key>/;
+                        without it the published-channel checks are skipped
+  --control-origin      the control app — asserts an unauthenticated caller is
+                        challenged, not served (REQ-147). Defaults to
+                        https://app.1stcontact.io when --origin is the apex that
+                        names it; any other origin must say where its control app
+                        is, or the check is skipped rather than guessed at
   --workers-dev-origin  the control app's workers.dev hostname — asserts the door an
-                        Access policy cannot cover is shut
+                        Access policy cannot cover is shut. Not derivable: the
+                        hostname embeds the account subdomain, so it is skipped
+                        unless given
 
 Exits 0 when every check passes, 1 naming the ones that did not. Skipped checks
 never fail the run, but they are counted in the summary — a run that skipped
@@ -421,20 +471,19 @@ function parseArgs(argv) {
       case '-h':
       case '--help':
         return { help: true }
-      case '--origin':
-      case '--slug':
-      case '--draft': {
+      case '--origin': {
         const value = argv[i + 1]
         if (value === undefined) throw new Error(`${arg} needs a value`)
         opts[arg.slice(2)] = value
         i += 1
         break
       }
+      case '--site-key':
       case '--control-origin':
       case '--workers-dev-origin': {
         const value = argv[i + 1]
         if (value === undefined) throw new Error(`${arg} needs a value`)
-        // --control-origin → controlOrigin
+        // --control-origin → controlOrigin, --site-key → siteKey
         opts[arg.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value
         i += 1
         break
