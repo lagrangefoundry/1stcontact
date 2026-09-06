@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:37:09.198040+00:00'
+updated_at: '2026-09-06T20:38:11.816663+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,5 +220,42 @@ Paste the number and I'll take it from there.
 ```
 
 ???
+
+<!-- xgd-turn id="b974f6f6-8c2d-432b-8052-5927119fe7f7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T20:38:11.516741+00:00" -->
+#### Claude
+That `0` shouldn't be possible, and that's the useful part — it means the *measurement* is lying, not the export.
+
+I just checked the zsh semantics directly, including the failure modes that would make the value empty:
+
+```
+zsh -c 'export FOO=""; env | grep -c "^FOO="'                   → 1
+zsh -c 'export BAR="$(cat /nope 2>/dev/null)"; env|grep -c "^BAR="' → 1
+```
+
+An exported-but-empty variable still appears in `env` as `RESEND_API_KEY=`, so it still matches `^RESEND_API_KEY=`. Even if your secrets file were missing or empty, the count would be **1**. A count of **0** means the name is absent from the environment entirely — which cannot follow a successful `export` at an interactive prompt.
+
+So something is shadowing `env` or `grep`. Run these three:
+
+```bash
+typeset -p RESEND_API_KEY
+type env grep
+/usr/bin/env | grep -c '^RESEND_API_KEY='
+```
+
+- `typeset -p` is authoritative and bypasses both: it prints `export RESEND_API_KEY='re_...'` if exported, `typeset RESEND_API_KEY='re_...'` if it's a plain shell variable, and errors if unset.
+- `type env grep` will name the culprit if one of them is an alias or function. An `alias env='env -i'` — or anything in a plugin that filters key-shaped vars out of `env` for shoulder-surfing safety — produces exactly this result.
+- `/usr/bin/env` bypasses any alias, since aliases don't apply to absolute paths.
+
+If `typeset -p` shows it *is* exported, then the earlier `bin/deploy` output was simply from before the export, and the fix is just to re-run:
+
+```bash
+bin/deploy --dry-run control-app
+```
+
+You want to see `would push RESEND_API_KEY to 1stcontact-control-app` next to the ANTHROPIC line.
+
+One thing your command already got right, worth noting since it's the trap I mentioned last time: `"$(cat file)"` strips trailing newlines, so a file saved with a trailing `\n` still yields a clean key. Confirm with `printf '%s' "${#RESEND_API_KEY}"` — it should equal the key's exact length with no whitespace.
 
 <!-- xgd-chat-end -->
