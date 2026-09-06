@@ -1,6 +1,7 @@
 import { assembleSite } from './assemble'
 import type { LoadResult } from './assemble'
 import { contentTypeOf } from './content-type'
+import { newId } from './ids'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
 import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
@@ -47,20 +48,36 @@ import { StoreConflictError } from './site-store'
  * with {@link UnknownTenantError}, so there is no such thing as a handle that
  * silently reads nothing.
  *
+ * THE BARRIER MOVED ONE LEVEL IN AND DID NOT WEAKEN ([[REQ-190]]). The child
+ * tables no longer carry `tenant_id` — a site's own row is the only place its
+ * business is recorded, which is what makes moving a site an UPDATE of one
+ * column rather than a five-table rewrite plus an object copy. What the handle
+ * resolves is slug -> `sites.id`, under `WHERE tenant_id = ?`, and every verb
+ * below goes through that resolution. A site key is 128 random bits and is
+ * obtainable ONLY through that business-scoped lookup, so the property is the
+ * same one stated about a key instead of about a filter: reaching another
+ * business's rows needs a value this handle cannot produce.
+ *
  * IT IS A REVISION STORE NOW (REQ-149). Metadata is D1 rows (`site_revisions`);
  * the frozen definition and the rendered output are R2 objects under
  * `sites/<slug>/rev/<NNNN>/`, which is the layout `public-site` already reads.
  * There is NO manifest object any more: D1 is the only record, and the live
  * revision is derived as the highest id rather than stored anywhere (DOC-12 §4).
  *
- * THE PUBLISHED SIDE HAS NO TENANT IN ITS KEYS, and that is deliberate rather
- * than an oversight carried forward. `/site/<slug>/` is the public URL grammar
- * and `sites/<slug>/rev/...` is the layout beneath it; threading a tenant through
- * both would change every published URL to protect against something a claim
- * can prevent outright. So the FIRST publish of a slug claims it in
- * `published_sites`, and a second tenant reaching for the same one is refused
- * with {@link SlugClaimedError} BEFORE any byte is written. Per-tenant hostnames
- * are the real long-term answer (DOC-12 §9) and remain additive to this.
+ * THE PUBLISHED ADDRESS IS THE SITE'S KEY ([[REQ-190]]). `/site/<slug>/` used to
+ * be the public grammar, which meant `public-site` had to resolve a site from a
+ * name with no business attached — so the slug had to be unique across the whole
+ * deployment, claimed first-come in a `published_sites` table, and the customer
+ * who published `home` second was told the name was taken. That refusal is an
+ * existence oracle across the barrier, and the constraint behind it made the
+ * slug a key: a *chosen* name doing a key's job.
+ *
+ * So the address is `/site/<siteId>/` — the same unguessable value the joins
+ * use, which is what makes one column enough. The slug becomes what the rule
+ * says it is: an attribute, unique inside its own business, free to change. The
+ * claim table and its refusal are DELETED rather than relaxed, because with an
+ * opaque address there is nothing left to claim. Per-business hostnames (DOC-12
+ * §9) remain the readable answer and remain purely additive.
  */
 
 /** The two bindings this adapter needs, named as the Workers declare them. */
@@ -150,14 +167,44 @@ export interface TenantSiteStore extends SiteStore {
    * has to remember to perform.
    */
   createDraft(slug: string): Promise<boolean>
+  /**
+   * The site's KEY, or `null` when this business holds no site by that slug.
+   *
+   * The one place a caller may learn a site's id, and the reason the barrier
+   * still holds after the child tables stopped carrying a business ([[REQ-190]]):
+   * the lookup is scoped to this handle's tenant, so a key for another
+   * business's site is not something any caller can obtain from here.
+   *
+   * Callers need it because the key is the PUBLIC ADDRESS — `/site/<siteId>/` —
+   * so anything building a published URL asks for it rather than passing the
+   * slug it happens to hold.
+   */
+  siteKey(slug: string): Promise<string | null>
   /** Drop a site and its assets entirely, so `hasDraft` goes back to false. */
   forget(slug: string): Promise<void>
   /** The slugs this tenant holds a draft for, sorted. */
   slugs(): Promise<string[]>
+  /**
+   * Every site key this business owns — the erasure enumeration ([[REQ-190]]).
+   *
+   * WHAT IT IS FOR. A site's objects live under `draft/<siteId>/` and
+   * `sites/<siteId>/rev/…`, with no business in either prefix, which is what
+   * makes moving a site copy nothing. The cost of that is that a business's
+   * objects are no longer under one prefix, so the [[DOC-37]] erasure path
+   * cannot be a single sweep: it reads these keys and deletes under each, then
+   * deletes the prefixes that ARE business-owned — `t/<tenant>/blob/`,
+   * `t/<tenant>/ref/` and `kb/<tenant>/`, where blobs and knowledge belong to
+   * the business rather than to any site.
+   *
+   * Separate from {@link slugs} deliberately. A slug is what the operator calls
+   * a site and is the wrong thing to build a key from; this returns what the
+   * keys are actually made of, and nothing displays it.
+   */
+  siteKeys(): Promise<string[]>
 }
 
 /**
- * The assembled draft, memoised per ISOLATE and keyed `(tenantId, slug)` — BUG-37.
+ * The assembled draft, memoised per ISOLATE and keyed by the site's key — BUG-37.
  *
  * WHAT THIS IS FOR. `PreviewRenderer.file()` calls `loadDraft` on EVERY request,
  * before it consults its own render cache, and that ordering is deliberate: the
@@ -185,17 +232,18 @@ export interface TenantSiteStore extends SiteStore {
  * check: `forTenant` still runs per request, and a deactivated tenant is still
  * turned away before this map is ever reached.
  *
- * BOUNDED BY CONSTRUCTION. Keyed by `(tenantId, slug)` and REPLACED when the
+ * BOUNDED BY CONSTRUCTION. Keyed by the SITE'S OWN KEY and REPLACED when the
  * version moves, rather than keyed by version and accumulated — so it holds at
  * most one entry per site and cannot grow with edit count. That distinction is
  * the whole reason this is not itself a leak.
+ *
+ * THE KEY USED TO BE `(tenantId, slug)` and is now `sites.id` ([[REQ-190]]),
+ * which removes the composition rather than changing it: a site key is globally
+ * unique by construction, so there is no pair to join and no separator to get
+ * wrong. It also survives a rename and a move, which the old key could not — a
+ * memo keyed by a name would have gone stale the moment the name changed.
  */
 const ASSEMBLED = new Map<string, { version: number; result: LoadResult }>()
-
-/** The memo key. `\0` cannot occur in either part, so the join is unambiguous. */
-function assembledKey(tenantId: string, slug: string): string {
-  return `${tenantId}\0${slug}`
-}
 
 /**
  * Drop a site's memo. For tests that need a cold assemble, and for `forget`,
@@ -225,50 +273,6 @@ function decode<T>(text: string): T {
  */
 function isUnsafeName(name: string): boolean {
   return name.includes('/') || name.includes('\\') || name === '..' || name.startsWith('../')
-}
-
-/** A publish refused because another account already owns the public slug. */
-export class SlugClaimedError extends Error {
-  readonly name = 'SlugClaimedError'
-  readonly slug: string
-
-  constructor(slug: string) {
-    super(
-      `The published address '${slug}' is already in use by another account. ` +
-        'Rename the site and publish again.',
-    )
-    this.slug = slug
-  }
-}
-
-/**
- * Claim `slug` for `tenantId`, or refuse (REQ-149 D2).
- *
- * ONE STATEMENT DECIDES IT. The insert is conditional (`ON CONFLICT DO NOTHING`)
- * and the read that follows asks who actually holds the row — so two tenants
- * publishing the same new slug at the same moment both attempt the insert,
- * exactly one wins, and the loser reads the winner's tenant id rather than its
- * own. A read-then-insert would leave the window open between the two.
- *
- * Re-claiming a slug this tenant already holds is a no-op, which is what makes
- * every publish after the first ordinary.
- */
-async function claimSlug(
-  DB: D1Database,
-  tenantId: string,
-  slug: string,
-  at: string,
-): Promise<void> {
-  await DB.prepare(
-    'INSERT INTO published_sites (slug, tenant_id, first_published_at) VALUES (?, ?, ?) ' +
-      'ON CONFLICT (slug) DO NOTHING',
-  )
-    .bind(slug, tenantId, at)
-    .run()
-  const row = await DB.prepare('SELECT tenant_id FROM published_sites WHERE slug = ?')
-    .bind(slug)
-    .first<{ tenant_id: string }>()
-  if (!row || row.tenant_id !== tenantId) throw new SlugClaimedError(slug)
 }
 
 /** One revision as `site_revisions` holds it. */
@@ -354,90 +358,154 @@ export function d1r2SiteStore(env: SiteStoreEnv): SiteStoreRoot {
     },
   }
 }
-
 /**
- * Every verb below carries `tenantId` into its SQL. That is not a convention a
- * reader has to trust: the value is captured here, once, and no verb takes a
- * tenant argument, so there is no call site at which the wrong one could be
- * passed.
+ * Every verb below resolves its site through `tenantId`. That is not a
+ * convention a reader has to trust: the value is captured here, once, no verb
+ * takes a tenant argument, and the ONLY way a site key enters this closure is
+ * {@link siteIdOf}, whose WHERE clause carries it.
+ *
+ * WHAT REPLACED "TENANT IN EVERY QUERY" ([[REQ-190]]). Every statement used to
+ * filter `tenant_id = ? AND slug = ?`, which put the business in twenty-two
+ * places and the site's *name* in twenty-two more. Now one lookup turns the
+ * slug into the site's key and the rest of the SQL names only that. The
+ * isolation argument is unchanged in strength and shorter to make: a key is 128
+ * random bits, it is minted by `createDraft` and read by `siteIdOf`, and both
+ * are inside a business-scoped statement.
+ *
+ * THE PRICE IS ONE ROUND-TRIP, AND IT IS NOT MEMOISED. `sites` is reached by a
+ * unique index, so the lookup is the cheapest read D1 does — and a memo would
+ * have to be invalidated by `createDraft` and `forget`, which is exactly the
+ * kind of cache whose staleness reads as data belonging to a site that no longer
+ * exists. The one hot path, `loadDraft`, resolves the row it already had to read
+ * and passes the key down, so it costs nothing there.
  */
 function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
   const { DB, SITES } = env
 
-  /** The R2 key for one asset. Tenant-first, so a prefix listing is per-account. */
-  const assetKey = (slug: string, name: string): string =>
-    `draft/${tenantId}/${slug}/assets/${name}`
+  /**
+   * The R2 prefix holding one site's draft: `draft/<siteId>/`.
+   *
+   * NO BUSINESS IN IT, and that is what makes a move copy nothing ([[REQ-190]]).
+   * It used to be `draft/<tenant>/<slug>/`, so a site carried both the name it
+   * might be renamed away from and the business it might be moved out of, in
+   * every object key it owned. Erasure ([[DOC-37]]) reaches these objects by
+   * enumerating the business's site ids and deleting under each — see
+   * {@link TenantSiteStore.siteKeys} — rather than by one prefix sweep.
+   */
+  const draftPrefix = (siteId: string): string => `draft/${siteId}/`
 
+  /** The R2 key for one draft asset. */
+  const assetKey = (siteId: string, name: string): string =>
+    `${draftPrefix(siteId)}assets/${name}`
+
+  /**
+   * The site row, keyed by the slug this business knows it as.
+   *
+   * `id` comes back with it because almost every caller needs both, and reading
+   * them separately would be two round-trips for one row.
+   */
   const siteRow = (
     slug: string,
-  ): Promise<{ site_json: string | null; version: number; counter: number } | null> =>
-    DB.prepare('SELECT site_json, version, counter FROM sites WHERE tenant_id = ? AND slug = ?')
-      .bind(tenantId, slug)
-      .first<{ site_json: string | null; version: number; counter: number }>()
-
-  const pageNames = async (slug: string): Promise<string[]> => {
-    const { results } = await DB.prepare(
-      'SELECT name FROM site_pages WHERE tenant_id = ? AND slug = ? ORDER BY name',
+  ): Promise<{
+    id: string
+    site_json: string | null
+    version: number
+    counter: number
+  } | null> =>
+    DB.prepare(
+      'SELECT id, site_json, version, counter FROM sites WHERE tenant_id = ? AND slug = ?',
     )
       .bind(tenantId, slug)
+      .first<{ id: string; site_json: string | null; version: number; counter: number }>()
+
+  /** The site's key alone — the business-scoped lookup the barrier rests on. */
+  const siteIdOf = async (slug: string): Promise<string | null> => {
+    const row = await DB.prepare('SELECT id FROM sites WHERE tenant_id = ? AND slug = ?')
+      .bind(tenantId, slug)
+      .first<{ id: string }>()
+    return row?.id ?? null
+  }
+
+  const assetNames = async (siteId: string): Promise<string[]> => {
+    const { results } = await DB.prepare(
+      'SELECT name FROM site_assets WHERE site_id = ? ORDER BY name',
+    )
+      .bind(siteId)
       .all<{ name: string }>()
     return (results ?? []).map((r) => r.name)
   }
 
-  const assetNames = async (slug: string): Promise<string[]> => {
+  const readPagesOf = async (siteId: string): Promise<StoredPage[]> => {
     const { results } = await DB.prepare(
-      'SELECT name FROM site_assets WHERE tenant_id = ? AND slug = ? ORDER BY name',
+      'SELECT name, page FROM site_pages WHERE site_id = ? ORDER BY name',
     )
-      .bind(tenantId, slug)
-      .all<{ name: string }>()
-    return (results ?? []).map((r) => r.name)
+      .bind(siteId)
+      .all<{ name: string; page: string }>()
+    return (results ?? []).map((r) => ({
+      name: r.name,
+      page: decode<Record<string, unknown>>(r.page),
+    }))
   }
 
   return {
     tenantId,
 
+    async siteKey(slug) {
+      return siteIdOf(slug)
+    },
+
     async createDraft(slug) {
       const now = new Date().toISOString()
+      // THE KEY IS MINTED HERE, which is why `newId` had to move down into the
+      // store ([[REQ-190]]): a site comes into existence at this statement and
+      // nowhere else, so this is the only place its key can be decided.
+      //
       // `meta.changes` IS THE ANSWER, and it is D1's own count of rows the
       // statement wrote — 1 when the insert landed, 0 when `OR IGNORE` swallowed
       // it. Reading the row back instead would be a second round-trip and a
       // race: another writer could create the site between the check and the
       // insert, and the caller would be told it created something it did not.
+      //
+      // `OR IGNORE` STILL SWALLOWS THE DUPLICATE, but the constraint it fires on
+      // is now `idx_sites_tenant_slug` rather than the primary key. That is the
+      // same promise made about the right thing: a business may hold one site
+      // per slug, and the id it would have been given is discarded unused.
       const { meta } = await DB.prepare(
-        'INSERT OR IGNORE INTO sites (tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
-          'VALUES (?, ?, NULL, 0, 0, ?, ?)',
+        'INSERT OR IGNORE INTO sites ' +
+          '(id, tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
+          'VALUES (?, ?, ?, NULL, 0, 0, ?, ?)',
       )
-        .bind(tenantId, slug, now, now)
+        .bind(newId('site'), tenantId, slug, now, now)
         .run()
       return meta.changes > 0
     },
 
     async forget(slug) {
-      // BUG-37 — the memo goes first. A site recreated under the same slug starts
-      // at version 0 again, so an entry left behind could be mistaken for the new
-      // site's by a version comparison that is, correctly, only about writes.
-      ASSEMBLED.delete(assembledKey(tenantId, slug))
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return
+      // BUG-37 — the memo goes first. A site recreated under the same slug is a
+      // NEW key now, so a stale entry could not be mistaken for it the way it
+      // could when the memo was keyed by name — but the entry would still leak,
+      // and dropping it is the same one line.
+      ASSEMBLED.delete(siteId)
       // R2 first: an orphaned object is invisible and costs storage, whereas an
       // asset row pointing at bytes that are already gone would read back as a
       // present asset with no content.
-      const listed = await SITES.list({ prefix: `draft/${tenantId}/${slug}/` })
-      for (const object of listed.objects) await SITES.delete(object.key)
-      // The child tables cascade from `sites` (see the migration), so one delete
-      // is the whole site — but D1 only enforces that with foreign keys on, so
-      // they are deleted explicitly rather than assumed.
-      const published = await SITES.list({ prefix: `${PUBLISHED_ROOT}/${slug}/` })
-      for (const object of published.objects) await SITES.delete(object.key)
+      for (const key of await listKeys(SITES, draftPrefix(siteId))) await SITES.delete(key)
+      // The child tables cascade from `sites` (see the baseline), but D1 only
+      // enforces that with foreign keys on, so they are deleted explicitly rather
+      // than assumed.
+      const published = await listKeys(SITES, `${PUBLISHED_ROOT}/${siteId}/`)
+      for (const key of published) await SITES.delete(key)
       await DB.batch([
-        DB.prepare('DELETE FROM site_changes WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-        DB.prepare('DELETE FROM site_assets WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-        DB.prepare('DELETE FROM site_pages WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-        DB.prepare('DELETE FROM site_revisions WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-        // The claim goes with it, so the slug becomes available again. Scoped to
-        // this tenant in the WHERE clause: a handle must never be able to
-        // release another account's claim, even on a slug it cannot otherwise
-        // reach.
-        DB.prepare('DELETE FROM published_sites WHERE slug = ? AND tenant_id = ?').bind(slug, tenantId),
-        DB.prepare('DELETE FROM sites WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
+        DB.prepare('DELETE FROM site_changes WHERE site_id = ?').bind(siteId),
+        DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteId),
+        DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteId),
+        DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteId),
+        // Scoped to this tenant as well as to the key, so the statement reads as
+        // what it is: a handle may only drop a site of its own business, even
+        // holding a key it could not otherwise have obtained.
+        DB.prepare('DELETE FROM sites WHERE id = ? AND tenant_id = ?').bind(siteId, tenantId),
       ])
     },
 
@@ -450,8 +518,17 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return (results ?? []).map((r) => r.slug)
     },
 
+    async siteKeys() {
+      const { results } = await DB.prepare(
+        'SELECT id FROM sites WHERE tenant_id = ? ORDER BY id',
+      )
+        .bind(tenantId)
+        .all<{ id: string }>()
+      return (results ?? []).map((r) => r.id)
+    },
+
     async hasDraft(slug) {
-      return (await siteRow(slug)) !== null
+      return (await siteIdOf(slug)) !== null
     },
 
     async readSiteJson(slug) {
@@ -460,21 +537,15 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async readPages(slug) {
-      const { results } = await DB.prepare(
-        'SELECT name, page FROM site_pages WHERE tenant_id = ? AND slug = ? ORDER BY name',
-      )
-        .bind(tenantId, slug)
-        .all<{ name: string; page: string }>()
-      const pages: StoredPage[] = (results ?? []).map((r) => ({
-        name: r.name,
-        page: decode<Record<string, unknown>>(r.page),
-      }))
-      return pages
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return []
+      return readPagesOf(siteId)
     },
 
     async write(slug, change: SiteWrite) {
       const row = await siteRow(slug)
       if (!row) throw new Error(`No site '${slug}' in this store.`)
+      const siteId = row.id
 
       // NOTE what is deliberately NOT here: a version check against `row`. It
       // would be two round-trips away from the batch, so a writer could still
@@ -492,7 +563,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // chosen rather than left to chance.
       for (const { name, bytes } of change.assets ?? []) {
         if (isUnsafeName(name)) continue
-        await SITES.put(assetKey(slug, name), bytes as unknown as ArrayBuffer, {
+        await SITES.put(assetKey(siteId, name), bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })
       }
@@ -502,50 +573,38 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
       if (change.siteJson !== undefined) {
         statements.push(
-          DB.prepare('UPDATE sites SET site_json = ? WHERE tenant_id = ? AND slug = ?').bind(
+          DB.prepare('UPDATE sites SET site_json = ? WHERE id = ?').bind(
             encode(change.siteJson),
-            tenantId,
-            slug,
+            siteId,
           ),
         )
       }
       for (const { name, page } of change.pages ?? []) {
         statements.push(
           DB.prepare(
-            'INSERT INTO site_pages (tenant_id, slug, name, page) VALUES (?, ?, ?, ?) ' +
-              'ON CONFLICT (tenant_id, slug, name) DO UPDATE SET page = excluded.page',
-          ).bind(tenantId, slug, name, encode(page)),
+            'INSERT INTO site_pages (site_id, name, page) VALUES (?, ?, ?) ' +
+              'ON CONFLICT (site_id, name) DO UPDATE SET page = excluded.page',
+          ).bind(siteId, name, encode(page)),
         )
       }
       for (const name of change.removePages ?? []) {
         statements.push(
-          DB.prepare(
-            'DELETE FROM site_pages WHERE tenant_id = ? AND slug = ? AND name = ?',
-          ).bind(tenantId, slug, name),
+          DB.prepare('DELETE FROM site_pages WHERE site_id = ? AND name = ?').bind(siteId, name),
         )
       }
       for (const { name, bytes } of change.assets ?? []) {
         if (isUnsafeName(name)) continue
         statements.push(
           DB.prepare(
-            'INSERT INTO site_assets (tenant_id, slug, name, r2_key, content_type, size) ' +
-              'VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (tenant_id, slug, name) DO UPDATE SET ' +
+            'INSERT INTO site_assets (site_id, name, r2_key, content_type, size) ' +
+              'VALUES (?, ?, ?, ?, ?) ON CONFLICT (site_id, name) DO UPDATE SET ' +
               'r2_key = excluded.r2_key, content_type = excluded.content_type, size = excluded.size',
-          ).bind(
-            tenantId,
-            slug,
-            name,
-            assetKey(slug, name),
-            contentTypeOf(name),
-            bytes.byteLength,
-          ),
+          ).bind(siteId, name, assetKey(siteId, name), contentTypeOf(name), bytes.byteLength),
         )
       }
       for (const name of change.removeAssets ?? []) {
         statements.push(
-          DB.prepare(
-            'DELETE FROM site_assets WHERE tenant_id = ? AND slug = ? AND name = ?',
-          ).bind(tenantId, slug, name),
+          DB.prepare('DELETE FROM site_assets WHERE site_id = ? AND name = ?').bind(siteId, name),
         )
       }
 
@@ -567,17 +626,19 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         // aborted first.
         statements.push(
           DB.prepare(
-            'INSERT INTO sites (tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
-              'SELECT tenant_id, slug, site_json, version, counter, created_at, updated_at FROM sites ' +
-              'WHERE tenant_id = ? AND slug = ? AND version <> ?',
-          ).bind(tenantId, slug, change.expect),
+            'INSERT INTO sites ' +
+              '(id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at) ' +
+              'SELECT id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at ' +
+              'FROM sites WHERE id = ? AND version <> ?',
+          ).bind(siteId, change.expect),
         )
       }
 
       statements.push(
-        DB.prepare(
-          'UPDATE sites SET version = version + 1, updated_at = ? WHERE tenant_id = ? AND slug = ?',
-        ).bind(now, tenantId, slug),
+        DB.prepare('UPDATE sites SET version = version + 1, updated_at = ? WHERE id = ?').bind(
+          now,
+          siteId,
+        ),
       )
 
       try {
@@ -595,15 +656,19 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async listAssets(slug) {
-      return assetNames(slug)
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return []
+      return assetNames(siteId)
     },
 
     async readAsset(slug, name) {
       if (isUnsafeName(name)) return null
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return null
       const row = await DB.prepare(
-        'SELECT r2_key FROM site_assets WHERE tenant_id = ? AND slug = ? AND name = ?',
+        'SELECT r2_key FROM site_assets WHERE site_id = ? AND name = ?',
       )
-        .bind(tenantId, slug, name)
+        .bind(siteId, name)
         .first<{ r2_key: string }>()
       if (!row) return null
       const object = await SITES.get(row.r2_key)
@@ -623,20 +688,19 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       const at = row.counter + 1
       const record: JournalRecord = { ...entry, at, ts: entry.ts ?? new Date().toISOString() }
       await DB.batch([
-        DB.prepare(
-          'INSERT INTO site_changes (tenant_id, slug, at, record) VALUES (?, ?, ?, ?)',
-        ).bind(tenantId, slug, at, encode(record)),
-        DB.prepare('UPDATE sites SET counter = ? WHERE tenant_id = ? AND slug = ?').bind(
+        DB.prepare('INSERT INTO site_changes (site_id, at, record) VALUES (?, ?, ?)').bind(
+          row.id,
           at,
-          tenantId,
-          slug,
+          encode(record),
         ),
+        DB.prepare('UPDATE sites SET counter = ? WHERE id = ?').bind(at, row.id),
         // The window, enforced by deleting what aged out rather than by
         // rewriting a bounded blob — the arithmetic is `nextJournal`'s
         // `slice(-JOURNAL_WINDOW)`, expressed as the rows it would have dropped.
-        DB.prepare(
-          'DELETE FROM site_changes WHERE tenant_id = ? AND slug = ? AND at <= ?',
-        ).bind(tenantId, slug, at - JOURNAL_WINDOW),
+        DB.prepare('DELETE FROM site_changes WHERE site_id = ? AND at <= ?').bind(
+          row.id,
+          at - JOURNAL_WINDOW,
+        ),
       ])
       return at
     },
@@ -646,11 +710,11 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       const counter = row?.counter ?? 0
       const from =
         typeof since === 'number' && Number.isFinite(since) ? Math.max(0, Math.trunc(since)) : 0
-      const { results } = await DB.prepare(
-        'SELECT at, record FROM site_changes WHERE tenant_id = ? AND slug = ? ORDER BY at',
-      )
-        .bind(tenantId, slug)
-        .all<{ at: number; record: string }>()
+      const { results } = row
+        ? await DB.prepare('SELECT at, record FROM site_changes WHERE site_id = ? ORDER BY at')
+            .bind(row.id)
+            .all<{ at: number; record: string }>()
+        : { results: [] as { at: number; record: string }[] }
       const retained = results ?? []
       const changes = retained.filter((r) => r.at > from).map((r) => decode<JournalRecord>(r.record))
       // `sliceSince`'s rule, restated over rows: the oldest counter the window
@@ -662,24 +726,27 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     // -- revisions (REQ-149) -------------------------------------------------
 
     async revisions(slug): Promise<RevisionEntry[]> {
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return []
       const { results } = await DB.prepare(
         'SELECT id, published_at, published_by, message, based_on, changes, sha ' +
-          'FROM site_revisions WHERE tenant_id = ? AND slug = ? ORDER BY id',
+          'FROM site_revisions WHERE site_id = ? ORDER BY id',
       )
-        .bind(tenantId, slug)
+        .bind(siteId)
         .all<RevisionRow>()
       return (results ?? []).map(rowToRevision)
     },
 
     async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
-      // THE CLAIM COMES FIRST, before a single byte is written, because AC-8 is
-      // that a refused publish leaves the live site untouched. Checking after the
-      // upload would mean a rejected tenant had already overwritten the very
-      // objects the other tenant is serving.
-      await claimSlug(DB, tenantId, slug, entry.publishedAt)
+      // THE SITE'S KEY IS RESOLVED FIRST, before a single byte is written, and it
+      // is what every key below is built from. There is no claim to make any more
+      // ([[REQ-190]]): the published address IS this key, so no other business
+      // can be publishing to it and there is nothing to be refused.
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) throw new Error(`No site '${slug}' in this store.`)
 
-      const source = publishedSourcePrefix(slug, entry.id)
-      const out = publishedOutPrefix(slug, entry.id)
+      const source = publishedSourcePrefix(siteId, entry.id)
+      const out = publishedOutPrefix(siteId, entry.id)
 
       // `source/` travels with `out/`, so what lands is a complete DOC-12
       // revision rather than only its render. D1 holds the MUTABLE draft; this is
@@ -718,12 +785,11 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // serves a 404.
       await DB.prepare(
         'INSERT INTO site_revisions ' +
-          '(tenant_id, slug, id, published_at, published_by, message, based_on, changes, sha) ' +
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          '(site_id, id, published_at, published_by, message, based_on, changes, sha) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
         .bind(
-          tenantId,
-          slug,
+          siteId,
           entry.id,
           entry.publishedAt,
           entry.by,
@@ -736,17 +802,19 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async readRevision(slug, id): Promise<StoredSnapshot | null> {
+      const siteId = await siteIdOf(slug)
+      if (siteId === null) return null
       const row = await DB.prepare(
-        'SELECT id FROM site_revisions WHERE tenant_id = ? AND slug = ? AND id = ?',
+        'SELECT id FROM site_revisions WHERE site_id = ? AND id = ?',
       )
-        .bind(tenantId, slug, id)
+        .bind(siteId, id)
         .first<{ id: number }>()
       // The ROW vouches for the revision, never the bucket's key space. An
       // interrupted publish can leave objects behind; without a row they are
       // unreachable rather than quietly readable as a revision nobody finished.
       if (!row) return null
 
-      const prefix = publishedSourcePrefix(slug, id)
+      const prefix = publishedSourcePrefix(siteId, id)
       const siteJsonObject = await SITES.get(`${prefix}/site.json`)
       const siteJson = siteJsonObject
         ? decode<Record<string, unknown>>(await siteJsonObject.text())
@@ -798,28 +866,22 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
     async loadDraft(slug): Promise<DraftSnapshot | null> {
       const row = await siteRow(slug)
-      const key = assembledKey(tenantId, slug)
-      if (!row) {
-        // A site the store no longer holds must not leave a memo behind that
-        // would describe a LATER site of the same name (see `forget`).
-        ASSEMBLED.delete(key)
-        return null
-      }
+      if (!row) return null
 
       // BUG-37 — the memo, checked against the version this request just read.
-      const hit = ASSEMBLED.get(key)
+      const hit = ASSEMBLED.get(row.id)
       if (hit && hit.version === row.version) return { result: hit.result, stamp: `d1:${row.version}` }
 
-      const pages = await this.readPages(slug)
+      const pages = await readPagesOf(row.id)
       const result = assembleSite({
         slug,
         // Descriptive only — no request-time path reads it (see `LoadedSite`).
-        sourceDir: `d1:${tenantId}/${slug}/draft`,
+        sourceDir: `d1:${row.id}/draft`,
         base: row.site_json ? decode<Record<string, unknown>>(row.site_json) : {},
         pages: pages.map((p) => p.page),
-        assetFiles: await assetNames(slug),
+        assetFiles: await assetNames(row.id),
       })
-      ASSEMBLED.set(key, { version: row.version, result })
+      ASSEMBLED.set(row.id, { version: row.version, result })
       return { result, stamp: `d1:${row.version}` }
     },
   }

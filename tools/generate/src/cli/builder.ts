@@ -87,6 +87,18 @@ function localTenantStore(ctx: StoreContext, store: SiteStore): TenantSiteStore 
     forget: async () => {
       throw new Error('The local builder transport does not delete sites — use the filesystem.')
     },
+    // THE SLUG IS THE KEY HERE, and that is not a stub ([[REQ-190]]). In the
+    // cloud a site has an opaque key because it must survive a rename and a move
+    // between businesses; on the filesystem the site IS the directory
+    // `storage/sites/<slug>/`, there are no businesses to move between, and a
+    // rename is `mv`. So the local transport answers with the only identifier it
+    // has, which is also exactly the value this transport has always used.
+    siteKey: async (slug: string) =>
+      cmdList({ cwd: ctx.cwd, sandbox: ctx.root === 'sandbox' }).some((s) => s.slug === slug)
+        ? slug
+        : null,
+    siteKeys: async () =>
+      cmdList({ cwd: ctx.cwd, sandbox: ctx.root === 'sandbox' }).map((s) => s.slug),
   }) as TenantSiteStore
 }
 

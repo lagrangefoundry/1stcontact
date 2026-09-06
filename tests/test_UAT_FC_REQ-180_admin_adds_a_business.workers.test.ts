@@ -301,8 +301,10 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     expect(grant?.granted_by).toBe(operator)
 
     // And something to edit, which is what makes the business usable rather than
-    // merely present.
-    expect(created.siteSlug).toBe(created.businessId)
+    // merely present. Called `home` — a word, not the business id ([[REQ-190]]):
+    // the starter slug was the id only to dodge the global published-slug claim,
+    // and there is no claim to dodge now.
+    expect(created.siteSlug).toBe('home')
   })
 
   it('test_UAT_FC_REQ-180_creating_an_account_provisions_its_first_business', async () => {

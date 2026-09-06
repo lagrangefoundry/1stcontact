@@ -264,10 +264,16 @@ describe('REQ-178 — provisioning a second business', () => {
       )
         .bind(accountId)
         .first<Record<string, unknown>>()
+      // THROUGH THE SITE'S OWN ROW ([[REQ-190]]). `site_pages` carries no
+      // `tenant_id` any more — a site's own row is the only place its business
+      // is recorded, which is what makes moving a site an update of one column —
+      // so the business is reached by joining rather than by a second copy of it
+      // on the child row.
       const page = await env.DB.prepare(
-        'SELECT name FROM site_pages WHERE tenant_id = ? AND slug = ? ORDER BY name',
+        'SELECT p.name FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
+          'WHERE s.tenant_id = ? ORDER BY p.name',
       )
-        .bind(accountId, accountId)
+        .bind(accountId)
         .first<{ name: string }>()
       return { tenant, membership, grant, page }
     }
@@ -277,7 +283,10 @@ describe('REQ-178 — provisioning a second business', () => {
     // And the pieces that are per-business by construction still differ, so the
     // comparison above is not passing because both sides are empty.
     expect(added.businessId).not.toBe(invited.businessId)
-    expect(added.siteSlug).toBe(added.businessId)
+    // THE STARTER SLUG IS A WORD ([[REQ-190]]) — the same word for both, which is
+    // exactly what the old global slug claim made impossible.
+    expect(added.siteSlug).toBe('home')
+    expect(invited.siteSlug).toBe('home')
   })
 
   it('test_UAT_FC_REQ-178_a_second_business_is_immediately_operable', async () => {
@@ -302,7 +311,8 @@ describe('REQ-178 — provisioning a second business', () => {
     expect(business?.name).toBe('Second')
 
     const page = await env.DB.prepare(
-      'SELECT name FROM site_pages WHERE tenant_id = ? AND slug = ?',
+      'SELECT p.name FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
+        'WHERE s.tenant_id = ? AND s.slug = ?',
     )
       .bind(added.businessId, added.siteSlug)
       .first<{ name: string }>()
@@ -337,7 +347,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const again = await inviteAccount(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
     expect(again.businessId).not.toBe(invited.businessId)
-    expect(again.siteSlug).toBe(again.businessId)
+    expect(again.siteSlug).toBe('home')
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)

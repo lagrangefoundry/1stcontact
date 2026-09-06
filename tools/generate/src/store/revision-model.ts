@@ -218,14 +218,28 @@ export function padRevision(id: number): string {
  */
 export const PUBLISHED_ROOT = 'sites'
 
-/** The key prefix holding one revision: `sites/<slug>/rev/<NNNN>`. */
-export function publishedPrefix(slug: string, id: number): string {
-  return `${PUBLISHED_ROOT}/${slug}/rev/${padRevision(id)}`
+/**
+ * The key prefix holding one revision: `sites/<siteId>/rev/<NNNN>`.
+ *
+ * THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). It used to be the slug, which made
+ * the published layout a second place the site's *name* was recorded — so
+ * renaming a site would have moved every published byte it owned, and moving one
+ * to another business meant copying them. It is keyed by the site's own id now,
+ * so both are an UPDATE of one column and no object moves.
+ *
+ * There is no business in the prefix either, and that is the same decision. A
+ * business's objects are reached for erasure ([[DOC-37]]) by enumerating that
+ * business's site ids from D1 and deleting under each, alongside the prefixes
+ * that ARE business-owned — `t/<tenant>/blob/`, `t/<tenant>/ref/`, `kb/<tenant>/`
+ * — because blobs and knowledge belong to the business rather than to a site.
+ */
+export function publishedPrefix(siteId: string, id: number): string {
+  return `${PUBLISHED_ROOT}/${siteId}/rev/${padRevision(id)}`
 }
 
 /** Where a revision's RENDERED output lives — what `public-site` serves from. */
-export function publishedOutPrefix(slug: string, id: number): string {
-  return `${publishedPrefix(slug, id)}/out`
+export function publishedOutPrefix(siteId: string, id: number): string {
+  return `${publishedPrefix(siteId, id)}/out`
 }
 
 /**
@@ -235,6 +249,6 @@ export function publishedOutPrefix(slug: string, id: number): string {
  * D1 holds only the mutable draft, so this is the only copy of what the
  * definition looked like at revision N — which is what makes checkout possible.
  */
-export function publishedSourcePrefix(slug: string, id: number): string {
-  return `${publishedPrefix(slug, id)}/source`
+export function publishedSourcePrefix(siteId: string, id: number): string {
+  return `${publishedPrefix(siteId, id)}/source`
 }

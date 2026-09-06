@@ -1,3 +1,4 @@
+import { newId } from '../../../tools/generate/src/store/ids'
 import { d1r2SiteStore, type SiteStoreEnv } from '../../../tools/generate/src/store/d1r2-store'
 import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
 // The stage value from the module that names it, never a literal — see the
@@ -346,22 +347,21 @@ export const DENIED_MESSAGE =
   'Your access to 1st Contact has ended. Please get in touch and we will sort it out.'
 
 /**
- * An opaque id, `<prefix>_<random>`.
+ * An opaque id, `<prefix>_<random>` — re-exported, not defined here ([[REQ-190]]).
  *
- * NOT DERIVED FROM ANYTHING A HUMAN CHOSE, and for accounts that is a durability
- * property rather than a style. A tenant id appears in R2 keys
- * (`t/<tenant>/blob/…`, `draft/<tenant>/<slug>/…`) and is therefore permanent,
- * so a readable id is one rename request away from being a lie. The human label
- * lives in `tenants.name`, where it can change.
+ * IT MOVED DOWN A LAYER, and had to. `sites` is keyed by a value the STORE mints
+ * — `createDraft` is where a site comes into existence — and `control-app`
+ * imports `tools/generate`, never the reverse. Leaving the minter up here would
+ * have meant a second one down there, and *"a key is a surrogate the system
+ * mints"* stops being a property the moment there are two of them.
  *
- * 16 bytes from `crypto.getRandomValues`, hex — the same amount of entropy a
- * UUIDv4 carries, without the hyphens that would make the id awkward in a key.
+ * NOT DERIVED FROM ANYTHING A HUMAN CHOSE, and for a business that is a
+ * durability property rather than a style. A business id appears in R2 keys
+ * (`t/<tenant>/blob/…`) and in `/b/<id>/` URLs and is therefore permanent, so a
+ * readable id is one rename request away from being a lie. The human label lives
+ * in `tenants.name`, where it can change.
  */
-export function newId(prefix: string): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16))
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
-  return `${prefix}_${hex}`
-}
+export { newId }
 
 /**
  * Email is compared CASEFOLDED, because `idx_users_tenant_email` is not.
@@ -487,20 +487,27 @@ export async function provisionBusiness(
 }
 
 /**
- * The starter site, and why its slug is the ACCOUNT ID.
+ * The starter site, and why its slug is a WORD again ([[REQ-190]]).
  *
- * A published address is claimed globally — `published_sites` is keyed by slug
- * alone, because `/site/<slug>/` is the public URL grammar and carries no tenant
- * ([[DOC-12]] §7, `0002_revisions.sql`). So a starter site called `home` for
- * everybody would work perfectly until the SECOND account published, at which
- * point it would be refused with `SlugClaimedError` for a reason its owner could
- * do nothing about. The account id is unique by construction, so the collision
- * cannot happen; per-tenant hostnames ([[DOC-12]] §9) are the readable answer and
- * are purely additive to this.
+ * IT USED TO BE THE BUSINESS ID, and that was a workaround for the defect this
+ * ticket removed. A published address was claimed globally — `published_sites`
+ * was keyed by slug alone, because `/site/<slug>/` carried no business — so a
+ * starter site called `home` for everybody would have worked perfectly until the
+ * SECOND account published, at which point it was refused for a reason its owner
+ * could do nothing about. Naming every starter site after its own business id
+ * dodged that by making the name unguessable, at the cost of an operator opening
+ * the builder and finding their site called `acct_057f…`.
+ *
+ * The published address is the site's KEY now and the slug is an attribute,
+ * unique only inside the business that owns it. So it can be the plain word it
+ * always wanted to be: two businesses each have a site called `home`, both
+ * publish it, and neither can see that the other exists.
  */
+export const STARTER_SLUG = 'home'
+
 async function createStarterSite(env: IdentityEnv, businessId: string): Promise<string> {
   const store = await d1r2SiteStore(env).forTenant(businessId)
-  const slug = businessId
+  const slug = STARTER_SLUG
   // THE SCAFFOLD IS WRITTEN ONLY WHEN THE SITE DID NOT EXIST (BUG-51).
   //
   // `createDraft` has always been `INSERT OR IGNORE`, which made this pair LOOK
@@ -509,14 +516,15 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
   // held a site replaced that site's content with a blank starter page while
   // leaving its journal, assets and version behind to say what used to be there.
   //
-  // NOT REACHABLE TODAY, AND SAID SO PLAINLY. `businessId` is `newId('acct')` —
-  // 16 random bytes — so provisioning cannot collide with a slug that exists, and
-  // this branch is a guard rather than a fix for a live failure. It is here
+  // REACHABLE NOW, AND THAT IS THE CHANGE ([[REQ-190]]). While the starter slug
+  // was the business id it could not collide with anything, so this branch was a
+  // guard against a failure that could not happen. `home` is a fixed slug per
+  // business, exactly like `PORTAL_SLUG`, so provisioning twice into one business
+  // — which `provisionBusiness` does not do today and a repair path might —
+  // reaches it. It is here
   // because the `createDraft`-then-`write` pair IS the shape that destroyed a
   // site on the import route, and the illusion of safety is the same illusion in
   // both places; a reader who copies this function should copy the guarded form.
-  // It stops being hypothetical the moment [[REQ-183]] seeds the portal site at
-  // provisioning time, because `PORTAL_SLUG` is a FIXED slug per tenant.
   //
   // A SITE THAT EXISTS IS LEFT ENTIRELY ALONE rather than merged with or
   // repaired. There is nothing to repair: the starter is one blank page whose
@@ -666,6 +674,8 @@ function isPlatformAdminSeed(env: IdentityEnv, normalisedEmail: string): boolean
  * own grant keeps it rather than having it silently widened to open-ended by
  * whoever logged in next.
  */
+export const PLATFORM_BUSINESS_NAME = '1st Contact'
+
 export async function ensurePlatformOperator(env: IdentityEnv, email: string): Promise<void> {
   const platformTenant = requirePlatformTenant(env)
   const normalised = normaliseEmail(email)
@@ -676,7 +686,13 @@ export async function ensurePlatformOperator(env: IdentityEnv, email: string): P
   // `forTenant` refuses an unregistered tenant, so a membership pointing at one
   // would be a row that can never be used — and `businessesFor`'s join drops it,
   // so the operator would be refused `no_membership` with the row sitting there.
-  await d1r2SiteStore(env).createTenant({ id: platformTenant, name: platformTenant })
+  //
+  // THE NAME IS NOT THE ID ([[REQ-190]]). It used to be `name: platformTenant`,
+  // which was harmless while `TENANT_ID` was the word `1stcontact` and is a
+  // business called `acct_51a6…` now that it is a key. The baseline seeds this
+  // row with its real name; `INSERT OR IGNORE` leaves that alone, and this
+  // constant is only what an empty database would otherwise be left showing.
+  await d1r2SiteStore(env).createTenant({ id: platformTenant, name: PLATFORM_BUSINESS_NAME })
 
   // The person. Casefolded on the way in for the reason `normaliseEmail` gives:
   // `idx_users_tenant_email` is byte-exact, so a differently-cased row would be a

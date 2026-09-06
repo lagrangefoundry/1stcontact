@@ -16,8 +16,7 @@ import {
 } from '../apps/control-app/src/scope'
 import { route, resetChatHost, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { storeFor } from '../apps/control-app/src/store'
-import { applySchema, runMigration } from './support/d1-site-factory'
-import operatorMembership from '../db/migrations/0005_operator_membership.sql?raw'
+import { applySchema } from './support/d1-site-factory'
 
 /**
  * REQ-168 — **the tenant comes from the identity, not from the configuration.**
@@ -125,8 +124,15 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     // Each business sees its own starter site and its own addition, and NEVER
     // the other's — including the starter, which provisioning creates for both
     // and which would be the first thing to bleed through a shared handle.
-    expect(await listSites(a)).toEqual([first.businessId, 'salon-only'].sort())
-    expect(await listSites(b)).toEqual([second.businessId, 'studio-only'].sort())
+    //
+    // BOTH STARTERS ARE CALLED `home`, and that is the sharper form of the same
+    // claim ([[REQ-190]]). The starter slug used to be the business id, so two
+    // businesses' sites could never collide by name and this assertion held
+    // partly by accident. A slug is unique only inside its business now, so two
+    // lists that both contain `home` and differ in everything else is the
+    // barrier being proved rather than a naming coincidence standing in for it.
+    expect(await listSites(a)).toEqual(['home', 'salon-only'])
+    expect(await listSites(b)).toEqual(['home', 'studio-only'])
   })
 
   /**
@@ -155,9 +161,10 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     expect(scope.businessId).toBe(second.businessId)
     // And the prefix does not reach the route table: `/api/sites` answered, not
     // a 404 for a path with `/b/<id>` still on the front of it.
-    expect(await listSites(scope, `/b/${second.businessId}`)).toEqual(
-      [second.businessId, 'second-only'].sort(),
-    )
+    expect(await listSites(scope, `/b/${second.businessId}`)).toEqual([
+      'home',
+      'second-only',
+    ])
   })
 
   /**
@@ -420,83 +427,24 @@ describe('REQ-168 — the chat host is per business', () => {
   })
 })
 
-describe('REQ-168 — the operator keeps the business they already have', () => {
-  /**
-   * THE TICKET THAT BREAKS IT IS THE TICKET THAT REPAIRS IT. Every site in this
-   * deployment lives in the tenant `1stcontact`, because `TENANT_ID` named it.
-   * Moving the scope onto the caller's identity resolves the operator's next
-   * login through `memberships` — and without the migration there is no row
-   * joining them to it, so the builder comes up EMPTY. Not broken, not erroring:
-   * a correct answer to the wrong question, which is the hardest kind to notice.
-   *
-   * `applySchema` applies `0005` along with the rest, so this asserts the shipped
-   * migration rather than a fixture's version of it.
-   */
-  it('test_UAT_FC_REQ-168_the_operator_resolves_to_the_existing_platform_business', async () => {
-    const admission = await admit(
-      identityEnv({ TENANT_ID: '1stcontact' }),
-      'martin-github@westhead.me',
-    )
-    expect(admission.ok, 'the operator was refused at the door').toBe(true)
-    if (!admission.ok) return
-
-    // The membership, the grant and the `tenants` row all have to be there: a
-    // membership alone would refuse with `no_entitlement`, which is a different
-    // failure and no better than an empty builder.
-    const business = admission.businesses.find((b) => b.businessId === '1stcontact')
-    expect(business, 'no membership on the existing business').toBeTruthy()
-    expect(business?.selectable).toBe(true)
-
-    const scope = await resolveScope(identityEnv({ TENANT_ID: '1stcontact' }), admission)
-    expect(scope.businessId).toBe('1stcontact')
-  })
-
-  /**
-   * IDEMPOTENT BY `WHERE NOT EXISTS`, not by `INSERT OR IGNORE` — the two are not
-   * the same promise. `OR IGNORE` needs a unique index over exactly the columns
-   * that make a row a duplicate, and `entitlements` deliberately has none on
-   * `business_id` because a business accumulates grants ([[REQ-167]], `0004`). So
-   * re-running has to be proved rather than assumed: `wrangler d1 migrations
-   * apply` runs against preview and production alike, and a second membership or
-   * a second grant would be a silent duplicate nothing else would report.
-   */
-  it('test_UAT_FC_REQ-168_re_running_the_operator_migration_changes_nothing', async () => {
-    const count = async (sql: string): Promise<number> => {
-      const row = await env.DB.prepare(sql).first<{ n: number }>()
-      return Number(row?.n ?? 0)
-    }
-    const users = 'SELECT COUNT(*) AS n FROM users WHERE email = \'martin-github@westhead.me\''
-    const members =
-      'SELECT COUNT(*) AS n FROM memberships WHERE business_id = \'1stcontact\''
-    const grants =
-      'SELECT COUNT(*) AS n FROM entitlements WHERE business_id = \'1stcontact\''
-
-    const before = [await count(users), await count(members), await count(grants)]
-    expect(before).toEqual([1, 1, 1])
-
-    // The migration is re-applied here explicitly rather than by calling
-    // `applySchema` again, which would re-run 0006's ALTERs and fail on the second
-    // pass rather than proving anything about this one.
-    //
-    // THE COLUMN NAMES ARE MAPPED FORWARD, and that is the honest form of the
-    // claim rather than a workaround ([[REQ-184]]). `0005` is history: it runs
-    // before `0006` and `0007` on any database and is written against the names
-    // that existed then, so re-executing it verbatim against the current schema
-    // would fail on `no such column` and prove nothing about its guard. What must
-    // still hold is that its `WHERE NOT EXISTS` logic refuses to write a second
-    // membership or a second grant, and that is what this asserts, against the
-    // schema the Worker actually reads.
-    //
-    // TWO RENAMES ARE MAPPED NOW: `account_id` → `business_id` ([[REQ-184]]) and
-    // `platform_admin` → `platform_operator` ([[REQ-185]]). The second one is a
-    // column `0005` sets to 0 and says so in prose — the flag is not granted from
-    // inside a data migration — and that is still what the mapped statement does.
-    await runMigration(
-      operatorMembership
-        .replace(/\baccount_id\b/g, 'business_id')
-        .replace(/\bplatform_admin\b/g, 'platform_operator'),
-    )
-
-    expect([await count(users), await count(members), await count(grants)]).toEqual(before)
-  })
-})
+/**
+ * REQ-168's OPERATOR SEED IS GONE, AND ITS PROPERTY MOVED ([[REQ-190]]).
+ *
+ * Two tests lived here. Both were about `0005_operator_membership.sql`: that a
+ * named operator resolved to the platform business after the scope moved onto
+ * the caller's identity, and that re-applying the migration wrote no second
+ * membership or grant. `0005` no longer exists — the rebaseline dropped it,
+ * because `ensurePlatformOperator` ([[REQ-185]]) writes the same four rows from
+ * `PLATFORM_ADMINS`, works before any row exists, and does not hardcode one
+ * personal address into a migration that runs in every environment forever.
+ *
+ * WHAT THE FIRST TEST PROVED IS UNCHANGED AND PROVED ELSEWHERE: that an operator
+ * with a membership on the platform business resolves to it is
+ * `test_UAT_FC_REQ-168_no_admission_resolves_to_the_configured_platform_business`
+ * above and REQ-185's own suite, which drives the bootstrap that now writes the
+ * membership. The second test's idempotence is `ensurePlatformOperator`'s
+ * `WHERE NOT EXISTS`, asserted in `test_UAT_FC_REQ-185_platform_operator`.
+ *
+ * They are deleted rather than rewritten because a test whose subject file has
+ * been deleted is not a test with a gap in it.
+ */

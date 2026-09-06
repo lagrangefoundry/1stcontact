@@ -36,7 +36,7 @@ import { TICKETING_INSTALLED, TICKETING_SKIP_REASON } from './support/ticketing-
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const REPO = path.join(HERE, '..')
 const WRANGLER = path.join(REPO, 'apps', 'control-app', 'wrangler.toml')
-const MIGRATION = path.join(REPO, 'db', 'migrations', '0003_ticket_store.sql')
+const MIGRATION = path.join(REPO, 'db', 'migrations', '0001_baseline.sql')
 
 const toml = readFileSync(WRANGLER, 'utf8')
 
@@ -99,25 +99,34 @@ describe('REQ-162 — the migration', () => {
   /** Collapse whitespace so formatting is not what this compares. */
   const flat = (s: string) => s.replace(/\s+/g, ' ').trim()
 
-  it('UAT_FC_REQ-162 migrations_dir picks it up beside the existing two', () => {
-    // `wrangler d1 migrations apply` applies a DIRECTORY in lexical order, so
-    // the file only runs if it is named into the same sequence — and the order
-    // matters, because 0001 creates `tenants` without the column 0003 adds.
+  it('UAT_FC_REQ-162 migrations_dir picks up the baseline', () => {
+    // `wrangler d1 migrations apply` applies a DIRECTORY, so the file only runs
+    // if `migrations_dir` names the directory it is in.
+    //
+    // IT USED TO ASSERT AN ORDINAL as well — `^0003_` — because the ticket
+    // store's `tenants` statement had to run AFTER the site store's, which had
+    // created the table without the `config` column. There is one file now
+    // ([[REQ-190]]), so there is no order to pin and no reconciliation to
+    // assert: the baseline creates `tenants` once, WITH `config`, and the
+    // component's own `IF NOT EXISTS` CREATE below it is the no-op it was always
+    // going to be. The `ALTER TABLE tenants ADD COLUMN config` that repaired the
+    // two-migration sequence is GONE, and had to be — re-adding a column the
+    // table already has is an error, not a repair.
     const dir = /migrations_dir\s*=\s*"([^"]+)"/.exec(toml)
     expect(dir).not.toBeNull()
     expect(path.resolve(path.dirname(WRANGLER), dir![1])).toBe(path.dirname(MIGRATION))
-    expect(path.basename(MIGRATION)).toMatch(/^0003_/)
-  })
-
-  it('UAT_FC_REQ-162 it reconciles the tenants table the site store already created', () => {
-    // The one place the migration is NOT a transcription, and the one place it
-    // has to be. `0001_site_store.sql` created `tenants` for the site store
-    // WITHOUT a `config` column; the component's own CREATE is `IF NOT EXISTS`,
-    // so it sees that table and leaves it alone. `Accessor.putTenant` INSERTs
-    // `config`, so without this ALTER the first tenant registration through the
-    // ticket store fails with `no such column: config` — a migration that
-    // appears to have applied the schema and has not.
-    expect(flat(sql)).toContain('ALTER TABLE tenants ADD COLUMN config')
+    // Over the DDL WITH ITS PROSE STRIPPED, for the reason REQ-167's check
+    // constraint case gives: the baseline explains at length why the ALTER is
+    // gone, and matching the phrase in that explanation would be a test that
+    // fails on its own justification.
+    const ddl = flat(
+      sql
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('--'))
+        .join('\n'),
+    )
+    expect(ddl).not.toContain('ALTER TABLE tenants ADD COLUMN config')
+    expect(ddl).toMatch(/CREATE TABLE IF NOT EXISTS tenants \(.*config TEXT NOT NULL/)
   })
 
   it.skipIf(!TICKETING_INSTALLED)(

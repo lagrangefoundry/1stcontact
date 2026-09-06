@@ -1,6 +1,27 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { TERMS_VERSION } from '../../apps/control-app/src/terms'
+
+/**
+ * The platform business's key, READ FROM `wrangler.toml` ([[REQ-190]]).
+ *
+ * It used to be the word `1stcontact` and could be written out here. It is an
+ * opaque 128-bit key now, so a literal in this file would be a third copy of a
+ * value that has to agree with `wrangler.toml` and the baseline — and the first
+ * symptom of a mismatch is every suite that drives the real Worker answering 403
+ * to a person it just seeded, which reads as an admission bug and is not one.
+ *
+ * So it is read from the same file the Worker reads it from. What checks that
+ * the BASELINE agrees is a UAT of its own; this only guarantees the tests and
+ * the deployment are talking about the same business.
+ */
+export function platformBusinessId(repoRoot: string): string {
+  const toml = readFileSync(path.join(repoRoot, 'apps', 'control-app', 'wrangler.toml'), 'utf8')
+  const match = /^TENANT_ID\s*=\s*"([^"]+)"/m.exec(toml)
+  if (!match) throw new Error('wrangler.toml declares no TENANT_ID')
+  return match[1]
+}
 
 /**
  * The migrations, applied to the LOCAL D1 that `unstable_dev` hands the Worker
@@ -76,7 +97,7 @@ export function seedIdentity(
   email: string,
   options: { tenantId?: string; businessId?: string } = {},
 ): { businessId: string } {
-  const tenantId = options.tenantId ?? '1stcontact'
+  const tenantId = options.tenantId ?? platformBusinessId(repoRoot)
   // Named for what it is ([[REQ-184]]): the row this seeds is a BUSINESS. The id
   // still reads `acct_…` because those values are opaque, permanent and in R2
   // keys; only the names say what they mean.
