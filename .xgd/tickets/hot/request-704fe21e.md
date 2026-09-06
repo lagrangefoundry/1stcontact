@@ -6,10 +6,10 @@ title: 'The template ticket type: message bodies are content, with a placeholder
   that refuses'
 created_by: xgd
 created_at: '2026-09-05T23:44:41.124618+00:00'
-updated_at: '2026-09-06T19:08:25.730046+00:00'
+updated_at: '2026-09-06T19:44:35.001797+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 2
