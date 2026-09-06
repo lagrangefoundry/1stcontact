@@ -5,9 +5,9 @@ type: request
 title: 'Library tab: live updates for the material list via a change subscription'
 created_by: CHAT-27
 created_at: '2026-09-06T17:46:48.225001+00:00'
-updated_at: '2026-09-06T18:58:50.855290+00:00'
+updated_at: '2026-09-06T19:59:12.799447+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -95,3 +95,92 @@ Subscribe it, per DOC-24.
   the previous business is applied after the switch.
 - After a disconnect and reconnect the list converges via a catch-up read, not a full reload.
 - A `reset` falls back to the existing `refresh()`.
+
+
+## Scoping decisions (settled before implementation)
+
+These fix the parts §Scope leaves to the implementer, and every UAT below traces
+to one of them.
+
+### 7. The transport is `EventSource`, and the cursor is the SSE `id:` field
+
+`GET /api/material/changes` answers `text/event-stream` and writes `id: <seq>`
+on every frame, in the framing `streamTurn`/`streamTail` already established
+(`data: {json}` + a blank line). That makes the browser hold the cursor: an
+`EventSource` re-presents the last `id:` it saw as `Last-Event-ID` on reconnect,
+and the route reads that header when the query string carries no `since`. §4's
+"the client holds its cursor and presents it on reconnect" is therefore
+satisfied by a browser primitive rather than by a hand-rolled reconnect loop
+with its own backoff — reconnect is the one part of a subscription nobody should
+be writing twice.
+
+### 8. `/api/material` returns the cursor it read at
+
+The list read grows one field: `{material, seq}`. §1 requires the subscription
+to start from the initial read's cursor so nothing between load and subscribe is
+lost, and the only place that cursor can honestly come from is the read itself.
+A client that took the head *after* listing would have a window; one that took
+it before would replay.
+
+### 9. A frame carries a rendered row, not a raw ticket
+
+The change event's after-image carries `{uid, type, title, fields, links,
+version, created_at, updated_at}` — which is every input `rowOf()` reads. So the
+route projects it through the same `rowOf` the list read uses and ships a
+finished `MaterialRow`, with no second D1 read per event and no second row shape
+for the pane to learn. `enter` and `update` carry the row; `exit` carries the
+uid alone, because there is nothing left to draw.
+
+### 10. The tailer polls at 2s in this deployment, not the component's 50ms
+
+The component defaults `changePollMs` to 50 because its own suite drives it. An
+open Library tab at that cadence is twenty D1 reads a second for as long as the
+tab is open. The description this whole ticket exists to deliver arrives
+"seconds later", so two seconds of latency is inside the behaviour and twenty
+reads a second is not — the store handle opened for a subscription passes
+`changePollMs` explicitly, and the number is stated at the call site rather than
+inherited.
+
+### 11. A body change is a signal to re-read, not a payload
+
+DOC-24 lists `body` in `UNLOGGED_PATHS`: the log records **that** a body moved
+and never what it now says, because a log carrying bodies would be larger than
+the store. The Library's description *is* that body.
+
+So the two halves of a description landing are served differently, and both are
+in scope:
+
+- The **row** needs nothing extra. `description_status` and
+  `description_model` are fields, so they travel in the event in full and the
+  list redraws from the payload alone.
+- The **text** requires a re-read. When an `update` names `body` for the
+  material whose detail is currently open, the pane re-fetches that one item
+  through the existing `transport.item()` path and repaints. It is one request,
+  for one material, only when a detail is open on it, and only when the body
+  actually changed — and it is the honest reading of the mechanism rather than a
+  gap in it. Forcing the request is also the safer of the two options: the pane
+  renders what the store holds rather than what an event implied.
+
+A detail that is not open re-reads nothing; the row it would have shown is
+already correct.
+
+### 12. The change log's tables join the baseline migration
+
+`ticket_changes` and `ticket_change_floor` are the component's own DDL and
+`SCHEMA_STATEMENTS` now carries them, so `0001_baseline.sql` gains them too —
+edited in place, on the grounds its own header states for its siblings. There is
+no separate migration, because the database has been wiped rather than migrated
+and a baseline that has never been applied is not re-based by editing it.
+
+## Acceptance criteria (added by the decisions above)
+
+- The list read hands back the cursor it read at, and the subscription opens
+  from that cursor rather than from the head at subscribe time.
+- Every frame carries its `seq` as the SSE `id:`, and a reconnect presenting
+  `Last-Event-ID` resumes from it without the query string naming a cursor.
+- An event's payload is a material row of the same shape the list read returns,
+  built without a second read of the store.
+- An `update` naming `body` for the material whose detail is open causes exactly
+  one re-read of that item, and the detail repaints with what the store now
+  holds. The same event for a material whose detail is not open causes no read.
+- A `description_status` change redraws the row from the event alone.
