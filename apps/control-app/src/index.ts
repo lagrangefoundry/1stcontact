@@ -128,14 +128,15 @@ function uncacheable(response: Response): Response {
  * 403 RATHER THAN 401. A 401 says "authenticate", and the caller already did —
  * Access verified them. Sending them back round the login loop would produce the
  * same token and the same refusal, forever.
+ *
+ * IT NO LONGER WRITES THE LOG LINE (BUG-62). `admit` records the reason at the
+ * point it decides it, so a refusal is reported whoever renders it and whatever
+ * refusals are added later. Writing it here as well would put two lines in the
+ * log for one denial, and the second would be the one that could drift: this
+ * function sees the admission and not the deployment, so it could never have
+ * carried `platformAdminSeed`. The response is all that is left to make.
  */
-function denied(admission: Extract<Admission, { ok: false }>): Response {
-  // The distinction, stated where an operator can find it. Structured rather
-  // than prose so it can be queried out of the invocation logs `wrangler.toml`
-  // keeps every one of.
-  console.warn(
-    JSON.stringify({ event: 'admission_denied', reason: admission.reason, email: admission.email }),
-  )
+function denied(): Response {
   return new Response(DENIED_MESSAGE, {
     status: 403,
     headers: {
@@ -300,7 +301,7 @@ export default {
         if (!gate.ok) return gate.response
 
         admission = await admit(env, gate.email)
-        if (!admission.ok) return denied(admission)
+        if (!admission.ok) return denied()
 
         // Terms LAST of the identity checks, and inside this block rather than
         // after it: the dev-open branch has no admission at all, so there is no
