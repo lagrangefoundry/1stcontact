@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-40
 created_by: xgd
 created_at: '2026-09-06T18:07:08.297924+00:00'
-updated_at: '2026-09-06T18:40:50.730128+00:00'
+updated_at: '2026-09-06T18:46:53.827103+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -218,5 +218,11 @@ Where I'd go next, in order:
 3. **Then** `site_domains` + wildcard subdomain, then custom hostnames, then the share link.
 
 Want me to scope (1) and (2) against CHAT-40 now? I'd want your call on the auto-assigned-label rule and on whether `sites.name` gets *any* uniqueness (I'd say none) before writing either.
+
+<!-- xgd-turn id="6e9bc4a7-e365-4ea4-8e4a-18a97f235ced-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T18:46:53.244293+00:00" -->
+#### You
+Again explain the need for Form 0? It exposes a site as 1stcontact even if it has a full domain name - maybe that would be clear from the HTML/CSS structure anyway?
 
 <!-- xgd-chat-end -->
