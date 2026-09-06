@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-41
 created_by: xgd
 created_at: '2026-09-06T20:22:08.894114+00:00'
-updated_at: '2026-09-06T20:23:36.294483+00:00'
+updated_at: '2026-09-06T20:30:34.606045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,88 @@ The endpoint to register in Resend is `https://app.1stcontact.io/api/email/webho
 The DNS half is what still has waiting in it: confirm exactly one `v=spf1` TXT record on the zone, DKIM published, DMARC at `p=none` with a `rua=`. Then send to a Gmail *and* an Outlook address and read the raw headers for `spf=pass dkim=pass dmarc=pass` on both.
 
 Want me to write a `30-email-webhook-secret` hook so that secret follows the same path as the other two rather than staying a manual step? That's a code change and would need a ticket.
+
+<!-- xgd-turn id="73144f8f-102a-47bd-b71e-a0296ac040df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T20:30:34.356971+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/deploy --dry-run control-app
+DRY RUN — hooks are told not to change anything, and nothing is uploaded.
+
+==> control-app → 1stcontact-control-app (--env production)
+  hook migrate/10-d1-site-store
+    would apply D1 migrations to '1stcontact' (--env production --remote)
+
+ ⛅️ wrangler 4.106.0
+────────────────────
+Resource location: remote 
+
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+✅ No migrations to apply!
+  hook secrets/10-anthropic-api-key
+    would push ANTHROPIC_API_KEY to 1stcontact-control-app
+  hook secrets/20-resend-api-key
+bin/deploy: RESEND_API_KEY is not set in your environment, the Worker has no RESEND_API_KEY either.
+  1stcontact-control-app will run the LOCAL mail adapter, which records messages
+  and delivers none of them — nothing this deployment sends will arrive. That is
+  survivable today because nothing sends yet; it will not be once a route does.
+
+  To fix it, add the domain in Resend, publish the SPF/DKIM/DMARC records it
+  gives you (apps/control-app/MAIL.md), then:
+
+    export RESEND_API_KEY='...'   # from your password manager
+
+  Nothing needs to be exported once the secret is in place — a later deploy
+  reads the name back off 1stcontact-control-app and leaves the value alone.
+
+ ⛅️ wrangler 4.106.0 (update available 4.129.0)
+───────────────────────────────────────────────
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+✨ Read 111 files from the assets directory /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+Total Upload: 6233.15 KiB / gzip: 1723.06 KiB
+Your Worker has access to the following bindings:
+Binding                                                                  Resource                  
+env.DB (1stcontact)                                                      D1 Database               
+env.SITES (1stcontact-sites)                                             R2 Bucket                 
+env.BLOBS (1stcontact-material)                                          R2 Bucket                 
+env.BROWSER                                                              Browser Run               
+env.AI                                                                   AI                        
+env.ASSETS                                                               Assets                    
+env.TENANT_ID ("biz_51a6746495c8057e886ff98d4208e6b9")                   Environment Variable      
+env.PLATFORM_ADMINS ("")                                                 Environment Variable      
+env.ACCESS_TEAM_DOMAIN ("lagrangefoundry.cloudflareaccess.com")          Environment Variable      
+env.ACCESS_AUD ("c802fa9c4efc483e13f1c27d2d9a9ca3ff933...")              Environment Variable      
+env.MAIL_FROM ("no-reply@1stcontact.io")                                 Environment Variable      
+
+--dry-run: exiting now.
+
+==> Deployed
+  1stcontact-control-app           (rehearsed, not uploaded)
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+The 
+
+RESEND_API_KEY is set in the environment
 
 <!-- xgd-chat-end -->
