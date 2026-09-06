@@ -24,7 +24,7 @@ import {
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition } from '@1stcontact/framework/worker'
 import { resolveSiteLocale } from '@1stcontact/site-schema'
-import type { Page, ResolvedLocale, Site } from '@1stcontact/site-schema'
+import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
 // re-exports it while importing `node:path` and the filesystem helpers. A
 // type-only import is erased before a bundler sees it, so the Worker's BUNDLE
@@ -105,6 +105,7 @@ function renderModuleInstances(
   resolveModule: ModuleResolver,
   edit: boolean,
   locale: ResolvedLocale,
+  capabilities: SiteCapabilities,
 ): string[] {
   const parts: string[] = []
   for (const m of page.modules) {
@@ -118,12 +119,19 @@ function renderModuleInstances(
     // the zone, and the alternative to handing it over is every such module
     // re-deriving its own — which is how two modules on one page end up
     // disagreeing about what country the business is in.
+    // [[REQ-200]] — the site's own capability declarations reach the module the
+    // same way. A behaviour that is a feature of the SITE rather than of the page
+    // (`account-chrome` on a site with accounts) is gated by what the site
+    // declares, and the gate belongs to the module: only it knows what it should
+    // do when its capability is absent, and the renderer must not grow a branch
+    // naming one.
     const rendered = Component({
       config: m.config,
       slots: m.slots,
       instanceId: m.id,
       edit,
       locale,
+      capabilities,
     })
     // Stamp the builder edit hook onto the module root so the web editor's preview can
     // target this instance.
@@ -151,7 +159,8 @@ function renderPage(
   // first and are handed to the pure L1 emitter as finished fragments; the page
   // schema has already proved every binding resolves to exactly one existing slot.
   const locale = resolveSiteLocale(site.config)
-  const rendered = renderModuleInstances(page, resolveModule, edit, locale)
+  const capabilities = site.config.capabilities ?? {}
+  const rendered = renderModuleInstances(page, resolveModule, edit, locale, capabilities)
   const mounts: Record<string, string> = {}
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]

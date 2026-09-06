@@ -660,7 +660,11 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       `${base}/%zz`, // malformed percent-encoding
       `/site/-not-a-slug/whitepapers`, // site name outside the permitted shape
       `/site/${'x'.repeat(200)}/whitepapers`,
-      `/notsite/${SLUG}/whitepapers`,
+      // `/notsite/<slug>/whitepapers` was here. It is no longer REJECTED
+      // ([[REQ-200]]): a path outside `/site/` addresses the apex site, which is
+      // a published site served at the root of this host, so it gets the same
+      // clean-URL mapping every other page gets. Its grammar is pinned in
+      // `req113-worker-extensionless-urls.test.ts`.
     ]
     for (const p of rejected) {
       const { res, bucket } = await call(p)

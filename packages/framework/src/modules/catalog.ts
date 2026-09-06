@@ -2,6 +2,7 @@ import type { BehaviorMeta } from './behavior'
 import { contactFormMeta } from './contact-form/meta'
 import { carouselMeta } from './carousel/meta'
 import { accountPortalMeta } from './account-portal/meta'
+import { accountChromeMeta } from './account-chrome/meta'
 
 /**
  * The behavior catalog as **metadata only** (REQ-143).
@@ -28,7 +29,12 @@ import { accountPortalMeta } from './account-portal/meta'
  */
 
 /** Every behavior contract the framework ships, in catalog order. */
-export const CATALOG: readonly BehaviorMeta[] = [contactFormMeta, carouselMeta, accountPortalMeta]
+export const CATALOG: readonly BehaviorMeta[] = [
+  contactFormMeta,
+  carouselMeta,
+  accountPortalMeta,
+  accountChromeMeta,
+]
 
 /** Contracts keyed by `"<id>@<version>"` — the registry's key, without components. */
 export const catalog: ReadonlyMap<string, BehaviorMeta> = new Map(

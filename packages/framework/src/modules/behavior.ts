@@ -3,6 +3,7 @@ import {
   l1NodeSchema,
   type L1Node,
   type ResolvedLocale,
+  type SiteCapabilities,
 } from '@1stcontact/site-schema'
 import type { L1ControlTag } from '../l1/render'
 
@@ -181,6 +182,21 @@ export interface BehaviorProps {
    * how two modules on one page come to disagree about the same business.
    */
   locale?: ResolvedLocale
+  /**
+   * [[REQ-200]] — the site's own CAPABILITY DECLARATIONS, handed down by the
+   * renderer exactly as {@link locale} is.
+   *
+   * Some behaviours are a feature of the *site* rather than of the page they sit
+   * on: `account-chrome` belongs on any site that has accounts and nowhere else,
+   * and whether a site has accounts is declared once, site-wide, rather than
+   * re-asserted on every instance. A module that is gated this way reads its own
+   * key and renders nothing when it is absent — which is why the gate lives here
+   * and not as a branch in the renderer: only the module knows what it should do
+   * when its capability is not declared.
+   *
+   * Optional so a module that is not gated ignores it and a test may omit it.
+   */
+  capabilities?: SiteCapabilities
 }
 
 /**

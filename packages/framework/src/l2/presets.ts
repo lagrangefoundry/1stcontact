@@ -1,6 +1,7 @@
 import type { L1Node } from '@1stcontact/site-schema'
 import type { BehaviorSlotValue } from '../modules/behavior'
 import { contactFormPreset, type ContactFormPresetField } from './contact-form'
+import { accountChromePreset } from './account-chrome'
 
 /**
  * The L2 index (REQ-130): behavior id → a vetted default presentation for its
@@ -26,6 +27,10 @@ const PRESETS: Record<string, SlotPresetBuilder> = {
       (Array.isArray(config.fields) ? config.fields : []) as ContactFormPresetField[],
     ) as L1Node,
   }),
+  // [[REQ-200]] — four slots, and none of them derived from `config`: the chrome's
+  // presentation does not vary with the URLs it points at, which is exactly why
+  // it can ship a preset a site instantiates without authoring any L1.
+  'account-chrome': () => accountChromePreset() as Record<string, L1Node>,
 }
 
 /** Which behaviors can be instantiated without the caller authoring any L1. */

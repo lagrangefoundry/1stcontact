@@ -2,9 +2,13 @@
  * Route grammar for the multi-tenant site server (REQ-111).
  *
  * ```
- * /site/<siteKey>/<path…>   →  the site's live published revision
- * /                         →  reserved for the apex marketing site
+ * /site/<siteKey>/<path…>   →  that site's live published revision
+ * /<path…>                  →  the APEX site's live published revision
  * ```
+ *
+ * THE APEX IS A PUBLISHED SITE NOW ([[REQ-200]]), not a held-back string: `/`
+ * is its index and every path outside `/site/` resolves against it. Which site
+ * it is comes from configuration, never from the URL.
  *
  * THE FIRST SEGMENT IS THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). It used to be
  * the slug — a name the operator chose — and because this URL carries no
@@ -32,8 +36,19 @@
  */
 
 export type Route =
-  /** `/` — the apex, held back until the marketing site exists. */
-  | { kind: 'apex' }
+  /**
+   * A byte to serve out of the APEX site's live revision ([[REQ-200]]).
+   *
+   * `1stcontact.io` used to answer `/` with a held-back string literal and 404
+   * everything else. It is a real published 1c site now — in the `1stcontact`
+   * tenant, carrying `account-chrome`, built the way a customer's is — so the
+   * apex needs the same grammar every other site has: an index at `/`, and every
+   * other path resolving against that site's revision. Which site that is comes
+   * from configuration and never from the URL, so no request can name one.
+   *
+   * `path` and `htmlFallback` mean exactly what they mean on an `asset` route.
+   */
+  | { kind: 'apex'; path: string; htmlFallback?: string }
   /**
    * A directory-shaped URL missing its trailing slash.
    *
@@ -126,13 +141,13 @@ function htmlFallbackFor(path: string, trailingSlash: boolean): string | undefin
 
 /** Parse `pathname` (percent-encoded, as it arrives on the wire) into a {@link Route}. */
 export function parseRoute(pathname: string): Route {
-  if (pathname === '' || pathname === '/') return { kind: 'apex' }
+  if (pathname === '' || pathname === '/') return { kind: 'apex', path: 'index.html' }
   if (!pathname.startsWith('/')) return { kind: 'not-found' }
 
   const raw = pathname.slice(1).split('/')
   const trailingSlash = raw[raw.length - 1] === ''
   const encoded = trailingSlash ? raw.slice(0, -1) : raw
-  if (encoded.length === 0) return { kind: 'apex' }
+  if (encoded.length === 0) return { kind: 'apex', path: 'index.html' }
 
   const parts: string[] = []
   for (const segment of encoded) {
@@ -141,7 +156,18 @@ export function parseRoute(pathname: string): Route {
     parts.push(decoded)
   }
 
-  if (parts[0] !== SITE_SEGMENT) return { kind: 'not-found' }
+  // Not under `/site/`, so it addresses the apex site — the one site this
+  // deployment serves at the root of its own host. `/site/` stays a reserved
+  // first segment: it is how every OTHER site is addressed, so an apex page may
+  // not be called `site` and a request under it is never the apex's.
+  if (parts[0] !== SITE_SEGMENT) {
+    const apexPath = parts.join('/')
+    return {
+      kind: 'apex',
+      path: apexPath,
+      htmlFallback: htmlFallbackFor(apexPath, trailingSlash),
+    }
+  }
 
   const siteKey = parts[1]
   if (siteKey === undefined || !isValidSiteKey(siteKey)) return { kind: 'not-found' }

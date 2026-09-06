@@ -1378,8 +1378,17 @@ window.addEventListener('blur',fade);
 
 // ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
 
-/** The tags a behavior module may declare as a control leaf. */
-export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span'
+/**
+ * The tags a behavior module may declare as a control leaf.
+ *
+ * `'a'` is here because a control is not always a *form* affordance ([[REQ-200]]):
+ * the account portal and builder links are navigations, and painting them as
+ * buttons would give a visitor a control they cannot open in a new tab, cannot
+ * copy the target of, and which announces itself to assistive technology as the
+ * wrong thing. The `href` is the module's attribute like any other, and the
+ * module asserts it through the same URL allowlist every rendered URL passes.
+ */
+export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span' | 'a'
 
 /**
  * A module-declared leaf element, as handed to the emitter. The module owns the

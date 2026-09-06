@@ -348,7 +348,7 @@ describe('REQ-111 — public-site serves published sites', () => {
   })
 
   it('test_UAT_FC_REQ-111_route_grammar', async () => {
-    expect(parseRoute('/')).toEqual({ kind: 'apex' })
+    expect(parseRoute('/')).toEqual({ kind: 'apex', path: 'index.html' })
     expect(parseRoute('/site/acme/')).toEqual({
       kind: 'asset',
       siteKey: 'acme',
@@ -388,10 +388,14 @@ describe('REQ-111 — public-site serves published sites', () => {
       path: 'draft/abcdef123456',
     })
 
+    // [[REQ-200]] — a path outside `/site/` is the APEX SITE's now, not a
+    // not-found: the apex is a published site served at the root of this host,
+    // so it has pages of its own and they are addressed like any site's.
+    expect(parseRoute('/nope/acme/')).toMatchObject({ kind: 'apex', path: 'nope/acme' })
+
     for (const bad of [
       '/site',
       '/site/',
-      '/nope/acme/',
       '/site/../etc/',
       '/site/acme/%2fetc/passwd',
       '/site/acme/%zz',
@@ -400,11 +404,11 @@ describe('REQ-111 — public-site serves published sites', () => {
       expect(parseRoute(bad).kind, bad).toBe('not-found')
     }
 
-    // The apex is held back until the marketing site exists, and the server is
-    // read-only: there is no write surface to reach.
+    // [[REQ-200]] — the apex is a published site, named by configuration. This
+    // Env declares none, so it answers exactly as an unpublished site does. The
+    // server is still read-only: there is no write surface to reach.
     const apex = await get('/')
-    expect(apex.status).toBe(200)
-    expect(await apex.text()).toBe('Hello from 1stcontact.io')
+    expect(apex.status).toBe(404)
     expect((await call('/site/acme/', { method: 'POST' })).res.status).toBe(405)
     expect((await call('/site/acme/', { method: 'DELETE' })).res.status).toBe(405)
   })

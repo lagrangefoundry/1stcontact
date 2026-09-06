@@ -40,6 +40,19 @@ export { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './modules/
 // through exactly the code Node runs.
 export { registry, getModule } from './modules/registry'
 
+// [[REQ-200]] — the `account-chrome` state marker and the transform that selects
+// one, for the Worker that serves published bytes. Exported from the worker entry
+// because that Worker is exactly the caller: it rewrites the attribute the
+// component emits, from the file that emits it, so the two cannot drift.
+export {
+  ACCOUNT_CHROME_STATE_ATTR,
+  ACCOUNT_CHROME_BUSINESSES_ATTR,
+  ACCOUNT_CHROME_SIGNED_OUT,
+  hasAccountChrome,
+  applyAccountChromeSession,
+} from './modules/account-chrome/session'
+export type { AccountChromeSession } from './modules/account-chrome/session'
+
 // The behavior contract and its validators.
 export {
   validateBehaviorConfig,

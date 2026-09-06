@@ -891,9 +891,39 @@ export const themeTokensSchema = z.object({
   fonts: z.array(fontFaceSchema).optional(),
 })
 
+/**
+ * Site-level CAPABILITY DECLARATIONS ([[REQ-200]]).
+ *
+ * A capability is something the site *has* rather than something a page shows —
+ * a fact about the site as a whole that a behaviour mounted on any of its pages
+ * may need to know. It is declared here and NEVER derived, which is the whole
+ * reason the field exists: the obvious derivation for `accounts` is "does this
+ * business have any members yet", and the first member signs up BY USING the
+ * sign-in control, so a derived flag would hide the control exactly when it is
+ * needed and produce a site that could never acquire its first account.
+ *
+ * A CLOSED SET, not an open record. Every key is a capability we ship, so a
+ * typo is a validation error rather than a declaration nothing reads. A second
+ * capability is one more optional boolean here and no new plumbing anywhere:
+ * the renderer already hands the whole object to every module.
+ */
+export const siteCapabilitiesSchema = z.object({
+  /**
+   * Whether this site has ACCOUNTS — people who sign in, hold a portal, and
+   * have a relationship with this business ([[REQ-200]]).
+   *
+   * Absent (the default) is a site with no accounts at all, which is most
+   * brochure sites: a sign-in link on one is a dead end that invites confusion,
+   * so `account-chrome` renders nothing rather than a control leading nowhere.
+   */
+  accounts: z.boolean().optional(),
+})
+
 /** Business profile, contact, and integration config. */
 export const siteConfigSchema = z.object({
   businessName: z.string(),
+  /** [[REQ-200]] — what this site HAS. See {@link siteCapabilitiesSchema}. */
+  capabilities: siteCapabilitiesSchema.optional(),
   tagline: z.string().optional(),
   contact: z
     .object({

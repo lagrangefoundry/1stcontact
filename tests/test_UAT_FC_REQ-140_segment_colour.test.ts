@@ -389,8 +389,15 @@ describe('REQ-140 — segment colour', () => {
     // it (`.DS_Store`, on any checkout Finder has visited). Asserting on the
     // directory would fail on that leftover while nothing had in fact come
     // back — and, worse, would pass on a machine where it happened not to.
+    //
+    // `1stcontact` IS NOT ON THIS LIST ANY MORE ([[REQ-200]]). The slug named a
+    // dead example when this criterion was written, and it names the platform's
+    // own front page now — a real published 1c site in the `1stcontact` tenant,
+    // which is the dogfooding claim made concrete. A later intent may supersede
+    // an earlier one at the same surface; what this criterion protects is that a
+    // deleted EXAMPLE stays deleted, and that is unchanged for `harbor-cafe`.
     const SITES = path.join(REPO_ROOT, 'storage', 'sites')
-    for (const slug of ['1stcontact', 'harbor-cafe']) {
+    for (const slug of ['harbor-cafe']) {
       expect(fs.existsSync(path.join(SITES, slug, 'draft', 'site.json')), slug).toBe(false)
       expect(fs.existsSync(path.join(SITES, slug, 'revisions')), slug).toBe(false)
     }

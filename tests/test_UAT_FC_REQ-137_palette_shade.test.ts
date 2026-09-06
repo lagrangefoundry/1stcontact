@@ -123,9 +123,9 @@ describe('REQ-137 AC1 — a palette entry holds a single colour and `steps` is g
       }
     }
     // The loop above is a "nothing on disk violates this" claim, which an empty
-    // store satisfies for free. `xgd` and `gigabytealchemy` carry the only two
-    // stored palettes, at 7 and 15 entries.
-    expect(entriesSeen, 'no stored palette entry was examined at all').toBe(22)
+    // store satisfies for free. `xgd` and `gigabytealchemy` carry 7 and 15
+    // entries; [[REQ-200]]'s apex site carries 3.
+    expect(entriesSeen, 'no stored palette entry was examined at all').toBe(25)
   })
 })
 
