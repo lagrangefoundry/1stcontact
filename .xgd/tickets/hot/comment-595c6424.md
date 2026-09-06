@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-57
 created_by: xgd
 created_at: '2026-09-06T20:44:32.622200+00:00'
-updated_at: '2026-09-06T20:47:10.073038+00:00'
+updated_at: '2026-09-06T21:47:15.159879+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,11 @@ I verified the remote schema is current (`site_revisions` has `site_id`; `publis
 **Fix is `bin/build && bin/deploy public-site`, then re-run `bin/smoke`.** That's a production deploy, so I haven't run it — say the word and I will.
 
 BUG-57 is filled in with the diagnosis. One thing I flagged there but didn't act on: nothing except a hand-run `bin/smoke` detects this skew — a remote migration doesn't force the Workers reading that database to redeploy, and the migrate hook is per-app rather than per-database. Whether that deserves a guard (boot-time schema assertion, or a deploy refusing a Worker build older than the last applied migration) is a separate call; tell me if you want a ticket for it.
+
+<!-- xgd-turn id="d2fa62f6-0500-4ce0-b1ec-3daa7f46d859-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T21:47:14.924867+00:00" -->
+#### You
+ok smoke passed - but why are 9 of 11 tests being skipped? Can we either update them or remove them?
 
 <!-- xgd-chat-end -->
