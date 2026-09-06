@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:37:19.091410+00:00'
+updated_at: '2026-09-06T22:40:33.251712+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -915,5 +915,11 @@ Empty means it never ran — which would point at the var not reaching the Worke
 <!-- xgd-chat role="user" ts="2026-09-06T22:37:18.851613+00:00" -->
 #### You
 I can't get martin or martin-github to work - I have tried both
+
+<!-- xgd-turn id="f75aa159-6f8a-466d-a033-195c9be944c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:40:32.891739+00:00" -->
+#### You
+This builder has no Anthropic API key, so nothing that needs the assistant can run — no conversation, and no describing the material you upload. Set ANTHROPIC_API_KEY on the deployment and reload.
 
 <!-- xgd-chat-end -->
