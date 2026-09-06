@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-09-06T00:24:08.121984+00:00'
+updated_at: '2026-09-06T22:45:32.146166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2520,5 +2520,11 @@ Three things sit in DOC-44 rather than the rebaseline, and none blocks the basel
 - whether an organisation contact can hold person contacts
 
 And from CHAT-39, much larger and entirely separate: **Access versus your own magic-link auth.** That one shapes the beta flow and I'd not let it drift far.
+
+<!-- xgd-turn id="0e7b1165-7e67-439f-963d-4a515f77c36b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:45:31.553176+00:00" -->
+#### You
+[mail] not sent (no provider configured): to=dennis-1c-test@westhead.me subject=Your invitation
 
 <!-- xgd-chat-end -->
