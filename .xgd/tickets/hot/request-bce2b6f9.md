@@ -5,16 +5,30 @@ type: request
 title: A person's name is a table, and every part of it is optional
 created_by: xgd
 created_at: '2026-09-05T21:48:44.015345+00:00'
-updated_at: '2026-09-06T18:56:54.645075+00:00'
+updated_at: '2026-09-06T19:02:46.238185+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5165b19e
+  commits:
+  - working_sha: 0d170e40c08aeed77d06481e76733304e1eae7e1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b38dbdabf1e2055334970bf9ed7f2a2cdc4779f3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: fbb90d875cd58bf0f5b10076d329d73d3a2b6d1f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1da94d715af74dd8533d8978fc18fade48581168
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.93
 ---
 
 # A person's name is a table, and every part of it is optional
