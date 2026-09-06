@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T22:58:34.810468+00:00'
+updated_at: '2026-09-06T22:59:52.650805+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1193,5 +1193,11 @@ Don't just click "Not spam" and move on — that trains your own filter and tell
 ## Worth filing
 
 The text-part gap is a genuine finding with evidence behind it, and it's small: add an optional `text` to `Message`, send `multipart/alternative`, and derive the text from the template body. Want me to write it up as a bug against REQ-196/197? I'd hold it until you've seen the "Show original" output, since that may reprioritise it below whatever the headers say.
+
+<!-- xgd-turn id="54a1128f-fba5-4837-a2ab-726fa3b8f730-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T22:59:52.607065+00:00" -->
+#### You
+I don't want to go too deep in this - it said DMARC failed
 
 <!-- xgd-chat-end -->
