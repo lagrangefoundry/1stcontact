@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:09:26.913734+00:00'
+updated_at: '2026-09-06T23:15:16.098145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1268,5 +1268,13 @@ Two practical consequences:
 **If you ever switch to Postmark, these DNS records change.** REQ-196's `sendEmail` port makes the code side a one-adapter swap, but the domain setup is provider-specific and would need redoing — worth knowing before you build reputation on one and then move.
 
 Nothing to act on here. The record is right; you're still just missing `_dmarc`.
+
+<!-- xgd-turn id="8596a886-6858-48bd-a060-0d1ee23f6160-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T23:15:15.909176+00:00" -->
+#### You
+ok lets talk about the email then - the link just takes the user to 
+
+http://127.0.0.1:8788/ Which says Cloudflare Access rejected this request: no Access token was presented.
 
 <!-- xgd-chat-end -->
