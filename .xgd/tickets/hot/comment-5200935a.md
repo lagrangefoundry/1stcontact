@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:38:58.057577+00:00'
+updated_at: '2026-09-07T20:08:07.148393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1468,5 +1468,61 @@ Three properties worth being explicit about, because they're consequences rather
 REQ-202 and REQ-203 are the two remaining tickets. Until REQ-202 lands, an invite is a real, delivered, well-formed email whose link does not log anyone in — which is exactly what you saw when Emma's link hit `no Access token was presented`.
 
 Still outstanding and not a ticket: the missing `_dmarc.1stcontact.io` TXT record, which is why the mail went to spam.
+
+<!-- xgd-turn id="9cd4d9f0-323d-45bc-b6f3-2cbcdc3b0dbc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:06:13.379781+00:00" -->
+#### You
+So those two tickets have landed - can I run the complete cycle now?
+
+<!-- xgd-turn id="9cd4d9f0-323d-45bc-b6f3-2cbcdc3b0dbc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:08:04.270677+00:00" -->
+#### Claude
+Let me verify rather than assume — last time the repo state differed from the description.
+
+All three landed. Note `login_tokens` went into `0001_baseline.sql` rather than a new migration — which matters for your local store. Let me check what's actually applied.
+
+Sessions are already configured in `wrangler.toml` (`SESSION_COOKIE_NAME = "session"`). The only gap is your local database.
+
+The auth DDL is at lines 800–829 of the baseline, all `IF NOT EXISTS` — and wrangler already recorded `0001_baseline.sql` as applied, so it won't re-run. I can add just those tables without wiping your store.
+
+Yes — with one thing I had to fix first.
+
+## What I found and did
+
+All three landed (`ready_to_reconcile`), and the wiring is real: `sessions.ts` wraps `PasswordlessAuth`, `index.ts` uses `sessionIdentityFor` so a session is a second identity producer, and `router.ts:1656` now builds the invite CTA through `inviteUrlIssuer` instead of the bare origin.
+
+**But the auth tables went into `0001_baseline.sql` rather than a new migration file.** Wrangler tracks migrations by filename and had already recorded `0001_baseline.sql` as applied, so it would never have re-run — your local store had no `login_tokens` and no `sessions`, and every sign-in would have failed against a missing table.
+
+The DDL is all `IF NOT EXISTS`, so I extracted lines 800–828 and applied them directly rather than resetting. **Your data is intact** — 10 addresses now, up from the 5 seeded, so your operator row and the contacts you added are all still there.
+
+That's worth knowing generally: **editing the baseline after it's been applied is invisible to `d1 migrations apply`.** Anyone else with an existing local store hits the same thing, and it looks like a code bug rather than a schema one.
+
+## Restart and run it
+
+The Worker needs restarting to pick up the new code. In terminal 2:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+npx wrangler dev --port 8788 \
+  --env-file .dev.vars \
+  --env-file ../../.dev.vars.local \
+  --env-file "$HOME/Documents/secrets/1c.dev.env"
+```
+
+Then the full cycle:
+
+1. Sign in at the sim as `martin@westhead.me`, open the builder
+2. Contacts → **+** → add a fresh contact (use a new address — your earlier ones already have `invited_at` set)
+3. Tick it → **Invite** → send
+4. Open the invite email — the link should now be a `/sign-in`-style URL carrying a token, **not** `http://127.0.0.1:8788`
+5. Click it in a different browser or a private window → Continue → terms → Site tab
+
+Step 4 is the quickest check that REQ-202 actually took. If the link is still the bare origin, the invite path didn't pick up `inviteUrlIssuer`.
+
+Use a private window for step 5 — otherwise your operator session is already present and you won't be testing what an invitee experiences.
+
+Two things still outstanding, neither blocking: the missing `_dmarc.1stcontact.io` record (so mail still lands in spam), and BUG-62 is written but `ready_to_reconcile` rather than merged.
 
 <!-- xgd-chat-end -->

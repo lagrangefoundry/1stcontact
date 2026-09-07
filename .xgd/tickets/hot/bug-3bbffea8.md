@@ -5,7 +5,7 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-09-06T23:43:32.399029+00:00'
+updated_at: '2026-09-07T01:20:33.836886+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -179,9 +179,84 @@ seat in the identity model REQ-167 onwards built. `ACCESS.md`'s claim that a
 service token is accepted "on the same terms as a human identity" is true of
 `verifyAccessJwt` and false of the request as a whole.
 
-Giving a service token a seat is a design question — which account owns it, which
-businesses it may write to, how it is granted and revoked — and it is not this
-bug's. Recorded here so it is not rediscovered from the symptom.
+`ACCESS.md`'s claim is corrected in place by this ticket, and the gap itself is
+now fixed too — see *A service token acts as a named person* below.
+
+**A first push against a fresh database is refused by the terms gate.** Found
+while proving this fix end-to-end: with the exchange working and the caller
+admitted, REQ-169's gate refuses every route until the account has accepted, and
+accepting is a browser action `1c push` has no way to perform. It is not a
+blocker — `POST /api/terms/accept` with the same service-token pair clears it in
+one call, and it only arises once per account — so it is documented as a step in
+`ACCESS.md` rather than worked around in code. Whether automation should be able
+to accept terms on a human's behalf at all is the same design question as the
+service-token seat above, and is deliberately not answered here.
+
+**`1c push`'s refusal advice is production-only.** After a local 403 it still
+prints "Run bin/access-token to provision one", which provisions against real
+Cloudflare. The simulator's own body reads first and is the actionable line, so
+this is left alone rather than teaching `push.ts` about a local tool it should
+not know exists.
+
+## What to build, part two: a service token acts as a named person
+
+Recorded above as a design question and then asked for directly, so it is
+answered here rather than deferred: **who is a service token, and what may it
+reach?**
+
+The answer that needs no new concepts is that it is a PERSON'S AUTOMATION. That
+is literally what `1stcontact-publish` is — an operator's laptop pushing sites —
+and saying so lets the whole identity model apply unchanged: membership decides
+which businesses, the grant decides whether they are selectable, the terms the
+person accepted are the terms it operates under, and revoking the person revokes
+the automation. The alternative — a non-human principal with its own account row,
+its own memberships and its own grant lifecycle — is a much larger design and
+would be a second authorisation path to keep correct forever.
+
+So a new deployment var maps a token's name to an address:
+
+```
+SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"
+```
+
+- **Comma-separated `name=email` pairs**, casefolded and compared through the
+  same `normaliseEmail` the `users` index is written through, for the reason
+  `isPlatformAdminSeed` gives: a var naming `Martin@Example.com` would name a
+  person the database does not contain.
+- **Empty means nobody**, like `PLATFORM_ADMINS` and like `ACCESS_TEAM_DOMAIN`. An
+  unmapped service token is refused exactly as it is today, so this opens nothing
+  by going missing.
+- **It is deployment configuration and never caller input.** A caller cannot
+  choose who they act as: the name is `common_name` out of a JWT Cloudflare
+  signed, and the mapping from that name to a person is written here.
+- **Revocation is two-sided** — delete the token in Cloudflare, or remove the
+  mapping — and either alone is sufficient.
+- **The identity is resolved once, at the gate**, in the same place `admit` is
+  already called, so there is no second path through authorisation.
+- **The stamp lands on the person.** `admit` writes `last_seen_at` on the mapped
+  human, which is right: the automation IS that person's, and inventing a
+  separate presence for it would claim a distinction the platform does not make.
+
+The Worker declares the var empty under `[vars]` and names the documented grant
+under `[env.production.vars]`, because a named environment inherits neither. This
+is not a new grant: `ACCESS.md`'s identity table already records
+`1stcontact-publish` as provisioned for `bin/publish`. What changes is that the
+grant now works.
+
+### And the simulator stops deviating
+
+Part one bound the local pair to an address because `admit` could not take a
+service token. It can now, so `bin/access-sim` mints the FAITHFUL shape — a
+`common_name` claim and no email, exactly as Cloudflare does — and
+`--print-env` emits the `SERVICE_TOKEN_IDENTITIES` line that maps it, alongside
+the two Access vars it already emits. `--service-email` keeps choosing who the
+local token acts as; it now chooses the right-hand side of that mapping rather
+than the `email` claim.
+
+That removes the one place the simulator was not Cloudflare, which is the whole
+justification REQ-192 gave for the tool. It also means the local path exercises
+the production path rather than rehearsing a shortcut — which is what would have
+caught this bug before a deployment did.
 
 ## Test plan
 
@@ -199,7 +274,54 @@ what is asserted is what the simulator actually forwards:
   proxy exists;
 - `--print-token` emits both halves of the pair;
 - the method, path and body of a POST survive the hop, which is the property
-  `1c push` depends on.
+  `1c push` depends on;
+- the pair is spent at the edge and does not reach the builder, as at the real
+  one;
+- with no address to be, the exchange refuses and says which two ways to give it
+  one;
+- the address defaults to the first `PLATFORM_ADMINS` entry, read from `.dev.vars`
+  ahead of `wrangler.toml` — the order the Worker reads them in.
+
+For part two, in `tests/test_UAT_FC_BUG-59_service_token_identity.workers.test.ts`
+against real bindings, because admission is a question about rows:
+
+- a service token named in the var is admitted as that person, with the same
+  businesses that person would be admitted with;
+- an UNMAPPED service token is still refused `no_email`, so an empty or missing
+  var opens nothing;
+- the mapping is casefolded on both sides, so `Name=Martin@Example.com` admits;
+- a human's email still wins outright — the mapping is consulted only when the
+  token carries no email, so it can never redirect a person;
+- a mapped name whose address is not a user is refused `no_user` like anybody
+  else, rather than being provisioned by the mapping.
+
+And, on the simulator side, that the minted assertion now carries `common_name`
+and no `email`, and that `--print-env` emits the mapping line.
+
+Beyond the suite, the pre-change path was driven live: a real
+`bin/access-sim` in front of a real `wrangler dev` behind a real Access gate, with
+`bin/publish --origin <sim>` writing all three local sites into the store and
+`/api/sites` reading them back. The refusal paths (no credential, wrong secret,
+nobody to be) were exercised against the same pair of processes.
+
+**The live run could NOT be repeated after part two**, and the reason is outside
+this ticket: `wrangler dev` no longer builds in any checkout, because
+`apps/control-app/src/session-knowledge.ts` imports `KnowledgeDocs` from
+`generated/ai-knowledge`, and the installed shared package
+(`/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge`)
+defines that symbol in `src/priming.js` without re-exporting it from
+`src/index.js`. The shim `1c assets` generates is a bare `export *` from that
+index, so esbuild fails with `No matching export ... for import "KnowledgeDocs"`.
+It reproduces in the main checkout too — the same absolute path is bundled from
+both — so any restart of the running dev server will hit it. It is the
+shared-store install problem, not a code change here.
+
+What that leaves unproven live is only the composition — sim plus `wrangler dev`
+plus `bin/publish` in one run, with the NEW token shape. Both halves are covered
+by suites that drive the real thing rather than a double: the workers suite puts
+a real signed `common_name` token through the Worker's own `fetch`, the real gate
+and real D1; the node suite puts a real `bin/access-sim` process in front of a
+stub origin and verifies what it forwards with the product's own verifier.
 
 ## Notes
 

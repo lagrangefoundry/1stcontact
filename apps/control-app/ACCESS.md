@@ -238,6 +238,43 @@ curl -X POST -H 'content-type: application/json' -d '{}' \
 in an empty database (REQ-185) — set it in `.dev.vars.local` alongside the two vars above, sign in
 once, and empty it. Using it *writes* the membership, so the repair outlives the var.
 
+## The sign-in paths must bypass Access ([[REQ-202]])
+
+Access is now the **second** producer of a verified identity, not the only one. `src/sessions.ts`
+mints passwordless sessions, and `src/index.ts` reads a session cookie first and falls back to the
+Access JWT — both produce the same verified email and nothing downstream can tell which answered.
+Access **stays**: it is the operator's own route in, and the way back if the session path breaks.
+
+But Access enforces on a **hostname**, and the sign-in routes are exactly the routes a person with
+no identity has to be able to reach. Left under the blanket policy, an invitee clicking their
+invitation meets Access first and is challenged with its **own one-time-PIN email** — two messages
+per invite, the first of them Cloudflare-branded, and the invitation never delivers the person it
+was sent to.
+
+So the Access application needs a **Bypass** policy, ahead of the allow-list, scoped to these
+paths on `app.1stcontact.io`:
+
+| Path | Method | What it is |
+|---|---|---|
+| `/sign-in` | `GET`, `POST`, `OPTIONS` | the address form, and the endpoint the address is posted to |
+| `/sign-in/*` | `GET`, `POST` | the emailed link's Continue page, and the redeem it posts to |
+| `/sign-out` | `POST` | ending a session |
+
+Zero Trust → Access → Applications → the app → **Policies** → Add a policy → Action **Bypass**,
+Include **Everyone**, and add the paths under the application's *Path* configuration (or add a
+second self-hosted application scoped to those paths with a Bypass policy, which is the shape
+Cloudflare's UI makes easier).
+
+**What replaces the gate is the token.** Holding a sign-in link is the whole credential — 256 bits
+used as a primary key, single-use, enforced by a conditional `UPDATE` in the database rather than
+by application code (REQ-134). Nothing behind these paths reads a store handle, resolves a scope or
+touches a site; the most a caller reaches is a session for a person the database already knows, and
+an address the database does not know sends nothing and mints nothing.
+
+> ⚠️ **Without the bypass, this deployment's invitations do not work.** The code is complete and
+> the edge refuses the request before the Worker sees it. `wrangler dev` is unaffected — Access is
+> in front of the *deployed* Worker only — so the failure appears first in production.
+
 ## What Access does *not* change
 
 - **Draft snapshots served by `public-site` stay link-private, not authenticated** — an

@@ -1,6 +1,7 @@
 import { MEMBER_SIGNED_UP } from './builder/contact-events.js'
 import { contactEventInsert } from './events'
 import type { Admission, IdentityEnv, UserRow } from './identity'
+import { ensureOwnBusiness } from './onboarding'
 import { splitBusinessPrefix } from './scope'
 
 /**
@@ -227,12 +228,23 @@ ${action}
     // Reloading rather than navigating somewhere is what "continues to where they
     // were going" means here: the interstitial was served AT the requested URL, so
     // the same URL now answers with the thing that was asked for.
+    //
+    // EXCEPT AT THE TERMS PATH ITSELF, WHICH IS NOT SOMEWHERE ANYONE WAS GOING
+    // ([[REQ-203]]). Reloading there answers with the terms again — correctly,
+    // since an accepted caller may still read what they agreed to — which would
+    // leave a brand new invitee reading the document they have just accepted
+    // instead of reaching the site they were invited to build. The builder root
+    // is where they were going, and its first tab is Site.
     fetch(${JSON.stringify(TERMS_ACCEPT_PATH)}, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version: ${JSON.stringify(version)} }),
     }).then(function (res) {
-      if (res.ok) { location.reload(); return }
+      if (res.ok) {
+        if (location.pathname === ${JSON.stringify(TERMS_PATH)}) location.assign('/')
+        else location.reload()
+        return
+      }
       throw new Error(String(res.status))
     }).catch(function () {
       button.disabled = false
@@ -314,6 +326,28 @@ export async function guardTerms(
     if (!(request.headers.get('content-type') ?? '').includes('application/json')) {
       return page(415, 'Acceptance must be posted as application/json.', 'text/plain; charset=utf-8')
     }
+    // SIGNING UP IS WHAT GIVES SOMEBODY A BUSINESS ([[REQ-203]]).
+    //
+    // HERE, AND NOT ON REDEMPTION OR FIRST ADMISSION. Acceptance is the person's
+    // OWN act and the fact that makes them a Member ([[REQ-188]], [[DOC-44]]
+    // §3), so provisioning any earlier would build a business, a site and a
+    // grant for somebody who then closes the tab without agreeing.
+    //
+    // ONLY FOR SOMEBODY WHO HOLDS NOTHING. `admission.businesses` is the set
+    // `admit` already resolved, so this costs no query — and it is the condition
+    // that keeps an operator re-accepting bumped terms from being handed a second
+    // business beside the one they already own. {@link ensureOwnBusiness} carries
+    // the durable guard as well; this is the cheap one, and it is the one that
+    // answers for a person whose businesses are owned by somebody else's account.
+    //
+    // BEFORE THE STAMP, DELIBERATELY. If provisioning fails, `tos_accepted_at`
+    // stays null — so the person is still admitted (see `admit`), is served the
+    // interstitial again, and their next press retries. Stamping first would
+    // leave a member with no business and no membership, which `admit` refuses:
+    // one failed write and they are locked out permanently, with the remedy on
+    // the far side of the lock. They have already clicked agree by the time this
+    // runs, so nothing here provisions for somebody who did not.
+    if (admission.businesses.length === 0) await ensureOwnBusiness(env, admission.user)
     await acceptTerms(env, admission.user.id, version, options.now)
     // 204 and no body: the caller that posted this is the interstitial's own
     // script, which reloads on success and has nothing to read.

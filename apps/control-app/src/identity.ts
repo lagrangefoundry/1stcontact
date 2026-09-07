@@ -408,10 +408,13 @@ export interface BusinessLapse {
  * had selected the second — a silent, plausible, wrong answer. Deleting it turns
  * every such call site into a compile error instead.
  *
- * `businesses` is non-empty on an `ok` admission. It MAY HOLD NO SELECTABLE
- * MEMBER: admission is a fact about the person's membership, and lapse is a fact
- * about each business's grant ([[DOC-42]] §4). A caller that needs one to enter
- * must consult `selectable` rather than reading `ok` as a promise of access —
+ * `businesses` MAY BE EMPTY on an `ok` admission, and may hold no SELECTABLE
+ * member. Empty is a contact who has not signed up yet ([[REQ-203]]) — admitted
+ * so the terms gate can ask them, and able to reach nothing else until they
+ * answer. Nothing selectable is an account whose every grant has lapsed:
+ * admission is a fact about the person's membership, and lapse is a fact about
+ * each business's grant ([[DOC-42]] §4). A caller that needs one to enter must
+ * consult `selectable` rather than reading `ok` as a promise of access —
  * which is what `scope.ts` does, and why it can answer "no business" rather than
  * throwing. Which one is being operated is [[REQ-168]]'s question, not this
  * one's.
@@ -420,9 +423,37 @@ export type Admission =
   | { ok: true; user: UserRow; businesses: AdmittedBusiness[] }
   | { ok: false; reason: DenialReason; email: string | null }
 
-/** The one thing a refused visitor is told. */
+/**
+ * The one thing a refused visitor is told.
+ *
+ * IT ASSERTS NOTHING ENDED, and that is the whole of BUG-62's first half. The
+ * sentence used to read *"your access to 1st Contact has ended"*, which is true
+ * of `user_inactive` and false of `no_user` and `no_membership` — and
+ * `no_membership` is not an edge case, it is what every invited contact hits
+ * before they accept, so the false reading was the one most people saw. The cost
+ * was not tone. "Ended" tells the reader they HAD something and lost it, so they
+ * go looking for what they did wrong; the truthful answer is usually that they
+ * are part-way through signing up. Those two readings lead to different actions
+ * and only one of them is available.
+ *
+ * AND IT STILL NAMES NO REASON, which is the constraint that makes this one
+ * sentence rather than five. A refusal that distinguished `no_user` from
+ * `no_membership` is a membership oracle to anyone who can pass a one-time PIN,
+ * which is anyone — see {@link DenialReason}. So the fix is a sentence TRUE OF
+ * EVERY REASON WITHOUT NAMING WHICH, not a sentence per reason.
+ *
+ * IT IS ABOUT THE REQUEST, NOT THE PERSON. `index.ts` renders this for a scope
+ * refusal too — an admitted operator who named a business that is not theirs —
+ * and "you have no access to 1st Contact" would be false of exactly that reader.
+ * "Cannot open this for you" is true of both paths, which is what lets the two
+ * stay byte-identical without either of them lying.
+ *
+ * THE SECOND SENTENCE IS THE ONLY ACT AVAILABLE. Every reason in the union is
+ * fixed by somebody at this end, so there is nothing else honest to suggest.
+ */
 export const DENIED_MESSAGE =
-  'Your access to 1st Contact has ended. Please get in touch and we will sort it out.'
+  '1st Contact cannot open this for you at the moment. ' +
+  'Please get in touch and we will sort it out.'
 
 /**
  * An opaque id, `<prefix>_<random>` — re-exported, not defined here ([[REQ-190]]).
@@ -607,6 +638,34 @@ export async function accountById(
   )
     .bind(accountId)
     .first<AccountRow>()
+}
+
+/**
+ * Does this account already own a business ([[REQ-203]])?
+ *
+ * `tenants.owner_account_id` IS THE COLUMN, NOT A MEMBERSHIP. Membership says
+ * who may OPERATE a business and an account may put several people on one;
+ * ownership is the column the business itself carries ([[REQ-194]]), and
+ * "does this account own a business" is exactly the question.
+ *
+ * NULL `owner_account_id` IS THE PLATFORM BUSINESS AND MATCHES NOBODY, which is
+ * the schema's own rule — 1st Contact is not somebody's product — and is what
+ * keeps an operator from being read as owning it here.
+ *
+ * TWO READERS, ONE DEFINITION. {@link admit} asks it to decide whether signing
+ * up still has anything to give somebody, and `onboarding.ts` asks it to decide
+ * whether to provision. Those must be the same question or the door opens onto
+ * a hook that does nothing.
+ */
+export async function accountOwnsBusiness(
+  env: IdentityEnv,
+  accountId: string,
+): Promise<boolean> {
+  if ((accountId ?? '').trim() === '') return false
+  const held = await env.DB.prepare('SELECT id FROM tenants WHERE owner_account_id = ? LIMIT 1')
+    .bind(accountId)
+    .first<{ id: string }>()
+  return held !== null
 }
 
 /**
@@ -853,6 +912,54 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
 }
 
 /**
+ * Refuse, and say why WHERE THE OPERATOR CAN READ IT (BUG-62).
+ *
+ * THE REASON USED TO REACH NOBODY BY DEFAULT. It was written by whichever caller
+ * rendered the response — one line in `index.ts`, beside one `new Response` —
+ * so the guarantee was a property of that call site rather than of the decision.
+ * A second caller of {@link admit}, or a refusal added to it later, was a silent
+ * one, and a silent refusal is the state this bug was filed from: an operator
+ * locked out of their own deployment, with nothing in the running system saying
+ * why. Deciding and recording are now the same statement, so a reason cannot be
+ * computed without being reported.
+ *
+ * THERE IS NO DISCLOSURE RISK. The whole reason the VISITOR is told one thing
+ * ({@link DENIED_MESSAGE}) is that they are unauthenticated and the distinction
+ * would be a membership oracle. The operator reading the Worker's invocation log
+ * is not the visitor, and the log is ours.
+ *
+ * STRUCTURED, IN THE SHAPE `router.ts` ALREADY USES —
+ * `console.warn(JSON.stringify({ event, … }))` — so a refusal can be queried out
+ * of the invocation logs `wrangler.toml` keeps every one of, rather than grepped
+ * out of prose.
+ *
+ * `platformAdminSeed` IS THE FIELD THAT ANSWERS THE DIAGNOSIS THAT COST US ONE.
+ * The lockout that produced this bug was a duplicated `PLATFORM_ADMINS` key in
+ * `.dev.vars`: the address the operator signed in with was not the address the
+ * deployment named, so the break-glass seed never fired and they were refused
+ * `no_user`. The reason alone does not separate that from "this person was never
+ * invited" — you have to go and read the configuration, which is exactly what the
+ * log is meant to replace. This says whether THIS deployment names THIS address,
+ * from the Worker's own output. It is a boolean about configuration the operator
+ * already holds, not about any person, so it discloses nothing further.
+ */
+function denyAdmission(
+  env: IdentityEnv,
+  reason: DenialReason,
+  email: string | null,
+): Extract<Admission, { ok: false }> {
+  console.warn(
+    JSON.stringify({
+      event: 'admission_denied',
+      reason,
+      email,
+      platformAdminSeed: email !== null && isPlatformAdminSeed(env, email),
+    }),
+  )
+  return { ok: false, reason, email }
+}
+
+/**
  * Login: bind a verified email to an account, or refuse.
  *
  * NOTHING IS CREATED HERE FOR ANYONE THE DATABASE DECIDES ABOUT. Every step is a
@@ -931,7 +1038,7 @@ export async function admit(
   const platformTenant = requirePlatformTenant(env)
   // A service token carries `common_name` and no email ([[DOC-40]] §2 makes the
   // verified email the identity), so there is nothing to look a user up by.
-  if (!email) return { ok: false, reason: 'no_email', email: null }
+  if (!email) return denyAdmission(env, 'no_email', null)
   const normalised = normaliseEmail(email)
 
   // Break glass, and then carry on down the ordinary path. The seed writes rows;
@@ -941,7 +1048,7 @@ export async function admit(
   if (isPlatformAdminSeed(env, normalised)) await ensurePlatformOperator(env, normalised)
 
   const user = await findUser(env, platformTenant, normalised)
-  if (!user) return { ok: false, reason: 'no_user', email: normalised }
+  if (!user) return denyAdmission(env, 'no_user', normalised)
 
   const stamp = now.toISOString()
   await env.DB.prepare(
@@ -953,7 +1060,7 @@ export async function admit(
 
   // A suspended person is checked after the stamp and before anything else: it
   // is the one refusal that is about the PERSON rather than about their account.
-  if (user.status !== 'active') return { ok: false, reason: 'user_inactive', email: normalised }
+  if (user.status !== 'active') return denyAdmission(env, 'user_inactive', normalised)
 
   // Every business, then the decision — not the first business, then the
   // decision. The two orders differ exactly when an account holds several and
@@ -968,8 +1075,50 @@ export async function admit(
   // cannot reach their delete button, which [[DOC-37]] makes an obligation
   // rather than a feature. So an account with nothing selectable is ADMITTED,
   // and the set simply comes back with nothing selectable in it.
+  //
+  // AND A CONTACT WHO HAS NOT SIGNED UP YET IS ADMITTED WITH NOTHING
+  // ([[REQ-203]]). An invited contact holds a `users` row and an address and no
+  // membership at all, because the invite deliberately writes neither a
+  // membership nor an entitlement ([[DOC-42]] §5) — so before this they were
+  // refused `no_membership` and shown {@link DENIED_MESSAGE}, *"your access has
+  // ended"*, five minutes after being invited. Nothing had ended; they had never
+  // had access, and the sentence was false in the one case it is most often
+  // read. Every beta invitee travelled that path.
+  //
+  // THE PREDICATE IS "SIGNING UP WOULD STILL GIVE THEM SOMETHING", asked as the
+  // two facts that make it true. `tos_accepted_at` is null exactly while
+  // somebody has not signed up ([[DOC-44]] §3) — the access axis, theirs rather
+  // than ours — and {@link accountOwnsBusiness} is the same question
+  // `ensureOwnBusiness` guards on, so the door opens exactly when there is
+  // something behind it. Neither reads the PIPELINE stage: a Lead nobody invited
+  // is treated identically, because being asked is the other axis.
+  //
+  // BOTH HALVES, AND THE SECOND IS WHAT KEEPS THE OLD REFUSALS. A person whose
+  // membership was WITHDRAWN, or whose membership rows were lost between the two
+  // writes that make an account, has an account that already owns a business —
+  // so they are refused exactly as they were, and re-inviting them is still the
+  // repair. Without it, revocation would stop refusing anybody who had never got
+  // as far as accepting.
+  //
+  // IT OPENS NO ROUTE, WHICH IS WHY THE RELAXATION IS SAFE. `guardTerms` runs
+  // immediately after this in `index.ts` and an unaccepted session is refused
+  // every asset and every API route, so the only thing an admission with no
+  // membership can reach is the terms interstitial and the accept route — which
+  // is where signing up provisions the business that ends this state. Admission
+  // is still bounded by there being a `users` row at all, so self-signup remains
+  // exactly as absent as the file header says.
+  //
+  // A PERSON WHO HAS ACCEPTED AND STILL HOLDS NOTHING IS STILL REFUSED. That is
+  // the state this reason has always named — a relationship that ended — and it
+  // is the one sentence `DENIED_MESSAGE` is true about.
   const businesses = await businessesFor(env, user.id, stamp)
-  if (businesses.length === 0) return { ok: false, reason: 'no_membership', email: normalised }
+  if (businesses.length === 0) {
+    // The cheap half first: the column is already in hand, and the query below
+    // is only ever reached by somebody who holds no live membership at all.
+    const signingUp =
+      user.tos_accepted_at === null && !(await accountOwnsBusiness(env, user.account_id))
+    if (!signingUp) return denyAdmission(env, 'no_membership', normalised)
+  }
 
   return { ok: true, user: { ...user, first_seen_at: user.first_seen_at ?? stamp }, businesses }
 }
@@ -1529,7 +1678,18 @@ async function bestActiveGrant(
     .first<EntitlementRow>()
 }
 
-function requirePlatformTenant(env: IdentityEnv): string {
+/**
+ * The business this deployment's builder users live in.
+ *
+ * EXPORTED FOR `sessions.ts` ([[REQ-202]]) and for nothing else. The sign-in
+ * routes run ahead of `admit` and ahead of `resolveScope` — they are what an
+ * anonymous person calls in order to become authenticated — so they cannot take
+ * the tenant from an admission and have to resolve it from the request's host,
+ * which on this Worker is the business `TENANT_ID` names. Exporting the existing
+ * reader is what keeps "which tenant does `TENANT_ID` mean" a single answer;
+ * a second `env.TENANT_ID` read beside it would be a second one.
+ */
+export function requirePlatformTenant(env: IdentityEnv): string {
   const tenantId = (env.TENANT_ID ?? '').trim()
   if (tenantId === '') throw new IdentityNotConfiguredError()
   return tenantId
