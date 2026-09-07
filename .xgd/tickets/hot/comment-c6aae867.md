@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:20:57.755604+00:00'
+updated_at: '2026-09-07T22:23:57.764855+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,26 @@ One thing that is not your change: `reconciliation-copy-edit-form-presentation.t
 <!-- xgd-chat role="user" ts="2026-09-07T22:20:57.493356+00:00" -->
 #### You
 I am logged in a Felix Test. I have restarted the server. I do not see the new CTA?
+
+<!-- xgd-turn id="affa9ce6-8b0d-40c3-b900-3f025237c875-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T22:23:57.711099+00:00" -->
+#### Claude
+Let me check rather than guess — two candidates: stale built assets, or `session` coming back false.
+
+Found it. Rebuilding the assets the dev server actually serves:
+
+Fixed — reload the page and it'll be there. No code was wrong; the browser was running the old bytes.
+
+**What happened.** `1c builder` only starts `wrangler dev` — it never builds. The Worker serves browser assets out of `apps/control-app/dist-assets/`, which `./bin/1c assets` copies from `src/builder/`. Your `dist-assets/builder/business.js` was stamped 14:35, twenty minutes before the merge, so restarting the server changed nothing: `.ts` edits hot-reload, `src/builder/*.js` does not. I ran `./bin/1c assets` in the main checkout.
+
+**Verified against your running server on :8788, not just the source:**
+
+- `GET /builder/business.js` now contains `builder-account__sign-out` — the served bytes, not `src/`.
+- `GET /api/businesses` with your session returns `{"person":{"name":"Felix Test",…},"session":true,…}` — so the condition the control hangs on is satisfied for you.
+
+A plain reload should do it; hard-reload (⌘⇧R) if the browser cached the old `business.js`. Open the avatar dialog and **Sign out** sits at the left of the footer, opposite Close.
+
+One thing to expect later: if you test by simulating an Access login (`bin/access-sim`) instead of your sign-in link, the control will correctly be absent — `session` comes back false, because `POST /sign-out` can end a session row and can do nothing about the Access cookie. That's the conditional working, not a regression.
 
 <!-- xgd-chat-end -->
