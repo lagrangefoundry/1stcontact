@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T20:05:33.975056+00:00'
+updated_at: '2026-09-07T20:08:06.484763+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -155,5 +155,36 @@ Two things to flag:
 <!-- xgd-chat role="user" ts="2026-09-07T20:05:30.750487+00:00" -->
 #### You
 Where are we on this?
+
+<!-- xgd-turn id="36e92dde-6399-4b8b-8295-b50ed4a1da55-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:08:02.672364+00:00" -->
+#### Claude
+Both fixes are written and their UATs pass — I just re-ran them: **19 tests, 2 files, green**. Nothing is committed yet.
+
+**State on `free-BUG-59`** (worktree at `~/.xgd/worktrees/…/free-BUG-59`):
+
+```
+ M apps/control-app/ACCESS.md          +92
+ M apps/control-app/src/identity.ts    +78
+ M apps/control-app/src/index.ts       +13
+ M apps/control-app/wrangler.toml      +27
+ M bin/access-sim                     +277
+ M tests/…REQ-167_identity.workers      +6
+ ?? tests/…BUG-59_access_sim_service_token.test.ts        (456 lines, 12 tests)
+ ?? tests/…BUG-59_service_token_identity.workers.test.ts  (263 lines,  7 tests)
+```
+
+Ticket BUG-59 is still at `draft` — the body carries the full diagnosis and both fix scopes, `fields.commits` is empty.
+
+**What's outstanding:**
+
+1. **The full regression run never reported.** It was launched as a background task in the last session and that process died with the turn; its log is gone. So the only verification I have is the two targeted suites plus the earlier control run showing the pre-existing failures aren't mine. That needs re-running before I commit.
+
+2. **The branch is now 49 commits behind `xgd-working`, and three of them touch the files I changed.** REQ-202 (`feat(sessions): consume auth-passwordless — sign-in routes and token invites`), REQ-203 (`signing up provisions a business, a site and a landing`) and BUG-62 all landed in `identity.ts`/`index.ts` since this branch was cut. My `actingEmail` hook sits in the admission path REQ-202 restructured, so this wants a merge-and-reverify, not a blind fast-forward.
+
+3. **`wrangler dev` still won't build in any checkout** — `KnowledgeDocs` isn't re-exported from the installed `@lagrangefoundry/ai-knowledge` index. Outside this ticket, but it's what blocked repeating the live end-to-end after the token shape changed.
+
+Say the word and I'll finish it: merge `xgd-working` in, re-verify both suites plus the regression scope, bump the version, commit with `[FREE-CODED]`, merge back and set `free_coded`.
 
 <!-- xgd-chat-end -->
