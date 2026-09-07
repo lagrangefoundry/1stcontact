@@ -254,9 +254,21 @@ body {
  * form modal — matching on it would snap the panel from 880px to 520px the
  * moment a save was refused, resizing the dialog around text the user is still
  * holding.
+ *
+ * THE INVITE COMPOSER IS ON THIS LIST FOR THE SAME REASON THE BOX IS ([[BUG-58]]).
+ * A subject line and a twelve-row body is copy, and a panel narrowed to a
+ * sentence cannot hold it: the composer asked for its own measure with a
+ * `min-width`, which a fixed-width panel can only answer by letting the fields
+ * overflow past its own right edge. The width belongs to the panel; naming the
+ * composer here is how the composer asks for it.
  */
 .builder-modal__panel:not(
-    :has(.builder-modal__box, .builder-modal__picker, .builder-modal__reader)
+    :has(
+        .builder-modal__box,
+        .builder-modal__picker,
+        .builder-modal__reader,
+        .builder-people__compose
+      )
   ) {
   width: min(520px, calc(100vw - 48px));
 }
@@ -1896,12 +1908,19 @@ body {
  * LABELS IN A FIXED COLUMN, so the four values line up and the eye reads down
  * them. `ch` rather than `px` because the widest label is `To-List:` and the
  * measure that matters is characters.
+ *
+ * IT ASSERTS NO WIDTH OF ITS OWN ([[BUG-58]]). It once carried
+ * `min-width: min(70ch, 70vw)`, reaching for a real measure to compose in; but a
+ * child cannot widen a panel whose width is already decided, it can only refuse
+ * to shrink — so the fields inside it were laid out past the dialog's right edge
+ * and sat on the backdrop. The measure is the panel's to give, and it gives it
+ * by matching the copy width above; here the composer is an ordinary flex child
+ * that stretches to whatever it is handed and never more.
  */
 .builder-people__compose {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: min(70ch, 70vw);
 }
 
 .builder-people__field {
