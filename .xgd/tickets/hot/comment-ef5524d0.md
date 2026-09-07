@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-63
 created_by: xgd
 created_at: '2026-09-07T20:20:47.537352+00:00'
-updated_at: '2026-09-07T20:54:54.117050+00:00'
+updated_at: '2026-09-07T21:06:01.515174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -209,5 +209,14 @@ Once it finishes I'll triage each failure as caused-by-this-change or pre-existi
 **Ticket** verified: all ten behaviour claims my UATs rest on have matching body language, including the two upstream consequences (widened `ReadKnowledge`, per-corpus provenance) and the two-shape system prompt.
 
 Still to do after the suite: the workers vitest project, then commit with `[FREE-CODED]` and set `status=free_coded` with the sha.
+
+<!-- xgd-turn id="1b3ffff4-e827-49dd-8db8-f793999f4b57-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T21:05:59.465211+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
