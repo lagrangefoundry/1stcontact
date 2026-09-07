@@ -5,16 +5,21 @@ type: request
 title: 'Account dialog: sign-out control'
 created_by: martin-github@westhead.me
 created_at: '2026-09-07T21:42:25.156652+00:00'
-updated_at: '2026-09-07T21:57:11.636547+00:00'
+updated_at: '2026-09-07T22:04:44.001225+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c6aae867
   story_points: 2
+  commits:
+  - working_sha: e6bbe46f22d899a4e211059d934f73ad7dbae5bf
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.128
 ---
 
 ## What changes
