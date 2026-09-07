@@ -16,7 +16,7 @@ import {
  *
  * FOUR CLAIMS, each a one-line mistake production would not announce.
  *
- * 1. THE PREFLIGHT REPORTS IT. `@lagrangefoundry/auth-passwordless` is delivered
+ * 1. THE PREFLIGHT REPORTS IT. The `auth-passwordless` component is delivered
  *    out of band, so `pnpm install` cannot supply it and the lockfile cannot
  *    notice it missing. Without a registration here, a machine that never ran
  *    `bin/install` gets an unresolved specifier deep inside a build rather than a

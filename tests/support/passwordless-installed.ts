@@ -4,7 +4,7 @@ import { WEBUI_SCOPE, webuiPackageDir } from '../../tools/generate/src/cli/webui
 const COMPONENT = 'auth-passwordless'
 
 /**
- * Whether `@lagrangefoundry/auth-passwordless` is present ([[REQ-202]]).
+ * Whether the `auth-passwordless` component is present ([[REQ-202]]).
  *
  * THE SAME SHAPE AS `ticketing-installed.ts`, AND FOR THE SAME REASON. The
  * component reaches this repository through the shared artifact store, which is

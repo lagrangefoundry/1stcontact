@@ -14,7 +14,7 @@ import type { TicketStore } from './tickets'
 /**
  * Passwordless sessions, wired ([[REQ-202]], design ref [[CHAT-39]]).
  *
- * `@lagrangefoundry/auth-passwordless` ([[REQ-134]]) owns the mechanism — mint an
+ * The `auth-passwordless` component ([[REQ-134]]) owns the mechanism — mint an
  * opaque token, mail a link, redeem it once on a POST, hold a session in a
  * cookie — and owns its two tables. What it deliberately does NOT know is
  * anything product-specific, and it names the three things a host has to answer:
