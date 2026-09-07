@@ -198,7 +198,14 @@ function writeAiWorkersShim(generatedDir: string): string {
 const AI_WORKER_EXPORTS = [
   'ArchiveSyncer',
   'ClaudeAPIBackend',
+  // BUG-63 — the two halves of DOC-22's priming configuration the host
+  // constructs. `Entry` is one named section of a tier; `PrimingProviders` is
+  // the registry a `provider:` name resolves through. They arrive together
+  // because neither is any use alone: an entry naming a provider nobody
+  // registered is a load-time error, which is the design's point.
+  'Entry',
   'NullArchive',
+  'PrimingProviders',
   'Role',
   'Session',
   'SessionManager',
@@ -506,17 +513,30 @@ function writeAiKnowledgeShim(generatedDir: string): string {
  * What the Worker reaches for out of the bridge.
  *
  * Listed rather than wildcarded for the reason {@link AI_WORKER_EXPORTS} gives.
- * Four names, and they are the two halves of DOC-10 §5.1's bargain: the corpus
- * as a searchable tool surface (`KnowledgeRuntime`, `KnowledgeToolbox`,
+ * They are the two halves of DOC-10 §5.1's bargain: the corpus as a searchable
+ * tool surface (`KnowledgeRuntime`, `KnowledgeToolbox`,
  * `knowledgeInstanceConfig`) and the map that tells a cold session the corpus is
- * there at all (`KnowledgeDocs`). Shipping the first without the second would be
- * a tool the assistant never learns to reach for.
+ * there at all. Shipping the first without the second would be a tool the
+ * assistant never learns to reach for.
+ *
+ * THE MAP IS THREE NAMES NOW, NOT ONE (BUG-63). It was `KnowledgeDocs`, a class
+ * that assembled the map, the purpose and the mechanism into one document.
+ * Upstream deleted it when priming became DOC-22's ordered entries: the map and
+ * the mechanism are separately named providers, `registerKmProviders` binds both
+ * onto the session's registry, and the two constants are what a priming entry
+ * names them by. All three or none — a host that registers the providers and
+ * cannot name them has primed nothing.
+ *
+ * That this list is explicit is what made the upgrade a typecheck failure at the
+ * shim rather than `undefined is not a function` inside a turn.
  */
 const AI_KNOWLEDGE_EXPORTS = [
-  'KnowledgeDocs',
+  'LANDSCAPE_PROVIDER',
+  'MECHANISM_PROVIDER',
   'KnowledgeRuntime',
   'KnowledgeToolbox',
   'knowledgeInstanceConfig',
+  'registerKmProviders',
 ] as const
 
 /**

@@ -24,6 +24,7 @@ import {
   type ModelRequest,
   type ModelStep,
   type WireEvent,
+  systemText,
 } from './support/scripted-model-client'
 
 /**
@@ -39,8 +40,10 @@ import {
  * Worker's own `route()`, over the real shared knowledge component:
  * the corpus is resolved by its `resolveCorpus`, both indexes are built by its
  * `buildIndex` and `buildChunkIndex`, the search is its own `search`, the tool
- * surface is the bridge's `KnowledgeToolbox` and the priming is the bridge's
- * `KnowledgeDocs`. The bundle handed in is the exact shape `1c assets` emits.
+ * surface is the bridge's `KnowledgeToolbox` and the priming is assembled from
+ * the bridge's `km.landscape` and `km.mechanism` providers (BUG-63 — they
+ * replaced the `KnowledgeDocs` class upstream deleted). The bundle handed in is
+ * the exact shape `1c assets` emits.
  *
  * TWO DOUBLES, BOTH AT MODEL BOUNDARIES AND BOTH ARGUED ELSEWHERE. The embedder
  * (`tests/support/stub-embedder.ts` — miniflare has no local Workers AI to
@@ -299,7 +302,7 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
       await post('/api/ai/prompt', { sessionId: session.sessionId, text: 'Hello.' }, deps),
     )
 
-    const system = client.seen[0].system
+    const system = systemText(client.seen[0])
     // THE MAP IS THERE, and it routes: a territory plus where to start.
     expect(system).toContain('Retention and disposal')
     expect(system).toContain('DOC-Z')
@@ -336,13 +339,24 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     // An equality rather than a handful of absences, so an operation added
     // upstream cannot slip into the grant unnoticed just because nobody here
     // thought to name it.
+    //
+    // WIDENED, NOT NARROWED (BUG-63). `ReadKnowledge` grew `KnowledgeOutline`
+    // and `KnowledgeChanges` in the framework upgrade, and this pin is what
+    // surfaced them — which is the pin doing its job, not failing. The right
+    // answer was to look at what arrived and then widen: both declare `read`,
+    // so the grant is still read-only and the property this criterion is about
+    // is intact. Narrowing the GRANT to keep the list at three would have been
+    // the wrong repair — it would have taken capability away from the assistant
+    // to avoid editing a test.
     const knowledgeTools = client.seen[0].tools
       .map((t) => t.name)
       .filter((n) => n.startsWith('Knowledge'))
       .sort()
     expect(knowledgeTools).toEqual([
+      'KnowledgeChanges',
       'KnowledgeChunkSearch',
       'KnowledgeGet',
+      'KnowledgeOutline',
       'KnowledgeSearch',
     ])
 

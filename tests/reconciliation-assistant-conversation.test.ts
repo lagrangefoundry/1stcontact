@@ -15,7 +15,7 @@ import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
 import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
 
 /**
@@ -454,7 +454,8 @@ describe('what the assistant is offered', () => {
     setModelClient(client)
     await speak(base, SLUG, 'What can you do?')
 
-    const { system, tools } = client.seen[0]
+    const { tools } = client.seen[0]
+    const system = systemText(client.seen[0])
     const names = tools.map((t) => t.name)
 
     // Exactly the operations its grant allows — the same projection the surfaces

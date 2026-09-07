@@ -11,11 +11,15 @@ import {
 } from '../apps/control-app/src/generated/knowledge'
 import { DocDirStore, bundleDocReader } from '../apps/control-app/src/generated/ticketing'
 import { ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
-import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import {
+  CONSULTANT_PURPOSE,
+  resetAiHost,
+  setModelClient,
+} from '../tools/generate/src/cli/ai/host-core'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { STUB_DIM, stubEmbedder, stubVector } from './support/stub-embedder'
-import { says, scriptedClient } from './support/scripted-model-client'
+import { says, scriptedClient, systemText } from './support/scripted-model-client'
 
 /**
  * REQ-160 — **two knowledge bases in one session, and the channel that says one
@@ -225,7 +229,7 @@ async function turn(slug: string, text: string): Promise<{ system: string; sessi
   setModelClient(client)
   const events = await frames(await post('/api/ai/prompt', { sessionId, text }))
   expect(events.at(-1)?.kind).toBe('done')
-  return { system: client.seen[0].system, sessionId }
+  return { system: systemText(client.seen[0]), sessionId }
 }
 
 beforeAll(async () => {
@@ -250,10 +254,22 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
 
     const { system } = await turn(slug, 'Hello.')
 
+    // ANCHORED ON CONTENT, NOT ON A HEADING WE NO LONGER PRINT (BUG-63).
+    // `# What exists` and `# How to search` are the knowledge component's own
+    // and still bound the two sections it renders. `# Your purpose` was NOT —
+    // it was printed by `KnowledgeDocs`, the class that used to assemble the
+    // three sections into one document, and upstream deleted it. Under DOC-22
+    // an entry's `name` is configuration and is never rendered, so a role
+    // purpose is exactly the text the host configured and nothing else. The
+    // ordering claim this case is about is unchanged; what it is measured
+    // against is the purpose text itself, which is the thing that has to be in
+    // the right place.
     const landscape = system.indexOf('# What exists')
-    const purpose = system.indexOf('# Your purpose')
+    const purpose = system.indexOf(CONSULTANT_PURPOSE)
     const mechanism = system.indexOf('# How to search')
     expect(landscape).toBeGreaterThanOrEqual(0)
+    expect(purpose).toBeGreaterThanOrEqual(0)
+    expect(mechanism).toBeGreaterThanOrEqual(0)
 
     // Both maps, and both INSIDE the one landscape section rather than in a
     // second one of their own.
@@ -272,7 +288,20 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // do, then — last, so it is what the agent acts on — how to search and go.
     expect(purpose).toBeGreaterThan(landscape)
     expect(mechanism).toBeGreaterThan(purpose)
-    expect(system.indexOf('Prime yourself now')).toBeGreaterThan(mechanism)
+
+    // MECHANISM LAST, ASSERTED AS LAST (BUG-63). This used to be measured
+    // against `Prime yourself now`, a trigger sentence `KnowledgeDocs` printed
+    // after the three sections it assembled; upstream deleted the class and the
+    // sentence with it. The claim was never about that sentence — it is that
+    // the mechanism is the FINAL thing the agent reads, because the last thing
+    // read is the first thing done. Nothing following it says exactly that, and
+    // says it without depending on any particular closing words.
+    // No section of the priming begins after it — not the landscape, not the
+    // purpose, and not a second copy of either.
+    const after = system.slice(mechanism + 1)
+    expect(after).not.toContain('# What exists')
+    expect(after).not.toContain('# How to search')
+    expect(after).not.toContain(CONSULTANT_PURPOSE)
 
     // And both are named as searchable, which is the claim the co-ranked surface
     // is what makes true.
@@ -346,7 +375,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId: first.sessionId, text: 'I just uploaded it.' }))
 
-    const reminder = client.seen[0].system
+    const reminder = systemText(client.seen[0])
     expect(reminder).toContain('Ravenswood positioning note')
     expect(reminder).toContain('1 document')
   })
@@ -364,7 +393,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const client = scriptedClient([says('Still here.')])
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Anything else?' }))
-    expect(client.seen[0].system).not.toMatch(/entered this client's knowledge/)
+    expect(systemText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
   })
 
   it('test_UAT_FC_REQ-160_the_cursor_lives_on_the_chat_ticket_and_advances', async () => {
@@ -381,7 +410,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const client = scriptedClient([says('Seen it.')])
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Take a look.' }))
-    expect(client.seen[0].system).toContain('Winter menu')
+    expect(systemText(client.seen[0])).toContain('Winter menu')
 
     const chat = await chatTicket(sessionId)
     const cursor = JSON.parse(String((chat!.fields ?? {})[CURSOR_FIELD])) as {
@@ -396,7 +425,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const again = scriptedClient([says('Yes.')])
     setModelClient(again)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Anything new?' }))
-    expect(again.seen[0].system).not.toContain('Winter menu')
+    expect(systemText(again.seen[0])).not.toContain('Winter menu')
   })
 
   it('test_UAT_FC_REQ-160_a_resumed_sessions_first_turn_reports_what_arrived_while_away', async () => {
@@ -419,7 +448,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const reopened = await post('/api/ai/session', { slug })
     expect(reopened.status).toBe(200)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'I am back.' }))
-    expect(client.seen[0].system).toContain('Supplier agreement')
+    expect(systemText(client.seen[0])).toContain('Supplier agreement')
   })
 
   it('test_UAT_FC_REQ-160_a_conversation_is_never_reported_to_itself', async () => {
@@ -437,7 +466,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // The quoted form is the one a delta entry takes; the bare slug appears in
     // the reminder's own first line and always will, which is why the assertion
     // names the shape rather than the string.
-    expect(client.seen[0].system).not.toContain(`"${sessionId}"`)
-    expect(client.seen[0].system).not.toMatch(/entered this client's knowledge/)
+    expect(systemText(client.seen[0])).not.toContain(`"${sessionId}"`)
+    expect(systemText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
   })
 })

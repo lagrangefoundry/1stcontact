@@ -12,6 +12,7 @@ import {
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { kmPrimingEntries } from '../tools/generate/src/cli/ai/roles'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 /**
@@ -144,7 +145,24 @@ describe('REQ-123 — the KB reaches the session', () => {
     // Exactly the read set — asserted as an equality rather than a handful of
     // absences, so an operation added upstream cannot slip into the grant
     // unnoticed just because nobody thought to name it here.
-    expect(knowledgeTools).toEqual(['KnowledgeChunkSearch', 'KnowledgeGet', 'KnowledgeSearch'])
+    //
+    // IT DID ITS JOB (BUG-63). The framework upgrade that moved priming to
+    // DOC-22 also grew `ReadKnowledge` by two: `KnowledgeOutline` (the document
+    // tier — a document's headings, so a session can read a range instead of a
+    // whole file) and `KnowledgeChanges` (the change feed). This pin is the only
+    // reason either was noticed rather than silently arriving in the grant.
+    //
+    // BOTH ARE READS, which is what makes widening the pin the right answer
+    // instead of narrowing the grant: the declaration marks the whole group
+    // `effect: read`, so the claim this case makes — nothing the assistant can
+    // call writes to the KB — is exactly as true of five operations as of three.
+    expect(knowledgeTools).toEqual([
+      'KnowledgeChanges',
+      'KnowledgeChunkSearch',
+      'KnowledgeGet',
+      'KnowledgeOutline',
+      'KnowledgeSearch',
+    ])
   })
 
   it('test_UAT_FC_REQ-123_a_search_runs_through_the_toolbox_and_returns_a_hit', async () => {
@@ -198,14 +216,29 @@ describe('REQ-123 — the KB reaches the session', () => {
     // and how to reach it, so the corpus can grow without the context growing.
     // If the documents themselves were being pasted in, this priming would carry
     // the body text — and it must not.
-    const { KnowledgeDocs } = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+    //
+    // ASSEMBLED THROUGH DOC-22's ENTRIES (BUG-63). `KnowledgeDocs.open` built one
+    // document and is gone; the map and the mechanism are registered providers
+    // now, named by two of the three entries {@link kmPrimingEntries} contributes,
+    // and `assemble` is what turns them into the text a session receives. The
+    // claim is unchanged and so is the order — only who does the assembling.
+    const lib = await import(/* @vite-ignore */ sharedModuleUrl('ai'))
+    const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
     const box = await createL1Toolbox('studio', {}, { knowledge: runtime })
 
-    const source = await KnowledgeDocs.open(runtime, {
-      rolePurpose: 'You look after a website.',
-      mechanism: box.manual(),
-    })
-    const [priming] = source.documents()
+    const providers = new lib.PrimingProviders()
+    const entries = await kmPrimingEntries(
+      lib,
+      bridge,
+      () => runtime,
+      'You look after a website.',
+    )(box, providers)
+    const priming: string = await lib.assemble(
+      new lib.ProductConfig(),
+      new lib.Role({ name: 'consultant', priming: entries }),
+      new lib.SessionContext({ role: 'consultant', backend: 'test' }),
+      { providers },
+    )
 
     // The map is there, and it routes: a territory plus where to start.
     expect(priming).toContain('Behaviour modules')
