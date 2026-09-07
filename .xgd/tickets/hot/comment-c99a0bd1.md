@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-06T23:57:32.869503+00:00'
+updated_at: '2026-09-07T01:07:41.706501+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,11 @@ eval "$(./bin/access-sim --print-token)"
 That means **`bin/publish --production` is broken for the same reason** — the service-token identity BUG-36 provisioned has no seat in the identity model built since REQ-167. I corrected ACCESS.md's claim in place and recorded it in the ticket; giving a service token a seat is a design question I didn't answer.
 
 Two other things I found while proving it end-to-end: a first push against a fresh database is refused by the terms gate (one `POST /api/terms/accept` clears it — documented), and `1c push`'s refusal advice still points at `bin/access-token`, which is production-only. Both are in the ticket.
+
+<!-- xgd-turn id="2777c9c4-8ec9-4a1c-b520-db5e7f0e0e05-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T01:07:41.304115+00:00" -->
+#### You
+ok can you fix publish too?
 
 <!-- xgd-chat-end -->
