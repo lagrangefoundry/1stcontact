@@ -5,6 +5,11 @@ import path from 'node:path'
 import { contentTypeFor } from '../apps/public-site/src/content-type'
 import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
 import {
+  credentialShapesIn,
+  exemptIdentityEntries,
+  isNameAddressPair,
+} from './support/credential-scan'
+import {
   EXPECTED_CONTENT_TYPES,
   referencedAssets,
   referencedFromCss,
@@ -255,20 +260,23 @@ bucket_name = "1stcontact-sites"
       ...APPS.map((app) => path.join(REPO, 'apps', app, 'wrangler.toml')),
     ]
 
-    // Shapes a real credential takes. Split so this file is not its own match.
-    const shapes = [
-      new RegExp(['sk', 'ant', 'api'].join('-')),
-      /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-      /\b[A-Za-z0-9_-]*(?:SECRET|TOKEN|API_KEY|PASSWORD)[A-Za-z0-9_-]*\s*=\s*["'][^"'$][^"']{7,}/,
-    ]
-
+    // THE SHAPES MOVED TO `support/credential-scan` ([[BUG-59]]). They were
+    // written here and then restated verbatim by AC-1342's suite over a wider
+    // file list; when the scan needed to learn an exception, teaching it in two
+    // places would have guaranteed the two drifted. Split assembly of the shapes
+    // — so neither file is its own match — went with them.
     for (const file of files) {
       const text = readFileSync(file, 'utf8')
-      for (const shape of shapes) {
-        expect(shape.test(text), `${path.relative(REPO, file)} looks like it contains a secret`).toBe(
-          false,
-        )
+      const rel = path.relative(REPO, file)
+
+      for (const entry of exemptIdentityEntries(text)) {
+        expect(
+          isNameAddressPair(entry),
+          `${rel}: an exempted *_IDENTITIES var carries "${entry}", which is not a name=address pair`,
+        ).toBe(true)
       }
+
+      expect(credentialShapesIn(text), `${rel} looks like it contains a secret`).toEqual([])
     }
 
     // A secret reaches Cloudflare's store and nowhere else. The documented
