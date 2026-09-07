@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-06T23:40:27.893871+00:00'
+updated_at: '2026-09-06T23:57:32.869503+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,49 @@ One cleanup: a throwaway proxy is still listening on `127.0.0.1:8790` — the sa
 <!-- xgd-chat role="user" ts="2026-09-06T23:40:27.832875+00:00" -->
 #### You
 please fix access-sim
+
+<!-- xgd-turn id="5959617b-90e1-4722-b91e-e47f46314026-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T23:57:31.299710+00:00" -->
+#### Claude
+Fix approach settled. Let me scope it into the ticket first.
+
+Now the implementation.
+
+Now the UATs.
+
+All 11 pass. Now let me prove it end-to-end against a real Worker, not just the stub.
+
+End-to-end proven. Let me check for regressions and clean up.
+
+Full suite is still running. Waiting on it before committing.
+
+I'll wait for the run to finish rather than poll it.
+
+I'll hold until the background run reports in.
+
+I'll wait for the completion notification instead of polling further.
+
+Still running. I'll wait for the notification rather than keep checking.
+
+I'll stop polling and wait for the background task notification.
+
+The fix is written, the UATs pass (11/11), and I've proven the whole path end-to-end against a real Worker. The full regression suite is still running — I'll commit once it reports.
+
+Here's what landed so far:
+
+**`bin/access-sim` is now the edge, not only the issuer.** Anything that isn't one of its three own routes (`/cdn-cgi/access/certs`, `/login`, `/mint`) is forwarded to the builder, credential first — which is exactly what Cloudflare does. A matching `CF-Access-Client-Id`/`Secret` pair is exchanged for a `cf-access-jwt-assertion` on the forwarded request and spent there; a wrong pair is a 403 (not a redirect — BUG-36 records what a 302 costs a client that follows it into a login page); a cookie passes through untouched; nothing at all gets the 302 to `/login` a browser wants.
+
+So the local flow now mirrors production — aim the client at the edge, not the Worker:
+```bash
+eval "$(./bin/access-sim --print-token)"
+./bin/publish --origin http://127.0.0.1:8799
+```
+
+**One deliberate deviation, and it surfaced a real gap.** A Cloudflare service token authenticates as a `common_name` with no email — and `admit` opens with `if (!email) return { reason: 'no_email' }`. So the faithful shape is refused a layer deeper. The sim's pair therefore stands for a person (first `PLATFORM_ADMINS` entry, overridable), and the banner says who.
+
+That means **`bin/publish --production` is broken for the same reason** — the service-token identity BUG-36 provisioned has no seat in the identity model built since REQ-167. I corrected ACCESS.md's claim in place and recorded it in the ticket; giving a service token a seat is a design question I didn't answer.
+
+Two other things I found while proving it end-to-end: a first push against a fresh database is refused by the terms gate (one `POST /api/terms/accept` clears it — documented), and `1c push`'s refusal advice still points at `bin/access-token`, which is production-only. Both are in the ticket.
 
 <!-- xgd-chat-end -->

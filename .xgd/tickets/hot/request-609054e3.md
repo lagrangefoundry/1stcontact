@@ -6,16 +6,24 @@ title: An accepted invitee gets a business, a starter site, and lands on the Sit
   tab
 created_by: CHAT-39
 created_at: '2026-09-06T23:26:46.818016+00:00'
-updated_at: '2026-09-06T23:45:34.119074+00:00'
+updated_at: '2026-09-06T23:57:33.181142+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-13cf5c3c
+  commits:
+  - working_sha: 55b8557bae24fa43b266c6502243304fb7046e55
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bf7559996e515c35f89bb480d6496f4c786cdd3d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.123
 ---
 
 **Design ref:** [[CHAT-39]]. Depends on [[REQ-202]] for the invitee being able to
@@ -91,6 +99,73 @@ open-ended grant: a dated one would expire somebody out of their own business at
 wall-clock time nobody chose, in the middle of the trial they were invited to — the
 same reasoning `0005` used for the operator's own grant.
 
+## The door has to open first, and today it does not
+
+Stated because it is a consequence of the above rather than a separate wish, and
+because nothing works without it. `guardTerms` runs AFTER `admit` — deliberately,
+so that the terms are checked against a person rather than against a token — and
+`admit` refuses `no_membership` before the invitee ever reaches the interstitial.
+Provisioning on acceptance is therefore unreachable until admission stops
+refusing the state it is supposed to end.
+
+So `admit` admits a contact holding nothing, on two conditions taken together:
+
+- **they have not signed up** — `tos_accepted_at` is null, the membership marker
+  ([[DOC-44]] §3), and the access axis rather than the pipeline one; and
+- **their account owns no business** — the same `tenants.owner_account_id`
+  question the idempotency guard asks, so the door opens exactly when there is
+  something behind it.
+
+**The second condition is what preserves every refusal that should survive.** A
+person whose membership was *withdrawn*, or whose membership rows were lost
+between the two writes that make an account, has an account that already owns a
+business — so they are refused exactly as before, and re-inviting them is still
+the repair. `no_membership` keeps naming a relationship that ENDED, which is the
+one state `DENIED_MESSAGE` is true about.
+
+**It opens no route, and that is why relaxing it is safe.** `guardTerms` runs
+immediately afterwards and refuses an unaccepted session every asset and every
+API route, so the only doors this admission opens are the interstitial and the
+accept route — the two that end the state. Admission is still bounded by there
+being a `users` row at all, so self-signup remains as absent as it was.
+
+**Falsifier:** a session holding no membership reaching anything but the terms.
+
+### It supersedes REQ-186's refusal
+
+[[REQ-186]] asserts, as the composition being load-bearing, that *"invited and no
+more is `no_membership`"*. That is the sentence this ticket overturns, and it is
+named here rather than left for reconciliation to discover. What survives of that
+claim is the half that did not change — the invite writes no business, so the
+admitted set is EMPTY — and it is asserted in that form instead.
+
+## The guard is one question asked in two places
+
+`admit` asks it to decide whether signing up still has anything to give somebody;
+the provisioning hook asks it to decide whether to provision. If those two ever
+disagreed, the door would open onto a hook that does nothing. So the ownership
+question is one exported function with two readers, not two queries that happen
+to match today.
+
+The call site adds one condition of its own: it provisions only for an admission
+holding **no business at all**. That set is the one `admit` already resolved, so
+it costs no query — and it is what keeps an operator re-accepting bumped terms
+from being handed a business of their own. The 1st Contact business names no
+owner ([[REQ-194]]), so the ownership question alone answers "no" for them.
+
+**Provisioning runs before the acceptance is stamped.** If it fails,
+`tos_accepted_at` stays null, so the person is still admitted, is served the
+interstitial again, and their next press retries. Stamping first would leave a
+member with no business and no membership — which `admit` refuses — so one failed
+write would lock them out permanently, with the remedy on the far side of the
+lock. They have already clicked agree by the time either runs.
+
+**The hook is a module of its own** (`onboarding.ts`), because this ticket is
+explicitly a placeholder: when the real onboarding flow lands it takes this
+module's place at the same hook rather than being threaded through four lines
+inside the terms gate. It returns the business it made and null when it made
+none, so a no-op is distinguishable from the act at any call site that reports.
+
 ## Where they land
 
 **The Site tab of the builder.** `SITE_TAB` is already first in `TABS`, so the
@@ -99,6 +174,13 @@ stands — not that a new destination is invented.
 
 They arrive at a starter site they can immediately edit, which is the shortest path
 from "I was invited" to "I am using it".
+
+One detail follows from where the interstitial is served. It answers AT the URL
+that was asked for, so accepting reloads and the builder is what comes back —
+except at `/terms` itself, where a reload correctly answers with the terms again
+(an accepted caller may still read what they agreed to) and would leave a brand
+new invitee reading the document they have just accepted. From that one path the
+accept control goes to the builder root instead.
 
 ## This is a placeholder for an onboarding flow
 
@@ -132,3 +214,12 @@ the onboarding flow lands it takes this ticket's place at the same hook.
 - after accepting, the contact lands in the builder with the **Site** tab active
 - an invitee who was never invited — a Lead who somehow reaches the terms page — is
   treated identically; nothing here branches on pipeline stage
+- an invited contact holding nothing is admitted rather than told their access has
+  ended, and reaches the terms and the accept route and nothing else
+- a person who HAS signed up and still holds nothing is refused `no_membership`, as
+  are a withdrawn membership and a lost one — re-inviting is still the repair
+- an operator re-accepting bumped terms is not given a business of their own
+- the business is named after the contact's display name, or a visibly provisional
+  placeholder when they have none
+- from the terms path itself, the accept control sends them to the builder root
+  rather than back to the terms
