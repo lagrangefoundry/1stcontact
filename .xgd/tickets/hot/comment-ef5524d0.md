@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-63
 created_by: xgd
 created_at: '2026-09-07T20:20:47.537352+00:00'
-updated_at: '2026-09-07T20:25:50.076119+00:00'
+updated_at: '2026-09-07T20:27:36.030483+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,15 @@ We've migrated none of it — zero hits for `PrimingProviders`, `productFromMapp
 The pin is worth doing either way: an unpinned out-of-band store is exactly what let a framework release break this repo with no diff in it.
 
 One thing I'd add to whichever route you pick — the regression that matters isn't "the Worker builds", it's that a constructed session's assembled priming actually *contains* the system prompt and the landscape. Nothing asserts that today, which is why the `Role` key drop would have shipped silently.
+
+<!-- xgd-turn id="155651b0-cd97-41b6-8016-5794319ab673-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:27:35.649694+00:00" -->
+#### You
+ok lets me clear - we are in dev mode, there is no production data. 
+
+If we have broken data in there - lets clear it out.
+
+There is only one thing I care about - the draft xgd site. Everything else is toast
 
 <!-- xgd-chat-end -->
