@@ -79,6 +79,11 @@ function workerEnv(): Env {
     // THE SENDING ADDRESS, because the invite really sends since [[REQ-199]].
     // No `RESEND_API_KEY`, so `mailerFor` returns the adapter that cannot send.
     MAIL_FROM: 'no-reply@example.test',
+    // THE SESSION COOKIE, because the invite's link is a redeemable sign-in
+    // token since [[REQ-202]]. Naming it is what lets one be minted; a
+    // deployment that named none would refuse the invite with a 503 rather than
+    // mail a link that goes to a door the invitee cannot get through.
+    SESSION_COOKIE_NAME: 'session',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   } as Env
 }
