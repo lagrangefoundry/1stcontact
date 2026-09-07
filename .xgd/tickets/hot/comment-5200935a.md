@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-39
 created_by: xgd
 created_at: '2026-09-05T22:42:15.049823+00:00'
-updated_at: '2026-09-06T23:38:58.057577+00:00'
+updated_at: '2026-09-07T20:06:16.506542+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1468,5 +1468,11 @@ Three properties worth being explicit about, because they're consequences rather
 REQ-202 and REQ-203 are the two remaining tickets. Until REQ-202 lands, an invite is a real, delivered, well-formed email whose link does not log anyone in — which is exactly what you saw when Emma's link hit `no Access token was presented`.
 
 Still outstanding and not a ticket: the missing `_dmarc.1stcontact.io` TXT record, which is why the mail went to spam.
+
+<!-- xgd-turn id="9cd4d9f0-323d-45bc-b6f3-2cbcdc3b0dbc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:06:13.379781+00:00" -->
+#### You
+So those two tickets have landed - can I run the complete cycle now?
 
 <!-- xgd-chat-end -->
