@@ -13,6 +13,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-c6aae867
 ---
 
 (new ticket)
