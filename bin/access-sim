@@ -33,18 +33,39 @@
 // diagnosed through exactly that confusion. Deployed session lifetime is a
 // different question and is [[REQ-187]]'s.
 //
+// IT IS ALSO THE EDGE, NOT ONLY THE ISSUER (BUG-59). Turning the gate on locally
+// used to lock the local tooling out of the local builder: `1c push` is the only
+// way to get a site into the store, its one inbound credential is the
+// `CF-Access-Client-Id` / `CF-Access-Client-Secret` service-token pair, and there
+// was nothing here to exchange it for an identity. The exchange is the EDGE's
+// half of that protocol and never the client's — BUG-36 removed a
+// `cf-access-jwt-assertion` header from `push.ts` for exactly that reason — so
+// the half that was missing belongs in this process. Anything that is not one of
+// this simulator's own routes is therefore forwarded to the builder, credential
+// first, the way Cloudflare forwards it.
+//
 // Usage:
-//   ./bin/access-sim [--port 8799] [--aud local-dev-aud]
+//   ./bin/access-sim [--port 8799] [--aud local-dev-aud] [--builder URL]
+//                    [--client-id ID] [--client-secret SECRET] [--service-email ADDR]
 //
 // Then, in another shell, point the Worker at it and start the builder:
 //   ./bin/access-sim --print-env > .dev.vars.local
+//   ./bin/access-sim &
 //   cd apps/control-app && npx wrangler dev --port 8788 \
 //     --env-file .dev.vars --env-file ../../.dev.vars.local
 //
 // Open http://127.0.0.1:8799/login and pick a person. The cookie it sets is sent
 // to the builder because cookies ignore the port.
+//
+// To push a site in, aim the tooling at the SIMULATOR rather than at the builder,
+// exactly as a production push is aimed at the edge rather than at the Worker:
+//   eval "$(./bin/access-sim --print-token)"
+//   ./bin/publish --origin http://127.0.0.1:8799
 import http from 'node:http'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`)
@@ -57,6 +78,67 @@ const BUILDER = arg('builder', process.env.SIM_BUILDER || 'http://127.0.0.1:8788
 const DEFAULT_TTL = 60 * 60 * 24 * 30
 const ISS = `http://127.0.0.1:${PORT}`
 
+/** The repository's control app, resolved once and read by two callers below. */
+const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps/control-app')
+
+// THE SERVICE-TOKEN PAIR, AND WHY ITS DEFAULT IS WELL KNOWN. A fixed credential
+// in a repository normally deserves suspicion; this one buys nothing an attacker
+// does not already have, because `/mint` below hands anyone a token for any
+// address with no credential at all and the listener binds to loopback. What the
+// pair does buy is that the CLIENT side is byte-identical to production: the same
+// two headers `bin/publish --production` sends are the two this exchanges, so the
+// local path rehearses the deployed one instead of being a second protocol.
+const CLIENT_ID = arg('client-id', process.env.SIM_CLIENT_ID || 'local-dev.access')
+const CLIENT_SECRET = arg('client-secret', process.env.SIM_CLIENT_SECRET || 'local-dev-secret')
+
+/**
+ * The `common_name` the exchanged token carries, which is the LEFT-hand side of
+ * the mapping `--print-env` emits. Cloudflare's own client ids end in `.access`
+ * and its `common_name` is the token's name without it, so the same convention is
+ * followed here rather than inventing a second identifier to keep in step.
+ */
+const SERVICE_NAME = CLIENT_ID.replace(/\.access$/, '')
+
+/**
+ * WHO THE LOCAL SERVICE TOKEN ACTS AS.
+ *
+ * NOT A CLAIM IN THE TOKEN. The token this mints carries `common_name` and no
+ * email, exactly as Cloudflare's does; this address is the RIGHT-HAND SIDE of the
+ * `SERVICE_TOKEN_IDENTITIES` entry that `--print-env` emits, which is what the
+ * Worker resolves that name through. The simulator does not shortcut admission —
+ * it configures it, the same way a deployment does.
+ *
+ * `PLATFORM_ADMINS` is the right default: it is the break glass the deployment
+ * already names, read from the same two files in the same order the Worker reads
+ * them (`.dev.vars` overrides `[vars]`), so this is one more reader of that
+ * setting rather than a second definition of it.
+ */
+const SERVICE_EMAIL = arg('service-email', process.env.SIM_SERVICE_EMAIL || platformAdmin())
+
+/** The first `PLATFORM_ADMINS` address the local configuration names, or ''. */
+function platformAdmin() {
+  const read = (file) => {
+    try {
+      return fs.readFileSync(path.join(APP_DIR, file), 'utf8')
+    } catch {
+      return ''
+    }
+  }
+  // The key is anchored to the start of a line, so the PROSE about this setting
+  // — both files carry plenty — cannot match: a comment opens with `#`, which is
+  // not whitespace. The quoted alternatives come first so that a TOML value with
+  // a trailing comment yields the value rather than the value and the comment.
+  const PATTERN = /^[ \t]*PLATFORM_ADMINS[ \t]*=[ \t]*(?:"([^"]*)"|'([^']*)'|([^#\n]*))/m
+  for (const source of [read('.dev.vars'), read('wrangler.toml')]) {
+    const match = PATTERN.exec(source)
+    // The FIRST address and not the list: `PLATFORM_ADMINS` is comma-separated
+    // and an identity is one person.
+    const first = (match?.[1] ?? match?.[2] ?? match?.[3] ?? '').split(',')[0].trim()
+    if (first) return first
+  }
+  return ''
+}
+
 // The `kid` carries the pid so a RESTARTED sim is picked up at once. `access.ts`
 // caches the JWKS for an hour and force-refreshes on a `kid` it has not seen,
 // treating it as a key rotation — which is exactly what a restart is. A stable
@@ -65,7 +147,28 @@ const ISS = `http://127.0.0.1:${PORT}`
 const KID = `local-dev-${process.pid}`
 
 if (process.argv.includes('--print-env')) {
-  process.stdout.write(`ACCESS_TEAM_DOMAIN="${ISS}"\nACCESS_AUD="${AUD}"\n`)
+  // THREE VARS AND NOT TWO ([[BUG-59]]). The mapping belongs with the other two
+  // because it is the same kind of thing — configuration the WORKER reads — and
+  // because emitting it here is what keeps the two sides in step: the name is
+  // derived from the same `--client-id` this process would exchange, and the
+  // address from the same `--service-email` it would act as. Pass the same flags
+  // to both invocations, or pass none and let the defaults agree.
+  process.stdout.write(
+    `ACCESS_TEAM_DOMAIN="${ISS}"\nACCESS_AUD="${AUD}"\n` +
+      `SERVICE_TOKEN_IDENTITIES="${SERVICE_NAME}=${SERVICE_EMAIL}"\n`,
+  )
+  process.exit(0)
+}
+
+// The CLIENT half, and separate from `--print-env` because it is a different
+// side of the wire. `--print-env` configures the WORKER and its output belongs in
+// `.dev.vars.local`; this configures whoever is CALLING and its output belongs in
+// a shell. Writing the pair into `.dev.vars.local` would hand the Worker two vars
+// it has no reader for.
+if (process.argv.includes('--print-token')) {
+  process.stdout.write(
+    `export CF_ACCESS_CLIENT_ID='${CLIENT_ID}'\nexport CF_ACCESS_CLIENT_SECRET='${CLIENT_SECRET}'\n`,
+  )
   process.exit(0)
 }
 
@@ -73,12 +176,27 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLen
 const jwk = publicKey.export({ format: 'jwk' })
 const b64u = (buf) => Buffer.from(buf).toString('base64url')
 
-/** One Access-shaped JWT. The claim set is what `verifyAccessJwt` reads, no more. */
-function mint(email, ttl = DEFAULT_TTL) {
+/**
+ * One Access-shaped JWT. The claim set is what `verifyAccessJwt` reads, no more.
+ *
+ * TWO SHAPES, BECAUSE CLOUDFLARE MINTS TWO. A human's token carries `email`; a
+ * Service Auth token carries `common_name` and NO email at all, which is why
+ * `access.ts` reports the second as `service-token:<name>` and why `admit` needs
+ * `SERVICE_TOKEN_IDENTITIES` to say who that is. Minting both here is what makes
+ * the local path rehearse the deployed one rather than a friendlier version of
+ * it: until [[BUG-59]] this tool could only mint the first, so nothing local ever
+ * exercised the second and the deployed automation was refused by a gate no
+ * laptop had run.
+ */
+function mint(subject, ttl = DEFAULT_TTL) {
   const now = Math.floor(Date.now() / 1000)
   const header = b64u(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: KID }))
+  const claims =
+    typeof subject === 'object' && subject !== null && 'commonName' in subject
+      ? { common_name: subject.commonName, sub: subject.commonName }
+      : { email: subject, sub: subject }
   const payload = b64u(
-    JSON.stringify({ iss: ISS, aud: AUD, email, sub: email, iat: now, nbf: now, exp: now + ttl }),
+    JSON.stringify({ iss: ISS, aud: AUD, ...claims, iat: now, nbf: now, exp: now + ttl }),
   )
   const signed = `${header}.${payload}`
   const sig = crypto.sign('sha256', Buffer.from(signed), {
@@ -140,8 +258,11 @@ http
       return res.end(`${mint(email, Number(url.searchParams.get('ttl') || DEFAULT_TTL))}\n`)
     }
 
-    res.writeHead(404, { 'content-type': 'text/plain' })
-    res.end('not found\n')
+    // EVERYTHING ELSE IS THE BUILDER'S, and carrying it there is what makes this
+    // the edge rather than only the issuer. The three routes above are answered
+    // here and never forwarded; the control app's router defines none of those
+    // names, so nothing of the product's is shadowed by them.
+    return await forward(req, res, url)
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`access-sim on ${ISS}`)
@@ -149,7 +270,19 @@ http
     console.log(`  token     ${ISS}/mint?email=you@example.com`)
     console.log(`  jwks      ${ISS}/cdn-cgi/access/certs`)
     console.log(`  aud       ${AUD}`)
+    console.log(`  builder   ${BUILDER}  (everything else here is proxied to it)`)
+    console.log(`  pair      id ${CLIENT_ID}  secret ${CLIENT_SECRET}`)
+    // The mapping, said out loud. It lives in `.dev.vars.local` — written by a
+    // DIFFERENT invocation of this script — so the two can disagree if the flags
+    // do, and printing what this process would exchange is what makes that
+    // visible rather than a puzzling refusal.
+    console.log(
+      SERVICE_EMAIL
+        ? `  as        ${SERVICE_NAME}=${SERVICE_EMAIL}  (must match SERVICE_TOKEN_IDENTITIES)`
+        : `  as        NOBODY — set PLATFORM_ADMINS in apps/control-app/.dev.vars, or pass --service-email`,
+    )
     console.log(`\n  point the Worker at it:  ./bin/access-sim --print-env > .dev.vars.local`)
+    console.log(`  point a client at it:    eval "$(./bin/access-sim --print-token)"`)
   })
 
 /**
@@ -176,20 +309,142 @@ http
 async function knownPeople() {
   const { execFile } = await import('node:child_process')
   const { promisify } = await import('node:util')
-  const path = await import('node:path')
-  const { fileURLToPath } = await import('node:url')
-  const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps/control-app')
   try {
     const { stdout } = await promisify(execFile)(
       'npx',
       ['wrangler', 'd1', 'execute', 'DB', '--local', '--json', '--command',
        'SELECT ue.email AS email FROM user_emails ue JOIN users u ON u.id = ue.user_id ' +
        'ORDER BY u.created_at, u.id, ue.is_primary DESC, ue.created_at'],
-      { cwd: appDir, timeout: 60_000 },
+      { cwd: APP_DIR, timeout: 60_000 },
     )
     const parsed = JSON.parse(stdout.slice(stdout.indexOf('[')))
     return (parsed[0]?.results ?? []).map((r) => r.email)
   } catch {
     return []
   }
+}
+
+
+/**
+ * Carry one request to the builder, credential first.
+ *
+ * THE EXCHANGE IS THE POINT. A service-token pair is not a token: Cloudflare
+ * takes the two headers, satisfies itself, and sets `cf-access-jwt-assertion` on
+ * the request it forwards to the origin. `push.ts` is right not to send that
+ * header itself (BUG-36) and the Worker is right to trust it, which leaves this
+ * process holding the only end that can mint it.
+ *
+ * THE ORDER OF THE THREE OUTCOMES IS DELIBERATE:
+ *
+ *   a complete pair    decided here, and a WRONG one is a 403 rather than a
+ *                      redirect. A redirect is the browser's answer, and BUG-36
+ *                      records what it costs a client: the 302 is followed, the
+ *                      login page arrives as 200, and the caller parses HTML as
+ *                      its result. Automation that presented a credential is
+ *                      told the credential is wrong.
+ *   a cookie           forwarded exactly as it arrived. What the browser holds
+ *                      was minted here already and the Worker verifies it;
+ *                      re-signing it would put a second issuer in the path.
+ *   neither            302 to `/login`, which is what Access answers a browser
+ *                      with, and which turns a bare 401 naming Cloudflare into a
+ *                      way in.
+ *
+ * HALF A PAIR IS NO PAIR, matching the rule `1c push` already enforces on the way
+ * out. It is not a weaker credential; treating it as one would answer a question
+ * about the missing half instead of the question the caller is really asking.
+ */
+async function forward(req, res, url) {
+  const id = req.headers['cf-access-client-id']
+  const secret = req.headers['cf-access-client-secret']
+  const complete = Boolean(id) && Boolean(secret)
+  const cookie = req.headers.cookie ?? ''
+
+  if (complete && (id !== CLIENT_ID || secret !== CLIENT_SECRET)) {
+    res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
+    return res.end(
+      'access-sim: that CF-Access-Client-Id / CF-Access-Client-Secret pair is not this ' +
+        "simulator's. Run ./bin/access-sim --print-token for the one it accepts.\n",
+    )
+  }
+
+  // REFUSED HERE RATHER THAN LEFT TO THE WORKER. Unmapped, the token would be
+  // minted, forwarded, and refused `no_email` — a true answer to a question the
+  // operator did not ask, about a var they have not heard of yet. This process
+  // knows the mapping is empty because it is the one that emits it.
+  if (complete && !SERVICE_EMAIL) {
+    res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
+    return res.end(
+      'access-sim: the pair is right but there is nobody for it to act as. A service token ' +
+        'carries no email, so the Worker resolves its name through SERVICE_TOKEN_IDENTITIES ' +
+        'and this simulator has no address to put there: set PLATFORM_ADMINS in ' +
+        'apps/control-app/.dev.vars, or start it with --service-email, then re-run ' +
+        '--print-env > .dev.vars.local.\n',
+    )
+  }
+
+  if (!complete && !/(?:^|;\s*)CF_Authorization=/.test(cookie)) {
+    res.writeHead(302, { location: `${ISS}/login` })
+    return res.end()
+  }
+
+  const headers = { ...req.headers }
+  // `host` names THIS process and would reach the builder as a lie about who was
+  // asked. The rest are hop-by-hop or recomputed by `fetch`.
+  delete headers.host
+  delete headers.connection
+  delete headers['content-length']
+  delete headers['transfer-encoding']
+  // The pair is spent here. Cloudflare does not pass it to the origin either —
+  // what the origin is given is the assertion, which is the whole exchange.
+  delete headers['cf-access-client-id']
+  delete headers['cf-access-client-secret']
+  // The FAITHFUL shape: `common_name`, no email. Who that is, is the Worker's
+  // question, and `SERVICE_TOKEN_IDENTITIES` is where it is answered.
+  if (complete) headers['cf-access-jwt-assertion'] = mint({ commonName: SERVICE_NAME })
+
+  const body = await readBody(req)
+  let upstream
+  try {
+    upstream = await fetch(new URL(url.pathname + url.search, BUILDER), {
+      method: req.method,
+      headers,
+      body: req.method === 'GET' || req.method === 'HEAD' ? undefined : body,
+      // The builder's own redirects are the CALLER's to follow, and following
+      // them here would answer with a body fetched from a URL the caller never
+      // sees.
+      redirect: 'manual',
+    })
+  } catch (err) {
+    res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' })
+    return res.end(`access-sim: the builder at ${BUILDER} did not answer (${err.message}).\n`)
+  }
+
+  const out = Buffer.from(await upstream.arrayBuffer())
+  const outHeaders = {}
+  for (const [name, value] of upstream.headers) {
+    // `fetch` has already decoded the body and read it to the end, so every
+    // header describing HOW it arrived now describes bytes that are not there:
+    // a copied `transfer-encoding: chunked` alongside the `content-length`
+    // restated below is a response no client will parse. The framing is this
+    // hop's to state, not the previous hop's to repeat.
+    if (name === 'content-encoding' || name === 'content-length') continue
+    if (name === 'transfer-encoding' || name === 'connection') continue
+    if (name === 'set-cookie') continue
+    outHeaders[name] = value
+  }
+  const cookies = upstream.headers.getSetCookie?.() ?? []
+  if (cookies.length > 0) outHeaders['set-cookie'] = cookies
+  outHeaders['content-length'] = String(out.length)
+  res.writeHead(upstream.status, outHeaders)
+  res.end(out)
+}
+
+/** The request body, whole. Site payloads carry base64 assets and are not huge. */
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
 }

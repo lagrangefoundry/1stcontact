@@ -5,6 +5,7 @@ import {
   type EmailWebhookEnv,
 } from './email-webhook'
 import {
+  actingEmail,
   admit,
   DENIED_MESSAGE,
   type Admission,
@@ -353,7 +354,18 @@ export default {
         } else {
           const gate = await guardAccess(request, env)
           if (!gate.ok) return gate.response
-          email = gate.email
+          // `actingEmail` AND NOT `gate.email` ([[BUG-59]]). A human's own
+          // address is returned unchanged, so this is the same call for every
+          // person; what it adds is that a SERVICE TOKEN — which authenticates
+          // as a `common_name` and carries no email — is resolved to the person
+          // whose automation it is, if the deployment has said which. Unmapped,
+          // it comes back null and is refused `no_email` exactly as before. The
+          // resolution happens HERE, on the Access branch where admission's
+          // input is decided, rather than inside `admit`: `admit`'s question is
+          // "may this address in", and giving it a second question about tokens
+          // would be two authorisations in one function. A session already
+          // names a person, so the branch above needs no such step.
+          email = actingEmail(env, gate)
         }
 
         admission = await admit(env, email)

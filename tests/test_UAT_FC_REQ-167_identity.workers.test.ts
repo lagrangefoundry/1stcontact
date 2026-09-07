@@ -535,6 +535,12 @@ describe('REQ-167 — login binds, and does not provision', () => {
     // all, and the email is what an account is bound to ([[DOC-40]] §2). It is a
     // refusal rather than a crash, because automation reaching this Worker is a
     // configuration mistake and not an attack.
+    //
+    // STILL THE REFUSAL AFTER [[BUG-59]], and deliberately. That ticket gave a
+    // service token a way to BE somebody — `SERVICE_TOKEN_IDENTITIES`, resolved by
+    // `actingEmail` at the gate before this function is called — and left this
+    // line exactly as it was: `admit`'s question is still "may this address in",
+    // and a token with nobody to be still arrives here as `null`.
     const result = await admit(identityEnv(), null)
     expect(result.ok).toBe(false)
     expect(!result.ok && result.reason).toBe('no_email')
