@@ -320,6 +320,12 @@ export default {
       // is what keeps authorisation ahead of routing.
       const requested = splitBusinessPrefix(new URL(request.url).pathname).businessId
 
+      // Whether a session of ours is what let this request in — see where it is
+      // set below, and {@link RouterDeps.session} for the one route that reads
+      // it. False until something says otherwise, because every other way in
+      // leaves nothing for `POST /sign-out` to end.
+      let sessionAdmitted = false
+
       // `admit`, OR NOTHING — gated on the SAME predicate that skips the gate,
       // not on a second condition that happens to agree with it today. Two
       // predicates that can drift is how a deployment ends up resolving a
@@ -351,6 +357,15 @@ export default {
         let email: string | null
         if (signedIn) {
           email = signedIn.email
+          // WHICH PRODUCER ANSWERED, RECORDED ONCE, HERE ([[REQ-204]]). Nothing
+          // about admission, scope or the terms gate may branch on it — that
+          // property is the whole point of the two producers — but one control
+          // downstream is about the CREDENTIAL rather than the person: signing
+          // out ends a session and cannot touch the gate, so `/api/businesses`
+          // has to be able to say which of the two this is. It is set on this
+          // branch alone and stays false everywhere else, including the
+          // dev-open path, which has no session and nobody to end one for.
+          sessionAdmitted = true
         } else {
           const gate = await guardAccess(request, env)
           if (!gate.ok) return gate.response
@@ -394,7 +409,7 @@ export default {
       // already answered here, ahead of routing. Handing the answer down is what
       // keeps it a single answer; asking again inside the router would need the
       // verified email the router is deliberately never given.
-      return await route(request, env, scope, { admission }, ctx)
+      return await route(request, env, scope, { admission, session: sessionAdmitted }, ctx)
     } catch (err) {
       // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
       // they may not operate: an answer about them, not a configuration failure

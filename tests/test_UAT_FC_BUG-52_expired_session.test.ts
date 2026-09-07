@@ -149,7 +149,10 @@ describe('BUG-52 — a refusal is no longer a default', () => {
       businesses: await fetchBusinesses(failing as never),
     }))
     expect(result.status).toEqual({ ai: true, message: null })
-    expect(result.businesses).toEqual({ person: null, businesses: [] })
+    // `session: false` is part of that default since [[REQ-204]], and it is the
+    // right value here for the same reason the other two are: an origin that
+    // could not answer has told us nothing, and nothing is not a session to end.
+    expect(result.businesses).toEqual({ person: null, businesses: [], session: false })
     expect(seen).toEqual([])
   })
 })

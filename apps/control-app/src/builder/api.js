@@ -196,7 +196,7 @@ export async function fetchBusinesses(fetchImpl = fetch) {
   try {
     const res = await send(fetchImpl, '/api/businesses')
     if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
-    if (!res.ok) return { person: null, businesses: [] }
+    if (!res.ok) return { person: null, businesses: [], session: false }
     const body = await res.json()
     return {
       // `person` AND NOT `account` ([[REQ-194]]). This half has always been who
@@ -205,6 +205,12 @@ export async function fetchBusinesses(fetchImpl = fetch) {
       // keyboard.
       person: body?.person ?? null,
       businesses: Array.isArray(body?.businesses) ? body.businesses : [],
+      // WHETHER THERE IS A SESSION TO END ([[REQ-204]]). Narrowed to a strict
+      // `true` rather than passed through: every other value — absent, because
+      // the Worker predates this field; a string; null — means "we do not know",
+      // and not knowing must draw no Sign out control rather than one that may
+      // do nothing.
+      session: body?.session === true,
     }
   } catch (error) {
     // EXCEPT A REFUSED ONE ([[BUG-52]]). "No switcher and an unscoped session"
@@ -213,7 +219,7 @@ export async function fetchBusinesses(fetchImpl = fetch) {
     // are then indistinguishable — an empty switcher and an avatar with no
     // account behind it reads as a deleted account rather than an expired login.
     if (isSessionEnded(error)) throw error
-    return { person: null, businesses: [] }
+    return { person: null, businesses: [], session: false }
   }
 }
 

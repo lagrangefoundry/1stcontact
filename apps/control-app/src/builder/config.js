@@ -228,6 +228,31 @@ export const PORTAL_LINK_HINT =
   'Your details and what closing your account means. Opens in a new tab.'
 
 /**
+ * Ending the session, from the account dialog ([[REQ-204]]).
+ *
+ * A PATH RATHER THAN A HANDLER, because signing out is a navigation: the Worker
+ * ends the row, clears the cookie and answers a 303 to the sign-in page, and
+ * letting the browser follow that is what makes the control work when script has
+ * failed and leaves no error branch to invent. The dialog posts a real form at
+ * it — the same reasoning that makes the portal link an anchor rather than a
+ * button.
+ *
+ * THE LITERAL IS DUPLICATED, AND A UAT PINS IT. `sessions.ts` owns
+ * `SIGN_OUT_PATH`; this file is browser JavaScript and cannot import the
+ * Worker's TypeScript, so the two are held equal by a test rather than by an
+ * import.
+ *
+ * THE LABEL CLAIMS EXACTLY WHAT HAPPENS AND SO CARRIES NO HINT UNDER IT. What
+ * ends is this session, which is the ordinary meaning of the words and the whole
+ * of what the endpoint does. The dialog's other outward control has a hint
+ * because "your account portal" is a place nobody has been yet; a sentence
+ * explaining a Sign out button would be explaining the one control here whose
+ * name is already its whole behaviour.
+ */
+export const SIGN_OUT_HREF = '/sign-out'
+export const SIGN_OUT_LABEL = 'Sign out'
+
+/**
  * The two drop areas of the upload overlay — REQ-161, and the only question this
  * product ever asks about a file.
  *
