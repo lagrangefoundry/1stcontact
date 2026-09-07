@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:45:58.086385+00:00'
+updated_at: '2026-09-07T22:55:06.258471+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,39 @@ Want me to build that? It's a behaviour change to what just landed, so it needs 
 <!-- xgd-chat role="user" ts="2026-09-07T22:45:57.783599+00:00" -->
 #### You
 Your recommendations work.
+
+<!-- xgd-turn id="1ab8be0a-2013-4d35-a62b-adc5f468e81a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T22:55:03.108774+00:00" -->
+#### Claude
+Green light. Facts first, then ticket, then branch.
+
+Now the dialog becomes unconditional:
+
+Now the endpoint that decides where you land:
+
+Now the UATs — replacing the conditional ones:
+
+Done. REQ-204 revised and back to `free_coded` at 0.2.130 (commit `d34bbba54d`, both commits recorded on the ticket).
+
+**What it does now.** The dialog always draws Sign out — no condition anywhere in the client. `POST /sign-out` picks where you land from what the request *carries*, not from which producer admitted it: an Access credential (the `cf-access-jwt-assertion` header or a `CF_Authorization` cookie) goes to `<team-domain>/cdn-cgi/access/logout?returnTo=<this origin>/sign-in`; anything else lands on `/sign-in` as before. Our session row and cookie are ended either way — someone holding both is admitted on the session, since that's tried first, so deciding from the admission would have left the Access half alive in the one case nobody would think to test. The `session` boolean and its wiring are gone; with the server deciding, nothing read it.
+
+`bin/access-sim` gained the matching `/cdn-cgi/access/logout`, which clears the cookie `/login` set and honours `returnTo` only for the builder it fronts.
+
+**Verified live against your running server, not just in tests:**
+
+```
+POST /sign-out  (CF_Authorization present)
+  303 → http://127.0.0.1:8799/cdn-cgi/access/logout?returnTo=…%2Fsign-in
+        set-cookie: session=; Max-Age=0
+POST /sign-out  (no credential)
+  303 → /sign-in
+```
+
+**One thing you have to do:** restart `bin/access-sim`. Wrangler hot-reloaded the Worker, but the simulator is a separate process still running the old code — I confirmed `GET :8799/cdn-cgi/access/logout` currently 404s, so the button would bounce you to a dead end until you restart it. I've already rebuilt `dist-assets`, so the page itself just needs a reload.
+
+Ten UATs across three files, all passing: the dialog draws the control for every spec shape including the old flag; sign-out with a session ends the row and lands on `/sign-in`; with an Access credential it names the team logout and still clears our cookie; holding both ends both; with no team domain it never redirects off-origin; `/api/businesses` no longer carries `session`; and the simulator's logout clears its cookie and refuses to be aimed elsewhere, driven against a real spawned process.
+
+Two caveats worth stating plainly. `returnTo` is a request to the edge, not a guarantee — Cloudflare clearing the cookie is the load-bearing part; if it ignores the parameter in production you'll land on its own logout page with the credential gone. And a pre-existing failure, not mine: `reconciliation-copy-edit-form-presentation.test.ts` AC-1043 fails on `xgd-working` — BUG-58's `builder.css` change removed the `:has(.builder-modal__box…)` selector that UAT pins. I confirmed it fails on the base branch with none of my changes present, so it belongs to BUG-58.
 
 <!-- xgd-chat-end -->
