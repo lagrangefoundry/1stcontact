@@ -1,3 +1,4 @@
+import { accessLogoutUrl, accessTokenFrom, type AccessEnv } from './access'
 import { mailerFor, mailFrom, type MailEnv, type SendEmail } from './mail'
 import {
   passwordlessFor,
@@ -58,7 +59,7 @@ import { ticketStoreFor, type TicketStoreEnv } from './tickets'
  */
 
 /** What the deployment needs for the routes below. */
-export interface SignInEnv extends SessionEnv, TicketStoreEnv, MailEnv {}
+export interface SignInEnv extends SessionEnv, TicketStoreEnv, MailEnv, AccessEnv {}
 
 export interface SignInDeps {
   /** The sender. Injected so a suite proves what was handed to the port. */
@@ -252,9 +253,18 @@ async function redeem(request: Request, env: SignInEnv, token: string): Promise<
  * IT SUCCEEDS FOR A CALLER WHO WAS NOT SIGNED IN. "Sign me out" has one correct
  * outcome and no failure mode worth reporting — and an endpoint that answered
  * differently for a live cookie would say whether the one presented was live.
+ *
+ * AND IT ENDS WHICHEVER CREDENTIAL THE REQUEST CARRIES ([[REQ-204]]). Both
+ * halves above are ours to do; an Access credential is the edge's, and the most
+ * this Worker can do about one is send its holder where the edge ends it. That
+ * is the whole of {@link signOutDestination}, and it is what makes this endpoint
+ * answer "sign me out" for the operator as well as for the customer.
  */
 async function signOut(request: Request, env: SignInEnv): Promise<Response> {
-  if (!sessionsConfigured(env)) return page(303, null, { location: SIGN_IN_PATH })
+  // DECIDED BEFORE THE SESSION IS TOUCHED, so a deployment that issues no
+  // sessions at all still sends an Access caller somewhere that ends theirs.
+  const location = signOutDestination(request, env)
+  if (!sessionsConfigured(env)) return page(303, null, { location })
   const tenantId = signInTenant(env, new URL(request.url).hostname)
   const auth = passwordlessFor(env, tenantId)
   const session = await auth.resolveFromCookie(request.headers.get('cookie'))
@@ -262,12 +272,40 @@ async function signOut(request: Request, env: SignInEnv): Promise<Response> {
   return new Response(null, {
     status: 303,
     headers: {
-      location: SIGN_IN_PATH,
+      location,
+      // CLEARED ON THE WAY OUT EVEN WHEN THE DESTINATION IS THE EDGE'S. A person
+      // can hold both credentials, and leaving ours behind on the trip to the
+      // Access logout would leave the half we CAN end alive.
       'set-cookie': auth.clearCookie(),
       'cache-control': 'no-store',
       'x-robots-tag': 'noindex',
     },
   })
+}
+
+/**
+ * Where signing out sends you, from what the request actually carries.
+ *
+ * KEYED ON THE CREDENTIAL PRESENTED, NOT ON WHICH PRODUCER ADMITTED. A person
+ * can hold BOTH a session of ours and a live Access cookie, and `index.ts`
+ * admits such a request on the session because it tries that first. Deciding
+ * from the admission would send exactly that person to the sign-in page with
+ * their Access cookie intact — re-admitted on the next navigation, by the one
+ * path nobody would think to check. `accessTokenFrom` reads the header the edge
+ * forwards and the cookie the browser holds, which is the question worth asking:
+ * is there an edge session behind this request at all.
+ *
+ * THE SIGN-IN PAGE OTHERWISE, which is every deployment with no Access in front
+ * of it and every caller who reached us without an edge credential. That is the
+ * behaviour this endpoint had before, unchanged for the people it was right for.
+ */
+function signOutDestination(request: Request, env: SignInEnv): string {
+  if (accessTokenFrom(request) === '') return SIGN_IN_PATH
+  const origin = new URL(request.url).origin
+  // The fallback matters: a request can carry an Access cookie to a deployment
+  // that has since had its team domain removed, and there is then nowhere to
+  // send it but our own front door.
+  return accessLogoutUrl(env.ACCESS_TEAM_DOMAIN ?? '', `${origin}${SIGN_IN_PATH}`) || SIGN_IN_PATH
 }
 
 /** The address, and whether it arrived as a form rather than as JSON. */

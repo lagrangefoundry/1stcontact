@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * REQ-204 — **the way out of a session, and the sessions it is not offered for**.
+ * REQ-204 — **the way out of the builder, drawn for everybody**.
  *
  * WHAT MAKES THIS EVIDENCE. The account dialog is mounted from the SHIPPED
  * `business.js` into a real DOM and read back out of the document, so what is
@@ -8,23 +8,26 @@
  * composes `modal.js`, which is ours, so nothing here depends on the shared
  * `webui-*` components being installed.
  *
- * THREE CLAIMS, AND THE SECOND IS AN ABSENCE:
+ * TWO CLAIMS:
  *
- *   1. THE CONTROL IS A POSTED FORM. Signing out is a navigation — the Worker
- *      ends the row, clears the cookie and answers a 303 — so the control is a
+ *   1. THE CONTROL IS A POSTED FORM, ALWAYS. Signing out is a navigation — the
+ *      Worker ends what it can and answers a 303 — so the control is a
  *      `<form method="post">` with a submit inside it and not a click handler.
  *      A `type="button"` in a form submits nothing, which is a control that
  *      looks identical and does nothing at all.
- *   2. IT IS NOT DRAWN WHEN THERE IS NO SESSION OF OURS TO END. The builder
- *      also admits through Cloudflare Access ([[REQ-202]]), and `POST /sign-out`
- *      cannot touch that — so a Sign out drawn for an Access caller would send
- *      them to a sign-in page and re-admit them on the way back. That is the
- *      defect [[REQ-183]] §4.2 refuses for a Delete account button that deletes
- *      nothing, and an absence is only a decision if something checks it.
- *   3. THE PATH IS THE WORKER'S OWN. The builder is browser JavaScript and
- *      cannot import the Worker's TypeScript, so the two literals are held
- *      equal here rather than by an import — a control posting at a path
- *      nothing serves is a 404 in place of a sign-out.
+ *   2. THERE IS NO ARGUMENT THAT TAKES IT AWAY. This ticket first drew it only
+ *      for a session of ours, on the grounds that `POST /sign-out` could not
+ *      revoke a Cloudflare Access credential. That was true and the conclusion
+ *      was wrong: it left every Access-admitted operator with a builder they
+ *      could not leave. The endpoint ends whichever credential the request
+ *      carries now ({@link ../apps/control-app/src/sign-in.ts}), so the client
+ *      has nothing to branch on — and a dialog built with no knowledge of the
+ *      session at all still has the control.
+ *
+ * THE PATH IS ALSO PINNED TO THE WORKER'S OWN. The builder is browser
+ * JavaScript and cannot import the Worker's TypeScript, so the two literals are
+ * held equal here rather than by an import — a control posting at a path
+ * nothing serves is a 404 in place of a sign-out.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -48,14 +51,8 @@ const control = (): HTMLFormElement | null =>
   document.querySelector<HTMLFormElement>('.builder-account__sign-out')
 
 describe('REQ-204 — signing out of the account dialog', () => {
-  it('test_UAT_FC_REQ-204_a_session_of_ours_gets_a_sign_out_that_posts_to_the_endpoint', () => {
-    openAccountSurface({
-      host,
-      person: PERSON,
-      businesses: BUSINESSES,
-      selected: 'acct_live',
-      session: true,
-    })
+  it('test_UAT_FC_REQ-204_the_dialog_posts_a_sign_out_at_the_endpoint', () => {
+    openAccountSurface({ host, person: PERSON, businesses: BUSINESSES, selected: 'acct_live' })
 
     const form = control()
     expect(form, 'no sign-out control in the dialog').not.toBeNull()
@@ -71,23 +68,20 @@ describe('REQ-204 — signing out of the account dialog', () => {
     expect(button!.textContent).toBe(SIGN_OUT_LABEL)
   })
 
-  it('test_UAT_FC_REQ-204_a_session_we_cannot_end_is_offered_no_sign_out_at_all', () => {
-    // Both shapes of "not ours": told so, and not told. A caller that does not
-    // know must draw nothing, because a control that may do nothing is worse
-    // than a dialog without one.
-    for (const spec of [{ session: false }, {}]) {
+  it('test_UAT_FC_REQ-204_no_kind_of_session_is_offered_a_dialog_without_one', () => {
+    // THE FALSIFIER FOR THE REVISION. A dialog built with the barest possible
+    // spec — and with the field the first cut of this ticket branched on, in
+    // both of its old shapes — still has the control. If a condition ever grows
+    // back here, this is what fails.
+    for (const spec of [{}, { session: false }, { session: true }]) {
       document.body.innerHTML = ''
       host = document.createElement('div')
       document.body.append(host)
 
-      openAccountSurface({ host, person: PERSON, businesses: BUSINESSES, selected: 'acct_live', ...spec })
+      openAccountSurface({ host, ...spec })
 
-      expect(control()).toBeNull()
-      // And nothing else in the dialog reaches the endpoint by another route —
-      // the claim is that this session cannot be signed out of here, not that
-      // one particular class name is missing.
-      expect(document.body.innerHTML).not.toContain(SIGN_OUT_HREF)
-      // The dialog is otherwise the dialog: its way out is still there.
+      expect(control(), `no sign-out for ${JSON.stringify(spec)}`).not.toBeNull()
+      // And the dialog is otherwise the dialog: its other way out is still there.
       expect(document.querySelector('.builder-modal__footer')?.textContent).toContain('Close')
     }
   })

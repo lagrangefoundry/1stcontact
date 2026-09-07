@@ -382,9 +382,6 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     )
     const body = (await response.json()) as Record<string, unknown>
 
-    // `session` joined the two since [[REQ-204]] — whether this credential is
-    // one that can be signed out of. It is a fact about the session, like the
-    // other two, and still nothing that could be posted back.
-    expect(Object.keys(body).sort()).toEqual(['businesses', 'person', 'session'])
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
   })
 })

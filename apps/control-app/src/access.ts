@@ -105,6 +105,38 @@ export function certsUrl(teamDomain: string): string {
   return `${normaliseTeamDomain(teamDomain)}/cdn-cgi/access/certs`
 }
 
+/**
+ * Where the EDGE ends its own session ([[REQ-204]]).
+ *
+ * BESIDE `certsUrl` BECAUSE IT IS THE SAME SUBSTITUTION. Both are paths on the
+ * team domain, and the reason this file is where they live is that
+ * `ACCESS_TEAM_DOMAIN` names Cloudflare in a deployment and `bin/access-sim` in
+ * local dev — so one expression serves both, and a hand pointing at the app's
+ * own `/cdn-cgi/access/logout` instead would work in exactly one of them.
+ *
+ * WHY THE WORKER NEEDS IT AT ALL. Our own sign-out ends a session row and clears
+ * a cookie we minted. It cannot revoke an Access credential, because the edge
+ * issued that one — so for a caller holding one, ending our half and stopping
+ * there leaves them signed in and re-admitted on the next navigation.
+ *
+ * `returnTo` IS A REQUEST AND NOT A GUARANTEE. Clearing the cookie is the edge's
+ * to do and does not depend on the parameter; if it is ignored, the person lands
+ * on the edge's own logout page with the credential already gone, which is
+ * degraded rather than broken. The caller passes an absolute URL built from the
+ * REQUEST'S own origin — never from anything a caller sent — so this cannot
+ * become an open redirect.
+ *
+ * EMPTY FOR A DEPLOYMENT WITH NO TEAM DOMAIN, which is every deployment with no
+ * Access in front of it. There is no edge session to end there, and a URL
+ * assembled out of an empty string would be a redirect to `/cdn-cgi/...` on our
+ * own origin — a 404 in place of a sign-out.
+ */
+export function accessLogoutUrl(teamDomain: string, returnTo: string): string {
+  const base = normaliseTeamDomain(teamDomain)
+  if (base === '') return ''
+  return `${base}/cdn-cgi/access/logout?returnTo=${encodeURIComponent(returnTo)}`
+}
+
 function base64UrlToBytes(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/')
   const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4))

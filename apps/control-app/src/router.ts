@@ -400,25 +400,6 @@ export interface RouterDeps {
    * scope rather than pretending to an admission it does not have.
    */
   admission?: Admission | null
-  /**
-   * Whether this request arrived on a session of OURS ([[REQ-204]]).
-   *
-   * INJECTED FOR THE SAME REASON THE ADMISSION IS, and from the same place:
-   * `index.ts` resolves the session cookie before it falls back to the gate, so
-   * by the time a route runs the answer exists and asking again here would be a
-   * second answer to a question that must have one — over a cookie the router is
-   * deliberately never given.
-   *
-   * IT IS ABOUT THE CREDENTIAL, NOT THE PERSON. Two callers with identical
-   * admissions differ here when one came through Cloudflare Access, and that
-   * difference is the whole of what it is for: `POST /sign-out` can end a
-   * session and can do nothing about the gate, so a Sign out control drawn for
-   * the second would be a control that does not do what it says.
-   *
-   * ABSENT IS FALSE, which is the honest default for every caller that does not
-   * know — the dev-open path, the Node transport, a suite.
-   */
-  session?: boolean
 }
 
 /**
@@ -664,22 +645,6 @@ export interface BusinessesPayload {
    */
   person: { name: string | null; email: string | null } | null
   /**
-   * WHETHER THIS SESSION IS ONE THAT CAN BE ENDED ([[REQ-204]]).
-   *
-   * A FACT ABOUT THE SESSION, WHICH IS WHAT THIS ENDPOINT ANSWERS. The chrome
-   * needs it before it can decide whether to draw a Sign out control, and it
-   * cannot work it out for itself: a browser holding a session cookie and a
-   * browser holding an Access cookie are indistinguishable from the client, and
-   * `POST /sign-out` only ends the first. So it is `true` when the request was
-   * admitted by a session of ours and `false` for every other way in.
-   *
-   * AND IT IS NOT THE BEGINNING OF AN ACCOUNT VIEW. The paragraph above about
-   * the account still holds: what an account holds is the portal's subject
-   * ([[DOC-40]] §2.1). This is the one thing a portal on another origin cannot
-   * state, which is the test this endpoint's fields are held to.
-   */
-  session: boolean
-  /**
    * `lapse` IS PRESENT EXACTLY WHEN `selectable` IS FALSE ([[REQ-180]] §1).
    *
    * Marked is not the same as explained. [[REQ-179]] made a lapsed business
@@ -733,17 +698,10 @@ export function businessesPayload(
   admission: Admission | null | undefined,
   scope: Scope | null,
   personName: string | null = null,
-  session = false,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
       person: { name: personName, email: admission.user.email },
-      // REPORTED ON BOTH BRANCHES, AND NOT DERIVED FROM THE ADMISSION
-      // ([[REQ-204]]). An admission says a person may come in and says nothing
-      // about what let them; inferring a session from one would draw the control
-      // for every Access caller, which is precisely the case it exists to
-      // exclude.
-      session,
       businesses: admission.businesses.map((b) => ({
         id: b.businessId,
         name: b.name,
@@ -754,7 +712,6 @@ export function businessesPayload(
   }
   return {
     person: null,
-    session,
     businesses: scope
       ? [{ id: scope.businessId, name: scope.businessId, selectable: true, lapse: null }]
       : [],
@@ -1243,7 +1200,6 @@ async function routeUncached(
           deps.admission?.ok
             ? displayNameFrom(await currentNameOf(identityEnv, deps.admission.user.id))
             : null,
-          deps.session === true,
         ),
       )
     }

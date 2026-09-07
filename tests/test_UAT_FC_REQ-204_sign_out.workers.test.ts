@@ -1,41 +1,45 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
-import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
+import { accessLogoutUrl } from '../apps/control-app/src/access'
 import { acceptTerms, TERMS_VERSION } from '../apps/control-app/src/terms'
 import { type IdentityEnv } from '../apps/control-app/src/identity'
 import { messagesFor } from '../apps/control-app/src/messages'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
-import { SIGN_IN_PATH } from '../apps/control-app/src/sessions'
-import { BUSINESSES_PATH, businessesPayload } from '../apps/control-app/src/router'
+import { sessionIdentity, SIGN_IN_PATH, SIGN_OUT_PATH } from '../apps/control-app/src/sessions'
+import { BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
 
 /**
- * REQ-204 — **whether this session is one that can be ended, on the wire**.
+ * REQ-204 — **sign-out ends whichever credential the request carries**.
  *
- * WHAT MAKES THIS EVIDENCE. The two cases that matter drive the WORKER'S OWN
- * `fetch` inside workerd against a real D1 database with the deployed schema, and
- * the session they use is a real one: an address is asked for a link, the token
- * is read back out of the RECORDED MESSAGE, and the cookie is the one redemption
- * set. So `session: true` is reported for a credential this deployment actually
- * issued, not for a header a suite invented.
+ * WHAT MAKES THIS EVIDENCE. Every case drives the WORKER'S OWN `fetch` inside
+ * workerd against a real D1 database with the deployed schema, and the session
+ * it signs out of is a real one: an address is asked for a link, the token is
+ * read back out of the RECORDED MESSAGE, and the cookie is the one redemption
+ * set. So "the row is gone" is a row this deployment actually wrote.
  *
- * WHY IT IS TESTED AT THE WORKER AND NOT AT THE PAYLOAD BUILDER. The bit is
- * decided in `index.ts`, where the session cookie is tried before the gate, and
- * handed down as an injected dependency — so a suite that called
- * `businessesPayload` with a boolean it chose itself would prove the shape and
- * say nothing about the wiring, which is the half that can silently not exist.
- * The builder is exercised too, but only for the property the Worker cannot show:
- * that the answer is carried on both of its branches.
+ * THE HOLE THIS FILLS, AND IT IS THIS TICKET'S OWN. The control shipped drawn
+ * only for a session of ours, because `POST /sign-out` ends a session row and
+ * clears a cookie we minted and can do nothing about a Cloudflare Access
+ * credential. The premise was right and the conclusion was wrong: it left every
+ * Access-admitted operator — which is us, in production and under
+ * `bin/access-sim` locally — with a builder they could not leave. So the
+ * endpoint now sends an Access caller to the edge's own logout, and the
+ * conditional is gone.
  *
- * THE FALSIFIER THIS FILE EXISTS FOR: *`session: true` for a caller admitted by
- * Cloudflare Access*. `POST /sign-out` ends a session row and can do nothing
- * about the gate, so that value would put a Sign out control in front of somebody
- * it cannot sign out — a control that does not do what it says, which is the
- * defect [[REQ-183]] §4.2 refuses for a Delete account button that deletes
- * nothing.
+ * THE FALSIFIERS THIS FILE EXISTS FOR:
+ *
+ *   - *a caller holding BOTH credentials sent to `/sign-in`* — admitted on the
+ *     session, because that is tried first, and re-admitted by the Access cookie
+ *     on the very next navigation. A sign-out that signs nobody out, by the one
+ *     path nobody would think to check.
+ *   - *our cookie left behind on the trip to the edge's logout* — the half we
+ *     CAN end, left alive.
+ *   - *an off-origin redirect from a deployment with no Access in front of it* —
+ *     a URL assembled out of an empty team domain.
  */
 
 const PLATFORM = 'req204-platform'
@@ -48,13 +52,12 @@ const TEAM = 'https://req204-team.cloudflareaccess.com'
 const AUD = 'f'.repeat(64)
 
 let signing: CryptoKeyPair
-let jwks: { keys: JsonWebKey[] }
 
 function identityEnv(): IdentityEnv {
   return { DB: env.DB as D1Database, SITES: env.SITES as R2Bucket, TENANT_ID: PLATFORM }
 }
 
-function workerEnv(): Env {
+function workerEnv(overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
@@ -67,6 +70,7 @@ function workerEnv(): Env {
     ACCESS_TEAM_DOMAIN: TEAM,
     ACCESS_AUD: AUD,
     ASSETS: { fetch: async () => new Response('ASSET-BYTES', { status: 200 }) } as unknown as Fetcher,
+    ...overrides,
   } as Env
 }
 
@@ -76,7 +80,14 @@ function b64url(bytes: Uint8Array | string): string {
   return btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** A real Access token — signed by the key the stubbed JWKS publishes. */
+/**
+ * A real Access token, minted here.
+ *
+ * REAL RATHER THAN A PLACEHOLDER even though `/sign-out` never verifies one —
+ * the endpoint runs ahead of the gate and asks only whether an edge credential
+ * is present. A fixture shaped like the thing it stands for is what stops this
+ * suite passing for a reason the deployment would not reproduce.
+ */
 async function mint(email: string): Promise<string> {
   const header = { alg: 'RS256', kid: 'req204-key', typ: 'JWT' }
   const now = Math.floor(Date.now() / 1000)
@@ -90,30 +101,20 @@ async function mint(email: string): Promise<string> {
   return `${signed}.${b64url(new Uint8Array(signature))}`
 }
 
-function stubJwks(): void {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url === certsUrl(TEAM)) {
-        return new Response(JSON.stringify(jwks), { headers: { 'content-type': 'application/json' } })
-      }
-      throw new Error(`unexpected fetch to ${url}`)
-    }),
-  )
+function call(
+  path: string,
+  init: RequestInit & { headers?: Record<string, string> } = {},
+  overrides: Partial<Env> = {},
+) {
+  return worker.fetch(new Request(`${ORIGIN}${path}`, init), workerEnv(overrides))
 }
 
-function call(path: string, init: RequestInit & { headers?: Record<string, string> } = {}) {
-  return worker.fetch(new Request(`${ORIGIN}${path}`, init), workerEnv())
-}
-
-const storeFor = (businessId = PLATFORM) =>
-  ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, { businessId })
+const storeFor = () =>
+  ticketStoreFor({ DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket }, { businessId: PLATFORM })
 
 let seq = 0
 const anEmail = (): string => `req204-${(seq += 1)}@example.test`
 
-/** A 1st Contact account: a contact, a business, a grant, terms accepted. */
 async function aMember(): Promise<{ email: string; userId: string }> {
   const email = anEmail()
   const seeded = await inviteAccount(identityEnv(), { email, endsAt: null })
@@ -133,7 +134,7 @@ async function mailedLink(contactId: string): Promise<string> {
 const cookieHeaderFrom = (setCookie: string): string => setCookie.split(';')[0]
 
 /** Sign in for real, and come back with the cookie a browser would hold. */
-async function aSignedInBrowser(): Promise<string> {
+async function aSignedInBrowser(): Promise<{ cookie: string; email: string }> {
   const { email, userId } = await aMember()
   await call(SIGN_IN_PATH, {
     method: 'POST',
@@ -143,8 +144,11 @@ async function aSignedInBrowser(): Promise<string> {
   const redeemed = await call(new URL(await mailedLink(userId)).pathname, { method: 'POST' })
   const cookie = cookieHeaderFrom(redeemed.headers.get('set-cookie') ?? '')
   expect(cookie, 'redemption set no session cookie').not.toBe('')
-  return cookie
+  return { cookie, email }
 }
+
+/** Where the edge ends its own session, as this deployment would name it. */
+const EDGE_LOGOUT = accessLogoutUrl(TEAM, `${ORIGIN}${SIGN_IN_PATH}`)
 
 beforeAll(async () => {
   await applySchema()
@@ -153,56 +157,90 @@ beforeAll(async () => {
     true,
     ['sign', 'verify'],
   )) as CryptoKeyPair
-  const jwk = await crypto.subtle.exportKey('jwk', signing.publicKey)
-  jwks = { keys: [{ ...jwk, kid: 'req204-key', alg: 'RS256', use: 'sig' }] }
 })
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-  resetJwksCache()
-})
+describe('REQ-204 — where signing out sends you', () => {
+  it('test_UAT_FC_REQ-204_a_session_of_ours_is_ended_and_lands_on_the_sign_in_page', async () => {
+    const { cookie } = await aSignedInBrowser()
 
-describe('REQ-204 — the endpoint says whether there is a session to end', () => {
-  it('test_UAT_FC_REQ-204_a_session_of_ours_is_reported_as_one_that_can_be_ended', async () => {
-    const cookie = await aSignedInBrowser()
+    const out = await call(SIGN_OUT_PATH, { method: 'POST', headers: { cookie } })
 
-    const response = await call(BUSINESSES_PATH, { headers: { cookie } })
-
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as { session: boolean; person: { email: string } | null }
-    expect(body.session).toBe(true)
-    // The same answer still carries who is asking — this is one more fact about
-    // the session, not a replacement for the endpoint's subject.
-    expect(body.person?.email).toBeTruthy()
+    expect(out.status).toBe(303)
+    expect(out.headers.get('location')).toBe(SIGN_IN_PATH)
+    expect(out.headers.get('set-cookie')).toContain('Max-Age=0')
+    // BOTH HALVES, as before this ticket: a cleared cookie over a live row is a
+    // credential still good to whatever else is holding it.
+    expect(await sessionIdentity(workerEnv(), PLATFORM, cookie)).toBeNull()
   })
 
-  it('test_UAT_FC_REQ-204_an_access_admitted_caller_is_reported_as_one_we_cannot_sign_out', async () => {
-    // THE FALSIFIER, ON THE WIRE. Access admits this request — the gate is
-    // configured and the token is real — and there is no session row anywhere for
-    // `POST /sign-out` to end, so the honest answer is false and the chrome draws
-    // no control.
-    stubJwks()
+  it('test_UAT_FC_REQ-204_an_access_credential_is_sent_to_the_edge_that_can_end_it', async () => {
+    // THE OPERATOR'S CASE, and the whole of the revision. There is no session
+    // row here to end; what this endpoint can do is send its holder where the
+    // credential they DO hold is revoked, rather than to a sign-in page that
+    // would re-admit them.
     const { email } = await aMember()
 
-    const response = await call(BUSINESSES_PATH, {
-      headers: { 'cf-access-jwt-assertion': await mint(email) },
+    const out = await call(SIGN_OUT_PATH, {
+      method: 'POST',
+      headers: { cookie: `CF_Authorization=${await mint(email)}` },
     })
 
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as { session: boolean; person: { email: string } | null }
-    expect(body.session).toBe(false)
-    // And this caller IS admitted, which is what makes the false a statement
-    // about the credential rather than about a request that failed.
-    expect(body.person?.email).toBe(email)
+    expect(out.status).toBe(303)
+    expect(out.headers.get('location')).toBe(EDGE_LOGOUT)
+    // Named rather than merely non-empty: the destination has to be the team
+    // domain's logout, and it has to ask to come back to this origin.
+    expect(out.headers.get('location')).toContain('/cdn-cgi/access/logout')
+    expect(out.headers.get('location')).toContain(encodeURIComponent(`${ORIGIN}${SIGN_IN_PATH}`))
+    // And ours is cleared on the way out even though it was not what admitted.
+    expect(out.headers.get('set-cookie')).toContain('Max-Age=0')
   })
 
-  it('test_UAT_FC_REQ-204_the_answer_is_carried_on_both_branches_of_the_payload', () => {
-    // The admitted branch and the scope-only one — the second is the loopback
-    // dev server and the Node transport, which have no session either. A field
-    // present on one shape and absent on the other is a client reading
-    // `undefined` and deciding it means true.
-    const scopeOnly = businessesPayload(null, { businessId: PLATFORM } as never, null, false)
-    expect(scopeOnly.session).toBe(false)
-    expect(businessesPayload(null, null, null, true).session).toBe(true)
+  it('test_UAT_FC_REQ-204_holding_both_credentials_ends_both', async () => {
+    // THE CASE THAT WOULD OTHERWISE RE-ADMIT. `index.ts` admits this request on
+    // the session, because the session is tried first — so an endpoint that
+    // decided from the admission would send exactly this person to `/sign-in`
+    // with a live Access cookie in their browser.
+    const { cookie } = await aSignedInBrowser()
+    const { email } = await aMember()
+
+    const out = await call(SIGN_OUT_PATH, {
+      method: 'POST',
+      headers: { cookie: `${cookie}; CF_Authorization=${await mint(email)}` },
+    })
+
+    expect(out.headers.get('location')).toBe(EDGE_LOGOUT)
+    // The session half is ended all the same. Choosing the edge as the
+    // destination must not become a reason to leave our own row alive.
+    expect(await sessionIdentity(workerEnv(), PLATFORM, cookie)).toBeNull()
+  })
+
+  it('test_UAT_FC_REQ-204_a_deployment_with_no_team_domain_never_redirects_off_origin', async () => {
+    // A stale Access cookie can outlive the configuration that issued it. With
+    // no team domain there is no edge to send anyone to, and a URL built out of
+    // an empty string would be a redirect to `/cdn-cgi/…` on our own origin — a
+    // 404 in place of a sign-out.
+    const { email } = await aMember()
+
+    const out = await call(
+      SIGN_OUT_PATH,
+      { method: 'POST', headers: { cookie: `CF_Authorization=${await mint(email)}` } },
+      { ACCESS_TEAM_DOMAIN: '', ACCESS_AUD: '' },
+    )
+
+    expect(out.status).toBe(303)
+    expect(out.headers.get('location')).toBe(SIGN_IN_PATH)
+  })
+
+  it('test_UAT_FC_REQ-204_the_chrome_is_told_nothing_about_which_credential_it_holds', async () => {
+    // The client has no branch left, so it needs no field — and a field nothing
+    // reads is drift. This is where the one added by the first cut of this
+    // ticket is kept out.
+    const { cookie } = await aSignedInBrowser()
+
+    const response = await call(BUSINESSES_PATH, { headers: { cookie } })
+    const body = (await response.json()) as Record<string, unknown>
+
+    expect(response.status).toBe(200)
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
   })
 })

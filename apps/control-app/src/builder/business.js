@@ -249,17 +249,8 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  * @param {{name: string|null, email: string}|null} [spec.person] who is signed in
  * @param {Array<{id: string, name?: string, selectable?: boolean, lapse?: object|null}>} [spec.businesses]
  * @param {string|null} [spec.selected]
- * @param {boolean} [spec.session] whether this session is one we can end — see
- *   {@link signOutControl}. Defaults to false, which is the honest answer for
- *   every caller that does not know.
  */
-export function openAccountSurface({
-  host = null,
-  person = null,
-  businesses = [],
-  selected = null,
-  session = false,
-} = {}) {
+export function openAccountSurface({ host = null, person = null, businesses = [], selected = null } = {}) {
   const modal = createModalShell({ host, title: ACCOUNT_LABEL })
 
   const heading = document.createElement('h2')
@@ -326,12 +317,11 @@ export function openAccountSurface({
   portalHint.textContent = PORTAL_LINK_HINT
   modal.panel.append(portalHint)
 
-  // THE OTHER WAY OUT, AND IT IS ONLY DRAWN WHEN THERE IS SOMETHING TO LEAVE
-  // ([[REQ-204]]) — see {@link signOutControl} for why the absence is the
-  // decision rather than the omission.
+  // THE OTHER WAY OUT, AND IT IS ALWAYS DRAWN ([[REQ-204]]) — see
+  // {@link signOutControl} for why there is no state in which it is absent.
   modal.panel.append(
     modalFooter([
-      ...(session ? [signOutControl()] : []),
+      signOutControl(),
       modalButton('Close', 'builder-modal__btn', () => modal.close()),
     ]),
   )
@@ -350,15 +340,23 @@ export function openAccountSurface({
  * working in exactly the state — script broken, the builder already half-dead —
  * where a person most wants to get out.
  *
- * IT IS DRAWN ONLY FOR A SESSION WE CAN ACTUALLY END, and that condition is the
- * point rather than a guard. The builder admits two ways ([[REQ-202]]): a
- * session cookie of ours, and Cloudflare Access behind it. This endpoint ends
- * the first and can do nothing about the second, so an Access-admitted person
- * who pressed it would be sent to a sign-in page and re-admitted the moment they
- * navigated back — a Sign out that does not sign out, which is the defect
- * [[REQ-183]] §4.2 refuses for a Delete account button that deletes nothing. The
- * caller is told which kind of session this is by `/api/businesses`, because
- * that is the one endpoint whose subject is the session.
+ * IT IS DRAWN UNCONDITIONALLY, AND THAT IS THIS TICKET'S SECOND ANSWER TO ITS
+ * OWN QUESTION. The builder admits two ways ([[REQ-202]]): a session cookie of
+ * ours, and Cloudflare Access behind it. This control was at first drawn only
+ * for the first, on the grounds that `POST /sign-out` could not touch the second
+ * and a Sign out that leaves you signed in is the defect [[REQ-183]] §4.2
+ * refuses for a Delete account button that deletes nothing. That premise holds
+ * and the conclusion did not: hiding the control documented the gap instead of
+ * closing it, and the people in the gap were the operators — everyone who
+ * arrives through Access, in production and through `bin/access-sim` locally,
+ * got a builder they could not leave. The endpoint ends whichever credential the
+ * request carries now, so there is nothing left for a condition here to protect
+ * anyone from.
+ *
+ * NOTHING ABOUT WHICH CREDENTIAL THIS IS REACHES THE CLIENT, deliberately. The
+ * destination is decided where the request is — `sign-in.ts` reads what the
+ * browser actually sent — so this file has no branch to get wrong and the chrome
+ * needs no field on `/api/businesses` to tell it apart.
  *
  * `type="submit"`, WHICH IS WHY `modalButton` IS NOT USED: every button that
  * helper makes is a `type="button"` on purpose, and a `type="button"` inside a

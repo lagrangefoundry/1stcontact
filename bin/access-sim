@@ -55,7 +55,9 @@
 //     --env-file .dev.vars --env-file ../../.dev.vars.local
 //
 // Open http://127.0.0.1:8799/login and pick a person. The cookie it sets is sent
-// to the builder because cookies ignore the port.
+// to the builder because cookies ignore the port. Signing out in the builder
+// lands on this process's /cdn-cgi/access/logout, which clears that cookie —
+// the edge's half of REQ-204, the way /login is the edge's half of signing in.
 //
 // To push a site in, aim the tooling at the SIMULATOR rather than at the builder,
 // exactly as a production push is aimed at the edge rather than at the Worker:
@@ -247,6 +249,36 @@ http
       return res.end(page(`<h1>Sign in as</h1>${list}<p>Then: <a href="${BUILDER}">the builder</a></p>`))
     }
 
+    // THE OTHER HALF OF BEING THE EDGE ([[REQ-204]]). Our own `/sign-out` ends a
+    // session row and clears a cookie the Worker minted; it cannot revoke an
+    // Access credential, because this process issued that one. So it sends its
+    // holder here, exactly as it sends a deployed one to Cloudflare, and this
+    // clears what `/login` set. Without it the operator loop that ticket exists
+    // for is unverifiable on the machine it is used on: the builder would offer
+    // a Sign out that led nowhere local.
+    //
+    // `returnTo` IS HONOURED ONLY FOR THE BUILDER THIS SIMULATOR FRONTS. It
+    // arrives from the Worker, which builds it from its own request's origin —
+    // but this is an open port on a developer's laptop, and a logout that
+    // redirects wherever a query string names is a redirector anybody on the
+    // machine can aim. Anything else falls back to the builder.
+    if (url.pathname === '/cdn-cgi/access/logout') {
+      const asked = url.searchParams.get('returnTo') ?? ''
+      let back = BUILDER
+      try {
+        if (asked && new URL(asked).origin === new URL(BUILDER).origin) back = asked
+      } catch {
+        /* not a URL at all — the builder, as though nothing had been asked */
+      }
+      res.writeHead(302, {
+        // Max-Age=0 with the same Path the cookie was set on: a clear that does
+        // not match the original attributes leaves the original in place.
+        'set-cookie': 'CF_Authorization=; Path=/; Max-Age=0',
+        location: back,
+      })
+      return res.end()
+    }
+
     // The token on its own, for curl and for the suites.
     if (url.pathname === '/mint') {
       const email = url.searchParams.get('email')
@@ -259,7 +291,7 @@ http
     }
 
     // EVERYTHING ELSE IS THE BUILDER'S, and carrying it there is what makes this
-    // the edge rather than only the issuer. The three routes above are answered
+    // the edge rather than only the issuer. The four routes above are answered
     // here and never forwarded; the control app's router defines none of those
     // names, so nothing of the product's is shadowed by them.
     return await forward(req, res, url)

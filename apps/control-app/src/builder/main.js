@@ -53,7 +53,6 @@ if (loaded) {
   mountBuilder(root, {
     businesses: businesses.businesses,
     person: businesses.person,
-    session: businesses.session,
     aiStatus,
     publish: (slug) => publishSite(slug),
     editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
