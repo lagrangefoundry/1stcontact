@@ -6,9 +6,9 @@ title: 'Consume auth-passwordless: sessions, sign-in routes, and the invite link
   a token'
 created_by: CHAT-39
 created_at: '2026-09-06T23:18:52.431716+00:00'
-updated_at: '2026-09-07T00:31:28.288405+00:00'
+updated_at: '2026-09-07T00:31:45.135788+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -301,3 +301,5 @@ cd ../lagrange-framework && bin/install --lang js --component auth-passwordless
 
 And the Access **Bypass** policy in `ACCESS.md` has to be created in the Cloudflare
 dashboard, or the deployed invite still meets a one-time-PIN challenge.
+
+-
