@@ -6,16 +6,24 @@ title: 'Consume auth-passwordless: sessions, sign-in routes, and the invite link
   a token'
 created_by: CHAT-39
 created_at: '2026-09-06T23:18:52.431716+00:00'
-updated_at: '2026-09-07T00:08:09.192604+00:00'
+updated_at: '2026-09-07T00:11:20.156100+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6a277a28
+  commits:
+  - working_sha: fc5c78dbe58c66501a8238e1350fd20c7767b2ad
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 170dce5d581a50a870945a59ff9f83c347684d62
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.124
 ---
 
 **Design ref:** [[CHAT-39]]. Consumes `@lagrangefoundry/auth-passwordless` ([[REQ-134]] in
