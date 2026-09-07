@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T01:21:06.161946+00:00'
+updated_at: '2026-09-07T20:05:33.975056+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -149,5 +149,11 @@ Two things to flag:
 **`wrangler dev` no longer builds, in any checkout, for a reason outside this ticket.** `session-knowledge.ts` imports `KnowledgeDocs` from `generated/ai-knowledge`, and the installed shared package at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge` defines that symbol in `src/priming.js` without re-exporting it from `src/index.js`. The generated shim is a bare `export *` from that index, so esbuild fails. Your server on 8788 is running an older bundle and will hit this the moment it restarts. It's the shared-store install problem, not a code change here.
 
 **That blocked repeating the live end-to-end after the token shape changed.** I proved the pre-change path live earlier (sim → real `wrangler dev` → `bin/publish` writing all three sites). What's now unproven live is only that composition with the new shape; both halves are covered by suites driving the real thing — the workers suite puts a real signed `common_name` token through the Worker's own `fetch`, real gate, real D1. It's in the ticket.
+
+<!-- xgd-turn id="36e92dde-6399-4b8b-8295-b50ed4a1da55-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:05:30.750487+00:00" -->
+#### You
+Where are we on this?
 
 <!-- xgd-chat-end -->
