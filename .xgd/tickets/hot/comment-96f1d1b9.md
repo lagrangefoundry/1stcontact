@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-07T21:59:24.796341+00:00'
+updated_at: '2026-09-07T22:18:41.701749+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,17 @@ SPF passed on **104.30.8.74**, which is in Cloudflare's range, while the Message
 ---
 
 Items 1–3 you can do right now with no ticket. Want me to file a ticket for 4–6 (display name, repliable sender, text alternative)? They're a single coherent scope, roughly 2 story points.
+
+<!-- xgd-turn id="e1b0da43-c9b4-4307-8478-34d22598718d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T22:18:41.492759+00:00" -->
+#### You
+We are using Resend - check the chats and recent ticklets - I configured our DNS to report amazonses per your instructions.
+
+Can you create an REQ to make the changes that you propose?
+
+Lets use invite@1stcontact
+
+Is there an API to google postmaster?
 
 <!-- xgd-chat-end -->
