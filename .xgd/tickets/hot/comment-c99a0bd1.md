@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T20:22:00.856462+00:00'
+updated_at: '2026-09-07T20:50:18.739355+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -195,5 +195,56 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="facdfa0b-3bf0-4920-ac9a-40e7ca140480-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:50:18.684303+00:00" -->
+#### Claude
+Now merging `xgd-working` in — REQ-202/203 and BUG-62 all landed in the files I touched.
+
+Confirmed pre-existing on `xgd-working` — identical failure, none of the files are mine. Continuing the batches.
+
+Identical on `xgd-working` — all pre-existing. Continuing.
+
+The scan is a real catch on the name — `SERVICE_TOKEN_IDENTITIES` contains `TOKEN` — but the value is a `name=address` mapping, not a credential. Let me look at how to make the exception narrow and self-policing.
+
+Pre-existing. Continuing.
+
+Identical set — all pre-existing.
+
+Two copies of the same scan. Rather than duplicate the exception, I'll factor it into one place both use.
+
+Now rewriting both scans to use it.
+
+Exemption fires on the real entry, catches a smuggled key. Continuing the batches.
+
+All 389 files run. Now recording the scan change in the ticket body before committing.
+
+Now the version bump as the tip commit.
+
+Fast-forwarded. Now setting the ticket to `free_coded` with the commit shas.
+
+BUG-59 is free-coded and merged into `xgd-working`.
+
+**Status `free_coded`, version 0.2.126, three commits:**
+
+| sha | what |
+|---|---|
+| `2ca6ef1a16` | `fix(access): a service token is a person's automation, and the simulator is the edge` |
+| `2751532a22` | `fix(tests): a *_IDENTITIES var names who a credential is, never what it is` |
+| `99b88111d9` | `chore: bump version for BUG-59` |
+
+**The REQ-202 conflict.** `index.ts` conflicted where REQ-202 put a passwordless session ahead of the Access gate. I put `actingEmail` on the **gate branch only**, not after the join: a session is a person by construction — `sessionIdentity` reads a row somebody signed in to create, and no service token has one — so resolving above the join would ask a question that could only answer `null` there, and would imply a token might arrive holding a session cookie.
+
+**One thing I had to fix that wasn't in the original scope.** `SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=…"` trips the committed-credential scan, in both places that run it — one of the three shapes matches on the *name* of an assignment, and the name contains `TOKEN`. It's a false positive: the value is a `name=address` pair whose halves are both public. Rather than rename the var away from the word Cloudflare uses for the thing it maps, I taught the scan that a `*_IDENTITIES` var names *who* a credential is, never *what* it is. The exception is narrow in both directions — it applies to the name-matched shape alone, so an `sk-`-shaped string under the exempted name is still caught (asserted), and every exempted entry is held to the `name=address` grammar, so a secret parked there fails at the same assertion. I verified against the real file that the exemption fires and a smuggled key is still found. The scan also got one definition site in `tests/support/credential-scan.ts`; REQ-144 and AC-1342 had it verbatim twice. All of this is recorded in the ticket body.
+
+**Verification — whole suite, 389 files, foreground, in batches.** Every failure was reproduced on `xgd-working` itself before I set it aside:
+
+- Pre-existing on both sides: `bug32-webui-scope-rebrand` (names three files, none mine), `req115-builder-shell`, `reconciliation-draft-change-journal`, `reconciliation-builder-workspace-origin`, `reconciliation-assistant-*`, `BUG-38/39/43/46`, `REQ-122/123/127/131/146/158/160/173/174`.
+- Failed here, passed on `xgd-working`: `reconciliation-platform-build-deploy-smoke` and `REQ-144_deploy_scripts` — both mine, both green now.
+
+The KB-backed suites in that list fail because `1c kb build` hasn't run in this checkout; the builder-origin ones because the shared-store install is incomplete. Neither is this ticket's.
+
+**Still unproven, and I want to be plain about it:** the live composition — access-sim in front of `wrangler dev` with `bin/publish` — could not be re-run with the new token shape, because `wrangler dev` doesn't build in any checkout (`KnowledgeDocs` isn't re-exported from the installed `@lagrangefoundry/ai-knowledge` index). Both halves are covered by suites driving the real thing — a real signed `common_name` token through the Worker's own `fetch`, real gate, real D1; and a real `bin/access-sim` process in front of a stub origin — but the three-process composition is not.
 
 <!-- xgd-chat-end -->
