@@ -150,14 +150,22 @@ export interface ChatSession {
    * WHY THE CLIENT CANNOT WORK THIS OUT ITSELF. A transcript ending in an
    * assistant turn looks identical whether that turn finished a second ago or is
    * still being written; the difference is a `turn_end` record, which is on the
-   * junction and not in the projection. So it is answered here, where the fold
-   * happened, by the same rule the archive uses to decide what it may store:
-   * `closedPrefix` is shorter than the record stream exactly when a turn is open.
+   * junction and not in the projection. So it is answered where the fold
+   * happened — by `transcript`, on the records it folded, by the same rule the
+   * archive uses to decide what it may store — and carried here verbatim.
    *
    * WHY IT IS WORTH A FIELD. Tailing unconditionally would be correct and
    * wasteful — a client that reattaches to a quiet junction holds a request open
    * until the tail's own timeout elapses, having rejoined nothing. This is the
    * cheap question that says whether the expensive one is worth asking.
+   *
+   * AND WHY GETTING IT WRONG IS NOT MERELY WASTEFUL (BUG-64). The panel treats a
+   * reattach as a turn in progress, because that is what it is being told; a
+   * composer in its streaming state QUEUES what is typed into it rather than
+   * sending it. So a `live` that is true when no turn is running does not cost a
+   * spare request — it costs the operator the use of the chat, silently, for as
+   * long as the tail runs. See {@link storedTranscript} for the derivation that
+   * made this true of every session.
    */
   live: boolean
   /** False when a turn cannot be run — the panel says so instead of silently failing. */
@@ -788,12 +796,30 @@ async function reminderFor(slug: string, sessionId: string, deps: HostDeps): Pro
  * unmigrated table — came back looking exactly like a site nobody has talked to.
  * The discriminator is the archive's own listing rather than the error's message,
  * which is the same call {@link attach} already makes the same distinction with.
+ *
+ * `live` IS UPSTREAM'S ANSWER, NOT ONE COMPUTED HERE (BUG-64). It used to be
+ * re-derived from a second read of the log this very call had just folded —
+ * `closedPrefix(records).length !== records.length` — and `closedPrefix` returns
+ * a COUNT, so `.length` on it was `undefined` and the comparison was true for
+ * every session that had any records at all. The panel was therefore told a turn
+ * was open every single time it opened a conversation: it reattached to a quiet
+ * junction, `watch` held that request for its full ten-minute timeout, and the
+ * composer sat in its streaming state for the duration — STOP button showing, and
+ * anything typed QUEUED behind a turn that was never running rather than sent.
+ *
+ * The library is loaded untyped, so nothing objected. But the deeper fault is
+ * that the value was derived at all: `transcript` computes this exact predicate
+ * on the exact records it folded, and says so in its own contract. Two
+ * definitions of "a turn is open" is one more than the codebase can keep in step,
+ * and the one written here was the one that could drift — as it had, from the day
+ * it was written. Taking the answer removes the divergence rather than fixing
+ * one side of it.
  */
 async function storedTranscript(
   manager: Untyped,
   sessionId: string,
 ): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean } | null> {
-  let read: { session: Untyped; cursor: number; live?: boolean }
+  let read: { session: Untyped; cursor: number; live: boolean }
   try {
     read = await manager.transcript(sessionId)
   } catch (err) {
