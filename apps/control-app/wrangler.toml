@@ -134,6 +134,26 @@ run_worker_first = true
 # Declared on BOTH sides for the reason every var here is: a named environment
 # inherits none, and a break-glass key that silently does not exist in production
 # is one discovered at the worst possible moment. A UAT pins the two together.
+# SERVICE_TOKEN_IDENTITIES says WHO A SERVICE TOKEN IS ([[BUG-59]]).
+# Comma-separated `name=address` pairs, where the name is the `common_name`
+# Cloudflare puts in the JWT it mints for a Service Auth credential.
+#
+# It exists because a service token carries no email and `admit` needs one, so
+# every one of them passed Access and was then refused `no_email` — the
+# credential BUG-36 provisioned for `bin/publish` could authenticate and could
+# not do anything. Mapping the token to a PERSON is the answer that needs no new
+# concepts: it is that person's automation, so membership, entitlement, terms and
+# revocation all apply unchanged. See `src/identity.ts`.
+#
+# EMPTY MEANS NOBODY, like PLATFORM_ADMINS above. An unmapped token is refused
+# exactly as it was before this var existed, so nothing switches on when
+# configuration goes missing, and either half of a two-sided revocation — delete
+# the token in Cloudflare, or remove the entry here — is sufficient on its own.
+#
+# THE PRODUCTION ENTRY IS NOT A NEW GRANT. ACCESS.md's identity table already
+# records `1stcontact-publish` as provisioned for `bin/publish`; this is the line
+# that makes that record true. Locally the entry comes from
+# `./bin/access-sim --print-env`, which emits it alongside the two Access vars.
 # MAIL_FROM is the address every message this Worker sends comes FROM
 # ([[REQ-196]]).
 #
@@ -159,13 +179,35 @@ run_worker_first = true
 # Declared on BOTH sides for the reason every var here is: a named environment
 # inherits none, and an absent From address is a Worker that refuses to send at
 # the moment it is asked to. A UAT pins the two together.
+# SESSION_COOKIE_NAME / SESSION_COOKIE_DOMAIN — the cookie this Worker mints
+# sessions under ([[REQ-202]], REQ-134 upstream).
+#
+# THE VALUES MUST MATCH `apps/public-site/wrangler.toml` CHARACTER FOR CHARACTER.
+# That Worker already reads a session cookie by exactly these two values, to
+# choose which of `account-chrome`'s states to render ([[REQ-200]]); this one is
+# what writes it. The builder and the apex share a session precisely when the two
+# files agree, and the symptom of disagreeing is a person signed in on one and
+# signed out on the other with nothing anywhere reporting why. A UAT pins them
+# together.
+#
+# THE DOMAIN IS THE APEX, NOT THE HOST. `Domain=1stcontact.io` reaches
+# `app.1stcontact.io` and `1stcontact.io` both; a host-only cookie would reach the
+# builder alone, and the Sign In control on the public apex would never see one.
+#
+# EMPTY AT THE TOP LEVEL IS HOST-ONLY AND IS CORRECT FOR `wrangler dev`, which
+# serves on `127.0.0.1` — nobody's cookie domain. A NAME is still set there,
+# because an empty name means this deployment issues no sessions at all and the
+# local builder would have no way to sign anybody in.
 [vars]
 TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
 PLATFORM_ADMINS = ""
+SERVICE_TOKEN_IDENTITIES = ""
 ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 MAIL_FROM = "no-reply@1stcontact.io"
+SESSION_COOKIE_NAME = "session"
+SESSION_COOKIE_DOMAIN = ""
 
 # The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
 # R2. Declared at the top level for `wrangler dev` and REPEATED under
@@ -288,10 +330,21 @@ head_sampling_rate = 1
 TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
 # See the top-level block: break glass, empty until it is needed ([[REQ-185]]).
 PLATFORM_ADMINS = ""
+# See the top-level block. The name is the Service Auth token ACCESS.md's identity
+# table already records; the address is the operator that table already names. A
+# named environment inherits nothing, so the local empty above does not reach here
+# — and an empty here would leave `bin/publish --production` authenticating and
+# then being refused, which is the bug ([[BUG-59]]).
+SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-196]]).
 MAIL_FROM = "no-reply@1stcontact.io"
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-202]]).
+# The DOMAIN is set here and empty above: production shares a session with the
+# public apex, and a loopback dev server has no apex to share one with.
+SESSION_COOKIE_NAME = "session"
+SESSION_COOKIE_DOMAIN = "1stcontact.io"
 
 [env.production.assets]
 directory = "./dist-assets"

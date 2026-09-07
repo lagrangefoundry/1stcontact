@@ -76,6 +76,38 @@ exchanges them at the edge for a JWT carrying `common_name` instead of `email`, 
 `verifyAccessJwt` accepts on the same terms as a human identity (`src/access.ts`, which reports it
 as `service-token:<name>`).
 
+**The gate is only the first half — `SERVICE_TOKEN_IDENTITIES` is the second (BUG-59).** A
+`common_name` gives `admit` nothing to look up, so it refused every service token `no_email` and
+the credential provisioned above passed Access and could then do nothing. A service token is now
+resolved to the person whose automation it is, by a deployment var of comma-separated
+`name=address` pairs:
+
+```toml
+# apps/control-app/wrangler.toml, [env.production.vars]
+SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"
+```
+
+The name is the `common_name` Cloudflare puts in the JWT — the client id without its `.access`
+suffix. Everything downstream is unchanged, which is the point: **membership** decides which
+businesses it may write to, the **grant** decides whether they are selectable, the **terms that
+person accepted** are the terms it operates under, and removing the person removes the automation.
+No new principal, no second authorisation path.
+
+Four properties worth knowing, each pinned by a UAT in
+`test_UAT_FC_BUG-59_service_token_identity.workers.test.ts`:
+
+- **Empty means nobody**, like `PLATFORM_ADMINS`. An unmapped token is refused exactly as it was
+  before the var existed, so nothing switches on when configuration goes missing.
+- **It is configuration, never caller input.** The name arrives inside a token Cloudflare signed;
+  who that name is, is written here. A caller cannot choose who they act as.
+- **A human's own address always wins.** The mapping is consulted only when the token carries no
+  email, so no configuration of it can redirect somebody who signed in.
+- **It names a person; it does not create one.** An entry pointing at an address with no `users`
+  row is refused `no_user` like anybody else.
+
+Revocation is two-sided — delete the token in Cloudflare, or remove the entry here — and either
+alone is sufficient.
+
 Provision one — once, by hand, from an environment holding `CLOUDFLARE_API_TOKEN`:
 
 ```bash
@@ -128,7 +160,7 @@ mistake — the same standard `wrangler.toml` records for `ACCESS_DEV_OPEN`.
 
 ```bash
 ./bin/seed                                     # the people to sign in as (REQ-192)
-./bin/access-sim --print-env > .dev.vars.local  # ACCESS_TEAM_DOMAIN + ACCESS_AUD
+./bin/access-sim --print-env > .dev.vars.local  # the two Access vars + SERVICE_TOKEN_IDENTITIES
 ./bin/access-sim &
 cd apps/control-app && npx wrangler dev --port 8788 \
   --env-file .dev.vars --env-file ../../.dev.vars.local
@@ -144,9 +176,104 @@ Tokens last 30 days by default (BUG-52): a test session that expires inside a si
 bug look like the harness running down. Deployed session lifetime is a separate question and is
 REQ-187's.
 
+#### Getting a site in, with the gate on
+
+`bin/seed` writes people and no sites — `db/dev-seed.sql` says so — so a fresh clone's builder
+comes up signed-in and empty, and `1c push` is how a site gets there. Until BUG-59 that was
+impossible with the simulator running: `push.ts`'s one inbound credential is the service-token
+pair, and nothing here exchanged it, so every push answered 401 with advice (`bin/access-token`)
+that cannot be followed against a laptop.
+
+**So the simulator is the edge, not only the issuer.** Anything that is not one of its own three
+routes (`/cdn-cgi/access/certs`, `/login`, `/mint` — the control app's router defines none of those
+names) is forwarded to the builder, credential first, exactly as Cloudflare forwards it. Aim the
+client at the *simulator*, the way a production push is aimed at the edge and not at the Worker:
+
+```bash
+eval "$(./bin/access-sim --print-token)"        # CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET
+./bin/publish --origin http://127.0.0.1:8799   # every local site → the local builder
+```
+
+`--print-env` and `--print-token` configure opposite sides of the wire and are deliberately
+separate: the first is read by the **Worker** and belongs in `.dev.vars.local`, the second is read
+by whoever is **calling** and belongs in a shell.
+
+Three outcomes, and the order matters. A complete pair is exchanged for a
+`cf-access-jwt-assertion` on the forwarded request and the pair itself is spent here, as at the
+real edge. A complete but *wrong* pair is a **403**, never a redirect — BUG-36 records what a 302
+costs a client, which follows it, receives the login page as 200, and parses HTML as its result. A
+request with no credential gets the 302 to `/login` a browser wants. Half a pair is no pair, which
+is the rule `1c push` already enforces on the way out.
+
+The default pair is well known (`local-dev.access` / `local-dev-secret`, overridable with
+`--client-id` / `--client-secret`), and that is not a weakening: `/mint` already hands anyone a
+token for any address with no credential at all, and the listener binds to loopback. What the pair
+buys is that the client side is byte-identical to production.
+
+**The minted token is the faithful shape** — `common_name`, no email, exactly as Cloudflare's is —
+so the local path exercises `SERVICE_TOKEN_IDENTITIES` rather than a friendlier shortcut. That
+mapping is the third line `--print-env` emits, with the name derived from `--client-id` and the
+address from `--service-email` (defaulting to the first `PLATFORM_ADMINS` entry, read from
+`.dev.vars` then `wrangler.toml` in the order the Worker reads them). Pass the same flags to both
+invocations of the script, or pass none to both and let the defaults agree; the startup banner
+prints the mapping this process would exchange, so a disagreement is visible rather than a puzzling
+refusal. With no address to map the name to, the exchange refuses here rather than minting a token
+the Worker will turn away.
+
+A first push against a fresh database also has to clear the terms gate once (REQ-169), which
+refuses every route until the account has accepted — and accepting is a browser action `1c push`
+has no way to perform. Sign in at `/login` and accept at `/terms`, or do it from a shell with a
+minted cookie:
+
+```bash
+curl -X POST -H 'content-type: application/json' -d '{}' \
+  --cookie "CF_Authorization=$(curl -s 'http://127.0.0.1:8799/mint?email=you@example.com')" \
+  http://127.0.0.1:8799/api/terms/accept
+```
+
+<!-- The cookie, not the service-token headers: a credential value has no place in this file and
+     `test_UAT_FC_REQ-147_the_access_policy_is_recorded_in_the_repository` enforces that. -->
+
 **There is no operator in the seed.** `PLATFORM_ADMINS` is how somebody privileged comes to exist
 in an empty database (REQ-185) — set it in `.dev.vars.local` alongside the two vars above, sign in
 once, and empty it. Using it *writes* the membership, so the repair outlives the var.
+
+## The sign-in paths must bypass Access ([[REQ-202]])
+
+Access is now the **second** producer of a verified identity, not the only one. `src/sessions.ts`
+mints passwordless sessions, and `src/index.ts` reads a session cookie first and falls back to the
+Access JWT — both produce the same verified email and nothing downstream can tell which answered.
+Access **stays**: it is the operator's own route in, and the way back if the session path breaks.
+
+But Access enforces on a **hostname**, and the sign-in routes are exactly the routes a person with
+no identity has to be able to reach. Left under the blanket policy, an invitee clicking their
+invitation meets Access first and is challenged with its **own one-time-PIN email** — two messages
+per invite, the first of them Cloudflare-branded, and the invitation never delivers the person it
+was sent to.
+
+So the Access application needs a **Bypass** policy, ahead of the allow-list, scoped to these
+paths on `app.1stcontact.io`:
+
+| Path | Method | What it is |
+|---|---|---|
+| `/sign-in` | `GET`, `POST`, `OPTIONS` | the address form, and the endpoint the address is posted to |
+| `/sign-in/*` | `GET`, `POST` | the emailed link's Continue page, and the redeem it posts to |
+| `/sign-out` | `POST` | ending a session |
+
+Zero Trust → Access → Applications → the app → **Policies** → Add a policy → Action **Bypass**,
+Include **Everyone**, and add the paths under the application's *Path* configuration (or add a
+second self-hosted application scoped to those paths with a Bypass policy, which is the shape
+Cloudflare's UI makes easier).
+
+**What replaces the gate is the token.** Holding a sign-in link is the whole credential — 256 bits
+used as a primary key, single-use, enforced by a conditional `UPDATE` in the database rather than
+by application code (REQ-134). Nothing behind these paths reads a store handle, resolves a scope or
+touches a site; the most a caller reaches is a session for a person the database already knows, and
+an address the database does not know sends nothing and mints nothing.
+
+> ⚠️ **Without the bypass, this deployment's invitations do not work.** The code is complete and
+> the edge refuses the request before the Worker sees it. `wrangler dev` is unaffected — Access is
+> in front of the *deployed* Worker only — so the failure appears first in production.
 
 ## What Access does *not* change
 

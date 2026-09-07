@@ -2385,3 +2385,12 @@ body {
   font-size: 12px;
   color: var(--shell-muted, #71717a);
 }
+
+/* Sign out sits at the other end of the footer from Close (REQ-204). The footer
+   is `justify-content: flex-end`, so `margin-right: auto` is what puts it there
+   — the two are different kinds of exit and a person reaching for Close should
+   not find this under the same finger. The button inside wears the ordinary
+   `.builder-modal__btn`; the form around it carries nothing but its place. */
+.builder-account__sign-out {
+  margin: 0 auto 0 0;
+}

@@ -14,7 +14,7 @@ import { L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox-core'
 import { repoRoot } from '../tools/generate/src/cli/webui'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
 
 /**
  * REQ-174 — **the assistant is a consultant, and the old sessions still open**.
@@ -143,7 +143,7 @@ describe('REQ-174 — the assistant is told it is a consultant', () => {
 
     // THE STRING THE MODEL ACTUALLY GOT, assembled by the real host — not the
     // constant read back, which would prove only that a file says what it says.
-    const system = client.seen[0].system
+    const system = systemText(client.seen[0])
     expect(system).toContain('consultant')
     // The old word, taken from the compatibility list rather than spelled here:
     // this suite is the one place that would otherwise reintroduce it, and the

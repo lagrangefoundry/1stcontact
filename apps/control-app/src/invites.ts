@@ -44,6 +44,7 @@
  */
 
 import { markInvited, personOf, type Person } from './people'
+import type { InviteUrlFor } from './sessions'
 import type { IdentityEnv } from './identity'
 import { emailsOf } from './identity'
 import type { SendEmail } from './mail'
@@ -151,16 +152,27 @@ export interface InviteDeps {
   /** The sending address — {@link mailFrom}'s answer, resolved by the caller. */
   from: string
   /**
-   * Where the invite's button points ([[REQ-197]]'s `{{cta_url}}`).
+   * Where the invite's button points ([[REQ-197]]'s `{{cta_url}}`) — A LINK PER
+   * CONTACT, MINTED FOR THEM ([[REQ-202]]).
    *
-   * THE ORIGIN THE OPERATOR IS ON, resolved at the route from the request. It is
-   * the front door of this deployment: Access identifies them, `admit` runs, the
-   * terms interstitial catches them, and they land wherever they are entitled to
-   * land. A configured constant would be a second answer to "where is this
-   * deployment" that a `wrangler dev` session would get wrong, and the symptom
-   * of getting it wrong is an invite whose only link goes somewhere else.
+   * IT USED TO BE THE BARE ORIGIN, and that was not a design choice. There was no
+   * token to build a link from, so every invite pointed at this deployment's
+   * front door — where the invitee met Cloudflare Access, which challenged them
+   * with its OWN one-time-PIN email. Two messages per invite, the first of them
+   * Cloudflare-branded; and locally, where there is no Access to challenge
+   * anybody, the same link was a flat refusal. Either way the invite did not
+   * deliver the person it was sent to.
+   *
+   * A FUNCTION AND NOT A STRING, because a link that carries the person it was
+   * sent to cannot be one value shared by ten contacts. It mints an invite token
+   * ([[REQ-134]], thirty days — an invite may sit unread over a holiday) and
+   * returns the URL that redeems it.
+   *
+   * NULL IS A REFUSAL AND NOT AN EMPTY LINK. It means the address resolves to
+   * nobody who may sign in — a withdrawn contact — and sending them a dead button
+   * would be worse than telling the operator by name.
    */
-  ctaUrl: string
+  inviteUrl: InviteUrlFor
   /**
    * The copy for THIS send, when the operator edited it. Absent means the
    * template's own, unchanged.
@@ -214,7 +226,25 @@ export async function invitePerson(deps: InviteDeps, contactId: string): Promise
     }
   }
 
-  const rendered = renderCopy(deps.copy ?? (await defaultCopy(deps)), { cta_url: deps.ctaUrl })
+  // MINTED BEFORE ANYTHING IS SENT, and a refusal arrives before the provider is
+  // called rather than after — the same ordering the missing-address refusal
+  // above keeps, and for the same reason.
+  const ctaUrl = await deps.inviteUrl(primary.email)
+  if (!ctaUrl) {
+    return {
+      contactId,
+      who: nameOf(person),
+      to: primary.email,
+      status: 'refused',
+      reason:
+        'They cannot sign in at the moment, so an invitation would arrive with a ' +
+        'link that does not work.',
+      message: null,
+      person: null,
+    }
+  }
+
+  const rendered = renderCopy(deps.copy ?? (await defaultCopy(deps)), { cta_url: ctaUrl })
   const message = await sendRecordedEmail(
     deps.store,
     {

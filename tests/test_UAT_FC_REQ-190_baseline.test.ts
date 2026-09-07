@@ -205,8 +205,18 @@ describe('REQ-190 — one baseline', () => {
     // `seq` ORDERS the log and randomising it would destroy the only thing it
     // means, which is the exemption the header already grants
     // `site_revisions.id` and `site_changes.at`.
+    //
+    // TWO OF THESE ARE THE PASSWORDLESS COMPONENT'S ([[REQ-202]]) —
+    // `login_tokens.id` and `sessions.id` — and they are the rule at its
+    // strongest rather than an import that happens to comply. Each is 256 bits
+    // from the platform CSPRNG used AS a primary key, so redemption and session
+    // lookup are keyed reads with no secret to compare and no timing comparison
+    // to get wrong. A host that keyed either on the address it was mailed to
+    // would have made the address the credential.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
     expect(single.sort()).toEqual([
+      'id',
+      'id',
       'id',
       'id',
       'id',

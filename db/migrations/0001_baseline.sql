@@ -769,6 +769,65 @@ CREATE INDEX IF NOT EXISTS idx_entitlements_business ON entitlements (business_i
 CREATE INDEX IF NOT EXISTS idx_entitlements_account ON entitlements (account_id);
 
 -- ---------------------------------------------------------------------------
+-- Passwordless sessions
+-- ---------------------------------------------------------------------------
+--
+-- THE DDL IS THE COMPONENT'S, TRANSCRIBED — NOT AUTHORED HERE, exactly as the
+-- ticket store's above is. `@lagrangefoundry/auth-passwordless` owns this schema
+-- and exports it as `SCHEMA_STATEMENTS` (REQ-134); wrangler's migration runner
+-- reads `.sql` files off disk and cannot import a JS constant, so the statements
+-- are copied here — and a copy is a fork unless something checks it.
+-- `test_UAT_FC_REQ-202_passwordless_schema` asserts every statement in
+-- `SCHEMA_STATEMENTS` appears below, so an upstream schema change fails this
+-- repository's suite instead of silently leaving the deployed database a version
+-- behind.
+--
+-- NEITHER TABLE HOLDS AN ADDRESS, AN IP OR A USER AGENT, and that is the
+-- component's decision rather than an economy here. The address is resolved to a
+-- subject once, at issue, and never needed again — so storing it would make the
+-- framework hold personal data it has no use for and would make every host's
+-- erasure obligation partly the framework's problem (DOC-37). Binding a token to
+-- the browser that asked for it is likewise absent on purpose: request on a
+-- laptop, read the mail on a phone, click there is the ORDINARY case.
+--
+-- `subject_id` IS OPAQUE TO THE COMPONENT AND IS A `users.id` HERE. Nothing in
+-- the component parses it, and nothing below joins on it — the foreign key that
+-- would say so is deliberately absent, because the component owns these tables
+-- and a host-specific constraint in them is a fork of somebody else's schema.
+-- `apps/public-site/src/session.ts` already reads `sessions.subject_id` as a
+-- `memberships.user_id`, which is the same statement made by a query rather than
+-- by a constraint.
+CREATE TABLE IF NOT EXISTS login_tokens (
+     id         TEXT PRIMARY KEY,
+     subject_id TEXT NOT NULL,
+     purpose    TEXT NOT NULL,
+     code       TEXT,
+     expires_at TEXT NOT NULL,
+     used_at    TEXT,
+     created_at TEXT NOT NULL
+   );
+
+CREATE INDEX IF NOT EXISTS idx_login_tokens_subject_created
+     ON login_tokens (subject_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_login_tokens_expires_at
+     ON login_tokens (expires_at);
+
+CREATE TABLE IF NOT EXISTS sessions (
+     id           TEXT PRIMARY KEY,
+     subject_id   TEXT NOT NULL,
+     expires_at   TEXT NOT NULL,
+     created_at   TEXT NOT NULL,
+     last_seen_at TEXT NOT NULL
+   );
+
+CREATE INDEX IF NOT EXISTS idx_sessions_subject_id
+     ON sessions (subject_id);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at
+     ON sessions (expires_at);
+
+-- ---------------------------------------------------------------------------
 -- The one seeded row
 -- ---------------------------------------------------------------------------
 --

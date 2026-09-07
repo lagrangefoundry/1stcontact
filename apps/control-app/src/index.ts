@@ -5,6 +5,7 @@ import {
   type EmailWebhookEnv,
 } from './email-webhook'
 import {
+  actingEmail,
   admit,
   DENIED_MESSAGE,
   type Admission,
@@ -12,6 +13,8 @@ import {
   type IdentityEnv,
 } from './identity'
 import { route, type RouterEnv } from './router'
+import { handleSignIn, type SignInEnv } from './sign-in'
+import { sessionIdentityFor } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { guardTerms } from './terms'
 
@@ -65,7 +68,7 @@ import { guardTerms } from './terms'
  * and every API route, not merely un-navigated-to.
  */
 
-export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv {
+export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv, SignInEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
@@ -128,14 +131,15 @@ function uncacheable(response: Response): Response {
  * 403 RATHER THAN 401. A 401 says "authenticate", and the caller already did —
  * Access verified them. Sending them back round the login loop would produce the
  * same token and the same refusal, forever.
+ *
+ * IT NO LONGER WRITES THE LOG LINE (BUG-62). `admit` records the reason at the
+ * point it decides it, so a refusal is reported whoever renders it and whatever
+ * refusals are added later. Writing it here as well would put two lines in the
+ * log for one denial, and the second would be the one that could drift: this
+ * function sees the admission and not the deployment, so it could never have
+ * carried `platformAdminSeed`. The response is all that is left to make.
  */
-function denied(admission: Extract<Admission, { ok: false }>): Response {
-  // The distinction, stated where an operator can find it. Structured rather
-  // than prose so it can be queried out of the invocation logs `wrangler.toml`
-  // keeps every one of.
-  console.warn(
-    JSON.stringify({ event: 'admission_denied', reason: admission.reason, email: admission.email }),
-  )
+function denied(): Response {
   return new Response(DENIED_MESSAGE, {
     status: 403,
     headers: {
@@ -286,21 +290,110 @@ export default {
         return (await handleEmailWebhook(request, env)).response
       }
 
+      /**
+       * THE SECOND SET AHEAD OF THE GATE ([[REQ-202]]), and the argument is the
+       * webhook's argument for a different caller.
+       *
+       * These four routes are what an ANONYMOUS person calls in order to become
+       * authenticated: a sign-in endpoint behind a gate is a sign-in endpoint
+       * nobody who needs it can reach, and an invite link that lands behind
+       * Cloudflare Access is an invite that challenges the invitee with a SECOND
+       * one-time-PIN email before they have finished reading the first.
+       *
+       * WHAT REPLACES THE GATE IS THE TOKEN. Holding a link is the whole
+       * credential ([[REQ-134]]): 256 bits used as a primary key, single-use,
+       * enforced by a conditional UPDATE in the database rather than by code.
+       * Nothing behind these paths reads a store handle, resolves a scope or
+       * touches a site — the most a caller reaches is a session for a person the
+       * database already knows.
+       *
+       * `handleSignIn` MATCHES ITS OWN PATHS AND ANSWERS `undefined` OTHERWISE,
+       * so the exemption is exactly the four routes and cannot widen by a route
+       * being added elsewhere. It owns its freshness headers, the same division
+       * the webhook and the router keep.
+       */
+      const signIn = await handleSignIn(request, env, {})
+      if (signIn) return signIn
+
       // The business the caller is ASKING for. Whether they may have it is
       // `resolveScope`'s question, and asking it here rather than in the router
       // is what keeps authorisation ahead of routing.
       const requested = splitBusinessPrefix(new URL(request.url).pathname).businessId
+
+      // Whether a session of ours is what let this request in — see where it is
+      // set below, and {@link RouterDeps.session} for the one route that reads
+      // it. False until something says otherwise, because every other way in
+      // leaves nothing for `POST /sign-out` to end.
+      let sessionAdmitted = false
 
       // `admit`, OR NOTHING — gated on the SAME predicate that skips the gate,
       // not on a second condition that happens to agree with it today. Two
       // predicates that can drift is how a deployment ends up resolving a
       // loopback scope while enforcing a production gate, or the reverse.
       if (!isUnconfiguredLocalDev(env)) {
-        const gate = await guardAccess(request, env)
-        if (!gate.ok) return gate.response
+        /**
+         * TWO PRODUCERS OF ONE FACT ([[REQ-202]]).
+         *
+         * `admit` consumes a verified email and nothing else, so a second way of
+         * arriving at one is purely additive: a live session cookie and a valid
+         * Access JWT produce the same value, and nothing downstream — `admit`,
+         * scope, the terms gate, the portal — can tell which answered.
+         *
+         * THE SESSION IS TRIED FIRST, and Access is the fallback rather than the
+         * legacy path. Access STAYS ([[CHAT-39]]): it is the operator's own route
+         * in and the way back if this one breaks, so it is a second SUPPORTED
+         * producer and not a mode being retired. Trying it second means a person
+         * holding both is admitted by the cheaper of the two — one indexed row
+         * against a signature check and a JWKS fetch.
+         *
+         * A COOKIE THAT RESOLVES TO NOBODY IS NOT AN ADMISSION AND NOT A
+         * REFUSAL. `sessionIdentity` answers null for an expired session, a
+         * withdrawn person and a deployment that issues no sessions alike, and
+         * the request then meets the gate exactly as it did before this ticket.
+         * Refusing here instead would make a stale cookie in some browser a
+         * lockout from a builder Access would have let its holder into.
+         */
+        const signedIn = await sessionIdentityFor(env, request)
+        let email: string | null
+        if (signedIn) {
+          email = signedIn.email
+          // WHICH PRODUCER ANSWERED, RECORDED ONCE, HERE ([[REQ-204]]). Nothing
+          // about admission, scope or the terms gate may branch on it — that
+          // property is the whole point of the two producers — but one control
+          // downstream is about the CREDENTIAL rather than the person: signing
+          // out ends a session and cannot touch the gate, so `/api/businesses`
+          // has to be able to say which of the two this is. It is set on this
+          // branch alone and stays false everywhere else, including the
+          // dev-open path, which has no session and nobody to end one for.
+          sessionAdmitted = true
+        } else {
+          const gate = await guardAccess(request, env)
+          if (!gate.ok) return gate.response
+          // `actingEmail` AND NOT `gate.email` ([[BUG-59]]). A human's own
+          // address is returned unchanged, so this is the same call for
+          // everyone who arrives at the gate; what it adds is that a SERVICE
+          // TOKEN — which authenticates as a `common_name` and carries no
+          // email — is resolved to the person whose automation it is, if the
+          // deployment has said which. Unmapped, it comes back null and is
+          // refused `no_email` exactly as before, so this widens nothing by
+          // itself.
+          //
+          // ON THIS BRANCH AND NOT AFTER THE `if`, because a session is a
+          // person by construction: `sessionIdentity` reads a row somebody
+          // signed in to create, and a service token has no way to hold one.
+          // Resolving above the join would ask a question that can only be
+          // answered `null` there, and would imply a token might arrive
+          // carrying a session cookie.
+          //
+          // AND HERE RATHER THAN INSIDE `admit`, which is the one place
+          // admission is already decided: `admit`'s question is "may this
+          // address in", and giving it a second question about tokens would put
+          // two authorisations in one function.
+          email = actingEmail(env, gate)
+        }
 
-        admission = await admit(env, gate.email)
-        if (!admission.ok) return denied(admission)
+        admission = await admit(env, email)
+        if (!admission.ok) return denied()
 
         // Terms LAST of the identity checks, and inside this block rather than
         // after it: the dev-open branch has no admission at all, so there is no
@@ -316,7 +409,7 @@ export default {
       // already answered here, ahead of routing. Handing the answer down is what
       // keeps it a single answer; asking again inside the router would need the
       // verified email the router is deliberately never given.
-      return await route(request, env, scope, { admission }, ctx)
+      return await route(request, env, scope, { admission, session: sessionAdmitted }, ctx)
     } catch (err) {
       // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
       // they may not operate: an answer about them, not a configuration failure

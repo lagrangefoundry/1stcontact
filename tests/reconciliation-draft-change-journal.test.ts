@@ -32,7 +32,7 @@ import {
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
 import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW, revisionDir } from '../tools/generate/src/store'
 import type { ChangeSlice, JournalRecord } from '../tools/generate/src/store'
 import type { L1Node } from '@1stcontact/site-schema'
@@ -679,11 +679,11 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
       // "nothing happened" every turn is one that gets skimmed on the turn
       // something did.
       await turn(sessionId, 'hello')
-      expect(client.seen[0].system).not.toMatch(/list_changes with since/)
+      expect(systemText(client.seen[0])).not.toMatch(/list_changes with since/)
 
       // Two turns with no intervening edit at all: still the plain reminder.
       await turn(sessionId, 'still nothing')
-      expect(client.seen[1].system).not.toMatch(/list_changes with since/)
+      expect(systemText(client.seen[1])).not.toMatch(/list_changes with since/)
 
       // Now the client edits their own site between two of the session's turns.
       const theirs = await editCopySet(
@@ -698,7 +698,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
 
       // The signal rides the system channel, names how much moved, and carries the
       // baseline to ask from — so the assistant never has to have remembered one.
-      const primed = client.seen[2].system
+      const primed = systemText(client.seen[2])
       expect(primed).toMatch(/changed this site since your last turn — 1 change\b/)
       expect(primed).toMatch(/list_changes with since: \d+/)
       expect(primed).toContain('never write over a change you have not read')
@@ -719,7 +719,7 @@ describe('story-6cd17452 — a session is TOLD when the site moved under it', ()
       // Its own write is absorbed — the baseline is recorded after the turn — so
       // the next turn is never told its own work was somebody else's.
       await turn(sessionId, 'anything else?')
-      const following = client.seen[client.seen.length - 1].system
+      const following = systemText(client.seen[client.seen.length - 1])
       expect(following).not.toMatch(/list_changes with since/)
       expect(following).not.toMatch(/changed this site since your last turn/)
     },

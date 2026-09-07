@@ -38,6 +38,7 @@ import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
+import { kmPrimingEntries } from './roles'
 import {
   CONSULTANT_PURPOSE,
   aiStatus as aiStatusCore,
@@ -164,22 +165,18 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
       // name inside the module it comes from.
       granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
     })
-    // KM owns the internal order of the one document it assembles: the map of
-    // what exists, then what this agent is for, then how to reach the rest. The
+    // KM owns the internal order of what it contributes: the map of what
+    // exists, then what this agent is for, then how to reach the rest. The
     // manual goes in as the `mechanism` — the last thing read is the thing done
     // first — so the corpus is reached through THIS session's actual grant
     // rather than through a sentence written by hand about what it might have.
-    priming = async (box: Untyped) =>
-      bridge.KnowledgeDocs.open(knowledge, {
-        rolePurpose: CONSULTANT_PURPOSE,
-        // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k
-        // characters of this site's surface alone and was 98% of the priming
-        // document; the summary is 11k. What it drops — every parameter, return
-        // shape and error code — is what `DescribeTools` fetches for one tool
-        // at the moment it is about to be called, which is the only moment it
-        // is needed.
-        mechanism: box.manual({ level: 'summary' }),
-      })
+    //
+    // THREE ENTRIES, NOT ONE DOCUMENT (BUG-63). Upstream deleted `KnowledgeDocs`
+    // when it moved priming to DOC-22's named entries: the map and the mechanism
+    // are two registered providers now, re-read on every assembly rather than
+    // snapshotted once, and the purpose between them is the host's own text. The
+    // order is unchanged, and it is the order that was load-bearing.
+    priming = kmPrimingEntries(lib, bridge, () => knowledge, CONSULTANT_PURPOSE)
   }
 
   return {

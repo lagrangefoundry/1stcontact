@@ -96,6 +96,7 @@ import {
   type PersonName,
 } from './names'
 import type { Scope } from './scope'
+import { endSessionsFor } from './sessions'
 
 /**
  * A person as the tab lists them.
@@ -775,6 +776,18 @@ export class UnknownPersonError extends Error {
  * is the one field that stops a login. Withdrawing a membership withdraws the
  * right to RUN a business and deliberately leaves that person's own Portal
  * reachable, which is a different act with a different meaning.
+ *
+ * AND IT TAKES THE SESSIONS THEY ALREADY HOLD ([[REQ-202]], [[DOC-37]]). A
+ * session is ninety days of opaque bytes in a browser; without this, withdrawing
+ * somebody's login would stop them getting a NEW link and leave the credential
+ * they are already using perfectly live — a live credential for an account this
+ * business has just closed. There is no contact-deletion route in this deployment
+ * yet (erasure is a request an operator answers, not a button), so this is the
+ * act that exists, and it is the one that has to be complete.
+ *
+ * IT RUNS AFTER THE STATUS IS WRITTEN, so a failure to end sessions leaves a
+ * withdrawn person rather than a live one. The other order would leave the row
+ * active with the sessions gone, which is the useless half of the same pair.
  */
 export async function setPersonStatus(
   env: IdentityEnv,
@@ -789,6 +802,13 @@ export async function setPersonStatus(
     .bind(status, now, scope.businessId, personId)
     .run()
   if (!changed.meta?.changes) throw new UnknownPersonError()
+
+  // ANY STATUS BUT `active` ENDS THEM, rather than a named list of withdrawn
+  // states. The column carries no CHECK and the set is free to grow, so a list
+  // here would be one that a later state is silently absent from — and the
+  // failure of being absent from it is a live session for somebody who was just
+  // suspended.
+  if (status !== 'active') await endSessionsFor(env, personId)
 
   const detail = await personDetail(env, scope, personId)
   if (!detail) throw new UnknownPersonError()

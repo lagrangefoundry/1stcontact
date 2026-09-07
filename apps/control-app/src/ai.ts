@@ -160,10 +160,11 @@ export function sessionTextDescriber(
 
   const role = new lib.Role({
     name: DESCRIBER_ROLE,
-    system: DOCUMENT_DIGEST_SYSTEM,
-    // The duck-typed `ContextSource`, empty. See above: the document is the
-    // context, and there is nothing else this role should know.
-    source: { documents: () => [] },
+    // ONE ENTRY, AND ONLY ONE (BUG-63). Under DOC-22 the preamble is not a field
+    // but the first priming entry, and this role's priming is the whole of it:
+    // the document is the context, and there is nothing else this role should
+    // know. The empty `ContextSource` beside it is gone with the seam.
+    priming: [new lib.Entry({ name: 'digest-system', text: DOCUMENT_DIGEST_SYSTEM })],
   })
   const manager = new lib.SessionManager({ [DESCRIBER_ROLE]: role }, new lib.NullArchive(), {
     junctions: lib.memoryJunctions(),
@@ -315,7 +316,7 @@ export function workerHost(
       // keeping. What it does depend on is a ticket store, which this host
       // always has and the `1c` CLI never does.
       ledger: (slug: string) => chatLedger(tickets, sessionIdFor(slug)),
-      priming: knowing ? sessionPriming(knowledge, CONSULTANT_PURPOSE) : null,
+      priming: knowing ? sessionPriming(lib, knowledge, CONSULTANT_PURPOSE) : null,
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus
       // grew — a map is a description, not a notification — so the delta is

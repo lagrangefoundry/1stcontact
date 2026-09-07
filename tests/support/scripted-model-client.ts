@@ -27,11 +27,41 @@
  * a test written against it is asserting against a fiction.
  */
 
+/** One Anthropic system block: a run of the system prompt, maybe cached. */
+export interface SystemBlock {
+  type: 'text'
+  text: string
+  cache_control?: Record<string, unknown>
+}
+
 /** What the host sends the model — the half of a turn a test can assert on. */
 export interface ModelRequest {
-  system: string
+  /**
+   * The assembled priming, reminder included — a string, OR a list of blocks.
+   *
+   * TWO SHAPES, AND BOTH ARE PRODUCTION (BUG-63). Upstream sends one string
+   * where the turn has no usable cache breakpoint, and an array of `text`
+   * blocks — split at the priming's cache boundary, the earlier ones carrying
+   * `cache_control` — where it has one. Which one a given turn gets is a
+   * property of the tier's boundary, not of the test, so an assertion that
+   * indexes into a string is asserting against whichever shape happened to
+   * come back that day. Read it through {@link systemText}.
+   */
+  system: string | SystemBlock[]
   messages: { role: string; content: unknown }[]
   tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
+}
+
+/**
+ * The system prompt as one string, whichever shape it arrived in.
+ *
+ * The blocks are consecutive slices of a single assembled string — upstream
+ * cuts it at the cache breakpoints and marks the prefix — so concatenating them
+ * reproduces it exactly, separator and all. Nothing here is normalised beyond
+ * that: a test asserting on ORDER is asserting on offsets in this string.
+ */
+export function systemText(req: ModelRequest): string {
+  return typeof req.system === 'string' ? req.system : req.system.map((b) => b.text).join('')
 }
 
 /** One Anthropic streaming event, as the SDK emits them. */
