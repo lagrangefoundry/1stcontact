@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:23:57.764855+00:00'
+updated_at: '2026-09-07T22:26:29.822344+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -76,5 +76,13 @@ Fixed — reload the page and it'll be there. No code was wrong; the browser was
 A plain reload should do it; hard-reload (⌘⇧R) if the browser cached the old `business.js`. Open the avatar dialog and **Sign out** sits at the left of the footer, opposite Close.
 
 One thing to expect later: if you test by simulating an Access login (`bin/access-sim`) instead of your sign-in link, the control will correctly be absent — `session` comes back false, because `POST /sign-out` can end a session row and can do nothing about the Access cookie. That's the conditional working, not a regression.
+
+<!-- xgd-turn id="77831d05-3004-4359-b3e7-0e2bd5e7392f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T22:26:29.470580+00:00" -->
+#### You
+ok fixed - now help me understand "accounts that cannot sign out?"
+
+I am now logged in as me from the access-sim and I don't see the logout capability
 
 <!-- xgd-chat-end -->
