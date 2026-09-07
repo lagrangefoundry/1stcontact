@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T20:08:06.484763+00:00'
+updated_at: '2026-09-07T20:22:00.856462+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -186,5 +186,14 @@ Ticket BUG-59 is still at `draft` — the body carries the full diagnosis and bo
 3. **`wrangler dev` still won't build in any checkout** — `KnowledgeDocs` isn't re-exported from the installed `@lagrangefoundry/ai-knowledge` index. Outside this ticket, but it's what blocked repeating the live end-to-end after the token shape changed.
 
 Say the word and I'll finish it: merge `xgd-working` in, re-verify both suites plus the regression scope, bump the version, commit with `[FREE-CODED]`, merge back and set `free_coded`.
+
+<!-- xgd-turn id="facdfa0b-3bf0-4920-ac9a-40e7ca140480-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T20:21:59.265868+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
