@@ -68,6 +68,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contentTypeFor } from '../apps/public-site/src/content-type'
 import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
+import {
+  credentialShapesIn,
+  exemptIdentityEntries,
+  isNameAddressPair,
+} from './support/credential-scan'
 // `WEBUI_SCOPE` is imported rather than written: AC-960 declares the component
 // scope exactly once, and every reference — this suite's included — composes it
 // from that declaration.
@@ -1383,23 +1388,31 @@ describe('story-d5167ced — no secret value is committed, and the push is piped
       ...APPS.map((app) => path.join(REPO, 'apps', app, 'wrangler.toml')),
     ]
 
-    // The shapes a real credential takes. Assembled rather than written out, so
-    // this file cannot be its own counter-example.
-    const shapes: Array<[string, RegExp]> = [
-      ['a provider-prefixed API key', new RegExp(['sk', 'ant', 'api'].join('-'))],
-      ['a private-key block', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
-      [
-        'a credential-named assignment carrying a literal value',
-        /\b[A-Za-z0-9_-]*(?:SECRET|TOKEN|API_KEY|PASSWORD)[A-Za-z0-9_-]*\s*=\s*["'][^"'$][^"']{7,}/,
-      ],
-    ]
-
+    // THE SHAPES AND THE ONE EXCEPTION LIVE IN `support/credential-scan`
+    // ([[BUG-59]]), because REQ-144's suite runs the identical scan and a rule
+    // that has to be taught twice is one that will eventually be taught once.
+    // What stays here is the file list, which is the part that genuinely differs.
     for (const file of files) {
       const text = readFileSync(file, 'utf8')
-      for (const [what, shape] of shapes) {
-        expect(shape.test(text), `${path.relative(REPO, file)} looks like it contains ${what}`).toBe(false)
+      const rel = path.relative(REPO, file)
+
+      // The exception is held to the grammar it claims, so a secret parked in an
+      // exempted var fails HERE rather than passing quietly.
+      for (const entry of exemptIdentityEntries(text)) {
+        expect(
+          isNameAddressPair(entry),
+          `${rel}: an exempted *_IDENTITIES var carries "${entry}", which is not a ` +
+            'name=address pair — the credential scan cannot go on treating it as configuration',
+        ).toBe(true)
       }
+
+      expect(credentialShapesIn(text), `${rel} looks like it contains a credential`).toEqual([])
     }
+
+    // The exception is narrow in the direction that matters: a real credential
+    // given an exempted name is still caught, by the shapes that read the VALUE.
+    const smuggled = 'SERVICE_TOKEN_IDENTITIES = "' + ['sk', 'ant', 'api'].join('-') + '03-nope"'
+    expect(credentialShapesIn(smuggled)).toContain('a provider-prefixed API key')
 
     // The documented mechanism is verifiable from the documentation itself.
     const doc = readFileSync(path.join(REPO, 'bin', 'deploy.d', 'secrets', 'README.md'), 'utf8')
