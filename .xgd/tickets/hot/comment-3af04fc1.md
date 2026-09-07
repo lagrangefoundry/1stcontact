@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-64
 created_by: xgd
 created_at: '2026-09-07T23:23:28.725771+00:00'
-updated_at: '2026-09-07T23:29:19.975739+00:00'
+updated_at: '2026-09-07T23:43:02.103788+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,15 @@ Introduced by BUG-46; its UATs only test the case where a turn *is* open, where 
 The fix: `manager.transcript()` already returns `live`, computed correctly upstream (`closedPrefix(records) < records.length`) — and its doc comment describes this exact failure. `storedTranscript` re-derived, from a second read of the same log, a fact the call it had just made had already answered.
 
 Shall I cut the branch and land it? It's a small fix plus UATs pinning both directions (quiet → not live, mid-turn → still live).
+
+<!-- xgd-turn id="9c405f0e-07c5-4927-87af-25643fce0458-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T23:43:02.061832+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
