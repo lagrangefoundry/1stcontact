@@ -5,7 +5,7 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-09-07T01:20:33.836886+00:00'
+updated_at: '2026-09-07T20:48:36.235083+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -333,3 +333,78 @@ stub origin and verifies what it forwards with the product's own verifier.
   `PLATFORM_ADMINS` from `martin-github@westhead.me` to `martin@westhead.me`
   (`.dev.vars~` holds the previous version). Not a cause here — the running
   server admits `martin@westhead.me` fine.
+
+
+## A committed-credential scan reads the NAME, and this var's name says TOKEN
+
+Found by the suite once `SERVICE_TOKEN_IDENTITIES` had a production value, and
+recorded here because the fix edits two other stories' UATs rather than this
+ticket's own.
+
+Both `tests/test_UAT_FC_REQ-144_deploy_scripts.test.ts` and AC-1342 in
+`tests/reconciliation-platform-build-deploy-smoke.test.ts` scan the committed
+`wrangler.toml` files for a credential, and one of the three shapes they use
+matches on the **name** of an assignment:
+
+```
+\b[A-Za-z0-9_-]*(?:SECRET|TOKEN|API_KEY|PASSWORD)[A-Za-z0-9_-]*\s*=\s*["'][^"'$][^"']{7,}
+```
+
+`SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"`
+matches it, and the match is a false positive: what the var carries is a
+`name=address` pair whose halves are a Service Auth token's `common_name` and an
+operator's address. Both are public, neither authenticates anything, and the
+Cloudflare identity table in `ACCESS.md` already records both.
+
+**A `*_IDENTITIES` var names WHO a credential is, never WHAT it is**, and that is
+the exception the scans now carry. The alternative was to rename the var away
+from `TOKEN` — the word Cloudflare uses for the credential being mapped — to dodge
+a regex, which would cost every future reader more than the exception costs.
+
+The exception is narrow in the two ways that matter:
+
+- **It applies to the name-matched shape only.** The provider-prefixed-key and
+  private-key shapes still read the file whole, exempted var included, because
+  those match on the VALUE and a value is exactly what an exception must not stop
+  looking at. A UAT asserts that an `sk-…`-shaped string assigned to the exempted
+  name is still caught.
+- **It polices itself.** Every entry an exempted var carries is held to the
+  `name=address` grammar the var documents, so a secret parked in it fails in the
+  same run, at the same assertion, rather than passing quietly.
+
+**And the scan gets one definition site.** REQ-144 wrote it; AC-1342 restated the
+same three regexes and the same loop verbatim over a wider file list. That was
+tolerable while it was four lines and stopped being tolerable the moment it had
+to learn something, because a rule taught in two places is one that will
+eventually be taught in one. Both now read the shapes and the exception from
+`tests/support/credential-scan.ts` and keep their own file lists, which is the
+part that genuinely differs between them. The split assembly of the shapes — so
+that no file scanning for `sk-ant-api` is its own counter-example — moved with
+them.
+
+## Verification of this ticket's work
+
+The whole suite was run in this branch after merging `xgd-working` in: 389 test
+files, in batches, in the foreground. Every failure was reproduced on
+`xgd-working` itself before being set aside, so what is claimed pre-existing was
+observed pre-existing rather than assumed:
+
+- `bug32-webui-scope-rebrand` (names three files, none of them this ticket's),
+  `req115-builder-shell`, `reconciliation-draft-change-journal`,
+  `reconciliation-builder-workspace-origin`, `reconciliation-assistant-*`,
+  `test_UAT_FC_BUG-38/39/43/46`, `test_UAT_FC_REQ-122/123/127/131/146/158/160/173/174`
+  — all fail identically on `xgd-working`.
+- `reconciliation-platform-build-deploy-smoke` and
+  `test_UAT_FC_REQ-144_deploy_scripts` failed HERE and passed on `xgd-working`.
+  Both were this ticket's doing — the credential scan above — and both pass now.
+
+The KB-backed suites in that list fail because `1c kb build` has not been run in
+this checkout; the builder-origin ones because the shared-store install is
+incomplete. Neither is this ticket's to fix.
+
+`apps/control-app/src/index.ts` conflicted with REQ-202, which put a passwordless
+session ahead of the Access gate. `actingEmail` is called on the **gate branch
+only**: a session is a person by construction, since `sessionIdentity` reads a row
+somebody signed in to create and no service token has one, so resolving above the
+join would ask a question that could only be answered `null` there and would imply
+a token might arrive holding a session cookie.
