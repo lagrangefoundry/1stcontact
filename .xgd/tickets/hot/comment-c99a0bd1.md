@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T01:07:41.706501+00:00'
+updated_at: '2026-09-07T01:21:06.161946+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,51 @@ Two other things I found while proving it end-to-end: a first push against a fre
 <!-- xgd-chat role="user" ts="2026-09-07T01:07:41.304115+00:00" -->
 #### You
 ok can you fix publish too?
+
+<!-- xgd-turn id="2777c9c4-8ec9-4a1c-b520-db5e7f0e0e05-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T01:21:06.011448+00:00" -->
+#### Claude
+Control run confirms those failures pre-exist without my changes. Now the publish fix — let me read the admission path.
+
+Scoping the second fix into the ticket before coding.
+
+Now the implementation in `identity.ts`.
+
+Now the wrangler.toml vars and the simulator's faithful shape.
+
+Now the simulator mints the faithful shape.
+
+Now updating the existing UATs for the new shape and adding the admission suite.
+
+Now the workers-project UAT for the admission side.
+
+Now updating the docs and the stale REQ-167 comment.
+
+Now the live end-to-end again, with the faithful token shape.
+
+The live re-run is blocked by an unrelated build break. Let me confirm the cause before moving on.
+
+I'll wait for the suite rather than poll it.
+
+The suite is still running. I'll wait for the completion notification before committing.
+
+Both fixes are implemented and their UATs pass (12 sim tests, 7 admission tests). The full suite is running; I'll commit once it reports.
+
+What part two does:
+
+**`SERVICE_TOKEN_IDENTITIES` — a service token acts as a named person.** A new deployment var of comma-separated `name=address` pairs, where the name is the `common_name` Cloudflare signs into the JWT. `actingEmail` resolves it at the gate, in the same place `admit` was already called, and everything downstream is unchanged: membership decides which businesses, the grant decides selectability, the person's accepted terms are the terms it operates under, and removing the person removes the automation. No new principal, no second authorisation path.
+
+Four properties, each pinned by a UAT: empty means nobody (an unmapped token is refused exactly as before); it's configuration, never caller input; a human's own address always wins, so no configuration can redirect someone who signed in; and it names a person rather than creating one — an entry pointing at a non-user is refused `no_user`.
+
+`wrangler.toml` declares it empty under `[vars]` and names `1stcontact-publish=martin-github@westhead.me` under `[env.production.vars]`. That isn't a new grant — ACCESS.md's identity table already recorded that token as provisioned for `bin/publish`; the line is what makes the record true. It takes effect on your next deploy.
+
+**The simulator stopped deviating.** Part one bound the local pair to an address because `admit` couldn't take a service token. It can now, so `bin/access-sim` mints the faithful shape — `common_name`, no email — and `--print-env` emits the mapping line alongside the two Access vars. The local path now exercises the production admission path instead of a shortcut.
+
+Two things to flag:
+
+**`wrangler dev` no longer builds, in any checkout, for a reason outside this ticket.** `session-knowledge.ts` imports `KnowledgeDocs` from `generated/ai-knowledge`, and the installed shared package at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge` defines that symbol in `src/priming.js` without re-exporting it from `src/index.js`. The generated shim is a bare `export *` from that index, so esbuild fails. Your server on 8788 is running an older bundle and will hit this the moment it restarts. It's the shared-store install problem, not a code change here.
+
+**That blocked repeating the live end-to-end after the token shape changed.** I proved the pre-change path live earlier (sim → real `wrangler dev` → `bin/publish` writing all three sites). What's now unproven live is only that composition with the new shape; both halves are covered by suites driving the real thing — the workers suite puts a real signed `common_name` token through the Worker's own `fetch`, real gate, real D1. It's in the ticket.
 
 <!-- xgd-chat-end -->
