@@ -5,7 +5,7 @@ type: bug
 title: 'Local dev: access-sim blocks 1c push, so a wiped local store cannot be refilled'
 created_by: martin-github@westhead.me
 created_at: '2026-09-06T23:19:13.324318+00:00'
-updated_at: '2026-09-07T01:12:08.921498+00:00'
+updated_at: '2026-09-07T01:20:33.836886+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -298,11 +298,30 @@ against real bindings, because admission is a question about rows:
 And, on the simulator side, that the minted assertion now carries `common_name`
 and no `email`, and that `--print-env` emits the mapping line.
 
-Beyond the suite, the whole path was driven live before commit: a real
+Beyond the suite, the pre-change path was driven live: a real
 `bin/access-sim` in front of a real `wrangler dev` behind a real Access gate, with
 `bin/publish --origin <sim>` writing all three local sites into the store and
 `/api/sites` reading them back. The refusal paths (no credential, wrong secret,
 nobody to be) were exercised against the same pair of processes.
+
+**The live run could NOT be repeated after part two**, and the reason is outside
+this ticket: `wrangler dev` no longer builds in any checkout, because
+`apps/control-app/src/session-knowledge.ts` imports `KnowledgeDocs` from
+`generated/ai-knowledge`, and the installed shared package
+(`/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge`)
+defines that symbol in `src/priming.js` without re-exporting it from
+`src/index.js`. The shim `1c assets` generates is a bare `export *` from that
+index, so esbuild fails with `No matching export ... for import "KnowledgeDocs"`.
+It reproduces in the main checkout too — the same absolute path is bundled from
+both — so any restart of the running dev server will hit it. It is the
+shared-store install problem, not a code change here.
+
+What that leaves unproven live is only the composition — sim plus `wrangler dev`
+plus `bin/publish` in one run, with the NEW token shape. Both halves are covered
+by suites that drive the real thing rather than a double: the workers suite puts
+a real signed `common_name` token through the Worker's own `fetch`, the real gate
+and real D1; the node suite puts a real `bin/access-sim` process in front of a
+stub origin and verifies what it forwards with the product's own verifier.
 
 ## Notes
 
