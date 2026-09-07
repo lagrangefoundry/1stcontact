@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-07T22:18:41.701749+00:00'
+updated_at: '2026-09-07T22:21:37.977559+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,42 @@ Can you create an REQ to make the changes that you propose?
 Lets use invite@1stcontact
 
 Is there an API to google postmaster?
+
+<!-- xgd-turn id="e1b0da43-c9b4-4307-8478-34d22598718d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T22:21:37.794678+00:00" -->
+#### Claude
+Confirmed from TODO-5 and COMMENT-2300 — Resend fronts SES, so the `@email.amazonses.com` Message-ID is expected. Dropping that thread. Also relevant: TODO-5 had you publish DMARC at **`p=none`**, which is still where it is.
+
+One thing your `invite@` choice runs into, which I need to flag before writing the ticket:
+
+`MAIL_FROM` is a single deployment-wide address (`wrangler.toml:208,342`) used by **all three** templates. Setting it to `invite@` would send sign-in links from `invite@1stcontact.io`, which is its own small trust ding. So the ticket makes the address per-template, with `MAIL_FROM` as the fallback — which is what `mail.ts:47` already anticipated ("the day a second address is wanted... the choice belongs to the caller that knows which message this is").
+
+Created **REQ-205** (`request-33c49c03`), status `draft`, 3 points. The ticket push failed on the sandbox proxy — it's local only, so it'll need a push from outside.
+
+**What's in it as code:**
+1. **Derived plain-text part.** `mail.ts` sends `html` only, and `Message.body` defends that on *authoring* grounds ("a second body that can disagree with the first"). That reasoning survives if the text is derived rather than authored — one body written, two parts sent, and they can't disagree because one is a function of the other. The invariant to test against: every `href` URL in the HTML appears verbatim in the text. A text part that lost the link is worse than none.
+2. **Per-template `from`**, optional, falling back to `MAIL_FROM` — so `invite@1stcontact.io` doesn't also become the sign-in sender. The modal's `from` stays display-only.
+3. **Display name** on the From.
+
+Explicit non-goals, with reasons: `List-Unsubscribe` (incoherent on a sign-in link) and moving to Postmark (still the fallback, not a first move).
+
+The operator work is recorded in the ticket rather than left implied — chiefly that **`invite@1stcontact.io` has to actually receive mail**. TODO-5 §6 left inbound as an open decision; sending from a repliable address forces it, because a repliable address that bounces is worse than `no-reply@`.
+
+## Google Postmaster — yes, but it won't help you yet
+
+The API is real: **Gmail Postmaster Tools API v1**, `gmailpostmastertools.googleapis.com`, OAuth scope `postmaster.readonly`. Four methods (`domains.list/get`, `domains.trafficStats.list/get`) returning daily stats: `domainReputation`, `userReportedSpamRatio`, `spf/dkim/dmarcSuccessRatio`, `deliveryErrors`, `spammyFeedbackLoops`.
+
+Three reasons not to build against it now:
+
+- **Volume floor.** Google only populates stats above a threshold — commonly reported as sustained 100+ messages/day *to Gmail*. Below it, `trafficStats` comes back empty. Your Resend free tier caps at **100/day total** (TODO-5), so you cannot reach the threshold without changing plan.
+- **Gmail only.** Outlook's equivalent is SNDS, which is keyed on sending IP — and on Resend's shared pool you don't own the IPs, so it isn't available to you either.
+- **The web UI is the whole job right now.** Verify the domain, let data collect. Nothing to integrate.
+
+**What does work at your volume:** the DMARC `rua=` aggregate reports TODO-5 had you publish. Those arrive regardless of volume and cover every reporting receiver, not just Gmail. Worth checking where that address currently points and whether anything is parsing them.
+
+One limit worth being clear about: **nothing except Postmaster Tools reports spam-folder placement.** Resend's webhook (REQ-198) gives you delivered/bounced/complained, and `delivered` is exactly what the message in your screenshot got. Until volume justifies Postmaster, the only real placement signal is what you just did by hand — send to a live Gmail and an Outlook account and look.
+
+Want me to cut the branch and implement REQ-205?
 
 <!-- xgd-chat-end -->
