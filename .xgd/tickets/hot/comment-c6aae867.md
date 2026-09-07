@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:05:07.294358+00:00'
+updated_at: '2026-09-07T22:20:57.755604+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -49,5 +49,11 @@ Making that decision client-side needed one new fact: `GET /api/businesses` now 
 **Tests.** Six new UATs, all passing: the dialog renders a POST form at the sign-out path with a submit button; it renders nothing at all when `session` is false *or* absent (the absence is asserted, both by class and by the path appearing nowhere in the dialog); the client constant equals the Worker's `SIGN_OUT_PATH`; and at the Worker, a real redeemed session reports `true` while a real Access token reports `false`. Regression: all 36 affected test files pass (287 tests). Two existing assertions moved with the new field — BUG-52's failure default and REQ-180's payload key set — both updated in place with a note, their claims unchanged.
 
 One thing that is not your change: `reconciliation-copy-edit-form-presentation.test.ts` failed on font assets until I ran `./bin/1c assets` in the fresh worktree; `dist-assets/` is gitignored and absent on a new checkout.
+
+<!-- xgd-turn id="affa9ce6-8b0d-40c3-b900-3f025237c875-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T22:20:57.493356+00:00" -->
+#### You
+I am logged in a Felix Test. I have restarted the server. I do not see the new CTA?
 
 <!-- xgd-chat-end -->
