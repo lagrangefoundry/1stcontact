@@ -1451,7 +1451,18 @@ async function bestActiveGrant(
     .first<EntitlementRow>()
 }
 
-function requirePlatformTenant(env: IdentityEnv): string {
+/**
+ * The business this deployment's builder users live in.
+ *
+ * EXPORTED FOR `sessions.ts` ([[REQ-202]]) and for nothing else. The sign-in
+ * routes run ahead of `admit` and ahead of `resolveScope` — they are what an
+ * anonymous person calls in order to become authenticated — so they cannot take
+ * the tenant from an admission and have to resolve it from the request's host,
+ * which on this Worker is the business `TENANT_ID` names. Exporting the existing
+ * reader is what keeps "which tenant does `TENANT_ID` mean" a single answer;
+ * a second `env.TENANT_ID` read beside it would be a second one.
+ */
+export function requirePlatformTenant(env: IdentityEnv): string {
   const tenantId = (env.TENANT_ID ?? '').trim()
   if (tenantId === '') throw new IdentityNotConfiguredError()
   return tenantId

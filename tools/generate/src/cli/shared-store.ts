@@ -34,7 +34,20 @@ import { sharedModuleUrl, WEBUI_PACKAGES, WEBUI_SCOPE, webuiPackageDir } from '.
  * broken import map, a missing server component is a CLI verb that dies on its
  * dynamic `import()`. Composed from the call sites in `ai/host.ts` and `kb.ts`.
  */
-export const SHARED_SERVER_COMPONENTS = ['ai', 'ai-knowledge', 'knowledge', 'ticketing'] as const
+export const SHARED_SERVER_COMPONENTS = [
+  'ai',
+  'ai-knowledge',
+  // Passwordless sessions ([[REQ-202]] here, REQ-134 upstream). Server-side like
+  // its neighbours: the Worker constructs it per request and no browser sees it.
+  // Absent, `1c assets` cannot write `src/generated/auth-passwordless.js` and the
+  // Worker's static import of it fails at BUILD — which is louder than the browser
+  // failure the list's other half guards against, and is still worth naming here
+  // so the report says which component and which command rather than leaving an
+  // operator with an unresolved specifier.
+  'auth-passwordless',
+  'knowledge',
+  'ticketing',
+] as const
 
 /** Where a component is consumed — the half of the system its absence breaks. */
 export type SharedComponentSurface = 'browser' | 'server'

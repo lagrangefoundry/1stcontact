@@ -57,7 +57,17 @@ let seq = 0
 const anEmail = (): string => `req199-${(seq += 1)}@example.test`
 
 const FROM = 'no-reply@example.test'
-const CTA = 'https://app.example'
+/**
+ * The link an invite carries.
+ *
+ * A FUNCTION IN THE DEPS SINCE [[REQ-202]], and a constant here. That ticket made
+ * `{{cta_url}}` a REDEEMABLE token minted per contact rather than one origin
+ * shared by the whole send; what this file is about is unchanged — one message
+ * per contact, one recipient each, the operator's edit, the pipeline move — so it
+ * pins the link to a known value and lets [[REQ-202]]'s own suite prove that the
+ * value a real issuer returns is a link that redeems.
+ */
+const CTA = 'https://app.example/sign-in/req199-token'
 
 /** A sender that records and accepts, so what was handed to the port is readable. */
 function recording(): { send: SendEmail; sent: Message[] } {
@@ -83,7 +93,7 @@ async function deps(overrides: Record<string, unknown> = {}) {
     store: await storeFor(),
     send: recording().send,
     from: FROM,
-    ctaUrl: CTA,
+    inviteUrl: async () => CTA,
     ...overrides,
   }
 }

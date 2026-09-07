@@ -67,6 +67,11 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
     // whether the deployment holds a credential, so this env cannot reach a
     // provider even if something here tried to.
     MAIL_FROM: 'no-reply@example.test',
+    // THE SESSION COOKIE, because the invite's link is a redeemable sign-in
+    // token since [[REQ-202]]. Naming it is what lets one be minted; a
+    // deployment that named none would refuse the invite with a 503 rather than
+    // mail a link that goes to a door the invitee cannot get through.
+    SESSION_COOKIE_NAME: 'session',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...overrides,
   } as Env

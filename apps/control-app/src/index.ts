@@ -12,6 +12,8 @@ import {
   type IdentityEnv,
 } from './identity'
 import { route, type RouterEnv } from './router'
+import { handleSignIn, type SignInEnv } from './sign-in'
+import { sessionIdentityFor } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { guardTerms } from './terms'
 
@@ -65,7 +67,7 @@ import { guardTerms } from './terms'
  * and every API route, not merely un-navigated-to.
  */
 
-export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv {
+export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv, SignInEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
@@ -286,6 +288,31 @@ export default {
         return (await handleEmailWebhook(request, env)).response
       }
 
+      /**
+       * THE SECOND SET AHEAD OF THE GATE ([[REQ-202]]), and the argument is the
+       * webhook's argument for a different caller.
+       *
+       * These four routes are what an ANONYMOUS person calls in order to become
+       * authenticated: a sign-in endpoint behind a gate is a sign-in endpoint
+       * nobody who needs it can reach, and an invite link that lands behind
+       * Cloudflare Access is an invite that challenges the invitee with a SECOND
+       * one-time-PIN email before they have finished reading the first.
+       *
+       * WHAT REPLACES THE GATE IS THE TOKEN. Holding a link is the whole
+       * credential ([[REQ-134]]): 256 bits used as a primary key, single-use,
+       * enforced by a conditional UPDATE in the database rather than by code.
+       * Nothing behind these paths reads a store handle, resolves a scope or
+       * touches a site — the most a caller reaches is a session for a person the
+       * database already knows.
+       *
+       * `handleSignIn` MATCHES ITS OWN PATHS AND ANSWERS `undefined` OTHERWISE,
+       * so the exemption is exactly the four routes and cannot widen by a route
+       * being added elsewhere. It owns its freshness headers, the same division
+       * the webhook and the router keep.
+       */
+      const signIn = await handleSignIn(request, env, {})
+      if (signIn) return signIn
+
       // The business the caller is ASKING for. Whether they may have it is
       // `resolveScope`'s question, and asking it here rather than in the router
       // is what keeps authorisation ahead of routing.
@@ -296,10 +323,39 @@ export default {
       // predicates that can drift is how a deployment ends up resolving a
       // loopback scope while enforcing a production gate, or the reverse.
       if (!isUnconfiguredLocalDev(env)) {
-        const gate = await guardAccess(request, env)
-        if (!gate.ok) return gate.response
+        /**
+         * TWO PRODUCERS OF ONE FACT ([[REQ-202]]).
+         *
+         * `admit` consumes a verified email and nothing else, so a second way of
+         * arriving at one is purely additive: a live session cookie and a valid
+         * Access JWT produce the same value, and nothing downstream — `admit`,
+         * scope, the terms gate, the portal — can tell which answered.
+         *
+         * THE SESSION IS TRIED FIRST, and Access is the fallback rather than the
+         * legacy path. Access STAYS ([[CHAT-39]]): it is the operator's own route
+         * in and the way back if this one breaks, so it is a second SUPPORTED
+         * producer and not a mode being retired. Trying it second means a person
+         * holding both is admitted by the cheaper of the two — one indexed row
+         * against a signature check and a JWKS fetch.
+         *
+         * A COOKIE THAT RESOLVES TO NOBODY IS NOT AN ADMISSION AND NOT A
+         * REFUSAL. `sessionIdentity` answers null for an expired session, a
+         * withdrawn person and a deployment that issues no sessions alike, and
+         * the request then meets the gate exactly as it did before this ticket.
+         * Refusing here instead would make a stale cookie in some browser a
+         * lockout from a builder Access would have let its holder into.
+         */
+        const signedIn = await sessionIdentityFor(env, request)
+        let email: string | null
+        if (signedIn) {
+          email = signedIn.email
+        } else {
+          const gate = await guardAccess(request, env)
+          if (!gate.ok) return gate.response
+          email = gate.email
+        }
 
-        admission = await admit(env, gate.email)
+        admission = await admit(env, email)
         if (!admission.ok) return denied(admission)
 
         // Terms LAST of the identity checks, and inside this block rather than

@@ -78,6 +78,12 @@ import { sessionKnowledgeFor } from './session-knowledge'
 import { anthropicImageDescriber, type DescribeImage, type DescribeText } from './describe'
 import { FetchRefusedError } from './fetch-guard'
 import { mailerFor, mailFrom, MailNotConfiguredError, type MailEnv, type SendEmail } from './mail'
+import {
+  inviteUrlIssuer,
+  SessionsNotConfiguredError,
+  type SessionCookieEnv,
+  type SessionEnv,
+} from './sessions'
 import { TemplateRefusedError } from './templates'
 import {
   ingestFetch,
@@ -274,7 +280,7 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown>> 
  * a second copy here would be free to drift by a character in silence, and the
  * symptom of that drift is mail that is never sent.
  */
-export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv {
+export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv, SessionCookieEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -1595,12 +1601,18 @@ async function routeUncached(
      * eventually gets believed; not reading it is what makes the display-only
      * claim true rather than a convention of one client.
      *
-     * `{{cta_url}}` IS THIS ORIGIN'S FRONT DOOR, resolved from the request. That
-     * is where an invitee has to arrive: Access identifies them, `admit` runs,
-     * the terms interstitial catches them and they land wherever they are
-     * entitled to. A configured constant would be a second answer to "where is
-     * this deployment", and a `wrangler dev` session would get it wrong — which
-     * shows up as an invite whose only link goes to production.
+     * `{{cta_url}}` IS A REDEEMABLE INVITE LINK, ONE PER CONTACT ([[REQ-202]]).
+     * It used to be this origin's bare front door, which was not a design choice
+     * — there was no token to build a link from — and it meant the invitee met
+     * Cloudflare Access and its own one-time-PIN email instead of the invitation
+     * they had just been sent. The token is minted in THIS business, because the
+     * contact is in this business: an operator of Alice's Plumbing invites Alice's
+     * contacts, and `resolveSubject` has no answer without a tenant.
+     *
+     * THE ORIGIN IS STILL THE REQUEST'S, for the reason it always was: a
+     * configured constant would be a second answer to "where is this deployment",
+     * and a `wrangler dev` session would get it wrong — which shows up as an
+     * invite whose only link goes to production.
      */
     if (p === PERSON_INVITE_PATH && method === 'POST') {
       const scope = requireScope()
@@ -1641,7 +1653,11 @@ async function routeUncached(
           store,
           send: deps.sendEmail ?? mailerFor(env, { fetch: deps.fetch }),
           from,
-          ctaUrl: new URL(request.url).origin,
+          inviteUrl: inviteUrlIssuer(
+            identityEnv as SessionEnv,
+            scope.businessId,
+            new URL(request.url).origin,
+          ),
           copy:
             subject !== null && text !== null
               ? {
@@ -2323,6 +2339,16 @@ async function routeUncached(
     // as a 500 it would read as a crash; reported as a 400 it would send them
     // back to correct a form that is perfectly correct.
     if (err instanceof MailNotConfiguredError) {
+      return json(503, { error: scrub(err.message) })
+    }
+
+    // NO SESSION COOKIE IS THE SAME KIND OF FAULT ([[REQ-202]]) — 503, same
+    // reasoning, and it reaches here from the invite: an invite's link is a
+    // redeemable sign-in token now, so a deployment that names no session cookie
+    // cannot mint one and must say so rather than mailing somebody a link that
+    // goes to a front door they cannot get through. The remedy is
+    // `wrangler.toml`, and retrying will not help.
+    if (err instanceof SessionsNotConfiguredError) {
       return json(503, { error: scrub(err.message) })
     }
 
