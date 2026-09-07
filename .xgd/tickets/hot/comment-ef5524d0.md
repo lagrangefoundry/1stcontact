@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-63
 created_by: xgd
 created_at: '2026-09-07T20:20:47.537352+00:00'
-updated_at: '2026-09-07T20:53:27.906946+00:00'
+updated_at: '2026-09-07T20:54:54.117050+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,27 @@ Still outstanding: the full node suite result, then the workers project, then th
 <!-- xgd-chat role="user" ts="2026-09-07T20:53:26.794955+00:00" -->
 #### You
 Please proceed
+
+<!-- xgd-turn id="c07c447d-0d00-4c54-8aaa-53c64143f908-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:54:53.695948+00:00" -->
+#### Claude
+The background suite was orphaned when the process exited. Re-running it, writing incrementally this time:
+
+Waiting on the suite. In the meantime, let me confirm the ticket body carries language for every UAT I wrote:
+
+All ten claims trace to ticket language (that one "MISS" was my grep hitting a line break — the sentence is there).
+
+I'll wait for that to land rather than poll. Current state:
+
+**Suite in flight** — two failures visible so far:
+- `test_UAT_AC977_every_response_the_origin_returns_is_non_cacheable` (HTTP cache headers — nothing to do with priming; likely pre-existing)
+- `test_UAT_AC1058_only_granted_site_operations_are_offered…` (a granted-tools equality pin — plausibly the same widened knowledge grant, but I'll confirm rather than assume)
+
+Once it finishes I'll triage each failure as caused-by-this-change or pre-existing, and settle the pre-existing ones by stashing and re-running those files at the branch point — not by asserting it.
+
+**Ticket** verified: all ten behaviour claims my UATs rest on have matching body language, including the two upstream consequences (widened `ReadKnowledge`, per-corpus provenance) and the two-shape system prompt.
+
+Still to do after the suite: the workers vitest project, then commit with `[FREE-CODED]` and set `status=free_coded` with the sha.
 
 <!-- xgd-chat-end -->
