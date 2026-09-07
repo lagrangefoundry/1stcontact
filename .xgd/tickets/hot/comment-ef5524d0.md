@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-63
 created_by: xgd
 created_at: '2026-09-07T20:20:47.537352+00:00'
-updated_at: '2026-09-07T20:27:36.030483+00:00'
+updated_at: '2026-09-07T20:44:36.679394+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,70 @@ ok lets me clear - we are in dev mode, there is no production data.
 If we have broken data in there - lets clear it out.
 
 There is only one thing I care about - the draft xgd site. Everything else is toast
+
+<!-- xgd-turn id="155651b0-cd97-41b6-8016-5794319ab673-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T20:44:36.614653+00:00" -->
+#### Claude
+Clear. Route A — migrate, and local dev state is expendable except the draft xgd site. Let me find what I'm protecting before I touch anything.
+
+Draft site backed up (two copies). Now the migration — reading the new API in full.
+
+Full picture in hand. Let me scope the ticket, then cut the branch.
+
+Now implementing. Starting with the Node host core:
+
+Now the per-turn reminder path in `streamPrompt`:
+
+Now the Worker side — `system-knowledge.ts` and `session-knowledge.ts`:
+
+Now the generated shim's export list:
+
+Worker bundle builds. Now the tests — first the three files naming the removed class:
+
+One definition site for the KM priming shape, so both hosts and the UAT assert the same code:
+
+Now routing all three hosts through it:
+
+Now the UATs:
+
+All 7 pass. Now the pre-existing suites that named the deleted class:
+
+Now the change-journal suite and the workers-test comment:
+
+While the suite runs — the ticket needs the consequences I found while implementing:
+
+Important finding before I clear anything — let me check what's actually stale:
+
+Still running. Let me summarise where things stand while it finishes.
+
+**Done so far:**
+
+**The migration (route A).** Priming is now DOC-22 configuration in both hosts:
+
+- `host-core.ts` builds a `PrimingProviders` registry per manager and constructs `Role` with `priming` / `reminders` entries. The four entries — `consultant-system`, `km-landscape`, `purpose`, `km-mechanism` — go in **one tier** deliberately: tiers concatenate product-then-role, and the order this host needs interleaves them.
+- The `role.reminder = …` mutation is gone. A frozen `Role` would have thrown on it every turn. The per-turn signal is a registered reminder provider reading host state, which is what DOC-22 says to do.
+- `kmPrimingEntries` in `roles.ts` is the single definition site for the landscape → purpose → mechanism order, used by the Node host, both Worker paths, and the tests.
+- `assets.ts` shim lists updated; `1c assets` regenerated.
+
+`wrangler deploy --dry-run` builds clean — your original failure is resolved.
+
+**Three things the upgrade brought that I found by implementing, all caught by pins doing their job:**
+
+1. `ReadKnowledge` grew `KnowledgeOutline` and `KnowledgeChanges`. Both declared `read`, so I widened the pins rather than narrowing the grant. One pin asserted effects as a three-element array of `"read"` — that's now a universal, since an additive change can't violate the claim it makes.
+2. Provenance moved from per-operation to per-corpus. Default is still `untrusted`, so our design documents still reach the model wrapped — nothing had to be weakened.
+3. The system prompt now arrives as *either* a string or `text` blocks split at the cache boundary. Three suites read it as a string; they go through one `systemText` helper on the shared model double now.
+
+**Tests.** 7 new `test_UAT_FC_BUG-63_*` UATs pass. They assert on **what the model was sent**, never on the host having constructed something — a test that inspected the `Role` would have passed on the broken shape too. Repaired suites all green: REQ-123 (6), REQ-122 (8), the knowledge reconciliation (4), the change journal (16).
+
+**Local state.** I looked before deleting, and the picture isn't what either of us assumed:
+
+- **The xgd site is in the Worker's local D1**, not just on disk — `slug: xgd`, two pages (`home.json`, `whitepapers.json`), imported 2026-09-06. So I did **not** wipe D1 or R2.
+- That D1 contains **zero chat tickets** — only `template` and `email` rows. There was no broken session data there to clear.
+- The only genuinely stale AI state was `storage/chat/` (the Node CLI's two transcripts). Their headers carry `x_threshold`, `y_carry` and `segments` — all retired by the upstream recycle-and-carry removal. Cleared.
+
+Backed up before touching anything: `storage/sites/xgd` (two copies, one in `$TMPDIR`, one in `.xgd/tmp/bug63-backup/`) plus `storage/chat`.
+
+Still outstanding: the full node suite result, then the workers project, then the commit and `status=free_coded`. I'll report the suite numbers — including anything that was already failing before this change — rather than just saying it's green.
 
 <!-- xgd-chat-end -->
