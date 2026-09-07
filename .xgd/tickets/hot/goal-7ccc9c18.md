@@ -5,10 +5,10 @@ type: goal
 title: 1stcontact app
 created_by: xgd
 created_at: '2026-08-06T00:05:21.612213+00:00'
-updated_at: '2026-08-24T22:40:43.487227+00:00'
+updated_at: '2026-09-07T18:33:12.196114+00:00'
 completed_at: null
-last_field_updated: children
-status: in_progress
+last_field_updated: status
+status: underway
 fields:
   provenance: planned
   children:
