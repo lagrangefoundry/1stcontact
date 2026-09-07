@@ -6,7 +6,7 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-07T00:01:52.168239+00:00'
+updated_at: '2026-09-07T00:14:02.128969+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -126,10 +126,15 @@ turn and have no prefix to cache.
     the map arrives.
 
 ## Out of scope
-**The document tier.** DOC-22's 2026-09-03 amendment designs a fourth tier, on the argument that
-whole-document `get` calls relocate context pressure into turns two-through-five rather than
-removing it. It is **not implemented** upstream (no `documents` tier exists in `roles.py`). Adopt
-the three shipped tiers; the fourth is a later migration.
+**Nothing from the document tier.** It is *not* a fourth priming tier — it is the middle rung of
+KM's navigation hierarchy (knowledge base / **document** / chunk), amending DOC-22 §7 rather than
+§2, and it **is implemented**: `outline(uid)` (`ai_knowledge/toolbox.py:381`), `chunk_search(doc=)`,
+ranged `get(uid, start, end)` (`:412`), and a whole-document cap that refuses rather than truncates.
+
+This host inherits it with no configuration change: `knowledgeInstanceConfig([SYSTEM_KB])` resolves
+to `{"groups": [READ_GROUP]}`, so the new operations arrive with the group already granted, and
+`toolbox.manual` projects them into the priming automatically. Nothing to do here beyond
+confirming the manual reflects them after adoption.
 
 ## Acceptance criteria
 - No priming or reminder prose exists as a TypeScript string constant; `CONSULTANT_SYSTEM` and
