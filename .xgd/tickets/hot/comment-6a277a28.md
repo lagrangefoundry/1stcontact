@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-202
 created_by: xgd
 created_at: '2026-09-06T23:40:56.876885+00:00'
-updated_at: '2026-09-07T00:21:46.050436+00:00'
+updated_at: '2026-09-07T00:32:21.357402+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -44,5 +44,32 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="aaa69bc3-2d37-41fe-b6c3-b4a5690a0f69-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T00:32:21.148764+00:00" -->
+#### Claude
+REQ-202's free-coding is complete.
+
+**State when I picked it up:** the feature commit and version bump were already merged into `xgd-working` and recorded on the ticket at `free_coded` — what was missing was verified test evidence and the branch teardown.
+
+**What I did**
+
+1. **Ran `./bin/1c assets`** — the suites could not even import `sessions.ts` without `src/generated/auth-passwordless.js`.
+2. **Ran the whole suite in the foreground** (387 files, ~3 min): **3049 passed, 18 failed across 7 files**. I checked each failure against the tree as it stood *before* the feature commit — all seven predate REQ-202:
+   - four KB suites (known-failing on a clean tree per prior sessions);
+   - `reconciliation-builder-workspace-origin` AC977 — `/api/material/changes` has no cacheability probe, introduced by `ad4562818c` (library live updates);
+   - `test_UAT_FC_REQ-183_portal_pages` — `EISDIR`, because `packages/framework/src/modules/` now holds subdirectories and the test reads every entry as a file;
+   - `bug32-webui-scope-rebrand` AC960 — see below.
+3. **Fixed one thing REQ-202 genuinely contributed.** AC960 asserts the shared-store scope is written in exactly one place. That suite was already red on three files (`ledger-core.ts`, BUG-42's and REQ-199's suites), but REQ-202 had added three *more* restatements, all in doc comments. They now say `auth-passwordless`, matching `SHARED_SERVER_COMPONENTS`. Comment-only, no behaviour change, no UAT moves — committed as `c35972e365`, version bumped to `0.2.125`, recorded on the ticket.
+4. **The ticket's own suites are green**: wiring, conformance and sign-in (22 cases), plus the four regression suites it touched — REQ-186, REQ-188, REQ-190, REQ-199 (42 cases).
+5. **Appended** a verification section and the follow-up note to the body, then `xgd branch clean REQ-202` — worktree removed, branch deleted, lock released. Session lock taken with `$PPID` and released.
+
+**Two operator actions still outstanding**, both recorded in the ticket and unchanged from the prior session — neither is code:
+
+- `cd ../lagrange-framework && bin/install --lang js --component auth-passwordless`. It currently resolves from this repo's own `node_modules/`, which the next `pnpm install` prunes.
+- The Access **Bypass** policy for `/sign-in`, `/sign-in/*` and `/sign-out` (recorded in `apps/control-app/ACCESS.md`). Without it the edge challenges an invitee before the Worker sees the request — the exact failure this ticket removes, with nothing at runtime able to detect it.
+
+The ticket sits at `free_coded` with three commits. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
