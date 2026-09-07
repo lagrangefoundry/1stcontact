@@ -85,6 +85,21 @@ export function mountBuilder(root, options = {}) {
      */
     person = null,
     /**
+     * Whether this session is one that can be ended ([[REQ-204]]).
+     *
+     * FROM `/api/businesses`, WHICH IS THE ONE ENDPOINT WHOSE SUBJECT IS THE
+     * SESSION. It decides whether the account dialog draws a Sign out control:
+     * the builder admits on a session of ours OR through Cloudflare Access
+     * ([[REQ-202]]), `POST /sign-out` ends only the first, and a control that
+     * cannot do what it says must not be drawn.
+     *
+     * FALSE IS THE DEFAULT AND MEANS "NOT ONE OF OURS TO END" — an Access
+     * caller, the Node transport, a suite mounting the chrome. Every one of them
+     * gets a dialog with no Sign out in it, which is the accurate answer for all
+     * three.
+     */
+    session = false,
+    /**
      * The sites of the SELECTED business.
      *
      * A seam rather than a fetch, for the reason every other transport here is
@@ -201,6 +216,7 @@ export function mountBuilder(root, options = {}) {
             person,
             businesses,
             selected: currentBusiness,
+            session,
           }),
       },
     ],

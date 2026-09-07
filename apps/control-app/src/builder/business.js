@@ -21,6 +21,8 @@ import {
   PORTAL_HREF,
   PORTAL_LINK_HINT,
   PORTAL_LINK_LABEL,
+  SIGN_OUT_HREF,
+  SIGN_OUT_LABEL,
   BUSINESS_LABEL,
   BUSINESS_LAPSED_SUFFIX,
   BUSINESS_LAPSE_EXPIRED_ON,
@@ -247,8 +249,17 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
  * @param {{name: string|null, email: string}|null} [spec.person] who is signed in
  * @param {Array<{id: string, name?: string, selectable?: boolean, lapse?: object|null}>} [spec.businesses]
  * @param {string|null} [spec.selected]
+ * @param {boolean} [spec.session] whether this session is one we can end — see
+ *   {@link signOutControl}. Defaults to false, which is the honest answer for
+ *   every caller that does not know.
  */
-export function openAccountSurface({ host = null, person = null, businesses = [], selected = null } = {}) {
+export function openAccountSurface({
+  host = null,
+  person = null,
+  businesses = [],
+  selected = null,
+  session = false,
+} = {}) {
   const modal = createModalShell({ host, title: ACCOUNT_LABEL })
 
   const heading = document.createElement('h2')
@@ -315,11 +326,56 @@ export function openAccountSurface({ host = null, person = null, businesses = []
   portalHint.textContent = PORTAL_LINK_HINT
   modal.panel.append(portalHint)
 
+  // THE OTHER WAY OUT, AND IT IS ONLY DRAWN WHEN THERE IS SOMETHING TO LEAVE
+  // ([[REQ-204]]) — see {@link signOutControl} for why the absence is the
+  // decision rather than the omission.
   modal.panel.append(
-    modalFooter([modalButton('Close', 'builder-modal__btn', () => modal.close())]),
+    modalFooter([
+      ...(session ? [signOutControl()] : []),
+      modalButton('Close', 'builder-modal__btn', () => modal.close()),
+    ]),
   )
   modal.mount()
   return modal
+}
+
+/**
+ * Sign out — a form, posted, rather than a button that fetches ([[REQ-204]]).
+ *
+ * A NAVIGATION, SO IT IS EXPRESSED AS ONE. `POST /sign-out` ends the session
+ * row, clears the cookie and answers a 303 to the sign-in page, and letting the
+ * browser follow that redirect is the whole of the client side: there is no
+ * response to read, no failure to word, and nothing to decide about where to go
+ * next. A `fetch` here would have to reimplement all three, and would stop
+ * working in exactly the state — script broken, the builder already half-dead —
+ * where a person most wants to get out.
+ *
+ * IT IS DRAWN ONLY FOR A SESSION WE CAN ACTUALLY END, and that condition is the
+ * point rather than a guard. The builder admits two ways ([[REQ-202]]): a
+ * session cookie of ours, and Cloudflare Access behind it. This endpoint ends
+ * the first and can do nothing about the second, so an Access-admitted person
+ * who pressed it would be sent to a sign-in page and re-admitted the moment they
+ * navigated back — a Sign out that does not sign out, which is the defect
+ * [[REQ-183]] §4.2 refuses for a Delete account button that deletes nothing. The
+ * caller is told which kind of session this is by `/api/businesses`, because
+ * that is the one endpoint whose subject is the session.
+ *
+ * `type="submit"`, WHICH IS WHY `modalButton` IS NOT USED: every button that
+ * helper makes is a `type="button"` on purpose, and a `type="button"` inside a
+ * form is a control that submits nothing.
+ */
+function signOutControl() {
+  const form = document.createElement('form')
+  form.className = 'builder-account__sign-out'
+  form.method = 'post'
+  form.action = SIGN_OUT_HREF
+
+  const button = document.createElement('button')
+  button.type = 'submit'
+  button.className = 'builder-modal__btn'
+  button.textContent = SIGN_OUT_LABEL
+  form.append(button)
+  return form
 }
 
 /**
