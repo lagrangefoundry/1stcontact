@@ -103,6 +103,40 @@ export interface IdentityEnv extends SiteStoreEnv {
    * glass rather than a permanent second authorisation path.
    */
   PLATFORM_ADMINS?: string
+
+  /**
+   * WHO A SERVICE TOKEN IS ([[BUG-59]]).
+   *
+   * Comma-separated `name=address` pairs, where the name is the `common_name`
+   * Cloudflare puts in the JWT it mints for a Service Auth credential:
+   *
+   *     SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=operator@example.com"
+   *
+   * WHY A MAPPING RATHER THAN A PRINCIPAL. A service token authenticates as a
+   * non-human `common_name` and carries no email at all, so {@link admit} had
+   * nothing to look it up by and refused every one of them `no_email` — which
+   * meant the credential BUG-36 provisioned for `bin/publish` passed Access and
+   * was then turned away by this module. The answer that needs no new concepts is
+   * that a service token is a PERSON'S AUTOMATION, which is what
+   * `1stcontact-publish` literally is: an operator's laptop pushing sites. Saying
+   * so lets the whole model apply unchanged — membership decides which
+   * businesses, the grant decides whether they are selectable, the terms that
+   * person accepted are the terms it operates under, and removing the person
+   * removes the automation. A non-human principal with its own account row,
+   * memberships and grant lifecycle would be a second authorisation path to keep
+   * correct forever, and nothing yet asks for one.
+   *
+   * IT IS CONFIGURATION AND NEVER CALLER INPUT. The name arrives inside a token
+   * Cloudflare signed; the mapping from that name to a person is written here, by
+   * whoever deploys. A caller cannot choose who they act as.
+   *
+   * EMPTY MEANS NOBODY, like {@link IdentityEnv.PLATFORM_ADMINS} above and like
+   * `ACCESS_TEAM_DOMAIN`: an unmapped token is refused exactly as it was before
+   * this var existed, so a capability does not switch on when configuration goes
+   * missing. Revocation is two-sided — delete the token in Cloudflare, or remove
+   * the mapping — and either alone is enough.
+   */
+  SERVICE_TOKEN_IDENTITIES?: string
 }
 
 export class IdentityNotConfiguredError extends Error {
@@ -845,6 +879,50 @@ async function createStarterSite(env: IdentityEnv, businessId: string): Promise<
  * they were turned away — an operator asking "did the customer whose grant
  * expired ever try?" is asking about the refused visit.
  */
+/**
+ * The address whose admission this request gets, given what the gate verified.
+ *
+ * THE HUMAN'S OWN EMAIL WINS OUTRIGHT, and that ordering is the safety property
+ * rather than a convenience: a token carrying an `email` claim is a person, and
+ * the mapping is consulted ONLY when there is no person to be. A mapping can
+ * therefore never redirect somebody who signed in, however it is configured.
+ *
+ * A SERVICE TOKEN IS LOOKED UP BY THE NAME CLOUDFLARE SIGNED. `common_name` is
+ * read from the claims rather than parsed back out of `identity`, which is a
+ * derived string this module does not own the shape of.
+ *
+ * AN UNMAPPED TOKEN GETS `null`, which {@link admit} refuses `no_email` — the
+ * same refusal, from the same line, that every service token got before
+ * {@link IdentityEnv.SERVICE_TOKEN_IDENTITIES} existed. There is no new way to be
+ * admitted, only a configured way to be somebody.
+ */
+export function actingEmail(
+  env: IdentityEnv,
+  gate: { email: string | null; claims: { common_name?: string } },
+): string | null {
+  if (gate.email !== null && gate.email !== '') return gate.email
+
+  const name = (gate.claims.common_name ?? '').trim().toLowerCase()
+  if (name === '') return null
+
+  for (const pair of (env.SERVICE_TOKEN_IDENTITIES ?? '').split(',')) {
+    // `split('=')` on the FIRST separator only: an address cannot contain `=`
+    // but the intent is to bind a name to the rest of the entry, not to require
+    // that the rest contains no separator.
+    const at = pair.indexOf('=')
+    if (at === -1) continue
+    if (pair.slice(0, at).trim().toLowerCase() !== name) continue
+    // CASEFOLDED THROUGH THE SAME FUNCTION THE `users` INDEX IS WRITTEN THROUGH,
+    // for the reason `isPlatformAdminSeed` gives: a var reading
+    // `Operator@Example.com` would otherwise name a person the database does not
+    // contain, and the failure would be a lockout found at the moment the var was
+    // reached for.
+    const mapped = normaliseEmail(pair.slice(at + 1))
+    if (mapped !== '') return mapped
+  }
+  return null
+}
+
 export async function admit(
   env: IdentityEnv,
   email: string | null,
