@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:27:32.846128+00:00'
+updated_at: '2026-09-07T22:45:58.086385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,11 @@ Two things I'd want your call on before I scope it into REQ-204:
 2. **Where you land after an Access logout** — Cloudflare's own logout page, or bounced back to the app so you meet a fresh challenge. I'd pick the bounce, since "sign out and hand the laptop over" is the case that matters.
 
 Want me to build that? It's a behaviour change to what just landed, so it needs its own language in the ticket body before any code — I'd add the section, then cut a branch.
+
+<!-- xgd-turn id="1ab8be0a-2013-4d35-a62b-adc5f468e81a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-07T22:45:57.783599+00:00" -->
+#### You
+Your recommendations work.
 
 <!-- xgd-chat-end -->
