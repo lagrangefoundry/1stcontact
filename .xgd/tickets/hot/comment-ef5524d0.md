@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-63
 created_by: xgd
 created_at: '2026-09-07T20:20:47.537352+00:00'
-updated_at: '2026-09-07T21:06:01.515174+00:00'
+updated_at: '2026-09-07T21:35:39.738469+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -218,5 +218,74 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="1b3ffff4-e827-49dd-8db8-f793999f4b57-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T21:35:39.403740+00:00" -->
+#### Claude
+I'll pick up where the suite left off. Let me check current state first.
+
+Triaging. Let me look at the actual assertions for the ones I suspect are pre-existing vs. caused.
+
+Pre-existing/flaky confirmed (AC960, AC977 fail without my change; AC845 and REQ-115 pass in isolation — known dist-assets ordering artifacts). The remaining 14 are mine. Let me look at the shape.
+
+Four distinct causes. Let me fix them.
+
+Now the fixes. First, the stale-word offender in my own test — replace the literal restatement with the property that actually matters:
+
+REQ-174 already covers the legacy reopen end-to-end (and passes under my change), so my test was a genuine duplicate. Removing it rather than restating it:
+
+Now the `.system` shape across the six suites, and the widened knowledge grant pin:
+
+Now the widened knowledge grant pin — this is the ticket's documented upstream consequence:
+
+That last assertion is weaker than it looks. Tightening it to say the actual thing:
+
+Now the full suite, foreground:
+
+Down from 17. Verifying the remaining six against the branch point:
+
+All six fail identically without my change — every remaining failure is pre-existing. Now build and typecheck:
+
+Six UATs. Now let me read the current ticket body in full before updating it:
+
+Now version bump and commit:
+
+Generated, untracked — correct. Committing:
+
+Now lock, merge back to `xgd-working`, then mark `free_coded`:
+
+Version collision — BUG-59 claimed 0.2.126. Re-bumping on the branch and fast-forwarding back:
+
+Finally, confirming the merged tree on `xgd-working` still builds and the migrated suites pass there:
+
+Done. BUG-63 is at `free_coded`.
+
+## What landed
+
+**The migration (route A).** Priming is now DOC-22 configuration in both hosts — a `PrimingProviders` registry per manager, the four entries (`consultant-system`, `km-landscape`, `purpose`, `km-mechanism`) in the one order that matters, and the per-turn reminder as a registered provider instead of a mutation of a now-frozen `Role`. `kmPrimingEntries` in `roles.ts` is the single definition site for that order, used by the Node host, both Worker paths and the tests.
+
+`wrangler deploy --dry-run` builds clean and `pnpm -r build` typechecks — your original failure is resolved.
+
+**Test triage, which is where this session's work went.** The first full foreground run showed 17 failures. Stashing the change and re-running proved which were mine:
+
+- **6 pre-existing** — `AC960`, `AC977`, and the four system-KB corpus-export suites. They fail identically without my change.
+- **2 load-order flakes** — `AC845`, `REQ-115`. Pass in isolation both with and without the change.
+- **14 caused by the change**, now all closed.
+
+Four distinct causes behind those 14, not one:
+
+1. The system prompt arrives as a string *or* cache-split text blocks. Seven suites read it as a string; all now go through one `systemText` helper on the shared model double.
+2. The `ReadKnowledge` grant grew `KnowledgeOutline` and `KnowledgeChanges`. I widened the pin rather than narrowing the grant — both declare `read`, so the read-only claim is intact, and narrowing would have taken capability away from the assistant to avoid editing a test.
+3. `KnowledgeDocs` printed `# Your purpose` and closed with `Prime yourself now`; both went with the class. Those assertions are re-anchored on content — the purpose by its own text, "mechanism last" as *no section begins after it*.
+4. My own test file spelled the legacy role name, which made it a straggler of the rename REQ-174 scans for.
+
+**One test deleted rather than fixed.** My legacy-alias UAT was a genuine duplicate — REQ-174 already rewrites a stored transcript header and reopens through the real host, which is stronger evidence, and it passes. Removed, with the reason recorded in both the file and the ticket.
+
+**Commits** `53ede2641f` (migration) and `3c7cb93c17` (version bump). The first bump collided with BUG-59's claim on 0.2.126, so the branch was resynced and re-bumped to 0.2.127; both SHAs are on `xgd-working` and recorded on the ticket. Branch merged and cleaned.
+
+**One thing to be aware of:** `test_UAT_FC_BUG-63_the_generated_bridge_shim_names_the_km_providers_and_not_the_deleted_class` reads `src/generated/ai-knowledge.d.ts`, which is gitignored. It failed on the merged tree until I ran `./bin/1c assets` — so a fresh checkout needs that before the suite is green. That's the same precondition the builder-origin suites already have, not new, but it is a real dependency on a build artifact and worth knowing.
+
+The ticket body carries language for all six remaining UAT claims plus the three upstream consequences and the pre-existing failure list, so reconciliation has the *why* for each.
 
 <!-- xgd-chat-end -->
