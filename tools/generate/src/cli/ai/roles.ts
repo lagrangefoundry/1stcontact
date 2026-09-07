@@ -238,3 +238,71 @@ export const CONSULTANT_ROLE = 'consultant'
  * read path that ages out on its own as old sessions fall away.
  */
 export const LEGACY_ROLE_NAMES = ['caretaker'] as const
+
+/** The AI library and the bridge are untyped JavaScript; the boundary is here. */
+type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** What {@link kmPrimingEntries} needs out of the `ai-knowledge` bridge. */
+export interface KnowledgeBridge {
+  LANDSCAPE_PROVIDER: string
+  MECHANISM_PROVIDER: string
+  registerKmProviders: (providers: Untyped, runtime: () => Untyped, opts: Untyped) => Untyped
+}
+
+/**
+ * KM's contribution to a session's priming: the map, the purpose, the mechanism.
+ *
+ * ONE DEFINITION SITE FOR AN ORDER THAT IS LOAD-BEARING (BUG-63). Both hosts
+ * prime with these three entries in this sequence — the map of what territories
+ * exist, then what this agent is here to do, then how to reach the rest — and the
+ * sequence is the point: the last thing the agent reads is the first thing it
+ * does. Two copies would be two answers to "what is a primed session", and the
+ * drift would be invisible, because a session primed in the wrong order still
+ * primes.
+ *
+ * It replaces `KnowledgeDocs.open`, which upstream deleted when priming became
+ * DOC-22's ordered list of named entries. The document that class assembled was
+ * a SNAPSHOT; these are providers, re-read on every assembly, so a document
+ * published mid-session is in the next turn's landscape with no new machinery.
+ * What that does NOT give is a notification — a map is a description — which is
+ * what the per-turn corpus delta is for.
+ *
+ * BOTH ENTRIES OR NEITHER, decided by one seam. `mechanismFor` returning `null`
+ * says the backend reaches KM not at all and drops the map with the mechanism: a
+ * map a session has no way to search is not priming, it is an instruction to use
+ * tools it was never granted.
+ *
+ * @param lib the AI library, for `Entry`. Passed rather than imported because
+ *   this file is read by a Worker as well as by the CLI, and each resolves the
+ *   library its own way.
+ * @param bridge the `ai-knowledge` component — a value for the same reason.
+ * @param runtime a callable, not a runtime: seeding a knowledge base is
+ *   expensive and hosts defer it to first use, so registration must not force
+ *   that work.
+ */
+export function kmPrimingEntries(
+  lib: Untyped,
+  bridge: KnowledgeBridge,
+  runtime: () => Untyped,
+  rolePurpose: string,
+): (box: Untyped, providers: Untyped) => Promise<Untyped[]> {
+  return async (box: Untyped, providers: Untyped) => {
+    bridge.registerKmProviders(providers, runtime, {
+      // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k
+      // characters of one site's surface and was 98% of the priming document;
+      // the summary is 11k. What it drops — every parameter, return shape and
+      // error code — is what `DescribeTools` fetches for one tool at the moment
+      // it is about to be called, which is the only moment it is needed.
+      //
+      // Every backend either host runs is granted the surface, so the answer is
+      // never `null` here. The seam stays because it is where a host that
+      // reaches KM differently per substrate would say so.
+      mechanismFor: () => box.manual({ level: 'summary' }),
+    })
+    return [
+      new lib.Entry({ name: 'km-landscape', provider: bridge.LANDSCAPE_PROVIDER }),
+      new lib.Entry({ name: 'purpose', text: rolePurpose }),
+      new lib.Entry({ name: 'km-mechanism', provider: bridge.MECHANISM_PROVIDER }),
+    ]
+  }
+}

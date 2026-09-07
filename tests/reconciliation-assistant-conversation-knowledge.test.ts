@@ -33,6 +33,7 @@ import {
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
+import { kmPrimingEntries } from '../tools/generate/src/cli/ai/roles'
 import { says, scriptedClient } from './support/scripted-model-client'
 import type { L1Node } from '@1stcontact/site-schema'
 
@@ -208,7 +209,9 @@ interface Bridge {
   knowledgeInstanceConfig: (kbs: string[]) => {
     knowledge: { groups: string[]; scope: { kb: string[]; document: string[] } }
   }
-  KnowledgeDocs: { open: (runtime: unknown, opts: object) => Promise<{ documents(): string[] }> }
+  LANDSCAPE_PROVIDER: string
+  MECHANISM_PROVIDER: string
+  registerKmProviders: (providers: unknown, runtime: () => unknown, opts: object) => unknown
 }
 
 function bridge(): Promise<Bridge> {
@@ -219,6 +222,18 @@ function bridge(): Promise<Bridge> {
 
 let kbRootDir: string
 let runtime: unknown
+
+/**
+ * The knowledge bases this runtime was opened over.
+ *
+ * Read off the runtime rather than re-parsed from the fixture config, so the
+ * editorial declarations asserted below are the ones retrieval actually consults
+ * (BUG-63).
+ */
+function runtimeKbs(): { name: string; provenance: string }[] {
+  const kbs = (runtime as { kbs: Map<string, { name: string; provenance: string }> }).kbs
+  return [...kbs.values()]
+}
 let knowledgeTools: string[]
 
 beforeAll(async () => {
@@ -284,11 +299,22 @@ describe('the corpus arrives on the surface the site operations arrive on', () =
     expect(hits).toContain('score')
 
     // A retrieved document is authored text arriving in the model's context, so it
-    // comes back MARKED — both in what the operation declares and in what the call
-    // actually returns.
-    for (const operation of DECLARATION.operations) {
-      expect(operation.returns.provenance, operation.tool).toBe('untrusted')
-    }
+    // comes back MARKED.
+    //
+    // DECLARED PER CORPUS NOW, NOT PER OPERATION (BUG-63). It used to be
+    // `returns.provenance: 'untrusted'` on every operation — the same answer
+    // five times, and the wrong shape: whether text could be trying to steer its
+    // reader is a property of where it came FROM, not of the call that fetched
+    // it. Upstream moved it onto the knowledge base, beside `authority` and
+    // `origin`, so a corpus that has vouched for its documents can hand them
+    // over unwrapped while a tenant's uploads through the identical operation
+    // cannot.
+    //
+    // THE DEFAULT IS STILL `untrusted`, which is why this assertion did not have
+    // to be weakened to survive the move: a KB that declares nothing — as this
+    // fixture does, and as `kb/knowledge_bases.json` does — is untrusted, so
+    // silence buys the safe answer rather than the convenient one.
+    for (const kb of runtimeKbs()) expect(kb.provenance, kb.name).toBe('untrusted')
     expect(hits.startsWith(UNTRUSTED_OPEN)).toBe(true)
     expect(hits.trimEnd().endsWith(UNTRUSTED_CLOSE)).toBe(true)
 
@@ -332,16 +358,33 @@ describe('the knowledge grant is read-only and confined by one declaration', () 
     const offered = Object.keys(box.schemas())
       .filter((name) => knowledgeTools.includes(name))
       .sort()
-    expect(offered).toEqual(['KnowledgeChunkSearch', 'KnowledgeGet', 'KnowledgeSearch'])
+    // WIDENED BY THE FRAMEWORK UPGRADE, AND THIS PIN IS WHY IT WAS NOTICED
+    // (BUG-63). `ReadKnowledge` grew `KnowledgeOutline` (the document tier) and
+    // `KnowledgeChanges` (the change feed). Both are declared `read`, so the
+    // claim below — read-only enforced by absence — is as true of five
+    // operations as it was of three.
+    expect(offered).toEqual([
+      'KnowledgeChanges',
+      'KnowledgeChunkSearch',
+      'KnowledgeGet',
+      'KnowledgeOutline',
+      'KnowledgeSearch',
+    ])
 
     // Read-only is enforced by ABSENCE: every declared operation is a read and the
     // one group is the read group, so there is no corpus-writing operation for the
     // assistant to reach for or to argue about.
-    expect(DECLARATION.operations.map((operation) => operation.effect)).toEqual([
-      'read',
-      'read',
-      'read',
-    ])
+    //
+    // A UNIVERSAL, NOT A LENGTH (BUG-63). This was a three-element array of the
+    // word `read`, which failed on an upgrade that added two more reads — a
+    // change that cannot violate the claim being made. The claim is "every one
+    // of them", and saying so is both what it meant and what keeps failing
+    // informative: a `write` slipping into the declaration still fails here, and
+    // now names itself when it does.
+    expect(DECLARATION.operations.length).toBeGreaterThan(0)
+    for (const operation of DECLARATION.operations) {
+      expect(operation.effect, operation.tool).toBe('read')
+    }
     expect(DECLARATION.groups.map((group) => group.group)).toEqual(['ReadKnowledge'])
 
     // ONE named set fills BOTH scope axes — what may be searched and what may be
@@ -370,14 +413,27 @@ describe('the knowledge grant is read-only and confined by one declaration', () 
 describe('a conversation is primed with the map and the manual, not the documents', () => {
   it('test_UAT_AC1319_priming_carries_the_map_then_the_purpose_then_the_manual', async () => {
     const cwd = makeWorkspace()
-    const { KnowledgeDocs } = await bridge()
+    const kmBridge = await bridge()
+    const lib = await import(/* @vite-ignore */ sharedModuleUrl('ai'))
     const box: Toolbox = await createL1Toolbox(SLUG, { cwd }, { knowledge: runtime })
 
-    // Assembled exactly as the host assembles it: the role's purpose, and the
-    // manual PROJECTED from this session's actual grant as the mechanism.
-    const manual = box.manual().trim()
-    const source = await KnowledgeDocs.open(runtime, { rolePurpose: PURPOSE, mechanism: manual })
-    const [priming] = source.documents()
+    // Assembled exactly as the host assembles it — through the host's own seam
+    // (BUG-63), so this asserts the shipped wiring rather than a restatement of
+    // it: the role's purpose, and the manual PROJECTED from this session's
+    // actual grant as the mechanism.
+    const providers = new lib.PrimingProviders()
+    const entries = await kmPrimingEntries(
+      lib,
+      kmBridge,
+      () => runtime,
+      PURPOSE,
+    )(box, providers)
+    const priming: string = await lib.assemble(
+      new lib.ProductConfig(),
+      new lib.Role({ name: 'consultant', priming: entries }),
+      new lib.SessionContext({ role: 'consultant', backend: 'test' }),
+      { providers },
+    )
 
     // The map's territories, and for each the document it routes to.
     expect(priming).toContain('## Behaviour modules')
@@ -395,17 +451,25 @@ describe('a conversation is primed with the map and the manual, not the document
     // The manual is the mechanism, verbatim — so the corpus is reached through
     // this session's real grant rather than through a sentence written by hand
     // about what it might have.
+    const manual = box.manual({ level: 'summary' }).trim()
     expect(priming).toContain(PURPOSE)
     expect(priming).toContain(manual)
     expect(manual).toContain('KnowledgeSearch')
 
-    // The order is load-bearing, asserted on the CONTENT rather than only on the
-    // headings: the map, then what this assistant is here to do, then the manual
-    // last, so the last thing read is the thing done first.
+    // The order is load-bearing, asserted on the CONTENT: the map, then what
+    // this assistant is here to do, then the manual last, so the last thing read
+    // is the thing done first.
     expect(priming.indexOf('## Behaviour modules')).toBeLessThan(priming.indexOf(PURPOSE))
     expect(priming.indexOf(PURPOSE)).toBeLessThan(priming.indexOf(manual))
-    expect(priming.indexOf('# What exists')).toBeLessThan(priming.indexOf('# Your purpose'))
-    expect(priming.indexOf('# Your purpose')).toBeLessThan(priming.indexOf('# How to search'))
+
+    // WHY THE SECTION HEADINGS ARE NO LONGER ASSERTED (BUG-63). `# What exists`
+    // / `# Your purpose` / `# How to search` were `KnowledgeDocs`'s own, printed
+    // by the class that assembled the three sections into one document. Under
+    // DOC-22 an entry's `name` is configuration-only and is NEVER rendered into
+    // the prompt — a configurer who wants a heading types it into their own
+    // text — which keeps "assembly is concatenation" literally true. So the
+    // headings are gone with the class, and what is left to assert is the thing
+    // that actually mattered: the order of the content itself, above.
   })
 })
 

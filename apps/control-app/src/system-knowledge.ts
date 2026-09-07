@@ -1,10 +1,13 @@
 import { KB } from './generated/kb.js'
 import {
-  KnowledgeDocs,
+  LANDSCAPE_PROVIDER,
+  MECHANISM_PROVIDER,
   KnowledgeRuntime,
   KnowledgeToolbox,
   knowledgeInstanceConfig,
+  registerKmProviders,
 } from './generated/ai-knowledge'
+import { kmPrimingEntries } from '../../../tools/generate/src/cli/ai/roles'
 import {
   WorkersAiEmbedder,
   knowledgeBasesFromMapping,
@@ -181,7 +184,7 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
 }
 
 /**
- * The role's priming source: the MAP, not the pile ([[DOC-10]] §5.1).
+ * The role's priming entries: the MAP, not the pile ([[DOC-10]] §5.1).
  *
  * A FACTORY over the constructed Toolbox, because the priming's last section is
  * the tool manual and the manual is a projection of THIS session's actual grant.
@@ -192,11 +195,29 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
  * knowledge tools and no landscape has no reason to believe there is anything to
  * find, so it never looks. The two are built from one runtime and are wired as a
  * pair or not at all.
+ *
+ * THREE ENTRIES, NOT ONE DOCUMENT (BUG-63). `KnowledgeDocs.open` assembled the
+ * three sections into a single `ContextSource` and is gone: upstream deleted it
+ * when priming became DOC-22's ordered list of named entries. The map and the
+ * mechanism are registered providers now, so both are re-read on every assembly
+ * rather than snapshotted once — which is what lets a document published
+ * mid-session show up in the next turn's landscape with no new machinery. The
+ * order is unchanged, and it is the order that was load-bearing.
+ *
+ * @param lib the AI library, for `Entry`. Passed rather than imported because
+ *   this file is bundled into a Worker and the library arrives through the shim
+ *   `1c assets` resolves.
  */
 export function knowledgePriming(
+  lib: Untyped,
   runtime: Untyped,
   rolePurpose: string,
-): (box: Untyped) => Promise<Untyped> {
-  return (box: Untyped) =>
-    KnowledgeDocs.open(runtime, { rolePurpose, mechanism: box.manual({ level: 'summary' }) })
+): (box: Untyped, providers: Untyped) => Promise<Untyped[]> {
+  return kmPrimingEntries(
+    lib,
+    { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
+    () => runtime,
+    rolePurpose,
+  )
 }
+

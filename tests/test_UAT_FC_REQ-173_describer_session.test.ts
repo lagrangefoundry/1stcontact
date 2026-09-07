@@ -31,7 +31,7 @@
 import { describe as suite, expect, it } from 'vitest'
 import { sessionTextDescriber } from '../apps/control-app/src/ai'
 import { DOCUMENT_DIGEST_SYSTEM } from '../apps/control-app/src/describe'
-import { says, scriptedClient } from './support/scripted-model-client'
+import { says, scriptedClient, systemText } from './support/scripted-model-client'
 
 suite('REQ-173 — the document describer is a session on the AI host', () => {
   it('test_UAT_FC_REQ_173_the_digest_comes_back_from_a_session_prompted_with_the_document', async () => {
@@ -56,7 +56,7 @@ suite('REQ-173 — the document describer is a session on the AI host', () => {
     const client = scriptedClient([says('A note.')])
     await sessionTextDescriber('sk-not-a-real-key', { client })('Some text.')
 
-    const system = client.seen[0].system
+    const system = systemText(client.seen[0])
     // THE PROMPT `describe.ts` OWNS. The two prompts this product sends about
     // material live next to each other, in the file that decides what a
     // description IS — so the role is built from that constant rather than from a

@@ -1,9 +1,12 @@
 import {
-  KnowledgeDocs,
+  LANDSCAPE_PROVIDER,
+  MECHANISM_PROVIDER,
   KnowledgeRuntime,
   KnowledgeToolbox,
   knowledgeInstanceConfig,
+  registerKmProviders,
 } from './generated/ai-knowledge'
+import { kmPrimingEntries } from '../../../tools/generate/src/cli/ai/roles'
 import {
   DEFAULT_CHUNKS_PER_HIT,
   DEFAULT_SOURCE,
@@ -367,7 +370,7 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
 }
 
 /**
- * The role's priming source: both maps, in one landscape section.
+ * The role's priming entries: both maps, in one landscape section.
  *
  * A FACTORY over the constructed Toolbox, because the priming's last section is
  * the tool manual and the manual is a projection of THIS session's actual grant
@@ -375,18 +378,35 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
  * internal order: landscape, then role purpose, then mechanism and trigger,
  * because the last thing the agent reads is the first thing it does.
  *
- * PRIMING NEVER TOUCHES AN INDEX. `KnowledgeDocs.open` reads each KB's awareness
- * report through the ticket API and nothing else, which is why the composite
- * runtime can declare no index and still prime correctly — and why a map rebuilt
- * behind a turn is picked up on the next one with no new machinery. What that
- * does NOT give is a notification, which is what the per-turn delta is for.
+ * PRIMING NEVER TOUCHES AN INDEX. The landscape provider reads each KB's
+ * awareness report through the ticket API and nothing else, which is why the
+ * composite runtime can declare no index and still prime correctly — and why a
+ * map rebuilt behind a turn is picked up on the next one with no new machinery.
+ * What that does NOT give is a notification, which is what the per-turn delta is
+ * for.
+ *
+ * THAT LAST PROPERTY IS NOW STRUCTURAL RATHER THAN INCIDENTAL (BUG-63). It used
+ * to hold because this factory ran per segment; `KnowledgeDocs.open` assembled a
+ * snapshot and the split between `open()` and `documents()` existed only to
+ * serve a synchronous `ContextSource` from one. Upstream deleted both, and the
+ * providers re-read on every assembly, so nothing is cached across a turn by
+ * construction.
+ *
+ * @param lib the AI library, for `Entry`. Passed rather than imported because
+ *   this file is bundled into a Worker and the library arrives through the shim
+ *   `1c assets` resolves.
  */
 export function sessionPriming(
+  lib: Untyped,
   knowledge: SessionKnowledge,
   rolePurpose: string,
-): (box: Untyped) => Promise<Untyped> {
-  return (box: Untyped) =>
-    KnowledgeDocs.open(knowledge.composite, { rolePurpose, mechanism: box.manual({ level: 'summary' }) })
+): (box: Untyped, providers: Untyped) => Promise<Untyped[]> {
+  return kmPrimingEntries(
+    lib,
+    { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
+    () => knowledge.composite,
+    rolePurpose,
+  )
 }
 
 export { PROJECT_KB, SYSTEM_KB, SHIPPED_SOURCE }

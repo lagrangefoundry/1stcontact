@@ -6,7 +6,7 @@ import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/buil
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
 
 /**
  * REQ-122 — **the assistant, end to end over the builder origin**.
@@ -264,7 +264,13 @@ describe('REQ-122 — what the model is told', () => {
     // which a turn that died on the way out would still have produced (BUG-39).
     expect(events.map((e) => e.content ?? '').join('')).toContain('Understood.')
 
-    const { system, tools } = client.seen[0]
+    // THE SYSTEM PROMPT ARRIVES IN TWO SHAPES (BUG-63). Upstream splits it into
+    // `text` blocks at the priming's cache boundary and sends a bare string when
+    // there is no usable one, so which one a turn gets is a property of the tier
+    // rather than of this test. `systemText` reads either as the one string the
+    // model sees.
+    const system = systemText(client.seen[0])
+    const { tools } = client.seen[0]
 
     // The priming carries the GENERATED manual, not a hand-written inventory —
     // so it cannot fall behind the tools it describes. Its headings are the
