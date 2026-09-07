@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T21:53:41.000844+00:00'
+updated_at: '2026-09-07T22:05:07.294358+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-eba5ef7f
@@ -19,5 +19,35 @@ fields:
 <!-- xgd-chat role="user" ts="2026-09-07T21:53:33.425564+00:00" -->
 #### You
 please create a sign-out CTA on the user portal modal
+
+<!-- xgd-turn id="ece1c8e5-c113-4961-a103-2f2c76ef888a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T22:05:06.317711+00:00" -->
+#### Claude
+Now I have the picture. Let me scope the ticket.
+
+Ticket scoped. Cutting a branch:
+
+Now the dialog itself:
+
+Now the server side — the one bit the client needs:
+
+Now the client transport and wiring:
+
+Now the UATs:
+
+Now lock, merge back, and record the commit:
+
+Done — REQ-204 is `free_coded` on `xgd-working` (commit `e6bbe46f22d8`, version 0.2.128).
+
+**What I built.** The builder's Account dialog (the modal behind the avatar) now has a **Sign out** control in its footer, opposite Close. It is a real `<form method="post" action="/sign-out">` with a submit button, so the browser follows the Worker's existing 303 to the sign-in page — nothing to read, no failure to word, and it still works if script has broken. That matches the reasoning already in the file for the portal link being an anchor.
+
+**One judgment call worth your attention.** The control is drawn *only* when the session is one we can actually end. The builder admits two ways (REQ-202): our own session cookie, tried first, and Cloudflare Access behind it. `POST /sign-out` ends the first and can do nothing about the second — an Access-admitted operator who pressed Sign out would be sent to the sign-in page and re-admitted the moment they navigated back. That is the same shape as a Delete account button that deletes nothing, which REQ-183 §4.2 refuses, so the control is absent rather than dishonest. Practically: **you'll see it when you signed in by link, and not when you came in through Access.**
+
+Making that decision client-side needed one new fact: `GET /api/businesses` now carries a `session` boolean, set in `index.ts` on the branch where the cookie answered and false everywhere else (Access, dev-open, the Node transport). It is a fact about the session, which is what that endpoint already answers — not the start of an account view.
+
+**Tests.** Six new UATs, all passing: the dialog renders a POST form at the sign-out path with a submit button; it renders nothing at all when `session` is false *or* absent (the absence is asserted, both by class and by the path appearing nowhere in the dialog); the client constant equals the Worker's `SIGN_OUT_PATH`; and at the Worker, a real redeemed session reports `true` while a real Access token reports `false`. Regression: all 36 affected test files pass (287 tests). Two existing assertions moved with the new field — BUG-52's failure default and REQ-180's payload key set — both updated in place with a note, their claims unchanged.
+
+One thing that is not your change: `reconciliation-copy-edit-form-presentation.test.ts` failed on font assets until I ran `./bin/1c assets` in the fresh worktree; `dist-assets/` is gitignored and absent on a new checkout.
 
 <!-- xgd-chat-end -->
