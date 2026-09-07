@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-204
 created_by: xgd
 created_at: '2026-09-07T21:53:41.000844+00:00'
-updated_at: '2026-09-07T22:26:29.822344+00:00'
+updated_at: '2026-09-07T22:27:32.846128+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,26 @@ One thing to expect later: if you test by simulating an Access login (`bin/acces
 ok fixed - now help me understand "accounts that cannot sign out?"
 
 I am now logged in as me from the access-sim and I don't see the logout capability
+
+<!-- xgd-turn id="77831d05-3004-4359-b3e7-0e2bd5e7392f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-07T22:27:32.520674+00:00" -->
+#### Claude
+Short version: it's not a class of *accounts*, it's a class of *credentials we didn't mint* — and right now that's you.
+
+**Why you're in it.** Since REQ-202 the builder admits two ways, and `index.ts` tries them in order: our own session cookie first, Cloudflare Access second. `POST /sign-out` does exactly two things — deletes the `sessions` row and clears our cookie. When you arrive through access-sim, your credential is a `CF_Authorization` JWT that *the edge* minted; there is no session row and no cookie of ours. So the endpoint would succeed, 303 you to `/sign-in`, and the Access cookie still in your browser would re-admit you on the very next navigation. The button would look broken while behaving exactly as built, which is why I hid it rather than shipped it.
+
+So the split, concretely: a customer who signed in by link can sign out; an operator arriving through Access (production) or access-sim (local) cannot. Felix Test could because that account holds a real redeemed session — you, right now, don't.
+
+**Getting out today.** Against real Access, Cloudflare owns the logout: `https://<host>/cdn-cgi/access/logout` clears `CF_Authorization` for that app. Locally there's no such route — access-sim only serves `/login` and `/cdn-cgi/access/certs` — so you'd delete the `CF_Authorization` cookie for `127.0.0.1` by hand.
+
+**What I think we should do instead.** Hiding the control is honest, but it's the wrong answer to the actual question — it documents a gap rather than closing it. The better shape is to make sign-out truthful for *both* credentials and always show it: end whatever we can (delete our row, clear our cookie) and then, when the caller came in through Access, redirect to the Access logout instead of to `/sign-in`. We already hold `ACCESS_TEAM_DOMAIN`, so the target is derivable and no new configuration is needed. That deletes the "cannot sign out" class outright, and the conditional I built collapses into "which logout does this credential need" — the `session` boolean stays useful, it just picks a destination rather than deciding whether to draw a button.
+
+Two things I'd want your call on before I scope it into REQ-204:
+
+1. **Local testability** — access-sim would need a matching `/cdn-cgi/access/logout` that clears the cookie it set, or this stays unverifiable on your machine and only works deployed. I'd add it; it's a few lines in the simulator and it's the edge's half of the protocol, which that file already owns for service tokens.
+2. **Where you land after an Access logout** — Cloudflare's own logout page, or bounced back to the app so you meet a fresh challenge. I'd pick the bounce, since "sign out and hand the laptop over" is the case that matters.
+
+Want me to build that? It's a behaviour change to what just landed, so it needs its own language in the ticket body before any code — I'd add the section, then cut a branch.
 
 <!-- xgd-chat-end -->
