@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T02:03:00.754172+00:00'
+updated_at: '2026-09-08T02:09:36.868876+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,5 +220,15 @@ I grepped the doc tickets: DOC-31 says typography is a top-tier differentiator, 
 That's the thing worth building, and it's worth more than the PDF. Shape would be roughly: a small curated set (20–30 families, not 1,000), each with license + file provenance, variable-axis support, a restraint-level tag, tested pairings, and a type-scale rule — projected into the stage-1 capability catalogue so the consultation can actually offer it.
 
 Want me to spec that? It'd be a new doc ticket, so say the word and I'll file one.
+
+<!-- xgd-turn id="c65998d0-847a-42a4-8411-3bb6ace0ca37-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:09:36.718023+00:00" -->
+#### You
+We have to be careful not to position ourselves as just a website provider. But to the extent we do, our positioning is No Templates. All these other sites are "start with a template" or "let the AI help you pick a template" - 1st contact creates custom sites for you.
+
+Lovable is great comp from a design point of view - the others look remarkably uninspiring 
+
+I really like the idea of an animation that shows the conversation in the chat and the site creation next to it. I like how Lovable drives their animations with the down scroll
 
 <!-- xgd-chat-end -->
