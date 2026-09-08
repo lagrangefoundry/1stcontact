@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:27:03.538589+00:00'
+updated_at: '2026-09-08T02:28:51.604654+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -401,5 +401,11 @@ Every call prints its raw response, so if an endpoint has moved the error will s
 **If you'd rather click:** the direct URL is `https://dash.cloudflare.com/<account_id>/1stcontact.io/email/routing` — but I'd take the script, since I can verify its result and can't verify a screen I can't see.
 
 When it's done, tell me and I'll re-check: MX present, `invite@` reachable, and whether DMARC reports have somewhere to land.
+
+<!-- xgd-turn id="9f123ffe-d1c8-48c9-a03b-8d8a66c322d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:28:51.277745+00:00" -->
+#### You
+No I really want to find the forwarding UI - I have set this up on other domains -
 
 <!-- xgd-chat-end -->
