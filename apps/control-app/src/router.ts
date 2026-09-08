@@ -249,7 +249,7 @@ function chatHost(env: RouterEnv, scope: Scope, deps: RouterDeps, origin: string
  * A FACTORY OF THE SLUG, because that is the shape `HostDeps` declares: the
  * surface is bound to one site at construction, so no picture can name another.
  */
-async function sessionFidelity(
+export async function sessionFidelity(
   env: RouterEnv,
   scope: Scope,
   deps: RouterDeps,
@@ -436,9 +436,17 @@ export interface RouterDeps {
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
   /**
-   * The browser the looking surface drives ([[REQ-157]]). ABSENT IS THE
-   * ORDINARY CASE and resolves to the `BROWSER` binding; a UAT injects one so
-   * a picture can be taken without Browser Rendering.
+   * The browser the assistant looks with ([[REQ-206]]), so the eyes are provable
+   * offline.
+   *
+   * THE SAME SEAM `shot.ts` HAS ALWAYS HAD, lifted to where the chat routes can
+   * reach it. Browser Rendering is a third party reached over a wire protocol and
+   * miniflare has none, so this is the one boundary a fidelity UAT may fake —
+   * and everything on this side of it is the production path: the picture
+   * resolution, the in-process preview fulfilment, the egress guard, the budget,
+   * the adoption, the manual the model is handed.
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to the `BROWSER` binding.
    */
   launch?: BrowserLauncher
   /**
