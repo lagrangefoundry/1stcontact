@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:54:32.329153+00:00'
+updated_at: '2026-09-08T21:56:26.529094+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -196,5 +196,11 @@ To avoid losing something real in the demotion, I added a curated reference set 
 **Corpus is now eight authored documents plus three projections.**
 
 Next, when you're ready: rewrite the `purpose` entry to drop the ids, then `1c kb build` and `1c assets`. That rebuild is also what clears the stale awareness map. Want me to draft the replacement wording for `purpose`?
+
+<!-- xgd-turn id="bbf76756-1850-4979-a86b-43b7ae4568bf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:56:25.625568+00:00" -->
+#### You
+1. Please create a ticket to remove all this hardwiring - this must rest on the build - I can run a build anytime
 
 <!-- xgd-chat-end -->
