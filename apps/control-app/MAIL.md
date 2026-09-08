@@ -62,9 +62,17 @@ the moment a route can send ([[REQ-197]]).
 
 ### 2. The sending domain — the long pole
 
-`no-reply@1stcontact.io` is the From address (`MAIL_FROM` in `wrangler.toml`, declared on
-both sides because a named environment inherits no vars). For mail from it to be
-**accepted rather than binned**, three DNS records must exist on `1stcontact.io`:
+`1st Contact <no-reply@1stcontact.io>` is the FALLBACK From address (`MAIL_FROM` in
+`wrangler.toml`, declared on both sides because a named environment inherits no vars). A
+message template may name its own address and the invite does — see §3 below
+([[REQ-205]]). Both are on `1stcontact.io`, so the DNS below covers them together.
+
+The display name is part of the value, in RFC 5322 `Name <address>` form: an anonymous
+From is most of what makes a message from a domain with no reputation look like phishing
+to a filter.
+
+For mail from these addresses to be **accepted rather than binned**, three DNS records
+must exist on `1stcontact.io`:
 
 | Record | What it says | Without it |
 |---|---|---|
@@ -81,11 +89,54 @@ In practice:
 None of this is code and all of it is blocking, which is why it decides when the beta can
 start rather than when the ticket is finished.
 
-### 3. Replies
+### 3. Replies, and the per-template address
 
-Replies to `no-reply@` go nowhere, by design. If a reply-to that reaches a human is
-wanted, that is a **separate address and a separate decision** — not a default quietly
-added to the sending config.
+Replies to `no-reply@` go nowhere, by design — and that is now a statement about THAT
+address rather than about every message ([[REQ-205]]).
+
+The sending address belongs to the **template**, with `MAIL_FROM` as what a template
+naming none means. `MAIL_FROM` was deployment-wide, so there was exactly one address for
+the invite, the sign-in link and the lapse notice alike; setting it to `invite@` would
+have sent sign-in links from `invite@` too.
+
+| Template | Sends from |
+|---|---|
+| `invite` | `1st Contact <invite@1stcontact.io>` — a mailbox somebody reads |
+| `signin` | `MAIL_FROM` |
+| `lapsed` | `MAIL_FROM` |
+
+The invite is repliable because a reply is one of the strongest positive engagement
+signals a recipient can produce, and somebody *will* reply to an invitation. That makes
+one thing **operator work rather than code, and blocking**:
+
+> **`invite@1stcontact.io` must receive.** A Cloudflare Email Routing rule to a real
+> mailbox. A repliable address that bounces is worse than `no-reply@`.
+
+It is a field on the template ticket, so changing which address a message comes from is
+an edit rather than a deploy. It is **not operator-editable per send**: the invite modal
+displays the address and refuses to take an edit, and the route does not read a `from`
+off the POST — an operator-set sender fails DKIM and lands in spam.
+
+### 4. What a message looks like to a filter
+
+Authentication is not reputation. SPF, DKIM and DMARC prove a message was not forged;
+they say nothing about whether it is wanted, and a filter with no history for a domain
+falls back to what the message looks like. A real invite from here passed all three and
+went to spam.
+
+So every message carries **both an HTML part and a plain-text part** ([[REQ-205]]).
+HTML-only is among the most commonly weighted heuristics. The text part is **derived from
+the HTML rather than authored** — one body is still written — and every URL in an `href`
+survives into it, because a text alternative that has lost the only link is worse than
+none.
+
+Two things remain deliberately out of scope:
+
+- **`List-Unsubscribe`.** Required by Gmail's bulk-sender rules, incoherent on a sign-in
+  link the recipient asked for thirty seconds ago. It becomes right if this platform ever
+  sends marketing mail, which belongs on a separate subdomain with separate reputation.
+- **Moving to Postmark.** The port exists so this is one adapter and no call sites, and it
+  stays the answer if the changes above do not move placement. It is not a first move.
 
 ## Local development
 

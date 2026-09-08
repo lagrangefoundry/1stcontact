@@ -58,12 +58,22 @@ export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
  * written asynchronously by an extractor, so an empty one is a stage rather than
  * an error; a template with no body is not a template, and the moment it is read
  * somebody is trying to send it.
+ *
+ * `from` IS OPTIONAL, AND ABSENT MEANS `MAIL_FROM` ([[REQ-205]]). The sending
+ * address used to be the deployment's and nothing else, which meant one address
+ * for every message this platform sends: setting it to `invite@` would have sent
+ * sign-in links from `invite@` too. It belongs to the TEMPLATE because "who is
+ * this from" is a property of which message it is — an invitation somebody may
+ * well reply to is not a sign-in link nobody should — and optional because
+ * absent has to keep meaning what every template ticket written so far already
+ * means.
  */
 export const TEMPLATE_SCHEMA = {
   fields: {
     template_key: { type: 'enum', enum: [...TEMPLATE_KEYS], required: true },
     subject: { type: 'string', required: true },
     placeholders: { type: 'list' },
+    from: { type: 'string' },
   },
   body: { required: true, non_empty: true },
 }
@@ -72,6 +82,8 @@ export const TEMPLATE_SCHEMA = {
 export interface RenderedMessage {
   subject: string
   body: string
+  /** The address to send from, when the copy named one ([[REQ-205]]). */
+  from?: string
   /** Which template said it — the key the sender asked for. */
   templateKey: string
   /** Which *ticket* said it, so [[REQ-198]]'s record can name the exact copy. */
@@ -101,6 +113,22 @@ export interface RenderedMessage {
 export interface MessageCopy {
   subject: string
   body: string
+  /**
+   * The address this message goes out from, when the template names one
+   * ([[REQ-205]]). Absent means the deployment's `MAIL_FROM`.
+   *
+   * IT TRAVELS WITH THE SUBJECT AND THE BODY because it is the same kind of
+   * thing: part of what this particular message IS. The alternative — resolving
+   * it at each call site from the template key — would be a second place that
+   * knows which address belongs to which message, free to disagree with the
+   * ticket.
+   *
+   * IT IS NOT OPERATOR-EDITABLE, and that is a different claim from this one. An
+   * operator-set sender fails DKIM and lands in spam, so the invite modal shows
+   * the address and refuses to take an edit ([[REQ-199]], [[REQ-205]]); what
+   * changes is only which address the server resolves and displays.
+   */
+  from?: string
   /** The tokens the template promises its body carries. Absent reads as none. */
   declared?: readonly string[]
   templateKey: string
@@ -220,9 +248,14 @@ export function renderTemplate(
  * must have one answer.
  */
 export function copyOf(template: Ticket): MessageCopy {
+  const from = String(template.fields.from ?? '').trim()
   return {
     subject: String(template.fields.subject ?? ''),
     body: template.body ?? '',
+    // ABSENT RATHER THAN EMPTY. `MAIL_FROM` is the fallback and the caller
+    // applies it, so an empty string here would be a third state meaning the
+    // same as the second and reaching a `check()` that refuses a blank sender.
+    ...(from === '' ? {} : { from }),
     declared: declaredTokens(template),
     templateKey: String(template.fields.template_key ?? template.type),
     templateUid: template.uid,
@@ -273,7 +306,16 @@ export function renderCopy(
     refuse(leftover[0], 'was left unsubstituted, so the message would have gone out with a hole in it')
   }
 
-  return { ...rendered, templateKey: key, templateUid: copy.templateUid }
+  // THE SENDING ADDRESS PASSES THROUGH VERBATIM AND IS NOT SUBSTITUTED
+  // ([[REQ-205]]). It is not copy: a token in it would be a sender assembled at
+  // send time, and an address that varies per message is an address DKIM cannot
+  // vouch for.
+  return {
+    ...rendered,
+    ...(copy.from ? { from: copy.from } : {}),
+    templateKey: key,
+    templateUid: copy.templateUid,
+  }
 }
 
 /**
@@ -315,6 +357,7 @@ export async function templateFor(store: TicketStore, key: TemplateKey): Promise
       template_key: key,
       subject: seed.subject,
       placeholders: [...seed.placeholders],
+      ...(seed.from ? { from: seed.from } : {}),
     },
     body: seed.body,
   })
@@ -338,6 +381,8 @@ interface SeedTemplate {
   subject: string
   placeholders: readonly string[]
   body: string
+  /** The address this message sends from, when it is not the deployment's. */
+  from?: string
 }
 
 /**
@@ -370,6 +415,31 @@ export const SEED_TEMPLATES: Record<TemplateKey, SeedTemplate> = {
     title: 'Invite email',
     subject: 'Your invitation',
     placeholders: ['cta_url'],
+    /**
+     * THE ONE SEED THAT NAMES AN ADDRESS ([[REQ-205]]), and the two reasons are
+     * the two problems with `no-reply@`.
+     *
+     * IT IS A MAILBOX SOMEBODY READS. A reply is one of the strongest positive
+     * engagement signals a recipient can produce, and somebody *will* reply to
+     * an invitation; `no-reply@` refuses every one of them and is itself a
+     * weighted negative signal. (A repliable address that bounces is worse than
+     * `no-reply@`, so this depends on the routing being in place — the operator
+     * half of this change.)
+     *
+     * IT CARRIES A DISPLAY NAME, in RFC 5322 form, because an anonymous From is
+     * most of what makes an invitation from a domain with no reputation look
+     * like phishing.
+     *
+     * AND IT IS THE ONE PLACE THIS SEED IS NOT BUSINESS-NEUTRAL, which is worth
+     * being uncomfortable about. The copy below stays neutral for the reason the
+     * header gives — our name has no business in a plumber's mail to their own
+     * customers. An ADDRESS is a different kind of thing: there is exactly one
+     * sending domain on this deployment and every message already leaves from
+     * it, so this names what is true rather than adding anything. The day a
+     * business sends from its own domain, this field is what has to move, and it
+     * moves as an edit to a ticket rather than as a deploy.
+     */
+    from: '1st Contact <invite@1stcontact.io>',
     body: [
       '<p>Hello,</p>',
       '<p>You have been invited to set up your account. Everything is ready —',

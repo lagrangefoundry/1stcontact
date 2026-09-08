@@ -71,6 +71,12 @@ export const INVITE_TEMPLATE: TemplateKey = 'invite'
  * *who will this appear to be from* — showing it and refusing to take an edit
  * are different things, and only the second is a restriction.
  *
+ * AND IT IS THE INVITE'S OWN ADDRESS WHEN THE TEMPLATE NAMES ONE ([[REQ-205]]).
+ * It used to be `MAIL_FROM` unconditionally, which is the deployment's single
+ * address for every message it sends; the invite sends from a mailbox somebody
+ * reads, and what the modal shows has to be what the send will actually use or
+ * the display is a lie rather than a disclosure.
+ *
  * THE SUBJECT AND BODY ARE THE TEMPLATE'S, AND THE OPERATOR MAY CHANGE THEM FOR
  * THIS SEND. What comes back on the POST is what gets rendered; the template
  * ticket is never written to. Editing a template is a different act with a
@@ -106,7 +112,9 @@ export async function inviteDraft(store: TicketStore, from: string): Promise<Inv
   const template = await templateFor(store, INVITE_TEMPLATE)
   const copy = copyOf(template)
   return {
-    from,
+    // THE TEMPLATE'S, ELSE THE DEPLOYMENT'S ([[REQ-205]]). `from` here is the
+    // fallback rather than the answer.
+    from: copy.from?.trim() || from,
     subject: copy.subject,
     body: copy.body,
     declared: [...(copy.declared ?? [])],
@@ -149,7 +157,15 @@ export interface InviteDeps {
   scope: Scope
   store: TicketStore
   send: SendEmail
-  /** The sending address — {@link mailFrom}'s answer, resolved by the caller. */
+  /**
+   * The sending address to fall back to — {@link mailFrom}'s answer, resolved by
+   * the caller.
+   *
+   * A FALLBACK AND NO LONGER THE ANSWER ([[REQ-205]]). The copy being rendered
+   * may name its own address, and when it does that one is used; this is what a
+   * template with no `from` means, which is what every template ticket written
+   * before that field existed already means.
+   */
   from: string
   /**
    * Where the invite's button points ([[REQ-197]]'s `{{cta_url}}`) — A LINK PER
@@ -245,6 +261,11 @@ export async function invitePerson(deps: InviteDeps, contactId: string): Promise
   }
 
   const rendered = renderCopy(deps.copy ?? (await defaultCopy(deps)), { cta_url: ctaUrl })
+  // THE COPY'S ADDRESS WINS, AND THE DEPLOYMENT'S IS THE FALLBACK ([[REQ-205]]).
+  // Resolved here rather than in the record so that what is SENT and what is
+  // RECORDED are the same value by construction — a record naming an address the
+  // message did not come from is a record that answers the wrong question.
+  const from = rendered.from?.trim() || deps.from
   const message = await sendRecordedEmail(
     deps.store,
     {
@@ -253,7 +274,7 @@ export async function invitePerson(deps: InviteDeps, contactId: string): Promise
       templateKey: rendered.templateKey,
       templateUid: rendered.templateUid,
       subject: rendered.subject,
-      from: deps.from,
+      from,
       // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO. `OutgoingMessage.to` is a
       // string rather than a list, so a multi-recipient message is not a thing
       // this code path can express even by mistake — which is the ticket's
