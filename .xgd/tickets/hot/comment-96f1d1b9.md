@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:12:12.433359+00:00'
+updated_at: '2026-09-08T02:13:15.111438+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -204,5 +204,40 @@ The invite's address had to go in `SEED_TEMPLATES`, which is deliberately busine
 <!-- xgd-chat role="user" ts="2026-09-08T02:12:11.850924+00:00" -->
 #### You
 Can I configure email reception in Cloudflare? (I assume its completely separate from the send path)?
+
+<!-- xgd-turn id="fad0e5fe-eba9-48e1-996a-863c79323253-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:13:14.490095+00:00" -->
+#### Claude
+Yes — Cloudflare Email Routing, free on any zone whose DNS is on Cloudflare. And your assumption is right: it is **receive-only and entirely separate from the send path**. Different direction, different records, different provider. Resend never sees inbound mail; Email Routing cannot send.
+
+- **Inbound** is `MX` records pointing at Cloudflare's mail servers.
+- **Outbound** is the `SPF` / `DKIM` / `DMARC` TXT records Resend gave you — assertions about who may send *as* the domain.
+
+Enabling one doesn't weaken the other. TODO-5 §6 already flagged this as the open decision; sending the invite from a repliable address is what forces it.
+
+## The one place they touch, and it bites
+
+Cloudflare's enable flow offers to add its own SPF record: `v=spf1 include:_spf.mx.cloudflare.net ~all`. **You don't need it** — that include is for sending *through* Cloudflare, which you don't do — and adding it as a second `v=spf1` TXT on the apex is a permerror, not a warning. That is exactly the failure TODO-5 §2 warns about, and it would break the SPF/DKIM alignment you just watched pass on a real send.
+
+So: skip it, or merge the include into the single existing Resend record. Afterwards confirm exactly one `v=spf1` TXT exists on `1stcontact.io` — `dig +short TXT 1stcontact.io` should show one.
+
+## Setup
+
+1. Dash → the zone → **Email → Email Routing** → enable. It adds three MX records (and offers the TXT above).
+2. Add a **destination address** — your real mailbox. Cloudflare mails it a verification link; it doesn't route until that's clicked.
+3. Add a rule: **`invite@1stcontact.io` → that destination.**
+
+I'd use a specific rule rather than catch-all. Catch-all means every address on the domain becomes real, and spam finds those; the argument in TODO-5 for catch-all was "a domain that accepts nothing scores slightly worse", and a single live address satisfies that just as well.
+
+## Two limits worth knowing before you rely on it
+
+**It forwards; it does not send.** Replying to a forwarded invite reply goes out from *your personal address*, so the thread visibly changes address mid-conversation. Fine for the beta. If you want to reply *as* `invite@1stcontact.io`, Gmail's "Send mail as" pointed at Resend's SMTP credentials works — same domain, already DKIM-signed, no new provider.
+
+**Programmatic inbound is a different feature.** Email Workers can route a message to a Worker instead of a mailbox — that's the door if a reply should ever become a contact event. Not now; a forwarded mailbox is the cheap answer and the one the code needs.
+
+Then verify by mailing `invite@1stcontact.io` from an outside address before trusting it — a repliable address that bounces is worse than `no-reply@`, which is the whole reason it's blocking.
+
+Want me to fold this into `MAIL.md` §3 and TODO-5 §6, so the decision and the SPF trap are recorded where the next person will look? That's documentation, no code.
 
 <!-- xgd-chat-end -->
