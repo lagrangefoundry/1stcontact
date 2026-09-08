@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-182
 created_by: xgd
 created_at: '2026-09-08T01:42:52.721767+00:00'
-updated_at: '2026-09-08T03:47:07.440467+00:00'
+updated_at: '2026-09-08T04:17:25.330686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,19 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="8ec0c24d-819a-4a8f-a111-3ab0608f89de-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T04:17:12.536211+00:00" -->
+#### Claude
+Before I start, one question that genuinely blocks a scope item — everything else I can decide and will.
+
+Now the host-core changes:
+
+Now the role construction and provider registration:
+
+Now the REQ-182 UAT file:
+
+Now the ticket addendum covering what the UATs assert:
 
 <!-- xgd-chat-end -->
