@@ -189,7 +189,11 @@ describe('REQ-171 — product material is written once, for every role', () => {
     // The reminder rides every request, so anything it restates is paid for on
     // every turn. It points at the method rather than carrying it.
     const reminder = standingReminder(SLUG)
-    expect(reminder).toContain('DOC-33')
+    // It points at the method rather than carrying it — and points at where the
+    // method LIVES rather than at a document id (BUG-65): which documents exist
+    // is the build's answer, not a sentence's.
+    expect(reminder).toMatch(/method is in your knowledge base/)
+    expect(reminder).not.toMatch(/DOC-\d/)
     expect(reminder.length).toBeLessThan(600)
     // The playbook itself is corpus material (DOC-33 §12) and appears in none
     // of the hand-written texts.
@@ -221,16 +225,12 @@ describe('REQ-171 — the role text is the role, derived from DOC-33 and DOC-35'
 })
 
 describe('REQ-171 — the purpose is short and names what to read', () => {
-  it('test_UAT_FC_REQ-171_the_purpose_names_the_documents_this_role_must_read', () => {
-    // The trigger KM renders straight after this section says "pick the
-    // territories above that bear on your purpose". A purpose naming no
-    // territory gives that instruction nothing to bite on.
-    for (const doc of ['DOC-33', 'DOC-35', 'DOC-31']) {
-      expect(CONSULTANT_PURPOSE).toContain(doc)
-    }
-    // Named by subject as well as by id, because retrieval matches on words.
-    expect(CONSULTANT_PURPOSE).toContain('consultation playbook')
-  })
+  // The purpose used to name DOC-33, DOC-35 and DOC-31 here, and this suite
+  // asserted that it did. BUG-65 retires that claim: an id list in prose is a
+  // second, unsynchronised answer to "which documents exist", and it drifted —
+  // DOC-31 left the corpus and the priming went on naming it. What replaces the
+  // assertion is `test_UAT_FC_BUG-65_*`, which pins the subjects the trigger
+  // bites on AND that no entry names a document at all.
 
   it('test_UAT_FC_REQ-171_the_purpose_names_both_corpora', () => {
     // It framed only the system's own documents while there was one KB.
