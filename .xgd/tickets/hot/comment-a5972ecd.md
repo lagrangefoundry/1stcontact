@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-182
 created_by: xgd
 created_at: '2026-09-08T01:42:52.721767+00:00'
-updated_at: '2026-09-08T04:19:40.232746+00:00'
+updated_at: '2026-09-08T04:21:32.076002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,29 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="b9512f3d-ad8c-4e15-9c01-d1e96b0af54f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T04:21:19.581723+00:00" -->
+#### Claude
+The implementation is done and merged; I was mid-way through the final protocol step when the SHA was rejected for being abbreviated. Finishing that now.
+
+My own memory has this exact failure: the version-carrying commit must *be* the tip, and three ticket commits landed on top of my merge. Merging working back into the branch and bumping there:
+
+Done. REQ-182 is `free_coded` at 0.2.137, merged to `xgd-working`, worktree torn down and lock released.
+
+**What landed.** The priming and reminder are configuration. `priming.json` holds the entries and every word of them; `roles.ts` contributes structure and no prose. The list is now *loaded* through the framework's own `rolesFromMapping` rather than built by hand, which makes the format's checks this host's behaviour — both-or-neither, stray markers, and above all an unregistered `provider:` — each a `PrimingConfigError` at start-up naming the entry. One `{cache_boundary: true}` sits last, so the whole priming is a cached prefix with nothing volatile. The reminder is six entries and the old `if (since.changes > 0)` / `if (delta)` guards are now `null` returns that drop the entry and its separator. `maxPrimingChars` is 60,000 against a measured 4,851 static + ~11,000 manual.
+
+**Item 10 answered rather than deferred.** The product tier stays empty, and the reason turned out stronger than the ordering conflict I flagged earlier: `session.transcript_pointer` tells a session its turns are addressable by id, and this host grants no operation that reads them — a hand-written claim about a tool that does not exist is exactly what the projected manual exists to prevent. That's now a UAT.
+
+**Decisions I made rather than asked about:** JSON over YAML, imported directly (`l1-surface.json`'s existing pattern — no build step, no generated peer, no `1c assets` footgun); prose authored as line arrays joined at the door; interpolated prose as `{placeholder}` templates in the same file, the shape the framework uses for its own defaults; and everything in one tier, since product entries concatenate *before* role entries and would put the product facts ahead of "you are a design consultant".
+
+**Verification.** 12 new UATs plus the REQ-131/160/171/174/BUG-63/REQ-123 suites: 77 passing across 9 files, including both workerd suites, which is what proves the bundled JSON import works in the Worker. Full-suite failures are a strict subset of the pre-change baseline — the unchanged checkout failed 6 files, the branch 4, all builder/webui flakiness.
+
+**One question still open** (it blocks only scope item 9, which I left in place): are there archived `caretaker`-role sessions in any deployed environment? `roles.ts:222` asserts production has them and the ticket asserts nothing does. Deleting `LEGACY_ROLE_NAMES` wrongly makes those conversations unopenable; keeping it wrongly costs one map entry, so I kept it.
+
+Also left out, with reasons on the ticket: one `Role` for every site (neither language's manager populates `SessionContext.scope`) and `session-summary` (lagrange-framework BUG-45).
+
+One process note: the first `move-to-free-coded` was rejected because another cycle published 0.2.136 to the tip first. I merged working back into the branch, bumped to 0.2.137 there, and fast-forwarded — so the ticket records both SHAs.
 
 <!-- xgd-chat-end -->
