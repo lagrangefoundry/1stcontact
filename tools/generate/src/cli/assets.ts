@@ -220,13 +220,29 @@ const AI_WORKER_EXPORTS = [
   'TicketSessionArchive',
   'applyRecords',
   'availableBackends',
+  // REQ-207 — the port's own base64 encoder, which is why this file has none.
+  // The image describer must hand `imageBlock` a base64 STRING rather than the
+  // bytes the constructor also accepts: the session manager writes the durable
+  // `turn_start` record — and measures the image for it — BEFORE the backend
+  // normalises content, so bytes that far up the path are read as a string and
+  // are not one. Encoding here with the same function the port would have used
+  // keeps one encoder in the system rather than a second copy in this Worker.
+  'bytesToBase64',
   // REQ-162 — the chat half of the ticket store's type pack. The AI component
   // owns the shape a `chat` ticket and its `chat_transcript` comment take
   // (DOC-10 §8), so the pack imports it rather than restating it here, where it
   // would drift from the archive that actually reads it back.
   'chatSchemas',
+  // REQ-207 — the content-block vocabulary (REQ-111), which is what lets the
+  // image describer stop being a second path to a model. They arrive as a pair
+  // because a describer sends both: the picture and the one line of instruction
+  // beside it. Named here rather than reconstructed as object literals in
+  // `ai.ts`, so that a rename of the port's constructors surfaces as a
+  // typecheck failure rather than as a request the provider refuses.
+  'imageBlock',
   'memoryJunctions',
   'registerBackend',
+  'textBlock',
 ] as const
 
 /**

@@ -29,7 +29,12 @@ import {
   tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
-import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
+import {
+  sessionImageDescriber,
+  sessionTextDescriber,
+  workerHost,
+  type WorkerHost,
+} from './ai'
 import { fidelityDeps } from './shot'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
@@ -80,7 +85,7 @@ import { bouncedContactIds, messagesFor } from './messages'
 import { projectKnowledgeFor } from './knowledge'
 import { systemKnowledge } from './system-knowledge'
 import { sessionKnowledgeFor } from './session-knowledge'
-import { anthropicImageDescriber, type DescribeImage, type DescribeText } from './describe'
+import type { DescribeImage, DescribeText } from './describe'
 import { FetchRefusedError } from './fetch-guard'
 import { mailerFor, mailFrom, MailNotConfiguredError, type MailEnv, type SendEmail } from './mail'
 import {
@@ -610,9 +615,15 @@ async function defaultIndexer(env: RouterEnv, scope: Scope): Promise<IndexMateri
  * Absent is an ordinary state, exactly as it is for the chat routes: a
  * deployment with no key still stores every file the client hands it, and says
  * in each body that nothing has looked at it yet.
+ *
+ * A SESSION ON THE AI HOST SINCE REQ-207, where it used to be a direct Messages
+ * API call. That was the one place this Worker reached a model without going
+ * through the host it already runs, and it is gone; this reads identically to
+ * {@link defaultTextDescriber} below because the two are now the same thing with
+ * different content.
  */
 function defaultDescriber(env: RouterEnv): DescribeImage | undefined {
-  return env.ANTHROPIC_API_KEY ? anthropicImageDescriber(env.ANTHROPIC_API_KEY) : undefined
+  return env.ANTHROPIC_API_KEY ? sessionImageDescriber(env.ANTHROPIC_API_KEY) : undefined
 }
 
 /**

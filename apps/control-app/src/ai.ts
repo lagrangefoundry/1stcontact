@@ -71,7 +71,12 @@ import {
   type SessionKnowledge,
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
-import { DOCUMENT_DIGEST_SYSTEM, type DescribeText } from './describe'
+import {
+  DOCUMENT_DIGEST_SYSTEM,
+  IMAGE_DIGEST_SYSTEM,
+  type DescribeImage,
+  type DescribeText,
+} from './describe'
 
 /** The library is untyped JavaScript; the boundary is narrow and named here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -101,80 +106,105 @@ export function sessionArchive(tickets: TicketStore): Untyped {
   return new lib.TicketSessionArchive(tickets)
 }
 
-/** The describer's role and backend names — one pair, registered once per key. */
-export const DESCRIBER_ROLE = 'material_describer'
-export const DESCRIBER_BACKEND = 'material_describer'
+/**
+ * The text describer's role, which is also its backend name.
+ *
+ * ONE CONSTANT WHERE THERE WERE TWO (REQ-207). They were `DESCRIBER_ROLE` and
+ * `DESCRIBER_BACKEND`, always the same string, so the pair was two things to keep
+ * in sync for no distinction anyone could act on. What matters is that the name is
+ * DISTINCT FROM THE IMAGE DESCRIBER'S below — see {@link describerSession}.
+ */
+export const TEXT_DESCRIBER = 'material_describer'
+
+/** The image describer's role and backend name (REQ-207). */
+export const IMAGE_DESCRIBER = 'material_image_describer'
 
 /**
- * The document describer, as a **lightweight session** on this host (REQ-173).
+ * A **lightweight session** on this host, which is how this Worker describes
+ * material (REQ-173 for documents, REQ-207 for images).
  *
- * THROUGH THE SESSION FACTORY, NOT THROUGH THE SDK. `describe.ts`'s image
- * describer reaches the Messages API directly, and says at length why: the AI
- * host's surface carries no image content block, so an image genuinely cannot be
- * described through the host this Worker already runs. A document digest has no
- * such excuse — it is text in and text out — so it goes through the same
- * `SessionManager` a conversation goes through, and this Worker keeps ONE path to
- * a model rather than acquiring a second by default.
+ * THROUGH THE SESSION FACTORY, NOT THROUGH THE SDK. Until REQ-207 the image
+ * branch reached the Messages API directly, and said at length why: the AI host's
+ * surface carried no image content block, so a photograph genuinely could not be
+ * described through the host this Worker already runs. REQ-111 put content blocks
+ * on that surface, so the excuse is spent — and this Worker keeps ONE path to a
+ * model rather than the two it had.
  *
  * WHAT MAKES IT LIGHTWEIGHT is everything the consultant session has that a
- * digest does not need:
+ * description does not need:
  *
- *   - **No tools.** The describer is given text and asked for text. A toolbox
- *     would hand a describer the ability to write to the client's site, which is
- *     an authority nothing about this task calls for.
- *   - **No corpus and no priming.** The document is the whole context. Priming
- *     the describer with the landscape would spend a large prompt teaching it
- *     about material it is not being asked about.
- *   - **A {@link NullArchive}.** THE LOAD-BEARING ONE. `TicketSessionArchive`
- *     homes a session in a `chat` ticket, so an archiving describer would create
- *     one chat ticket per upload — members of the very corpus this ticket is
- *     trying to keep to material a client would recognise. A digest is not a
- *     conversation and nobody will resume it.
- *   - **A session per document, closed after it.** Two documents share no
+ *   - **No tools.** The describer is given material and asked for prose. A
+ *     toolbox would hand a describer the ability to write to the client's site,
+ *     which is an authority nothing about this task calls for.
+ *   - **No corpus and no priming beyond the one instruction.** The material is
+ *     the whole context. Priming the describer with the landscape would spend a
+ *     large prompt teaching it about material it is not being asked about.
+ *   - **A `NullArchive`.** THE LOAD-BEARING ONE. `TicketSessionArchive` homes a
+ *     session in a `chat` ticket, so an archiving describer would create one chat
+ *     ticket per upload — members of the very corpus REQ-173 was trying to keep
+ *     to material a client would recognise. A description is not a conversation
+ *     and nobody will resume it.
+ *   - **A session per piece of material, closed after it.** Two uploads share no
  *     context: carrying one into the other's turn would let the first colour the
  *     second's description, which is a subtle failure with no symptom.
  *
  * The junction is `memoryJunctions()` for the same reason the chat host's is —
  * `node:fs` under `nodejs_compat` is a per-isolate shim that passes every test in
  * workerd and loses everything in production.
+ *
+ * ONE FUNCTION FOR BOTH DESCRIBERS, because the difference between them is a
+ * system prompt and the shape of one turn's content — everything else, which is
+ * all of the above, is the same decision made twice. Consolidating an image path
+ * onto the text path only to leave two copies of the path would have missed the
+ * point of the exercise.
+ *
+ * A DISTINCT `name` PER DESCRIBER, AND THAT IS NOT COSMETIC. `registerBackend` is
+ * a process-wide idempotent overwrite, so two describers sharing a name means the
+ * one constructed second silently owns the first's backend — and since the router
+ * builds both per request, the text describer would answer through the image
+ * describer's client. The roles differ (their priming is their whole job), so this
+ * is a cross-wiring with no symptom until a description comes back written to the
+ * wrong instruction.
  */
-export function sessionTextDescriber(
+function describerSession(
+  name: string,
+  system: string,
   apiKey: string,
   // THE SAME SEAM THE CHAT HOST'S DOUBLE USES (BUG-39). The Anthropic client is
   // the one boundary these suites may fake — it is the network — and faking it
   // here rather than the whole describer is what lets a UAT assert the things
   // this function actually decides: no tools, a null archive, one session per
-  // document, closed after it.
-  { client = null }: { client?: unknown } = {},
-): DescribeText {
+  // upload, closed after it, and — for images — that a picture was really sent.
+  client: unknown,
+): (content: unknown) => Promise<{ text: string; model: string }> {
   // ONE BACKEND OBJECT, held so its `model` can be reported as the describer.
   // `registerBackend` is an idempotent overwrite and the adapter is stateless
-  // between segments, so one instance serves every document this request
-  // describes — the per-document isolation that matters is the SESSION's.
+  // between segments, so one instance serves every upload this request describes
+  // — the per-upload isolation that matters is the SESSION's.
   const backend = new lib.ClaudeAPIBackend({
     apiKey,
     tools: [],
     ...(client ? { client } : {}),
   })
-  lib.registerBackend(DESCRIBER_BACKEND, () => backend)
+  lib.registerBackend(name, () => backend)
 
   const role = new lib.Role({
-    name: DESCRIBER_ROLE,
+    name,
     // ONE ENTRY, AND ONLY ONE (BUG-63). Under DOC-22 the preamble is not a field
     // but the first priming entry, and this role's priming is the whole of it:
-    // the document is the context, and there is nothing else this role should
-    // know. The empty `ContextSource` beside it is gone with the seam.
-    priming: [new lib.Entry({ name: 'digest-system', text: DOCUMENT_DIGEST_SYSTEM })],
+    // the material is the context, and there is nothing else this role should
+    // know.
+    priming: [new lib.Entry({ name: 'digest-system', text: system })],
   })
-  const manager = new lib.SessionManager({ [DESCRIBER_ROLE]: role }, new lib.NullArchive(), {
+  const manager = new lib.SessionManager({ [name]: role }, new lib.NullArchive(), {
     junctions: lib.memoryJunctions(),
   })
 
-  return async (prompt: string) => {
+  return async (content: unknown) => {
     const sessionId = `describe-${crypto.randomUUID()}`
-    await manager.createSession(DESCRIBER_ROLE, DESCRIBER_BACKEND, { sessionId })
+    await manager.createSession(name, name, { sessionId })
     try {
-      const response = await manager.prompt(sessionId, prompt)
+      const response = await manager.prompt(sessionId, content)
       return { text: String(response.text ?? ''), model: String(backend.model) }
     } finally {
       // ALWAYS, INCLUDING ON THE FAILING PATH. The junction is in memory and the
@@ -183,6 +213,51 @@ export function sessionTextDescriber(
       await manager.closeSession(sessionId)
     }
   }
+}
+
+/** The document describer (REQ-173) — see {@link describerSession}. */
+export function sessionTextDescriber(
+  apiKey: string,
+  { client = null }: { client?: unknown } = {},
+): DescribeText {
+  const run = describerSession(TEXT_DESCRIBER, DOCUMENT_DIGEST_SYSTEM, apiKey, client)
+  // A DOCUMENT IS SENT AS A PLAIN STRING, not as a single text block. The port
+  // passes a string through untouched, so the overwhelmingly common call does not
+  // change shape on the wire because a capability it never uses was added beside
+  // it — and this describer's turn is byte-for-byte what it was before REQ-207.
+  return (prompt: string) => run(prompt)
+}
+
+/**
+ * The image describer (REQ-207) — see {@link describerSession}.
+ *
+ * THE ONE THING THAT DIFFERS FROM ITS TEXT PEER is this turn's content: the
+ * picture as an image block, then the instruction beside it. The blocks come from
+ * the port's own constructors rather than from object literals here, so the shape
+ * this Worker sends is the shape the port validates — and a media type outside the
+ * four every vision-capable backend accepts is refused at the component boundary
+ * rather than as an opaque 400 from whichever provider is configured.
+ *
+ * ORDER MATCHES WHAT THIS PRODUCT SENT BEFORE: the image first, the one-line
+ * instruction after it. The prompt that governs the answer is the role's system
+ * text, so the trailing line is a nudge rather than the specification.
+ *
+ * BASE64 HERE, THOUGH `imageBlock` ALSO ACCEPTS BYTES. The session manager writes
+ * the turn's durable record — and measures the image for it — before the backend
+ * normalises content, so raw bytes that far up the path are read as a string and
+ * are not one. The encoder is the port's, not a local one: this file having its
+ * own would be the duplication this ticket is removing, in miniature.
+ */
+export function sessionImageDescriber(
+  apiKey: string,
+  { client = null }: { client?: unknown } = {},
+): DescribeImage {
+  const run = describerSession(IMAGE_DESCRIBER, IMAGE_DIGEST_SYSTEM, apiKey, client)
+  return (bytes: Uint8Array, contentType: string) =>
+    run([
+      lib.imageBlock({ mediaType: contentType, data: lib.bytesToBase64(bytes) }),
+      lib.textBlock('Describe this image.'),
+    ])
 }
 
 /**
