@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:42:52.904777+00:00'
+updated_at: '2026-09-08T22:44:08.101753+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -279,5 +279,30 @@ Where we are on the rest: eight authored system-KB documents plus the three proj
 <!-- xgd-chat role="user" ts="2026-09-08T22:42:52.539353+00:00" -->
 #### You
 I just ran the build - is the new content immediately available to the running chat session? (will it be posted in its system prompt next turn)
+
+<!-- xgd-turn id="4397d511-c071-4b07-bd4b-49d95423829c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:44:07.634646+00:00" -->
+#### Claude
+Let me check what the build actually produced before answering.
+
+The build worked — corpus is now **11 documents in 5 territories**, DOC-31 and DOC-17 are gone, and the map has a dedicated territory for the beta-reality document, which is exactly where you want it to be findable. `kb.js` was regenerated and carries both the new documents and the new map, so `1c assets` ran too.
+
+**But no — a running chat session will not see it next turn.** Three gates, and only the first is passed:
+
+**1. Corpus and map built.** ✓ Done.
+
+**2. The bundle has to reach the worker.** `system-knowledge.ts` does `import { KB } from './generated/kb.js'` — a module-level import baked in at bundle time. Changing the file on disk does nothing for a deployed worker. This needs a **deploy** (locally, a `wrangler dev` restart).
+
+**3. Even with the new bundle, the map is assembled once per session, not per turn.** The shared component's providers do re-read on every call, but `host-core.ts` puts the cache boundary *last*, which declares nothing volatile — its own comment says "the landscape is still read once per session rather than once per turn." Priming is assembled inside the memoised `managers` map, one per site per isolate.
+
+The practical consequence is better than it sounds: **a deploy replaces the isolate**, so `managers` is empty, the manager is rebuilt, and priming re-assembles on the next turn. The conversation itself resumes — the session id is derived from the slug and the transcript replays. So after a deploy, the next turn of the *same* conversation gets the new map.
+
+Two things worth knowing alongside that:
+
+- **Search is live before the map is.** The index ships in the same bundle and is consulted at call time, so once the bundle lands, a search finds the new documents even in a session whose prompt still carries the old map. It just won't know to look — which is precisely the map's job.
+- **The delta seam won't announce these.** The per-turn "what entered the corpus" feed (REQ-160) queries the tenant's ticket store over the *project* KB. The system KB is shipped and never passes through it, so new system documents are never announced mid-session.
+
+So: deploy, then the next turn picks it up. Worth watching for on that first turn — whether the assistant reaches for DOC-47 before making a claim about what's built is the cheapest test of whether any of this landed.
 
 <!-- xgd-chat-end -->
