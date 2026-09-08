@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:19:30.050850+00:00'
+updated_at: '2026-09-08T02:21:04.061116+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -302,5 +302,11 @@ Two things to watch, both consistent with what I said before:
 
 - It will want to **change your `_dmarc` TXT record** to add its `rua=` reporting address. That's fine and expected — it's a different record from SPF, and it doesn't touch alignment. Leave the policy at `p=none` for now; the point is to gather reports first.
 - It still isn't the same job as `invite@` receiving mail. DMARC Management routes *machine reports*; you need a routing rule for `invite@1stcontact.io` → your mailbox separately, and that one is what's blocking, since the invite now sends from a repliable address.
+
+<!-- xgd-turn id="16834ded-f0eb-48f9-8fd5-2fb5bd849e12-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:21:03.056335+00:00" -->
+#### You
+We have switched on DMARC - Clourflare is really frustrating and your knowledge of it is way out of date
 
 <!-- xgd-chat-end -->
