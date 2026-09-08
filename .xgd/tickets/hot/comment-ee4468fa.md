@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T04:28:13.501539+00:00'
+updated_at: '2026-09-08T04:30:50.121137+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -337,5 +337,59 @@ Not that the 4 mins is not Wix's time, it is the customer's time - but the point
 Note: we have yet to actually create a site (any site!) so the 4-5 hours is speculative right now - once we have the tools in place perhaps tomorrow - we will start to build the 1c site and we will see how long it takes.
 
 15 mins is an initial FREE ai consultation - the goals are (1) understand the user's problem (2) determine if we are a good fit for what they need (3) give them a taste of the experience of working with 1c to create a site and get them excited about the possibilities (assuming 2)
+
+<!-- xgd-turn id="66374582-2849-4c4c-b549-69ddb2f67a56-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T04:30:44.843074+00:00" -->
+#### Claude
+All four are material, and two of them mean I wrote something wrong. Let me fix the doc, then explain what changed.
+
+Splice bug — the first replacement swallowed the section I was about to rewrite. Redoing as one block.
+
+Clean. Two of your corrections changed the argument, not just the wording.
+
+## The four minutes — I had it backwards
+
+I wrote that four minutes discloses how little thought *Wix* put in. That's attacking a claim they never made. You're right: it's a promise about the **customer's** time, and as a convenience promise it's honest.
+
+The version that actually holds is better, because it's about the customer rather than the vendor:
+
+> **Ask what a customer can say in four minutes.** Not who their customers are, not what they really sell as opposed to what they list, not why anyone picks them over the person down the road, not what a visitor is supposed to *do*.
+
+Four minutes of input can't contain a business. The input bounds the output — so whatever fills the gap between four minutes of answers and a finished website isn't the customer. It's a template. Same welding to No Templates, but now the argument is airtight instead of a strawman.
+
+And the second half, which I'd underweighted: **four minutes is never the real number.** It's four minutes to a draft, then however many evenings in the editor writing your own copy and picking your own images. The honest comparison isn't 4 minutes vs. a few hours:
+
+> Four minutes, and then you're on your own — against a few hours, and then it's done.
+
+## AI hours — this fixes a hole I'd left
+
+My "the hours are ours, not theirs" pairing was wrong once the hours are chat sessions: the client *is* in the chat. The honest resolution is that the hours are **conversation, not labour** — they answer questions about their own business, which is the subject they know best, and at no point pick a font or drag a block.
+
+But the AI-hours point is stronger than a fix. Three things fall out of it:
+
+- **Depth of attention stops being a function of price.** A human designer's five hours are expensive and rationed, so they get spent narrowly. The AI's are neither.
+- **Nothing to book.** No calendar, no timezone, no showing up — the entire scheduling apparatus drops out of the funnel. That's a real advantage over every "book a demo" competitor, and I added *book a call* / *book a demo* / *free trial* to the avoid list.
+- **It settles DOC-32's "direct access to whoever does the work" as a fact of architecture, not a service promise.** The AI *is* who does the work. There's no junior, no account manager, no handoff — ever. A design studio can only promise that while it's small.
+
+## The number isn't ours to claim yet
+
+This is the most important correction and I've given it its own subsection. DOC-33's 4–5 hours is a **design target, not a measurement** — no site has been built with the tool, including ours. Publishing an unvalidated duration is exactly the self-inflicted wound the integrity position can't survive, and I'd been treating it as a fact two turns running.
+
+Recorded: **the 1c site is the first measurement.** Build our own with our own tool, time it honestly, use whatever number comes out. Two hours, say two hours. Twelve, that's worth knowing before promising anything. Until then copy describes the *shape* of the process and commits to no duration.
+
+That's a nice property of building your own site first — it's simultaneously the dogfood, the hero animation's source material, and the source of the only number we're allowed to quote.
+
+## The 15 minutes
+
+Corrected to **free consultation, not qualification call** — and the distinction I've made crisp is that we give away *time with the thing that does the work*, not a crippled product. That's why "no free tier" and "free conversation" aren't in tension.
+
+Your goal 3 was missing entirely from what I wrote, and it changes the design: this isn't a form or an interview, it's the first act of the experience and it has to be *good*. The client should leave having seen the AI understand something about their business they hadn't articulated. That's the taste — and it's an honest preview, because if the free fifteen minutes feels like a questionnaire, the paid hours will too.
+
+I flagged one thing you didn't say but that follows: **the order is load-bearing.** Goal 2 gates goal 3. Exciting someone and *then* telling them we can't help is cruel and wasteful. Qualify first, spend the excitement only on people who can act on it.
+
+Also noted the fifteen minutes should **seed the ledger** — Act I is client property, so a converting client starts the full consultation from what we already learned rather than from zero.
+
+The disqualification-criteria gap still stands as blocking on the goal-2 promise, and it's now clearly an AI-executed artifact rather than a script for you. Still happy to spec it when you want.
 
 <!-- xgd-chat-end -->
