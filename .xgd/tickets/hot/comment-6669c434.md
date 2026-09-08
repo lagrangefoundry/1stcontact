@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:15:40.478213+00:00'
+updated_at: '2026-09-08T22:25:24.614663+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -604,5 +604,11 @@ Two things I left alone and want your call on:
 - **Splitting.** I kept both halves in one ticket since you asked me to update rather than split, and they are one intent. But the describer is ready now and the search half is blocked on a framework component nobody has built — so as it stands the ready half waits. Say the word if you want them separated.
 
 The one open decision still blocking the search half is which search API — it fixes the declaration, the credential name and the result shape.
+
+<!-- xgd-turn id="1ea65d0a-4064-4242-bf02-f1d28a42f9c0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:25:23.637634+00:00" -->
+#### You
+So, lets discuss - if we are using a model API with its own tools built in - wouldn't it make sense to be able to use them?
 
 <!-- xgd-chat-end -->
