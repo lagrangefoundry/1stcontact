@@ -109,12 +109,25 @@ export interface MailEnv {
    */
   RESEND_API_KEY?: string
   /**
-   * The From address — `no-reply@1stcontact.io`, declared in `wrangler.toml` on
-   * both sides.
+   * The From address to fall back to — `1st Contact <no-reply@1stcontact.io>`,
+   * declared in `wrangler.toml` on both sides.
    *
    * CONFIGURATION AND NOT A LITERAL AT A CALL SITE. A sending address is a fact
    * about the deployment, and the day it changes it must change in one place
    * rather than in however many templates were written by then.
+   *
+   * A FALLBACK AND NO LONGER THE ONLY ADDRESS ([[REQ-205]]). A message template
+   * may name its own, and the invite does; this is what a template naming none
+   * means, which is what every template written before that field existed
+   * already meant. It was deployment-wide, so there was exactly one address for
+   * the invite, the sign-in link and the lapse notice alike — and setting it to
+   * a repliable `invite@` would have sent sign-in links from `invite@` too.
+   *
+   * IT CARRIES A DISPLAY NAME, in RFC 5322 `Name <address>` form, which the
+   * provider takes as-is: an anonymous From is most of what makes a message from
+   * a domain with no reputation look like phishing to a filter. {@link mailFrom}
+   * trims and checks non-empty and passes the string through, so nothing between
+   * here and the provider is entitled to take it apart.
    */
   MAIL_FROM?: string
 }
