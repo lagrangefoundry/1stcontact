@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:32:26.201765+00:00'
+updated_at: '2026-09-08T21:32:42.938873+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,15 @@ One housekeeping note: this session's own chat ticket is archived, so `xgd ticke
 <!-- xgd-chat role="user" ts="2026-09-08T21:32:26.090097+00:00" -->
 #### You
 oh my bad - we had two chat tickets generated and I started typing in the wrong one. Can you unarchive this ticket please - its important. Before we go any further.
+
+<!-- xgd-turn id="14c0cc82-ef30-4ac4-8b3b-fd0eb479ed8f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T21:32:42.097843+00:00" -->
+#### Claude
+Unarchived — CHAT-44 (`chat-762b15a2`) is back in the open store.
+
+I also took the chance to record the session on it, since the update was blocked before: title is now "System knowledge base: choosing the corpus for the builder AI", and the body carries the purpose, the verified KB wiring, the stale-awareness-map defect, and the seven coverage requirements. The `<!-- xgd-chat-end -->` marker is preserved at the top, so the transcript still appends correctly.
+
+Ready to continue — the open questions from the survey are whether the proposed six-document set looks right, and whether you want the beta-reality document drafted first.
 
 <!-- xgd-chat-end -->
