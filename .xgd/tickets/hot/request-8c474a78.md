@@ -6,7 +6,7 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T02:12:59.464714+00:00'
+updated_at: '2026-09-08T03:16:17.790572+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -364,3 +364,41 @@ fix to `PrimingAssembly.offsets`, and a language-neutral UAT for the conformance
 
 **Item 10 should not be scheduled until BUG-45 lands.** Nothing else in this ticket is
 blocked by it — the role-tier marker (B) is independent and can go first.
+
+
+### Sequencing against BUG-45 — narrower than E2 first stated
+
+*Added 2026-09-07, correcting the line above.* "Item 10 should not be scheduled until
+BUG-45 lands" is too broad. BUG-45 bites only where something is **volatile**, and the only
+volatile entry in play is `session-summary`. Measured against
+`components/ai/js/src/priming.js`, for four configurations of this host (probe asserts each
+reported offset lands on a section edge of `stable`, the property BUG-45 breaks):
+
+| Configuration | volatile | `stable === text` | offsets | Safe? |
+|---|---|---|---|---|
+| 1. Today — empty product tier, no role marker | — | yes | `[3]` of 161 | correct, but caches only `consultant-system` |
+| 2. **B alone** — role marker at end of the role tier | — | yes | `[161]` of 161 | **yes** — whole priming cached |
+| 3. Partial defaults (`transcript-pointer` + `tool-transcript-note`, no summary) + role marker | — | yes | `[190]` of 190 | **yes** |
+| 4. Full shipped defaults (with `session-summary`) + role marker | `session-summary` | **no** | `[22, 232]` of 190 | **no — BUG-45** |
+
+Row 4 is the sharper version of E2 than the one filed: the second offset (232) **exceeds**
+`stable.length` (190), so `cacheBreakpoints`s `o <= length` clamp discards it outright. The
+role tier declares a cached prefix over the whole priming and receives **no breakpoint at
+all** — the vanishing-breakpoint symptom, reached by the actual target configuration rather
+than a contrived one.
+
+So the blocking relation is: **BUG-45 blocks the `session-summary` entry, and nothing else
+in this ticket.** Rows 2 and 3 are unblocked and land the whole of the caching win.
+
+One consequence of row 3 worth deciding deliberately, because it is finding A again in a
+milder form: the product tier renders **before** the role tier, so adopting `transcript-pointer`
+and `tool-transcript-note` puts framework prose ahead of "You are a design consultant". That is
+the framework s own default ordering and it is probably fine — a pointer to the transcript is
+not a claim about identity — but it is the same ordering constraint, and it should be a choice
+rather than a side effect.
+
+**Revised order of work:** (i) the role-tier marker + `maxPrimingChars` (items 3, 11) — the
+measurable win, unblocked; (ii) prose to configuration (items 1, 2-static, 4, 6, 7, 9) per
+A/D/F — unblocked; (iii) `transcript-pointer` / `tool-transcript-note` (part of item 10) —
+unblocked, pending the ordering decision above; (iv) `session-summary` (rest of item 10) —
+after BUG-45; (v) items 2-dynamic and 8 — blocked on C, `ctx.scope`, unrelated to BUG-45.
