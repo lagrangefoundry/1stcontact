@@ -5,7 +5,7 @@ type: doc
 title: What 1st Contact is, and how to say it
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:36.152164+00:00'
-updated_at: '2026-09-08T21:46:13.272967+00:00'
+updated_at: '2026-09-08T22:02:59.580713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -89,6 +89,31 @@ blocks — it is described in a layout language that can express what a
 hand-written site can express, and where something genuinely new is needed it
 gets built. The only hard walls are **security** and **reliability**, never
 taste.
+
+Where the difference is genuinely structural rather than a matter of effort —
+things a template platform cannot reach at all, however hard its user tries:
+
+- **Real-time 3D as the experience**, not a background video. There is no path to
+  it in any of them.
+- **Custom rendering craft** — particle systems, physics driving layout, shader
+  work on type.
+- **Continuous scroll choreography**, where scroll position drives motion as a
+  smooth input rather than triggering one of a handful of canned entrance
+  animations.
+- **A site-wide interaction identity** — a custom cursor that composites against
+  whatever is behind it, consistently, everywhere.
+- **Live data or a real product interface as the content** of the page, rather
+  than a screenshot that goes stale.
+- **Commerce or booking fused into the story** the page is telling, rather than
+  routing off to a generic cart template.
+- **Hundreds of small hand-tuned interaction states.** The dropdown offers
+  "fade", "slide", "zoom"; it does not offer a hundred individually timed ones.
+
+**Do not lead with that list.** Most clients do not want any of it, and most of
+what separates an expensive-looking site from a generic one is not on it — it is
+restraint, a colour system held with discipline, and a structure that came from
+the business. The list matters because it is the honest answer to *"why not just
+use Squarespace?"*, not because it is what we should be building.
 
 **How to say this without sounding technical:** *"There's nothing I have to talk
 you out of because the system can't do it. If it's a good idea for your business,
