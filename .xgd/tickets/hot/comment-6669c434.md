@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T03:10:40.906904+00:00'
+updated_at: '2026-09-08T03:13:07.172154+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -287,5 +287,59 @@ The three concrete backend changes provider tools require, since they'd otherwis
 > 
 > 
 > Lets discuss this - I do not recall why we said that? Please create a ticket
+
+<!-- xgd-turn id="d84a7f71-2173-436a-b803-f12bde1bda78-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T03:13:06.786172+00:00" -->
+#### Claude
+Good question to ask before building on it. Let me find the actual rationale rather than infer it.
+
+Found it — there's a whole section on exactly this. Let me read it.
+
+That changes the picture — DOC-20 answers this directly, and my earlier framing was wrong.
+
+DOC-20 answers this directly, and I got it wrong. Writing the discussion ticket.
+
+Now correcting REQ-139's framing.
+
+**lagrange-framework CHAT-30** (`chat-5ddeb33d`, open) — and the answer to "why did we say that" is: **we didn't.** My earlier framing was wrong, and it changes what REQ-139 should be.
+
+## What that sentence actually was
+
+Not a rule. It's the *consequence* of having one shipped call type, stated in the same paragraph:
+
+> And with one shipped call type there is no dispatch registry, no client-handler port and no descriptor serialization format — **those would be machinery in advance of need**.
+
+A YAGNI status note, which I read as architecture. That's exactly how the misreading happened, and it's one of the discussion points I put in the ticket — the line reads as a prohibition and isn't one.
+
+## The real rule is narrower
+
+**S1:** configuration *chooses among* call types and cannot *invent* one. Products can't define a mechanism for reaching an API; they can absolutely select and scope one. Extending the set is a reviewed framework change with a documented bar.
+
+## And you already designed what I was proposing
+
+DOC-20 works `http` through in full under *"The bar for adding a second"*, marked **"designed and deliberately not shipped, so the pattern is set"**: origin is configuration and never a parameter (SSRF dies structurally, not by validation); path slots percent-encoded *including* `/` (traversal dies by the encoding being total, not a blocklist); credentials at construction, redacted from audit; redirects can't change origin — *"a fixed origin is a lie after one uncontrolled hop"*; responses get a size cap, content-type check, and `untrusted` provenance by default.
+
+The Deferred section: *"Coverage gaps in the call-type set… extensible by design; a missing member is a later vetted addition, **not a blocker**."*
+
+## Why it was deferred — and why that's expired
+
+DOC-20 states its test: *"Checked against every intended consumer — ticketing, knowledge, filesystem, 1stcontact L1 — each holds its API in-process. Nothing needs the Toolbox to spawn a process or open a socket."*
+
+That was true then. It isn't now — and the describer already bypasses the Toolbox to call the SDK directly, which is precisely the failure the deferral was meant to prevent.
+
+## What's left genuinely open
+
+Only one of the three needs design:
+
+| | Status |
+|---|---|
+| Product HTTP APIs | **No design work.** Ship `http` as specified. |
+| Provider server tools | **The real question.** Fits neither `inproc` nor `http` — nothing on our side executes anything, no host API to construct against. S1's four questions map awkwardly onto a call we don't perform. And it falsifies DOC-20's *"Cloud backends have no tools of their own; the Toolbox **is** their entire capability surface"* — needs an amendment, not just an addition. |
+| Vision describer | **Possibly needs nothing.** A describer toolbox constructed with a model client is already `inproc`. I over-scoped it. Open question is whether "describe an image" is generic enough for `ai`, or drags product prompt text in. |
+
+**I've corrected REQ-139** — its rationale section now says it *ships* DOC-20's `http` design rather than carving an exception, and points the provider-tool premise question at CHAT-30.
+
+Four things I've listed for discussion in CHAT-30: ship `http` now or wait for a second consumer; whether provider-executed calls need their own security section rather than fitting S1; whether the describer stays `inproc` and where its prompt lives; and whether that "no dispatch registry" line should be reworded so the next reader doesn't repeat my mistake.
 
 <!-- xgd-chat-end -->
