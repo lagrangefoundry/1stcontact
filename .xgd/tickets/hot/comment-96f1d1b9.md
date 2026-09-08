@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:19:00.811045+00:00'
+updated_at: '2026-09-08T02:19:30.050850+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -279,5 +279,28 @@ Everything from my last message still holds — receive-only, separate from Rese
 <!-- xgd-chat role="user" ts="2026-09-08T02:18:59.964987+00:00" -->
 #### You
 Email gives me email security and DMARC Management
+
+<!-- xgd-turn id="7e886c9b-5947-47bc-ba8b-bd10630446ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:19:29.499215+00:00" -->
+#### Claude
+That menu is the per-domain one; **Email Routing sits at the account level** in the current dashboard, not under the domain. Email Security (Area 1) and DMARC Management are the two that stayed domain-scoped.
+
+Try, in order:
+
+1. **Account home** — click the account name in the breadcrumb/top-left to leave the domain — then look for **Email Services** (sometimes just **Email Routing**) in the left nav. You pick the domain from inside it.
+2. **Direct URL**, which has survived the reorgs: `https://dash.cloudflare.com/<account_id>/1stcontact.io/email/routing`. The account id is on the domain's Overview page, bottom right. If it redirects, follow it — that tells you where the nav moved it to.
+3. **The API calls from my last message**, which don't depend on the nav at all.
+
+It's definitely available on that domain: **DMARC Management is built on Email Routing** — it creates a routing rule to collect the RUA reports. Seeing one means the other is provisioned.
+
+## While you're in there — DMARC Management is worth switching on regardless
+
+It's Cloudflare's free aggregation of DMARC reports, and it's exactly what TODO-5 §4 is waiting for: *"move DMARC from `p=none` to `p=quarantine` once reports show clean alignment."* Right now that decision has no evidence behind it. Turning this on starts collecting it, and it costs nothing.
+
+Two things to watch, both consistent with what I said before:
+
+- It will want to **change your `_dmarc` TXT record** to add its `rua=` reporting address. That's fine and expected — it's a different record from SPF, and it doesn't touch alignment. Leave the policy at `p=none` for now; the point is to gather reports first.
+- It still isn't the same job as `invite@` receiving mail. DMARC Management routes *machine reports*; you need a routing rule for `invite@1stcontact.io` → your mailbox separately, and that one is what's blocking, since the invite now sends from a repliable address.
 
 <!-- xgd-chat-end -->
