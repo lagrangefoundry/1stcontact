@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T03:13:07.172154+00:00'
+updated_at: '2026-09-08T03:17:14.621280+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -341,5 +341,11 @@ Only one of the three needs design:
 **I've corrected REQ-139** — its rationale section now says it *ships* DOC-20's `http` design rather than carving an exception, and points the provider-tool premise question at CHAT-30.
 
 Four things I've listed for discussion in CHAT-30: ship `http` now or wait for a second consumer; whether provider-executed calls need their own security section rather than fitting S1; whether the describer stays `inproc` and where its prompt lives; and whether that "no dispatch registry" line should be reworded so the next reader doesn't repeat my mistake.
+
+<!-- xgd-turn id="fb21e4cc-2166-4e2e-81b7-d284888fc916-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T03:17:14.279424+00:00" -->
+#### You
+Can you also create a 1c ticket please?
 
 <!-- xgd-chat-end -->
