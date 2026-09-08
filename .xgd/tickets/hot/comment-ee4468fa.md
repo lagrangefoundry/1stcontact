@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T02:09:36.868876+00:00'
+updated_at: '2026-09-08T02:11:13.426679+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -230,5 +230,45 @@ We have to be careful not to position ourselves as just a website provider. But 
 Lovable is great comp from a design point of view - the others look remarkably uninspiring 
 
 I really like the idea of an animation that shows the conversation in the chat and the site creation next to it. I like how Lovable drives their animations with the down scroll
+
+<!-- xgd-turn id="c65998d0-847a-42a4-8411-3bb6ace0ca37-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:11:12.925912+00:00" -->
+#### Claude
+Three good calls. Let me push on each, then record them.
+
+Recorded in DOC-4 as two new Messaging sections. The substance, and where I'd push back:
+
+## No Templates
+
+I scoped it exactly as you framed it — the front office is the position, *No Templates* is what we say **when the conversation is about the website**, not the headline.
+
+The sharpest version of your observation is that AI builders market themselves as AI-first, but their AI's job is **selection from a catalogue**, not creation. Durable, Hostinger, Jimdo Dolphin and Wix ADI all run a two-to-five question intake and then pick a template. So:
+
+> Their AI picks. Ours designs.
+
+It's a strong claim for a reason worth being explicit about: **they structurally cannot follow.** The template gallery isn't a marketing choice they could drop — it's their product architecture. And it's checkable in one exchange: *"show me your templates"* — *"we don't have any."*
+
+It also solves a problem we had. "The AI asks you questions" is table stakes now — every builder claims it. *No Templates* is the differentiator a prospect can actually verify without taking our word for the consultation.
+
+**Two obligations it creates, both recorded:**
+
+1. **The claim is about process; prospects only see output.** DOC-31 rec. 4 already warns that a system with *no* fixed catalogue is **more** exposed to template-DNA failure than a hand-built site, if the generator settles into a de facto fixed section order. If two of our sites share a fingerprint, this claim collapses publicly and embarrassingly. Its own Checklist B test — strip the copy, swap the photography, is the architecture still generic? — needs to run against our own output distribution *before* we say this loudly. I'd treat that as a gate on the claim, not a nice-to-have.
+
+2. **"No templates" can read as "more work for me."** To someone who wants a site by Friday it sounds slower. It has to be paired every time: *no templates, and nothing for you to design either.* The consultation is our labour, not theirs.
+
+## The hero animation
+
+I think this is right, and better than you may have pitched it, because of something in DOC-31: **continuous scroll-linked motion is on its technical-ceiling list** — genuinely outside what Wix, Squarespace and Framer can produce. So the hero isn't just illustrating the argument, it *is* the argument. A visitor who has seen it has already watched a thing our competitors' tools couldn't build.
+
+**The one decision that makes or breaks it: which conversation you show.** If the chat reads "make me a catering website" → gorgeous site, we've demonstrated a prompt-to-site tool. That's Lovable and Durable, and it actively undermines the consultation thesis — we'd have spent our hero proving we're the thing we say we're not.
+
+The excerpt needs at least one beat of **pushback, or a question whose answer visibly changes the site**. Something like *"who's booking you — couples, or venues?"* and then the architecture diverging based on the answer. That single moment is what DOC-32 says people actually pay for, and no prompt-to-site demo can show it.
+
+Constraints I recorded: scroll-*linked* not scroll-*jacked* (Lovable stays on the right side of this; most don't), degrades to a static sequence without JS or with reduced-motion, cheap enough not to contradict our own JAMStack thesis, and **built from a real DOC-33 session transcript** rather than written as marketing fiction — more credible, and it's the dogfooding we claim.
+
+Also added `template`, `theme`, `gallery` and `get started in minutes` to the avoid-list, and `custom` to the lead-with list.
+
+One thing I did *not* do: DOC-4 now carries a fair amount of marketing-site design direction, which is arguably not product definition. If the 1c site build gets substantial, that section probably wants to graduate into its own doc. Happy to leave it where it is for now — just flagging the seam before it becomes a mess.
 
 <!-- xgd-chat-end -->
