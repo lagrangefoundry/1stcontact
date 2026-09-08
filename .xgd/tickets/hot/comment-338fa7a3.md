@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:52:09.077933+00:00'
+updated_at: '2026-09-08T21:54:32.329153+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,48 @@ Once you've decided, the remaining work is: reclassify, update the priming, then
 Lets discuss 2 first - that sounds like a bug - priming should be handled by the KMS solution now with no docs STUFFED into the session. Lets double check what was implemented
 
 ok maybe we keep those 4 - I guess the key point is this: "System KB docs MUST be written for the AI they are canonical, must be kept accurate and current" If we think those 4 docs should meet that standard, then lets keep them in
+
+<!-- xgd-turn id="63567994-7dc1-4850-b7e8-53e4821a1b7e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T21:54:31.631358+00:00" -->
+#### Claude
+Let me verify the priming path properly before answering.
+
+Confirmed on the priming question. Now applying the standard you gave to the four incumbents.
+
+## 1. The priming — checked, and nothing is stuffed
+
+Your instinct about the design is right, and it's already implemented that way. Traced end to end:
+
+`priming.json` declares five entries in order — `consultant-role` (authored), `product-system` (authored), **`km-landscape` (provider)**, `purpose` (authored), **`km-mechanism` (provider)** — then the cache boundary.
+
+The two providers come from the shared component. `km.landscape` renders the awareness map; `km.mechanism` renders how to search it. The component's own header states the contract:
+
+> *"Neither carries a document body, which is the point: a session is told where to look and how to look, and pulls what it needs. Nothing is stuffed into context."*
+
+Both re-read on every call, so a document published mid-session becomes reachable. Priming is capped at 60,000 chars and currently runs about 16,000 — 4,851 static plus ~11,000 of projected tool manual. The landscape is the only part that grows with the corpus, and it has plenty of room for eleven documents.
+
+**But there is a real defect, smaller and different from the one you suspected.** The authored `purpose` entry hardcodes three document ids: *"the consultation playbook (DOC-33) … personas, modes and registers (DOC-35) … the differentiation audit (DOC-31)."* That's a hand-maintained id list doing the map's job — the exact drift `kb.ts` rejects id lists for elsewhere: *"an id list drifts silently when a document is renamed or retired."* It also makes a two-tier corpus, where three documents are named in priming and every other member is discoverable only through the map.
+
+It's load-bearing right now for a bad reason: the awareness map is stale, so the thing it compensates for isn't working. Once the map is rebuilt, the compensation is unnecessary.
+
+The *obligation* it states is still right and still belongs in priming — "your method is written down and you are expected to read it before you start" is a behavioural instruction, not a discovery mechanism, and the map can't carry it. So the fix is to state the obligation without pinning ids, not to delete the entry. And it needs doing now regardless, because DOC-31 has just left the corpus and the entry still names it.
+
+## 2. The four incumbents, against your standard
+
+Your criterion — *written for the AI, canonical, kept accurate and current* — sorts them cleanly, so I applied it:
+
+**Kept: DOC-33 and DOC-35.** Both are addressed to the AI, both are the canonical statement of their subject, both are things we'd maintain. Nothing in the new six replaces either — DOC-48 harvests craft findings but is not a substitute for a staged playbook.
+
+**Demoted to `architecture`: DOC-31 and DOC-17.** Both fail by construction rather than by quality:
+
+- DOC-31 is a dated market research report whose final section is recommendations addressed to *us*. A competitor snapshot is not something anyone will keep current.
+- DOC-17 is a working log — "append here as you build", dated session entries, internal ticket references. A log is the raw material canon gets distilled *from*; it is never itself canonical.
+
+To avoid losing something real in the demotion, I added a curated reference set to DOC-48 (§12) carrying the named exemplar sites — Linear, Vercel, Aesop, Vero, Teenage Engineering, UNCOMMON, By-Kin, Anthropic, and the frontier set — framed explicitly as evidence rather than a shelf to pick from, per DOC-17's own warning about encoding diverse references and never a house style.
+
+**Corpus is now eight authored documents plus three projections.**
+
+Next, when you're ready: rewrite the `purpose` entry to drop the ids, then `1c kb build` and `1c assets`. That rebuild is also what clears the stale awareness map. Want me to draft the replacement wording for `purpose`?
 
 <!-- xgd-chat-end -->
