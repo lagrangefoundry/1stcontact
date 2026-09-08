@@ -6,16 +6,24 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T04:16:09.127746+00:00'
+updated_at: '2026-09-08T04:20:41.884877+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a5972ecd
+  commits:
+  - working_sha: c6150d2ef27d6b4a39d562c1f043cffdb75bb3d0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b202d966956d114ef6abbb8c69298c3eba5985fc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.137
 ---
 
 **Design ref:** lagrange-framework DOC-22 and the shipped implementation — `components/ai`
