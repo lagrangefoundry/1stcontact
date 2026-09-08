@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T04:21:20.923961+00:00'
+updated_at: '2026-09-08T04:28:13.501539+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,17 @@ Two open questions I didn't decide for you:
 2. **Scope protection.** I noted that the 15 minutes is a qualification call *about* the consultation, not a slice of it. That has to be crisp in the copy or it becomes free consulting and collides with DOC-33 §9.
 
 The disqualification criteria feel like they want their own doc — it's an operational artifact the AI will need to execute against, not prose. Say the word and I'll file one.
+
+<!-- xgd-turn id="66374582-2849-4c4c-b549-69ddb2f67a56-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T04:28:05.733739+00:00" -->
+#### You
+All these hours are AI hours not me. They are chat sessions not calls.
+
+Not that the 4 mins is not Wix's time, it is the customer's time - but the point holds - what can a customer do to create a website in 4 mins.
+
+Note: we have yet to actually create a site (any site!) so the 4-5 hours is speculative right now - once we have the tools in place perhaps tomorrow - we will start to build the 1c site and we will see how long it takes.
+
+15 mins is an initial FREE ai consultation - the goals are (1) understand the user's problem (2) determine if we are a good fit for what they need (3) give them a taste of the experience of working with 1c to create a site and get them excited about the possibilities (assuming 2)
 
 <!-- xgd-chat-end -->
