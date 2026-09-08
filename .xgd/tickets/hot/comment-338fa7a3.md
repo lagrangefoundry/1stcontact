@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:00:58.345581+00:00'
+updated_at: '2026-09-08T22:04:07.772382+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -211,5 +211,51 @@ Next, when you're ready: rewrite the `purpose` entry to drop the ids, then `1c k
 2. So I think there is material in docs 31 and 17 that is valuable it just needs to be formulated into a system knowledge based document. It sounds like you have documents that already contains some of that information, let's just make sure we don't lose anything that would be useful but presenting it correctly to the AI is important
    
    Can we talk about the House style question it's a little bit of a sidebar for this conversation but I think it's interesting and since you brought it up let's take a moment on it. I wonder if it's worth developing multiple "house styles"? A design house would tend to have a style, right? If we abdicate entirely are we throwing our babies with bathwater we want our customers websites to be unique in the sense that they don't look like they are cut from templates but having them all completely distinct and look good it's going to be a tall order. What if we had some examples and we created styles and looks that we could reference to our customers?
+
+<!-- xgd-turn id="0bf888d6-0c0b-4967-acd7-d802d8f58acb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:04:07.123669+00:00" -->
+#### Claude
+Now auditing DOC-31 and DOC-17 for anything valuable that DOC-48 doesn't yet carry.
+
+**1. BUG-65 filed** — *Priming hardwires system-KB document ids; corpus membership must come from the build.* The required behaviour is stated as an invariant rather than an edit: the `purpose` entry names no document by id or title, keeps only the obligation ("your method is written down, read it before you start"), and membership reaches the session solely through `km.landscape` — i.e. solely through `1c kb build`. Adding, demoting or retitling a document must then require no edit to `priming.json`. Verification is gettable by grep. Scope is prose in `priming.json` plus the rebuild; no `.ts` change, per that file's own header.
+
+**2. Salvage pass done.** Everything worth keeping from DOC-31 and DOC-17 is now in a document written for the AI:
+
+Into **DOC-48**: cosmetic customisation as its own failure mode (Checklist B — voice and palette over an unchanged skeleton, and why the diagnostic strips copy *and* photography); custom-but-undesigned (Checklist C — *"not generic" is not a design goal*, and it's precisely the failure you drift into while trying to avoid the first); the content vacuum (no layout language manufactures authenticity from nothing). Three failures, three different fixes, and telling them apart in your own draft is the skill. Plus: treatments are cheap; design signatures are intentional so notice and flag rather than silently substitute; the reproduction bar is perceptual, not measured.
+
+Into **DOC-46**: the concrete list of what template platforms structurally cannot reach, with an explicit instruction not to lead with it — it's the honest answer to *"why not just use Squarespace?"*, not a description of what we should build.
+
+Left behind deliberately: DOC-31's per-pattern competitor verdicts and citations, its §4 recommendations to us, and DOC-17's dated session entries and ticket references.
+
+---
+
+## 3. House styles
+
+I think you're right, and I think the phrase is what's wrong rather than the idea. Three different things hide inside "house style", and they have opposite risk profiles.
+
+**A template** — a fixed page structure you populate. Never. That's the thing we sell against.
+
+**A visual signature we impose** — every 1st Contact site recognisably ours. This is what a design house genuinely has, and it's the one that's a *liability* for us specifically. Pentagram's signature is an asset because you hire Pentagram *wanting* a Pentagram-looking thing; the client is buying the house's taste. Our client is buying *their own* identity. And at any scale, a visible signature across hundreds of small businesses — often in the same towns, sometimes in the same trade — is "Wix templates look like Wix templates" with a nicer signature.
+
+**A design language** — a coherent, named set of craft decisions: typographic system, colour behaviour, spatial rhythm, motion character, imagery posture. This is the useful thing, and it's safe for a specific reason:
+
+> **The thing that must never repeat is the structure. The thing that can safely repeat is the craft rule.**
+
+DOC-31's own diagnostic proves it — the template tell is *architecture*: strip the copy, swap the photography, is the section order still generic? Two sites sharing a typographic system and a colour discipline are entirely distinguishable if their architecture came from two different businesses. Two sites sharing an architecture are the same site no matter how different the fonts are. So a style may define *how things are treated* and must say nothing about *what sections exist*.
+
+There are two arguments for doing this that are stronger than quality control:
+
+**It gives the client a vocabulary.** "Warm and editorial, or precise and technical?" is a question a café owner can answer. "What typeface?" isn't. Showing two directions and reading the reaction is a far better elicitation instrument than an open question — that's a real gap in the consultation today.
+
+**It's a demonstration asset, and we have none.** DOC-4 commits to demonstration over claim, and there is currently no portfolio and no fast way to build one from client work. A handful of exemplar sites we build ourselves, in deliberately divergent directions, is showable now, doubles as the reference corpus for the AI's eyes, and is the honest version of "here's what this looks like."
+
+**The risk that decides whether it works** is the mechanic, not the artefact. If the client is shown a set and asked to pick, we have rebuilt the template gallery with better taste — same motion, same message. It only works if the AI forms a view from the conversation and *proposes* a direction, showing rather than naming it: *"from what you've told me, I think this business wants to feel like this — here's what I mean."* The internal name never reaches the client.
+
+Two disciplines I'd want alongside it: a style is a **starting posture that gets diverged from**, and the divergence gets recorded in the ledger — those departures are what make each site individual and they're the audit trail against convergence. And DOC-4's obligation 1 gets teeth: periodically run the strip-the-copy diagnostic across our *own* output distribution, not competitors'.
+
+**What I'd not do yet is write it as a system-KB document.** It would describe something that doesn't exist, and DOC-47 exists precisely to stop us doing that. I'd scope it as build work — five to eight directions, each defined only by treatment rules, each demonstrated on a real site — and canonise it once there's something to point at.
+
+Want me to file that as a ticket?
 
 <!-- xgd-chat-end -->
