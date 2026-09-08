@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T01:50:02.825370+00:00'
+updated_at: '2026-09-08T02:02:03.423704+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,13 @@ Lovable, v0, Framer. Their own marketing sites are exceptionally well made, and 
 One caveat on sourcing: I fetched b12.io directly, so the pivot is verified. The pricing and capability details for the others come from 2026 comparison articles rather than the vendors, so spot-check anything you plan to put in public-facing copy.
 
 Sources: [B12](https://www.b12.io/), [Best AI Website Builders 2026](https://blog.designingit.com/best-ai-website-builders-2026/), [HoneyBook vs 17hats](https://www.hellobonsai.com/blog/honeybook-vs-17hats), [17hats vs HoneyBook vs Dubsado](https://www.honeybook.com/blog/17hats-vs-honeybook-vs-dubsado), [Squarespace Pricing Guide 2026](https://www.websitebuilderexpert.com/website-builders/squarespace-pricing/), [Squarespace hidden costs](https://clementinedesign.studio/blog/squarespace-pricing-hidden-costs-2026), [Typewolf design studios](https://www.typewolf.com/design-studios), [MaxiBestOf](https://maxibestof.one/websites/design-studio), [Best AI Website Builders by use case](https://playcode.io/best-ai-website-builders)
+
+<!-- xgd-turn id="69180484-8294-4629-ac6c-430a496883c0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:02:02.452739+00:00" -->
+#### You
+Would this be useful to us: 
+
+https://www.typewolf.com/free-fonts
 
 <!-- xgd-chat-end -->
