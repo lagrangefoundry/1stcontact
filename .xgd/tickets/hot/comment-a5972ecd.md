@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-182
 created_by: xgd
 created_at: '2026-09-08T01:42:52.721767+00:00'
-updated_at: '2026-09-08T03:15:16.087709+00:00'
+updated_at: '2026-09-08T03:16:29.314337+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,30 @@ Two things to flag: the ticket committed locally (`d34134e4cf`) but the **push f
 <!-- xgd-chat role="user" ts="2026-09-08T03:15:15.949064+00:00" -->
 #### You
 Do you need BUG-45 to be resolved before you can implement this?
+
+<!-- xgd-turn id="e816af19-1b69-4427-b10a-b89f171bafb9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T03:16:29.018281+00:00" -->
+#### Claude
+No — and my E2 note overstated it, so I've corrected the ticket.
+
+BUG-45 only bites where something is **volatile**, and the only volatile entry in play is `session-summary`. I measured four configurations of this host against the framework source, asserting the property BUG-45 breaks (every reported offset lands on a section edge of `stable`):
+
+| Configuration | volatile | `stable === text` | offsets | Safe? |
+|---|---|---|---|---|
+| 1. Today | — | yes | `[3]` of 161 | correct, but caches `consultant-system` only |
+| 2. Role marker at end of the role tier | — | yes | `[161]` of 161 | **yes** |
+| 3. Partial defaults (pointer + tool-note, no summary) + marker | — | yes | `[190]` of 190 | **yes** |
+| 4. Full shipped defaults (with summary) + marker | `session-summary` | **no** | `[22, 232]` of 190 | **no** |
+
+Row 2 is the whole caching win and needs nothing from upstream: with the marker at the *end* of the role tier, `volatileNamesOf` returns empty, so `stable === text` and the offsets are correct by construction. Rows 2 and 3 also confirm the fix does what B claimed — one breakpoint covering the entire priming instead of the first 3 characters.
+
+Row 4 turned out sharper than what I filed: the second offset (232) **exceeds** `stable.length` (190), so `cacheBreakpoints`'s `o <= length` clamp discards it entirely. The role tier declares a cached prefix over the whole priming and gets **no breakpoint at all**. That's the vanishing-breakpoint symptom I'd described hypothetically in BUG-45, reached by the actual target configuration.
+
+So the work splits: the role-tier marker and `maxPrimingChars` first (measurable, unblocked), then prose-to-configuration (unblocked), then the transcript pointer and tool-transcript note (unblocked), and only `session-summary` waits on BUG-45. Items 2-dynamic and 8 remain blocked on the `ctx.scope` gap, which is unrelated.
+
+One decision row 3 surfaces: the product tier renders *before* the role tier, so adopting the pointer and tool-note puts framework prose ahead of "You are a design consultant" — finding A again, milder. It's the framework's own default ordering and probably fine, but worth choosing rather than absorbing.
+
+I haven't cut a branch or written code — say the word and I'll start on (i), which is self-contained and where the measurable win is.
 
 <!-- xgd-chat-end -->
