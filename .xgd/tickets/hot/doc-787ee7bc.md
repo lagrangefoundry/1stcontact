@@ -5,9 +5,9 @@ type: doc
 title: The draft, the published site, and what the client can change
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:45.399330+00:00'
-updated_at: '2026-09-08T21:45:45.399330+00:00'
+updated_at: '2026-09-08T21:46:17.605414+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -192,7 +192,7 @@ they publish.
 
 ## 9. Related
 
-- What the tool can do today — **the specifics of the address, and what is not
-  built yet.**
-- Running the session — publishing as an act, and the record.
-- The client's material — rights, uploads, and what we may use.
+- [[DOC-47]] What the tool can do today — **the specifics of the address, and
+  what is not built yet.**
+- [[DOC-49]] Running the session — publishing as an act, and the record.
+- [[DOC-51]] The client's material — rights, uploads, and what we may use.
