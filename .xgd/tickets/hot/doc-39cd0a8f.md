@@ -5,7 +5,7 @@ type: doc
 title: Designing the site — craft, judgement, and the ways this goes wrong
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:43.157184+00:00'
-updated_at: '2026-09-08T21:46:15.422262+00:00'
+updated_at: '2026-09-08T21:53:46.555663+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -364,7 +364,44 @@ turns into a busy one.
 
 ---
 
-## 12. Related
+## 12. A starting reference set
+
+Sites worth capturing and studying when you want to see a principle executed
+rather than described. **This is a starting set and not a house style** — the
+point of having a range is that our sites do not converge, so treat it as
+evidence about what is possible, never as a shelf to pick from.
+
+**Restraint and locked colour:** Linear (near-black canvas, one lavender accent),
+Vercel (strict monochrome, depth from lighting rather than colour), Aesop and
+CDLP (palettes locked to physical packaging).
+
+**Type as a system:** Vero New York (selective mid-sentence italics as an
+editorial device), Teenage Engineering (monospace model numbers as the branding
+itself).
+
+**Invented content architecture, not the default section order:** UNCOMMON Studio
+(a numbered case-study grid as the primary navigation metaphor), Alethia (dual
+numbering systems forming a bespoke modular grid).
+
+**Motion and micro-interaction density:** Linear (over a hundred small, tuned
+states that read collectively as craft), By-Kin (a hand-weighted scroll system
+tuned so nothing snaps).
+
+**Warmth and the human hand:** Anthropic (hand-drawn illustration against
+sterile sameness), Cohere (generous whitespace as confidence).
+
+**The frontier, for reference rather than imitation:** Montfort, Resn, Active
+Theory, Lusion. Genuinely out of reach for template platforms — and almost never
+the right instinct for a small business that needs enquiries.
+
+Two things to hold alongside this list. **Take form, never content** — §8. And
+notice what a site is doing *specifically*: "Linear looks expensive" is not a
+lesson, "Linear holds one accent colour across every surface and never reaches
+for a second" is.
+
+---
+
+## 13. Related
 
 - The page-language reference and the tool reference — **the vocabulary and the
   operations. Generated, always current, and the place to look when something
