@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T22:47:16.605202+00:00'
+updated_at: '2026-09-08T22:47:59.744997+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,47 @@ I have no idea what the image budget really means
 I have a ChatGPT API key does that work?
 
 I have no idea what the image budget really means what do I get for 10 vs 4?
+
+<!-- xgd-turn id="dbfebd5a-664c-477a-aa60-aacd92752094-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:47:59.140608+00:00" -->
+#### Claude
+Both answered, and one of them changes my earlier advice.
+
+## The ChatGPT key
+
+**Probably yes, with one thing to check.** What's needed is an OpenAI *platform* API key — `sk-...` from platform.openai.com — which is the same credential for chat and for images; the plugin just points it at `/v1/images/generations` instead. So if that's what you have, it works.
+
+Two ways it wouldn't:
+
+- **A ChatGPT Plus/Pro subscription is not an API key.** Different product, no API access. If your key came from the ChatGPT app rather than platform.openai.com, it's the wrong kind.
+- **`gpt-image-1` needs the OpenAI org verified and billing on.** Unverified orgs get a 403 on that model specifically while chat models work fine. That's a setting on their side, nothing we can fix in code — you'd see it as the assistant reporting the generator couldn't be reached.
+
+Worth knowing: you don't need the key for me to build or test this. Absent-key is a first-class state (no image tool, session opens normally), and the UATs inject a fake transport, so the whole thing lands and proves itself with no live credential. The key only matters when you actually want a picture.
+
+## The budget — keep 10
+
+I looked at the pinned price table rather than guessing. `gpt-image-1` is **$0.042 per image** at `final` (the default), $0.011 at `draft`. So the cap is worth:
+
+| cap | worst case, per session |
+|---|---|
+| 10 | **$0.42** |
+| 4 | **$0.17** |
+
+A quarter of a dollar apart. **So it isn't a cost control at all — it's a runaway-loop stop**, which is what the framework says it is: high enough no honest session reaches it, low enough that a model stuck in a loop is stopped while the number is still small.
+
+That flips my earlier suggestion of 4. The intended use is *"here's a hero image, tell me if it's close"* — iteration is the point, and a client who rejects three drafts is behaving correctly, not looping. A cap of 4 would bite that session to save 25¢. **Keeping the framework default of 10.**
+
+Two details so the number is legible: it's per **session**, not per day or per client — reload the conversation and it resets. And a generation counts when it's *attempted*, not when it succeeds, because a call that failed partway may still have been billed. Exhausting it refuses only image generation; every other tool keeps working.
+
+## Still blocked on one command from your shell
+
+This is the thing I can't do myself — `bin/install` writes `/Users/martin/lagrangefoundry/node_modules`, which the sandbox denies:
+
+```
+cd /Users/martin/lagrangefoundry/lagrange-framework && bin/install --lang js --component all
+```
+
+Without it there's no `resolvePlugins` (the installed `@lagrangefoundry/ai` predates the plugin layer) and no `@lagrangefoundry/ai-imagegen` at all, so nothing I write can compile or run. Say when it's done and I'll cut `free-REQ-208` and build it; I'll flag anything the wider component refresh breaks on the way through.
 
 <!-- xgd-chat-end -->
