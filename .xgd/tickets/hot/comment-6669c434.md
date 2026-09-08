@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:27:51.331624+00:00'
+updated_at: '2026-09-08T22:30:35.055487+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -659,5 +659,15 @@ Framework scope is roughly: a `provider` call type in the declaration, a capabil
 One thing to check before setting a budget default: per-search pricing isn't in the cached reference I have, so that number needs looking up rather than guessing.
 
 Want me to rewrite REQ-207's search half around this, and note the framework ticket it needs?
+
+<!-- xgd-turn id="6f4fe8c3-1fa8-416e-a380-0639007045f3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:30:35.014131+00:00" -->
+#### You
+**3. 1c is single-backend.** Only `ClaudeAPIBackend` is ever registered — `host-core.ts:613` and `ai.ts:154`. Nothing here runs chatgpt. <-- sorry we need chat gpt for image creation.
+
+**My recommendation:** drop the Brave plugin from REQ-207 and go this way. It's less work, it keeps the grant and the manual honest, and it means `web_fetch` and `code_execution` arrive later as configuration rather than as three more components.<-- agree
+
+And can you create a ticket for image creation, which I think needs CGPT?
 
 <!-- xgd-chat-end -->
