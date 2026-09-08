@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T01:53:56.713585+00:00'
+updated_at: '2026-09-08T02:12:12.433359+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -198,5 +198,11 @@ The invite's address had to go in `SEED_TEMPLATES`, which is deliberately busine
 ## Still blocking, and not code
 
 `invite@1stcontact.io` must actually receive — a Cloudflare Email Routing rule to a real mailbox. A repliable address that bounces is worse than `no-reply@`, and the invite now sends from it. That plus the other three operator items (our tenant's invite copy, Postmaster Tools, DMARC `p=quarantine`) are recorded in the ticket and now also in `apps/control-app/MAIL.md`.
+
+<!-- xgd-turn id="fad0e5fe-eba9-48e1-996a-863c79323253-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:12:11.850924+00:00" -->
+#### You
+Can I configure email reception in Cloudflare? (I assume its completely separate from the send path)?
 
 <!-- xgd-chat-end -->
