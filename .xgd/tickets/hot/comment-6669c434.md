@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:05:55.515229+00:00'
+updated_at: '2026-09-08T22:13:33.810585+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -573,5 +573,11 @@ That leaves what's actually in front of us from the review:
 - **Search provider** — still the one open call, and it's the only thing blocking that ticket.
 
 Want me to write those up?
+
+<!-- xgd-turn id="c7bbfd32-34e4-4f1a-b60e-9b8af2d444f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:13:32.761079+00:00" -->
+#### You
+Can you update 207 please?
 
 <!-- xgd-chat-end -->
