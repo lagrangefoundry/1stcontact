@@ -15,6 +15,7 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a5972ecd
 ---
 
 **Design ref:** lagrange-framework DOC-22 and the shipped implementation — `components/ai`
