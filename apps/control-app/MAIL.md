@@ -83,11 +83,58 @@ must exist on `1stcontact.io`:
 In practice:
 
 1. Add `1stcontact.io` as a domain in the Resend dashboard.
-2. Paste the records it gives back into Cloudflare DNS for the zone.
+2. Paste the records it gives back into Cloudflare DNS for the domain.
 3. Press verify, and wait for propagation.
 
 None of this is code and all of it is blocking, which is why it decides when the beta can
 start rather than when the ticket is finished.
+
+#### The record set, as it actually stands
+
+| Name | Type | Value |
+|---|---|---|
+| `1stcontact.io` | TXT | `v=spf1 include:amazonses.com include:_spf.mx.cloudflare.net ~all` |
+| `1stcontact.io` | MX | `route1` / `route2` / `route3.mx.cloudflare.net` — Email Routing, §3 |
+| `send.1stcontact.io` | TXT | `v=spf1 include:amazonses.com ~all` |
+| `send.1stcontact.io` | MX | `feedback-smtp.us-east-1.amazonses.com` |
+| `resend._domainkey.1stcontact.io` | TXT | the DKIM public key |
+| `_dmarc.1stcontact.io` | TXT | `v=DMARC1; p=none; rua=mailto:dmarc@1stcontact.io` |
+
+#### TWO SPF RECORDS, AND BOTH BELONG
+
+There is an SPF record at the apex **and** one on `send.`, and they are not
+duplicates — they are on different names, which is the whole point.
+
+**`send.` is the load-bearing one.** Resend uses `send.1stcontact.io` as the
+return-path (the `feedback-smtp` MX beside it is the tell), and **SPF is evaluated
+against the return-path, not the From header**. Deleting it makes SPF return *none* on
+every real send while the dashboard still looks configured — DMARC keeps passing on the
+DKIM leg alone, so nothing visibly breaks until Resend un-verifies the domain or the
+policy tightens. This has already happened once.
+
+**The apex record is where merges go.** Two `v=spf1` records on the *same* name is a
+permerror — SPF stops resolving entirely, which is worse than either record alone. So
+when something wants an SPF include on the apex, it goes into the existing record:
+one `v=spf1`, every include, one `~all`, nothing else. Cloudflare's Email Routing setup
+asks for `include:_spf.mx.cloudflare.net` and will offer to add its own second record;
+take the include, refuse the record.
+
+Cloudflare's setup page reports both SPF records as "conflicting" because it compares
+values rather than names. It is wrong. Merge on the apex; never delete `send.`'s.
+
+#### Check it from outside, not from the dashboard
+
+DNS is observable and the dashboard is not, which matters because the failure modes here
+are silent. `tools/` holds nothing for this; two `curl`s answer it:
+
+```
+curl -s -H 'accept: application/dns-json' \
+  'https://cloudflare-dns.com/dns-query?name=send.1stcontact.io&type=TXT'
+curl -s 'https://dns.google/resolve?name=1stcontact.io&type=MX'
+```
+
+Cloudflare's resolver returns TXT values wrapped in quotes and Google's does not, and the
+two order MX records differently. That is presentation, not disagreement.
 
 ### 3. Replies, and the per-template address
 
@@ -116,6 +163,18 @@ It is a field on the template ticket, so changing which address a message comes 
 an edit rather than a deploy. It is **not operator-editable per send**: the invite modal
 displays the address and refuses to take an edit, and the route does not read a `from`
 off the POST — an operator-set sender fails DKIM and lands in spam.
+
+**Inbound is live as of 2026-09-07.** Cloudflare Email Routing is enabled on the domain —
+that is what the apex MX records are — forwarding `invite@` to a real mailbox. Two things
+about it are worth knowing before relying on it:
+
+- **It forwards; it does not send.** Replying to a forwarded invite goes out from the
+  destination mailbox's own address, so the thread visibly changes address. To reply *as*
+  `invite@1stcontact.io`, point a client's "send mail as" at Resend's SMTP — same domain,
+  already DKIM-signed, no new provider.
+- **DMARC reports need it too.** `rua=mailto:dmarc@1stcontact.io` cannot be delivered
+  without MX records on the domain; a policy that publishes a reporting address nothing
+  can reach collects nothing and looks fine.
 
 ### 4. What a message looks like to a filter
 
