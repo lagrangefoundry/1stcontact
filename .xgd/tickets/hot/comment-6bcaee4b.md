@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T22:52:37.461596+00:00'
+updated_at: '2026-09-08T23:22:40.512720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -128,5 +128,57 @@ Without it there's no `resolvePlugins` (the installed `@lagrangefoundry/ai` pred
 running - 
 
 what is the correct env variable name OPENAI_API_KEY?
+
+<!-- xgd-turn id="90400026-0f1a-4358-9150-2c77fa9bddc6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T23:22:40.163717+00:00" -->
+#### Claude
+`OPENAI_API_KEY` — yes. And it isn't our choice: the framework plugin declares it as the credential it requires for the `openai` provider, and that declared name is what makes the plugin drop out cleanly when nothing supplies it. Spelling it anything else here would just mean the tool is silently absent.
+
+Three places it goes:
+
+- **Local dev** — `apps/control-app/.dev.vars`, as `OPENAI_API_KEY=sk-...` (that file is gitignored; wrangler loads it into `env`).
+- **Production** — a `wrangler secret`, not a var. The deploy hook I'm adding pushes it if it's exported in your shell at deploy time, and otherwise leaves whatever Cloudflare already holds alone — and unlike the Anthropic hook it will never fail the deploy over its absence, since having no image generator is an ordinary state here.
+- **Tests** — nowhere. The UATs inject a fake transport.
+
+Let me check whether the install has landed.
+
+The plugin layer has landed — `resolvePlugins` is now in the installed `@lagrangefoundry/ai`. `ai-imagegen` isn't there yet, so the install is presumably still mid-flight. Let me watch for it.
+
+Found it — the install ran from the **`main`** worktree, and `ai_imagegen` doesn't exist on `main` yet (REQ-141 is still `free_coded` on `xgd-working`). That's exactly the 15-of-17 that landed. Let me check what's still needed before asking you for anything.
+
+Good news: I verified the `main`-sourced `ai` and `imagegen` **fully satisfy** `ai_imagegen` — `resolvePlugins`, `ToolboxSurface`, `AbsentPlugin` and all nine `imagegen` names it imports are present. So we don't need to churn everything to `xgd-working` versions. **One package, one command:**
+
+```
+cd /Users/martin/lagrangefoundry/lagrange-framework && bin/install --lang js --component ai-imagegen --no-deps
+```
+
+That checkout is already on `xgd-working` (where REQ-141 lives). `--no-deps` is deliberate — it leaves `ai`, `imagegen` and `ticketing` at the reconciled `main` versions you just installed, which I've proven work, instead of pulling three more unreconciled packages in behind it.
+
+Meanwhile, cutting the branch so I'm ready to code the moment it lands.
+
+Worktree seeded. Now writing the code while the install lands — I'll read the two seams I need to mirror.
+
+Now writing the module. Starting with the scoped store that fills the gap between the plugin's record and this product's.
+
+The worktree is cut from `main` and differs from the working copy — re-checking my anchors against it.
+
+Now the grant, the host parameter, and the router wiring.
+
+Writing the UAT suite now — every claim traced to ticket language.
+
+Install hasn't landed yet. While waiting, let me verify the assumptions in the UAT that don't depend on it.
+
+It landed. Building the assets and running the suite.
+
+Found it — the registered tool name is the declaration's `tool` field, `CreateImage`, not the op name. Removing the probes and correcting the suite.
+
+11 of 12 pass. The budget failure is my helper double-counting — each request replays the whole history.
+
+All 12 pass. Now typecheck and regression-check the suites that touch what I changed.
+
+No new typecheck errors — the 8 are pre-existing and identical on both trees. Now regression-checking the suites that touch what I changed.
+
+A real signal, not noise: this repo's CI validates `instances.json` against the declarations it holds, and the plugin's declaration lives upstream. Moving the grant to travel with the surface — derived from the declaration, so it cannot drift.
 
 <!-- xgd-chat-end -->
