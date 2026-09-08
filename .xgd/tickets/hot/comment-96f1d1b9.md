@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:29:20.175813+00:00'
+updated_at: '2026-09-08T02:32:37.752809+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -427,5 +427,36 @@ One cause I can rule out from here: it isn't the "domain already has an MX recor
 And DMARC Management being present tells us the Email section on this domain is live — so this is placement or account scoping, not the feature being unavailable.
 
 If the URL swap lands somewhere unexpected, paste me what you see in the address bar and I'll work backwards from that rather than from memory.
+
+<!-- xgd-turn id="fb2414e1-88da-4f79-aafb-2e4357b6214a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:32:37.603523+00:00" -->
+#### You
+I'm looking at it - its complex
+
+I need to resolve a misconfiguration first I have two conflicting TXT entries:
+TXT
+
+Missing
+
+**Hostname**
+
+1stcontact.io
+
+**Value**
+
+"v=spf1 include:_spf.mx.cloudflare.net ~all"
+
+Type: TXT
+
+Conflicting
+
+**Hostname**
+
+1stcontact.io
+
+**Value**
+
+"v=spf1 include:amazonses.com ~all"
 
 <!-- xgd-chat-end -->
