@@ -319,9 +319,8 @@ export function workerHost(
       // keeping. What it does depend on is a ticket store, which this host
       // always has and the `1c` CLI never does.
       ledger: (slug: string) => chatLedger(tickets, sessionIdFor(slug)),
-      // The role's purpose is no longer passed in: `host-core.ts` owns where it
-      // sits between the map and the manual, and states that order in the entry
-      // list it builds the role from.
+      // The role's purpose is not passed in: it is an entry of `priming.json`,
+      // declared between the map and the manual (REQ-182).
       priming: knowing ? sessionPriming(knowledge) : null,
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus

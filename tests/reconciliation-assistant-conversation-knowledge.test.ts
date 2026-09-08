@@ -38,7 +38,7 @@ import {
   openSession as openSessionWith,
   streamPrompt as streamPromptWith,
 } from '../tools/generate/src/cli/ai/host-core'
-import { CONSULTANT_PURPOSE } from '../tools/generate/src/cli/ai/roles'
+import { primingText, PURPOSE_ENTRY } from '../tools/generate/src/cli/ai/roles'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { says, scriptedClient } from './support/scripted-model-client'
 import type { ModelRequest } from './support/scripted-model-client'
@@ -70,6 +70,12 @@ const SLUG = 'studio'
 const HEADLINE = 'The old headline.'
 /** The address of the page's one text run: root list index, then child index. */
 const HEADLINE_PATH = '0.0'
+
+/** What the consultant is here to do — priming step 2, and the ordering probe. */
+// The purpose the shipped configuration declares (REQ-182), not a stand-in: the
+// order under test is map, then purpose, then manual, and it is that order in
+// `priming.json` that has to hold.
+const CONSULTANT_PURPOSE = primingText(PURPOSE_ENTRY)
 
 /**
  * Two corpus documents whose BODIES are distinctive, because the load-bearing
@@ -412,8 +418,8 @@ describe('a conversation is primed with the map and the manual, not the document
     //
     // Everything on this side of the model is the host's own: `nodeDeps` is the
     // runtime `1c` assembles, `knowledgeDeps` is the exact wiring a workspace
-    // with a built corpus gets, and the ordering under test is the entry list in
-    // `host-core.ts`. Only the corpus is this file's, because the host reads the
+    // with a built corpus gets, and the ordering under test is the one
+    // `priming.json` declares (REQ-182). Only the corpus is this file's, because the host reads the
     // repository's and the point here is a corpus whose bodies are known.
     const cwd = makeWorkspace()
     const client = scriptedClient([says('Understood.')])

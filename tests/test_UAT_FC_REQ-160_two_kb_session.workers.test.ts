@@ -12,10 +12,10 @@ import {
 import { DocDirStore, bundleDocReader } from '../apps/control-app/src/generated/ticketing'
 import { ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
 import {
-  CONSULTANT_PURPOSE,
   resetAiHost,
   setModelClient,
 } from '../tools/generate/src/cli/ai/host-core'
+import { primingText, PURPOSE_ENTRY } from '../tools/generate/src/cli/ai/roles'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { STUB_DIM, stubEmbedder, stubVector } from './support/stub-embedder'
@@ -265,7 +265,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // against is the purpose text itself, which is the thing that has to be in
     // the right place.
     const landscape = system.indexOf('# What exists')
-    const purpose = system.indexOf(CONSULTANT_PURPOSE)
+    const purpose = system.indexOf(primingText(PURPOSE_ENTRY))
     const mechanism = system.indexOf('# How to search')
     expect(landscape).toBeGreaterThanOrEqual(0)
     expect(purpose).toBeGreaterThanOrEqual(0)
@@ -301,7 +301,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const after = system.slice(mechanism + 1)
     expect(after).not.toContain('# What exists')
     expect(after).not.toContain('# How to search')
-    expect(after).not.toContain(CONSULTANT_PURPOSE)
+    expect(after).not.toContain(primingText(PURPOSE_ENTRY))
 
     // And both are named as searchable, which is the claim the co-ranked surface
     // is what makes true.

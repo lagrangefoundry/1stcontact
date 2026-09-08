@@ -7,6 +7,7 @@ import {
   knowledgeInstanceConfig,
   registerKmProviders,
 } from './generated/ai-knowledge'
+import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
 import {
   WorkersAiEmbedder,
   knowledgeBasesFromMapping,
@@ -192,10 +193,9 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
  * assembled once, which by construction cannot reflect a document published after
  * the session opened.
  *
- * THE ORDER IS NO LONGER DECIDED HERE. KM used to own it; `host-core.ts` now states
- * it in the entry list — the map, then the role purpose, then the
- * projected manual last, because the last thing the agent reads is the first thing
- * it does. What is decided HERE is what the mechanism says, and it is this
+ * THE ORDER IS NO LONGER DECIDED HERE. KM used to own it; `priming.json` now
+ * declares it (REQ-182) — the map, then the role purpose, then the projected
+ * manual last, because the last thing the agent reads is the first thing it does. What is decided HERE is what the mechanism says, and it is this
  * session's own projected manual rather than a sentence written by hand about what
  * it might reach.
  *
@@ -203,27 +203,31 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
  * knowledge tools and no landscape has no reason to believe there is anything to
  * find, so it never looks. The two are built from one runtime and are wired as a
  * pair or not at all.
+ *
+ * TWO PROVIDERS, NOT ONE DOCUMENT (BUG-63, REQ-182). `KnowledgeDocs.open`
+ * assembled the sections into a single `ContextSource` and is gone: upstream
+ * deleted it when priming became DOC-22's ordered list of named entries. The map
+ * and the mechanism are registered providers now, so both are re-read on every
+ * assembly rather than snapshotted once — which is what lets a document published
+ * mid-session show up in the next turn's landscape with no new machinery.
+ *
+ * The order KM owned — landscape, then purpose, then mechanism — is declared in
+ * `priming.json` and is unchanged. It was load-bearing when it lived here and it
+ * is load-bearing there; what changed is that it is written down once instead of
+ * being reproduced by whoever calls this.
  */
-export function knowledgePriming(runtime: Untyped): Untyped {
-  return {
-    landscape: LANDSCAPE_PROVIDER,
-    mechanism: MECHANISM_PROVIDER,
-    // The runtime is handed over as a CALLABLE because that is what the pair
-    // takes: both provider bodies re-read it on every assembly, which is what
-    // lets a document published after the conversation opened reach a recycled
-    // segment. An assembled-once snapshot could not.
-    //
+export function knowledgePriming(
+  runtime: Untyped,
+): (box: Untyped, providers: Untyped) => Promise<void> {
+  return registerCorpusProviders(
+    { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
+    () => runtime,
     // `kb` IS THE MAP AXIS OF THE SAME CONFINEMENT `knowledgeSurfaceFor` MAKES
     // on the search axis ([[DOC-10]] §5.1). Left at its `null` default the map
     // would describe every default-visible base, so a session told what exists
     // would not match the corpus it is actually granted — the two axes have to
     // name the same base or the landscape advertises documents the tools cannot
     // open.
-    register: (providers: Untyped, box: Untyped) =>
-      registerKmProviders(providers, () => runtime, {
-        // The summary, not the reference (REQ-171).
-        mechanismFor: () => box.manual({ level: 'summary' }),
-        kb: SYSTEM_KB,
-      }),
-  }
+    SYSTEM_KB,
+  )
 }

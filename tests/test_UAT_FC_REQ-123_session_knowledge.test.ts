@@ -11,7 +11,14 @@ import {
   resolveEmbedder,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
-import { aiCore, createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import {
+  consultantRole,
+  primingText,
+  PURPOSE_ENTRY,
+  registerCorpusProviders,
+  registerSiteProviders,
+} from '../tools/generate/src/cli/ai/roles'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 /**
@@ -216,38 +223,45 @@ describe('REQ-123 — the KB reaches the session', () => {
     // and how to reach it, so the corpus can grow without the context growing.
     // If the documents themselves were being pasted in, this priming would carry
     // the body text — and it must not.
-    // TWO PROVIDERS, NOT ONE ASSEMBLED DOCUMENT. KM used to take the role's
-    // purpose and the mechanism and hand back a snapshot whose internal order it
-    // owned; that seam is gone, because a snapshot assembled once cannot reflect
-    // a document published after the session opened. It now renders its own two
-    // texts — `km.landscape` and `km.mechanism` — and names no role, so the
-    // purpose between them is the HOST's entry and the order is the host's too
-    // (see `ai/host-core.ts`, and the criterion-level case in
-    // `reconciliation-assistant-conversation-knowledge`). What REQ-123 asks of
-    // the library is unchanged and is what is asserted here: a map and the means
-    // to reach it, never the bodies.
+    //
+    // ASSEMBLED THROUGH DOC-22's ENTRIES (BUG-63) FROM THE SHIPPED CONFIGURATION
+    // (REQ-182). `KnowledgeDocs.open` built one document and is gone; the map and
+    // the mechanism are registered providers now, named by entries `priming.json`
+    // declares, and `assemble` is what turns them into the text a session
+    // receives. Loading the real configuration rather than building a Role here is
+    // what makes this a test of what ships.
+    const lib = await import(/* @vite-ignore */ sharedModuleUrl('ai'))
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
     const box = await createL1Toolbox('studio', {}, { knowledge: runtime })
 
-    const { PrimingProviders } = await aiCore()
-    const providers = new PrimingProviders()
-    bridge.registerKmProviders(providers, () => runtime, {
-      mechanismFor: () => box.manual(),
-    })
-
-    const ctx = { backend: 'claude' }
-    const landscape = await providers.get(bridge.LANDSCAPE_PROVIDER)(ctx)
-    const mechanism = await providers.get(bridge.MECHANISM_PROVIDER)(ctx)
+    const providers = new lib.PrimingProviders()
+    // EVERY NAME THE CONFIGURATION USES MUST BE BOUND, which loading through
+    // `rolesFromMapping` is what enforces: an unregistered provider is a
+    // `PrimingConfigError` naming the entry, so a test that binds half the
+    // registry fails at load rather than assembling a priming with a hole in it.
+    await registerCorpusProviders(bridge, () => runtime)(box, providers)
+    registerSiteProviders(providers, { slug: 'studio', box, signal: () => undefined })
+    const priming: string = await lib.assemble(
+      new lib.ProductConfig(),
+      consultantRole(lib, providers, true),
+      new lib.SessionContext({ role: 'consultant', backend: 'test' }),
+      { providers },
+    )
 
     // The map is there, and it routes: a territory plus where to start.
-    expect(landscape).toContain('Behaviour modules')
-    expect(landscape).toContain('DOC-A')
+    expect(priming).toContain('Behaviour modules')
+    expect(priming).toContain('DOC-A')
     // The documents themselves are NOT — this is the property the design rests on.
-    expect(landscape).not.toContain('Autoplay and interval are behavioural config')
-    expect(mechanism).not.toContain('Autoplay and interval are behavioural config')
+    expect(priming).not.toContain('Autoplay and interval are behavioural config')
+    // And the order is map, then purpose, then mechanism — so the last thing
+    // read is the thing done first. The purpose is the one the configuration
+    // declares (REQ-182), not a stand-in passed in here, because the order under
+    // test is the order that ships.
+    const purpose = primingText(PURPOSE_ENTRY)
+    expect(priming.indexOf('Behaviour modules')).toBeLessThan(priming.indexOf(purpose))
+    expect(priming.indexOf(purpose)).toBeLessThan(priming.indexOf('KnowledgeSearch'))
     // And the mechanism is THIS session's projected manual rather than a sentence
     // written by hand about what it might reach.
-    expect(mechanism).toContain('KnowledgeSearch')
-    expect(mechanism).toContain('set_l1')
+    expect(priming).toContain('set_l1')
   })
 })

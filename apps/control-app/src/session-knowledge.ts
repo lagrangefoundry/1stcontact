@@ -6,6 +6,7 @@ import {
   knowledgeInstanceConfig,
   registerKmProviders,
 } from './generated/ai-knowledge'
+import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
 import {
   DEFAULT_CHUNKS_PER_HIT,
   DEFAULT_SOURCE,
@@ -371,14 +372,13 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
 }
 
 /**
- * The role's two named priming providers: both maps, in one landscape section.
+ * Registers the role's two named priming providers: both maps, in one landscape
+ * section.
  *
- * A PROVIDER PAIR AND NOT A FACTORY, because that is the seam KM offers now. The
- * assembled snapshot (`KnowledgeDocs.open(...)`) whose internal order KM owned is
- * gone, and with it the role purpose it used to be handed: `host-core.ts` states
- * the order — map, purpose, mechanism — in the entry list it builds the role
- * from, which is where an ordering decision belongs. So nothing here names a
- * role, and the purpose is not a parameter of this function.
+ * The assembled snapshot (`KnowledgeDocs.open(...)`) whose internal order KM
+ * owned is gone, and with it the role purpose it used to be handed: the order —
+ * map, purpose, mechanism — is declared in `priming.json` (REQ-182). So nothing
+ * here names a role, and the purpose is not a parameter of this function.
  *
  * BOTH KBs ON THE MAP AXIS, which is what makes "one landscape section" true and
  * is the same confinement {@link sessionKnowledgeSurface} makes on the search
@@ -387,10 +387,9 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
  * granted. The order within the section is the composite's `kbs` insertion order
  * — project first.
  *
- * `register` is handed the manager's registry and the constructed Toolbox,
- * because the mechanism IS the manual and the manual is a projection of THIS
- * session's actual grant — the rule `system-knowledge.ts` states and this
- * inherits.
+ * The returned seam is handed the constructed Toolbox and the registry, because
+ * the mechanism IS the manual and the manual is a projection of THIS session's
+ * actual grant — the rule `system-knowledge.ts` states and this inherits.
  *
  * PRIMING NEVER TOUCHES AN INDEX. Both providers read each KB's awareness report
  * through the ticket API and nothing else, which is why the composite runtime can
@@ -398,27 +397,24 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
  * is picked up on the next one with no new machinery, both bodies being re-read on
  * every assembly. What that does NOT give is a notification, which is what the
  * per-turn delta is for.
+ *
+ * IT REGISTERS AND NAMES NOTHING (REQ-182). The entries are declared in
+ * `priming.json`, so it needs neither the AI library nor the role's purpose.
+ * What is left is the binding, which is all this seam was ever really for.
  */
-export function sessionPriming(knowledge: SessionKnowledge): Untyped {
-  return {
-    landscape: LANDSCAPE_PROVIDER,
-    mechanism: MECHANISM_PROVIDER,
-    // The runtime is handed over as a CALLABLE because that is what the pair
-    // takes: both provider bodies re-resolve it per assembly, and an
-    // assembled-once snapshot could not.
-    register: (providers: Untyped, box: Untyped) =>
-      registerKmProviders(providers, () => knowledge.composite, {
-        // THE SUMMARY, NOT THE REFERENCE (REQ-171): per-tool detail is what
-        // `DescribeTools` fetches at the moment a tool is about to be called.
-        mechanismFor: () => box.manual({ level: 'summary' }),
-        // EXACTLY THE KBs THAT OPENED, and in their insertion order — the same
-        // confinement {@link sessionKnowledgeSurface} makes on the search axis,
-        // for the same reason. Naming the static pair here instead would declare
-        // `project` to a session that never opened one, and the map axis rejects
-        // a base it cannot resolve rather than quietly describing nothing.
-        kb: [...knowledge.perKb.keys()],
-      }),
-  }
+export function sessionPriming(
+  knowledge: SessionKnowledge,
+): (box: Untyped, providers: Untyped) => Promise<void> {
+  return registerCorpusProviders(
+    { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
+    () => knowledge.composite,
+    // EXACTLY THE KBs THAT OPENED, and in their insertion order — the same
+    // confinement {@link sessionKnowledgeSurface} makes on the search axis, for
+    // the same reason. Naming the static pair here instead would declare
+    // `project` to a session that never opened one, and the map axis rejects a
+    // base it cannot resolve rather than quietly describing nothing.
+    () => [...knowledge.perKb.keys()],
+  )
 }
 
 export { PROJECT_KB, SYSTEM_KB, SHIPPED_SOURCE }

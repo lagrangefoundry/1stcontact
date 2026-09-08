@@ -45,8 +45,8 @@ import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
+import { registerCorpusProviders } from './roles'
 import {
-  CONSULTANT_PURPOSE,
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
   resetAiHost as resetAiHostCore,
@@ -168,30 +168,20 @@ export async function knowledgeDeps(
       },
     ],
     // KM's priming is a PAIR OF NAMED PROVIDERS — `km.landscape` (the map of
-    // what territories exist) and `km.mechanism` (how to reach the rest) — and
-    // it no longer owns where they sit relative to the role's purpose: that
-    // sequence is declared in `host-core.ts`, in the entry list. What is decided
-    // HERE is what the mechanism says, and it is not a sentence written by hand
-    // about what the session might reach: it is this session's own projected
-    // manual, so the corpus is described through the grant it actually has.
+    // what territories exist) and `km.mechanism` (how to reach the rest). The
+    // manual goes in as the `mechanism`, so the corpus is reached through THIS
+    // session's actual grant rather than through a sentence written by hand
+    // about what it might have.
+    //
+    // THE ORDER IS DECLARED, NOT PASSED (REQ-182). It is four lines of
+    // `priming.json` that both hosts load, so this seam registers `km.landscape`
+    // and `km.mechanism` and says nothing about where they sit. Its presence is
+    // what tells `host-core` this host has a corpus at all.
     //
     // The runtime is passed as a CALLABLE because that is what the pair takes —
     // both providers re-read on every assembly, which is what makes a recycled
     // segment reflect a document published after the conversation opened.
-    priming: {
-      landscape: bridge.LANDSCAPE_PROVIDER,
-      mechanism: bridge.MECHANISM_PROVIDER,
-      register: (providers: Untyped, box: Untyped) =>
-        bridge.registerKmProviders(providers, () => knowledge, {
-          // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k
-          // characters of this site's surface alone and was 98% of the priming
-          // document; the summary is 11k. What it drops — every parameter, return
-          // shape and error code — is what `DescribeTools` fetches for one tool
-          // at the moment it is about to be called, which is the only moment it
-          // is needed.
-          mechanismFor: () => box.manual({ level: 'summary' }),
-        }),
-    },
+    priming: registerCorpusProviders(bridge, () => knowledge),
   }
 }
 
