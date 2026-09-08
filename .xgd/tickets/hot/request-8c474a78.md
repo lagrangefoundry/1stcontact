@@ -6,7 +6,7 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T03:50:13.742480+00:00'
+updated_at: '2026-09-08T04:16:09.127746+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -542,3 +542,40 @@ corpus delta is more necessary than the old comment argued, not less.
 - The session is told of no tool it was not granted: nothing in the priming claims the
   transcript is addressable.
 - The existing REQ-131, REQ-160, REQ-174 and BUG-63 UATs pass against the configured form.
+
+
+### As built — corrections and additions to the scope above
+
+*2026-09-07.* Three things the scope stated loosely or not at all, stated now because
+a UAT asserts each of them.
+
+**The reminder is six entries, not five.** The site line, two habit entries
+(no framework vocabulary, act rather than narrate), the method pointer, the change
+signal and the corpus delta. The site line stays first because it is the framing the
+rest hangs off, and the delta stays last.
+
+**Two reminder entries interpolate runtime state, so their words are templates.** The
+site line names the slug and the change signal names a count and a cursor, so neither
+can be an entry's `text`. They are declared as `{placeholder}` templates in the same
+file and filled by the provider that renders them — the shape the framework already
+uses for its own defaults, where prose lives in a data file and is bound into the
+provider. A placeholder with no value is left as written rather than blanked, so a
+mistyped one appears in the prompt as itself instead of vanishing.
+
+**Every provider name the configuration may use is bound in one place.** `roles.ts`
+owns the file that names providers and the function that says what each name reaches
+(`registerSiteProviders`, plus the corpus seam). A name can only be added to the
+configuration by binding it here too, and a binding nobody names is visible as dead
+weight. The corpus-free order is what makes this checkable: it names exactly one
+provider, and that one must be registered on every session whether or not a knowledge
+base exists.
+
+**The tests read the configuration, not a copy of it.** `primingText(name)` returns a
+declared entry's text, and the REQ-171 / REQ-174 / REQ-160 / BUG-63 assertions that
+used to compare against `CONSULTANT_SYSTEM`, `PRODUCT_SYSTEM`, `CONSULTANT_ROLE_TEXT`
+and `CONSULTANT_PURPOSE` now read through it. That is not a mechanical substitution:
+a constant holding a copy of the words can agree with the test and disagree with the
+session, which is the failure the whole change exists to remove.
+
+**Additional acceptance:** a host with no knowledge base loads the second declared
+order, and that order names only providers registered without a corpus.
