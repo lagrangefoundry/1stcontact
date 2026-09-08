@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:30:35.055487+00:00'
+updated_at: '2026-09-08T22:34:07.242156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -669,5 +669,32 @@ Want me to rewrite REQ-207's search half around this, and note the framework tic
 **My recommendation:** drop the Brave plugin from REQ-207 and go this way. It's less work, it keeps the grant and the manual honest, and it means `web_fetch` and `code_execution` arrive later as configuration rather than as three more components.<-- agree
 
 And can you create a ticket for image creation, which I think needs CGPT?
+
+<!-- xgd-turn id="6f4fe8c3-1fa8-416e-a380-0639007045f3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:34:05.635294+00:00" -->
+#### Claude
+Important correction — let me pin down which "ChatGPT" this is, because they're different paths.
+
+Created **REQ-208**. (The xgd commit landed locally; the push failed on the sandbox proxy, as usual.)
+
+Now updating REQ-207's search half, since you agreed to drop the Brave plugin.
+
+Both tickets are updated. Two things worth separating on your correction:
+
+**The image credential and a ChatGPT chat backend are different paths, and only one is in play.** `create_image` goes through `components/imagegen`, whose OpenAI provider is `gpt-image-1` — an images API, not a chat backend. So the session still runs on `ClaudeAPIBackend`; one *tool* reaches OpenAI underneath. My "single-backend" point was about chat backends, and it survives — but only because of that distinction, which is why I made it load-bearing in REQ-208 rather than leaving it implicit. If you also mean sessions running their *turns* on a ChatGPT backend, that's a separate change and it's the one that would make `web_search` vanish per-session — exactly what the capability flag exists to handle, so the design still holds either way.
+
+**REQ-208** — *The assistant can make pictures*, draft, 5 points. The parts worth your eye:
+
+- It's framed around the first non-Anthropic credential rather than around the tool, because that's the actual novelty — `aiConfigured` currently asks one question about one key and everything behind it assumes that covers the product. It must not start reporting the whole deployment unconfigured because an image key is absent.
+- **The prompt-as-body is a real fit.** The plugin writes the prompt into the ticket body, and DOC-38 §6 needs every material to carry a search-shaped description. A generated image is findable the moment it exists, with no describing call and no cost.
+- **One open decision I flagged rather than settled:** the ticket type. `material` is the obvious answer, but `writeMaterial` also sets `kind`, `description_status`, `description_model`, `content_type` and `filename`, and the plugin knows none of them — so a plugin-written `material` is missing what the Library rows and the re-describe predicate read. I recommended filling the gap on our side over introducing a second shape, and said that if it can't be done without changing the plugin's write, that's a finding for upstream rather than a local workaround.
+- I also wrote in that a generated image must be *legible as generated* — a client's library quietly filling with synthetic pictures presented as their own photography is the failure that bites months later.
+
+**REQ-207** — search half rewritten onto the provider call type. Notable: my "corrected" threat model was itself wrong, and the original filing's *"no SSRF surface"* claim is now restored as the accurate one, since nothing leaves our network for a search. I also withdrew the ticket's claim that fetch is the more dangerous tool — the provider's fetch only retrieves URLs already in the conversation, so the case against it is quality, not reach. The blocking question is no longer "which vendor" (there isn't one), just a per-search cost check before the cap's default.
+
+Step 2 needs a framework ticket for the provider call type — say the word and I'll write it.
+
+The xgd commits are local; the push failed on the sandbox proxy again.
 
 <!-- xgd-chat-end -->
