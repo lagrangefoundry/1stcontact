@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:45:15.592343+00:00'
+updated_at: '2026-09-08T22:45:55.626847+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -310,5 +310,66 @@ So: deploy, then the next turn picks it up. Worth watching for on that first tur
 <!-- xgd-chat role="user" ts="2026-09-08T22:45:15.082702+00:00" -->
 #### You
 ok so outline the steps I need to take to get a system kb change into the local syste,
+
+<!-- xgd-turn id="18c537da-ddf9-4f95-a4eb-9ee8def58ab6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:45:54.123008+00:00" -->
+#### Claude
+Here's the full path for a local change. DOC-41 §4 covers the first half; the last two steps aren't written down anywhere and are the ones that bite.
+
+## The five steps
+
+**1. Change the document — through the ticket, never the file.**
+```bash
+xgd ticket update DOC-47 --body-file /abs/path/to/body.md
+# or, for a new member:
+xgd ticket create --type doc --title "..." --fields '{"doc_kind":"system_kb"}' --body-file ...
+```
+`kb/system/*.md` is derived output and is swept on every build. Membership is `doc_kind: system_kb` and nothing else.
+
+**2. Rebuild the knowledge base.**
+```bash
+export CLOUDFLARE_ACCOUNT_ID='...'
+export CLOUDFLARE_API_TOKEN='...'   # must be the one with Workers AI read
+1c kb build
+```
+**Not `1c kb export`.** That writes the corpus with no index, and per BUG-48 the result is carried in the bundle and invisible to search — no error, the document is simply never returned. `1c assets` doesn't check that the corpus and the index agree.
+
+**3. Re-inline into the bundle.**
+```bash
+bin/build
+```
+Stage 2 (`1c assets`) writes `apps/control-app/src/generated/kb.js`. Order matters: `kb build` then `bin/build`, never the reverse.
+
+**4. Restart the dev server.**
+```bash
+pnpm dev     # or 1c builder for the control app alone
+```
+`system-knowledge.ts` does a module-level `import { KB } from './generated/kb.js'`. A running worker holds the old bundle no matter what's on disk.
+
+**5. The next turn re-primes itself.** The restart gives a fresh isolate, so `managers` is empty, the SessionManager is rebuilt and priming re-assembles. The conversation resumes — the session id is derived from the slug and the transcript replays — so you don't lose the chat, you just get a new system prompt.
+
+## Checking each stage landed
+
+```bash
+grep -o "Derived landscape over .*territories" kb/system/awareness.md   # after step 2
+ls kb/system/DOC-47.md                                                  # after step 2
+grep -c "DOC-47" apps/control-app/src/generated/kb.js                   # after step 3
+```
+
+Then ask the assistant something only the new document answers.
+
+## The four ways this goes quiet
+
+- **`kb export` instead of `kb build`** — document present, unsearchable, no error.
+- **Skipping `bin/build`** — corpus correct on disk, worker serving the old one.
+- **Not restarting** — bundle correct, isolate holding the previous import.
+- **Editing `kb/system/*.md` directly** — works until the next build erases it.
+
+None of these fail loudly. All of them look like "the assistant just didn't use the document."
+
+One note on step 2: only one of the three Cloudflare tokens has Workers AI access — the other two return 401 on the embedding call, which surfaces as a build failure rather than a silent one, so at least that trap is a loud one.
+
+DOC-41 §4 stops at `bin/build` and doesn't mention the restart or the once-per-session priming. Want me to add steps 4–5 to it? It's a doc change, so no ticket protocol needed.
 
 <!-- xgd-chat-end -->
