@@ -5,9 +5,9 @@ type: request
 title: 'The assistant''s eyes in the builder: mount the fidelity surface on the Worker'
 created_by: CHAT-43
 created_at: '2026-09-08T01:17:40.528379+00:00'
-updated_at: '2026-09-08T02:05:12.043126+00:00'
+updated_at: '2026-09-08T02:05:16.780777+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
