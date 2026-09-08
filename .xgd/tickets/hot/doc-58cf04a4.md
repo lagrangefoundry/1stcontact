@@ -6,13 +6,14 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-09-02T22:58:37.316768+00:00'
+updated_at: '2026-09-08T01:49:04.349797+00:00'
 completed_at: null
 last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
 ---
+
 
 
 # The Consultation Playbook — how the builder AI takes a client from nothing to a live site
@@ -593,8 +594,8 @@ more important than the ones that shave the average.
 
 ## 11. Forward compatibility with the other limbs
 
-1st Contact is more than web design. Site monitoring, payments, marketing planning and a
-lightweight CRM are coming. **The site remains the core**, and that is the load-bearing fact here:
+1st Contact is more than web design. Site monitoring, payments, scheduling, email lists,
+marketing planning and a lightweight CRM are coming. **The site remains the core**, and that is the load-bearing fact here:
 several of these capabilities do not sit alongside the site, they are built *into* it. A site
 designed without knowing they exist is a site they cannot land in.
 
@@ -604,6 +605,7 @@ So the limbs are not one category, and treating them as one is the mistake to av
 |---|---|---|---|
 | **Payments** | **In the page** — surface, states, flow, legal copy | **Stage 1** | Constrains architecture (3), copy (4) and layout (7) |
 | **Email capture** | **In the page** — a form and its destination | **Stage 1** | Small structural footprint; still a stage-3 input |
+| **Scheduling** | **In the page** — a booking surface with availability, states and a destination | **Stage 1** | Constrains architecture (3), copy (4) and layout (7); carries obligations (timezone, cancellation, reminders) |
 | **CRM** | **Behind the page** — a destination for what the page collects | Stage 1, as a destination | No structural footprint |
 | **Monitoring** | **Around the site** — invisible to the design | Stage 10 | None |
 | **Marketing planning** | **Off the site** — consumes the positioning | Post-ship | None; consumes Act I output |
@@ -627,7 +629,8 @@ with something specific and true — *"you told me in July you were losing enqui
 inbox"* — rather than a cold pitch. This is the difference between an upsell and a follow-through.
 
 **Behaviour arrives as configuration, not design** (§7.6). [[DOC-25]] already names payments, auth
-and email capture as future behavior modules. When they land, the playbook does not change: the
+and email capture as future behavior modules; **scheduling is not yet declared there** and must be
+before it can appear in the stage-1 catalogue. When they land, the playbook does not change: the
 client names a behaviour, the AI configures the module, and L1 owns how it looks.
 
 **The capability catalogue is the interface between the two.** Stage 1 needs to know, for each
