@@ -337,6 +337,25 @@ export function workerHost(
   // The looking surface ([[REQ-157]]), per site. Null is the ordinary
   // no-browser case: the session still opens and still edits, with no eyes.
   fidelity: HostDeps['fidelity'] = null,
+  /**
+   * The assistant's hands for drawing ([[REQ-208]]), or `null` where this
+   * deployment holds no image credential.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason `fidelity` above is
+   * one: the plugin needs a ticket store scoped and normalised to this
+   * product's material vocabulary and the KB indexer to make what it writes
+   * findable, and both of those are the router's to assemble. It also keeps the
+   * framework plugin and the image-generation component out of this file's
+   * import graph, which is the same reason `@cloudflare/puppeteer` is not here.
+   *
+   * NULL IS ORDINARY, not an error, and must stay so — the same shape a missing
+   * browser and a missing describer already have. A deployment with no image key
+   * still opens the session, still replays the transcript, and simply cannot
+   * make a picture. The surface is ABSENT rather than present-and-throwing, so
+   * the manual never mentions it and the model cannot propose an operation it
+   * has not got.
+   */
+  images: { surface: Untyped } | null = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -387,7 +406,22 @@ export function workerHost(
       // deployment with no key still opens the session, still replays the
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
-      extraSurfaces: knowing ? [sessionKnowledgeSurface(knowledge)] : [],
+      // BOTH BRING THEIR OWN GRANT ([[REQ-208]]), for the same underlying
+      // reason: their declarations live upstream. Knowledge's must, because its
+      // two scope axes have to name the same set and composing them in two
+      // places is how they would come apart; the image surface's must, because
+      // `instances.json` is validated in CI against the declarations THIS
+      // repository holds, and a grant there for a surface the validator never
+      // sees is a grant nothing can check. Fidelity's is the contrasting case
+      // and stays where it is.
+      //
+      // `createL1Toolbox` narrows a grant away when its surface was not
+      // composed, which is what lets a deployment with no image key start an
+      // assistant that edits sites perfectly well.
+      extraSurfaces: [
+        ...(knowing ? [sessionKnowledgeSurface(knowledge)] : []),
+        ...(images ? [images] : []),
+      ],
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth
