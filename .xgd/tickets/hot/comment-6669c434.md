@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T01:35:48.397252+00:00'
+updated_at: '2026-09-08T01:38:31.872445+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -235,5 +235,45 @@ Want me to write this up as a REQ? I'd scope it as web search only, deferring `w
 ok can you create a ticket in Lagrange Network to expose these APIs as AI tools - that should include the image describer too.
 
 The framework component should not be specific to these APIs, it should allow access to APIs like this through configuration. Then 1stcontact, and products like it can add APIs they need by config - the config should obviously automatically expose the APIs to the AI (extending REQ-206)
+
+<!-- xgd-turn id="91abfb07-8d6f-4435-a6e0-64064ba7a628-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T01:38:31.156753+00:00" -->
+#### Claude
+Let me confirm the target store and read the image describer's current shape.
+
+Everything checks out. One assumption I'll flag: "Lagrange Network" → `lagrangefoundry/lagrange-framework` (the `components/ai` home). Writing the ticket.
+
+**lagrange-framework REQ-139** (`request-1f0bc647`, `draft`, high, 5 points) — *components/ai — external APIs as tools by configuration: provider server tools, product HTTP bindings, and the vision describer*.
+
+## The core of it
+
+A product declares an external capability in configuration; the framework exposes it to the model automatically. Three deliberately unlike first consumers — provider-executed (web search/fetch), host-executed (any product HTTP API), and model-call (the vision describer) — because a mechanism proved against one shape is a mechanism specific to that shape.
+
+## The thing you should push back on if you disagree
+
+**DOC-20 explicitly forbids what you asked for**, and I wrote the ticket to take that head-on rather than paper over it:
+
+> There is no separate binding format, no client-handler registry and no dispatch table… Configuration is only ever *selection and scoping*.
+
+The ticket doesn't repeal that — it adds one bounded exception on the axis DOC-20 never had to name (*who executes it*), and keeps every other obligation: declared as data, capability-grouped, prose in the surface only, gated, provenance-marked, recorded.
+
+It also **corrects a DOC-20 premise that has gone false**: "Cloud backends (`claude`, `chatgpt`) have no tools of their own. The Toolbox **is** their entire capability surface." Anthropic now ships server-side tools, so a Toolbox assuming it's the whole surface can't represent them. That's why the provider case is the one that proves the premise moved, not a nicety.
+
+## The describer
+
+Your instinct to bundle it was right, and better-supported than you may have known — `describe.ts` already names this exact consolidation point in its own source: *"either REQ-157 … or an image block on the AI component's own surface. Whichever lands, this function is what is deleted."*
+
+**But I only scoped half of it, deliberately.** Declaring the describer as a configured model-call operation removes the product's second path to a model. It does **not** make the session surface multimodal — `promptStream(ref, text)` still takes text. I wrote that into "What this does not do" so the next reader of `describe.ts` isn't misled into thinking its named consolidation is fully discharged. If you meant the fuller thing, say so and I'll widen it.
+
+## Also captured
+
+The three concrete backend changes provider tools require, since they'd otherwise surface as reconciliation drift — spec passthrough (`toolSpecs` emits `input_schema`, provider tools have none), parse arms (`parse` handles `text`/`tool_use` only, so `server_tool_use` and result blocks would be **silently dropped**), and paused-turn continuation (no backend reads `stop_reason` today). Credentials are referenced, never carried in config.
+
+## Two notes
+
+**"Lagrange Network" → `lagrangefoundry/lagrange-framework`.** No project by that name is registered; the content is squarely `components/ai`. Say if you meant `lagrange-biz`.
+
+**No 1stcontact companion filed.** REQ-139 states what the product side needs and ties it to REQ-206, but the actual "1stcontact configures its APIs" ticket doesn't exist — you asked for one ticket, so I stopped there. Want me to file it?
 
 <!-- xgd-chat-end -->
