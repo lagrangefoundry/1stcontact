@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T04:18:52.495271+00:00'
+updated_at: '2026-09-08T04:21:20.923961+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -278,5 +278,52 @@ One thing I did *not* do: DOC-4 now carries a fair amount of marketing-site desi
 An extra on this - all the sites I have looked at are promising your beautiful website in four minutes. I think we should call bullshit, if you want a good website it's gonna take you more than four minutes. Let's talk about a process let's talk about hours of consultation let's talk about customization market affecting this meeting the goals of your business. 
 
 Unlike these other sites we will not offer a free level, we will offer a 15 minute consultation and that consultation should be focused on whether our tool will help you. We should promise an honest evaluation, if our tool doesn't fit we will not try to sell it to you. My cost profile as a business is extremely different from these other companies. They have teams of hundreds of developers they need large scale they need big funnels. I do not I think we should sell ourselves on quality and integrity and meeting the needs of our customers.
+
+<!-- xgd-turn id="37b52072-2c60-4bf3-acaf-a7c85010a876-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T04:21:08.760852+00:00" -->
+#### Claude
+This is the strongest move in the session, and I think it's stronger than you've pitched it — the three things you just said are one thing said three ways.
+
+Let me record it, then explain what I mean.
+
+Caught a problem: my previous extraction had an off-by-one bug that injected a stale copy of the frontmatter into the top of DOC-4's body. The live frontmatter is intact; only the body needs cleaning. Fixing that in the same update.
+
+Clean — single frontmatter block, structure intact, duplicate stripped.
+
+## Why these three are one position
+
+Their marketing is **downstream of their burn rate**, and the chain is rigid:
+
+> hundreds of developers → need scale → need a wide funnel → need a free tier → need self-serve → need a four-minute path to *something* → need templates
+
+Every competitor behaviour you've been reacting to falls out of the first term. They don't use templates because they think templates are good; they use them because a free tier requires a self-serve path and a self-serve path requires the design to already exist. **You can't take the four minutes away from them without taking their business model away.**
+
+That's why *no templates*, *hours not minutes*, and *no free tier* aren't three positions to defend separately. They're one fact — our cost structure — expressed three ways, and each one is unmatched for the same structural reason.
+
+I recorded the cost argument in Business Strategy as **strategy, not copy** — customers don't care about our burn rate. It surfaces publicly only as the one-line reason we can afford to be honest. The pitch is the behaviour.
+
+## Speed is the tell
+
+The reframe I recorded: **four minutes is not a feature, it's a disclosure.** It's the vendor telling you precisely how much thought went into your business — none — and it's only achievable because the site existed before you arrived. That makes speed *evidence of a template*, which welds it to the No Templates position:
+
+> It takes them four minutes because it was already made. Yours doesn't exist yet.
+
+**One discipline note, and I'd hold it firmly:** DOC-33 specifies four to five hours across sittings. The honest claim is "an afternoon of real attention," not "weeks." That's still ~60× the consideration in the four-minute pitch, and it has the advantage of being true. An integrity position dies on its own exaggeration faster than on any competitor's attack — so the number is a place to be conspicuously precise.
+
+Also carried forward the mandatory pairing: the hours are **ours, not theirs**. And noted that we'll lose the "site by Friday" client — deliberately. That's the qualification working, not a leak.
+
+## The 15-minute call
+
+I think this is right and it's the part with the sharpest edge, because *"we'll tell you if we're not right for you"* is a promise almost nobody can make. Their funnel economics forbid it.
+
+**But it has a hard prerequisite, which I've flagged in the doc as blocking:** an AI that never disqualifies anyone makes the promise a lie, and it's a lie that's trivially caught and fatal to a position built on integrity. We need **written disqualification criteria** before that promise ships. I seeded a candidate list — deep e-commerce, multi-location/franchise, compliance-heavy vertical, wants to self-edit continuously, has a site that's working fine, needs it by Friday, genuinely wants the £20/month product.
+
+Two open questions I didn't decide for you:
+
+1. **Who runs the call?** If it's the AI, the disqualification is a *far* stronger proof point — an AI that talks you out of buying is genuinely unprecedented — but it needs those criteria to be explicit and testable. If it's you, it doesn't scale, though at current volume that may be the better answer and a real "direct access to whoever does the work" signal per DOC-32.
+2. **Scope protection.** I noted that the 15 minutes is a qualification call *about* the consultation, not a slice of it. That has to be crisp in the copy or it becomes free consulting and collides with DOC-33 §9.
+
+The disqualification criteria feel like they want their own doc — it's an operational artifact the AI will need to execute against, not prose. Say the word and I'll file one.
 
 <!-- xgd-chat-end -->
