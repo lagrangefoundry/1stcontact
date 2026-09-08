@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:32:37.752809+00:00'
+updated_at: '2026-09-08T02:33:10.120347+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -458,5 +458,28 @@ Conflicting
 **Value**
 
 "v=spf1 include:amazonses.com ~all"
+
+<!-- xgd-turn id="fb2414e1-88da-4f79-aafb-2e4357b6214a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:33:09.697118+00:00" -->
+#### Claude
+That's precisely the trap. **Do not add its record as a second entry, and do not delete yours.** Two `v=spf1` TXT records on one name is a permerror — SPF stops resolving entirely, which is worse than either record alone.
+
+Merge them into the one existing record. Edit the `amazonses` entry and set its value to:
+
+```
+v=spf1 include:amazonses.com include:_spf.mx.cloudflare.net ~all
+```
+
+One `v=spf1` at the front, both includes, one `~all` at the end, nothing else. Then dismiss/skip Cloudflare's "missing" record rather than letting it create its own — its requirement is satisfied by the include now being present in yours.
+
+If the page still shows it as missing after you save, that's the checker wanting an exact string match rather than reading the mechanism. The merged record is correct DNS; proceed past it. I can confirm from outside once it's saved.
+
+Two things while you're on that page:
+
+- **The MX records it wants are the actual point** — add those. They're what makes `invite@` and `dmarc@` able to receive at all, and there's nothing to conflict with since the domain has no MX today.
+- **Watch for the `Value: ` prefix again.** That's how the first record got broken. The field takes only the record value.
+
+Tell me when it's saved and I'll re-check the apex from here — one SPF record, correct prefix, both includes, MX present.
 
 <!-- xgd-chat-end -->
