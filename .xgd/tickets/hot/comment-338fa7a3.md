@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:32:42.938873+00:00'
+updated_at: '2026-09-08T21:35:10.995696+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -95,5 +95,15 @@ Unarchived — CHAT-44 (`chat-762b15a2`) is back in the open store.
 I also took the chance to record the session on it, since the update was blocked before: title is now "System knowledge base: choosing the corpus for the builder AI", and the body carries the purpose, the verified KB wiring, the stale-awareness-map defect, and the seven coverage requirements. The `<!-- xgd-chat-end -->` marker is preserved at the top, so the transcript still appends correctly.
 
 Ready to continue — the open questions from the survey are whether the proposed six-document set looks right, and whether you want the beta-reality document drafted first.
+
+<!-- xgd-turn id="48ba60cf-f456-4aed-bb57-aefad6c53f31-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:35:09.897808+00:00" -->
+#### You
+Great, so I agree with your breakdown it sound like a great start that we can build on over time.
+
+As you suggest I think all the existing docs should be made into their internal types and we should create a these 6 specifically for that AI KB as the ONLY system kb docs.
+
+Please go ahead and start drafting them
 
 <!-- xgd-chat-end -->
