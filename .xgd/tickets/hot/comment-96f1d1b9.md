@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T01:36:03.762089+00:00'
+updated_at: '2026-09-08T01:53:56.713585+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,53 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="05385811-8a0b-4232-bb19-8df5425dcd42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T01:53:56.172883+00:00" -->
+#### Claude
+I'll start by reading the ticket.
+
+Now let me look at the invite modal client and the REQ-199 send test.
+
+Ticket is clear. One design tension I'll resolve rather than block on (flagged at the end): the invite's `from` has to live in `SEED_TEMPLATES`, which is deliberately business-neutral. Starting work.
+
+Now implementing. First, `mail.ts` — the derived text part:
+
+Good — both patches landed in the worktree. Now the call sites:
+
+Now the display-name in `wrangler.toml` and its config UAT:
+
+Now update the existing REQ-196 UAT that pins the Resend payload shape, then write the REQ-205 UATs:
+
+Now the UAT files:
+
+Now the sending-address UAT:
+
+Green. Now the version bump and commit:
+
+Now merge back to `xgd-working` under the shared lock:
+
+Done. REQ-205 is at `free_coded`, merged into `xgd-working`, branch cleaned.
+
+## What landed
+
+**1. Every message carries a derived plain-text part.** `textFrom(html)` in `mail.ts`; `check()` — which both adapters share — now *returns* the text it derived, so the sendability test and the thing that gets sent are one value rather than two computations of one answer. Anchors render as `words <url>` (once, if the words already *are* the url — every seeded template repeats the link as pasteable text); block tags become breaks; source line-wrapping collapses; entities decode from a small table plus general numeric handling; `<style>/<script>/<head>` contents are dropped. A body yielding no text is refused before any network call, in both adapters.
+
+**2. The sending address is per-template.** `template` gains an optional `from`; `MessageCopy`/`RenderedMessage` carry it; the invite seed names `1st Contact <invite@1stcontact.io>`, signin and lapsed fall back to `MAIL_FROM`. Both send paths resolve it **once** and use that value for the message *and* the record, so the two cannot disagree. The route still doesn't read a `from` off the POST — it takes the draft's.
+
+**3. `MAIL_FROM` is `1st Contact <no-reply@1stcontact.io>`** on both sides of `wrangler.toml`; the display-name form is asserted to reach the provider verbatim.
+
+## The one judgement call I made rather than asking
+
+The invite's address had to go in `SEED_TEMPLATES`, which is deliberately business-neutral — so a plumber's seeded invite template now names *our* address. I did it and documented the tension: there is exactly one sending domain on this deployment and every message already leaves from it, so the field states what is true rather than adding anything; the copy stays neutral. When a business sends from its own domain, that field is what moves, and it moves as a ticket edit rather than a deploy. Say the word if you'd rather it live only on our tenant's ticket.
+
+## Evidence
+
+14 new UATs in two files — the href invariant asserted over *every* shipped template rather than one example, plus the route-level proof that a posted `from` is ignored. Four REQ-199 assertions that pinned the invite to `MAIL_FROM` are updated with a comment naming this ticket; REQ-196's payload assertion gains `text`. Regression across REQ-186/188–191/195–199/202–205 and the config/deploy guardrails: green. `tsc --noEmit` clean.
+
+## Still blocking, and not code
+
+`invite@1stcontact.io` must actually receive — a Cloudflare Email Routing rule to a real mailbox. A repliable address that bounces is worse than `no-reply@`, and the invite now sends from it. That plus the other three operator items (our tenant's invite copy, Postmaster Tools, DMARC `p=quarantine`) are recorded in the ticket and now also in `apps/control-app/MAIL.md`.
 
 <!-- xgd-chat-end -->
