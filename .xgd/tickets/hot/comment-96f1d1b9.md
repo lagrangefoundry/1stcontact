@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:44:12.614325+00:00'
+updated_at: '2026-09-08T02:49:28.137580+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -560,5 +560,11 @@ Where that leaves the four operator items from the ticket:
 - ⬜ DMARC `p=quarantine` — now actually gated on evidence, since reports have somewhere to land
 
 Say the word and I'll fold today's findings into `MAIL.md` and TODO-5 — the merged-SPF rule, the `send.` record being the load-bearing one, and §6 going from open decision to done. Documentation only.
+
+<!-- xgd-turn id="00dd0142-3190-46c8-9dce-814bb8e9751e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:49:27.972671+00:00" -->
+#### You
+Sure
 
 <!-- xgd-chat-end -->
