@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:26:09.496312+00:00'
+updated_at: '2026-09-08T02:27:03.538589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -363,5 +363,43 @@ I can verify each step from here the same way — it's all observable in DNS. Wa
 #### You
 1 - done
 2 - how?
+
+<!-- xgd-turn id="2272a3d7-a19c-4762-a2dd-5da525e9a97b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:27:03.394833+00:00" -->
+#### Claude
+SPF is fixed and live: `v=spf1 include:amazonses.com ~all`, single record. MX still empty, so that's the whole of what's left.
+
+For enabling it — I've been wrong twice on where Cloudflare has moved things, so here's the route that doesn't depend on the dashboard at all.
+
+Script is at `/tmp/claude-501/req205/email-routing.sh`. Run:
+
+```bash
+export CF_API_TOKEN=...              # created at dash → My Profile → API Tokens
+export DESTINATION=you@example.com   # a mailbox you can read today
+bash /tmp/claude-501/req205/email-routing.sh
+```
+
+**Token permissions** (custom token):
+
+| Scope | Permission |
+|---|---|
+| Zone → `1stcontact.io` | Zone **Read** |
+| Zone → `1stcontact.io` | DNS **Edit** — enabling writes the MX records |
+| Zone → `1stcontact.io` | Email Routing Rules **Edit** |
+| Account | Email Routing Addresses **Edit** — destinations are account-scoped |
+
+**What it does, in order:** verifies the token, resolves the zone and account ids from the domain name, shows the current routing state and the DNS records routing wants, enables routing, registers your destination address, pauses while you click Cloudflare's verification link, then creates `invite@` and `dmarc@` forwarding rules and prints the final rule set.
+
+Two things to expect:
+
+- **The pause is real.** Cloudflare mails a verification link to `DESTINATION` and rules don't deliver until it's clicked. Nothing after that point works if you skip it.
+- **`dmarc@` may already be taken.** DMARC Management likely created its own rule when you switched it on. If that call returns a conflict, that's the right answer — leave it alone; `invite@` is the one that matters.
+
+Every call prints its raw response, so if an endpoint has moved the error will say so in words rather than failing quietly. That's deliberate given how the last two guesses went.
+
+**If you'd rather click:** the direct URL is `https://dash.cloudflare.com/<account_id>/1stcontact.io/email/routing` — but I'd take the script, since I can verify its result and can't verify a screen I can't see.
+
+When it's done, tell me and I'll re-check: MX present, `invite@` reachable, and whether DMARC reports have somewhere to land.
 
 <!-- xgd-chat-end -->
