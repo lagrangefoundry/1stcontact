@@ -5,7 +5,7 @@ type: doc
 title: Designing the site — craft, judgement, and the ways this goes wrong
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:43.157184+00:00'
-updated_at: '2026-09-08T21:53:46.555663+00:00'
+updated_at: '2026-09-08T22:03:00.694940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -364,7 +364,85 @@ turns into a busy one.
 
 ---
 
-## 12. A starting reference set
+## 12. Three ways this fails, and only one of them is "template"
+
+§1 is about the most common failure. There are two others, and they catch you
+from the opposite direction.
+
+### 12.1 Cosmetic customisation, which feels like design and is not
+
+The section order is formulaic — hero, numbered "how it works" steps, a
+press-quote block, repeated call-to-action bands — but the copy has real voice,
+the palette is custom and the photography is good. It reads as bespoke while you
+are making it, and it is not.
+
+Two tells:
+
+- **Whitespace used as decoration rather than as a system.** The *appearance* of
+  restraint with no rule behind it — sparse because sparse looks expensive, not
+  because a decision was made about what earns space.
+- **Voice layered onto an unchanged skeleton.** Distinctive copy in a generic
+  information architecture. The words are theirs; the structure is anyone's.
+
+**Same diagnostic as §1**, and it is the reason that diagnostic strips *both*
+copy and photography: those are exactly the two layers cosmetic customisation
+operates on.
+
+### 12.2 Custom but undesigned, which is the opposite failure
+
+Sites that are unmistakably not templates — hand-built, idiosyncratic — and
+worse than a template would have been. Inconsistent typography, styling invented
+per page, raw filenames as content, no responsive thinking, accessibility
+hand-rolled where it was thought about at all.
+
+**"Not generic" is not a design goal.** The alternative to sameness has to be a
+*system*, not just idiosyncrasy. You will feel the pull of this one when you are
+trying hard to avoid §1: the instinct to make each section different from the
+last is how a page stops having a rule.
+
+If you cannot state the rule the page follows — for type, for spacing, for
+colour, for how a section begins — there isn't one.
+
+### 12.3 A content vacuum, which no amount of design will fill
+
+Some of what makes a site look expensive is not design at all: real product
+interface, genuine data, photographs of actual work, a business with something
+specific to say.
+
+**No layout language can manufacture authenticity from nothing.** When a client
+has nothing real to show, the answer is not a more elaborate design covering the
+gap — it is either to go and get something real (see the material document on
+persuading them to photograph their own work), or to design something honest that
+does not pretend to have it.
+
+Learn to tell the three apart when you look at your own draft: *is this
+structurally generic, is it structureless, or is there simply nothing in it?*
+They have different fixes and applying the wrong one makes it worse.
+
+---
+
+## 13. Two smaller things worth knowing
+
+**Treatments are cheaper than they look.** A circle crop, a soft feathered edge,
+a subtle rotation, an alternating band surface — the effort-to-effect ratio on
+these is excellent, and they are a large part of what separates "composed" from
+"stacked". Reach for them before reaching for something elaborate.
+
+**A design signature is intentional, so notice it.** When you are working from a
+reference or a client's existing material and you see something deliberate — a
+wordmark with a specific gradient direction, a rule that runs down the left of
+every callout, a type treatment used in exactly one place — that was a choice
+somebody made. If you cannot reproduce it, **say so rather than silently
+substituting a default.** A quiet substitution reads to the client as "you didn't
+notice", which is worse than "I can't do that yet."
+
+Related: when you are judging a reproduction, the bar is **indistinguishable to
+the eye, not identical by measurement.** Your eye decides whether it is right;
+the numbers tell you where to look when it isn't.
+
+---
+
+## 14. A starting reference set
 
 Sites worth capturing and studying when you want to see a principle executed
 rather than described. **This is a starting set and not a house style** — the
@@ -401,7 +479,7 @@ for a second" is.
 
 ---
 
-## 13. Related
+## 15. Related
 
 - The page-language reference and the tool reference — **the vocabulary and the
   operations. Generated, always current, and the place to look when something
