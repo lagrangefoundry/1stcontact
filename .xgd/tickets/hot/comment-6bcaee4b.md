@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T22:47:04.942762+00:00'
+updated_at: '2026-09-08T22:47:16.605202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,13 @@ I'll cut `free-REQ-208` and write the UATs against `route()` end-to-end (the REQ
 I have a ChatGPT API key does that work?
 
 I have no idea what the image budget really means
+
+<!-- xgd-turn id="dbfebd5a-664c-477a-aa60-aacd92752094-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:47:15.892118+00:00" -->
+#### You
+I have a ChatGPT API key does that work?
+
+I have no idea what the image budget really means what do I get for 10 vs 4?
 
 <!-- xgd-chat-end -->
