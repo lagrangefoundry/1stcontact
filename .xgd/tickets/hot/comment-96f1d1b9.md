@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:13:15.111438+00:00'
+updated_at: '2026-09-08T02:17:21.878537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -239,5 +239,11 @@ I'd use a specific rule rather than catch-all. Catch-all means every address on 
 Then verify by mailing `invite@1stcontact.io` from an outside address before trusting it — a repliable address that bounces is worse than `no-reply@`, which is the whole reason it's blocking.
 
 Want me to fold this into `MAIL.md` §3 and TODO-5 §6, so the decision and the SPF trap are recorded where the next person will look? That's documentation, no code.
+
+<!-- xgd-turn id="84a6eed4-8045-43a0-939c-19839b1620cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:17:21.358390+00:00" -->
+#### You
+There is no "zones"
 
 <!-- xgd-chat-end -->
