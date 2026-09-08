@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-206
 created_by: xgd
 created_at: '2026-09-08T01:37:01.224445+00:00'
-updated_at: '2026-09-08T02:13:07.584541+00:00'
+updated_at: '2026-09-08T02:15:51.546313+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -67,5 +67,33 @@ Three smaller decisions, all in the body: the budget is a *burst* bound (per ses
 <!-- xgd-chat role="user" ts="2026-09-08T02:13:07.052861+00:00" -->
 #### You
 What do I need to do for this to be available in the dev environments?
+
+<!-- xgd-turn id="8fc40ab4-b067-40c6-a2cb-77e48df46bdb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:15:50.768328+00:00" -->
+#### Claude
+Short answer: **nothing in the repo.** No new binding, var, secret, migration, route, or asset rebuild. `[browser]`/`BROWSER` and the `BLOBS` bucket were already declared at the top level *and* under `[env.production]` (REQ-154/REQ-162 landed both), and the change is Worker/CLI TypeScript that wrangler bundles at deploy time — nothing in `src/builder/*` moved, so no `./bin/1c assets`.
+
+**To get it on `app.1stcontact.io`**
+
+```
+bin/deploy --dry-run control-app   # rehearse
+bin/deploy control-app
+```
+
+There's no `[env.staging]` block, so production is the only deployed environment.
+
+Two things to be aware of on that deploy:
+
+- **This is the first time Browser Rendering is actually exercised.** REQ-154 declared the binding and deliberately gave it no caller — "no route answers this yet" — so the binding has been declared and dark. Worth confirming the account genuinely has Browser Rendering available before assuming a failure is my wiring. If it isn't, the failure mode is benign: `BrowserNotConfiguredError` reaches the model as a tool error it can read, the session and every other tool keep working.
+- **`pnpm install` is out of step in this checkout right now.** The dry-run aborted before doing anything, asking to purge `node_modules`. That'll need sorting before deploying from here; it's unrelated to this change.
+
+**Local `pnpm dev:control` (`1c builder`)**
+
+Already had the fidelity surface — the Node host has supplied `HostDeps.fidelity` since REQ-157, which is exactly why the Worker's absence was the whole ticket. So there's nothing to wire; it just needs Playwright's browser present locally (`npx playwright install chromium`) because `nodeFidelityDeps` drives `createPlaywrightDriver`. It does pick up this ticket's image-blocks fix, so screenshots there now arrive as pictures rather than base64 text. It has no ticket store, so captures store but aren't written up, and `capture_site` says so.
+
+**Local `wrangler dev` of the Worker** — wrangler classes `browser` as local-and-remote, so it's either the local simulator or `remote = true` on the `[browser]` binding to proxy the real service. I haven't verified which of those actually works on this machine.
+
+**One gap I noticed while answering, which I have not fixed.** The upload path logs loudly when material is stored but not indexed (`warnUnindexed`, because DOC-39 §4 makes an unindexed document *invisible* rather than merely stale). My adoption wiring doesn't do the same — so on a deployment without the `AI` binding, a capture is adopted into the corpus and silently isn't searchable. That matters for local `wrangler dev` in particular, since wrangler says the `ai` binding will never have a local simulator. It's a one-line log to match the existing precedent. Say the word and I'll open it as a follow-up rather than reopening REQ-206, which is already `free_coded`.
 
 <!-- xgd-chat-end -->
