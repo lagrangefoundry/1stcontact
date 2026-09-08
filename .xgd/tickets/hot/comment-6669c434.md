@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T01:38:31.872445+00:00'
+updated_at: '2026-09-08T03:10:40.906904+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,17 @@ The three concrete backend changes provider tools require, since they'd otherwis
 **"Lagrange Network" → `lagrangefoundry/lagrange-framework`.** No project by that name is registered; the content is squarely `components/ai`. Say if you meant `lagrange-biz`.
 
 **No 1stcontact companion filed.** REQ-139 states what the product side needs and ties it to REQ-206, but the actual "1stcontact configures its APIs" ticket doesn't exist — you asked for one ticket, so I stopped there. Want me to file it?
+
+<!-- xgd-turn id="d84a7f71-2173-436a-b803-f12bde1bda78-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T03:10:40.695372+00:00" -->
+#### You
+**DOC-20 explicitly forbids what you asked for**, and I wrote the ticket to take that head-on rather than paper over it:
+
+> There is no separate binding format, no client-handler registry and no dispatch table… Configuration is only ever *selection and scoping*.
+> 
+> 
+> 
+> Lets discuss this - I do not recall why we said that? Please create a ticket
 
 <!-- xgd-chat-end -->
