@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T02:02:03.423704+00:00'
+updated_at: '2026-09-08T02:03:00.754172+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,37 @@ Sources: [B12](https://www.b12.io/), [Best AI Website Builders 2026](https://blo
 Would this be useful to us: 
 
 https://www.typewolf.com/free-fonts
+
+<!-- xgd-turn id="69180484-8294-4629-ac6c-430a496883c0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:02:59.726473+00:00" -->
+#### Claude
+Partly — but not in the way the URL suggests. I fetched it: it's not a database, it's a **$39 PDF sales page**. ~1,000 fonts, curated as "free alternatives to popular paid fonts," a Google Fonts pairing section, and "40 best free fonts not on Google Fonts." No API, no structured data, no download links, no mention of variable fonts or self-hosting.
+
+**Verdict: buy it for yourself as research; don't plan on it becoming a dependency.**
+
+### Why the content is genuinely relevant
+
+DOC-31 Pattern 6 puts typography-as-authored-device in the taste-gap category — the highest-yield, zero-technical-risk differentiators — and its diagnostic is *"did they design a rule?"* rather than *"did they pick a nice font."* Premium typefaces are also one of the strongest premium signals a site can carry, and they're exactly what we can't license per-client at our price point.
+
+So the "free alternative to $commercial-font-X" mapping is the useful part. It converts *"the brief says premium editorial, which means something like Söhne, which we can't ship"* into a concrete substitute. That mapping is real knowledge and it's tedious to reconstruct. Worth $39 of your time.
+
+### Why it can't be the catalogue
+
+Three problems, in order of severity:
+
+1. **It's a PDF.** DOC-33 stage 1 needs typography as a brief decision, and the capability catalogue is projected from declarations, never hand-written. A PDF can't feed that. Google Fonts already gives us a complete, free, machine-readable, OFL-licensed corpus — the thing we're missing was never the font list.
+
+2. **Licensing at our scale is different from licensing for one designer.** The 40 non-Google fonts are the interesting half, and Typewolf's own caveat is "always carefully read the license before using any free font." We'd be *serving* those files on behalf of many client sites, commercially. That's redistribution, and it needs a per-font license record, not a blanket "commercial use OK." Separately, the PDF's own contents becoming a product asset in a commercial platform is its own licensing question.
+
+3. **It doesn't cover what we operationally need.** No variable fonts, no self-hosting. We have to self-host regardless — a JAMStack performance budget argues for it, and hotlinking Google Fonts has been found to be a GDPR problem in the EU. So our catalogue needs font *files*, weights/axes, subset strategy and a license record per family. Names alone don't get us there.
+
+### The gap it actually reveals
+
+I grepped the doc tickets: DOC-31 says typography is a top-tier differentiator, DOC-33 stage 1 has a Brand section covering typography, DOC-23 has the layout substrate — but **there's no artifact that tells the AI which typefaces to reach for and why.** No pairings, no scales, no restraint-level mapping, no license records, no self-hosting story.
+
+That's the thing worth building, and it's worth more than the PDF. Shape would be roughly: a small curated set (20–30 families, not 1,000), each with license + file provenance, variable-axis support, a restraint-level tag, tested pairings, and a type-scale rule — projected into the stage-1 capability catalogue so the consultation can actually offer it.
+
+Want me to spec that? It'd be a new doc ticket, so say the word and I'll file one.
 
 <!-- xgd-chat-end -->
