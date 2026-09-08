@@ -6,9 +6,9 @@ title: 'The consultant can research: web search as a configured API, and the ima
   describer leaves its second path to a model'
 created_by: CHAT-43
 created_at: '2026-09-08T03:18:16.962511+00:00'
-updated_at: '2026-09-08T22:39:51.456120+00:00'
+updated_at: '2026-09-08T22:45:45.567664+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -254,3 +254,80 @@ should be looked up rather than assumed before the use cap's default is set.
 - **Nothing here changes a site.** Searching is a way of looking, and the site cannot
   move because the consultant looked something up.
 - **The role text still enumerates no tools.** The manual grows because the grant does.
+
+
+## Landed 2026-09-08 — step 1 of the sequencing, and only step 1
+
+**The describer half is built. The search half is not, and is still blocked on
+the same thing it was blocked on when this was written**: the framework's
+`CALL_TYPES` set is checked and still reads `new Set(['inproc'])`. There is no
+provider call type and no `http` one either, so there is nothing here to
+configure a search onto. Step 2 remains a lagrange-framework ticket that has not
+been filed.
+
+### What the describer does now
+
+`describe.ts` no longer reaches the Messages API. Its `import Anthropic`, its
+`VISION_MODEL` constant, `anthropicImageDescriber` and the chunked `base64`
+helper that existed only to feed it are all deleted, and with them the only place
+this Worker talked to a model without going through the host it already runs.
+The vision prompt survives the deletion as an exported `IMAGE_DIGEST_SYSTEM`,
+beside `DOCUMENT_DIGEST_SYSTEM` — the two prompts this product sends about
+material stay in the file that decides what a description IS.
+
+`ai.ts` gains `sessionImageDescriber`, the peer REQ-173 built for text. An
+upload is described by a lightweight session on the AI host's own session
+factory: no tools, no corpus, a `NullArchive`, one session per image, closed
+after it — the same four properties the document describer has, for the same four
+reasons. The image travels as a content block from the port's own `imageBlock`,
+with the one-line instruction beside it, in the order this product sent before.
+
+**The `DescribeImage` seam did not move**, so `material.ts`, `capture-material.ts`
+and every UAT driving them are untouched and still never reach the network. The
+router's `defaultDescriber` swaps one constructor for another and now reads
+identically to `defaultTextDescriber`.
+
+### Consequences of the above, requested here rather than left for reconciliation
+
+- **The two describers are one function.** The difference between them is a
+  system prompt and the shape of one turn's content; everything else — the
+  session lifecycle, the null archive, the empty toolbox, the memory junction —
+  was the same decision made twice. Consolidating an image path onto the text
+  path while leaving two copies of the path would have missed the point, so the
+  shared half is `describerSession` and both describers are three lines on top of
+  it. `DESCRIBER_ROLE` and `DESCRIBER_BACKEND` collapse into one `TEXT_DESCRIBER`
+  constant: they were always the same string, so the pair was two things to keep
+  in sync for no distinction anyone could act on.
+- **Each describer registers under its own name, and that is not cosmetic.**
+  `registerBackend` is a process-wide idempotent overwrite and the router builds
+  both describers per request, so a shared name would mean the one constructed
+  second silently owns the first's backend — a document answered through the
+  image describer's instruction, with nothing downstream able to detect it. A UAT
+  pins it.
+- **The image is encoded to base64 before it is handed to `imageBlock`**, though
+  the constructor accepts bytes too. The session manager writes the turn's
+  durable record — and measures the image for it — before the backend normalises
+  content, so raw bytes that far up the path are read as a string and are not
+  one. The encoder used is the port's own `bytesToBase64`; this file having a
+  second one would be the duplication this ticket removes, in miniature.
+- **The content-block vocabulary joins the Worker's declared boundary.**
+  `imageBlock`, `textBlock` and `bytesToBase64` are named in `assets.ts`'s
+  `AI_WORKER_EXPORTS`, so an upstream rename surfaces as a typecheck failure here
+  rather than as a request the provider refuses inside an upload.
+- **`@anthropic-ai/sdk` is dropped from `apps/control-app`'s dependencies.**
+  Nothing in this repository imports it once `describe.ts` stops. It remains
+  reachable transitively through the AI component, which is the only thing that
+  should be reaching it; what goes is the second copy REQ-183 measured at
+  +138 KiB of Worker bundle.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-207_image_describer_session.test.ts` — eight UATs against
+the real session manager, role assembly and content-block validation, with the
+Anthropic client as the one double. They assert the turn the host assembles, not
+merely that a description comes back: a test of the latter would pass against the
+SDK call this removes. The picture is on the wire as an image block carrying the
+caller's own bytes; the priming is the image prompt and nothing else; no tools
+are offered; two images share no conversation; a failing description still closes
+its session; the two describers do not cross-wire; and the `DescribeImage` seam
+still satisfies `describe()` end to end, title split and all.
