@@ -6,9 +6,9 @@ title: Priming hardwires system-KB document ids; corpus membership must come fro
   the build
 created_by: CHAT-44
 created_at: '2026-09-08T22:01:47.769621+00:00'
-updated_at: '2026-09-08T22:23:26.769949+00:00'
+updated_at: '2026-09-08T22:23:29.597906+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.138
+  story_points: 3
 ---
 
 ---
