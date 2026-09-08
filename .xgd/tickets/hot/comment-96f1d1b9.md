@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:21:04.061116+00:00'
+updated_at: '2026-09-08T02:23:31.387064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -308,5 +308,53 @@ Two things to watch, both consistent with what I said before:
 <!-- xgd-chat role="user" ts="2026-09-08T02:21:03.056335+00:00" -->
 #### You
 We have switched on DMARC - Clourflare is really frustrating and your knowledge of it is way out of date
+
+<!-- xgd-turn id="16834ded-f0eb-48f9-8fd5-2fb5bd849e12-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:23:31.000211+00:00" -->
+#### Claude
+You're right, and I should stop narrating a UI I can't see. Let me look at the thing that's actually observable and doesn't depend on my memory of Cloudflare's navigation — the DNS itself.
+
+That's more useful than any nav guidance. Two real findings, one of which is a live defect.
+
+Fair. Here's what's actually true right now, read off live DNS rather than off my memory of the dashboard.
+
+**Resend's side is correct and working.** `send.1stcontact.io` has a proper SPF and the SES bounce MX; the DKIM key is at `resend._domainkey.1stcontact.io`. That's why your real send got SPF pass (checked against the return-path on `send.`) and DKIM pass with `d=1stcontact.io`.
+
+Two problems, both new information:
+
+## 1. The apex SPF record is malformed — a pasted label
+
+```
+1stcontact.io  TXT  "Value: v=spf1 include:amazonses.com ~all"
+```
+
+The `Value: ` prefix is the dashboard's field label, pasted into the record. Per RFC 7208 a TXT record that doesn't *begin* with `v=spf1` is not an SPF record, so `1stcontact.io` currently publishes **no SPF policy at all** — it publishes a string that merely looks like one.
+
+It isn't what sent you to spam (SPF is evaluated on the return-path, which is the `send.` subdomain, and that one is fine). But it's worth fixing today for two reasons: junk in an SPF-shaped record is exactly what reputation tooling and manual reviewers notice, and the moment anything sends with a return-path at the apex — Gmail "send mail as", a second provider — SPF returns *none*, which under a future `p=quarantine` means quarantined.
+
+**Fix:** edit that one record to exactly `v=spf1 include:amazonses.com ~all`. Edit it — do not add a second record beside it.
+
+## 2. The DMARC reports you just switched on cannot be delivered
+
+```
+_dmarc  TXT  "v=DMARC1; p=none; rua=mailto:dmarc@1stcontact.io"
+1stcontact.io  MX  (none)
+```
+
+There are no MX records on the domain. With no MX, senders fall back to the A records — which are Cloudflare proxy IPs with no SMTP listener — so mail to `dmarc@1stcontact.io` fails outright. DMARC Management has published the policy but nothing can collect the reports, and that collection is the only evidence that would justify moving off `p=none`.
+
+The missing piece is the same one `invite@` needs: **Email Routing isn't enabled on this domain** — that's what writes the MX records. One action unblocks both.
+
+And the same no-MX fact means `invite@1stcontact.io` hard-bounces today. REQ-205 is merged but not deployed, so nothing is broken yet; it becomes the "repliable address that bounces is worse than `no-reply@`" case the moment it ships.
+
+## Order I'd do them in
+
+1. Fix the apex SPF string — one field, no dependencies, do it now.
+2. Enable Email Routing and verify a destination mailbox. That writes the MX records.
+3. Add two rules: `dmarc@` → wherever Cloudflare wants it (its own flow may claim this one), and `invite@` → your mailbox.
+4. Re-check with `dig MX 1stcontact.io`, then mail `invite@` from outside and confirm it lands.
+
+I can verify each step from here the same way — it's all observable in DNS. Want me to write these findings into `MAIL.md` and TODO-5 so the SPF defect and the MX prerequisite are recorded rather than living in this conversation? Documentation only, no code.
 
 <!-- xgd-chat-end -->
