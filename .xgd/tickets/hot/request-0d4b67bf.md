@@ -5,16 +5,21 @@ type: request
 title: 'The assistant''s eyes in the builder: mount the fidelity surface on the Worker'
 created_by: CHAT-43
 created_at: '2026-09-08T01:17:40.528379+00:00'
-updated_at: '2026-09-08T02:01:18.642619+00:00'
+updated_at: '2026-09-08T02:05:12.043126+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1d62d90a
+  commits:
+  - working_sha: ddff76c69b49769c2f26bc0d238512c34e23d8b3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.134
 ---
 
 ## What changes
