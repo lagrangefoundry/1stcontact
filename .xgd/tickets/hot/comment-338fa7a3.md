@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T20:48:21.366389+00:00'
+updated_at: '2026-09-08T21:32:26.201765+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,11 @@ To avoid the drift §3.2 warns about, I'd **move** content into these rather tha
 Two questions before I draft anything: **does that set look right to you**, and **do you want the beta-reality doc first** (it's the one with a hard deadline against real beta users, and it's the only one I'd need to research the current codebase for rather than harvest from existing docs)?
 
 One housekeeping note: this session's own chat ticket is archived, so `xgd ticket update chat-762b15a2` refuses. Nothing to commit yet, but I can't record the session on it — say the word if you want a `doc` or `request` ticket to carry this work instead.
+
+<!-- xgd-turn id="14c0cc82-ef30-4ac4-8b3b-fd0eb479ed8f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:32:26.090097+00:00" -->
+#### You
+oh my bad - we had two chat tickets generated and I started typing in the wrong one. Can you unarchive this ticket please - its important. Before we go any further.
 
 <!-- xgd-chat-end -->
