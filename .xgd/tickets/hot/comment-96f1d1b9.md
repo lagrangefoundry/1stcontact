@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:17:21.878537+00:00'
+updated_at: '2026-09-08T02:17:45.499651+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -245,5 +245,33 @@ Want me to fold this into `MAIL.md` §3 and TODO-5 §6, so the decision and the 
 <!-- xgd-chat role="user" ts="2026-09-08T02:17:21.358390+00:00" -->
 #### You
 There is no "zones"
+
+<!-- xgd-turn id="84a6eed4-8045-43a0-939c-19839b1620cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:17:44.310313+00:00" -->
+#### Claude
+"Zone" is the API word for a domain; the dashboard doesn't use it. In the UI it's just the domain entry.
+
+**Path:** dash.cloudflare.com → your account → the domain list (labelled **Websites** in the older nav, **Domains** in the current one) → click `1stcontact.io` → left sidebar → **Email** → **Email Routing**. Some accounts also surface it account-wide as **Email Services**.
+
+If none of that is visible, the likely cause is which account is selected — Email Routing only appears on a domain whose DNS Cloudflare actually serves. `1stcontact.io` is on Cloudflare DNS already (that's where the Resend SPF/DKIM records went), so the entry exists somewhere in the list.
+
+**UI-independent alternative,** if the dashboard keeps moving: it's an API surface, and the zone id is on the domain's **Overview** page, bottom right.
+
+```
+# enable + list rules
+curl -H "Authorization: Bearer $CF_API_TOKEN" \
+  https://api.cloudflare.com/client/v4/zones/$ZONE_ID/email/routing
+
+# a destination address (Cloudflare mails it a verification link)
+curl -X POST -H "Authorization: Bearer $CF_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"email":"you@yourmailbox.example"}' \
+  https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/email/routing/addresses
+```
+
+The token needs *Zone → Email Routing → Edit* plus *Zone → DNS → Edit* (it writes the MX records itself).
+
+Everything from my last message still holds — receive-only, separate from Resend, and don't let it add a second `v=spf1` TXT record.
 
 <!-- xgd-chat-end -->
