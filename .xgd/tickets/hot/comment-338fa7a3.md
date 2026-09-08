@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:04:07.772382+00:00'
+updated_at: '2026-09-08T22:12:15.660376+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -257,5 +257,11 @@ Two disciplines I'd want alongside it: a style is a **starting posture that gets
 **What I'd not do yet is write it as a system-KB document.** It would describe something that doesn't exist, and DOC-47 exists precisely to stop us doing that. I'd scope it as build work — five to eight directions, each defined only by treatment rules, each demonstrated on a real site — and canonise it once there's something to point at.
 
 Want me to file that as a ticket?
+
+<!-- xgd-turn id="c1151f46-6f22-4642-9fe3-9d6d199a78b2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:12:15.004611+00:00" -->
+#### You
+No action yet - lets sit on that one for now
 
 <!-- xgd-chat-end -->
