@@ -12,7 +12,13 @@ import {
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
-import { kmPrimingEntries } from '../tools/generate/src/cli/ai/roles'
+import {
+  consultantRole,
+  primingText,
+  PURPOSE_ENTRY,
+  registerCorpusProviders,
+  registerSiteProviders,
+} from '../tools/generate/src/cli/ai/roles'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 /**
@@ -217,25 +223,26 @@ describe('REQ-123 — the KB reaches the session', () => {
     // If the documents themselves were being pasted in, this priming would carry
     // the body text — and it must not.
     //
-    // ASSEMBLED THROUGH DOC-22's ENTRIES (BUG-63). `KnowledgeDocs.open` built one
-    // document and is gone; the map and the mechanism are registered providers
-    // now, named by two of the three entries {@link kmPrimingEntries} contributes,
-    // and `assemble` is what turns them into the text a session receives. The
-    // claim is unchanged and so is the order — only who does the assembling.
+    // ASSEMBLED THROUGH DOC-22's ENTRIES (BUG-63) FROM THE SHIPPED CONFIGURATION
+    // (REQ-182). `KnowledgeDocs.open` built one document and is gone; the map and
+    // the mechanism are registered providers now, named by entries `priming.json`
+    // declares, and `assemble` is what turns them into the text a session
+    // receives. Loading the real configuration rather than building a Role here is
+    // what makes this a test of what ships.
     const lib = await import(/* @vite-ignore */ sharedModuleUrl('ai'))
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
     const box = await createL1Toolbox('studio', {}, { knowledge: runtime })
 
     const providers = new lib.PrimingProviders()
-    const entries = await kmPrimingEntries(
-      lib,
-      bridge,
-      () => runtime,
-      'You look after a website.',
-    )(box, providers)
+    // EVERY NAME THE CONFIGURATION USES MUST BE BOUND, which loading through
+    // `rolesFromMapping` is what enforces: an unregistered provider is a
+    // `PrimingConfigError` naming the entry, so a test that binds half the
+    // registry fails at load rather than assembling a priming with a hole in it.
+    await registerCorpusProviders(bridge, () => runtime)(box, providers)
+    registerSiteProviders(providers, { slug: 'studio', box, signal: () => undefined })
     const priming: string = await lib.assemble(
       new lib.ProductConfig(),
-      new lib.Role({ name: 'consultant', priming: entries }),
+      consultantRole(lib, providers, true),
       new lib.SessionContext({ role: 'consultant', backend: 'test' }),
       { providers },
     )
@@ -246,10 +253,11 @@ describe('REQ-123 — the KB reaches the session', () => {
     // The documents themselves are NOT — this is the property the design rests on.
     expect(priming).not.toContain('Autoplay and interval are behavioural config')
     // And the order is map, then purpose, then mechanism — so the last thing
-    // read is the thing done first.
-    expect(priming.indexOf('Behaviour modules'))
-      .toBeLessThan(priming.indexOf('You look after a website.'))
-    expect(priming.indexOf('You look after a website.'))
-      .toBeLessThan(priming.indexOf('The site you look after'))
+    // read is the thing done first. The purpose is the one the configuration
+    // declares (REQ-182), not a stand-in passed in here, because the order under
+    // test is the order that ships.
+    const purpose = primingText(PURPOSE_ENTRY)
+    expect(priming.indexOf('Behaviour modules')).toBeLessThan(priming.indexOf(purpose))
+    expect(priming.indexOf(purpose)).toBeLessThan(priming.indexOf('KnowledgeSearch'))
   })
 })

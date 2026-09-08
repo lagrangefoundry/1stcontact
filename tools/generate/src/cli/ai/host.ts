@@ -38,9 +38,8 @@ import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
-import { kmPrimingEntries } from './roles'
+import { registerCorpusProviders } from './roles'
 import {
-  CONSULTANT_PURPOSE,
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
   resetAiHost as resetAiHostCore,
@@ -171,12 +170,11 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     // first — so the corpus is reached through THIS session's actual grant
     // rather than through a sentence written by hand about what it might have.
     //
-    // THREE ENTRIES, NOT ONE DOCUMENT (BUG-63). Upstream deleted `KnowledgeDocs`
-    // when it moved priming to DOC-22's named entries: the map and the mechanism
-    // are two registered providers now, re-read on every assembly rather than
-    // snapshotted once, and the purpose between them is the host's own text. The
-    // order is unchanged, and it is the order that was load-bearing.
-    priming = kmPrimingEntries(lib, bridge, () => knowledge, CONSULTANT_PURPOSE)
+    // THAT ORDER IS DECLARED, NOT PASSED (REQ-182). It is four lines of
+    // `priming.json` that both hosts load, so this seam registers `km.landscape`
+    // and `km.mechanism` and says nothing about where they sit. Its presence is
+    // what tells `host-core` this host has a corpus at all.
+    priming = registerCorpusProviders(bridge, () => knowledge)
   }
 
   return {

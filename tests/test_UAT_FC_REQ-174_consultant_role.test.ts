@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
-import { CONSULTANT_PURPOSE } from '../tools/generate/src/cli/ai/host-core'
 import {
   CONSULTANT_ROLE,
-  CONSULTANT_SYSTEM,
+  primingText,
+  PRODUCT_ENTRY,
+  PURPOSE_ENTRY,
+  ROLE_ENTRY,
   LEGACY_ROLE_NAMES,
 } from '../tools/generate/src/cli/ai/roles'
 import { L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox-core'
@@ -193,8 +195,8 @@ describe('REQ-174 — the assistant is told it is a consultant', () => {
     // The role's purpose primes knowledge retrieval (step 2 of the landscape).
     // It said the role "looks after" a website, which is the custodial register
     // the rename exists to leave behind.
-    expect(CONSULTANT_PURPOSE).not.toMatch(new RegExp(`${LEGACY_ROLE_NAMES[0]}|look after`, 'i'))
-    expect(CONSULTANT_PURPOSE).toMatch(/advise/i)
+    expect(primingText(PURPOSE_ENTRY)).not.toMatch(new RegExp(`${LEGACY_ROLE_NAMES[0]}|look after`, 'i'))
+    expect(primingText(PURPOSE_ENTRY)).toMatch(/advise/i)
   })
 })
 
