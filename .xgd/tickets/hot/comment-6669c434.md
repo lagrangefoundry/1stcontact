@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:05:30.842632+00:00'
+updated_at: '2026-09-08T22:05:55.515229+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -553,5 +553,25 @@ Honestly I don't understand what you're trying to say. Let me take a step back a
 This kind of modularity only makes sense when the seams I defined in the right places, if we get them wrong it creates more work and potentially inferior products. 
 
 I think my feeling on this one as we have done some work perhaps it is of value, at this point let's keep it simple
+
+<!-- xgd-turn id="dc049017-2fba-4ad2-9b27-3e712ac50ea2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:05:54.549375+00:00" -->
+#### Claude
+You're right, and my question was the wrong question.
+
+I was optimizing for file count. You're optimizing for seam enforcement — and on that measure a separate package **beats** a folder inside `components/ai`, because a package boundary with a declared `dependencies` list is a wall an agent can't quietly reach through. A folder inside `ai` is a soft seam that stays honest only as long as everyone remembers the rule. That directly undercuts your goal (2), which is the one you care about more.
+
+The 1c shim cost I was complaining about is the same property, not a tax: `AI_WORKER_EXPORTS` is a named list precisely so an upstream rename fails at typecheck instead of as `undefined is not a function` mid-turn.
+
+So: **one convention. A plugin is a component.** REQ-141 already set it with `ai_imagegen` and `ai_vision`; the search plugin follows it. Nothing new to decide, nothing to add to DOC-25.
+
+That leaves what's actually in front of us from the review:
+
+- **REQ-206** — ship unchanged, not blocked by any of this.
+- **REQ-207** — split. The describer half is a ~30-line `sessionImageDescriber` in 1c with no framework dependency (`imageBlock` is already in the installed `ai`). The search half is a new framework component.
+- **Search provider** — still the one open call, and it's the only thing blocking that ticket.
+
+Want me to write those up?
 
 <!-- xgd-chat-end -->
