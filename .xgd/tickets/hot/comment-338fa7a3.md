@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:12:15.660376+00:00'
+updated_at: '2026-09-08T22:12:29.971896+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -263,5 +263,15 @@ Want me to file that as a ticket?
 <!-- xgd-chat role="user" ts="2026-09-08T22:12:15.004611+00:00" -->
 #### You
 No action yet - lets sit on that one for now
+
+<!-- xgd-turn id="c1151f46-6f22-4642-9fe3-9d6d199a78b2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:12:29.301589+00:00" -->
+#### Claude
+Understood — parked, nothing filed.
+
+For when you come back to it, the crux is: a style may define *how things are treated* (type system, colour behaviour, rhythm, motion, imagery posture) and must say nothing about *what sections exist* — and the AI proposes a direction from the conversation rather than showing the client a set to pick from. The discussion is in the session transcript on CHAT-44.
+
+Where we are on the rest: eight authored system-KB documents plus the three projections, DOC-31 and DOC-17 demoted with their material salvaged, and BUG-65 filed for the priming hardwiring. The remaining step is a rebuild — `1c kb build` then `1c assets` — which exports the six new documents into the corpus and clears the stale awareness map. That's yours to run whenever you want it.
 
 <!-- xgd-chat-end -->
