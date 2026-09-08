@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T21:40:13.172814+00:00'
+updated_at: '2026-09-08T21:45:18.057835+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -390,5 +390,86 @@ Note the earlier `git push` failures persist (sandbox proxy auth); all four tick
 <!-- xgd-chat role="user" ts="2026-09-08T21:40:12.533466+00:00" -->
 #### You
 ok lets check in - REQ-139 and REQ-141 were built - can you review what's there - I took the framework part a bit further than we originally agreed. Lets discuss if it works for 1c and how best to adopt it?
+
+<!-- xgd-turn id="25e80075-00c7-4047-91be-6e47788adbca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T21:45:18.014923+00:00" -->
+#### Claude
+I'll pull both tickets and look at what actually landed.
+
+The scope moved — "the plugin layer", not just the http call type. Let me read both tickets and the diffs.
+
+I've read both commits end to end, plus the two shipped plugins, and traced how 1c would actually mount them. Here's the review and the adoption call.
+
+## What landed vs what we scoped
+
+We agreed on "ship DOC-20's `http` design." What landed is that plus a whole plugin layer:
+
+| | REQ-139 (13 pts, both languages) | REQ-141 (8 pts, JS only) |
+|---|---|---|
+| | `http` call type, plugin packaging + versioning, credential resolution, absence semantics, per-session use caps, conformance suite, `ToolboxSurface` extracted to break a load cycle | `ai_imagegen` (`create_image`), `ai_vision` (`describe_image`) |
+
+REQ-139 is `ready_to_reconcile`, REQ-141 is `free_coded`, REQ-142 (Python peers of the two plugins) is `draft`.
+
+## Review — what's right
+
+The `http` type is a faithful build of the DOC-20 design, and the security properties are structural rather than validated, which is the part that matters: origin fixed at construction with no slot for a model to fill; path slots percent-encoded **including `/`** so traversal dies by the encoding being total; typed query/body field maps that are serialized, never concatenated; redirects off by default and same-origin when on; size cap and content-type check *before* parsing; `untrusted` as the default provenance for the call type.
+
+Three things I'd single out as better than asked for:
+
+- **`HTTP_CONSTRUCTION_ONLY`** — a declaration is refused *by name* if it carries an origin or a credential. A shipped plugin structurally cannot hardcode somebody's endpoint or key.
+- **Absence is narrow and correct.** Missing credential → the plugin drops out of the surface, the manual, *and* its configuration entries, and the session opens without it. A configuration naming a surface nothing supplies → still a startup failure with the name attached. That distinction is the one people get wrong, and getting it wrong turns a typo into a silently smaller session.
+- **The use cap is spent on the right edge** — after every gate (so a refused call never spends budget) and before invocation (so a host that throws still consumes one, because a remote call that errored was still made).
+
+## Review — three things I'd question
+
+**1. The `http` call type has no shipped consumer.** Both REQ-141 plugins are component-bridged — they supply `create` and run real logic. The data-only flavour, which is the genuinely new and genuinely risky path, is proved only by UATs and fixtures. That's the gap I'd close first, and 1c has the obvious candidate (below).
+
+**2. A plugin = a package = a Worker shim.** In 1c, every framework component needs a hand-written re-export shim in `assets.ts` — there are four today (ai, ticketing, passwordless, knowledge) — plus a vitest alias, a `package.json` and an install-roster entry. For a component-bridged plugin that's proportionate. For a data-only plugin, which is a JSON declaration and ~30 lines of packaging, it's most of the cost of the thing. **Worth deciding now: should data-only plugins ship inside `components/ai` (a `plugins/` folder) rather than as separate packages?** Otherwise the shelf gets expensive to stock in exactly the case it was meant to make cheap.
+
+**3. `Toolbox.fromPlugins` isn't 1c's path** — but that turns out to be fine, see below.
+
+## Does it work for 1c? Three consumers, three different answers
+
+### (a) REQ-206, the fidelity surface — unaffected, ship it as-is
+
+Still hand-written, `inproc`, over 1c's own API. DOC-20's ownership rule says an application surface over the application's own API is the right answer and not second best. Nothing to adopt; REQ-206 is unblocked and independent.
+
+### (b) The image describer — **the plugin does not discharge REQ-207's second half, and I got this wrong when I filed it**
+
+`ai_vision` is much closer to 1c than I expected. It reads an attachment record, pulls bytes via `store.blobs.get(record.uid)`, describes on its own backend with tool use filtered and a fresh segment, and writes the result into the parent's body. That is 1c's model almost exactly — same store port, same one-blob-per-record shape.
+
+But three divergences, and the first is fatal to the swap:
+
+- **Trigger.** 1c describes at *ingest* — `material.ts` writes `body: description.body` at create, eagerly, for every upload, with no assistant in the room. `ai_vision` describes when the model *asks*. DOC-38 §6's whole simplification rests on every material carrying a description so the KB indexes bodies uniformly; a description that only exists once a model asked for it makes un-asked-about uploads unfindable. You can't move the trigger.
+- **Body shape.** 1c: the body *is* the description, plus `description_status` / `description_model` and a `material_text` comment. `ai_vision`: splices an annotated block under a heading naming the attachment, because it assumes a parent may hold several images.
+- **Coverage.** 1c has four branches (document / image / font / capture) with `DescriptionStatus` degradation. `ai_vision` covers images only.
+
+**What actually removes 1c's second path to a model is smaller, and buildable today with no framework dependency at all.** The image branch should do what REQ-173 did for text: open a lightweight session on the AI host's own session factory and prompt it once with `lib.imageBlock`. That's a ~30-line `sessionImageDescriber` mirroring `sessionTextDescriber` at `ai.ts:141`, and it deletes `import Anthropic`, `anthropicImageDescriber` and `VISION_MODEL`.
+
+I checked the shared store to be sure: the installed `@lagrangefoundry/ai` is **pre-REQ-139** (no `plugin.js`, `http.js` or `surface.js` under `toolbox/`) but it **does** export `imageBlock` — REQ-111 is in. So this fix needs no reinstall and no plugin.
+
+`ai_vision` may still be worth mounting later as an assistant-facing *"look at that one again"* tool. That's an addition, not a consolidation.
+
+### (c) Web search — re-scope, and the framework answer changed under it
+
+REQ-139 explicitly excludes provider-executed tools, and the reason it gives is better than the one I gave you when I filed REQ-207: `web_search` exists on `claude_api` and not on `chatgpt`, so a role granted it would silently hold different tools depending on which backend opened the session — which breaks the manual's core property that the model is told exactly what it has. That needs capability negotiation of the kind the `vision` flag already does. So Anthropic's `web_search` is off the table for now, and rightly.
+
+**But the `http` call type makes a third-party search API a data-only plugin — a declaration JSON plus an http block, and no TypeScript in either repo.** That is precisely the acceptance test I wrote into REQ-207 ("a second API must be a config entry and a grant with no TypeScript written in this repo"). DOC-25's ownership rule says the framework *may* ship a plugin when it wraps a public third-party contract, which a search API is. So it belongs in the framework, and it would be the layer's first data-only proof — closing question 1 above with the cheapest possible plugin.
+
+## Adoption mechanics, concretely
+
+1. **Reinstall `ai` first.** The store at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/` is pre-REQ-139, so no plugin works until it's refreshed. `imagegen` is already there; `ai-imagegen` and `ai-vision` are not. I can't write that store from the sandbox — that one's yours.
+2. **A shim per new component** in `assets.ts` for the Worker rung.
+3. **Wiring is `resolvePlugins`, not `fromPlugins`.** 1c builds its own Toolbox at `toolbox-core.ts:624`; adoption is `resolvePlugins(plugins, {secrets, options})` and spreading `surfaces` into `extraSurfaces`. The config-dropping that `fromPlugins` does comes free — `createL1Toolbox` already narrows `granted` to composed surfaces (REQ-157, lines 618–622) for exactly the same reason. The two codebases independently arrived at the same rule, which is a good sign about the rule.
+4. Grants go in `ai/instances.json` per role, unchanged.
+
+## What I'd do
+
+- **REQ-206**: ship unchanged. Not blocked by any of this.
+- **REQ-207**: split it. The describer half becomes a session-factory change with no framework dependency — buildable now. The search half becomes "adopt an `ai_websearch` data-only plugin", blocked on the framework shipping one.
+- **New framework REQ**: `ai_websearch` as the first data-only plugin, over Brave or Exa. Cheap, and it proves the `http` path with a real consumer.
+
+Two calls I'd want from you before filing anything: **data-only plugins as separate packages or inside `components/ai`?** (question 2 — it changes what the search ticket looks like), and **which search provider**, since that fixes the declaration.
 
 <!-- xgd-chat-end -->
