@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-07T23:08:50.166612+00:00'
+updated_at: '2026-09-08T00:03:10.971644+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,13 @@ That also gives the two-moment commercial structure DOC-4 lacks: a paid engageme
 I'd propose rewriting DOC-4 as the front-office proposition: two moments, one relationship, the boundary named once, the not-a-bundle claim made explicitly, and the superseded pricing/deferral sections corrected against DOC-31/32/33. The title would go too — "Webcaretaker" is legacy.
 
 Want me to draft that? And is "front office" the frame you want, or would you rather I put up two or three genuinely different framings first?
+
+<!-- xgd-turn id="e2e91886-f6a7-48b0-b789-323a2eb8907b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T00:03:10.786758+00:00" -->
+#### You
+Lets not get drawn into a pricing discussion - we are months off that mattering. Messaging matters now.
+
+Can you update the document with this new perspective - I am starting to work on the 1c website
 
 <!-- xgd-chat-end -->
