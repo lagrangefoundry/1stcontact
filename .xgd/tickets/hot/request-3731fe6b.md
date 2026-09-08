@@ -6,7 +6,7 @@ title: 'The consultant can research: web search as a configured API, and the ima
   describer leaves its second path to a model'
 created_by: CHAT-43
 created_at: '2026-09-08T03:18:16.962511+00:00'
-updated_at: '2026-09-08T22:15:23.008199+00:00'
+updated_at: '2026-09-08T22:33:43.495790+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -32,29 +32,29 @@ takes the **image describer** off the second path to a model it is currently on.
 ## Rescoped 2026-09-08, after lagrange-framework REQ-139 and REQ-141 landed
 
 This ticket was written against an expectation of what the framework would ship. It
-shipped something different, and in both halves the change is worth recording rather than
-quietly absorbing.
+shipped something different, and the scoping has moved twice in one day — recorded here
+rather than quietly absorbed, because the second move reverses part of the first.
 
 **The two halves are no longer one piece of work, and only one of them is blocked.** The
-describer turns out to need nothing from the framework at all; the search half needs a
-framework component that does not yet exist. They are kept in one ticket because they are
-one intent — *the consultant stops being blind, and stops reaching around the host to do
-it* — but they are sequenced below rather than built together.
+describer turns out to need nothing from the framework at all; search needs a framework
+change that does not yet exist. They are kept in one ticket because they are one intent —
+*the consultant stops being blind, and stops reaching around the host to do it* — but they
+are sequenced below rather than built together.
 
-**Search is no longer a provider-executed tool, and that is a correction, not a
-preference.** This ticket assumed the model's own vendor would run the search. REQ-139
-rules that out for a reason that stands on its own: `web_search` exists on `claude_api`
-and does not exist on `chatgpt`, so a role granted it would silently hold different tools
-depending on which backend opened the session. That collides with the property the manual
-exists to guarantee — that the model is told exactly what it has — and fixing it needs
-capability negotiation of the kind the `vision` flag already performs. Until that exists,
-search here is **a third-party search API reached over the framework's `http` call type**,
-which is a change of mechanism and of threat model, both recorded below.
+**Search stays a provider-executed tool after all.** REQ-139 excludes provider-executed
+tools, so this was rescoped once onto a third-party search API over the new `http` call
+type. That rescope is withdrawn. REQ-139's stated reason is that `web_search` exists on
+`claude_api` and not on `chatgpt`, so a granted role would silently hold different tools
+depending on which backend opened the session — but the framework already carries the
+machinery that answers this, in `capabilities()`, where `vision` is exactly such a
+backend-conditional capability and REQ-139's own absence handling is exactly the response
+to one. What is missing is a member of that set, not a mechanism. Reaching a second vendor
+over HTTP to obtain a capability the conversation's own vendor already offers is the more
+expensive answer and the less honest one.
 
 **The describer needs no framework work.** REQ-111 put image content on the session
 surface, and the installed `@lagrangefoundry/ai` already exports `imageBlock`. What is
 left is a change in this repository and nothing else.
-
 ## Why search, and deliberately not fetch
 
 **Only search is worth having here, and the reason is that [[REQ-206]] already gives us
@@ -62,11 +62,15 @@ something better than fetch.**
 
 - **Search finds an address.** Nothing in this product can do that. It is the whole of
   the new capability.
-- **Fetch reads a page — badly, for our purposes.** A plain HTTP fetch does not render
-  JavaScript, so a modern site comes back as a shell. `capture_site` drives a real
-  browser, records the page at each viewport, reads the values behind it and mirrors its
-  imagery. For *"look at this website"* the capture pipeline is strictly better, and
-  having both would invite the assistant to reach for the worse one.
+- **Fetch reads a page — badly, for our purposes.** It does not render JavaScript, so a
+  modern site comes back as a shell. `capture_site` drives a real browser, records the
+  page at each viewport, reads the values behind it and mirrors its imagery. For *"look
+  at this website"* the capture pipeline is strictly better, and having both would invite
+  the assistant to reach for the worse one.
+
+  This originally also said fetch was the more dangerous of the two. That was wrong and is
+  withdrawn: the provider's fetch tool only retrieves URLs **already present in the
+  conversation**, so it cannot wander. The case against it is quality, not reach.
 
 So the two compose, and that is the intended shape: **search finds the site, capture
 looks at it properly.** A client who says *"make it feel like the good photographers in
@@ -76,7 +80,6 @@ alone.
 Fetch is not refused on principle, only deferred: once REQ-206 has landed and we can see
 what capture leaves uncovered, the remaining case for fetch is reading PDFs and plain
 text, and it can be added as configuration without touching code.
-
 ## How it behaves
 
 - The consultant can **search the web** when the client's request turns on something it
@@ -100,9 +103,9 @@ text, and it can be added as configuration without touching code.
   for the same reason: it costs money per call. A session that exhausts its budget is
   told so in words it can act on, that one operation refuses, and every other tool keeps
   working — a client must never lose their consultant because it looked something up too
-  often. REQ-139 ships this as `max_uses` in the instance configuration, spent only once a
-  call has passed every other gate, so this is a configuration entry here rather than a
-  mechanism to build.
+  often. REQ-139 ships the declared form as `max_uses` in the instance configuration, and the
+  provider's own tool takes a native per-session cap, so the declared cap compiles onto
+  the native one and this is a configuration entry here rather than a mechanism to build.
 
 ## The image describer stops being a second path to a model
 
@@ -161,19 +164,24 @@ still selectable by predicate for a later re-describe pass.
 
 ## Configuration, not code
 
-**Adding the next API must not be a code change in this repository.** That test is
-unchanged, and REQ-139 is what makes it passable: a search API is a **data-only plugin** —
-a declaration and an `http` binding, with the framework's generic caller as its executor
-and no code shipped on either side. The test of whether this landed correctly is that a
-second API — a maps lookup, a companies register, a stock-photo search — is a
-configuration entry and a grant, reviewed as data, with no TypeScript written here to
-accommodate it.
+**Adding the next capability must not be a code change in this repository.** That test is
+unchanged, and it is what decides the mechanism rather than the mechanism deciding it.
 
-**The plugin is a framework component, not a file in this repository.** [[DOC-25]]'s
-ownership rule lets the framework ship a plugin when it wraps a public third-party
-contract, which a published search API is, and every plugin is packaged as its own
-component so its boundary is a declared dependency rather than a convention. This
-repository installs it and configures it; it does not author it.
+**A provider-executed tool is still a declared tool.** The framework needs a call type
+whose operations are declared exactly as any other — a capability group, prose, a grant, a
+use cap — but whose *execution* is delegated to the backend rather than performed by the
+Toolbox. That is not a new pattern here: the filesystem surface already runs two
+enforcement paths off one declaration, in-process for the API backends and compiled to CLI
+flags for the agentic one, with nothing detecting a mode because the backend determines
+which exists. This is the third member of that set.
+
+The seam it lands on already exists in this repository: the backend's tool list is built
+entirely from `box.schemas()`, so a provider operation is projected into that list as a
+passthrough descriptor instead of a JSON-schema tool, and never reaches `box.run`.
+
+The test of whether this landed correctly is unchanged: a second provider capability —
+fetch, code execution — is a configuration entry and a grant, reviewed as data, with no
+TypeScript written here to accommodate it.
 
 As a technical consequence of the above, and requested here so it is not discovered
 during reconciliation:
@@ -181,55 +189,63 @@ during reconciliation:
 - **The capability is granted, not merely present.** It joins the consultant's grant
   beside the surfaces it already holds, so a session that is not granted it is never told
   it exists — the projection rule [[REQ-126]] exists to enforce, and the exact failure
-  REQ-206 documents.
-- **Credentials are referenced from configuration, never written into it.** The host
-  supplies the secret. A configuration file that *can* hold a key is one that will
-  eventually be committed with one in it. REQ-139 enforces this structurally: a plugin
-  names the credentials it needs and a declaration carrying an origin or a secret is
-  refused by name.
-- **A deployment that cannot supply the capability simply lacks it.** No key, and the
-  plugin drops out of the surface and out of the manual, along with the configuration
-  written for it. The session still opens, the transcript still replays, and nothing
-  throws on first use — the same absent-and-fine shape as a missing API key, and the
-  behaviour REQ-139 ships as `resolvePlugins`.
+  REQ-206 documents. This is the property that a bare pass-through into the backend's tool
+  list would destroy, and the reason that shortcut is not taken.
+- **A backend that cannot execute it does not offer it.** The capability is declared per
+  adapter, as `vision` already is, and a deployment whose backend lacks it drops the
+  operation from the surface and from the manual rather than granting a tool that is not
+  there. That machinery is REQ-139's and is reused unchanged.
 - **The surfaces this deployment did not compose are narrowed out of the grant.** This
-  repository already does that, at `createL1Toolbox`, for the same reason the framework
-  drops an absent plugin's configuration — so an absent search plugin needs no new
-  handling here.
-
+  repository already does that, at `createL1Toolbox`, so an unavailable capability needs
+  no new handling here.
+- **No credential is added by this half.** The search runs on the conversation's own
+  vendor, under the key this deployment already holds. Search is the one capability in
+  this product that costs no new secret — see [[REQ-208]] for the first that does.
 ## Threat model, corrected
 
 The original filing said there was **no SSRF surface**, on the grounds that the provider
-executed the search on its own infrastructure and no request left our network. With a
-third-party API over the `http` call type **a request does leave our network**, so that
-sentence is withdrawn and replaced with what is actually true:
+executed the search on its own infrastructure and no request left our network. The `http`
+rescope made that false and it was withdrawn; with the rescope itself withdrawn, **the
+original claim is restored and is the accurate one**. No request leaves our network for a
+search, and `egress-guard.ts` has nothing to hold — that guard exists because
+`capture_site` takes a URL *from the model*, and no operation here does.
 
-- **The destination is fixed at construction and the model cannot influence it.** The
-  origin is supplied when the surface is built, path slots are percent-encoded including
-  `/`, and query fields are serialized rather than concatenated. There is no hole for a
-  model-supplied URL, which is the difference from `capture_site` and the reason
-  `egress-guard.ts` has nothing to hold here: that guard exists because `capture_site`
-  takes a URL *from the model*, and this operation never does.
-- **Redirects are off, and same-origin only if ever enabled.** A fixed origin is a lie
-  after one uncontrolled hop.
-- **The response is capped and content-type checked before it is parsed**, and is marked
-  `untrusted` before it reaches the model.
+What the provider's own tool gives us, which a hand-built surface would have had to
+reimplement:
 
+- **A per-session cap**, native to the tool, which is what the declared use cap compiles
+  onto.
+- **A domain allowlist and blocklist**, which is a coarse scope and more than this ticket
+  originally asked for.
+- **A source alongside every result**, which is what makes a claim attributable.
+
+What is genuinely given up, and it is worth stating plainly rather than discovering later:
+
+- **Results are not wrapped in this component's provenance markers.** A Toolbox result is
+  wrapped before the model sees it; a provider-executed result arrives inside the
+  assistant turn and nothing on our side touches it. *"Material, never instruction"* drops
+  from a structural guarantee to a stated rule in the surface's prose for this one tool.
+  The exposure is bounded — these are short search snippets rather than whole
+  attacker-controlled pages, which is what `capture_site` handles and does wrap — but it
+  is a real step down and not a technicality.
+- **The call does not appear in the Toolbox's audit record.** The result blocks are in the
+  transcript, so the operator can still see what came back; what is missing is the entry in
+  the trail every other tool call leaves.
 ## Sequencing
 
 1. **The describer.** Blocked on nothing. It is a change in this repository against
    already-installed framework code, and it can ship independently of everything below.
-2. **The search plugin**, in lagrange-framework. Does not exist yet. It would be that
-   layer's first data-only plugin — both plugins REQ-141 shipped are component-bridged,
-   so the `http` path currently has tests and no consumer.
-3. **Installing and configuring it here** — the shared store needs the post-REQ-139 `ai`
-   before any plugin resolves, and a new component needs its re-export shim in
-   `assets.ts` for the Worker rung.
+2. **A provider call type**, in lagrange-framework. Does not exist yet, and needs its own
+   ticket: the call type, a per-adapter capability declaration for the tools a backend
+   executes itself, and the passthrough in the tool-list projection. Smaller than the
+   search plugin this replaces, and it makes fetch and code execution configuration rather
+   than three more components.
+3. **Granting and configuring it here** — the shared store needs the post-REQ-139 `ai`,
+   and the grant joins the consultant's entry in `instances.json`.
 
-**One open decision blocks step 2: which search API.** It fixes the declaration, the
-credential name and the result shape, and nothing below it can be written until it is
-made.
-
+**The open decision that was blocking step 2 is gone.** It was *which search vendor*, and
+there is no longer a vendor to choose. What remains is a cost check: per-search pricing
+should be looked up rather than assumed before the use cap's default is set.
 ## What does not change
 
 - **No new HTTP route.** Searching is reachable only as a tool call inside an admitted,
