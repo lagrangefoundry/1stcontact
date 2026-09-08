@@ -68,9 +68,25 @@ const MATERIAL_FIELDS = {
   rights: { type: 'enum', enum: ['owned', 'licensed', 'third_party'], required: true },
   republishable: { type: 'boolean', required: true },
   exportable: { type: 'boolean', required: true },
+  /**
+   * Where the bytes came from — and since [[REQ-208]] that includes *us*.
+   *
+   * `generated` IS THE FIELD THAT SAYS A PICTURE IS SYNTHETIC. A client's
+   * library filling quietly with generated images presented as their own
+   * photography is the failure that matters: somebody months later choosing an
+   * image for a printed brochure has to be able to tell. This is where that is
+   * recorded, because this field already asks the question the answer belongs
+   * to, the Library already renders it under *Where it came from*, and a
+   * predicate can already select on it. A separate boolean would have been a
+   * second field asking a narrower version of the same thing.
+   *
+   * It is NOT `description_model`, which names the model and is a fact about
+   * provenance; this is a fact about the picture, for a reader who does not know
+   * what any of our model names mean.
+   */
   origin: {
     type: 'enum',
-    enum: ['uploaded', 'captured', 'fetched', 'site'],
+    enum: ['uploaded', 'captured', 'fetched', 'site', 'generated'],
     required: true,
   },
   kind: { type: 'enum', enum: ['document', 'image', 'font', 'capture'], required: true },

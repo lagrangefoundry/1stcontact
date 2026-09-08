@@ -35,6 +35,7 @@ import {
   workerHost,
   type WorkerHost,
 } from './ai'
+import { imageSurface } from './imagegen'
 import { fidelityDeps } from './shot'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
@@ -353,6 +354,24 @@ function chatHost(
         tickets,
         knowledge,
         await sessionFidelity(env, scope, deps, store, tickets, origin),
+        // THE ASSISTANT'S HANDS ([[REQ-208]]). Assembled here, like the eyes
+        // above, because what the plugin needs is request-scoped: this
+        // business's ticket store, normalised to this product's material
+        // vocabulary, and the same indexer an upload goes through — so a
+        // generated image is findable the instant it exists rather than after
+        // some later pass.
+        //
+        // THE INDEXER IS RESOLVED THROUGH THE SAME SEAM THE UPLOAD ROUTES USE,
+        // so a UAT that substitutes a counter observes a generated image being
+        // indexed exactly as it observes an uploaded one — and `null` where this
+        // deployment has no `AI` binding is the same ordinary degradation
+        // `defaultIndexer` already documents.
+        imageSurface(
+          env,
+          tickets,
+          await (deps.index ?? defaultIndexer)(env, scope),
+          deps.imageFetch ? { fetch: deps.imageFetch } : {},
+        ),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -455,6 +474,32 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv, SessionCoo
    * still lists material, and says loudly that nothing can find it.
    */
   AI?: { run(model: string, input: unknown): Promise<unknown> }
+  /**
+   * The image-generation credential ([[REQ-208]]) — **the first credential in
+   * this product for a vendor that is not Anthropic**.
+   *
+   * A SECRET AND NOT A VAR, for the reason {@link RouterEnv.ANTHROPIC_API_KEY}
+   * is one: it is a bearer credential for a paid API, and a `[vars]` entry is
+   * readable in the dashboard and echoed by `wrangler deploy`.
+   *
+   * AN IMAGE CREDENTIAL, NOT A CHAT BACKEND, and the distinction is
+   * load-bearing. The session still runs on `ClaudeAPIBackend`; what this buys
+   * is that ONE TOOL reaches OpenAI's images API underneath. Running a session's
+   * own turns on a ChatGPT backend is a different change with different
+   * consequences and is deliberately not what this is.
+   *
+   * OPTIONAL, AND ABSENT IS AN ORDINARY STATE rather than a deployment fault —
+   * more so than the Anthropic key, whose absence stops every turn. No image key
+   * means no image tool: the surface is never composed, the manual never
+   * mentions it, and every other tool keeps working. Which is exactly why
+   * {@link aiConfigured} does not read it: that predicate asks whether this
+   * deployment can reach a model AT ALL, and letting a missing image key make
+   * the whole product report itself unconfigured would turn an ordinary state
+   * into a fault.
+   *
+   * The NAME is the plugin's, not ours — see `imagegen.ts`'s `IMAGE_SECRET`.
+   */
+  OPENAI_API_KEY?: string
 }
 
 /**
@@ -525,6 +570,24 @@ export interface RouterDeps {
    */
   launch?: BrowserLauncher
   /**
+   * The transport the image generator is reached through ([[REQ-208]]).
+   *
+   * THE SAME KIND OF SEAM `launch` IS, at the same kind of boundary: a third
+   * party over a wire, which miniflare has none of. Everything on this side of
+   * it is the production path — the plugin, the declared surface, the refusal
+   * taxonomy, the per-session budget, the ticket write and this product's own
+   * normalisation of it — so a UAT proves the capability with no live
+   * credential and no spend.
+   *
+   * SEPARATE FROM {@link RouterDeps.fetch}, which drives the material fetch
+   * GUARD. Folding the two would mean a suite faking an image provider had
+   * silently also replaced the transport that ingestion's redirect
+   * re-validation is proved against.
+   *
+   * ABSENT IS THE ORDINARY CASE and the adapter uses the runtime's own `fetch`.
+   */
+  imageFetch?: typeof fetch
+  /**
    * The mail port ([[REQ-196]]), injected so the invite is provable offline
    * ([[REQ-199]]).
    *
@@ -584,7 +647,11 @@ const NO_STORE = 'no-store, must-revalidate'
  * two to leak into a message somebody is shown.
  */
 function secretsOf(env: RouterEnv): Array<string | undefined> {
-  return [env.ANTHROPIC_API_KEY, env.RESEND_API_KEY]
+  // THE IMAGE KEY IS ON THIS LIST FROM THE DAY IT EXISTS ([[REQ-208]]). It is a
+  // bearer credential for a paid API exactly as the other two are, and the path
+  // it travels ends in a provider error message that a model reads and a person
+  // may be shown — which is the shape of leak this scrub exists for.
+  return [env.ANTHROPIC_API_KEY, env.RESEND_API_KEY, env.OPENAI_API_KEY]
 }
 
 /**
