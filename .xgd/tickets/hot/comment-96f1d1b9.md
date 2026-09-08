@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:28:51.604654+00:00'
+updated_at: '2026-09-08T02:29:20.175813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -407,5 +407,25 @@ When it's done, tell me and I'll re-check: MX present, `invite@` reachable, and 
 <!-- xgd-chat role="user" ts="2026-09-08T02:28:51.277745+00:00" -->
 #### You
 No I really want to find the forwarding UI - I have set this up on other domains -
+
+<!-- xgd-turn id="9f123ffe-d1c8-48c9-a03b-8d8a66c322d3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:29:19.815135+00:00" -->
+#### Claude
+Then use a domain where you've already got it working as the map — that's a source of truth I can't be wrong about.
+
+1. Open the working domain's Email Routing page in the dashboard.
+2. **Copy the URL from the address bar.** It'll look like `dash.cloudflare.com/<account_id>/<domain>/<something>`.
+3. Replace the domain segment with `1stcontact.io`, keeping everything else identical.
+
+That lands you on the same page for this domain, whatever Cloudflare currently calls it, without either of us guessing at menu names.
+
+**Check the `<account_id>` segment while you're there.** If the working domain's account id differs from the one you get when you open `1stcontact.io`, that's the entire explanation — Email Routing is scoped per account, and you've been looking at the right menu in the wrong account. The account switcher is the fix, not the menu.
+
+One cause I can rule out from here: it isn't the "domain already has an MX record" case, where Cloudflare hides or disables routing to avoid clobbering an existing mail provider. `1stcontact.io` has no MX records at all, so nothing is blocking it.
+
+And DMARC Management being present tells us the Email section on this domain is live — so this is placement or account scoping, not the feature being unavailable.
+
+If the URL swap lands somewhere unexpected, paste me what you see in the address bar and I'll work backwards from that rather than from memory.
 
 <!-- xgd-chat-end -->
