@@ -25,7 +25,7 @@ import { secretHookHarness } from './support/secret-hook'
 
 const REPO = path.resolve(import.meta.dirname, '..')
 const WRANGLER = path.join(REPO, 'apps', 'control-app', 'wrangler.toml')
-const FROM_ADDRESS = 'no-reply@1stcontact.io'
+const FROM_ADDRESS = '1st Contact <no-reply@1stcontact.io>'
 
 const harness = secretHookHarness('bin/deploy.d/secrets/20-resend-api-key', 'RESEND_API_KEY')
 afterAll(() => harness.dispose())

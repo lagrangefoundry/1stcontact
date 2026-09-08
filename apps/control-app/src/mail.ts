@@ -59,11 +59,20 @@ export interface Message {
    * visible `<p>` and `<a href=…>` markup: a message that looks broken to the
    * one stranger it was written for, and looks fine everywhere on our side.
    *
-   * STILL ONE FIELD AND NOT TWO. A second `text` alternative is a second thing
-   * every template must decide about and a second body that can disagree with
-   * the first; the template's own pasteable-URL paragraph is what carries the
-   * recipients whose client mangles the button, which is the job a text
-   * alternative would otherwise have been carrying.
+   * STILL ONE FIELD AND NOT TWO, AND TWO PARTS ARE SENT ([[REQ-205]]). A second
+   * `text` alternative is a second thing every template must decide about and a
+   * second body that can disagree with the first — which was an argument about
+   * AUTHORING, and it survives intact, because the text part is DERIVED and
+   * never written. {@link textFrom} is the derivation; one body is still typed,
+   * two parts leave the building, and the two cannot disagree because one is a
+   * function of the other.
+   *
+   * WHY A SECOND PART IS SENT AT ALL: an HTML-only message is among the most
+   * commonly weighted spam heuristics, and a real invite from this deployment
+   * authenticated — SPF, DKIM and DMARC all passing — and landed in spam anyway.
+   * Authentication is not reputation. A filter with no history for a domain
+   * falls back to what the message looks like, and a single-part HTML mail
+   * carrying a button and a bare pasted URL looks like phishing.
    */
   body: string
 }
@@ -141,6 +150,140 @@ export const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const DETAIL_LIMIT = 300
 
 /**
+ * Every tag whose boundary is a LINE BREAK in text — the block-level set, plus
+ * `br`.
+ *
+ * A LIST AND NOT A HEURISTIC. "Anything that is not inline" is a judgement this
+ * file would have to keep making as HTML grows; a list is a thing that is either
+ * right or visibly wrong, and the cost of an unlisted tag is one missing line
+ * break rather than a paragraph that disappears.
+ */
+const BLOCK_TAG =
+  /<\/?(?:address|article|aside|blockquote|br|div|dd|dl|dt|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|th|thead|tr|ul)\b[^>]*>/gi
+
+/** Content that is markup ABOUT the message rather than the message. */
+const NOT_CONTENT = /<(script|style|head|title)\b[^>]*>[\s\S]*?<\/\1>/gi
+
+/** One anchor, kept whole so its address and its words can be read together. */
+const ANCHOR = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
+
+/** The href off an anchor's attributes, quoted either way or bare. */
+const HREF = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i
+
+/** Anything else that opens with `<` and closes with `>`. */
+const ANY_TAG = /<[^>]*>/g
+
+/** The break marker and the placeholder frame — both outside any body's alphabet. */
+const BREAK = '\u0001'
+const HOLD = '\u0002'
+
+/**
+ * The named entities a message body actually contains, and no more.
+ *
+ * A TABLE AND NOT A PARSER. The full HTML entity set is two thousand names, and
+ * carrying it here would be carrying a dependency's worth of data to decode the
+ * handful of things a template writes. Numeric references are handled generally,
+ * so any character is still reachable — and an entity this table does not know
+ * is left exactly as it was written rather than silently deleted.
+ */
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  mdash: '—',
+  ndash: '–',
+  hellip: '…',
+  lsquo: '‘',
+  rsquo: '’',
+  ldquo: '“',
+  rdquo: '”',
+}
+
+/** `&amp;` and `&#8212;` as the characters they stand for. */
+function decodeEntities(text: string): string {
+  return text.replace(
+    /&(#[Xx][0-9A-Fa-f]+|#[0-9]+|[A-Za-z][A-Za-z0-9]*);/g,
+    (whole, ref: string) => {
+      if (ref.startsWith('#')) {
+        const hex = ref[1] === 'x' || ref[1] === 'X'
+        const code = Number.parseInt(hex ? ref.slice(2) : ref.slice(1), hex ? 16 : 10)
+        if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return whole
+        try {
+          return String.fromCodePoint(code)
+        } catch {
+          return whole
+        }
+      }
+      return ENTITIES[ref.toLowerCase()] ?? whole
+    },
+  )
+}
+
+/** The words inside an anchor, with any markup of their own removed. */
+function anchorText(inner: string): string {
+  return decodeEntities(inner.replace(ANY_TAG, ' ')).replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * The plain-text alternative — DERIVED FROM THE HTML AND NEVER AUTHORED
+ * ([[REQ-205]]).
+ *
+ * THE INVARIANT, AND THE ONE TO FALSIFY AGAINST: **every URL that appears in an
+ * `href` in the HTML appears in the text**. A text alternative that has quietly
+ * lost the only route in is worse than none — the recipient whose client prefers
+ * text gets a message with no way to act on it, and nothing on our side looks
+ * wrong. So an anchor renders as its words followed by its address —
+ * `Accept your invitation <https://…>` — rather than as its words alone: the
+ * words say what the link is for, and the address is the part that can be
+ * pasted.
+ *
+ * AN ANCHOR WHOSE WORDS ARE ALREADY ITS ADDRESS RENDERS ONCE. Every template
+ * here carries the call to action as a button AND the same URL again as
+ * pasteable text, which is right in HTML and reads as a stutter in plain text.
+ *
+ * THE ORDER MATTERS AND IS NOT OBVIOUS. Anchors are lifted out to placeholders
+ * BEFORE any tag is stripped, because the `<https://…>` they render to is
+ * indistinguishable from a tag to anything that strips tags — a version of this
+ * that substituted anchors in place deleted every link it had just written.
+ *
+ * WHITESPACE IN THE SOURCE IS NOT WHITESPACE IN THE MESSAGE. A template body is
+ * wrapped across lines for whoever edits it and those newlines mean nothing in
+ * HTML; the breaks that DO mean something are the block boundaries. So the two
+ * are separated — blocks become a marker, every other run of space collapses —
+ * and the result reads as the page reads rather than as the file looks.
+ */
+export function textFrom(html: string): string {
+  const links: string[] = []
+  const held = (html ?? '')
+    .replace(NOT_CONTENT, ' ')
+    .replace(ANCHOR, (_whole, attrs: string, inner: string) => {
+      const match = HREF.exec(attrs ?? '')
+      const href = decodeEntities((match?.[1] ?? match?.[2] ?? match?.[3] ?? '').trim())
+      const words = anchorText(inner ?? '')
+      if (href === '') return words
+      links.push(words === '' || words === href ? href : `${words} <${href}>`)
+      return `${HOLD}${links.length - 1}${HOLD}`
+    })
+
+  const flowed = decodeEntities(held.replace(BLOCK_TAG, BREAK).replace(ANY_TAG, ' '))
+    .replace(/\s+/g, ' ')
+    .replace(
+      new RegExp(`${HOLD}(\\d+)${HOLD}`, 'g'),
+      (_whole, index: string) => links[Number(index)] ?? '',
+    )
+
+  return flowed
+    .split(BREAK)
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .join('\n\n')
+    .trim()
+}
+
+/**
  * The configured From address, or a refusal.
  *
  * IT THROWS RATHER THAN DEFAULTING. A default would be a second, undeclared
@@ -168,7 +311,7 @@ export function mailFrom(env: MailEnv): string {
  * two adapters agree on what a message is by construction, and the only thing
  * that differs between them is whether it leaves the building.
  */
-function check(message: Message): void {
+function check(message: Message): string {
   const missing = (['to', 'from', 'subject'] as const).filter(
     (field) => (message[field] ?? '').trim() === '',
   )
@@ -178,6 +321,19 @@ function check(message: Message): void {
   if ((message.body ?? '') === '') {
     throw new InvalidMessageError('A message needs a body.')
   }
+  // AND IT RETURNS THE TEXT PART, which is why this is a function with a value
+  // rather than an assertion ([[REQ-205]]). The derivation is a check — a body
+  // it could not understand yields nothing — and the thing it produces is what
+  // gets sent, so deriving it twice would be two answers to one question.
+  const text = textFrom(message.body)
+  if (text === '') {
+    throw new InvalidMessageError(
+      'No plain-text alternative could be derived from this body, so the message ' +
+        'would go out either as HTML alone or with an empty text part. Both are the ' +
+        'failure the text part exists to prevent.',
+    )
+  }
+  return text
 }
 
 /**
@@ -190,7 +346,7 @@ function check(message: Message): void {
  */
 export function resendMailer(apiKey: string, fetchImpl: typeof fetch = fetch): SendEmail {
   return async (message) => {
-    check(message)
+    const text = check(message)
 
     let response: Response
     try {
@@ -205,10 +361,13 @@ export function resendMailer(apiKey: string, fetchImpl: typeof fetch = fetch): S
           // An array because the API takes one, even for a single recipient.
           to: [message.to],
           subject: message.subject,
-          // `html` AND NOT `text` — see {@link Message.body}. The one template
-          // this repository ships puts its call to action in an anchor, and
-          // `text` would deliver the markup for somebody to read.
+          // BOTH PARTS, AND ONLY ONE OF THEM WAS WRITTEN ([[REQ-205]]). `html`
+          // is the body as authored — the templates put their call to action in
+          // an anchor, and text alone would deliver the markup for somebody to
+          // read. `text` is derived from it by {@link textFrom}, carrying every
+          // href through, so a client that prefers text still has the link.
           html: message.body,
+          text,
         }),
       })
     } catch (err) {
@@ -274,6 +433,10 @@ export function capturingMailer(log?: (line: string) => void): CapturingMailer {
   return {
     sent,
     send: async (message) => {
+      // THE SAME CHECK, WHICH NOW DERIVES THE TEXT PART TOO ([[REQ-205]]). The
+      // derived text is discarded here because nothing is delivered — what
+      // matters is that a body the derivation cannot read is refused HERE as
+      // well, so the suite cannot pass a message the provider would refuse.
       check(message)
       sent.push(message)
       const providerId = `local_${crypto.randomUUID().replace(/-/g, '')}`

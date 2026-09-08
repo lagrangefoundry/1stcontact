@@ -318,6 +318,7 @@ export function signInMailer(deps: {
   tenantId: string
   store: TicketStore
   send: SendEmail
+  /** The address to fall back to when the template names none ([[REQ-205]]). */
   from: string
   templateKey?: TemplateKey
 }): SendLoginEmail {
@@ -332,6 +333,12 @@ export function signInMailer(deps: {
     const rendered = renderCopy(copyOf(await templateFor(deps.store, deps.templateKey ?? 'signin')), {
       cta_url: url,
     })
+    // THE TEMPLATE'S ADDRESS, ELSE THE DEPLOYMENT'S ([[REQ-205]]) — the same
+    // resolution `invites.ts` makes, because it is the same question. The
+    // sign-in template names none and therefore sends from `MAIL_FROM`, which is
+    // the point of the fallback: one address per message type, not one per
+    // deployment, and no template obliged to say so.
+    const from = rendered.from?.trim() || deps.from
     await sendRecordedEmail(
       deps.store,
       {
@@ -340,7 +347,7 @@ export function signInMailer(deps: {
         templateKey: rendered.templateKey,
         templateUid: rendered.templateUid,
         subject: rendered.subject,
-        from: deps.from,
+        from,
         to,
         body: rendered.body,
       },

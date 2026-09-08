@@ -277,7 +277,11 @@ describe('REQ-199 — GET /api/people/invite', () => {
       templateKey: string
     }>()
 
-    expect(draft.from).toBe('no-reply@example.test')
+    // THE INVITE TEMPLATE'S OWN ADDRESS, NOT THE DEPLOYMENT'S ([[REQ-205]]).
+    // `MAIL_FROM` is what a template naming no address means, and the invite
+    // names one — the route resolves it and the modal displays what the send
+    // will actually use.
+    expect(draft.from).toBe('1st Contact <invite@1stcontact.io>')
     expect(draft.templateKey).toBe('invite')
     expect(draft.subject.length).toBeGreaterThan(0)
     expect(draft.body).toContain('{{cta_url}}')
