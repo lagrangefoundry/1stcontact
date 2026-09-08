@@ -5,9 +5,9 @@ type: request
 title: 'The assistant''s eyes in the builder: mount the fidelity surface on the Worker'
 created_by: CHAT-43
 created_at: '2026-09-08T01:17:40.528379+00:00'
-updated_at: '2026-09-08T01:43:25.768974+00:00'
+updated_at: '2026-09-08T02:01:18.642619+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -139,3 +139,79 @@ discovered during reconciliation:
   is now honoured, which is the whole point of projecting it ([[REQ-126]]).
 - **Nothing here changes a site.** Every operation on this surface is a way of
   looking at one.
+
+
+## What mounting it revealed — the picture was being described, not shown
+
+Discovered by this ticket and fixed in it, because without the fix the sentence
+at the top of this ticket is not true. The fidelity surface's picture operations
+return Anthropic **content blocks**, and that contract was proved against a bare
+tool whose closure handler's value the tool loop returns unmodified. It is not
+the path a real host uses: every tool this host registers runs through the
+Toolbox, whose contract is that a call renders to **text** — it serialises the
+result, marks its provenance and records its size.
+
+So a mounted `screenshot` reached the model as a JSON document with base64 in it:
+the picture described rather than shown, at the whole cost of the image and none
+of its benefit. Nothing was wrong with the surface; nothing was wrong with the
+Toolbox; the two contracts simply had never met, and could not until something
+mounted one on the other.
+
+- **The result of a picture operation reaches the model as a picture.** Every
+  call still goes through the Toolbox unchanged — validation, the capability
+  gate, the declared refusals, the provenance marking, the audit record — and
+  the blocks are recovered at the edge that can carry them, because the
+  rendering is lossless. Handing image operations a second, ungated dispatch
+  path to keep their return type would trade the wrong thing.
+- The recovery is safe to attempt on every result and applies to none of the
+  others: it takes effect only for a payload holding a JSON array that is
+  content blocks carrying an image, and hands everything else back untouched.
+- The `1c` CLI gets the same fix, having had the same defect for the same reason.
+- What does not survive the round trip is the provenance markers, which frame
+  text and have no text left to frame. What they carried is said where it is
+  read every turn instead: the surface's own overview already tells the model
+  that what a capture brings back is a stranger's website, material to report on
+  and never an instruction.
+
+## Design decisions made during implementation
+
+- **The budget counts browser acquisitions, not operations.** That is what makes
+  the rule above fall out rather than having to be restated per verb: an
+  operation that reads something already captured or already rendered never asks
+  for a browser, so it never spends, and none of them has to know a budget
+  exists. A capture spends eight; a look spends one.
+- **The ceiling is forty, and it is a constant rather than a deployment var.**
+  Five captures, or two captures and twenty-four looks — comfortably more than a
+  consultation that is working and comfortably less than one that is looping. A
+  per-deployment override is a knob whose only reachable effect would be to make
+  one deployment cost more than another for reasons nobody would find later.
+- **It is a burst bound, not a lifetime one, and that is stated rather than
+  implied.** One budget is minted per session manager, which is memoised per
+  business and site, so it serves one conversation for as long as the isolate
+  holding it lives and an evicted isolate mints a fresh one. That matches the
+  shape the risk actually has — a model looping on a look does it inside one
+  turn, in one isolate. A lifetime bound needs a durable count and would buy a
+  read-modify-write per acquisition to bound something no observed failure
+  reaches; the `chat` ticket's own fields are where it would go if it ever does.
+- **The surface declaration is not touched, and the refusal is not one of its
+  declared codes.** The declaration is shared with the `1c` CLI, whose local
+  browser is neither metered nor capped, so writing a budget into the shared
+  overview would teach a laptop session about a ceiling it does not have. What
+  the shared overview already says is true of both hosts and is the statement
+  made before anything is spent — *looking is not free and it is not instant;
+  take the picture you need, not the set you might need* — and the budget is
+  that sentence coming due.
+- **Both halves have to be present, not just the browser.** A deployment with no
+  private bucket for the client's material has nowhere to keep what it looks at,
+  and a capture written into the bucket the public internet is served from is a
+  disclosure rather than an inconvenience. Missing either is the same answer: no
+  eyes, session opens, conversation continues.
+- **A capture is marked third-party, because nothing yet declares a business's
+  own domain.** The rights bits invert on whose site was captured, and guessing
+  would mark a stranger's page as the client's own — the direction that ends with
+  somebody else's site republished. The conservative half is the safe half, and
+  this becomes a one-line read when the domain table lands.
+- **The browser is an injectable seam on the router**, alongside the fetch, the
+  mailer and the describers, so the eyes are provable offline. Browser Rendering
+  is a third party reached over a wire protocol and the local runtime has none;
+  everything on this side of that seam is the production path.
