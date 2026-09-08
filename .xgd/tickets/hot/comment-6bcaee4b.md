@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T23:24:06.513754+00:00'
+updated_at: '2026-09-08T23:33:19.451770+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -189,5 +189,58 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="febbc1e5-d7d7-4ff2-8448-df1d9e3a9490-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T23:33:19.296615+00:00" -->
+#### Claude
+Assets rebuilt with the widened boundary. Now the regression sweep — foreground.
+
+All 71 workerd files pass (649 tests). Now the node project.
+
+4 of 5 are pre-existing. But the scope check gained 2 entries — that one is mine. Let me see exactly what it objects to.
+
+The rule: that literal may appear only in its single declaration. My prose comments restate it. Finding and rephrasing them.
+
+Back to the pre-existing 3. Now the knowledge-base one — checking whether it's environmental.
+
+Exactly the 4 pre-existing failures — no regressions. Now recording the two decisions that changed during implementation.
+
+Now the free_coded promotion — this needs a version-carrying commit at the tip, and other sessions race for it.
+
+Merged back and cleaned. Final verification on the merged trunk.
+
+Done. Recording two non-obvious facts that cost debugging cycles.
+
+REQ-208 is free-coded and merged back to `xgd-working`.
+
+## What landed
+
+**`imagegen.ts`** installs the framework's `create_image` plugin — no tool surface authored here. It names the provider (`openai`/`gpt-image-1`), supplies the credential and the ticket type, carries the grant, and fills the one thing a framework component cannot know.
+
+The substance turned out to be **forced, not optional**. `rights`, `republishable`, `exportable`, `origin` and `kind` are `required: true` on `material`, so a bare plugin write is refused by the type pack outright. `generatedMaterialStore` — the plugin's own `options.store`, the seam upstream already declares — merges this product's fields into the write rather than patching after, so no material is ever visible carrying the plugin's fields and not ours. `content_type` and `filename` arrive one round trip later at `attach`, because they're measured off bytes that don't exist at `create`. The same handle is the scope: it refuses any type but `material` and any attach against a ticket it didn't create.
+
+**`origin` gained `generated`** rather than a new boolean. It's already the field that asks *where did these bytes come from*, the Library already renders it under **Where it came from**, and predicates already select on it — one enum value instead of a field, a column and a label.
+
+`OPENAI_API_KEY` joins the env and `secretsOf` (so it's scrubbed from anything a person sees). Its deploy hook deliberately **never fails a deploy**, unlike the Anthropic one. `aiConfigured` untouched.
+
+## Two decisions changed under test, both recorded on the ticket
+
+- **Budget stays at the framework's 10.** At a few cents an image it isn't a cost control; it's a loop stop. Tightening it would bite the intended use — a client rejecting three drafts is behaving correctly.
+- **The grant travels with the surface, not `instances.json`** — the opposite of fidelity. `instances.json` is CI-validated against the declarations *this repo holds*; this one lives upstream, and `test_UAT_FC_REQ_157_both_declarations_validate_together` failed on exactly that. Deriving it from the plugin's declaration is stronger anyway: it cannot name a group a rename removed.
+
+## Verification
+
+12 UATs, all through `route()` inside workerd over real D1/R2. Two doubles, both genuinely external: the Anthropic client and the image provider's HTTP endpoint.
+
+- **REQ-208 suite: 12/12 pass**
+- **Full workerd project: 71 files, 649 tests, all pass**
+- **Full node project: 2515 pass, 4 fail — all 4 pre-existing**, verified identical on the pre-change tree
+
+One failure was mine and is fixed: my prose comments restated the component scope literal, which `bug32-webui-scope-rebrand` forbids anywhere including comments. A fifth failure appeared only under full-suite load and passes alone (the known knowledge-suite behaviour).
+
+`0.2.140`, commits `74e0d2ff15` + `0e8574f9d1`, status `free_coded`, worktree cleaned.
+
+**One thing to note:** the shared store now has `ai`/`imagegen`/`ticketing` at reconciled-`main` versions and `ai-imagegen` from `xgd-working`. I verified the former fully satisfy the latter, but that's a mixed store — worth collapsing when REQ-141 reconciles. And the capability is inert until you put a real `OPENAI_API_KEY` in `apps/control-app/.dev.vars`; without it the assistant simply has no image tool, which every keyless UAT proves is a clean state.
 
 <!-- xgd-chat-end -->
