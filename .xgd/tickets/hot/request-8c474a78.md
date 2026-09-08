@@ -6,7 +6,7 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T03:16:17.790572+00:00'
+updated_at: '2026-09-08T03:50:13.742480+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -402,3 +402,143 @@ measurable win, unblocked; (ii) prose to configuration (items 1, 2-static, 4, 6,
 A/D/F — unblocked; (iii) `transcript-pointer` / `tool-transcript-note` (part of item 10) —
 unblocked, pending the ordering decision above; (iv) `session-summary` (rest of item 10) —
 after BUG-45; (v) items 2-dynamic and 8 — blocked on C, `ctx.scope`, unrelated to BUG-45.
+
+
+---
+
+## Implementation scope — 2026-09-07
+
+What is being built now, the decisions taken, and what is deliberately left out. Every
+behaviour a UAT asserts is stated here.
+
+### Configuration is JSON, imported as data, with prose authored as lines
+
+Finding F ruled out YAML on the Worker path. The form adopted is the one this directory
+already uses: a `.json` file imported directly by the module that needs it, exactly as
+`toolbox-core.ts` imports `l1-surface.json` and `instances.json`, `ledger-core.ts` imports
+`ledger-surface.json` and `fidelity-core.ts` imports `fidelity-surface.json`. Both
+tsconfigs already set `resolveJsonModule`, both hosts already bundle this directory, and
+`1c assets` is not involved — so a prose edit reaches the Worker the way a TypeScript edit
+does, with no generated file to fall out of step.
+
+**Prose is authored as an array of lines and joined with newlines at load.** JSON has no
+block scalar, and 4,000 characters of preamble as one escaped line would satisfy the letter
+of "no longer a TypeScript constant" while losing the whole point of it. So an entry's
+`text:` may be a string or a list of lines; the list is joined with `"\n"` before the
+mapping reaches the framework's loader. Nothing else about the format is this host's
+invention — `name` / `text` / `provider` / `priming` / `reminders` / `cache_boundary` are
+the framework's keys and are validated by the framework's own code.
+
+**The mapping is loaded through `rolesFromMapping`, not by constructing `Entry` and `Role`
+by hand.** That is what makes the both-or-neither check, the unregistered-provider
+rejection, the cache-boundary marker parsing and the "no `args:` key" rejection this host's
+behaviour rather than upstream trivia it happens not to use. A malformed configuration is a
+`PrimingConfigError` naming the entry, raised when the host starts.
+
+### Everything stays in the role tier; the product tier stays empty, deliberately
+
+This settles item 10, and it settles it as "omit", for a reason stronger than the ordering
+one in finding A.
+
+`session.transcript_pointer` tells a session *"Everything said in this session is stored,
+and addressable. Each exchange has a turn id; reading one by its id returns it in full."*
+**This host grants no such operation.** The three surfaces it composes are
+`l1-surface.json` (29 operations), `ledger-surface.json` (2) and `fidelity-surface.json`
+(6), plus the knowledge surface; none of them reads the session's own transcript. Adopting
+that entry would hand the consultant a hand-written claim about a tool it does not have —
+the precise failure `roles.ts`'s header names, *"worse than no inventory because the model
+believes it"*, and a direct breach of the layer-2 projection property REQ-126 protects.
+
+`session.tool_transcript_note` needs a `hasToolTranscript` reader this host does not have;
+registered without one it renders nothing, so adopting it would add a name and no text.
+
+`session.summary` is the one this host actually wants, and it is blocked on
+lagrange-framework BUG-45 (row 4 of the table above). It is not being adopted here.
+
+So the product tier is left empty and the entry list stays single-tier, which is BUG-63's
+decision re-affirmed rather than reversed, and finding A's ordering conflict never has to be
+paid. When the ongoing tier's second role arrives (DOC-33 §10), that is the event that makes
+a product tier worth having, and `PRODUCT_SYSTEM` is already a separate entry ready to move
+into it.
+
+### The cache boundary sits at the end of the list
+
+One `{cache_boundary: true}`, last. Every entry is before it, so nothing is volatile,
+assembly cadence is unchanged, and the whole assembled priming becomes one cached prefix
+instead of the `consultant-system` entry alone. This is finding B; row 2 of the table above
+is the measurement.
+
+**A KM read happens once per session, not once per turn.** True today by accident (no
+marker at all) and true after this change by declaration.
+
+### The reminder becomes five entries, and the guards become null-drops
+
+`consultantReminder`'s single space-joined string becomes five reminder entries:
+
+- two static `text:` entries — no framework vocabulary, act rather than narrate;
+- a static `text:` entry for the method pointer (DOC-33);
+- a provider for the site line;
+- a provider for the REQ-131 change signal, returning `null` when no changes landed;
+- a provider for the REQ-160 corpus delta, returning `null` when nothing arrived, declared
+  last.
+
+The existing `if (since.changes > 0)` and `if (delta)` guards become the null-drops-the-
+entry semantic. **The delivered text changes shape**: the framework joins reminder entries
+with a blank line rather than the single space this host joined with, so the reminder
+arrives as separated lines instead of one paragraph. That is a deliberate consequence, and
+an improvement — the change signal and the corpus delta are the two things that must not be
+skimmed, and they now sit on their own.
+
+Host state changes with it: the module-level map holds **the signal** (`{slug, since,
+delta}`) rather than a rendered string, because rendering is now the providers' job. The
+site-line provider still reads the slug from that state rather than from `ctx.scope`, which
+is finding C and is not fixed here.
+
+### `maxPrimingChars` is declared
+
+`SessionManager` is constructed with an explicit cap rather than the framework's 200,000
+default. The cap is chosen against the measured assembly and stated as arithmetic in the
+code, with headroom for the one part that grows — the client's landscape. A configuration
+that exceeds it fails loudly naming the entry, with no truncated priming produced.
+
+### The REQ-160 comment is corrected
+
+`roles.ts`'s *"Priming already carries a current landscape every turn"* is replaced. The
+landscape is assembled once per session and re-delivered, and DOC-22's 2026-09-05 amendment
+adds the second reason: in persistent invocation mode the system block is fixed at spawn, so
+the reminder is the only channel that carries a within-session change on every backend. The
+corpus delta is more necessary than the old comment argued, not less.
+
+### Out of scope for this change, with reasons
+
+- **Items 2-dynamic and 8** — one `Role` for every site, slug from `ctx.scope`. Blocked on
+  finding C: neither manager populates `SessionContext.scope` or `.toolbox`. Per-site
+  managers stay.
+- **`session-summary`** — blocked on lagrange-framework BUG-45.
+- **Item 9, `LEGACY_ROLE_NAMES`** — pending the operator's answer on whether any deployed
+  environment holds archived `caretaker` sessions. Kept until then: deleting it wrongly
+  makes those conversations unopenable, and keeping it wrongly costs one map entry.
+- **Item 6's ternary** — `HostDeps.priming` survives. A host with no knowledge base has no
+  landscape or mechanism provider registered, and naming an unregistered provider is a
+  load-time error by design, so the branch is real rather than incidental. What it selects
+  is now which named entries the configuration contributes, not whether a document gets
+  assembled.
+
+### Acceptance for this change
+
+- No priming or reminder prose exists as a TypeScript string constant; the words are in
+  `priming.json` and a prose edit needs no recompile of any `.ts` file.
+- Prose authored as a list of lines reaches the model as the paragraphs it was written as.
+- A configuration entry declaring both `text:` and `provider:`, or naming an unregistered
+  provider, fails at host start with a `PrimingConfigError` naming the entry.
+- The priming list declares exactly one `{cache_boundary: true}`, last, and the assembled
+  cache offsets cover the whole priming.
+- The landscape provider runs once for a session, not once per turn.
+- A turn with no site changes and no corpus delta emits neither entry — no empty clause, no
+  placeholder residue, no stray separator.
+- A turn with both emits both, with the corpus delta last.
+- The assembled priming sits under the declared cap with headroom; a configuration over the
+  cap fails loudly naming the offending entry and produces no truncated priming.
+- The session is told of no tool it was not granted: nothing in the priming claims the
+  transcript is addressable.
+- The existing REQ-131, REQ-160, REQ-174 and BUG-63 UATs pass against the configured form.
