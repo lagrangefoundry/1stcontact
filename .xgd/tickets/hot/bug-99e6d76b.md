@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-beaf61fd
 ---
 
 # Priming hardwires three system-KB document ids; one of them is no longer in the corpus
