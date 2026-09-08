@@ -6,7 +6,7 @@ title: 'Adopt DOC-22 session priming: consultant preamble, reminder and KM primi
   become configuration'
 created_by: xgd
 created_at: '2026-09-03T03:23:15.763170+00:00'
-updated_at: '2026-09-08T01:50:22.417494+00:00'
+updated_at: '2026-09-08T02:12:59.464714+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -350,3 +350,17 @@ What is left is three separable things with different value and different blocke
    or drop.
 
 Proposed: keep this ticket for (1) and (2), re-scoped per A/B/D/F, and take (3) out.
+
+
+### E2 filed upstream — lagrange-framework BUG-45 (`bug-6bace52a`)
+
+*Added 2026-09-07.* The cache-offset defect in E2 is now a framework bug:
+**"Cache offsets index the full assembly but the backend is handed the stable priming —
+breakpoints land mid-section once anything is volatile"** (priority high, severity high).
+It carries the reproduction in both languages, the docstring contradiction that shows the
+behaviour is unintended, the second symptom (`cacheBreakpoints` clamps `o <= length`, so a
+large volatile section deletes the breakpoint rather than moving it), a proposed one-property
+fix to `PrimingAssembly.offsets`, and a language-neutral UAT for the conformance corpus.
+
+**Item 10 should not be scheduled until BUG-45 lands.** Nothing else in this ticket is
+blocked by it — the role-tier marker (B) is independent and can go first.
