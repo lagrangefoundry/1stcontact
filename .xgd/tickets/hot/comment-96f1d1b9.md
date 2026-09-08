@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:49:28.137580+00:00'
+updated_at: '2026-09-08T02:50:52.188994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -566,5 +566,23 @@ Say the word and I'll fold today's findings into `MAIL.md` and TODO-5 — the me
 <!-- xgd-chat role="user" ts="2026-09-08T02:49:27.972671+00:00" -->
 #### You
 Sure
+
+<!-- xgd-turn id="00dd0142-3190-46c8-9dce-814bb8e9751e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:50:51.778865+00:00" -->
+#### Claude
+Documentation only, so no branch. Let me read the current state of both.
+
+Now TODO-5, via the CLI so the frontmatter stays the store's:
+
+Both recorded and committed to `xgd-working` as `6c8270f9` (version 0.2.135).
+
+**`apps/control-app/MAIL.md`** gains three subsections under §2 — the record set as it actually stands (all six records, so the next person compares against a list rather than reconstructing it), the two-SPF rule with the same-name/different-name distinction spelled out, and the two `curl` one-liners for reading it back from outside. §3 now records that inbound went live today, plus the two limits: Email Routing forwards but does not send, and DMARC reports need those MX records too.
+
+**TODO-5** gets an appended section closing §1, §2 and §6, written as what was actually found rather than as a checklist: the `Value: ` prefix that made the apex SPF not an SPF record, the deleted `send.` record and why it's the load-bearing one, and §6 going from open decision to done — noting it turned out to be a prerequisite for §4's DMARC work, not just for `invite@`. The three still-open items carry forward.
+
+The framing throughout is that every failure in this sequence was **silent** — authenticating mail with no apex SPF policy, a deleted return-path record that left DMARC passing on one leg, a `rua` address with nowhere to deliver. That's why both documents now point at DNS rather than at the dashboard.
+
+Two things still worth doing when you have a moment, neither of which I can check from here: send a mail to `invite@1stcontact.io` from outside to prove the forward end to end, and confirm Resend still shows the domain verified after the window where the `send.` SPF was missing.
 
 <!-- xgd-chat-end -->
