@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T00:08:36.327610+00:00'
+updated_at: '2026-09-08T00:10:31.230311+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,56 @@ Downstream of a capture bundle sits the whole reproduction pipeline — `1c repr
 <!-- xgd-chat role="user" ts="2026-09-08T00:08:35.582710+00:00" -->
 #### You
 So why is the AI telling me that it doesn't have them?
+
+<!-- xgd-turn id="936cdacc-2e99-49fe-b644-4d4368ca1182-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T00:10:31.067602+00:00" -->
+#### Claude
+Good question — let me trace how surfaces actually get mounted for a running assistant.
+
+Because it's telling you the truth. The tools exist, and the consultant is granted them — but the **deployed Worker never mounts the surface**, so the model is never told they exist.
+
+## The chain
+
+1. `ai/instances.json` grants `consultant` → `fidelity: ["SeeSite"]`, which is all six ops (`capture_site`, `list_references`, `describe_reference`, `screenshot`, `compare`, `check_fidelity`). ✅
+2. `ai/host-core.ts:597` mounts it **conditionally**:
+   ```ts
+   ...(deps.fidelity ? [{ surface: await fidelitySurfaceFor(lib, deps.fidelity(slug)) }] : []),
+   ```
+3. `HostDeps.fidelity` is declared nullable — "or null where this deployment cannot take it" (`host-core.ts:275`).
+4. **CLI** wires it: `ai/host.ts:193` → `fidelity: opts.origin ? (slug) => nodeFidelityDeps(...) : null`.
+5. **Worker does not.** `workerHost()` in `apps/control-app/src/ai.ts:273–332` builds its `HostDeps` with `store`, `archive`, `junctions`, `audit`, `apiKey`, `extraSurfaces`, `ledger`, `priming`, `delta` — and **no `fidelity` key at all**.
+6. `fidelityDeps()` is defined and exported at `apps/control-app/src/shot.ts:150` and is called from **nowhere in the repo**. Same for `r2ReferenceStore` — never constructed in the Worker.
+
+## Why the model doesn't even hedge
+
+This is REQ-126 working exactly as designed, and it's why the answer is a flat "I don't have that" rather than "I might". From `roles.ts`:
+
+> the tool manual — PROJECTED from the surface declaration and this session's grant … **a session is never told about a capability it was not granted**
+>
+> a hand-written inventory of tools is precisely the text that is still describing last month's surface six weeks later, and it is worse than no inventory because the model believes it.
+
+The role text deliberately enumerates nothing. So an unmounted surface isn't a tool the model has but can't find — it's a tool the model has never heard of.
+
+## Was this on purpose?
+
+It *was*. `apps/control-app/src/shot.ts`'s own header:
+
+> **NO ROUTE ANSWERS THIS YET, on purpose.** A browser session is metered and the account has a concurrency cap, so exposing one over HTTP is a decision about rate limiting and authorisation rather than a wiring step, and it belongs to the ticket that gives the assistant the surface ([[REQ-157]]). What lands here is the capability and its proof.
+
+But REQ-157 is the ticket that then wrote `fidelity-core.ts`, `fidelity-surface.json`, the egress guard, and the CLI wiring — it did the Node half and appears to have left the Worker half undone. That comment now reads as stale rather than as a live decision. (I couldn't confirm from REQ-157's body — it's not in the hot ticket set.)
+
+## What's already in place
+
+Almost everything:
+
+- `[browser] binding = "BROWSER"` in `wrangler.toml`, for **both** dev (:287) and `env.production` (:370)
+- `previewRenderer(store)` per-store in `router.ts:244`
+- `egress-guard.ts`, `leasedDriverFactory`, `adoptCapture` — all built
+- `r2ReferenceStore` exists in `tools/generate/src/store/`
+
+The gap is roughly two call sites: construct the R2 reference store, and pass `fidelity: (slug) => fidelityDeps(env, previewRenderer(store), references, origin, slug, {}, adoptCapture)` into `workerHost`. The unresolved part is the one the comment flagged — rate limiting and authorisation on a metered browser.
+
+Want me to scope that under CHAT-43 and wire it?
 
 <!-- xgd-chat-end -->
