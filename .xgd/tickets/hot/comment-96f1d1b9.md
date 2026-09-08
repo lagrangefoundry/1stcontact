@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-07T22:21:37.977559+00:00'
+updated_at: '2026-09-08T01:36:03.762089+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -140,5 +140,15 @@ Three reasons not to build against it now:
 One limit worth being clear about: **nothing except Postmaster Tools reports spam-folder placement.** Resend's webhook (REQ-198) gives you delivered/bounced/complained, and `delivered` is exactly what the message in your screenshot got. Until volume justifies Postmaster, the only real placement signal is what you just did by hand — send to a live Gmail and an Outlook account and look.
 
 Want me to cut the branch and implement REQ-205?
+
+<!-- xgd-turn id="05385811-8a0b-4232-bb19-8df5425dcd42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T01:36:02.827306+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
