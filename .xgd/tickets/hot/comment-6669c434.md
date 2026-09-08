@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T01:15:43.091668+00:00'
+updated_at: '2026-09-08T01:18:05.498483+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -118,5 +118,34 @@ Want me to scope that under CHAT-43 and wire it?
 <!-- xgd-chat role="user" ts="2026-09-08T01:15:42.311752+00:00" -->
 #### You
 Can you create and REQ to mount the surface?
+
+<!-- xgd-turn id="d550636a-f100-4b45-a4bf-4cc1d264c0d2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T01:18:05.068362+00:00" -->
+#### Claude
+Facts confirmed. Writing the ticket.
+
+**REQ-206** — *The assistant's eyes in the builder: mount the fidelity surface on the Worker* (`request-0d4b67bf`, status `draft`, priority high, 3 points).
+
+## What it asks for
+
+The six `SeeSite` operations reaching a real consultant session in the builder, plus the two things that make them useful rather than nominal: captures landing in the client's own private per-business store, and each capture adopted as findable material (otherwise `capture_site` reports the bundle wasn't written up — half a feature).
+
+## The decision it makes
+
+`shot.ts` deferred this on "rate limiting and authorisation." The ticket splits those and answers both:
+
+- **Authorisation — no new surface.** The original concern was exposing a browser *over HTTP*. This adds no route. The browser is reachable only inside a turn that's already admitted (session cookie or Access, per REQ-202) and already business-scoped, and `capture_site`'s egress guard already covers the model-chosen-URL problem at the per-request seam.
+- **Rate limiting — the real exposure, and it's spend, not safety.** A responsive ladder is eight navigations. So: a per-session budget on live-page fetches; exhaustion is a *readable refusal of that one operation* with every other tool still working; counting follows the `SIGNIN_RATE_LIMIT` precedent. This makes the surface overview's existing "looking is not free and it is not instant" true rather than advisory.
+
+I also wrote the technical consequences into the body explicitly — per-request reference store, builder origin from the request, the two-driver split (guarded factory gets **no** origin resolver, so a captured page naming our host can't be answered from our own store), and absent-browser staying absent-and-fine. That's so reconciliation doesn't discover them as undeclared drift.
+
+## Two notes
+
+**The `git push` failed** — sandbox proxy authentication, not a ticket problem. The ticket is committed locally and will need a push from outside the sandbox.
+
+**I set `chat_comment` wrong and cleared it.** I passed the chat uid; the field takes a `comment-*` uid. Worth re-pointing at this conversation's comment if you want the trace.
+
+I've left it at `draft` and haven't cut a branch or written code — say the word and I'll take it to `ready_to_implement` and free-code it. The one thing I'd want your call on first is the budget number, since it's the only genuinely arbitrary quantity in the ticket.
 
 <!-- xgd-chat-end -->
