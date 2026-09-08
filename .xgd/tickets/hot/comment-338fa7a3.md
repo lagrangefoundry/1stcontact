@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:35:10.995696+00:00'
+updated_at: '2026-09-08T21:47:08.944647+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,45 @@ Great, so I agree with your breakdown it sound like a great start that we can bu
 As you suggest I think all the existing docs should be made into their internal types and we should create a these 6 specifically for that AI KB as the ONLY system kb docs.
 
 Please go ahead and start drafting them
+
+<!-- xgd-turn id="48ba60cf-f456-4aed-bb57-aefad6c53f31-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T21:47:08.310188+00:00" -->
+#### Claude
+Starting with the first document — the product positioning, harvested from DOC-4 (+ DOC-24, DOC-32 §2) and rewritten to address the AI rather than us.
+
+Now the beta-reality document — the one that needs the codebase checked rather than harvested. Key findings: the AI does have eyes and web capture (browser binding is configured in production), published sites live at `1stcontact.io/site/<key>/` with no custom domains yet, and a contact form posts to a URL you supply because the public site is GET-only.
+
+Now the design-practice document — the largest of the six, harvesting DOC-19's L1 craft, DOC-17's lessons log, and DOC-31's differentiation findings.
+
+All six are drafted. Creating them as DOC tickets with `doc_kind: system_kb`.
+
+All six are drafted and created as DOC tickets with `doc_kind: system_kb`:
+
+| | Doc | Length | Built from |
+|---|---|---|---|
+| 1 | **DOC-46** What 1st Contact is, and how to say it | 17k | DOC-4, DOC-24, DOC-32 §2 |
+| 2 | **DOC-47** What the tool can do today — the beta reality | 11k | the codebase, verified directly |
+| 3 | **DOC-48** Designing the site — craft, judgement, and the ways this goes wrong | 17k | DOC-19, DOC-17, DOC-31 |
+| 4 | **DOC-49** Running the session — pace, the record, and publishing | 11k | DOC-30, the ledger surface, DOC-33 |
+| 5 | **DOC-50** The draft, the published site, and what the client can change | 7k | DOC-12, DOC-45, DOC-28 |
+| 6 | **DOC-51** The client's material — what you may use, and what you must ask | 8k | DOC-38 §4–5, DOC-37 |
+
+Each is addressed to the AI in the register we want it to speak in, carries no engineering rationale, and deliberately does **not** restate the tool surface, the L1 vocabulary or the component catalogue — those are projected as `REF-surface`/`REF-l1`/`REF-behaviors` and are already exceptionally well written. Each document points at them instead.
+
+**On DOC-47, the beta document** — I verified rather than assumed, and two things came out sharper than expected:
+
+- **A contact form has nowhere on our side to land.** The public site is GET-only, and the form's `action` is a required URL the AI must supply. So a form placed without settling where it posts silently swallows enquiries. DOC-47 makes that a hard rule.
+- **You do have eyes.** `fidelity-surface.json` gives screenshot, compare, capture-a-reference-site and a fidelity gate, and the `[browser]` binding is configured in production. I'd assumed blind and was wrong — DOC-48 §7 is built around using them well.
+
+Also verified: published sites live at `1stcontact.io/site/<key>/` with no custom domains; the component list is exactly contact-form, carousel, account-portal; email/scheduling/invoicing/monitoring have no implementation; and there's no way to share a private draft with a third party. Two things I asserted from context rather than verified — that beta access is invitation-only, and that a reachable human backs a beta engagement. Correct me if either is wrong.
+
+**Two things I've held off on, because they'd be hard to walk back:**
+
+**1. I have not demoted DOC-17, DOC-31, DOC-33 or DOC-35 yet.** Making the six the only members means those four leave, and the six don't replace them — DOC-48 harvests the craft findings from DOC-17 and DOC-31, but nothing I wrote substitutes for DOC-33's staged playbook or DOC-35's persona set. The corpus would lose the consultation runbook you asked for in your first message. Options: demote all four as you said and I write successors for the playbook and personas; or keep DOC-33 and DOC-35 as members and demote only DOC-17 and DOC-31, whose content is now carried by DOC-48.
+
+**2. `priming.json` names DOC-33, DOC-35 and DOC-31 by id.** Its `purpose` entry tells every session to read those three before starting. Demoting them without editing that entry leaves the AI instructed to open documents it can no longer reach — so whichever way you go, that text changes in the same edit, and should name the new set.
+
+Once you've decided, the remaining work is: reclassify, update the priming, then `1c kb build` and `1c assets` — which also clears the stale awareness map, since it still describes four documents and doesn't mention the REF projections at all.
 
 <!-- xgd-chat-end -->
