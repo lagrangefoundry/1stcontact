@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:36:44.881734+00:00'
+updated_at: '2026-09-08T22:38:24.272283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -702,5 +702,38 @@ The xgd commits are local; the push failed on the sandbox proxy again.
 <!-- xgd-chat role="user" ts="2026-09-08T22:36:44.648147+00:00" -->
 #### You
 Yes let's make material more descriptive. Is our EQ 207 ready to go?
+
+<!-- xgd-turn id="68864e3c-931c-4478-ba4d-afd95c4a3b3d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:38:23.899546+00:00" -->
+#### Claude
+Let me actually verify readiness rather than assert it.
+
+`imageBlock` reaches the Worker rung via `export * from './core.js'`, and the installed `ClaudeAPIBackend` declares `vision: true`. Let me settle REQ-208's open decision first.
+
+**REQ-208** now settles it: lands as `material`, and this product fills what the plugin can't know — `kind: image`, `description_status: ok` (honestly so, since the prompt *is* a retrieval-shaped description), `description_model` naming what generated it, `content_type`/`filename` from the bytes, plus a distinct field saying it was generated. I also wrote in the boundary: normalise on our side, don't change the plugin's write — that record shape is the framework's and several adopters will share it.
+
+## Is REQ-207 ready?
+
+**The describer half is. The ticket isn't**, because the other half is blocked on a framework ticket nobody has written.
+
+I verified the describer half rather than assuming:
+
+- installed `ClaudeAPIBackend` declares `vision: true` — `claude_api.js:56`
+- `imageBlock` does reach the Worker rung; `workers.js` is `export * from './core.js'`
+- `sessionTextDescriber` at `ai.ts:141` is the template, and `describe.ts:310` already has a local `base64()`
+- the `DescribeImage` seam keeps its shape, so the existing UATs keep driving it without reaching the network
+
+One gap I found: **`imageBlock` is not in `AI_WORKER_EXPORTS`** in `assets.ts`, and that list is a deliberate named allowlist, not a wildcard. So it needs a line there plus a regenerated `ai-workers.d.ts`. That's in-repo and part of the work, not a dependency.
+
+The search half needs the provider call type in lagrange-framework, which doesn't exist yet, plus the per-search cost check.
+
+## Why I'd split it now rather than flag it again
+
+This is the practical reason I hadn't given you: **free-coding needs a ticket to complete.** The branch is cut per ticket, the UATs trace to that ticket's body, and status moves to `free_coded` with the commits attached. There's no shape for "half of REQ-207 landed" — so as one ticket, the ready half cannot ship until the framework work does.
+
+Split into the describer (ready, ~3 points, no dependencies) and the search capability (blocked on the framework ticket), and the first can go this session.
+
+Want me to do that, and write the framework ticket for the provider call type?
 
 <!-- xgd-chat-end -->
