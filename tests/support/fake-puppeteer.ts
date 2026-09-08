@@ -50,6 +50,17 @@ export interface FakeBrowserOptions {
   hang?: boolean
   /** Make `goto` throw, to exercise release-on-failure. */
   failOnGoto?: boolean
+  /**
+   * The bytes `screenshot()` hands back ([[REQ-206]]).
+   *
+   * DEFAULTS TO THE SIGNATURE ALONE, which is what every caller before this
+   * wanted: they sniff the type and nothing decodes the pixels. A caller that
+   * drives the fidelity surface DOES — `screenshot` decodes, downsamples and
+   * re-encodes before the model ever sees the picture — so it passes a real PNG
+   * rather than having this file grow an encoder it would then be the second
+   * definition of.
+   */
+  png?: Uint8Array
 }
 
 /** Eight bytes of a real PNG signature + IHDR, so a caller can sniff the type. */
@@ -173,7 +184,7 @@ class FakePage implements PuppeteerPage {
   async waitForNetworkIdle(): Promise<void> {}
 
   async screenshot(): Promise<Uint8Array> {
-    return pngBytes()
+    return this.opts.png ?? pngBytes()
   }
 
   async content(): Promise<string> {

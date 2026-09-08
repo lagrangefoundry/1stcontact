@@ -60,7 +60,7 @@ import {
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
-import { fidelitySurfaceFor } from './fidelity-core'
+import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import type { FidelityDeps } from './fidelity-core'
 
 /**
@@ -565,6 +565,32 @@ function managerFor(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<
   return existing
 }
 
+/**
+ * Run one tool and hand back what the model should actually receive ([[REQ-206]]).
+ *
+ * EVERY CALL GOES THROUGH THE TOOLBOX, unchanged: validation, the capability
+ * gate, the declared refusals, the provenance marking and the audit record are
+ * all still what `run` does, for every operation on every surface. This is not a
+ * second dispatch path.
+ *
+ * WHAT IT ADDS is one thing the Toolbox's contract cannot carry. `run` renders a
+ * result to TEXT, because that is what a tool result is on every surface that
+ * existed when it was written. The fidelity surface's picture operations return
+ * Anthropic content blocks, and this backend's wire adapter passes a handler's
+ * value through unmodified — so rendered, the picture reached the model as a
+ * JSON document with base64 in it: described rather than shown, at the full cost
+ * of the image and none of its benefit. The recovery is `fidelity-core`'s,
+ * because the shape is, and it hands back `null` for everything else.
+ *
+ * This was invisible until [[REQ-206]] mounted the surface on a host that
+ * registers its tools this way. The `1c` CLI gets the fix for free, having had
+ * the same defect for the same reason.
+ */
+async function runTool(box: Untyped, name: string, input: Record<string, unknown>): Promise<unknown> {
+  const payload = await box.run(name, input)
+  return contentBlocksFrom(payload) ?? payload
+}
+
 async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<Untyped> {
   const lib = await ai(deps)
 
@@ -640,7 +666,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
               name,
               spec.description,
               { properties: spec.properties, required: spec.required },
-              (input: Record<string, unknown>) => box.run(name, input),
+              (input: Record<string, unknown>) => runTool(box, name, input),
             ),
         ),
       }),

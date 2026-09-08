@@ -259,6 +259,25 @@ export function workerHost(
   tenantId: string,
   tickets: TicketStore,
   knowledge: SessionKnowledge | null = null,
+  /**
+   * The assistant's eyes ([[REQ-206]]), or `null` where this deployment has none.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, and that is the same division of
+   * labour every other wire on this host follows: what the surface needs is a
+   * browser binding, a reference store bound to this business, this deployment's
+   * own address and the renderer the `/preview/*` route serves from — and the
+   * last of those is memoised per store IN THE ROUTER, so building it here would
+   * be a second renderer answering from a different stamp than the one the
+   * operator is looking at. Assembling it there also keeps
+   * `@cloudflare/puppeteer` out of this file's import graph.
+   *
+   * NULL IS ORDINARY, not an error, and must stay so: a deployment with no
+   * `[browser]` binding still opens the session, still replays the transcript,
+   * and simply has no eyes — the same shape as a deployment with no API key. The
+   * surface is absent rather than present-and-throwing, so the manual never
+   * mentions it and the model cannot propose an operation it has not got.
+   */
+  fidelity: HostDeps['fidelity'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -310,6 +329,10 @@ export function workerHost(
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
       extraSurfaces: knowing ? [sessionKnowledgeSurface(knowledge)] : [],
+      // Passed straight through: `host-core.ts` composes the surface when this
+      // is present and composes nothing when it is not, which is the one place
+      // that decision should be made.
+      fidelity,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth
