@@ -6,16 +6,21 @@ title: 'The consultant can research: web search as a configured API, and the ima
   describer leaves its second path to a model'
 created_by: CHAT-43
 created_at: '2026-09-08T03:18:16.962511+00:00'
-updated_at: '2026-09-08T22:46:02.002551+00:00'
+updated_at: '2026-09-08T22:46:28.344987+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-17eeb5e9
+  commits:
+  - working_sha: 597939256b457147932eac1219270eaaef90248e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.139
 ---
 
 ## What changes
