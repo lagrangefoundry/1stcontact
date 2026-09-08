@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T03:18:33.967796+00:00'
+updated_at: '2026-09-08T21:40:13.172814+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -384,5 +384,11 @@ Also captured: grant-not-merely-present (the REQ-126 projection rule, same failu
 REQ-207 is blocked on REQ-139, which is blocked on CHAT-30's provider-call-type question. All four are `draft`/`open` — nothing cut, no code written.
 
 Note the earlier `git push` failures persist (sandbox proxy auth); all four tickets are committed locally and need a push from outside the sandbox.
+
+<!-- xgd-turn id="25e80075-00c7-4047-91be-6e47788adbca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:40:12.533466+00:00" -->
+#### You
+ok lets check in - REQ-139 and REQ-141 were built - can you review what's there - I took the framework part a bit further than we originally agreed. Lets discuss if it works for 1c and how best to adopt it?
 
 <!-- xgd-chat-end -->
