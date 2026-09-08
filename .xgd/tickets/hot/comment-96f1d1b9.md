@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:39:03.365866+00:00'
+updated_at: '2026-09-08T02:39:47.875127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -487,5 +487,37 @@ Tell me when it's saved and I'll re-check the apex from here — one SPF record,
 <!-- xgd-chat role="user" ts="2026-09-08T02:39:03.321921+00:00" -->
 #### You
 ok we're good
+
+<!-- xgd-turn id="49ae6592-2e51-41e1-9929-1a3a57f5f2a3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:39:47.100862+00:00" -->
+#### Claude
+Let me verify from outside.
+
+MX and SPF are correct. But one thing regressed — let me confirm it before I say it.
+
+Not quite. MX and the merged SPF are right, but something got lost along the way — confirmed on both Cloudflare's and Google's resolvers:
+
+```
+send.1stcontact.io   TXT   (none)        ← was "v=spf1 include:amazonses.com ~all"
+send.1stcontact.io   MX    10 feedback-smtp.us-east-1.amazonses.com.   ✓ still there
+resend._domainkey    TXT   p=MIGfMA0...  ✓ still there
+```
+
+**The SPF record on the `send` subdomain has been deleted.** It was present 20 minutes ago. Most likely it got caught up in resolving the "conflicting SPF" prompt — two records both starting `v=spf1` on the same domain, one at the apex and one on `send`, look like duplicates in a list even though they're on different names and both belong.
+
+That one matters more than the apex record does. Resend uses `send.1stcontact.io` as the return-path — that's what the `feedback-smtp` MX beside it is for — and **SPF is evaluated against the return-path, not the From header**. That record is the reason your real send reported `SPF: PASS`. Without it, SPF now returns *none*.
+
+DMARC will still pass, because the DKIM leg aligns on `d=1stcontact.io` and that key is intact. But you'd be down to a single passing mechanism, which is a thin place to stand before moving to `p=quarantine` — and Resend will likely flip the domain to unverified, which can stop sends outright.
+
+**Restore it:** add a TXT record on the `send` subdomain, value exactly
+
+```
+v=spf1 include:amazonses.com ~all
+```
+
+No Cloudflare include on that one — Email Routing has nothing to do with the sending subdomain, and adding it there would only spend a DNS lookup.
+
+Then check Resend's dashboard shows the domain verified again. Tell me when it's in and I'll re-verify all five records — apex SPF, apex MX, `send` SPF, `send` MX, DKIM — in one pass.
 
 <!-- xgd-chat-end -->
