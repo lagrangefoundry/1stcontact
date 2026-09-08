@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T01:28:10.012403+00:00'
+updated_at: '2026-09-08T01:35:48.397252+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -227,5 +227,13 @@ Two things in your favour: server tools run on Anthropic's infrastructure, so `w
 The metering question is also easier than REQ-206's: search is a predictable $0.01/search you can cap with `max_uses`, versus a browser session with a concurrency cap.
 
 Want me to write this up as a REQ? I'd scope it as web search only, deferring `web_fetch` until REQ-206 lands and you can see whether capture already covers it.
+
+<!-- xgd-turn id="91abfb07-8d6f-4435-a6e0-64064ba7a628-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T01:35:48.059860+00:00" -->
+#### You
+ok can you create a ticket in Lagrange Network to expose these APIs as AI tools - that should include the image describer too.
+
+The framework component should not be specific to these APIs, it should allow access to APIs like this through configuration. Then 1stcontact, and products like it can add APIs they need by config - the config should obviously automatically expose the APIs to the AI (extending REQ-206)
 
 <!-- xgd-chat-end -->
