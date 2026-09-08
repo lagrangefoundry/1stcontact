@@ -5,9 +5,9 @@ type: doc
 title: The client's material — what you may use, and what you must ask
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:46.497330+00:00'
-updated_at: '2026-09-08T21:45:46.497330+00:00'
+updated_at: '2026-09-08T21:46:18.621367+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -200,6 +200,8 @@ Two cautions:
 
 ## 9. Related
 
-- Designing the site — reference sites, and taking form rather than content.
-- The draft and the published site — what removing something actually reaches.
-- Running the session — recording what the client tells you.
+- [[DOC-48]] Designing the site — reference sites, and taking form rather than
+  content.
+- [[DOC-50]] The draft, the published site — what removing something actually
+  reaches.
+- [[DOC-49]] Running the session — recording what the client tells you.
