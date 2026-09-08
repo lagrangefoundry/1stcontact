@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T03:17:14.621280+00:00'
+updated_at: '2026-09-08T03:18:33.967796+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -347,5 +347,42 @@ Four things I've listed for discussion in CHAT-30: ship `http` now or wait for a
 <!-- xgd-chat role="user" ts="2026-09-08T03:17:14.279424+00:00" -->
 #### You
 Can you also create a 1c ticket please?
+
+<!-- xgd-turn id="fb21e4cc-2166-4e2e-81b7-d284888fc916-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T03:18:32.775654+00:00" -->
+#### Claude
+**1stcontact REQ-207** (`request-3731fe6b`, `draft`, medium, 3 points) — *The consultant can research: web search as a configured API, and the image describer leaves its second path to a model*.
+
+## The scoping call I made
+
+**Web search only. Web fetch deferred, on purpose** — because REQ-206 already gives you something better. Fetch doesn't render JavaScript, so a modern site comes back as a shell; `capture_site` drives a real browser. Shipping both would invite the assistant to reach for the worse one.
+
+The two you *do* want compose: **search finds the address, capture looks at it properly.** A client saying "make it feel like the good photographers in Bristol" needs both halves — neither is useful alone. Fetch isn't refused on principle, just deferred until capture has landed and you can see what it leaves uncovered; by then it's a config entry, not code.
+
+## The describer
+
+REQ-207 is written as the deletion `describe.ts` already promised — it names its own consolidation point and commits to being deleted when one arrives. `anthropicImageDescriber` and `VISION_MODEL` go.
+
+One precision worth having: the **text** describer needs nothing, REQ-173 already routed it through the session factory. The image describer is the last outlier, and it survived only because it needed a content shape the surface couldn't express.
+
+## The test I wrote in
+
+The ticket states the acceptance condition for "configuration, not code" explicitly: a *second* API — maps, companies register, stock photos — must be a config entry and a grant with **no TypeScript written in this repo**. That's what stops REQ-139 landing as a mechanism that still needs product code per API.
+
+Also captured: grant-not-merely-present (the REQ-126 projection rule, same failure REQ-206 documents), credentials referenced never written into config, and absent-and-fine when a deployment can't supply it.
+
+## Where the three now sit
+
+| Ticket | Repo | Status |
+|---|---|---|
+| REQ-206 | 1stcontact | Mount the fidelity surface |
+| REQ-139 | lagrange-framework | Configured external APIs — ships DOC-20's `http`, plus a new provider call type |
+| CHAT-30 | lagrange-framework | The open design question REQ-139 depends on |
+| REQ-207 | 1stcontact | Consumes REQ-139; needs REQ-206 for search→capture |
+
+REQ-207 is blocked on REQ-139, which is blocked on CHAT-30's provider-call-type question. All four are `draft`/`open` — nothing cut, no code written.
+
+Note the earlier `git push` failures persist (sandbox proxy auth); all four tickets are committed locally and need a push from outside the sandbox.
 
 <!-- xgd-chat-end -->
