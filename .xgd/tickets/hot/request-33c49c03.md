@@ -6,9 +6,9 @@ title: 'Email deliverability: a derived plain-text part, a per-template sending 
   and a named sender'
 created_by: CHAT-42
 created_at: '2026-09-07T22:21:01.960360+00:00'
-updated_at: '2026-09-08T01:38:56.810857+00:00'
+updated_at: '2026-09-08T01:52:01.147860+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -195,3 +195,89 @@ anything:
 
 **Falsifier:** a text part that reaches a recipient without the link the HTML part
 carries.
+
+
+## What was built, and the details the three changes did not fix in advance
+
+Free-coded in the session on this ticket. Nothing below contradicts the three
+changes above; it records the decisions the implementation had to make, and the
+behaviour those decisions produce, so that the evidence has language to attach
+to.
+
+### The derivation lives beside the check both adapters share
+
+`textFrom(html)` is exported from `mail.ts`, and `check()` — which was an
+assertion — now returns the text it derived. One derivation per message: the
+thing that decides a message is sendable and the thing that gets sent are the
+same value, rather than two answers to one question computed at two moments.
+
+Three behaviours follow from the derivation that the description above implies
+without stating:
+
+- **An anchor whose words are already its address renders once.** Every seeded
+  template carries the call to action as a button AND the same URL again as
+  pasteable text — right in HTML, a stutter in plain text. `Accept your
+  invitation <https://…>` for the button, the bare URL for the paragraph.
+- **Markup that is about the message rather than part of it never becomes
+  text.** `<style>`, `<script>`, `<head>` and `<title>` contents are dropped
+  whole. A text part opening with a CSS rule is the message looking broken to
+  the one recipient it was written for.
+- **Whitespace in the source is not whitespace in the message.** A template body
+  is wrapped across lines for whoever edits it, and those newlines mean nothing
+  in HTML; the breaks that mean something are the block boundaries. The result
+  reads as the page reads rather than as the file looks.
+
+Entity decoding is a table of the handful of named entities a message body
+actually contains, plus general handling of numeric references. An entity the
+table does not know is left as it was written rather than silently deleted —
+the full two-thousand-name set is a dependency's worth of data for no gain here.
+
+### The address is resolved once, and the record cannot disagree with the send
+
+`copyOf` reads the template's `from`, `renderCopy` passes it through verbatim
+(it is not copy, so it is not token-substituted — a sender assembled at send
+time is a sender DKIM cannot vouch for), and each of the two send paths —
+`invites.ts` and `sessions.ts`'s `signInMailer` — resolves `rendered.from` else
+the caller's fallback ONCE, using that single value for both the message handed
+to the port and the record written beside it. A record naming an address the
+message did not come from answers the wrong question the day somebody asks why
+a reply bounced.
+
+The invite route takes the address from the draft it already resolved and never
+from the POST body, which is what keeps the display-only claim a property of the
+server rather than one client's manners.
+
+### Existing evidence this supersedes
+
+Four assertions in [[REQ-199]]'s suites pinned the invite's sender to
+`MAIL_FROM`, which was correct while there was one address for every message
+this platform sends. They now pin the invite template's own address, and say so
+in a comment naming this ticket. [[REQ-196]]'s payload assertion gains the
+`text` part alongside `html`, and its configuration UAT gains the display name.
+
+### Documentation
+
+`apps/control-app/MAIL.md` records the per-template address table, the
+`invite@1stcontact.io` routing dependency as blocking operator work, and why
+both parts are sent. No ticket of its own: documentation, not code.
+
+## Evidence
+
+- `tests/test_UAT_FC_REQ-205_text_part.workers.test.ts` — both parts on the
+  provider payload; the href invariant asserted over every shipped template
+  rather than one example; anchor rendering, both shapes; the page-reads
+  derivation; the refusal, in both adapters, before any network call.
+- `tests/test_UAT_FC_REQ-205_sending_address.workers.test.ts` — the seeded
+  invite names an address and the other two do not; the invite sends from it and
+  the record agrees; a template with no `from` sends from `MAIL_FROM`; a sign-in
+  link does not come from the invite address; the modal shows what the send will
+  use; the route ignores a `from` on the POST; a display-name form reaches the
+  provider verbatim.
+
+Regression scope run: REQ-186, REQ-188, REQ-189, REQ-190, REQ-191, REQ-195,
+REQ-196, REQ-197, REQ-198, REQ-199, REQ-202, REQ-203, REQ-204, REQ-205, plus the
+config and deploy guardrail suites and `naming`. All green; `tsc --noEmit` clean.
+
+`test_UAT_FC_BUG-58_invite_modal_fits` fails in a branch worktree for want of
+built `dist-assets` and passes in the primary checkout — a location artifact,
+not a consequence of this change.
