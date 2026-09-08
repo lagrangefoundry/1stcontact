@@ -6,9 +6,9 @@ title: 'Email deliverability: a derived plain-text part, a per-template sending 
   and a named sender'
 created_by: CHAT-42
 created_at: '2026-09-07T22:21:01.960360+00:00'
-updated_at: '2026-09-08T01:53:22.802627+00:00'
+updated_at: '2026-09-08T01:53:26.816795+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
