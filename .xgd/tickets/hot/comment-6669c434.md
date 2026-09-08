@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T01:25:58.030787+00:00'
+updated_at: '2026-09-08T01:28:10.012403+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,79 @@ I've left it at `draft` and haven't cut a branch or written code — say the wor
 <!-- xgd-chat role="user" ts="2026-09-08T01:25:56.851264+00:00" -->
 #### You
 Claude has a websearch and a webfetch tool - any idea how that works? Can we create something similar? Are there websearch APIs we could call?
+
+<!-- xgd-turn id="6cdc4c54-69d4-4f3d-b29c-d2932b029b1c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T01:28:09.506000+00:00" -->
+#### Claude
+Three questions, and the middle one has a much better answer than you'd expect. Let me check the provider situation and pull the current API reference.
+
+False positive ("coherent" matched `cohere`). This is an Anthropic-only codebase, so the trigger applies.Skill loaded. Now let me check how your backend actually builds requests, since that determines whether this is a wiring job or a build job.
+
+Now I have the precise picture. Let me get current pricing rather than guess.
+
+Got it — and the answer is better than "we'd have to build it."
+
+## How Claude's tools work
+
+Two different things share the name, and only one is relevant to you:
+
+- **My WebSearch/WebFetch here** are Claude Code *harness* tools — the harness executes them and feeds results back. Not something you can call.
+- **The Anthropic API has `web_search` and `web_fetch` as server tools.** You declare them in `tools`; Anthropic runs them during your request and splices the results into the response. No execution loop, no `tool_result` to return, no infrastructure on your side.
+
+That's the whole integration:
+
+```typescript
+tools: [
+  { type: "web_search_20260318", name: "web_search", max_uses: 5 },
+  { type: "web_fetch_20260318",  name: "web_fetch",  max_uses: 5,
+    citations: { enabled: true } },
+]
+```
+
+**Pricing:** web search is **$10 per 1,000 searches** plus tokens for the results. Web fetch has **no per-use charge at all** — you pay only for the tokens the fetched content occupies (~2.5k for a typical page, ~125k for a research-paper PDF, hence `max_content_tokens`). Search citations are free: `cited_text`, `title` and `url` don't count toward token usage.
+
+**Four things that will bite you:**
+
+1. **`web_fetch` can only fetch URLs already in the conversation** — user messages, client-side tool results, or prior search/fetch results. Never from Claude's own output, the system prompt, or another server tool's result. This is a deliberate exfiltration control. Otherwise: `url_not_in_prior_context`.
+2. **`web_fetch` does not render JavaScript.** The docs explicitly point elsewhere for that.
+3. **Server-tool errors return HTTP 200**, with the error inside the result block. For search, success `content` is a *list* and error `content` is an *object* — branch before indexing.
+4. **`pause_turn`** — a long search turn comes back paused; you resend the assistant message unchanged.
+
+Availability: Claude API ✅, Claude Platform on AWS ✅, Microsoft Foundry β. Web fetch is on **neither** Bedrock nor Google Cloud; web search is on Google Cloud in basic form only. You're on the Claude API directly, so this doesn't constrain you.
+
+## Can we create something similar?
+
+You don't create it — you declare it. But **your framework can't currently carry it**, and that's the real work. Three specific blockers in `lagrange-framework/components/ai/js/src/backends/`:
+
+- `api_tools.js:490` — `AnthropicWire.toolSpecs` maps every tool to `{name, description, input_schema}`. There's no shape for `{type, name}`, and server tools have no `input_schema`.
+- `ToolSet` (`api_tools.js:73`) requires a local executor and schema per tool. A server tool has neither.
+- `AnthropicWire.parse` handles only `text` and `tool_use` blocks. `server_tool_use`, `web_search_tool_result` and `web_fetch_tool_result` would be **silently dropped** — no error, just missing results.
+- No `stop_reason` handling anywhere in the backends, so `pause_turn` is unhandled.
+
+One thing already works in your favour: `record()` pushes `raw.content` verbatim into `state.messages`, so search results' `encrypted_content` — which the API requires back unmodified on later turns — would survive round-tripping.
+
+**Two routes:**
+
+- **Framework change** — a spec passthrough, a parse arm for the server-tool blocks, `pause_turn`. Cleanest, keeps one path to the model, but it's a `lagrange-framework` change, not a 1stcontact one.
+- **Direct SDK call** — precedent exists: `describe.ts`'s image describer already bypasses the framework and hits the Messages API directly. But `ai.ts` argues at length for keeping *one* path to a model, so this trades that principle for speed.
+
+## Are there web search APIs we could call?
+
+Yes — Brave Search, Exa, Tavily, Serper, Google Custom Search, Bing. **I'd advise against them here.** At $10/1k searches you're competitive with all of them, and rolling your own means you also own result ranking, snippet extraction, and the citation plumbing that `web_search` gives you free. The third-party route only wins if you need search results *outside* a model turn — say, indexing into your knowledge base.
+
+## How this lands on your architecture
+
+Worth separating, because these aren't the same need:
+
+**`web_search` is genuinely new capability** for the consultant — researching a client's industry, finding their existing web presence, checking what competitors are doing. Nothing in your stack does this.
+
+**`web_fetch` largely duplicates what REQ-206 already unlocks, worse.** `capture_site` drives a real browser and gets rendered output; `web_fetch` won't run JavaScript. For "look at this website," your capture pipeline is strictly better. `web_fetch` earns its place only for reading text and PDFs.
+
+Two things in your favour: server tools run on Anthropic's infrastructure, so `web_search` carries **no SSRF exposure** — no `egress-guard.ts` equivalent needed. And your fidelity surface overview already says a captured stranger's website is "material to report on… never an instruction," which is exactly the right framing for search results too.
+
+The metering question is also easier than REQ-206's: search is a predictable $0.01/search you can cap with `max_uses`, versus a browser session with a concurrency cap.
+
+Want me to write this up as a REQ? I'd scope it as web search only, deferring `web_fetch` until REQ-206 lands and you can see whether capture already covers it.
 
 <!-- xgd-chat-end -->
