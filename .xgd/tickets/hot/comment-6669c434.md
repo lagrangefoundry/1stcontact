@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T21:47:09.001318+00:00'
+updated_at: '2026-09-08T21:48:35.208975+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -477,5 +477,71 @@ Two calls I'd want from you before filing anything: **data-only plugins as separ
 <!-- xgd-chat role="user" ts="2026-09-08T21:47:08.329627+00:00" -->
 #### You
 Two calls I'd want from you before filing anything: **data-only plugins as separate packages or inside **`components/ai`**?**  <-- help me understand?
+
+<!-- xgd-turn id="ab2bd0d1-b059-4ce3-bfe8-1c58e9d2d7be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T21:48:34.544302+00:00" -->
+#### Claude
+Good question — let me put actual numbers on it rather than hand-wave.
+
+Here's the tension in concrete terms.
+
+## What a separate package actually costs
+
+From the REQ-141 diff, standing up `ai_vision` as its own component took **9 new files plus 4 shared-file edits**:
+
+```
+components/ai_vision/js/{package.json, PUBLIC-API.md, vitest.config.js}
+                    src/{index.js, plugin.js, toolbox.js, vision_surface.json}
+                    tests/{fixtures/describer.js, test_UAT_...js}
++ vitest.alias.mjs, vitest.config.mts, REQ-56 install roster, pnpm-lock.yaml
+```
+
+For a **data-only** plugin, `toolbox.js` disappears — `HttpSurface` is the executor, and it already lives in `components/ai`. So the actual content is two things: a `surface.json` declaration, and a ~30-line object carrying `{name, formatVersion, version, declaration, requires, http:{origin, auth}}`. Everything else on that list is packaging around two files with no logic in them.
+
+Then each consumer pays again. In 1c, a new component needs its own shim function in `assets.ts` alongside `writeAiWorkersShim` — the four that exist today (ai, ticketing, passwordless, knowledge) are each hand-written, because the Worker can't follow a bare specifier into the out-of-repo shared store.
+
+## What it costs inside `components/ai`
+
+`assets.ts:198` is the decisive detail. The AI shim is a **named export list**, not a wildcard — deliberately, so an upstream rename fails typecheck here rather than as `undefined is not a function` mid-turn. Which means a plugin re-exported from `ai`'s `/workers` rung costs 1c exactly **one line**:
+
+```ts
+const AI_WORKER_EXPORTS = [ ..., 'webSearchPlugin', ... ]
+```
+
+Framework-side it's `src/plugins/websearch/{surface.json, index.js}` plus one line in the `exports` map. It inherits `ai`'s existing vitest project, alias, install roster and PUBLIC-API. Call it two new files and two edited lines, across both repos.
+
+## The argument against, and why I think it's narrower than it looks
+
+`toolbox/index.js:5` states the design claim: the Toolbox "knows about tools in general and nothing about any tool in particular." A search declaration inside `components/ai` reads like it breaks that.
+
+Two reasons I don't think it does:
+
+**The claim is scoped to `src/toolbox/`, not to the package.** `FilesystemToolbox` already ships in `@lagrangefoundry/ai` — it sits at `src/filesystem_toolbox.js`, *outside* `src/toolbox/`, with its rationale stated in its own header ("for a cloud backend the Toolbox is the entire capability surface, so file access has to come from somewhere"). A `src/plugins/` folder beside it doesn't touch the machinery's invariant. The precedent is already set, and it's set at exactly the right boundary.
+
+**Explicit discovery survives intact.** REQ-139's real invariant is that plugins are imported by the host and passed in — no scanning, no ambient registration. That's unchanged either way: the host still writes `resolvePlugins([webSearchPlugin], ...)` and its startup code still names every capability the assistant has.
+
+## The dependency argument, which is the one that actually decides it
+
+`ai_imagegen` depends on `@lagrangefoundry/imagegen` and `@lagrangefoundry/ticketing`; `ai_vision` on `@lagrangefoundry/ticketing`. If those lived inside `ai`, then `ai` would depend on ticketing and imagegen, and every adopter of `ai` would drag both in. That's a dependency inversion and it's fatal — **REQ-141 got this right, and nothing I'm suggesting changes it.**
+
+But a data-only plugin has **zero dependencies by construction**. Its executor is `HttpSurface`, which is already inside `components/ai`. That's the entire distinction, and it makes the rule almost write itself:
+
+- **Component-bridged (supplies `create`) → its own package.** It has real dependencies and real logic.
+- **Data-only (declaration + http block) → inside `components/ai`.** Zero dependencies by construction, so the packaging buys nothing and costs a shim per consumer forever.
+
+## The honest counter
+
+**Release coupling.** A data-only declaration tracks a third party's API. Inside `ai`, you can't take a corrected Brave declaration without taking a new `ai`. The plugin's own `version` field stays independent — that external-reference property survives — but the *install* is coupled.
+
+I still land on "inside," because the cadences are lopsided: a search declaration changes rarely, and when it does it's because the vendor moved, which is when you'd want a coordinated look anyway. Whereas the shim cost is paid once per plugin per consumer and never goes away. But that's a judgement, not a fact, and it's the argument I'd expect to lose on if you disagree.
+
+**The attractive-nuisance risk** is real and worth guarding mechanically: someone adds a slightly-logic-y plugin to `src/plugins/`, then a dependency, and the graph inverts quietly. The guard is cheap and it's just the data-only definition made executable — *nothing in `src/plugins/` may supply `create`, and nothing may import beyond its own declaration JSON.* One UAT over the folder.
+
+## One thing not to conflate
+
+DOC-25's ownership rule — the framework may ship a plugin only when it wraps a **public third-party contract** — is a different axis. That decides *whether the framework ships it at all*. This question is *where inside the framework it goes*. A Brave search plugin passes the first test either way; the second test is only about packaging overhead.
+
+**My recommendation:** add the split rule to DOC-25 (component-bridged → package, data-only → `components/ai/src/plugins/`, with the no-`create`-no-imports guard), and let the search plugin be the first thing built under it. If you'd rather keep every plugin uniformly packaged for release independence, say so — that's the version where the search ticket carries a full component and a 1c shim, and it's maybe two extra points.
 
 <!-- xgd-chat-end -->
