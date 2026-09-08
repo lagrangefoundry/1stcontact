@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:39:47.875127+00:00'
+updated_at: '2026-09-08T02:43:05.374398+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -519,5 +519,11 @@ v=spf1 include:amazonses.com ~all
 No Cloudflare include on that one — Email Routing has nothing to do with the sending subdomain, and adding it there would only spend a DNS lookup.
 
 Then check Resend's dashboard shows the domain verified again. Tell me when it's in and I'll re-verify all five records — apex SPF, apex MX, `send` SPF, `send` MX, DKIM — in one pass.
+
+<!-- xgd-turn id="c4617d16-cf5e-476f-9fc5-962d2050b70b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:43:03.971023+00:00" -->
+#### You
+check now
 
 <!-- xgd-chat-end -->
