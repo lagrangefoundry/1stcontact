@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:13:33.810585+00:00'
+updated_at: '2026-09-08T22:15:40.478213+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -579,5 +579,30 @@ Want me to write those up?
 <!-- xgd-chat role="user" ts="2026-09-08T22:13:32.761079+00:00" -->
 #### You
 Can you update 207 please?
+
+<!-- xgd-turn id="c7bbfd32-34e4-4f1a-b60e-9b8af2d444f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:15:39.884178+00:00" -->
+#### Claude
+Updated. Here's what changed and why.
+
+**Two corrections, both recorded in the ticket rather than quietly absorbed:**
+
+1. **The search mechanism.** The ticket assumed the model's own vendor would run the search. REQ-139 rules that out — `web_search` exists on `claude_api` and not on `chatgpt`, so a granted role would silently hold different tools depending on which backend opened the session. Search is now a third-party API over the `http` call type.
+
+2. **The threat model, which that change breaks.** The original said *"No SSRF surface — the provider executes the search on its own infrastructure, so there is no request leaving our network."* That is now false: a request does leave. I withdrew the sentence explicitly and replaced it with what's actually true — the destination is fixed at construction, path slots are percent-encoded, query fields are serialized, so there's no hole for a model-supplied URL. `egress-guard.ts` still has nothing to hold, but because this operation never takes a URL from the model, not because no request is made.
+
+**The describer half turned out to be unblocked.** It needs no plugin layer, no new component, no reinstall — `imageBlock` is already in the installed `@lagrangefoundry/ai`. It's `sessionTextDescriber`'s peer, sending an image block beside the instruction. The `DescribeImage` seam keeps its shape, so the existing UATs keep working.
+
+I also wrote down why the framework's own `describe_image` plugin **isn't** what this adopts, since that's the obvious question anyone will ask next: it describes when the model asks, and this product describes at ingest — DOC-38 §6 needs every material to carry a description, so a lazy one leaves un-asked-about uploads unfindable. Two lesser reasons beside it (body shape, and it covers one of four branches).
+
+**Added a sequencing section.** The describer ships on its own; the search plugin doesn't exist yet in the framework; installing it here needs the post-REQ-139 `ai` in the shared store plus an `assets.ts` shim.
+
+Two things I left alone and want your call on:
+
+- **Story points are still 3.** The in-repo scope got clearer rather than bigger, but it now carries install + shim + config work it didn't before. Worth 5?
+- **Splitting.** I kept both halves in one ticket since you asked me to update rather than split, and they are one intent. But the describer is ready now and the search half is blocked on a framework component nobody has built — so as it stands the ready half waits. Say the word if you want them separated.
+
+The one open decision still blocking the search half is which search API — it fixes the declaration, the credential name and the result shape.
 
 <!-- xgd-chat-end -->
