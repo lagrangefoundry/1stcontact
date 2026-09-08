@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-206
 created_by: xgd
 created_at: '2026-09-08T01:37:01.224445+00:00'
-updated_at: '2026-09-08T02:05:39.679065+00:00'
+updated_at: '2026-09-08T02:13:07.584541+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,11 @@ Done. REQ-206 is at `free_coded` with the commit landed on `xgd-working`.
 Three smaller decisions, all in the body: the budget is a *burst* bound (per session manager, so an evicted isolate mints a fresh one) rather than a lifetime one; the shared surface declaration is deliberately untouched because the `1c` CLI's browser is neither metered nor capped; and captures are marked third-party, because nothing yet declares a business's own domain and guessing errs toward republishing a stranger's site.
 
 **Evidence.** 7 new UATs, all through the Worker's own routes or the production assembly (`tests/test_UAT_FC_REQ-206_the_assistant_can_see.workers.test.ts`). Full workers project: 637 passed. Node project: 5 failures — 4 are pre-existing (I confirmed the identical set on the main checkout) and the 5th passes in isolation, a parallel-load flake. Workspace typecheck clean.
+
+<!-- xgd-turn id="8fc40ab4-b067-40c6-a2cb-77e48df46bdb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:13:07.052861+00:00" -->
+#### You
+What do I need to do for this to be available in the dev environments?
 
 <!-- xgd-chat-end -->
