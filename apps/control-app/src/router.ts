@@ -1594,12 +1594,18 @@ async function routeUncached(
      * than it was for the transition alone: this route now sends real mail to
      * real strangers.
      *
-     * THE `From` IN THE BODY IS IGNORED IF ONE IS SENT. The sending address is
-     * `MAIL_FROM`, and an arbitrary sender fails DKIM and lands in spam — so the
-     * modal shows it and does not offer it, and the route does not read it
-     * either. A field a client could set and the server ignores is a field that
-     * eventually gets believed; not reading it is what makes the display-only
-     * claim true rather than a convention of one client.
+     * THE `From` IN THE BODY IS IGNORED IF ONE IS SENT. An arbitrary sender
+     * fails DKIM and lands in spam — so the modal shows the address and does not
+     * offer it, and the route does not read it either. A field a client could
+     * set and the server ignores is a field that eventually gets believed; not
+     * reading it is what makes the display-only claim true rather than a
+     * convention of one client.
+     *
+     * WHICH ADDRESS IT IS, THOUGH, IS THE INVITE TEMPLATE'S ([[REQ-205]]). It
+     * was `MAIL_FROM` for every message this deployment sends; the invite now
+     * carries its own, and the draft resolves it — so the address travels with
+     * the operator's edited copy the same way the declaration does, and the
+     * modal displays exactly what the send will use.
      *
      * `{{cta_url}}` IS A REDEEMABLE INVITE LINK, ONE PER CONTACT ([[REQ-202]]).
      * It used to be this origin's bare front door, which was not a design choice
@@ -1663,6 +1669,11 @@ async function routeUncached(
               ? {
                   subject,
                   body: text,
+                  // THE ADDRESS COMES FROM THE DRAFT AND NEVER FROM THE POST
+                  // ([[REQ-205]]). It is the invite template's own, already
+                  // resolved against `MAIL_FROM`; taking it from the body would
+                  // be the editable sender this route refuses to offer.
+                  from: draft.from,
                   // THE DECLARATION TRAVELS WITH THE EDIT AND IS NEVER TAKEN FROM
                   // IT ([[REQ-197]]). It is the template's promise about what its
                   // copy must carry, so an operator who deletes `{{cta_url}}` out

@@ -167,8 +167,16 @@ run_worker_first = true
 # folder, and they are an operator task with waiting in it rather than a coding
 # one — see apps/control-app/MAIL.md.
 #
-# REPLIES GO NOWHERE, deliberately. `no-reply@` is not a mailbox anybody reads;
-# a reply-to that reaches a human is a separate address and a separate decision.
+# IT CARRIES A DISPLAY NAME, in RFC 5322 `Name <address>` form ([[REQ-205]]).
+# An anonymous From is most of what makes a message from a domain with no
+# reputation look like phishing to a filter, and the address is passed to the
+# provider verbatim, so this form flows end to end with nothing to change.
+#
+# REPLIES TO THIS ONE GO NOWHERE, and that is now a statement about THIS address
+# rather than about every message ([[REQ-205]]). `no-reply@` is not a mailbox
+# anybody reads, so it is the fallback for the messages nobody should reply to; a
+# template that wants a repliable sender names its own `from`, which is what the
+# invite does.
 #
 # THE CREDENTIAL IS NOT HERE. `RESEND_API_KEY` is a `wrangler secret`, pushed by
 # `bin/deploy.d/secrets/20-resend-api-key`, and its absence is what selects the
@@ -205,7 +213,7 @@ SERVICE_TOKEN_IDENTITIES = ""
 ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
-MAIL_FROM = "no-reply@1stcontact.io"
+MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = ""
 
@@ -339,7 +347,7 @@ SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-196]]).
-MAIL_FROM = "no-reply@1stcontact.io"
+MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-202]]).
 # The DOMAIN is set here and empty above: production shares a session with the
 # public apex, and a loopback dev server has no apex to share one with.

@@ -58,6 +58,20 @@ const anEmail = (): string => `req199-${(seq += 1)}@example.test`
 
 const FROM = 'no-reply@example.test'
 /**
+ * The address an INVITE actually leaves from ([[REQ-205]]).
+ *
+ * WHAT CHANGED UNDER THIS FILE. {@link FROM} above is the deployment's
+ * `MAIL_FROM` and was, when this suite was written, the address of every message
+ * this platform sends. It is now the FALLBACK: the sending address belongs to
+ * the template, because one deployment-wide value could not send invitations
+ * from a repliable mailbox without sending sign-in links from it too — and the
+ * seeded invite template names its own. What this file is about is unchanged —
+ * one message per contact, one recipient each, the operator's edit, the pipeline
+ * move — so it pins the address the invite template carries and lets
+ * [[REQ-205]]'s own suite prove why it carries one.
+ */
+const INVITE_FROM = '1st Contact <invite@1stcontact.io>'
+/**
  * The link an invite carries.
  *
  * A FUNCTION IN THE DEPS SINCE [[REQ-202]], and a constant here. That ticket made
@@ -173,7 +187,7 @@ describe('REQ-199 — one message per contact, one recipient each', () => {
     for (const message of port.sent) {
       expect(message.to.includes(','), 'a message carried more than one recipient').toBe(false)
       expect(message.to.includes(';')).toBe(false)
-      expect(message.from).toBe(FROM)
+      expect(message.from).toBe(INVITE_FROM)
     }
   })
 
@@ -285,7 +299,7 @@ describe('REQ-199 — what the operator sees afterwards', () => {
 
     expect(record.contactId).toBe(person.id)
     expect(record.to).toBe(person.email)
-    expect(record.from).toBe(FROM)
+    expect(record.from).toBe(INVITE_FROM)
     expect(record.templateKey).toBe('invite')
     expect(record.status).toBe('sent')
     // THE BODY IS THE RENDERED MESSAGE. The template changes; what we sent does
@@ -345,7 +359,11 @@ describe('REQ-199 — the copy is the template’s, and the edit is for this sen
     const draft = await inviteDraft(store, FROM)
     const template = await templateFor(store, 'invite')
 
-    expect(draft.from).toBe(FROM)
+    // THE DRAFT SHOWS WHAT THE SEND WILL USE ([[REQ-205]]) — the invite
+    // template's own address, with the `FROM` handed in as the fallback it now
+    // is. A displayed address that is not the one the message leaves from is a
+    // lie rather than a disclosure.
+    expect(draft.from).toBe(INVITE_FROM)
     expect(draft.subject).toBe(template.fields.subject)
     expect(draft.body).toBe(template.body)
     expect(draft.templateUid).toBe(template.uid)
