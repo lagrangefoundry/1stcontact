@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:56:26.529094+00:00'
+updated_at: '2026-09-08T22:00:58.345581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -202,5 +202,14 @@ Next, when you're ready: rewrite the `purpose` entry to drop the ids, then `1c k
 <!-- xgd-chat role="user" ts="2026-09-08T21:56:25.625568+00:00" -->
 #### You
 1. Please create a ticket to remove all this hardwiring - this must rest on the build - I can run a build anytime
+
+<!-- xgd-turn id="0bf888d6-0c0b-4967-acd7-d802d8f58acb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:00:57.837733+00:00" -->
+#### You
+1. Please create a ticket to remove all this hardwiring - this must rest on the build - I can run a build anytime
+2. So I think there is material in docs 31 and 17 that is valuable it just needs to be formulated into a system knowledge based document. It sounds like you have documents that already contains some of that information, let's just make sure we don't lose anything that would be useful but presenting it correctly to the AI is important
+   
+   Can we talk about the House style question it's a little bit of a sidebar for this conversation but I think it's interesting and since you brought it up let's take a moment on it. I wonder if it's worth developing multiple "house styles"? A design house would tend to have a style, right? If we abdicate entirely are we throwing our babies with bathwater we want our customers websites to be unique in the sense that they don't look like they are cut from templates but having them all completely distinct and look good it's going to be a tall order. What if we had some examples and we created styles and looks that we could reference to our customers?
 
 <!-- xgd-chat-end -->
