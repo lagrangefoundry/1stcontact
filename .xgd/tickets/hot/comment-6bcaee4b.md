@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T22:44:51.166337+00:00'
+updated_at: '2026-09-08T22:47:04.942762+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,13 @@ cd /Users/martin/lagrangefoundry/lagrange-framework && bin/install --lang js --c
 - Surface assembled in `router.ts`'s `chatHost` and passed to `workerHost`, exactly as `fidelity` is; grant `imagegen: {groups:["CreateImages"]}` in `instances.json` beside fidelity's; new `ai-imagegen` shim in `1c assets`, plus `resolvePlugins` added to `AI_WORKER_EXPORTS`.
 
 I'll cut `free-REQ-208` and write the UATs against `route()` end-to-end (the REQ-206 pattern), faking only the two genuinely external boundaries: the Anthropic client and the image provider's `fetch` — which the plugin already accepts via `options.fetch` precisely so it runs with no live credential.
+
+<!-- xgd-turn id="73ae3c94-0f42-40f7-bd08-8c0d794560c4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:47:04.236522+00:00" -->
+#### You
+I have a ChatGPT API key does that work?
+
+I have no idea what the image budget really means
 
 <!-- xgd-chat-end -->
