@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:34:07.242156+00:00'
+updated_at: '2026-09-08T22:36:44.881734+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -696,5 +696,11 @@ Both tickets are updated. Two things worth separating on your correction:
 Step 2 needs a framework ticket for the provider call type — say the word and I'll write it.
 
 The xgd commits are local; the push failed on the sandbox proxy again.
+
+<!-- xgd-turn id="68864e3c-931c-4478-ba4d-afd95c4a3b3d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:36:44.648147+00:00" -->
+#### You
+Yes let's make material more descriptive. Is our EQ 207 ready to go?
 
 <!-- xgd-chat-end -->
