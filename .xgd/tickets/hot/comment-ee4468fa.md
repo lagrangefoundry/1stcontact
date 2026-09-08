@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T02:11:13.426679+00:00'
+updated_at: '2026-09-08T04:18:52.495271+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -270,5 +270,13 @@ Constraints I recorded: scroll-*linked* not scroll-*jacked* (Lovable stays on th
 Also added `template`, `theme`, `gallery` and `get started in minutes` to the avoid-list, and `custom` to the lead-with list.
 
 One thing I did *not* do: DOC-4 now carries a fair amount of marketing-site design direction, which is arguably not product definition. If the 1c site build gets substantial, that section probably wants to graduate into its own doc. Happy to leave it where it is for now — just flagging the seam before it becomes a mess.
+
+<!-- xgd-turn id="37b52072-2c60-4bf3-acaf-a7c85010a876-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T04:18:38.427981+00:00" -->
+#### You
+An extra on this - all the sites I have looked at are promising your beautiful website in four minutes. I think we should call bullshit, if you want a good website it's gonna take you more than four minutes. Let's talk about a process let's talk about hours of consultation let's talk about customization market affecting this meeting the goals of your business. 
+
+Unlike these other sites we will not offer a free level, we will offer a 15 minute consultation and that consultation should be focused on whether our tool will help you. We should promise an honest evaluation, if our tool doesn't fit we will not try to sell it to you. My cost profile as a business is extremely different from these other companies. They have teams of hundreds of developers they need large scale they need big funnels. I do not I think we should sell ourselves on quality and integrity and meeting the needs of our customers.
 
 <!-- xgd-chat-end -->
