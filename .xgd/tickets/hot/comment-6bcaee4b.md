@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T23:22:40.512720+00:00'
+updated_at: '2026-09-08T23:24:06.513754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,14 @@ All 12 pass. Now typecheck and regression-check the suites that touch what I cha
 No new typecheck errors — the 8 are pre-existing and identical on both trees. Now regression-checking the suites that touch what I changed.
 
 A real signal, not noise: this repo's CI validates `instances.json` against the declarations it holds, and the plugin's declaration lives upstream. Moving the grant to travel with the surface — derived from the declaration, so it cannot drift.
+
+<!-- xgd-turn id="febbc1e5-d7d7-4ff2-8448-df1d9e3a9490-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T23:24:05.867744+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
