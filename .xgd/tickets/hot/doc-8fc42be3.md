@@ -5,9 +5,9 @@ type: doc
 title: Running the session — pace, the record, and publishing
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:44.282022+00:00'
-updated_at: '2026-09-08T21:45:44.282022+00:00'
+updated_at: '2026-09-08T21:46:16.516030+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -259,6 +259,8 @@ decision is worse.
 
 - The tool reference and the page-language reference — **the actual operations
   and vocabulary. Generated, always current.**
-- The consultation runbook — the structure of the engagement this document paces.
-- Designing the site — the craft judgement behind what you build.
-- What the tool can do today — what is genuinely not built yet.
+- [[DOC-33]] The consultation runbook — the structure of the engagement this
+  document paces.
+- [[DOC-48]] Designing the site — the craft judgement behind what you build.
+- [[DOC-50]] The draft, the published site, and what the client can change.
+- [[DOC-47]] What the tool can do today — what is genuinely not built yet.
