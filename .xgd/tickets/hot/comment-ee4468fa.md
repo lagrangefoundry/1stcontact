@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T01:47:41.941387+00:00'
+updated_at: '2026-09-08T01:50:02.825370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,54 @@ DOC-4 is updated and retitled. Frontmatter and fields preserved.
 Please add scheduling to DOC 33 - its new
 
 Can you identify some candidate comp websites that I should look at?
+
+<!-- xgd-turn id="34c8174d-e938-4ae4-9471-e34b0971f6a9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T01:50:02.692553+00:00" -->
+#### Claude
+B12 is now $399/mo bundling scheduling, invoicing, payments, CRM and email marketing — that's our exact capability list. Worth digging into. Let me do the DOC-33 edit and more searches together.
+
+DOC-33 §11 updated — scheduling row added between Email capture and CRM (in-page, stage 1, constrains architecture/copy/layout, plus timezone/cancellation/reminder obligations), the intro sentence now lists it, and I flagged that **DOC-25 doesn't declare scheduling as a behavior module yet** — it only has a `calendar` formatting primitive. Until that declaration exists, scheduling can't appear in the stage-1 capability catalogue, since the catalogue is projected from declarations rather than hand-written. That's a real gap, not a doc nit.
+
+## Comps worth looking at
+
+Two findings first, because they change what you're looking at:
+
+**B12 has moved.** The comparison articles still describe it as the AI+human hybrid for service businesses at $399/mo, bundling scheduling, invoicing, payments, CRM and email marketing — our exact list. But their homepage today reads *"Describe your idea. Launch in minutes."* with stores, web apps, animation and task management, and no mention of scheduling, CRM or email marketing. They've pivoted toward the Lovable/v0 vibe-coding register. If that holds, the position they're vacating — AI-built front office for service businesses, sold as a considered engagement — is the one we're walking into.
+
+**Squarespace bundles by billing, not by design.** They have all seven capabilities, and sell scheduling (Acuity, +$16/mo), email campaigns (+$14–68/mo) and payments as separate subscriptions on top of the site plan — roughly $700–1,200/yr all-in. Acuity is a separate product with its own identity bolted onto your page. That is the not-a-bundle thesis demonstrated by the market leader, and it's the single best concrete example for your copy.
+
+### 1. Capability comps — read these for positioning, not design
+
+| Site | Why |
+|---|---|
+| b12.io | Closest historical comp; check whether the pivot is real across their whole site or just the homepage |
+| honeybook.com | Front office for service businesses done well; strong "client flow" language you'll be competing with |
+| dubsado.com, 17hats.com | Same space, solo-founder end. 17hats from $15/mo, Dubsado $20, HoneyBook $39 — all no website |
+| squarespace.com + acuityscheduling.com | The add-on seams are visible; look at them side by side |
+
+The gap in all four: HoneyBook/Dubsado/17hats have the front office but **no website**. Squarespace/B12 have the website but bolt the rest on. Nobody designs the two as one thing. That's the wedge.
+
+### 2. AI builders — read these for what you must out-position
+
+Wix ADI, Jimdo Dolphin, Hostinger, Durable. **All of them already claim "the AI asks you questions."** That claim is table stakes now, so it can't be our headline. The difference is that theirs is a two-to-five question intake feeding a template selector; DOC-33 specifies four-to-five hours across ten stages with strategic pushback and a persistent ledger. Your copy has to make that difference legible in a sentence, because from the outside both are "an AI that asks questions."
+
+### 3. Register comps — the most useful category for what you're doing now
+
+You want your site compared to designers, so look at designers' own sites:
+
+- **typewolf.com/design-studios** — "Top 40 Favorite Design Studio Sites," curated and current
+- **maxibestof.one/websites/design-studio** — same idea, more visual
+- Read these for *copy and restraint*, not layout to copy. Note how few of them lead with a feature list, how they talk about process, and how they signal selectivity.
+
+### 4. Craft comps — the interface pattern
+
+Lovable, v0, Framer. Their own marketing sites are exceptionally well made, and chat + live preview is literally our interface. Worth studying how they show the product working without a demo video.
+
+**What I'd do with these:** the two that will actually change your copy are Squarespace-with-Acuity (photograph the seams — that's your not-a-bundle proof) and the Typewolf list (that's your register). The rest is competitive intelligence you can absorb later.
+
+One caveat on sourcing: I fetched b12.io directly, so the pivot is verified. The pricing and capability details for the others come from 2026 comparison articles rather than the vendors, so spot-check anything you plan to put in public-facing copy.
+
+Sources: [B12](https://www.b12.io/), [Best AI Website Builders 2026](https://blog.designingit.com/best-ai-website-builders-2026/), [HoneyBook vs 17hats](https://www.hellobonsai.com/blog/honeybook-vs-17hats), [17hats vs HoneyBook vs Dubsado](https://www.honeybook.com/blog/17hats-vs-honeybook-vs-dubsado), [Squarespace Pricing Guide 2026](https://www.websitebuilderexpert.com/website-builders/squarespace-pricing/), [Squarespace hidden costs](https://clementinedesign.studio/blog/squarespace-pricing-hidden-costs-2026), [Typewolf design studios](https://www.typewolf.com/design-studios), [MaxiBestOf](https://maxibestof.one/websites/design-studio), [Best AI Website Builders by use case](https://playcode.io/best-ai-website-builders)
 
 <!-- xgd-chat-end -->
