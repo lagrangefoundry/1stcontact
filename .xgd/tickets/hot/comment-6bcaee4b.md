@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-208
 created_by: xgd
 created_at: '2026-09-08T22:37:35.580726+00:00'
-updated_at: '2026-09-08T22:47:59.744997+00:00'
+updated_at: '2026-09-08T22:52:37.461596+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,13 @@ cd /Users/martin/lagrangefoundry/lagrange-framework && bin/install --lang js --c
 ```
 
 Without it there's no `resolvePlugins` (the installed `@lagrangefoundry/ai` predates the plugin layer) and no `@lagrangefoundry/ai-imagegen` at all, so nothing I write can compile or run. Say when it's done and I'll cut `free-REQ-208` and build it; I'll flag anything the wider component refresh breaks on the way through.
+
+<!-- xgd-turn id="90400026-0f1a-4358-9150-2c77fa9bddc6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:52:36.767510+00:00" -->
+#### You
+running - 
+
+what is the correct env variable name OPENAI_API_KEY?
 
 <!-- xgd-chat-end -->
