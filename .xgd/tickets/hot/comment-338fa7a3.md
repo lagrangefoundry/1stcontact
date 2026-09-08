@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T21:47:08.944647+00:00'
+updated_at: '2026-09-08T21:52:09.077933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,13 @@ Also verified: published sites live at `1stcontact.io/site/<key>/` with no custo
 **2. `priming.json` names DOC-33, DOC-35 and DOC-31 by id.** Its `purpose` entry tells every session to read those three before starting. Demoting them without editing that entry leaves the AI instructed to open documents it can no longer reach — so whichever way you go, that text changes in the same edit, and should name the new set.
 
 Once you've decided, the remaining work is: reclassify, update the priming, then `1c kb build` and `1c assets` — which also clears the stale awareness map, since it still describes four documents and doesn't mention the REF projections at all.
+
+<!-- xgd-turn id="63567994-7dc1-4850-b7e8-53e4821a1b7e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:52:08.325656+00:00" -->
+#### You
+Lets discuss 2 first - that sounds like a bug - priming should be handled by the KMS solution now with no docs STUFFED into the session. Lets double check what was implemented
+
+ok maybe we keep those 4 - I guess the key point is this: "System KB docs MUST be written for the AI they are canonical, must be kept accurate and current" If we think those 4 docs should meet that standard, then lets keep them in
 
 <!-- xgd-chat-end -->
