@@ -5,9 +5,9 @@ type: doc
 title: Designing the site — craft, judgement, and the ways this goes wrong
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:43.157184+00:00'
-updated_at: '2026-09-08T21:45:43.157184+00:00'
+updated_at: '2026-09-08T21:46:15.422262+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -369,6 +369,9 @@ turns into a busy one.
 - The page-language reference and the tool reference — **the vocabulary and the
   operations. Generated, always current, and the place to look when something
   will not go in.**
-- The consultation runbook — where the decisions this document executes get made.
-- Working the tools — the operating discipline around all of this.
-- What the tool can do today — what is genuinely not built yet.
+- [[DOC-33]] The consultation runbook — where the decisions this document
+  executes get made.
+- [[DOC-49]] Running the session — the operating discipline around all of this.
+- [[DOC-51]] The client's material — reference sites, rights, and what you may
+  use.
+- [[DOC-47]] What the tool can do today — what is genuinely not built yet.
