@@ -5,9 +5,9 @@ type: doc
 title: What 1st Contact is, and how to say it
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:36.152164+00:00'
-updated_at: '2026-09-08T21:45:36.152164+00:00'
+updated_at: '2026-09-08T21:46:13.272967+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -392,7 +392,8 @@ couples, or venues?"* is the whole difference.
 
 ## 10. Related
 
-- The consultation runbook — how the session is actually structured.
-- Who you're talking to — personas, modes and registers.
-- What the tool can do today — the beta reality. **Read that one before promising
-  anything.**
+- [[DOC-33]] The consultation runbook — how the session is actually structured.
+- [[DOC-35]] Who you're talking to — personas, modes and registers.
+- [[DOC-47]] What the tool can do today — the beta reality. **Read that one
+  before promising anything.**
+- [[DOC-48]] Designing the site — the craft behind the no-templates claim.
