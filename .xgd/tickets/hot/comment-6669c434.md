@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T00:10:31.230311+00:00'
+updated_at: '2026-09-08T01:15:43.091668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,11 @@ Almost everything:
 The gap is roughly two call sites: construct the R2 reference store, and pass `fidelity: (slug) => fidelityDeps(env, previewRenderer(store), references, origin, slug, {}, adoptCapture)` into `workerHost`. The unresolved part is the one the comment flagged — rate limiting and authorisation on a metered browser.
 
 Want me to scope that under CHAT-43 and wire it?
+
+<!-- xgd-turn id="d550636a-f100-4b45-a4bf-4cc1d264c0d2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T01:15:42.311752+00:00" -->
+#### You
+Can you create and REQ to mount the surface?
 
 <!-- xgd-chat-end -->
