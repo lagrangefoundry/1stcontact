@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T21:45:18.057835+00:00'
+updated_at: '2026-09-08T21:47:09.001318+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -471,5 +471,11 @@ REQ-139 explicitly excludes provider-executed tools, and the reason it gives is 
 - **New framework REQ**: `ai_websearch` as the first data-only plugin, over Brave or Exa. Cheap, and it proves the `http` path with a real consumer.
 
 Two calls I'd want from you before filing anything: **data-only plugins as separate packages or inside `components/ai`?** (question 2 — it changes what the search ticket looks like), and **which search provider**, since that fixes the declaration.
+
+<!-- xgd-turn id="ab2bd0d1-b059-4ce3-bfe8-1c58e9d2d7be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T21:47:08.329627+00:00" -->
+#### You
+Two calls I'd want from you before filing anything: **data-only plugins as separate packages or inside **`components/ai`**?**  <-- help me understand?
 
 <!-- xgd-chat-end -->
