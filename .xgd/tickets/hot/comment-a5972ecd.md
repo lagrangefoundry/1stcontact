@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-182
 created_by: xgd
 created_at: '2026-09-08T01:42:52.721767+00:00'
-updated_at: '2026-09-08T02:11:05.210616+00:00'
+updated_at: '2026-09-08T02:13:12.580836+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,23 @@ I did not file the lagrange-framework bug for the offsets defect — say the wor
 <!-- xgd-chat role="user" ts="2026-09-08T02:11:04.911372+00:00" -->
 #### You
 Please do
+
+<!-- xgd-turn id="be8b5e5f-ce77-4288-9791-2c3ede9738aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:13:12.109151+00:00" -->
+#### Claude
+Filed as **lagrange-framework BUG-45** (`bug-6bace52a`), priority high / severity high, and cross-referenced from REQ-182's E2.
+
+Before writing it I confirmed the defect is a **peer** defect, not a JS one — `manager.py:617` and `:1217` pair `assembly.stable` with `assembly.offsets` exactly as `manager.js:530` and `:1114` do, and `PrimingAssembly.offsets` slices the full section list in both languages. The ticket carries reproductions from both.
+
+What went in beyond what I reported last turn:
+
+- **The contract contradicts itself**, which is the evidence this is unintended rather than a design I misread. `offsets` documents itself as indexing `text`; `stable` documents itself as "what the cache offsets index". Both hold only while nothing is volatile.
+- **A second symptom I hadn't spotted:** `cacheBreakpoints` clamps with `o <= length` against the string it splits, so an over-large offset is silently *dropped*. A real session summary is not 40 characters — a large volatile section deletes the breakpoint rather than moving it, and the tier that declared a cached prefix gets none. DOC-22 §8 says a boundary must fail loudly rather than fall back silently; this is that case from below.
+- **A one-property fix**, verified against the reproduction: filter the prefix by `volatileNames` before joining, which yields the two declared section edges (`(2, 15)` instead of `(2, 62)`) and leaves unmarked configurations byte-identical.
+- **Two open questions for whoever takes it** — which string offsets are meant to index (I argue `stable`, since indexing `text` would put a per-turn summary inside the cached prefix, which Amendment V exists to prevent), and that collapsed boundaries become possible after the fix (harmless, `cacheBreakpoints` already dedups, but worth a docstring line).
+- A suggested UAT phrased as a property rather than numbers — every reported offset must land on a section edge of `stable` — so it pins both peers and belongs in the conformance corpus.
+
+Two things to flag: the ticket committed locally (`d34134e4cf`) but the **push failed** — the sandbox proxy refuses ssh. That branch was already 12,565 ahead of origin, so this looks like the normal state of that checkout rather than something to fix, but it will need pushing from outside the sandbox. And BUG-45 is at `status: draft`; I left it there rather than promoting it, since triage is yours.
 
 <!-- xgd-chat-end -->
