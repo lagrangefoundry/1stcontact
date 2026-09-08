@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:23:31.387064+00:00'
+updated_at: '2026-09-08T02:26:09.496312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -356,5 +356,12 @@ And the same no-MX fact means `invite@1stcontact.io` hard-bounces today. REQ-205
 4. Re-check with `dig MX 1stcontact.io`, then mail `invite@` from outside and confirm it lands.
 
 I can verify each step from here the same way — it's all observable in DNS. Want me to write these findings into `MAIL.md` and TODO-5 so the SPF defect and the MX prerequisite are recorded rather than living in this conversation? Documentation only, no code.
+
+<!-- xgd-turn id="2272a3d7-a19c-4762-a2dd-5da525e9a97b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:26:09.384519+00:00" -->
+#### You
+1 - done
+2 - how?
 
 <!-- xgd-chat-end -->
