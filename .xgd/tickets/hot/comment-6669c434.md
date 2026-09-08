@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T00:07:54.522870+00:00'
+updated_at: '2026-09-08T00:08:36.327610+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,11 @@ Writes a self-contained bundle: `capture.json`, per-viewport screenshots, raw + 
 **Two driver backends** behind one `BrowserDriver` seam: `playwright-driver.ts` (laptop) and `cf-driver.ts` (Browser Rendering, with `withBrowserSession` leasing *one* browser per run because sessions are metered and rate-limited).
 
 Downstream of a capture bundle sits the whole reproduction pipeline — `1c repro`, `refold`, `l1-gate`, `gate`, `values-diff`, `diff`, `aligned-crops`, `responsive-diff`, `adopt-gaps`.
+
+<!-- xgd-turn id="936cdacc-2e99-49fe-b644-4d4368ca1182-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T00:08:35.582710+00:00" -->
+#### You
+So why is the AI telling me that it doesn't have them?
 
 <!-- xgd-chat-end -->
