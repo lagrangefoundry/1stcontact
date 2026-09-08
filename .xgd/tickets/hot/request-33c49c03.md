@@ -6,16 +6,27 @@ title: 'Email deliverability: a derived plain-text part, a per-template sending 
   and a named sender'
 created_by: CHAT-42
 created_at: '2026-09-07T22:21:01.960360+00:00'
-updated_at: '2026-09-08T01:52:01.147860+00:00'
+updated_at: '2026-09-08T01:53:22.802627+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-96f1d1b9
+  commits:
+  - working_sha: bd06fc9894cda084edfbdb858f9ea321a02bec92
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 04036d93790346cedad5aeb231292e0f59ae98ee
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ee31495d98833334abf52b0ada9d121519ad68a9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.133
 ---
 
 **Design ref:** [[CHAT-42]]. Follows [[REQ-196]] (the sender), [[REQ-197]] (the
