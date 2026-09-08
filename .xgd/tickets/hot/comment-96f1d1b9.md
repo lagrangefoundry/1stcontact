@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:43:05.374398+00:00'
+updated_at: '2026-09-08T02:44:12.614325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -525,5 +525,40 @@ Then check Resend's dashboard shows the domain verified again. Tell me when it's
 <!-- xgd-chat role="user" ts="2026-09-08T02:43:03.971023+00:00" -->
 #### You
 check now
+
+<!-- xgd-turn id="c4617d16-cf5e-476f-9fc5-962d2050b70b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T02:44:12.573139+00:00" -->
+#### Claude
+All six records are correct:
+
+| Record | Value |
+|---|---|
+| `1stcontact.io` TXT | `v=spf1 include:amazonses.com include:_spf.mx.cloudflare.net ~all` — single record, both includes |
+| `1stcontact.io` MX | `route1/2/3.mx.cloudflare.net` — Email Routing live |
+| `send.1stcontact.io` TXT | `v=spf1 include:amazonses.com ~all` — restored |
+| `send.1stcontact.io` MX | `feedback-smtp.us-east-1.amazonses.com` |
+| `resend._domainkey` TXT | key intact |
+| `_dmarc` TXT | `p=none; rua=mailto:dmarc@1stcontact.io` |
+
+Ignore the "resolvers disagree" lines — that's my comparison being naive, not a propagation problem. Cloudflare's DoH returns TXT values wrapped in quotes and Google's doesn't, and the two order MX records differently. The data is identical.
+
+Two things DNS can't tell me, both worth confirming before you trust it:
+
+1. **Send a mail to `invite@1stcontact.io` from an outside account.** MX records existing only means Cloudflare will *accept* the connection; whether it forwards depends on the destination address being verified and a rule existing. That test is the only thing that proves the whole path.
+2. **Check Resend still shows the domain verified.** The `send` SPF was missing for a while; Resend may have re-checked during that window.
+
+Let me record what we learned so it isn't only in this conversation.
+
+Saved that as a memory: the two SPF records live on **different names** and both belong; only same-name duplicates are the permerror. That's what nearly cost you SPF, and it's the kind of thing that would happen again next time Cloudflare offers to "resolve a conflict".
+
+Where that leaves the four operator items from the ticket:
+
+- ✅ `invite@` can receive — pending your test mail
+- ⬜ our tenant's invite copy (authoring)
+- ⬜ Google Postmaster Tools
+- ⬜ DMARC `p=quarantine` — now actually gated on evidence, since reports have somewhere to land
+
+Say the word and I'll fold today's findings into `MAIL.md` and TODO-5 — the merged-SPF rule, the `send.` record being the load-bearing one, and §6 going from open decision to done. Documentation only.
 
 <!-- xgd-chat-end -->
