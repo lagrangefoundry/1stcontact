@@ -89,11 +89,17 @@ export const LEGACY_ROLE_NAMES = ['caretaker'] as const
  * told only "you are a consultant" has no basis for choosing between a document
  * about storage and one about typography.
  *
- * IT NAMES DOCUMENTS (REQ-171). The trigger KM renders immediately after this
- * section says "pick the territories above that bear on your purpose", and a
- * purpose naming no territory gives that instruction nothing to bite on. Named
- * by subject as well as by id, because retrieval matches on words and an id is
- * not one.
+ * IT NAMES SUBJECTS AND NEVER A DOCUMENT (BUG-65). The trigger KM renders
+ * immediately after this section says "pick the territories above that bear on
+ * your purpose", and a purpose naming no subject gives that instruction nothing
+ * to bite on — so it names what to go looking FOR. What it must not name is
+ * WHICH DOCUMENTS EXIST: that is decided at build time by each document's own
+ * kind, and reaches the session through the awareness map the `km.landscape`
+ * provider renders. REQ-171 enumerated three ids here, which was a second and
+ * unsynchronised answer to the same question, and it drifted exactly the way an
+ * id list drifts — one of the three was demoted out of the corpus and the
+ * priming went on telling every session to read it. Subjects are also what
+ * retrieval actually matches on; an id is not a word.
  *
  * IT NAMES BOTH CORPORA. This framed only the system's own documents while there
  * was only one KB; REQ-159 gave the session the client's, and a purpose that

@@ -11,9 +11,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
-  awarenessDocument,
   bindKb,
-  buildKb,
   configPath,
   corpusDir,
   corpusDocument,
@@ -26,6 +24,7 @@ import {
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
+import { buildIndexesAndMap, STUB_MODEL } from './support/kb-fixture'
 
 /**
  * REQ-123 — **the system knowledge base, end to end**.
@@ -42,7 +41,7 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
  * and that a rebuild does not silently re-embed a corpus that has not changed.
  */
 
-const STUB = path.resolve('tests/fixtures/kb-stub-model.mjs')
+const STUB = STUB_MODEL
 
 /** How many `doc` tickets have opted into the system KB, per the store itself. */
 function memberTicketCount(): number {
@@ -126,7 +125,7 @@ function seedCorpus(root: string): void {
 
 describe('REQ-123 — the system knowledge base', () => {
   let root: string
-  let built: Awaited<ReturnType<typeof buildKb>>
+  let built: Awaited<ReturnType<typeof buildIndexesAndMap>>
 
   beforeAll(async () => {
     root = mkdtempSync(path.join(tmpdir(), 'kb-'))
@@ -240,77 +239,6 @@ describe('REQ-123 — the system knowledge base', () => {
     expect(status).toMatchObject({ corpus: 3, index: true, chunks: true, map: true })
   })
 })
-
-/**
- * The index, chunk and map steps over a corpus that is already on disk.
- *
- * Mirrors `buildKb`'s body, minus the export — this suite brings its own corpus.
- * Kept here rather than exported from `kb.ts` as a test seam, because production
- * has no caller for "build over a corpus somebody else wrote".
- */
-async function buildIndexesAndMap(
-  root: string,
-  { mapToo = true }: { mapToo?: boolean } = {},
-): Promise<{ documents: number; embedded: number; chunks: number; territories: number }> {
-  const lib = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
-  const { nodeIndexSource } = await import(/* @vite-ignore */ sharedModuleUrl('knowledge', './node'))
-  const binding = await bindKb(root)
-  const embedder = await resolveEmbedder()
-
-  const indexSource = nodeIndexSource(path.join(corpusDir(root), 'index'))
-  const stats = await lib.buildIndex(binding.store, binding.kbs, indexSource, {
-    embedder,
-    sources: binding.sources,
-  })
-  const chunkSource = nodeIndexSource(path.join(corpusDir(root), 'chunks'))
-  const chunkStats = await lib.buildChunkIndex(binding.store, binding.kbs, chunkSource, {
-    embedder,
-    sources: binding.sources,
-  })
-
-  let territories = 0
-  if (mapToo) {
-    const { embeddings, metadata } = await lib.loadIndex(indexSource)
-    const vectors = new Map(metadata.map((row: { uid: string }, i: number) => [row.uid, embeddings[i]]))
-    const docs = lib.documentsFromTickets(await lib.resolveCorpus(binding.store, binding.kb), vectors)
-    const { createDescriber } = await import(/* @vite-ignore */ `file://${STUB}`)
-    const describer = createDescriber()
-    const report = await lib.buildAwareness(
-      docs,
-      new lib.KnowledgeBase({ ...binding.kb, landscape: lib.DERIVED }),
-      {
-        describe: describer.describe,
-        search: async (query: string) => {
-          const hits = await lib.search(query, {
-            indexes: { [SHIPPED_SOURCE]: indexSource },
-            store: binding.store,
-            kbs: binding.kbs,
-            kb: SYSTEM_KB,
-            topK: 5,
-            embedder,
-            sources: binding.sources,
-          })
-          return hits.map((hit: { uid: string }) => hit.uid)
-        },
-        clusterer: lib.agglomerativeClusterer({ nClusters: 2, maxDistance: Infinity }),
-        describer: describer.name,
-      },
-    )
-    writeFileSync(
-      path.join(corpusDir(root), 'awareness.md'),
-      awarenessDocument(report.body, SYSTEM_KB),
-      'utf8',
-    )
-    territories = report.territories.length
-  }
-
-  return {
-    documents: stats.total,
-    embedded: stats.added,
-    chunks: chunkStats.chunks,
-    territories,
-  }
-}
 
 /**
  * The export, against the REAL ticket store.
