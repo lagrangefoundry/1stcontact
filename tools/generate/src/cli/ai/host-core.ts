@@ -53,9 +53,10 @@ import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import {
   CONSULTANT_ROLE,
-  CONSULTANT_SYSTEM,
-  consultantReminder,
+  consultantRole,
   LEGACY_ROLE_NAMES,
+  registerSiteProviders,
+  type TurnSignal,
 } from './roles'
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
@@ -305,26 +306,25 @@ export interface HostDeps {
   ledger?: ((slug: string) => LedgerDeps) | null
 
   /**
-   * Contributes KM's priming: registers the providers it needs, and names the
-   * entries that reach them (BUG-63; DOC-22 §3, §4).
+   * Registers the providers the corpus half of the priming names (REQ-182).
    *
    * A FACTORY rather than a value, for the reason it always was: the priming
    * contains the tool manual, and the manual is a projection of THIS session's
    * actual grant — it cannot be built before the box it describes.
    *
-   * IT RETURNS ENTRIES RATHER THAN A DOCUMENT, which is the whole of the DOC-22
-   * change. Priming used to be one assembled string handed over as a
-   * `ContextSource`; it is now an ordered list of named entries, each either
-   * static text or a registered provider run at assembly time. The seam
-   * therefore takes the registry it may register on and hands back the entries
-   * that name what it registered — landscape, purpose, mechanism, in that order,
-   * because that order is KM's and it is load-bearing.
+   * IT REGISTERS AND RETURNS NOTHING. Under BUG-63 it also handed back the
+   * entries naming what it registered, which put the order of a session's
+   * priming in two places at once — here for the corpus, in this file for
+   * everything around it. The order is declared in `priming.json` now, so what
+   * is left is the binding: this seam says what `km.landscape` and
+   * `km.mechanism` reach, and the configuration says where they sit.
    *
-   * Absent means no corpus, and {@link build} primes with the manual alone —
-   * what a host that has never run `1c kb build` supplies, and the assistant
-   * this host had before there was a KB at all.
+   * ITS PRESENCE IS THE CORPUS QUESTION. Absent means this host has no knowledge
+   * base, and {@link build} loads the configuration's other declared order —
+   * what a host that has never run `1c kb build` supplies, and the assistant this
+   * host had before there was a KB at all.
    */
-  priming?: ((box: Untyped, providers: Untyped) => Promise<Untyped[]>) | null
+  priming?: ((box: Untyped, providers: Untyped) => Promise<void>) | null
   /**
    * What entered the knowledge corpus since this session was last told (REQ-160).
    *
@@ -346,41 +346,6 @@ export interface HostDeps {
 }
 
 
-/**
- * What the consultant is here to do, for KM's priming (step 2 of the landscape).
- *
- * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
- * priming answers "what should I go looking for in this corpus", and an agent
- * told only "you are a consultant" has no basis for choosing between a document
- * about storage and one about typography.
- *
- * IT NAMES DOCUMENTS (REQ-171). The trigger KM renders immediately after this
- * section says "pick the territories above that bear on your purpose", and a
- * purpose naming no territory gives that instruction nothing to bite on. Named
- * by subject as well as by id, because retrieval matches on words and an id is
- * not one.
- *
- * IT NAMES BOTH CORPORA. This framed only the system's own documents while there
- * was only one KB; REQ-159 gave the session the client's, and a purpose that
- * describes half the landscape sends the agent looking in half of it.
- *
- * IT LIVES ON THE SHARED SIDE (REQ-158) because both hosts prime with it and it
- * is a statement about the ROLE, which is the same role in either runtime. Node
- * reads it in `host.ts`; workerd reads it in `apps/control-app/src/ai.ts`. Two
- * copies would be two role definitions, and the drift would be invisible — the
- * Worker's assistant would simply go looking for different things.
- */
-export const CONSULTANT_PURPOSE =
-  'You advise a client on their website and build it with them. Your method is ' +
-  'written down and you are expected to read it before you start: the consultation ' +
-  'playbook (DOC-33) for how a consultation runs, personas, modes and registers ' +
-  '(DOC-35) for who you are talking to and how to pitch it, and the ' +
-  'differentiation audit (DOC-31) for what separates work worth paying for from a ' +
-  'template. Beyond those, search for the vocabulary a page is written in and how ' +
-  'this system stores and publishes sites. The corpus your client brings — their ' +
-  'own material, and what earlier sessions already decided — is the other half of ' +
-  'what you search, and none of it is guessable from here.'
-
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
 export function siteBackendName(slug: string): string {
   return `claude+site:${slug}`
@@ -399,55 +364,47 @@ export function sessionIdFor(slug: string): string {
 }
 
 /**
- * The name this host's priming entries reach the tool manual under (DOC-22 §4).
+ * The cap on this host's assembled priming (REQ-182; DOC-22 §Q).
  *
- * A NAME, NEVER AN IMPORT PATH. A dotted path in a data file is a
- * code-execution primitive and does not survive a Worker, so configuration
- * names a provider and the host decides what that name reaches.
+ * DECLARED RATHER THAN INHERITED. The framework's default is 200,000 characters —
+ * a backstop for any host, not a budget for this one — and a limit nobody chose is
+ * a limit nobody notices being approached.
  *
- * Registered on every session, whether or not a knowledge base was built: with
- * a corpus the manual travels in as KM's `mechanism`, without one it is the
- * whole of what the session is told about how to act. One registration serves
- * both, and the entry list decides which shape this session gets.
+ * The arithmetic: the three static entries are 4,851 characters together and the
+ * projected manual summary is about 11,000, so a session with a corpus primes at
+ * roughly 16,000 today. The one part that grows without anyone editing this
+ * repository is the landscape, which tracks the client's knowledge base. 60,000
+ * leaves that room to more than treble before the session refuses to start, and
+ * refusing is the right outcome: overflow is a loud failure naming the entry, with
+ * no truncation path, so a landscape that ran away is a message rather than a
+ * priming quietly missing its last section.
  */
-export const MANUAL_PROVIDER = 'site.manual'
-
-/** The name the per-turn reminder is reached under (BUG-63). */
-export const SITE_REMINDER_PROVIDER = 'site.reminder'
+export const MAX_PRIMING_CHARS = 60_000
 
 /** One `SessionManager` per site, keyed by the store it acts on. */
 const managers = new Map<string, Promise<Untyped>>()
 
 /**
- * The reminder each site's next turn should carry, under the same key (REQ-131).
+ * What a site's next turn has to be told, under the same key (REQ-131, REQ-160).
  *
- * THE HOST HOLDS THE TEXT; THE PROVIDER DELIVERS IT (BUG-63). This used to be a
- * map of `Role` objects, refreshed by assigning to `role.reminder` — which
- * worked only because `SessionManager` happened to re-read the field at the top
- * of every turn. Under DOC-22 a `Role` is frozen, and that assignment is a
- * `TypeError` rather than a stale reminder, so the per-turn signal is delivered
- * the way the design says to deliver one: a registered reminder provider reading
- * host state at assembly time.
+ * THE HOST HOLDS THE SIGNAL; THE PROVIDERS RENDER IT (REQ-182). Until BUG-63 this
+ * was a map of `Role` objects refreshed by assigning to `role.reminder`, which
+ * worked only because `SessionManager` happened to re-read the field at the top of
+ * every turn; under DOC-22 a `Role` is frozen and that assignment throws. BUG-63
+ * replaced it with a map of rendered strings, which fixed the mutation and left
+ * the host still writing prose.
  *
- * The state is still the host's, and that is the point of the split — code
- * contributes the structure, the host contributes the words (DOC-22 §5). What
- * changed is that nothing reaches into a role object to say them.
+ * What it holds now is the facts and nothing else — how many changes landed, and
+ * what arrived in the corpus. Turning them into sentences is the providers' job,
+ * and the words they use are in the configuration file. That is DOC-22 §5's split
+ * held all the way down: code contributes the structure, configuration
+ * contributes the prose, and the host contributes neither — only the state.
  *
- * An absent entry is an ordinary state, not a missing one: it is the first turn
- * of a session, before any signal exists. {@link reminderFor} renders the
- * standing reminder for it.
+ * An absent entry is an ordinary state, not a missing one: it is the first turn of
+ * a session, before any signal exists. Both signal providers answer `null` for it,
+ * and a `null` drops its entry and its separator with it.
  */
-const reminders = new Map<string, string>()
-
-/**
- * The reminder in force for a site's next turn.
- *
- * The standing text when nothing has been pushed, which is the first turn of
- * every session and every turn on which neither the site nor the corpus moved.
- */
-function reminderFor(key: string, slug: string): string {
-  return reminders.get(key) ?? consultantReminder(slug)
-}
+const signals = new Map<string, TurnSignal>()
 
 /**
  * The draft change count as it stood at the end of each site's last turn.
@@ -672,70 +629,54 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       }),
   )
 
-  // -- priming, as configuration (BUG-63; DOC-22) ----------------------------
+  // -- priming, as configuration (REQ-182; DOC-22) ---------------------------
   //
-  // THE ASSEMBLY IS THE SAME DOCUMENT IT ALWAYS WAS, said as an ordered list of
-  // named entries rather than built by hand. What used to be two `Role` fields —
-  // a `system` preamble and a duck-typed `ContextSource` whose one document KM
-  // assembled — is now four entries in one tier, and the entry order IS the
-  // document order.
+  // THE DOCUMENT IS DECLARED, NOT BUILT. BUG-63 said the assembly as an ordered
+  // list of named entries but still constructed that list here, in TypeScript,
+  // out of prose held in TypeScript. Both halves are data now: `priming.json`
+  // holds the entries and every word of them, and `consultantRole` loads it
+  // through the framework's own `rolesFromMapping`, so a malformed entry, a
+  // stray cache marker or a `provider:` naming something nobody registered is a
+  // `PrimingConfigError` at start-up naming the entry.
   //
   // ONE TIER, NOT TWO, and deliberately. DOC-22 distinguishes the product tier
   // from the role tier by variation scope, never by topic; here there is one
   // role and one manager per site, so everything below varies together and
-  // splitting it across tiers would only fix the order wrong. Tiers concatenate
-  // product-then-role, and the order this host needs interleaves them —
-  // landscape, PURPOSE, mechanism — so they go in one list, the role's.
+  // splitting it across tiers would only fix the order wrong — product entries
+  // are concatenated BEFORE role entries, which would put the product facts in
+  // front of "you are a design consultant" and lose the register REQ-171 chose.
   //
-  // The product tier is left empty rather than defaulted. `SessionManager`
-  // populates both halves with framework defaults only when it is handed
-  // NEITHER, so supplying a registry means the shipped product entries (the
-  // summary, the transcript pointer, the tool-transcript note) stay off. That is
-  // this host's behaviour today and adopting them is a separate decision, not
-  // one to make silently while fixing a build.
+  // The product tier is left empty rather than defaulted, and this host means it.
+  // `SessionManager` populates both halves with framework defaults only when it
+  // is handed NEITHER, so supplying a registry keeps the shipped product entries
+  // off — which is the right answer for all three of them:
+  // `session.transcript_pointer` tells a session its turns are addressable by id
+  // and this host grants no operation that reads them, `session.tool_transcript_note`
+  // needs a reader it does not have, and `session.summary` waits on
+  // lagrange-framework BUG-45. A session is never told about a capability it was
+  // not granted, and that rule does not stop applying because the claim ships
+  // upstream.
   const providers = new lib.PrimingProviders()
 
-  // THE MANUAL, PROJECTED PER ROLE AND PER SCOPE, which is a REQUIRED property
-  // rather than a nicety: a session's manual never mentions a capability it was
-  // not granted, so the model cannot propose one, apologise for one, or probe
-  // for one. A provider rather than static text because it is a projection of
-  // the box, and the box is built above.
+  // EVERY NAME THE CONFIGURATION MAY USE, BOUND IN ONE PLACE. `roles.ts` owns both
+  // halves of that bargain — the file that names the providers and the function
+  // that says what each name reaches — so a name can only be added to the
+  // configuration by adding it here too, and adding it here without using it is
+  // dead weight a reader can see.
   //
-  // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k characters
-  // of this site's surface alone and was 98% of the priming document; the
-  // summary is 11k. What it drops — every parameter, return shape and error
-  // code — is what `DescribeTools` fetches for one tool at the moment it is
-  // about to be called, which is the only moment it is needed.
-  providers.register(MANUAL_PROVIDER, async () => box.manual({ level: 'summary' }))
-
-  // THE PER-TURN REMINDER, read from host state at assembly time. `Role` is
-  // frozen (DOC-22 §S), so this is how a host whose reminder is not a constant
-  // says so — see {@link reminders}.
+  // THE SIGNAL IS READ LATE, not captured. It is a callback rather than a value
+  // because `Role` is frozen (DOC-22 §S) and the whole point of the providers is
+  // that they see the state as it stands when the manager assembles the turn.
   const key = managerKey(slug, deps)
-  providers.register(SITE_REMINDER_PROVIDER, async () => reminderFor(key, slug))
+  registerSiteProviders(providers, { slug, box, signal: () => signals.get(key) })
 
-  // LANDSCAPE FIRST, MANUAL LAST when the host has a corpus; the manual alone
-  // when it has not. The seam registers KM's providers on the registry above and
-  // names them back as entries, so the role is constructed identically either
-  // way and nothing downstream branches on which one it got.
-  //
-  // This is the alternative to stuffing 32 design documents into every context:
-  // the agent is given a map and the means to pull what it needs.
-  const corpus = deps.priming
-    ? await deps.priming(box, providers)
-    : [new lib.Entry({ name: 'manual', provider: MANUAL_PROVIDER })]
+  // KM's two providers, when this host has a corpus. The seam registers and
+  // returns nothing; which entries name it is the configuration's business, and
+  // whether this host has one at all is the question this branch asks.
+  const withCorpus = Boolean(deps.priming)
+  if (deps.priming) await deps.priming(box, providers)
 
-  const role = new lib.Role({
-    name: CONSULTANT_ROLE,
-    priming: [
-      // The role preamble, first, because it was first when it was `system` and
-      // the assembly is a concatenation.
-      new lib.Entry({ name: 'consultant-system', text: CONSULTANT_SYSTEM }),
-      ...corpus,
-    ],
-    reminders: [new lib.Entry({ name: 'site-reminder', provider: SITE_REMINDER_PROVIDER })],
-  })
-
+  const role = consultantRole(lib, providers, withCorpus)
 
   // A TRANSCRIPT ARCHIVE, not a session store. Upstream replaced the whole-object
   // `save(session)` store with an incremental archive port (`apply` / `load` /
@@ -788,6 +729,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // with framework defaults it did not ask for. This host means it: its
     // priming is entirely role-tier, and the product tier is empty.
     providers,
+    maxPrimingChars: MAX_PRIMING_CHARS,
   })
 }
 
@@ -1001,12 +943,10 @@ export async function* streamPrompt(
   // assembles the turn's system channel, which is the same moment the old
   // `role.reminder` read happened.
   const delta = deps.delta ? await deps.delta(sessionId) : null
-  reminders.set(
-    key,
-    before === undefined
-      ? consultantReminder(slug, undefined, delta)
-      : consultantReminder(slug, { at: before, changes: at - before }, delta),
-  )
+  signals.set(key, {
+    since: before === undefined ? undefined : { at: before, changes: at - before },
+    delta,
+  })
 
   // BUG-43 — the counter as it stands right now, carried down the loop below so
   // each write is compared against the one before it rather than against the
@@ -1201,6 +1141,6 @@ export async function aiStatus(
  */
 export function resetAiHost(): void {
   managers.clear()
-  reminders.clear()
+  signals.clear()
   baselines.clear()
 }

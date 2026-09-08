@@ -12,13 +12,36 @@ import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox-core'
 import { ctxOf } from '../tools/generate/src/cli/commands'
 import { fsSiteStore } from '../tools/generate/src/store'
 import {
-  CONSULTANT_ROLE_TEXT,
-  CONSULTANT_SYSTEM,
   LEGACY_ROLE_NAMES,
-  PRODUCT_SYSTEM,
-  consultantReminder,
+  PRODUCT_ENTRY,
+  primingConfig,
+  primingText,
+  PURPOSE_ENTRY,
+  ROLE_ENTRY,
+  siteLine,
 } from '../tools/generate/src/cli/ai/roles'
-import { CONSULTANT_PURPOSE } from '../tools/generate/src/cli/ai/host-core'
+
+// READ FROM THE CONFIGURATION, NOT FROM A CONSTANT (REQ-182). These texts were
+// TypeScript exports; they are entries in `priming.json` now, and asserting on
+// what the file declares is asserting on what actually ships. A constant holding
+// a copy of the words could agree with the test and disagree with the session.
+const CONSULTANT_ROLE_TEXT = primingText(ROLE_ENTRY)
+const PRODUCT_SYSTEM = primingText(PRODUCT_ENTRY)
+const CONSULTANT_PURPOSE = primingText(PURPOSE_ENTRY)
+
+/**
+ * The reminder a turn carries when neither signal has fired.
+ *
+ * Declared order, static entries as written, the site line rendered, and the two
+ * signal providers absent — which is what they are on a turn where nothing moved.
+ */
+function standingReminder(slug: string): string {
+  const entries = primingConfig(true).reminders as { name?: string; text?: string }[]
+  return entries
+    .map((entry) => (entry.name === 'site' ? siteLine(slug) : entry.text))
+    .filter((text): text is string => typeof text === 'string')
+    .join('\n\n')
+}
 import {
   LEDGER_DECLARATION,
   ledgerInstanceConfig,
@@ -151,20 +174,21 @@ describe('REQ-171 — product material is written once, for every role', () => {
   })
 
   it('test_UAT_FC_REQ-171_the_system_prompt_is_the_role_then_the_product', () => {
-    expect(CONSULTANT_SYSTEM).toContain(CONSULTANT_ROLE_TEXT)
-    expect(CONSULTANT_SYSTEM).toContain(PRODUCT_SYSTEM)
+    // Two entries rather than one composed constant (REQ-182), so the property is
+    // the DECLARED ORDER: role first, product second, in the list that ships.
+    const names = (primingConfig(true).priming as { name?: string }[]).map((e) => e.name)
+    expect(names).toContain(ROLE_ENTRY)
+    expect(names).toContain(PRODUCT_ENTRY)
     // Role first. The first thing a model reads about itself sets the register
     // for everything after it.
-    expect(CONSULTANT_SYSTEM.indexOf(CONSULTANT_ROLE_TEXT)).toBeLessThan(
-      CONSULTANT_SYSTEM.indexOf(PRODUCT_SYSTEM),
-    )
-    expect(CONSULTANT_SYSTEM.startsWith('You are a design consultant')).toBe(true)
+    expect(names.indexOf(ROLE_ENTRY)).toBeLessThan(names.indexOf(PRODUCT_ENTRY))
+    expect(CONSULTANT_ROLE_TEXT.startsWith('You are a design consultant')).toBe(true)
   })
 
   it('test_UAT_FC_REQ-171_nothing_is_stated_in_two_places', () => {
     // The reminder rides every request, so anything it restates is paid for on
     // every turn. It points at the method rather than carrying it.
-    const reminder = consultantReminder(SLUG)
+    const reminder = standingReminder(SLUG)
     expect(reminder).toContain('DOC-33')
     expect(reminder.length).toBeLessThan(600)
     // The playbook itself is corpus material (DOC-33 §12) and appears in none
@@ -192,7 +216,7 @@ describe('REQ-171 — the role text is the role, derived from DOC-33 and DOC-35'
     // for adjustment-level work, and says so.
     expect(CONSULTANT_ROLE_TEXT).toMatch(/two or three options that differ in kind/)
     expect(CONSULTANT_ROLE_TEXT).toMatch(/Adjustments are different/)
-    expect(consultantReminder(SLUG)).toMatch(/differ in kind rather than refining one/)
+    expect(standingReminder(SLUG)).toMatch(/differ in kind rather than refining one/)
   })
 })
 

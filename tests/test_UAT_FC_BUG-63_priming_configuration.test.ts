@@ -15,7 +15,6 @@ import {
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import {
-  CONSULTANT_PURPOSE,
   openSession,
   resetAiHost,
   setModelClient,
@@ -24,7 +23,9 @@ import {
 } from '../tools/generate/src/cli/ai/host-core'
 import {
   CONSULTANT_ROLE,
-  kmPrimingEntries,
+  primingText,
+  PURPOSE_ENTRY,
+  registerCorpusProviders,
 } from '../tools/generate/src/cli/ai/roles'
 import {
   says,
@@ -143,7 +144,7 @@ let knowledge: unknown
  * The host's dependencies, with or without a corpus.
  *
  * ASSEMBLED THE WAY `host.ts` ASSEMBLES THEM, and the priming seam is literally
- * the one it uses — {@link kmPrimingEntries} — rather than a re-statement of it
+ * the one it uses — {@link registerCorpusProviders} — rather than a re-statement of it
  * here. A test that spelled the three entries itself would assert that this file
  * can build a priming document, which is not the claim.
  */
@@ -167,7 +168,7 @@ async function deps(opts: { withKnowledge: boolean; delta?: string | null }): Pr
         granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
       },
     ],
-    priming: kmPrimingEntries(ai, bridge, () => knowledge, CONSULTANT_PURPOSE),
+    priming: registerCorpusProviders(bridge, () => knowledge),
   }
 }
 
@@ -232,7 +233,7 @@ describe('BUG-63 — the assembled priming is the document it always was', () =>
 
     // 4. THE PURPOSE, which is what gives "pick the territories that bear on
     //    your purpose" something to bite on.
-    expect(system).toContain(CONSULTANT_PURPOSE)
+    expect(system).toContain(primingText(PURPOSE_ENTRY))
 
     // 5. THE MECHANISM IS THE MANUAL, so the corpus is reached through THIS
     //    session's actual grant rather than a sentence written by hand about
@@ -244,8 +245,8 @@ describe('BUG-63 — the assembled priming is the document it always was', () =>
     //    the first thing done. Preamble, map, purpose, mechanism.
     const at = (needle: string): number => system.indexOf(needle)
     expect(at('consultant')).toBeLessThan(at(TERRITORY))
-    expect(at(TERRITORY)).toBeLessThan(at(CONSULTANT_PURPOSE))
-    expect(at(CONSULTANT_PURPOSE)).toBeLessThan(at('KnowledgeSearch'))
+    expect(at(TERRITORY)).toBeLessThan(at(primingText(PURPOSE_ENTRY)))
+    expect(at(primingText(PURPOSE_ENTRY))).toBeLessThan(at('KnowledgeSearch'))
   })
 
   it('test_UAT_FC_BUG-63_a_host_with_no_knowledge_base_primes_with_the_system_text_and_the_manual', async () => {

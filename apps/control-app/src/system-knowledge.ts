@@ -7,7 +7,7 @@ import {
   knowledgeInstanceConfig,
   registerKmProviders,
 } from './generated/ai-knowledge'
-import { kmPrimingEntries } from '../../../tools/generate/src/cli/ai/roles'
+import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
 import {
   WorkersAiEmbedder,
   knowledgeBasesFromMapping,
@@ -196,28 +196,24 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
  * find, so it never looks. The two are built from one runtime and are wired as a
  * pair or not at all.
  *
- * THREE ENTRIES, NOT ONE DOCUMENT (BUG-63). `KnowledgeDocs.open` assembled the
- * three sections into a single `ContextSource` and is gone: upstream deleted it
- * when priming became DOC-22's ordered list of named entries. The map and the
- * mechanism are registered providers now, so both are re-read on every assembly
- * rather than snapshotted once — which is what lets a document published
- * mid-session show up in the next turn's landscape with no new machinery. The
- * order is unchanged, and it is the order that was load-bearing.
+ * TWO PROVIDERS, NOT ONE DOCUMENT (BUG-63, REQ-182). `KnowledgeDocs.open`
+ * assembled the sections into a single `ContextSource` and is gone: upstream
+ * deleted it when priming became DOC-22's ordered list of named entries. The map
+ * and the mechanism are registered providers now, so both are re-read on every
+ * assembly rather than snapshotted once — which is what lets a document published
+ * mid-session show up in the next turn's landscape with no new machinery.
  *
- * @param lib the AI library, for `Entry`. Passed rather than imported because
- *   this file is bundled into a Worker and the library arrives through the shim
- *   `1c assets` resolves.
+ * The order KM owned — landscape, then purpose, then mechanism — is declared in
+ * `priming.json` and is unchanged. It was load-bearing when it lived here and it
+ * is load-bearing there; what changed is that it is written down once instead of
+ * being reproduced by whoever calls this.
  */
 export function knowledgePriming(
-  lib: Untyped,
   runtime: Untyped,
-  rolePurpose: string,
-): (box: Untyped, providers: Untyped) => Promise<Untyped[]> {
-  return kmPrimingEntries(
-    lib,
+): (box: Untyped, providers: Untyped) => Promise<void> {
+  return registerCorpusProviders(
     { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
     () => runtime,
-    rolePurpose,
   )
 }
 

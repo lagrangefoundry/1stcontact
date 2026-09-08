@@ -33,7 +33,13 @@ import {
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
-import { kmPrimingEntries } from '../tools/generate/src/cli/ai/roles'
+import {
+  consultantRole,
+  primingText,
+  registerSiteProviders,
+  PURPOSE_ENTRY,
+  registerCorpusProviders,
+} from '../tools/generate/src/cli/ai/roles'
 import { says, scriptedClient } from './support/scripted-model-client'
 import type { L1Node } from '@1stcontact/site-schema'
 
@@ -65,7 +71,10 @@ const HEADLINE = 'The old headline.'
 const HEADLINE_PATH = '0.0'
 
 /** What the consultant is here to do — priming step 2, and the ordering probe. */
-const PURPOSE = 'You look after a website for someone who is not technical.'
+// The purpose the shipped configuration declares (REQ-182), not a stand-in: the
+// order under test is map, then purpose, then manual, and it is that order in
+// `priming.json` that has to hold.
+const PURPOSE = primingText(PURPOSE_ENTRY)
 
 /**
  * Two corpus documents whose BODIES are distinctive, because the load-bearing
@@ -422,15 +431,11 @@ describe('a conversation is primed with the map and the manual, not the document
     // it: the role's purpose, and the manual PROJECTED from this session's
     // actual grant as the mechanism.
     const providers = new lib.PrimingProviders()
-    const entries = await kmPrimingEntries(
-      lib,
-      kmBridge,
-      () => runtime,
-      PURPOSE,
-    )(box, providers)
+    await registerCorpusProviders(kmBridge, () => runtime)(box, providers)
+    registerSiteProviders(providers, { slug: SLUG, box, signal: () => undefined })
     const priming: string = await lib.assemble(
       new lib.ProductConfig(),
-      new lib.Role({ name: 'consultant', priming: entries }),
+      consultantRole(lib, providers, true),
       new lib.SessionContext({ role: 'consultant', backend: 'test' }),
       { providers },
     )

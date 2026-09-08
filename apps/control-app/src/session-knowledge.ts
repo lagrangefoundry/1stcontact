@@ -6,7 +6,7 @@ import {
   knowledgeInstanceConfig,
   registerKmProviders,
 } from './generated/ai-knowledge'
-import { kmPrimingEntries } from '../../../tools/generate/src/cli/ai/roles'
+import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
 import {
   DEFAULT_CHUNKS_PER_HIT,
   DEFAULT_SOURCE,
@@ -392,20 +392,17 @@ export function sessionKnowledgeSurface(knowledge: SessionKnowledge): {
  * providers re-read on every assembly, so nothing is cached across a turn by
  * construction.
  *
- * @param lib the AI library, for `Entry`. Passed rather than imported because
- *   this file is bundled into a Worker and the library arrives through the shim
- *   `1c assets` resolves.
+ * IT REGISTERS AND NAMES NOTHING (REQ-182). It took the AI library and the role's
+ * purpose in order to build entries; the entries are declared in `priming.json`
+ * now, so it needs neither. What is left is the binding, which is all this seam
+ * was ever really for.
  */
 export function sessionPriming(
-  lib: Untyped,
   knowledge: SessionKnowledge,
-  rolePurpose: string,
-): (box: Untyped, providers: Untyped) => Promise<Untyped[]> {
-  return kmPrimingEntries(
-    lib,
+): (box: Untyped, providers: Untyped) => Promise<void> {
+  return registerCorpusProviders(
     { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
     () => knowledge.composite,
-    rolePurpose,
   )
 }
 
