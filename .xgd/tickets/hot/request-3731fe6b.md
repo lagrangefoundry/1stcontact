@@ -6,7 +6,7 @@ title: 'The consultant can research: web search as a configured API, and the ima
   describer leaves its second path to a model'
 created_by: CHAT-43
 created_at: '2026-09-08T03:18:16.962511+00:00'
-updated_at: '2026-09-08T22:45:45.567664+00:00'
+updated_at: '2026-09-08T22:46:02.002551+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -317,7 +317,7 @@ identically to `defaultTextDescriber`.
 - **`@anthropic-ai/sdk` is dropped from `apps/control-app`'s dependencies.**
   Nothing in this repository imports it once `describe.ts` stops. It remains
   reachable transitively through the AI component, which is the only thing that
-  should be reaching it; what goes is the second copy REQ-183 measured at
+  should be reaching it; what goes is the second copy [[REQ-163]] measured at
   +138 KiB of Worker bundle.
 
 ### Evidence
