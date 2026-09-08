@@ -44,7 +44,6 @@
  * writes it to a `material_text` comment, and `knowledge.ts` keeps chunking it.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
 import { extractText, getMeta } from 'unpdf'
 
 /**
@@ -133,8 +132,12 @@ export interface Description {
 /**
  * The image describer, as a seam.
  *
- * INJECTED SO THE UATs DO NOT REACH THE NETWORK, and so the consolidation named
- * below has somewhere to land.
+ * INJECTED SO THE UATs DO NOT REACH THE NETWORK. It used also to be where a
+ * named consolidation would land, and that consolidation has now happened
+ * (REQ-207): the default implementation is `ai.ts`'s {@link sessionImageDescriber},
+ * a lightweight session on the AI host, exactly as {@link DescribeText}'s is.
+ * The SHAPE of this seam did not change when the implementation behind it did,
+ * which is why every UAT driving it kept working.
  */
 export type DescribeImage = (
   bytes: Uint8Array,
@@ -148,12 +151,12 @@ export type DescribeImage = (
  * has run, so the model is fed prose rather than a file — which is what makes the
  * cost of describing a document acceptable at all (see {@link digestSource}).
  *
- * ITS DEFAULT IMPLEMENTATION IS NOT AN SDK CALL. Unlike {@link DescribeImage},
- * which has to reach the Messages API directly because the AI host's surface
- * carries no image block, a document digest is text in and text out — so
- * `ai.ts`'s {@link sessionTextDescriber} opens a lightweight session on the AI
- * host's own session factory and prompts it once. The seam is here so the UATs do
- * not reach the network, and so the two describers read alike from this file.
+ * ITS DEFAULT IMPLEMENTATION IS NOT AN SDK CALL, and since REQ-207 neither is
+ * {@link DescribeImage}'s. `ai.ts`'s {@link sessionTextDescriber} opens a
+ * lightweight session on the AI host's own session factory and prompts it once;
+ * `sessionImageDescriber` is its peer and differs only in sending an image
+ * content block beside the instruction. The seam is here so the UATs do not
+ * reach the network, and so the two describers read alike from this file.
  */
 export type DescribeText = (prompt: string) => Promise<{ text: string; model: string }>
 
@@ -185,34 +188,52 @@ export const DOCUMENT_DIGEST_SYSTEM =
   'begin with a title line.'
 
 /**
- * The model that looks at images.
+ * What the image describer is told to write (REQ-163, moved here by REQ-207).
  *
- * A SECOND LLM PATH BESIDE THE AI HOST, DELIBERATELY AND TEMPORARILY (REQ-163).
- * The AI component's Worker surface is text-only — `promptStream(ref, text)`,
- * with no image content block anywhere in it — so an image cannot be described
- * through the host this Worker already runs. Rather than widen that surface from
- * here, this calls the SDK directly.
+ * THE PROMPT ASKS FOR SEARCH TERMS, NOT PROSE. The description exists to be
+ * matched against a query someone types months later, so it is told to lead with
+ * what the thing IS and to use the ordinary words for it.
  *
- * That is duplication and is accepted as such. What stops it becoming permanent
- * by default is that the consolidation point is named NOW: either [[REQ-157]]
- * (the fidelity/"looking" surface, which needs the same capability) or an image
- * block on the AI component's own surface. Whichever lands, this function is what
- * is deleted.
+ * A TITLE LINE, WHICH IS WHERE IT DIFFERS FROM {@link DOCUMENT_DIGEST_SYSTEM}. A
+ * photograph carries no title anyone wrote, so one is asked for — and asked for
+ * in the SAME call, because two calls to describe one photograph would double the
+ * cost of an upload to produce something the first call already knows.
+ * {@link describeImageMaterial} splits the answer on the first blank line.
+ *
+ * EXPORTED FOR THE SAME REASON ITS DOCUMENT PEER IS: `ai.ts` builds the image
+ * describer's role from it, so the two prompts this product sends about material
+ * stay next to each other, in the file that decides what a description IS.
  */
-export const VISION_MODEL = 'claude-opus-5'
+export const IMAGE_DIGEST_SYSTEM =
+  'You describe images so they can be FOUND again by search. Answer with a ' +
+  'short title on the first line, then a blank line, then two or three ' +
+  'sentences saying what the image depicts. Use the ordinary words someone ' +
+  'would type looking for it — what it shows, where it is, what time of day, ' +
+  'who is in it. Do not comment on quality, composition or how it might be ' +
+  'used. Do not preface your answer.'
 
 /**
  * The per-image ceiling for the vision call, which is NOT the blob ceiling.
  *
  * [[DOC-38]] §14 sizes blobs at 25MB because that is what a Worker isolate can
- * hold; the Messages API's own per-image limit is far lower. An image between the
- * two is stored WHOLE and simply not looked at — `too_large`, not a rejection,
- * because the client's file is not at fault and losing it to describe it would be
- * the wrong trade.
+ * hold; the per-image limit of whichever provider is behind the AI host is far
+ * lower. An image between the two is stored WHOLE and simply not looked at —
+ * `too_large`, not a rejection, because the client's file is not at fault and
+ * losing it to describe it would be the wrong trade.
  */
 export const VISION_MAX_BYTES = 5 * 1024 * 1024
 
-/** What the Messages API will accept as an image block. */
+/**
+ * What may be sent as an image block.
+ *
+ * RESTATED RATHER THAN IMPORTED, and deliberately (REQ-207). The AI component's
+ * port publishes the same four as `IMAGE_MEDIA_TYPES` — the intersection every
+ * vision-capable backend accepts — but reaching it from here would pull the
+ * host's module graph, and with it a provider SDK, into the one file in this
+ * pipeline that is pure and runs in every test without a runtime. Four literals
+ * are the cheaper coupling; a fifth arriving upstream costs an unsupported
+ * image, which is a stated degraded status rather than a failure.
+ */
 const VISION_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 
 /**
@@ -250,70 +271,6 @@ export const MAX_EXTRACTED_TEXT_CHARS = 900_000
  * in, and this is the budget the two share.
  */
 export const DIGEST_SOURCE_CHARS = 12_000
-
-/**
- * Ask the model what an image depicts.
- *
- * THE PROMPT ASKS FOR SEARCH TERMS, NOT PROSE. The description exists to be
- * matched against a query someone types months later, so it is told to lead with
- * what the thing IS and to use the ordinary words for it. The title comes from
- * the same call rather than a second one: two calls to describe one photograph
- * would double the cost of an upload to produce something the first call already
- * knows.
- */
-export function anthropicImageDescriber(apiKey: string): DescribeImage {
-  const client = new Anthropic({ apiKey })
-  return async (bytes, contentType) => {
-    const response = await client.messages.create({
-      model: VISION_MODEL,
-      max_tokens: 1024,
-      system:
-        'You describe images so they can be FOUND again by search. Answer with a ' +
-        'short title on the first line, then a blank line, then two or three ' +
-        'sentences saying what the image depicts. Use the ordinary words someone ' +
-        'would type looking for it — what it shows, where it is, what time of day, ' +
-        'who is in it. Do not comment on quality, composition or how it might be ' +
-        'used. Do not preface your answer.',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-                data: base64(bytes),
-              },
-            },
-            { type: 'text', text: 'Describe this image.' },
-          ],
-        },
-      ],
-    })
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-      .trim()
-    return { text, model: response.model }
-  }
-}
-
-/**
- * Bytes as base64, in chunks.
- *
- * CHUNKED BECAUSE THE ARGUMENT LIST HAS A LIMIT. A 5MB image spread into one
- * `String.fromCharCode(...bytes)` call overflows the stack, and the failure looks
- * like an unrelated runtime error rather than "that image was too big".
- */
-function base64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  }
-  return btoa(binary)
-}
 
 /** What the describers need to know about the thing they are describing. */
 export interface DescribeInput {
