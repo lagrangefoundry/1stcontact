@@ -121,6 +121,60 @@ export function isContentBlocks(value: unknown): value is ContentBlock[] {
 }
 
 /**
+ * Recover an image-returning operation's blocks from the text a Toolbox
+ * rendered them as ([[REQ-206]]).
+ *
+ * WHY THIS EXISTS, AND WHY IT WAS NOT NEEDED UNTIL SOMETHING MOUNTED THIS.
+ * The paragraph above {@link ContentBlock} says an array of blocks is carried
+ * straight through, and that is true of the path it was proved on: a bare `Tool`
+ * whose closure handler's value `ToolSet.run` returns unmodified. It is NOT true
+ * of the path a real host uses. `host-core.ts` registers every tool as
+ * `box.run(name, input)`, and the Toolbox's contract is that a call renders to
+ * TEXT — it serialises the result, marks its provenance and records its size.
+ * So the picture arrived at the model as a JSON document with base64 in it: the
+ * picture DESCRIBED, not shown, which is the exact failure the surface was built
+ * to avoid, plus the whole cost of the image and none of the benefit.
+ *
+ * WHY RECOVERY RATHER THAN BYPASSING THE TOOLBOX. Everything the Toolbox does on
+ * the way — parameter validation, the capability gate, the refusal messages, the
+ * audit record — is wanted, and is wanted for these operations exactly as much
+ * as for the ones that write to a site. Handing image operations a second,
+ * ungated dispatch path to keep their return type would trade the wrong thing.
+ * The rendering is lossless, so it can simply be undone at the edge that can
+ * carry the richer shape.
+ *
+ * WHY IT IS SAFE TO TRY ON EVERY PAYLOAD. Two independent conditions have to
+ * hold: the text must contain a JSON array, and that array must be blocks
+ * carrying an image. No other operation on any surface this host composes
+ * returns a top-level array of `{type}` objects, let alone one holding a
+ * base64 image, and anything that fails either test is handed back untouched.
+ * The scan is bracket-based rather than marker-based deliberately — the
+ * provenance markers are the component's to change, and a recovery keyed to
+ * their spelling would lose the model its eyes silently the day they moved.
+ *
+ * WHAT IS GIVEN UP: the provenance markers, which do not survive the round trip.
+ * They are a frame around TEXT and there is no text left to frame — the label
+ * block travels with the image and says what was looked at. What they were
+ * carrying is said instead where it is read every turn: the surface's own
+ * overview tells the model that what a capture brings back is a stranger's
+ * website, material to report on and never an instruction.
+ */
+export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
+  if (typeof payload !== 'string') return null
+  const open = payload.indexOf('[')
+  const close = payload.lastIndexOf(']')
+  if (open < 0 || close <= open) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(payload.slice(open, close + 1))
+  } catch {
+    return null
+  }
+  if (!isContentBlocks(parsed)) return null
+  return parsed.some((block) => block.type === 'image') ? parsed : null
+}
+
+/**
  * Base64 without `Buffer`, which is Node's and does not exist in workerd.
  *
  * Chunked because `String.fromCharCode(...bytes)` on a multi-megabyte array

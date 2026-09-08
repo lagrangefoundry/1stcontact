@@ -30,6 +30,11 @@ import {
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
+import { fidelityDeps } from './shot'
+import { adoptCapture } from './capture-material'
+import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
+import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
+import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import {
   addContact,
   InvalidContactError,
@@ -186,7 +191,129 @@ const PREVIEWS = new WeakMap<SiteStore, PreviewRenderer>()
  */
 const CHATS = new Map<string, Promise<WorkerHost>>()
 
-function chatHost(env: RouterEnv, scope: Scope, deps: RouterDeps): Promise<WorkerHost> {
+/**
+ * The assistant's eyes, assembled for one business ([[REQ-206]]).
+ *
+ * THE SURFACE WAS BUILT, TESTED AND GRANTED AND SIMPLY NEVER MOUNTED. `1c`
+ * supplied `HostDeps.fidelity` from the day it landed ([[REQ-157]]); this host
+ * did not, so a consultant in the builder had no `capture_site`, no
+ * `screenshot`, no `compare` — and, because the manual is projected from the
+ * grant, no way to learn they existed. Asked whether it could take a picture it
+ * said no, truthfully. This is the wire, and it is the whole of the change.
+ *
+ * NULL WHERE EITHER HALF IS MISSING, and both absences are ordinary. Without
+ * `BROWSER` there is nothing to look with; without `BLOBS` there is nowhere
+ * private to keep what is looked at, and a capture written into the bucket
+ * `public-site` serves from is the disclosure shape [[REQ-155]] refuses. A
+ * deployment missing either still opens the session, still replays the
+ * transcript and simply has no eyes.
+ *
+ * A FACTORY OF THE SLUG, because that is the shape `HostDeps` declares and the
+ * reason it declares it: the surface is bound to one site at construction, so no
+ * operation takes a `slug` and no picture can name a site the session is not
+ * about. Its budget is minted per call, which is per session — see
+ * `browserBudget`.
+ *
+ * EXPORTED for the reason {@link previewRenderer} is: a UAT that wants to prove
+ * what this deployment actually hands the surface — its budget's ceiling, its
+ * adoption, the bucket its references live in — must reach the production
+ * assembly rather than build a second one that agrees with it today.
+ */
+export async function sessionFidelity(
+  env: RouterEnv,
+  scope: Scope,
+  deps: RouterDeps,
+  store: TenantSiteStore,
+  tickets: TicketStore,
+  origin: string,
+): Promise<HostDeps['fidelity']> {
+  // `deps.launch` is the injected browser and `env.BROWSER` is the real binding.
+  // Neither present means no eyes; no `BLOBS` means nowhere private to keep what
+  // is looked at, which is the same answer for a different reason.
+  if (!deps.launch && !env.BROWSER) return null
+  if (!env.BLOBS) return null
+
+  // THE CLIENT'S OWN PRIVATE BUCKET, bound to THIS business by `forTenant`, so
+  // one business never sees another's references. That barrier is a property of
+  // the handle rather than a predicate the surface has to remember, which is why
+  // nothing below re-enforces it.
+  const references = await r2ReferenceStore({ DB: env.DB, BLOBS: env.BLOBS }).forTenant(
+    scope.businessId,
+  )
+
+  /**
+   * What turns a finished bundle into findable material ([[REQ-166]]).
+   *
+   * PART OF THIS TICKET RATHER THAN A FOLLOW-ON. A capture that stored perfectly
+   * and was never written up looks identical to one that worked, and a client
+   * who asks the assistant to "make it look like our old site" and is told the
+   * capture cannot be found has been given half a feature.
+   *
+   * THE INDEXER AND THE DESCRIBER ARE RESOLVED PER ADOPTION, not once per host.
+   * `defaultIndexer` opens the project knowledge base, and a capture is rare
+   * where a chat host is per-isolate — holding a KB handle open for the life of
+   * every conversation to serve an operation most of them never call is the
+   * wrong way round. Both are the same seams `/api/material` resolves, so a
+   * capture and an upload become material by one path.
+   */
+  const adopt = async (bundle: string): Promise<{ uid: string; created: boolean }> => {
+    const adopted = await adoptCapture(
+      tickets,
+      references.bundle(bundle),
+      // NO `clientDomain` YET, so every capture is marked third-party: not
+      // republishable, exportable. Nothing in the schema declares a business's
+      // own domain ([[DOC-43]] §5's mapping table is not built), and guessing
+      // one would mark somebody else's site as the client's own — the direction
+      // that gets a stranger's page republished. The conservative half is the
+      // safe half, and this becomes a one-line read when the table lands.
+      {},
+      {
+        index: deps.index
+          ? await deps.index(env, scope)
+          : await defaultIndexer(env, scope),
+        describeImage: deps.describeImage ?? defaultDescriber(env),
+      },
+    )
+    return { uid: adopted.ticket.uid, created: adopted.created }
+  }
+
+  return (slug: string) =>
+    fidelityDeps(
+      env,
+      // THE SAME RENDERER THE `/preview/*` ROUTE USES, memoised per store. A
+      // second instance would render the draft a second time and could answer
+      // from a different stamp than the one the operator is looking at.
+      previewRenderer(store),
+      references,
+      origin,
+      slug,
+      // Spread rather than set to `undefined`: `ShotDeps.launch` is optional and
+      // an explicit `undefined` would satisfy the type while reading as a
+      // launcher that was supplied and is broken.
+      deps.launch ? { launch: deps.launch } : {},
+      adopt,
+    )
+}
+
+function chatHost(
+  env: RouterEnv,
+  scope: Scope,
+  deps: RouterDeps,
+  /**
+   * This deployment's own address, taken from the request ([[REQ-206]]).
+   *
+   * THE FIDELITY SURFACE NEEDS SOMEWHERE TO NAVIGATE. A picture of the draft is
+   * a real browser loading a real absolute preview URL, answered in process by
+   * `previewOriginResolver` — so the origin is what makes the page's own
+   * relative asset references resolve, and only the host knows its own address.
+   *
+   * IT IS TAKEN FROM THE FIRST REQUEST THAT BUILDS THE HOST, and the cache means
+   * later requests do not revise it. That is correct rather than merely
+   * tolerable: a deployment has one address, and a Worker answering on two would
+   * render the same draft either way.
+   */
+  origin: string,
+): Promise<WorkerHost> {
   let host = CHATS.get(scope.businessId)
   if (!host) {
     host = (async () => {
@@ -214,7 +341,14 @@ function chatHost(env: RouterEnv, scope: Scope, deps: RouterDeps): Promise<Worke
       // the project corpus is the tenant's real D1 store either way.
       const system = await (deps.knowledge ?? systemKnowledge)(env)
       const knowledge = await sessionKnowledgeFor(env, scope, { system, tickets })
-      return workerHost(env, store, tenantId, tickets, knowledge)
+      return workerHost(
+        env,
+        store,
+        tenantId,
+        tickets,
+        knowledge,
+        await sessionFidelity(env, scope, deps, store, tickets, origin),
+      )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
     // poison that business for the isolate's life: a missing binding repaired a
@@ -371,6 +505,20 @@ export interface RouterDeps {
   describeText?: DescribeText
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
+  /**
+   * The browser the assistant looks with ([[REQ-206]]), so the eyes are provable
+   * offline.
+   *
+   * THE SAME SEAM `shot.ts` HAS ALWAYS HAD, lifted to where the chat routes can
+   * reach it. Browser Rendering is a third party reached over a wire protocol and
+   * miniflare has none, so this is the one boundary a fidelity UAT may fake —
+   * and everything on this side of it is the production path: the picture
+   * resolution, the in-process preview fulfilment, the egress guard, the budget,
+   * the adoption, the manual the model is handed.
+   *
+   * ABSENT IS THE ORDINARY CASE and resolves to the `BROWSER` binding.
+   */
+  launch?: BrowserLauncher
   /**
    * The mail port ([[REQ-196]]), injected so the invite is provable offline
    * ([[REQ-199]]).
@@ -2095,7 +2243,7 @@ async function routeUncached(
       if (typeof slug !== 'string' || slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const host = await chatHost(env, requireScope(), deps)
+      const host = await chatHost(env, requireScope(), deps, url.origin)
       const session = await openSession(slug, {}, host.deps)
       // Opening can run a tool-free turn's worth of policy — nothing to audit
       // yet in practice, but flushed for the same reason the prompt route
@@ -2114,7 +2262,7 @@ async function routeUncached(
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
       }
-      const host = await chatHost(env, requireScope(), deps)
+      const host = await chatHost(env, requireScope(), deps, url.origin)
       return streamTurn(host, sessionId, text, scrub, ctx)
     }
 
@@ -2155,7 +2303,7 @@ async function routeUncached(
       if (typeof cursor !== 'number' || !Number.isFinite(cursor) || cursor < 0) {
         return json(400, { error: 'cursor is required' })
       }
-      const host = await chatHost(env, requireScope(), deps)
+      const host = await chatHost(env, requireScope(), deps, url.origin)
       return streamTail(host, sessionId, cursor, scrub)
     }
 
