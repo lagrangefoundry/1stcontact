@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-44
 created_by: xgd
 created_at: '2026-09-08T20:44:51.799144+00:00'
-updated_at: '2026-09-08T22:44:08.101753+00:00'
+updated_at: '2026-09-08T22:45:15.592343+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -304,5 +304,11 @@ Two things worth knowing alongside that:
 - **The delta seam won't announce these.** The per-turn "what entered the corpus" feed (REQ-160) queries the tenant's ticket store over the *project* KB. The system KB is shipped and never passes through it, so new system documents are never announced mid-session.
 
 So: deploy, then the next turn picks it up. Worth watching for on that first turn — whether the assistant reaches for DOC-47 before making a claim about what's built is the cheapest test of whether any of this landed.
+
+<!-- xgd-turn id="18c537da-ddf9-4f95-a4eb-9ee8def58ab6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T22:45:15.082702+00:00" -->
+#### You
+ok so outline the steps I need to take to get a system kb change into the local syste,
 
 <!-- xgd-chat-end -->
