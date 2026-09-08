@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T00:03:10.971644+00:00'
+updated_at: '2026-09-08T00:05:25.455259+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,30 @@ Want me to draft that? And is "front office" the frame you want, or would you ra
 Lets not get drawn into a pricing discussion - we are months off that mattering. Messaging matters now.
 
 Can you update the document with this new perspective - I am starting to work on the 1c website
+
+<!-- xgd-turn id="e2e91886-f6a7-48b0-b789-323a2eb8907b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T00:05:25.145211+00:00" -->
+#### Claude
+Cross-references check out. Writing the revision now.
+
+DOC-4 is updated and retitled. Frontmatter and fields preserved.
+
+**What's new**
+
+- **The front office** is now the organising frame, with an explicit boundary — stranger → money changes hands, and everything after it is someone else's. The deliberate exclusions are now *consequences* of that line rather than a separate list, and the seven capabilities each get a one-line placement in it.
+- **Two moments, one relationship** — the engagement produces the ledger, the operation runs from it. Stage 10 of DOC-33 is framed as the start of the ongoing tier, not a handover.
+- **Three theses** where there was one. The expressive thesis is preserved verbatim; added "not a bundle" (capabilities designed *into* the page vs. embedded onto it — the competitor is the seven-tool duct-taped stack, not Wix) and "the machinery remembers the consultation" (the ledger as moat).
+- **A Messaging section** you can write site copy from directly: the Not/Is list, primary and secondary value props, and a lead-with/avoid word list derived from DOC-32. *Caretaker*, *maintain*, *hassle-free*, *all-in-one*, *dashboard* are all on the avoid side, with the reasoning recorded so it doesn't get relitigated.
+- **Scope corrected** — email lists, scheduling and marketing consultancy moved out of Future Expansion into numbered scope, each tagged with its relationship to the site (in-page / behind / around / off).
+- **A revision note** at the bottom saying what changed and why, so the delta is legible later.
+
+**Pricing** — withdrawn from positioning entirely, as you asked. I left one short paragraph in Business Strategy saying it's deliberately deferred and explaining *why* the old ~$50/mo framing came out (it selected the wrong comparison set), with a pointer to DOC-32 for when it becomes live. That felt better than silently deleting it, since the old number is quoted in other places.
+
+**Two things worth your attention:**
+
+1. **Scheduling isn't in DOC-33 §11's limb table.** It's an in-page capability — a booking surface with states and a destination, same class as payments — so it should be a stage-1 brief decision. I flagged it inline in DOC-4 rather than editing DOC-33 without asking. Want me to add that row?
+
+2. **"1st Contact runs its own business on 1st Contact"** — I added that line to the XGD section because it's a strong messaging asset for the site you're about to build (the recursion is provable, not a claim). If that's overstating where the self-hosting actually is today, tell me and I'll pull it.
 
 <!-- xgd-chat-end -->
