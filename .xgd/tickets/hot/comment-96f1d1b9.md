@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-42
 created_by: xgd
 created_at: '2026-09-07T21:57:13.793986+00:00'
-updated_at: '2026-09-08T02:33:10.120347+00:00'
+updated_at: '2026-09-08T02:39:03.365866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -481,5 +481,11 @@ Two things while you're on that page:
 - **Watch for the `Value: ` prefix again.** That's how the first record got broken. The field takes only the record value.
 
 Tell me when it's saved and I'll re-check the apex from here — one SPF record, correct prefix, both includes, MX present.
+
+<!-- xgd-turn id="49ae6592-2e51-41e1-9929-1a3a57f5f2a3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T02:39:03.321921+00:00" -->
+#### You
+ok we're good
 
 <!-- xgd-chat-end -->
