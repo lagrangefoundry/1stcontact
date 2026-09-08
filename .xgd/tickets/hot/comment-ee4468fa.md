@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-4
 created_by: xgd
 created_at: '2026-09-07T23:04:25.684856+00:00'
-updated_at: '2026-09-08T00:05:25.455259+00:00'
+updated_at: '2026-09-08T01:47:41.941387+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -123,5 +123,13 @@ DOC-4 is updated and retitled. Frontmatter and fields preserved.
 1. **Scheduling isn't in DOC-33 §11's limb table.** It's an in-page capability — a booking surface with states and a destination, same class as payments — so it should be a stage-1 brief decision. I flagged it inline in DOC-4 rather than editing DOC-33 without asking. Want me to add that row?
 
 2. **"1st Contact runs its own business on 1st Contact"** — I added that line to the XGD section because it's a strong messaging asset for the site you're about to build (the recursion is provable, not a claim). If that's overstating where the self-hosting actually is today, tell me and I'll pull it.
+
+<!-- xgd-turn id="34c8174d-e938-4ae4-9471-e34b0971f6a9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-08T01:47:41.538022+00:00" -->
+#### You
+Please add scheduling to DOC 33 - its new
+
+Can you identify some candidate comp websites that I should look at?
 
 <!-- xgd-chat-end -->
