@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-43
 created_by: xgd
 created_at: '2026-09-08T00:06:33.335870+00:00'
-updated_at: '2026-09-08T22:25:24.614663+00:00'
+updated_at: '2026-09-08T22:27:51.331624+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -610,5 +610,54 @@ The one open decision still blocking the search half is which search API — it 
 <!-- xgd-chat role="user" ts="2026-09-08T22:25:23.637634+00:00" -->
 #### You
 So, lets discuss - if we are using a model API with its own tools built in - wouldn't it make sense to be able to use them?
+
+<!-- xgd-turn id="1ea65d0a-4064-4242-bf02-f1d28a42f9c0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-08T22:27:49.974733+00:00" -->
+#### Claude
+Good challenge — let me check one thing before answering, because it changes the answer.
+
+Let me check the actual server-tool contract rather than assert it from memory.Yes — and having checked both codebases, the objection that kept them out is weaker than it reads.
+
+## Three reasons
+
+**1. The negotiation machinery REQ-139 says is missing already exists.** The ticket says provider tools need "capability negotiation of the kind the `vision` flag already performs." That's `capabilities()` in `backend.js` — a declared flag per adapter, read via `backendCapabilities(name).vision`, with `ai_vision` refusing at construction when it's false. It isn't missing. It has no `webSearch` member yet, which is a much smaller thing.
+
+**2. The framework already has a path for backend-native tools.** `filesystem_toolbox.js` documents it as "two enforcement paths, one declaration" — in-process policy for API backends, CLI flags for the agentic backend, and *"nothing detects a mode — the backend determines which exists."* Provider-executed tools are that same category, not a new one. REQ-139 even says the agentic-backend path is untouched by it.
+
+**3. 1c is single-backend.** Only `ClaudeAPIBackend` is ever registered — `host-core.ts:613` and `ai.ts:154`. Nothing here runs chatgpt. The backend-conditional argument that killed provider tools doesn't bite for us at all.
+
+## What comes free
+
+I checked the current server-tool contract rather than working from memory. On `claude-opus-5` it's `web_search_20260209`:
+
+| REQ-207 asks for | Native |
+|---|---|
+| per-session budget | `max_uses` |
+| scope | `allowed_domains` / `blocked_domains` |
+| attribution | results carry their source |
+
+Three of the five properties the ticket asks for, with no key, no HTTP surface, no new component, no `assets.ts` shim, no install. **Using the provider's tool is less work than the Brave plugin I put in the ticket, not more.**
+
+One correction to the ticket's fetch reasoning while I'm here: `web_fetch` only fetches URLs *already present in the conversation* — it can't wander. The "search finds it, capture reads it properly" conclusion still holds on rendering grounds, but not on the grounds the ticket gives.
+
+## What's genuinely lost
+
+- **Provenance wrapping.** Toolbox results get wrapped in `UNTRUSTED_OPEN`/`UNTRUSTED_CLOSE`. A `web_search_tool_result` arrives inside the assistant turn and we never touch it, so "material, never instruction" drops from structural to advisory for that one tool. Bounded — these are short search snippets, not whole attacker-controlled pages — but it's a real step down, and `capture_site` doesn't have it.
+- **The audit record.** It won't appear in the Toolbox's journal. The blocks are still in the transcript, so the operator can see them; they just aren't in the trail everything else is in.
+
+## The shape that keeps goal (2)
+
+The cheap version — pass `web_search` straight into the backend's tool list — bypasses the grant and the manual entirely. That's exactly the wiring-around-the-seam failure you care about, so I'd not do it.
+
+The clean version is a third call type, and `host-core.ts:617` shows why it fits: the backend's tool list is built *entirely* from `box.schemas()`. So a `provider` operation would be declared like any other — capability group, grant, manual prose, `max_uses` — and emitted into that list as a passthrough descriptor instead of a JSON-schema tool. It never reaches `box.run`, because the vendor executes it. Declaration and manual stay in one place; only the enforcement path differs, which is the pattern the filesystem surface already set.
+
+Framework scope is roughly: a `provider` call type in the declaration, a capability flag so an incapable backend makes the surface absent (reusing REQ-139's absence machinery unchanged), and the passthrough in the tool-list projection.
+
+**My recommendation:** drop the Brave plugin from REQ-207 and go this way. It's less work, it keeps the grant and the manual honest, and it means `web_fetch` and `code_execution` arrive later as configuration rather than as three more components.
+
+One thing to check before setting a budget default: per-search pricing isn't in the cached reference I have, so that number needs looking up rather than guessing.
+
+Want me to rewrite REQ-207's search half around this, and note the framework ticket it needs?
 
 <!-- xgd-chat-end -->
