@@ -2341,6 +2341,37 @@ export async function editAssetWrite(
   )
 }
 
+/**
+ * Read one of the site's own drawings back, as its source (REQ-209).
+ *
+ * IT LIVES BESIDE `editAssetWrite` BECAUSE IT IS THE SAME NAME RULE. A drawing
+ * is addressed by the bare name it was written under — `wordmark`, not
+ * `wordmark.svg` and not a path — and the normalisation that turns one into the
+ * other is exactly the one the write does. Two copies of it would be two places
+ * for a name to mean something slightly different.
+ *
+ * `editAssetGet` answers with an asset's METADATA and is unchanged; measuring a
+ * drawing needs the bytes, and this is the only thing that does.
+ */
+export async function editDrawingRead(
+  slug: string,
+  name: string,
+  opts: EditOptions,
+): Promise<string> {
+  const stem = name.toLowerCase().replace(new RegExp(`\\${GENERATED_EXTENSION}$`), '')
+  const filename = `${stem}${GENERATED_EXTENSION}`
+  const bytes = await opts.store.readAsset(slug, filename)
+  if (!bytes) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Site '${slug}' has no drawing called '${filename}'.`,
+      path: filename,
+      hint: 'Name a drawing this site holds — `list_assets` shows them.',
+    })
+  }
+  return new TextDecoder().decode(bytes)
+}
+
 export interface AssetRmOptions extends EditOptions {
   force?: boolean
 }

@@ -62,6 +62,7 @@ import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
+import { browserMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
 
 /**
@@ -564,6 +565,14 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // assistant that knows its tools and not the design documents, which is the
   // assistant this host had before. Failing instead would trade a missing
   // capability for a missing product.
+  //
+  // THE BROWSER IS ASKED FOR ONCE (REQ-209). The fidelity surface takes a
+  // picture with it and the L1 surface measures a drawing with it, and a
+  // deployment either has one or it does not — asking that question twice is how
+  // the two answers come to disagree, and a session that could photograph a
+  // drawing but not measure one is a shape nobody asked for. So the deps are
+  // built once here and both consumers read them.
+  const fidelity = deps.fidelity ? deps.fidelity(slug) : null
   const box = await createL1Toolbox(
     slug,
     { ...opts, actor: 'ai' },
@@ -573,11 +582,15 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       lib: deps.lib,
       store: deps.store,
       extraOps: deps.extraOps ?? {},
+      // Absent where there is no browser, which is an ordinary deployment: the
+      // measuring operations stay declared and granted and refuse with a
+      // sentence naming the reason, rather than vanishing per deployment.
+      measurer: fidelity ? browserMeasurer(fidelity) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
-        ...(deps.fidelity ? [{ surface: await fidelitySurfaceFor(lib, deps.fidelity(slug)) }] : []),
+        ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
         // The engagement record, where this deployment keeps one. Its grant
         // TRAVELS WITH IT — unlike fidelity's, which is an entry in
         // `instances.json` — because what a session may do to its own record is
