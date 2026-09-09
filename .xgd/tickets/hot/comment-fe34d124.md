@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-09T23:55:27.222805+00:00'
+updated_at: '2026-09-09T23:56:43.954020+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,31 @@ Want me to file the framework ticket for the `max_tokens`/`stop_reason` work, an
 <!-- xgd-chat role="user" ts="2026-09-09T23:55:26.969889+00:00" -->
 #### You
 What is the purpose of the limit? Do we need one? What should it be?
+
+<!-- xgd-turn id="e2bd41dc-bf46-4adf-894c-cb59c8cb80b3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T23:56:43.520895+00:00" -->
+#### Claude
+I checked this against the current API docs rather than answering from memory.
+
+**What it's for.** `max_tokens` is a hard ceiling on a single response — it bounds worst-case latency, worst-case spend per call, and runaway generation. The property that matters for this bug: it's an *enforced* ceiling that **the model is not aware of**. It doesn't make the model write something shorter; it cuts the stream off wherever it happens to be. In prose that's a truncated sentence. In a tool call it's a broken JSON argument. It's a guillotine, not a budget.
+
+**Do we need one.** Yes, unavoidably — it's a required parameter on the Messages API. A request can't omit it. So the only question is the value.
+
+But 4096 isn't earning its keep as a limit:
+
+- **As a cost control it's the wrong instrument.** Billing is per output token actually generated, so a high cap costs nothing until it's used — it only bounds the worst case. Per-session spend is the right control, and the backend already computes it (`backend.usage(ref)`); it just never persists it.
+- **As a latency control it's crude**, and we already stream, so there's no HTTP timeout to protect against.
+- **In a tool-calling loop it's actively harmful.** A cut-off tool call isn't a smaller result, it's an invalid one — and with `stop_reason` unread, it's an invalid one that reports itself as the model's own mistake.
+
+**What it should be: 64000**, as a constructor option rather than a literal.
+
+- Anthropic's documented default for *streaming* requests is ~64000. The reason to go lower (~16000) is HTTP timeouts on non-streaming requests, and we already pass `stream: true`.
+- Sonnet 4.6 supports up to 128K output and a 1M context window, so 64000 is well inside the model's ceiling and ~6% of the context window — it doesn't meaningfully compete with input for room.
+- The documented reasons to deliberately go low — classification, hard cost caps, intentionally short outputs — none apply to a surface whose smallest legitimate page write is the whole page.
+
+**Two things I checked while there.** `claude-sonnet-4-6` is current, not deprecated, so nothing forces a migration. But **task budgets** — an advisory ceiling the model *can* see and pace itself against, which is the thing that would make the builder finish gracefully instead of being cut off — aren't available on Sonnet 4.6; they need Opus 5, Sonnet 5, Fable 5, or Opus 4.7/4.8. That's a model-choice conversation, separate from this fix.
+
+So the shape of the real fix is: 64k stops the immediate bleeding, `stop_reason` makes any future truncation diagnosable instead of a ten-minute silent loop, and the O(N²) growth cost from the missing insert/remove ops is the thing that will bite again at a larger page even with a 64k cap. All recorded in BUG-67.
 
 <!-- xgd-chat-end -->
