@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T22:38:29.473490+00:00'
+updated_at: '2026-09-09T22:40:16.759619+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -922,5 +922,53 @@ So: real, worth doing for the wordmark specifically, but it fixes *portability* 
 <!-- xgd-chat role="user" ts="2026-09-09T22:38:29.324418+00:00" -->
 #### You
 ok - lets leave that for now, the other changes that you made, have they been documented for the AI anywhere? Can you suggest where that documentation should go? we have DOC tickets of type system_kb - existing doc or new doc?
+
+<!-- xgd-turn id="5795be05-0e6b-41f9-90ff-c4a0ed10ebc8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T22:40:16.537417+00:00" -->
+#### Claude
+Let me look at how AI-facing documentation is actually structured here.
+
+Short answer: **no, none of it is documented for the AI yet.** DOC-52 and the three REQs are engineering documents — they say what to build. Nothing the AI reads at runtime has changed.
+
+There are two AI-facing surfaces here, and the content splits cleanly between them.
+
+## The interesting finding
+
+**DOC-48 §7 already tells the AI to do the thing it couldn't do:**
+
+> **Your eye is bad at values.** Near-neighbour colours, an exact size, the direction of a gradient… When exactness matters, **read the actual values rather than judging the picture.**
+
+That advice was already in the KB. Last night the AI *followed it as far as it could* — *"I should be measuring rather than guessing"* — and then had to invent the ruler grid, because there was no way to read geometry. §7 has the principle; the tooling for the geometry half didn't exist.
+
+So this isn't a new doctrine to introduce. It's a section that has been half-true and becomes fully true when REQ-209 lands.
+
+## Where each piece goes
+
+| What | Where | Kind |
+|---|---|---|
+| `tspan` composes; name a real font; give ids; the `assert` block | `l1-surface.json` → `write_image.description` | configuration, inside REQ-209 |
+| `measure_drawing`, `relate`, `solve` declarations | `fidelity-surface.json` | configuration, inside REQ-209 |
+| *When position or alignment matters, measure and solve — don't iterate against a screenshot* | **DOC-48 §7**, extend | system_kb |
+| *A mark is set in a real font; a superscript is a typographic relationship, not a y value* | **DOC-48 §6**, extend | system_kb |
+| *What a pill is, and how to read one* | **DOC-49**, new short section | system_kb |
+
+**All existing docs. No new system_kb doc.** The corpus is deliberately ten documents, and none of this is a new category — it's the geometry half of advice that's already there.
+
+## Notes on three of those
+
+**DOC-48 §7** should also name the anti-pattern explicitly: *drawing a ruler into your own artwork is a symptom, not a technique.* A capable model under pressure will re-invent that grid otherwise — it's a genuinely clever move when you have no alternative, which is exactly why it needs naming once there is one.
+
+**DOC-48 §6** is already about deciding a *rule* rather than a value, and already mentions "a monospace figure as a branding mark" — so mark typography is in scope. Wordmark spacing is precisely a rule: cap-aligned, optically spaced.
+
+**DOC-49 for Marked Points**, not DOC-50. The AI doesn't *call* anything — a pill arrives in the user's message, so it's a session mechanic rather than a tool or an edit-mode capability. DOC-49 §3 already covers "knowing which mode you are in". The section needs: what the frames mean, that `near:` is a hint about *intent* rather than a coordinate to copy, and the width-ambiguity rule — ask which width when a point lands on an L1 node rather than inside a drawing.
+
+There's precedent for a rule living in both places: `write_image`'s description already carries *"never draw a stand-in for a file the client gave you"*, which is also DOC-48 §4.4 — stated operationally in one and as craft in the other.
+
+## One gap in the tickets
+
+REQ-209 and REQ-210 don't currently mention the KB edits, and **they have to land together.** Documenting a `measure_drawing` that doesn't exist would make the KB lie, and DOC-47 §7 ("Keeping this document true") suggests that's taken seriously here.
+
+Want me to add the doc updates to REQ-209 and REQ-210 as part of their definition of done? And DOC-47 will need a line about the new capabilities when they ship, though that's a consequence of shipping rather than something to decide now.
 
 <!-- xgd-chat-end -->
