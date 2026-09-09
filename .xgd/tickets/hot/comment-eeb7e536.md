@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T18:17:33.000938+00:00'
+updated_at: '2026-09-09T18:19:17.325865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -222,5 +222,87 @@ On email - a part of our solution is monitoring - we should devise checks to ens
 I have lost track of A and B at this point - can you summarize what you are proposing the solution to be?
 
 I'm uncomfortable with any solution in which www.mybiz.com goes to a page, but mybiz.com says "This site is not yet set up - would you like to buy this domain?" - that just doesn't feel like its really a solution - if we take that off the table where are we left?
+
+<!-- xgd-turn id="fa790da3-81db-4209-8665-0151899a8d40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T18:19:16.905951+00:00" -->
+#### Claude
+Let me check one thing before I answer the email part, because I was too enthusiastic about Email Routing last message.
+
+Confirmed — and that's a correction to my last message: **Email Routing cannot coexist with an existing mail provider.** It takes over MX for the whole domain, and Cloudflare blocks MX edits while it's on. So it's for customers with *no* email on the domain, never for someone on Google Workspace. Enabling it on a Workspace customer would destroy their mail. That constraint has to be a hard branch in the onboarding logic, not a footnote.
+
+Dropping the A/B labels. Here's the proposal.
+
+## The proposal: we run the DNS
+
+**One architecture.** The customer's nameservers point at Cloudflare, in an account we control. We hold the zone. Everything else — apex, www, SSL, email records, monitoring, future changes — follows from that and needs no further customer involvement, ever.
+
+Three on-ramps to it:
+
+**They buy a domain from us.** Registrar API registers it at cost, zone lands in our account, site is live. Customer actions: zero. This is the flagship path and the one to optimise for.
+
+**They have a domain.** They paste two nameservers at their existing registrar. We snapshot their DNS first, import it, verify nothing broke. Registrar stays wherever it is — GoDaddy keeps billing them, we don't care. Customer actions: one, once. This is identical whether their domain is currently on Cloudflare, GoDaddy, or anywhere else — which collapses your cases 1, 2a and 2b into a single flow.
+
+**They won't move nameservers.** They get `theirname.1stc.site`. No custom domain.
+
+That third branch is the direct consequence of your apex constraint, and I think you're right to force it.
+
+## What ruling out the broken apex costs
+
+You're right that `www` works / apex sells you a domain is not a solution. It's worse than not offering the feature, because it looks like we shipped something broken.
+
+Ruling it out kills the custom-hostname approach entirely — the one where they keep DNS elsewhere and add a CNAME. Apex needs either CNAME flattening (requires the zone on Cloudflare) or apex proxying (Enterprise-only paid add-on). There's no free hack: pointing an A record at Cloudflare's shared IPs for a zone we haven't configured returns an error page, not our site.
+
+The remaining ways to serve an apex without holding the zone are all bad:
+
+- **Their DNS provider supports ALIAS/ANAME.** Route 53, DNSimple, DNS Made Easy do. GoDaddy — the one that matters most for our audience — does not. Covers a minority, and we'd have to detect provider capability per customer. Complexity for a partial answer.
+- **Registrar-level apex forwarding.** Varies per registrar, HTTPS support is inconsistent, and when it breaks it breaks invisibly.
+- **Our own redirect box on a static IP.** Genuinely works, and it's how platforms did this pre-Cloudflare. But it's non-Cloudflare infrastructure, its own cert story, and a new single point of failure — to serve customers who've told us they don't want to change a DNS setting.
+- **Enterprise apex proxying.** Real money for a case we can decline.
+
+So the honest accounting: **the cost of your constraint is the customer who has a domain and refuses to repoint nameservers.** I think that population is small and largely outside the ICP — someone with enough attachment to their DNS setup to refuse usually already has a webmaster and a website. The furniture restorer in Bristol does not have an opinion about nameservers.
+
+And we're not turning them away. They get a working `1stc.site` address today and can upgrade whenever they're ready. That's a much better story than a half-working custom domain.
+
+The upside of the constraint is large: one code path, apex free, email records automatable, and — the thing you're asking about next — monitoring that can actually *fix* problems rather than just report them.
+
+## Email monitoring
+
+The structural point first: **almost every useful check here is only possible because we hold the zone.** Observing from outside gets you detection. Holding the zone gets you detection *and* remediation, plus a known-good intended state to diff against. Monitoring is another argument for the single architecture.
+
+**At cutover — blocking, must pass before we call it done**
+
+Snapshot their live DNS *before* the nameserver change: MX, all TXT, SPF, DMARC, and a sweep of common DKIM selectors (`google`, `selector1`/`selector2` for M365, `k1` for Mailchimp, and the rest of the usual suspects). Import, then re-sweep after propagation and diff. The diff must be empty apart from our intended additions. Show the customer their own mail setup and have them confirm it before we touch anything — that's both a safety check and a trust moment.
+
+**Continuously — receive path**
+
+- MX present and matching the snapshot. This is the catastrophic one; missing MX means senders get an authoritative "no mail server here" and bounce permanently. Page on it.
+- MX targets resolve and answer on SMTP.
+- **Live delivery probe** — send a real message to an address on their domain and confirm arrival. This is the only check that tests the thing we actually care about. Feasible when Email Routing is ours; needs them to create a probe alias when they're on Workspace.
+
+**Continuously — send path** (us sending as them)
+
+- **Exactly one SPF record per name.** Two TXT SPF records at the same name is a permanent error that fails every send. Note the trap: apex and `send.` are *different* names, so a record at each is correct and expected — the check must key on name, not on "count SPF records in the zone", or it'll flag our own correct setup.
+- **SPF lookup count ≤ 10.** Exceeding it is a permerror and it's the silent killer — a customer who adds Xero, Mailchimp and a booking system tips over the limit and their mail quietly stops authenticating. Nobody counts these by hand. Cheap for us to compute, genuinely valuable.
+- DKIM selector present, parses as a valid key, matches what our sender expects.
+- DMARC present and syntactically valid — and if their policy is `p=reject`, check our sends actually align, or every message we send gets rejected.
+- Return-path/bounce CNAME present.
+
+**Continuously — outcomes**
+
+- Bounce and complaint rates from our sending provider's API. This is the real signal; record checks are a proxy for it.
+- Blocklist status.
+
+**Zone drift**
+
+Diff the live zone against our intended state on a schedule. Someone will eventually log in and "fix" something, or another vendor will ask them to add a record and they'll replace instead of append. Because we hold the zone, we can detect it and offer a one-click revert.
+
+Rough cadences: cutover checks blocking; DNS-level checks every 15 minutes since they're just DNS queries; delivery probe and reputation daily. Severity split so MX-missing pages immediately and DMARC drift only warns.
+
+One implementation note worth knowing early: **Workers can't do outbound SMTP**, so the delivery probe and any SMTP-banner check need to run somewhere else or go through our sending provider's API.
+
+---
+
+Shall I write this up as a DOC ticket now? There's enough here — the single architecture, the decline case and its rationale, the Email Routing/Workspace branch, and the check list — that it's worth having somewhere durable before it scrolls away.
 
 <!-- xgd-chat-end -->
