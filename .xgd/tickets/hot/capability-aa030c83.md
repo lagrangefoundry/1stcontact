@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-09-09T23:30:20.065560+00:00'
+updated_at: '2026-09-09T23:30:55.724188+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -68,11 +68,13 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
   dependency refuses at dispatch when the installed tree does not match the
   committed manifests.
 
-  This last pair is REQ-150's form, and it is unconditional. REQ-89's earlier
-  conditional statement — "the render path constructs an Astro container only for
-  a page that needs one" — was retired when REQ-150 took Astro out of the
-  repository outright; a guarantee measured by observing one render was replaced
-  by one measured across every render path. See STORY-79 guarantees 4 and 5.
+  This last pair is REQ-150's form, and it is unconditional. It replaces REQ-89's
+  earlier *conditional* statement, which scoped the build transform to the pages
+  that needed it and was measured by observing a single render. REQ-150 retired
+  that form on both halves: no page needs the transform any more, and the
+  dependency left the repository outright, so there is nothing left to construct
+  conditionally. The guarantee is now measured across every render path rather
+  than one. See STORY-79 guarantees 4 and 5.
 - **Deployed-runtime capture — how a picture is taken when the taker is not a
   laptop.** The injected browser seam the capture pipeline, the conformance
   harness and the fidelity gate all already accept, and its second (cloud)
