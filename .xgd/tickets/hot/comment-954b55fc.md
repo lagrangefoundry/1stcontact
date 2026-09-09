@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T02:51:41.070520+00:00'
+updated_at: '2026-09-09T02:54:08.603885+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,33 @@ Shall I open that lagrange-framework ticket now?
 <!-- xgd-chat role="user" ts="2026-09-09T02:51:40.716560+00:00" -->
 #### You
 Yes please!
+
+<!-- xgd-turn id="355743be-93d7-4a5d-8627-d1c52536745b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T02:54:08.292606+00:00" -->
+#### Claude
+Filed: **REQ-143** in lagrange-framework (`request-73269f31`), type `request`, status `draft`, priority `high`.
+
+**Title:** components/ai — cache the message history, not just the system assembly; make token spend observable
+
+**Scope** — six items:
+1. Rolling cache breakpoint on `messages[]`
+2. Breakpoint budget respected and explicit (API caps at 4; `cacheOffsets` already spends a variable number — must degrade gracefully, not emit a rejected request)
+3. Cache TTL configurable, default `1h` (today's bare `{type:'ephemeral'}` is 5 min)
+4. Capture `usage` off `message_start` — all four counters, via the route `claude_code` already uses
+5. Python mirror (`api_tools.py`) moves with it
+6. Conformance extended to message breakpoints, budget, and TTL
+
+**Eight acceptance criteria**, the load-bearing ones being: input tokens grow *linearly* in round-trip count rather than quadratically; ≤4 markers per request including the system assembly's; and `cache_read_input_tokens` non-zero from the second request onward — that last one is what actually proves the breakpoints are *placed* right rather than merely present.
+
+Three things I scoped **out** and said why in the ticket:
+
+- **Compaction.** `capabilities.compaction: false` means the manager's 140k threshold can never fire here. Item 4 is a precondition for changing that, but changing it is its own ticket.
+- **BUG-45.** Adjacent — system-assembly offsets landing mid-section — and touches neighbouring code. Flagged to sequence, not merge.
+- **Screenshot hygiene.** 33% of accumulated context but ~2% of billed tokens. Same root cause, fixed by the same change; not worth its own work.
+
+I did not cut a branch or write code — you asked for the ticket, and the implementation is in a different repo from this session's `XGD_PROJECT_ROOT`. Say the word if you want me to pick it up, and note it'll need a `cd` to lagrange-framework plus a branch cut there.
+
+One caveat worth repeating: the measurement in the ticket body is a *model*, not a reading, because item 4 doesn't exist yet. Its two estimated inputs are labelled as such, and the sensitivity sweep is in the Summary. Once item 4 lands, the real numbers may move — the 5–7.5× ratio is robust across the sweep, but I'd rather you see the assumption than inherit it silently.
 
 <!-- xgd-chat-end -->
