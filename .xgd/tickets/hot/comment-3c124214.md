@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:17:02.923228+00:00'
+updated_at: '2026-09-09T20:18:10.853743+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -728,5 +728,11 @@ For the different question: **"what else moved?"** A `measure` before and after,
 ---
 
 That closes Q2 completely, I think: the vocabulary, `measure`'s semantics, and now the verification story. Shall I fold all three into DOC-52?
+
+<!-- xgd-turn id="f627b02b-d55c-4864-90cf-44195d0a4def-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T20:18:10.141376+00:00" -->
+#### You
+I like that! Please add it to your doc. Then we need REQ tickets for the work - how do you imagine splitting this?
 
 <!-- xgd-chat-end -->
