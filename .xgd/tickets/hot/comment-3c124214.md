@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:20:34.631478+00:00'
+updated_at: '2026-09-09T21:20:32.648815+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -778,5 +778,11 @@ DOC-52 updated — §5 added (~10k chars), sections renumbered, Q2 marked settle
 2. **E delivers no user-visible value on its own.** If you'd prefer every REQ to ship something a user can see, merge E and F. I'd keep them apart, but it's a house-style question more than a technical one.
 
 Want me to create all eleven? I'd suggest A, B, C and E first, and hold G–K until the first four have landed and the vocabulary has met reality.
+
+<!-- xgd-turn id="444ae4a0-6e76-422d-aa3e-8f8b709fb9fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T21:20:32.608987+00:00" -->
+#### You
+Thats a lot of tickets - there's a certain overhead (for me) per ticket - can you reduce the set? Don't worry about individual ticket scope, so long as the descriptions are clear
 
 <!-- xgd-chat-end -->
