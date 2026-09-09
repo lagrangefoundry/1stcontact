@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:12:43.305398+00:00'
+updated_at: '2026-09-09T20:13:59.980468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -600,5 +600,71 @@ Shall I fold this into DOC-52 as the settled answer to Q2? That would unblock se
 <!-- xgd-chat role="user" ts="2026-09-09T20:12:42.839310+00:00" -->
 #### You
 I like solve. What does measure actually return (semantics)\
+
+<!-- xgd-turn id="8726cd15-d83c-45fa-8153-96e768e36385-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T20:13:59.604222+00:00" -->
+#### Claude
+`measure` returns **the primitives every anchor derives from — not the anchors themselves.**
+
+That's the semantic core. Returning fifteen anchors per node would be bigger *and* subtly lossy: you'd get fifteen scalars and no way to compute the sixteenth relationship nobody enumerated. Returning boxes + baseline + font metrics gives you all of them, exactly, including combinations that were never listed.
+
+## The shape
+
+```json
+{
+  "viewBox": [0, 0, 320, 86],
+  "space": "root user units, y-down; nested transforms resolved",
+  "fonts": [
+    { "ref": "f0", "requested": "Satoshi", "resolved": "Satoshi",
+      "unitsPerEm": 1000,
+      "capHeight": 0.70, "xHeight": 0.50, "ascender": 0.75, "descender": -0.25 }
+  ],
+  "nodes": [
+    { "ref": "#one", "kind": "text", "text": "1", "font": "f0", "fontSize": 62,
+      "box":  [0,    15.5, 34.4, 62.0],
+      "ink":  [1.2,  18.6, 24.8, 43.4],
+      "baseline": 62, "advanceWidth": 34.4 },
+    { "ref": "#ord", "kind": "text", "text": "st", "font": "f0", "fontSize": 20,
+      "box":  [34.4, 14.0, 18.2, 20.0],
+      "ink":  [35.1, 14.2, 16.8, 14.8],
+      "baseline": 29, "advanceWidth": 18.2 },
+    { "ref": "0.3", "kind": "line", "box": [80, 76.25, 160, 3.5] }
+  ]
+}
+```
+
+Four numbers give you all six box anchors. `baseline` plus the font's ratios give you all five font lines — and the ratios are reported **once per font, not per node**, which is where most of the compression comes from. `advanceWidth` gives you `advance-end`.
+
+## Read the example and the bug is visible
+
+- `#one` — `ink-right` = 26.0, `advance-end` = 34.4. **8.4 units apart.** The session guessed `x="27"`, which is within a unit of `ink-right` and seven units off `advance-end` — so it was implicitly reaching for optical spacing without being able to name it.
+- `ink-top` of `#ord` = 14.2, of `#one` = 18.6 → delta **4.4**. But `cap-top` of `#ord` = 15.0, of `#one` = 18.6 → delta **3.6**. Same two glyphs, two legitimate readings of "align the tops", nearly a unit apart. The `t`'s ascender overshoots cap height; the digit doesn't.
+
+That difference is the thing your eye was catching for seventeen minutes.
+
+## The principle that keeps it coherent
+
+If the AI is doing arithmetic on a `measure` result, it should have called `solve` instead. So:
+
+> **`measure` gives you the map, so you know what to name. `relate` and `solve` do the arithmetic, so you never have to.**
+
+That's why returning primitives is safe — the derivation happens server-side, in the op that was built for it.
+
+## The trap worth stating explicitly
+
+**`measure` reports in root user space with nested transforms resolved. `solve` returns a local-space attribute value to write.**
+
+Those are different spaces, and they have to be, because a node inside `<g transform="translate(40,0)">` should *measure* where it actually is, but you *write* its `x` in local coordinates. Left unstated this is a bug factory — so `solve`'s return should name the attribute and the node it belongs on (`{ node: '#ord', attr: 'y', value: 29.4 }`) rather than returning a bare number.
+
+## Coverage
+
+- **Which nodes:** paintable leaves and any id'd node. `<defs>`, gradients and clipPaths are skipped — no meaningful geometry.
+- **Nodes without ids** still appear, under a path ref (`0.3` above). Otherwise a drawing with no ids measures to nothing, which is a bad first experience — and seeing the path is what prompts adding an id.
+- **A `<text>` with `<tspan>` children:** each id'd node reports its own box; the parent reports the union.
+- **Degenerate nodes** (no glyphs, zero size) are reported with a flag rather than omitted, so "empty" is never ambiguous with "not measured".
+- **`fonts[].resolved`** is how `system-ui` gets caught — a `requested` ≠ `resolved` mismatch is the signal, and it's visible without a screenshot.
+
+Want me to fold both this and the vocabulary into DOC-52 as the settled answer to Q2?
 
 <!-- xgd-chat-end -->
