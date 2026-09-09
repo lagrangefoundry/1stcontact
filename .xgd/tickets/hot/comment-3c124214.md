@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:16:17.149549+00:00'
+updated_at: '2026-09-09T20:17:02.923228+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -672,5 +672,61 @@ Want me to fold both this and the vocabulary into DOC-52 as the settled answer t
 <!-- xgd-chat role="user" ts="2026-09-09T20:16:17.107461+00:00" -->
 #### You
 Measure can be used to check if solve delivered what was expected?
+
+<!-- xgd-turn id="3392b1b9-d04e-4408-bf36-ed42043d1f8b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T20:17:02.604078+00:00" -->
+#### Claude
+Yes — but `relate` is the better instrument, and the interesting part is *why* the check is worth doing at all.
+
+## Use `relate`, not `measure`
+
+```
+relate('#ord.cap-top', '#one.cap-top')  →  { delta: 0.0, axis: 'y' }
+```
+
+One number, no derivation. Verifying with `measure` means pulling boxes and doing the cap-height arithmetic yourself — which is exactly the thing the principle says to avoid. `measure` is the map; `relate` is the check.
+
+## The reason verification matters isn't that `solve` is unreliable
+
+`solve` is arithmetic; it'll be right. **The risk is in the gap between `solve` and the artifact.**
+
+`solve` doesn't *apply* anything. It returns `{ node: '#ord', attr: 'y', value: 29.4 }`, and then the AI writes the **entire SVG document** through `write_image` — by hand. That's an unverified transcription hop, and it fails in ordinary ways:
+
+- the number lands on the wrong node or the wrong attribute;
+- the same rewrite *also* changes the font-size, so the solved value is stale before it's written;
+- the rewrite introduces a `transform` on an ancestor, so the local value now means something else;
+- the written document names a different font than the one `solve` computed against.
+
+So the check isn't of `solve` — it's of **the write**.
+
+## Which suggests folding it into the write
+
+Have `write_image` accept an `assert` block: the relations the AI intends to hold. After the write, they're evaluated and echoed back:
+
+```
+assert: [ ["#ord.cap-top", "=", "#one.cap-top"],
+          ["#ord.ink-left", "=", "#one.ink-right", 2] ]
+
+→ written. assertions: cap-top delta 0.0 ✓ · ink gap delta 0.0 ✓
+```
+
+Three benefits over solve→write→verify as separate steps:
+
+1. **One round trip instead of two.**
+2. **It can't be skipped.** Models forget to verify. If the write echoes the relations, the check happens whether or not anyone remembered.
+3. **The intent becomes durable** — this is the recorded-comment idea from §3.4, except it's checked rather than merely noted, so it can't quietly rot.
+
+**Advisory, not gating.** The assertions report deltas; they don't refuse the write. A refusal here would be a new failure mode with no upside — the AI may have deliberately changed something, and a blocked write on a stale assertion is worse than a visible non-zero delta.
+
+**The cost, stated honestly:** `write_image` today is a pure string scan (`validateSvg`) with no browser. Assertions require a headless render on write, which is a real slowdown. Mitigation: **only render when an `assert` block is present** — opt-in cost, zero impact on ordinary writes.
+
+## Where `measure` *is* the right verifier
+
+For the different question: **"what else moved?"** A `measure` before and after, diffed, catches collateral damage a targeted `relate` would miss — the underline that shifted, the node that reflowed because an ancestor's box changed. That's regression checking rather than intent checking, and it's worth having, just not for "did my alignment land".
+
+---
+
+That closes Q2 completely, I think: the vocabulary, `measure`'s semantics, and now the verification story. Shall I fold all three into DOC-52?
 
 <!-- xgd-chat-end -->
