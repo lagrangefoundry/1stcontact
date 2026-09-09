@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T22:34:16.148606+00:00'
+updated_at: '2026-09-09T22:37:48.233419+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -428,5 +428,42 @@ Still outstanding, and I'd suggest doing it before REQ-143 reconciles: REQ-143's
 ok REQ-144 and REQ-145 are complete, are the changes in place?
 
 Also see BUG-48 there were several issue with my chat session yesterday - can you verify that these are resolved?
+
+<!-- xgd-turn id="19827a2a-567a-4895-85da-8810d9ef13fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T22:37:48.164683+00:00" -->
+#### Claude
+Checked all four. Short version: **three are live, REQ-144 is not.**
+
+| | status | in shared store (what 1stcontact runs) |
+|---|---|---|
+| BUG-48 | `free_coded`, merged | ✅ |
+| REQ-143 | merged | ✅ |
+| REQ-145 | `free_coded`, merged | ✅ |
+| **REQ-144** | **`free_coding`, uncommitted** | ❌ |
+
+## REQ-144 — done but not shipped
+
+The work is complete and correct, just sitting uncommitted in its worktree. No commits ahead of `xgd-working`, no `fields.commits`, and the shared store still has the old `anthropicSystem(baseSystem, reminder, cacheOffsets, volatile, ttl)` signature.
+
+What's there is good: `turnTail` appends *after* `anthropicMessages`, so every marker precedes the tail — the ordering the ticket called load-bearing. Tail never written back to stored history. It also handles a case I didn't specify: an OpenAI tool round ends in `role: "tool"` messages, so the tail gets its own trailing `user` message rather than corrupting a tool result. 772/772 pass.
+
+DOC-22 Amendment X is written and covers all six requirements — including the §2 table cell (now "backend-dependent") and the note to revisit if the default model moves to Opus 5. But it's only in the worktree's copy; the main store's DOC-22 has zero mentions of REQ-144.
+
+**So your ~$3/session isn't active yet — you're still at the ~$7 in-turn-only figure.** Needs commit + merge + shared-store refresh.
+
+## BUG-48 — resolved, and live
+
+All six required behaviours have UATs, parameterised across both adapters and both languages: warm turn carries the previous reply, a run of prose turns never stacks user messages, aborted turn records its partial reply, no empty assistant message, no dangling tool call, both adapters share one `seedDialogue` rule.
+
+1stcontact BUG-66 is `wont_fix`, which is right — the defect was upstream and this is the fix.
+
+Restart the wrangler dev server to pick it up; the generated shim re-exports the shared store by absolute path, so no `1c assets` needed.
+
+## One thing worth watching
+
+My first run of the ai suite on `xgd-working` reported **5 failures / 762 tests**. Two subsequent runs at the identical HEAD gave **784/784**. Same commit, no source change between them — so either flakiness under parallel load or a stale-state artifact. Not blocking, but if you see red in CI on this suite, that's a known-unstable signal rather than a real regression.
+
+Want me to commit REQ-144 and set `status=free_coded` + `fields.commits`?
 
 <!-- xgd-chat-end -->
