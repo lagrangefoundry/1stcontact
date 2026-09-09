@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T21:22:21.512040+00:00'
+updated_at: '2026-09-09T21:25:38.127332+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -824,5 +824,29 @@ Say the word and I'll create three (or two).
 <!-- xgd-chat role="user" ts="2026-09-09T21:22:20.990616+00:00" -->
 #### You
 ok go ahead and create those - please populate the dependencies
+
+<!-- xgd-turn id="26514bd3-5786-4674-a9f1-60c65b9e55a9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T21:25:37.285833+00:00" -->
+#### Claude
+`depends_on` is a list of human-readable IDs. Writing the three bodies now.
+
+Three tickets created, dependencies populated, everything cross-linked.
+
+| Ticket | Title | Points | Depends on |
+|---|---|---|---|
+| **REQ-209** | The AI can measure a drawing: an anchor vocabulary, geometry that answers relationships, and a write that verifies itself | 8 | — |
+| **REQ-210** | The user can point: Marked Points on the edit preview | 8 | REQ-209 |
+| **REQ-211** | Text can vary within a run: multi-variate L1 text | 13 | — |
+
+Each body is written behaviour-first in the house `## What changes` style, and each ends with a **Behaviour to verify** list so every UAT has ticket-body language to trace to — including the consequences we derived rather than asked for directly (the root-vs-local space asymmetry, `assert` never gating, no render without `assert`, points clearing on send, the width-ambiguity rule).
+
+**On the REQ-210 dependency:** it's narrower than the arrow suggests, and the ticket says so — REQ-210 needs REQ-209 only for the anchor vocabulary that the pill's `near:` field names. Everything else about Marked Points is independent, so the two can be built in parallel and only that one line waits.
+
+**DOC-52 updated** with a new *How this is ticketed* subsection under §6 mapping tickets to sections, plus the three REQs added to §8 Related tickets. It also records why `outline_text` and `measure_page` are specified but unscheduled — the licence question on one, and letting the vocabulary meet reality on the simpler surface before extending it on the other.
+
+**CHAT-49** has a closing pointer to all four.
+
+One thing worth flagging before anyone starts REQ-209: the guidance half of it is docs-only (`l1-surface.json` description text) and lands first within the ticket. That means the `system-ui` defect currently in the 1st Contact draft wordmark — which is live and renders differently per visitor — can be fixed as soon as that lands, without waiting for the measurement ops.
 
 <!-- xgd-chat-end -->
