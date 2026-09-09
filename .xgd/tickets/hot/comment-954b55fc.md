@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T15:47:07.946746+00:00'
+updated_at: '2026-09-09T16:22:21.245987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -286,5 +286,13 @@ To be clear about where the miss originated: my AC read *"on a session's second 
 - `state.cachedThrough` advances before the retry loop — correct for rate-limit retries, but if the request ultimately throws, the next one marks a boundary never written. Self-healing (one extra write), worth a comment rather than a fix.
 
 Want me to add the missing cross-turn AC to REQ-143's body? That's the reconciliation-relevant move — without it the ticket reads as fully satisfied, and the gap disappears rather than becoming the follow-up it should be.
+
+<!-- xgd-turn id="82fc4f7c-c236-4e88-8c7b-0c1c87a77b99-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T16:22:21.152564+00:00" -->
+#### You
+Sorry WAY too much detail - it sounds like you have a fix but it involves moving some repeated content from the system prompt to the message prompt?
+
+Can we take a step back. I would like you to explain how the caching system works and in particular how it interacts with the system and user prompts and then help me understand (1) what REQ-143 actually delivered and (2) how you can improve it?
 
 <!-- xgd-chat-end -->
