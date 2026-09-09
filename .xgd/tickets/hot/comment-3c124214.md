@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T21:21:26.366765+00:00'
+updated_at: '2026-09-09T21:22:21.512040+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -818,5 +818,11 @@ Both are fully specified in DOC-52; they just don't need a ticket until ① land
 If you want it tighter still: **③ could also wait.** It's the largest item and it isn't what broke last night — cutting just ① and ② would give you two tickets and cover the whole failure. I'd lean to including ③ only because it's the one with real architectural consequence, and having it ticketed stops it drifting into "someday".
 
 Say the word and I'll create three (or two).
+
+<!-- xgd-turn id="26514bd3-5786-4674-a9f1-60c65b9e55a9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T21:22:20.990616+00:00" -->
+#### You
+ok go ahead and create those - please populate the dependencies
 
 <!-- xgd-chat-end -->
