@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T02:46:16.473653+00:00'
+updated_at: '2026-09-09T02:47:26.346172+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,11 @@ Measured: exchange count, tool counts, `resultBytes`, timings, round-trip count,
 4. Screenshot hygiene — real, but worth ~2%. Not first.
 
 All four are in `@lagrangefoundry/ai`, not this repo. Want me to open a lagrange-framework ticket for 1–3?
+
+<!-- xgd-turn id="b1846238-442a-4c67-8342-ec5c558af86c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T02:47:25.670373+00:00" -->
+#### You
+So with caching my $20 comes down to what?
 
 <!-- xgd-chat-end -->
