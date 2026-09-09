@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-09T23:52:08.221081+00:00'
+updated_at: '2026-09-09T23:55:27.222805+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -125,5 +125,11 @@ Two levels of fix:
 Both follow-ups are recorded in BUG-67. My recommendation: take the first level now in the framework (it's three small changes and it stops the silent loop), and treat the insert/remove question as a separate design decision — the O(N²) cost is a real constraint on how big a page the builder can ever grow, and it'll bite again at a larger page size even with a 64k cap.
 
 Want me to file the framework ticket for the `max_tokens`/`stop_reason` work, and start on the `capture_site` host-candidate fix here under BUG-67?
+
+<!-- xgd-turn id="e2bd41dc-bf46-4adf-894c-cb59c8cb80b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T23:55:26.969889+00:00" -->
+#### You
+What is the purpose of the limit? Do we need one? What should it be?
 
 <!-- xgd-chat-end -->
