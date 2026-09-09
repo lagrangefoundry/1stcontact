@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T23:37:29.880783+00:00'
+updated_at: '2026-09-09T23:39:36.193686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -497,5 +497,49 @@ Worth doing on that session: REQ-143 and REQ-145 mean token spend is now recorde
 <!-- xgd-chat role="user" ts="2026-09-09T23:37:29.553242+00:00" -->
 #### You
 Can you take a look at the Lagrange Foundry transcript 40 mins of discussion - a lot of failed tool calls, so not much progress - cost so far about $1.67 definite improvement
+
+<!-- xgd-turn id="e4d3adb0-56df-4595-a6a5-cac0a193b043-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T23:39:35.601647+00:00" -->
+#### Claude
+Found it, and it's a real bug — not the model being dim.
+
+## The session
+
+15:52 → 16:30 (38 min), 4 exchanges, 44 tool calls, **15 failed (34%)**. Two unrelated causes.
+
+## 1. The 12 identical `set_l1` failures — a truncated tool call dispatched as if complete
+
+Every failing `set_l1` arrived with **empty input `{}`**, twelve times, ~45s apart, right up to the last event in the session. Meanwhile everything else in that same turn worked — `get_l1` with `{page, path}`, `record_decision` with 500-char payloads, five `add_palette_color` calls. Only `set_l1` failed, and `set_l1` is the one tool that carries a large payload (an L1 subtree).
+
+The mechanism, in `AnthropicAccumulator`:
+
+```js
+// content_block_start:
+this._blocks.set(index, { type:'tool_use', …, partialJson:'', input: {} })
+// content_block_stop:   ← the ONLY place input is ever populated
+block.input = block.partialJson ? JSON.parse(block.partialJson) : {}
+```
+
+`max_tokens` is hardcoded to **4096** (`claude_api.js:192`). When a big `set_l1` payload hits that ceiling, the stream ends without a `content_block_stop` for the in-flight block — so `input` stays at its `{}` initialiser, and the tool runs with no arguments. The validation error goes back to the model, the model retries, generates ~4096 tokens again (hence the 45-second beat), truncates again. Twelve times, until you gave up.
+
+Two defects:
+
+- **`max_tokens: 4096` is too small.** Sonnet 4.6 supports up to 64k output. An L1 subtree for a hero segment doesn't fit in 4096.
+- **The truncation is silent, and it shouldn't be.** `stop_reason: "max_tokens"` arrives on the `message_delta` frame — the frame REQ-143 *already reads* for usage. It's one line from being available. Nothing anywhere in the backends reads `stop_reason`. A `tool_use` block that never received `content_block_stop` should be refused, not dispatched with `{}`.
+
+The second is the worse one: raising `max_tokens` makes it rarer, but any payload large enough still fails the same silent way.
+
+## 2. Three `capture_site` failures — environmental
+
+`www.gigabytealchemy.ai` and `www.1stcontact.io` → `ERR_NAME_NOT_RESOLVED`; `www.gigabytealchemy.com` → 30s navigation timeout. DNS, not code. Worth checking whether those hostnames are right — `.ai` vs `.com` for gigabytealchemy suggests the model was guessing at URLs.
+
+## 3. The cost — the fix is working
+
+**$1.67 for 38 minutes.** On the old code this session's shape (48 round trips, growing history) would have run roughly $6–8. That's your ~4–5× landing in production, and it's the first number that isn't from my simulator.
+
+Two caveats on reading it: this session was short on history compared to yesterday's, and 12 of the 48 round trips were wasted regenerating a payload that got thrown away — so the *useful* work cost even less than $1.67, and a session that actually progresses will spend more.
+
+Want me to file the truncated-tool-call bug against lagrange-framework? I'd write it as one bug with both halves — the `max_tokens` ceiling and the missing `stop_reason` guard — since fixing only the first leaves the silent-failure mode intact.
 
 <!-- xgd-chat-end -->
