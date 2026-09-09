@@ -25,3 +25,11 @@ export * from './fonts'
 // Generated-asset content validation (REQ-130) — the closed grammar an SVG the
 // assistant composed must satisfy before its bytes reach the site.
 export * from './svg'
+
+// The anchor vocabulary (REQ-209) — the closed set of named lines a drawing's
+// geometry is described in, and the arithmetic that turns four measured
+// primitives into fifteen of them. It lives here rather than in the tool that
+// measures because it is a contract: `measure_page` (DOC-52 §3.6) will import
+// the same names for the page surface, and a second definition site is free to
+// drift from the first.
+export * from './anchors'

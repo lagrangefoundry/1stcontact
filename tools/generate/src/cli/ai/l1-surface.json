@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 7,
+  "surface_version": 8,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -41,6 +41,14 @@
     "hex_color": {
       "base": "string",
       "description": "An opaque color as hex, e.g. `#2e86a3` (or the `#abc` short form). A palette color is exactly one color: its lighter and darker variants are produced where it is USED, and so is any transparency — neither is stored here, and an 8-digit hex is refused for that reason."
+    },
+    "anchor_ref": {
+      "base": "string",
+      "description": "One named line on one node, written `<node>.<anchor>` — e.g. `#ord.cap-top`. The node is exactly as `measure_drawing` reports it: `#` and its id when it has one, otherwise its path (`0.3`). The anchor is one of:\n\n- **box**, on any node — `left`, `right`, `centre-x`, `top`, `bottom`, `centre-y`\n- **ink**, on text — `ink-left`, `ink-right`, `ink-top`, `ink-bottom`: the bounds of the glyphs that were actually painted\n- **font**, on text — `baseline`, `cap-top`, `x-top`, `ascender`, `descender`: derived from the font's own proportions, so they are the same lines whatever the string says\n- **advance**, on text — `advance-start`, `advance-end`: where the pen starts and where it lands\n\n**The families are not interchangeable, and that is the point.** A `t` rises above cap height and a digit sits at it, so aligning ink-tops and aligning cap-tops give visibly different results. \"Where a run ends\" is `ink-right` for tight optical spacing and `advance-end` for ordinary typesetting; in a wordmark those can be many units apart.\n\n**The axis follows from the anchor** and is never something you say. Two anchors of different axes have no distance between them, and asking for one is refused."
+    },
+    "relation": {
+      "base": "string",
+      "description": "One claim about where two anchors sit, written `<node>.<anchor> = <node>.<anchor>`, optionally followed by `+` or `-` a number — e.g. `#ord.cap-top = #one.cap-top` or `#ord.ink-left = #one.ink-right + 2`.\n\nNothing richer is accepted: no other operators and no expressions. A relation is a claim about two anchors, and anything more would be a constraint system, which this is not.\n\n**It is the same sentence a drawing records in a comment.** `<!-- #ord.cap-top = #one.cap-top -->` in the drawing's own source says what it was trying to do, and `measure_drawing` reports every such note with what it is worth now."
     }
   },
   "shapes": {
@@ -63,7 +71,8 @@
     },
     "image": {
       "asset": "the drawing as the site now holds it — the name to reference it by",
-      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
+      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else",
+      "asserted": "one entry per relation you stated, each with how far it is from holding — or, when it could not be read at all, why. Absent when you stated none"
     },
     "element": {
       "target": "the page, address and component scope this element was read from",
@@ -117,6 +126,29 @@
     "page_style": {
       "target": "the page this was read from",
       "document": "how the page itself is painted: `background` (the colour behind everything), `textColor` (what text falls back to when an element names none), `widths` (the layout widths the page is arranged against), `column` (the shared centred column elements line up with), and `resources` (the typefaces the page serves, each bound to the file that draws it). A part the page does not set is simply absent."
+    },
+    "measurement": {
+      "drawing": "which drawing this is of",
+      "viewBox": "the drawing’s own coordinate box, `[x, y, width, height]`",
+      "space": "what the numbers are in — said rather than assumed",
+      "fonts": "one entry per font the drawing uses, NOT one per node: what was asked for, what the browser actually resolved, whether that is a real face or a platform keyword, and the cap-height, x-height, ascender and descender as fractions of the type size. Every font line derives from these, so a run at a different size needs no second entry",
+      "nodes": "every node with geometry worth reporting, each with the primitives its anchors derive from — its box, its painted ink, its baseline, where its pen starts and how far it travels, and a box per glyph. A node with no `id` appears under its path; a node that paints nothing is flagged rather than left out",
+      "recorded": "every relation the drawing records as a comment, with what it is worth now — which is what makes recording one worth doing",
+      "warnings": "anything the measurement could not do, said rather than swallowed"
+    },
+    "relation_result": {
+      "a": "the first anchor, resolved",
+      "b": "the second anchor, resolved",
+      "axis": "the axis they both lie on",
+      "delta": "how far `b` is past `a`. Zero means the relation holds exactly, and the sign is the direction `a` would have to move"
+    },
+    "solution": {
+      "node": "the node to change",
+      "attr": "the attribute to write it on",
+      "value": "what to write",
+      "from": "what is there now",
+      "axis": "the axis this moves along",
+      "delta": "how far it moves, in the drawing’s own units"
     }
   },
   "errors": {
@@ -741,11 +773,104 @@
       ]
     },
     {
+      "op": "measure_drawing",
+      "tool": "measure_drawing",
+      "effect": "read",
+      "summary": "Measure a drawing you have made: where every part of it actually is.",
+      "description": "**Use this instead of guessing.** A drawing is a coordinate space you cannot see, and a picture of one tells you how it looks, never where anything is. Positioning by eye means write, look, adjust, look again — and it does not converge. This answers in numbers.\n\nIt renders the drawing in a real browser, in the site's own page so the fonts are the ones a visitor gets, and reports **the primitives every named line derives from** rather than the lines themselves: each node's box, the bounds of the glyphs it actually painted, its baseline, where its pen starts and how far it travels, and a box per glyph. Font proportions come back **once per font**, not once per node, so a run at a different size needs no second entry.\n\n**Everything is in the drawing's own coordinates, with transforms resolved.** A node inside a translated group reports where it actually is.\n\n**Do not do arithmetic on what comes back.** If you find yourself subtracting one number from another, `relate` and `solve` are the operations for that — this is the map, and they are the arithmetic.\n\nA node with no `id` is reported under its path, which is your prompt to give it one. A node that paints nothing is flagged rather than left out, because \"empty\" and \"not measured\" are different findings. Every relation the drawing records as a comment is reported with what it is worth now.\n\nA builder with no browser cannot render and therefore cannot measure. It says so; say so to your user rather than falling back on guessing.",
+      "params": {
+        "drawing": {
+          "type": "image_name",
+          "required": true,
+          "description": "The drawing to measure, by the name it was written under."
+        }
+      },
+      "returns": {
+        "shape": "measurement"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "ENVIRONMENT"
+      ]
+    },
+    {
+      "op": "relate",
+      "tool": "relate",
+      "effect": "read",
+      "summary": "How far one named line in a drawing is from another.",
+      "description": "One number: how far `b` is past `a` along the axis they share. Zero means they line up exactly, and the sign is the direction `a` would have to move.\n\nThis is how you CHECK an alignment. To achieve one, use `solve` — it answers with the value to write rather than the distance to close, and saves you the arithmetic and the second look.\n\n**Two anchors of different axes are refused.** The distance between a top and a left is not a thing, and a number with no meaning is worse than no number.",
+      "params": {
+        "drawing": {
+          "type": "image_name",
+          "required": true,
+          "description": "The drawing both anchors are in."
+        },
+        "a": {
+          "type": "anchor_ref",
+          "required": true,
+          "description": "The line to measure from."
+        },
+        "b": {
+          "type": "anchor_ref",
+          "required": true,
+          "description": "The line to measure to."
+        }
+      },
+      "returns": {
+        "shape": "relation_result"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID",
+        "ENVIRONMENT"
+      ]
+    },
+    {
+      "op": "solve",
+      "tool": "solve",
+      "effect": "read",
+      "summary": "The value to write so that one part of a drawing lines up with another.",
+      "description": "**This is the operation that ends the nudging.** Say what you want to be true — this line on this node meets that line on that one — and it hands back the attribute value that makes it so. Write it once; there is no second look and no adjustment.\n\nIt answers with **the node and the attribute as well as the number**, and you must use all three. The measurement is in the drawing's own root coordinates and an attribute is written in whatever local space its node sits in; a bare number across that difference would be right and would land somewhere it means something else.\n\n`offset` lands the moving anchor that far past the one it meets — a gap rather than a touch. Negative for the other side.\n\n**It moves things, and only that.** Scale and rotation are not solved for, and are not needed: alignment is entirely a matter of moving. A node no single attribute can move — a line, a path — is refused, and so is one inside a rotated or skewed transform.\n\n**Then record what you asked for.** Put the same sentence in the drawing as a comment, `<!-- #ord.cap-top = #one.cap-top -->`. The number goes stale the moment a type size changes; the intention does not, and `measure_drawing` reports every note with what it is worth now, so it can be solved again instead of guessed again.",
+      "params": {
+        "drawing": {
+          "type": "image_name",
+          "required": true,
+          "description": "The drawing to solve in."
+        },
+        "so": {
+          "type": "anchor_ref",
+          "required": true,
+          "description": "The line on the node you are moving."
+        },
+        "equals": {
+          "type": "anchor_ref",
+          "required": true,
+          "description": "The line it should meet. Same axis as `so`."
+        },
+        "move": {
+          "type": "string",
+          "description": "The node to move. Optional — `so` already names it — and refused if it names a different one."
+        },
+        "offset": {
+          "type": "number",
+          "description": "Land this far past `equals` instead of on it. Negative for the other side."
+        }
+      },
+      "returns": {
+        "shape": "solution"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID",
+        "ENVIRONMENT"
+      ]
+    },
+    {
       "op": "write_image",
       "tool": "write_image",
       "effect": "write",
       "summary": "Draw an image yourself and put it in the site.",
-      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site’s list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site’s own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar and put that on the page. A drawing offered in place of their own file is not a smaller version of what they asked for; it is a different thing wearing its name, and they will find out by looking at their site. Draw when a drawing is what was wanted.\n\n**Say what it shows on the element that places it.** A drawing carries no description of its own; the picture element you put it in has a field for what someone who cannot see it needs told, and that is where it goes.\n\nThis is not a way to make a photograph.",
+      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site’s list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site’s own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar and put that on the page. A drawing offered in place of their own file is not a smaller version of what they asked for; it is a different thing wearing its name, and they will find out by looking at their site. Draw when a drawing is what was wanted.\n\n**Say what it shows on the element that places it.** A drawing carries no description of its own; the picture element you put it in has a field for what someone who cannot see it needs told, and that is where it goes.\n\n**A run of styled text is ONE `<text>` with `<tspan>` children — never several `<text>` elements placed by hand.** The browser advances the pen from one run to the next, so every run after the first needs no `x` at all and lands exactly right in whatever font resolves. `dx` and `dy` shift a run relative to where the pen already is; `font-size`, `font-weight` and `fill` restyle it. Positioning runs separately means guessing at the gaps between them, and those guesses are wrong on any machine but the one you tuned them on.\n\n**Name a real font.** `system-ui`, `-apple-system` and a bare `sans-serif` are not faces — each resolves to something different per platform, with different letter widths, so a mark tuned against one is wrong nearly everywhere else. Name a font the site has.\n\n**Give a node an `id` when you mean to position it precisely.** It is how `measure_drawing`, `relate` and `solve` address it, and an un-id'd node can only be named by its position in the tree.\n\nThis is not a way to make a photograph.",
       "params": {
         "name": {
           "type": "image_name",
@@ -759,6 +884,10 @@
         "replace": {
           "type": "boolean",
           "description": "Redraw an image of this name that already exists. Without it, a name already in use is refused."
+        },
+        "assert": {
+          "type": "array",
+          "description": "Relations you intend this drawing to hold, each `<node>.<anchor> = <node>.<anchor>` and optionally `+` or `-` a number. Each is checked against the drawing that actually landed and reported with how far it is from holding.\n\n**It never blocks the write.** A non-zero delta is told to you, not enforced — you may have changed something deliberately. A relation that cannot be read at all is reported with the reason rather than dropped.\n\n**It costs a render, and nothing else does.** An ordinary write is a text check with no browser; state a relation and the drawing is rendered to check it. State them when you have just solved for a position and are writing the number in — that transcription is where this goes wrong, not the arithmetic."
         }
       },
       "returns": {
@@ -767,7 +896,8 @@
       "errors": [
         "NOT_FOUND",
         "CONFLICT",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "ENVIRONMENT"
       ]
     },
     {
@@ -896,6 +1026,17 @@
       "operations": [
         "add_asset",
         "remove_asset"
+      ]
+    },
+    {
+      "group": "MeasureDrawings",
+      "effect": "read",
+      "title": "Measuring a drawing",
+      "description": "Where things actually are in a drawing you have made, and what to write to move them. Nothing here changes anything.\n\nReach for these the moment a position matters. Composing a drawing and then looking at a picture of it tells you how it reads, never where anything is — and adjusting a coordinate against a picture does not converge. Measure, state what you want to be true, write the number you are given.\n\nThey need a browser. A builder without one says so rather than pretending.",
+      "operations": [
+        "measure_drawing",
+        "relate",
+        "solve"
       ]
     },
     {
