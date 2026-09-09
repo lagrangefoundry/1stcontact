@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-66
 created_by: xgd
 created_at: '2026-09-09T03:07:26.888512+00:00'
-updated_at: '2026-09-09T03:19:51.606280+00:00'
+updated_at: '2026-09-09T03:21:57.406422+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,24 @@ The fix is small (`wire.record(state, raw, [])` before the early return, plus ma
 <!-- xgd-chat role="user" ts="2026-09-09T03:19:51.320145+00:00" -->
 #### You
 Please create an LF ticket for this bug and close this ticket with a reference as won't fix
+
+<!-- xgd-turn id="bb6c7d23-6a35-40f3-80b1-e81f625d4175-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T03:21:56.977871+00:00" -->
+#### Claude
+Both done.
+
+**lagrange-framework BUG-48** (`bug-2e9b56fa`) — *"API backends drop a turn's final assistant message: a warm segment sends the model two consecutive user turns"*, status `draft`, priority/severity high. The body carries the full diagnosis (`runToolLoop`'s `if (!sawTool) { yield doneEvent(); return }` skipping `wire.record`), the empirical confirmation, why it presents as intermittent, and four required behaviours:
+
+1. Record the terminating assistant message, tools or not.
+2. Don't append an empty `tool_result` message when there are no outcomes.
+3. Record an aborted turn's partial reply — the deltas are already durable on the junction, so the backend state must agree.
+4. Make `claude_api.js` and `chatgpt.js` state the same re-seed rule (`!state.messages.length` vs `<= 1`).
+
+Plus a UAT plan covering both backends and the stopped-turn case.
+
+**1stcontact BUG-66** — status `wont_fix`, with a Resolution section appended (original diagnosis preserved) pointing at LF BUG-48 and noting that nothing in `tools/generate/src/cli/ai/` or `apps/control-app/src/ai.ts` needs to change; 1st Contact picks the fix up with the AI component bump. No branch, no code, no UAT in this repo.
+
+One thing to flag: LF BUG-48 is sitting at `draft` in the framework repo — I didn't scope it into that repo's workflow or cut a branch there, since you asked only for the ticket. Say the word if you want me to take it forward there.
 
 <!-- xgd-chat-end -->
