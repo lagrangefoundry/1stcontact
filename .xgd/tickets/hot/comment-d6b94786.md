@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-66
 created_by: xgd
 created_at: '2026-09-09T03:07:26.888512+00:00'
-updated_at: '2026-09-09T03:17:37.824922+00:00'
+updated_at: '2026-09-09T03:19:51.606280+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,11 @@ Also worth knowing: turns that used tools are partly protected — those iterati
 The bug is in **lagrange-framework**, not this repo — and it hits `ChatGPTBackend` identically. There's a smaller inconsistency alongside it: the re-seed guard is `!state.messages.length` in `claude_api.js` but `state.messages.length <= 1` in `chatgpt.js`.
 
 The fix is small (`wire.record(state, raw, [])` before the early return, plus making `record()` skip the empty `tool_result` push, plus the aborted path), but it needs its own ticket in that repo. BUG-66 is written up with the full diagnosis and the proposed fix — want me to go make that change in lagrange-framework?
+
+<!-- xgd-turn id="bb6c7d23-6a35-40f3-80b1-e81f625d4175-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T03:19:51.320145+00:00" -->
+#### You
+Please create an LF ticket for this bug and close this ticket with a reference as won't fix
 
 <!-- xgd-chat-end -->
