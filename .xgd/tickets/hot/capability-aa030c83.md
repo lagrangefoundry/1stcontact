@@ -5,9 +5,9 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-08-16T09:18:42.242235+00:00'
+updated_at: '2026-09-09T23:02:25.659029+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   name: 1c_capture_diff_fidelity
@@ -120,3 +120,36 @@ ownership rule above. The CAP-66 merge is what made a CLI-wide story sit inside 
 domain-named capability; the asymmetry is a naming artifact of that merge, not a
 misfiling, and the rule states the boundary explicitly so the question does not
 have to be re-litigated per verb.
+
+
+Overlap cluster 1 (2026-09-09) confirmed STORY-125 (self-origin fulfilment) in
+place against CAP-103 (operator access gate) and CAP-85 (builder workspace) and
+recorded the boundary rule below. The story is the second of the two
+`bundle-8eef3846` capture stories filed here, alongside STORY-080c6036 (cloud
+browser capture); both are deployed-runtime capture rather than `1c` CLI
+capture, which is what drew the survey's eye.
+
+## Ownership rule: how a capture is taken is owned here, even when it is taken of our own surface
+
+A capture that photographs the operator's own gated host touches three surfaces
+and belongs to only one of them. The test is **which layer the mechanism is a
+property of**, not which surfaces it must not weaken:
+
+- **This capability owns how a capture is taken** — including the transport the
+  capture's browser is given. Self-origin fulfilment is an argument passed into
+  the capture driver (`shotPreview` builds a per-host resolver and hands it to
+  the driver's origin seam in `apps/control-app/src/shot.ts`); it is the same
+  kind of artifact as a viewport preset or a capture precondition, and its
+  failure mode — a faithful photograph of the wrong document — is this
+  capability's own "clean gate, wrong render" invariant restated at the capture
+  end of the spine.
+- **The access gate keeps admitting and refusing inbound callers.** The
+  mechanism changes no rule inside the gate; it removes an outbound client of
+  ours from ever becoming an inbound caller. CAP-103 declares what lies behind
+  the gate out of scope, and nothing here is reachable by a caller the gate
+  judges.
+- **The workspace origin keeps its route table and its channels.** The work adds
+  no route and produces no new rendering; `router.ts` only exports the memoised
+  `previewRenderer` so the capture answers from the same instance the
+  `/preview/*` route uses. CAP-85 already places where a render runs, and the
+  renderings themselves, out of its own scope.
