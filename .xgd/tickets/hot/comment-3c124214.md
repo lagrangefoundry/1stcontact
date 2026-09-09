@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T22:32:13.624084+00:00'
+updated_at: '2026-09-09T22:33:04.133273+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -854,5 +854,67 @@ One thing worth flagging before anyone starts REQ-209: the guidance half of it i
 <!-- xgd-chat role="user" ts="2026-09-09T22:32:12.509879+00:00" -->
 #### You
 I don't understand outline_text?
+
+<!-- xgd-turn id="8d06b963-0972-40a9-a3f9-72f4f8eb2f4a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T22:33:03.394031+00:00" -->
+#### Claude
+It's "convert text to outlines" — the thing every designer does to a logo before handing it over.
+
+## The problem it solves
+
+`<text>` is an **instruction**, not a shape:
+
+```xml
+<text font-family="Satoshi" font-size="62" font-weight="800">1</text>
+```
+
+That says *"find Satoshi, get the glyph for `1` at 62px weight 800, draw it here."* The browser has to resolve the font at render time. If it resolves differently — or fails and falls back — you get different letterforms with different widths.
+
+`<path>` is **shape data**:
+
+```xml
+<path d="M12.4 8.6 L12.4 62 L20.1 62 …" fill="#1a3a6b"/>
+```
+
+That's the actual outline of the digit, frozen as curves. No font needed. Every browser draws the identical thing.
+
+## What the tool does
+
+The AI can't hand-write path data — it has no idea what the Bézier curves of a Satoshi "1" are. So `outline_text` does the conversion from the font file:
+
+```
+outline_text({ font: 'Satoshi', size: 62, weight: 800, text: '1' })
+  → { d: "M12.4 8.6 L…", advanceWidth: 34.4, capHeight: 43.4, bbox: [...] }
+```
+
+The AI drops `d` into a `<path>`. `path` and `d` are already in the SVG allowlist, so **it's not a schema change** — it just emits SVG the validator already accepts.
+
+## Why it's a *different* fix from the others
+
+Think of it as a ladder for the wordmark:
+
+| | Spacing | Letterforms |
+|---|---|---|
+| `system-ui` + absolute x/y *(what shipped)* | wrong | different per platform |
+| `tspan` + `system-ui` | **right** | still different per platform |
+| `tspan` + registered font (Satoshi) | right | **right** — if the font file loads |
+| outlined paths | right | **right, always** |
+
+This is the nuance I should have drawn out earlier: **`tspan` fixes the spacing but not the typeface.** With `system-ui` your logo is still literally a different typeface for a Windows visitor — correctly spaced, but Segoe UI instead of SF Pro. That's why REQ-209 carries the *name a real font* rule alongside the `tspan` rule; the two together get you to row three.
+
+Outlines are row four: belt and braces for the one asset where it matters most, with no dependency on a font file loading at all.
+
+And separately — the returned `advanceWidth` and `capHeight` are computed from the font file with **no browser at all**, so the AI knows the geometry before it writes anything. `measure_drawing` tells you where things landed *after* rendering; `outline_text` means there's nothing to discover.
+
+## Why I left it unscheduled
+
+- **It's only right for a mark.** You'd never outline body copy — the file balloons, the text stops being selectable or searchable, and it can't reflow. It's for a logo, a monogram, a small fixed piece of type.
+- **It needs a real font file.** `system-ui` has none. So it forces choosing a registered face — correct anyway, but it's a decision rather than a mechanical step.
+- **There's an open licence question.** Some font licences permit webfont use but not distributing outlines, since outlines are arguably the glyph shapes themselves. `fonts/registry.yaml`'s `redistribute_in_product` is the field, and nobody has checked whether any currently-registered face allows it. Putting that on REQ-209's critical path would block the positioning fix behind a licensing answer.
+
+Accessibility isn't a reason to avoid it, incidentally — the `<img>` carries `alt`, and `<title>` / `aria-label` are both allowlisted inside the SVG.
+
+So: real, worth doing for the wordmark specifically, but it fixes *portability* — and what actually cost you two hours last night was *positioning*, which REQ-209 handles.
 
 <!-- xgd-chat-end -->
