@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:54:03.644346+00:00'
+updated_at: '2026-09-09T19:54:20.079894+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -437,5 +437,11 @@ ok lets try this can you write a document capturing (1) all the enhancements to 
 <!-- xgd-chat role="assistant" ts="2026-09-09T19:54:03.301504+00:00" -->
 #### Claude
 Reading the ticket: body is just `<!-- xgd-chat-end -->`, and `ticket append` inserts before that marker — so nothing gets overwritten. Writing the document now.
+
+<!-- xgd-turn id="3d2a588c-14d9-4e41-b740-3a2be2d706f2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T19:54:19.519763+00:00" -->
+#### You
+No no please create a net DOC ticket for this
 
 <!-- xgd-chat-end -->
