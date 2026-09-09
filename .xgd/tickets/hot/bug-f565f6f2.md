@@ -6,9 +6,9 @@ title: '1st Contact chat: assistant replies to the previous turn — final assis
   message never recorded in backend state'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T03:04:44.845566+00:00'
-updated_at: '2026-09-09T03:16:57.314380+00:00'
+updated_at: '2026-09-09T03:21:41.346216+00:00'
 completed_at: null
-last_field_updated: severity
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -143,3 +143,28 @@ backend's own state should agree with it.
 To be written against lagrange-framework's UAT suite: drive a session through two
 prose-only turns on one warm segment and assert the second request's message list
 alternates user/assistant and contains the first reply verbatim.
+
+
+---
+
+## Resolution — `wont_fix` (upstream)
+
+Not fixed here, because there is nothing here to fix. The defect is entirely in
+the AI component's API backends, and 1stcontact only observes it: this repo's
+host, junction, archive and transcript all handled the conversation correctly —
+the stored session file holds all 71 turns in order, and the window folded from
+it is complete. What went wrong happened inside
+`components/ai/js/src/backends/api_tools.js`, below the seam this repo consumes.
+
+Filed upstream as **lagrange-framework BUG-48** (`bug-2e9b56fa`) — *"API backends
+drop a turn's final assistant message: a warm segment sends the model two
+consecutive user turns"* — carrying the full diagnosis, the required behaviour
+and the test plan.
+
+No code, branch or UAT in this repo.
+
+**When the fix lands upstream**, 1st Contact picks it up with the AI component
+bump; nothing in `tools/generate/src/cli/ai/` or `apps/control-app/src/ai.ts`
+needs to change. Worth re-running the same conversation shape afterwards — two
+prose-only turns back to back on a warm isolate — to confirm the reply tracks
+the newest message.
