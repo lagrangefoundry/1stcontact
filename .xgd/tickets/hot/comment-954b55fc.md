@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T16:22:52.537944+00:00'
+updated_at: '2026-09-09T16:30:03.420170+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -386,5 +386,11 @@ Two caveats worth knowing before you decide:
 **Cheap interim:** drop the TTL back to 5 minutes. One word, saves ~$2/session, and costs nothing to reverse once cross-turn caching works.
 
 Want me to write this up as a follow-up ticket, and add the missing cross-turn criterion to REQ-143 so the gap doesn't vanish at reconciliation?
+
+<!-- xgd-turn id="580defb9-a952-49ee-8dc1-83473b6ff9f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T16:30:02.747804+00:00" -->
+#### You
+Yes, a 2x saving in token cost is worth the loss of DOC-22 architectural purity. Can you create an lf ticket to make this change and also have the ticket update DOC-22 to represent the new representation and explain why.
 
 <!-- xgd-chat-end -->
