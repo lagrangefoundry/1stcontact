@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T21:20:32.648815+00:00'
+updated_at: '2026-09-09T21:21:26.366765+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -784,5 +784,39 @@ Want me to create all eleven? I'd suggest A, B, C and E first, and hold G–K un
 <!-- xgd-chat role="user" ts="2026-09-09T21:20:32.608987+00:00" -->
 #### You
 Thats a lot of tickets - there's a certain overhead (for me) per ticket - can you reduce the set? Don't worry about individual ticket scope, so long as the descriptions are clear
+
+<!-- xgd-turn id="444ae4a0-6e76-422d-aa3e-8f8b709fb9fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T21:21:25.401356+00:00" -->
+#### Claude
+Reducing by **deferring what isn't on the critical path**, not just bundling — that cuts more overhead and loses nothing, since DOC-52 holds the full specification either way.
+
+## Three tickets
+
+**REQ ① — Drawing measurement and the relational vocabulary**
+*(was A+B+C+D)*
+The authoring guidance (`tspan` runs, real-font rule, id convention), the anchor vocabulary as a shared `site-schema` module, `measure_drawing`, `relate`, `solve`, and the advisory `assert` block on `write_image`. One coherent capability: **the AI can see and control drawing geometry exactly.** The guidance is docs-only and lands first within the ticket, so the cheap fix isn't held hostage to the ops.
+
+**REQ ② — Marked Points**
+*(was E+F)*
+Resolution model and UI together. Runs fully in parallel with ① — shares nothing with it.
+
+**REQ ③ — L1 multi-variate text**
+*(was I+J+K)*
+Schema, renderer, fold recovery, editor exposure. The architectural fix, independent of both above.
+
+## Two things I'd leave unscheduled in DOC-52
+
+**`outline_text` (§3.5)** — has an unresolved external dependency (Q4: does any registered face permit outlining?). Folding it into ① would put a licence blocker on the critical path. And it's the *portability* fix; ① already fixes the positioning problem that actually hurt.
+
+**`measure_page` (§3.6)** — deliberately second. It reuses ①'s vocabulary, and it's worth letting that vocabulary meet reality on the smaller surface before extending it to responsive page geometry with box-model anchors.
+
+Both are fully specified in DOC-52; they just don't need a ticket until ① lands.
+
+---
+
+If you want it tighter still: **③ could also wait.** It's the largest item and it isn't what broke last night — cutting just ① and ② would give you two tickets and cover the whole failure. I'd lean to including ③ only because it's the one with real architectural consequence, and having it ticketed stops it drifting into "someday".
+
+Say the word and I'll create three (or two).
 
 <!-- xgd-chat-end -->
