@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T22:43:36.404340+00:00'
+updated_at: '2026-09-09T22:44:52.760085+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -471,5 +471,25 @@ Want me to commit REQ-144 and set `status=free_coded` + `fields.commits`?
 <!-- xgd-chat role="user" ts="2026-09-09T22:43:36.168936+00:00" -->
 #### You
 144 shipped
+
+<!-- xgd-turn id="1ad8cab1-b715-4521-a3e6-68d285e0e87b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T22:44:52.712083+00:00" -->
+#### Claude
+Confirmed shipped and live.
+
+**REQ-144** — `free_coded`, version 0.0.222, two commits (`c2f2710bdd` feat, `631be385c0` version claim), both merged into `xgd-working`.
+
+Verified in the **shared store** (what 1stcontact actually runs):
+- `anthropicSystem(baseSystem, cacheOffsets, ttl)` — reminder and volatile gone from the signature
+- `turnTail(anthropicMessages(...), volatile, reminder)` — marked first, appended second, so every breakpoint precedes the tail
+- DOC-22 Amendment X landed in the ticket store (my earlier "zero mentions" was accurate at the time; it's there now)
+- Both UAT files tracked; 14/14 pass, full ai suite 68 files / 784 tests green
+
+So all four are now live: BUG-48, REQ-143, REQ-144, REQ-145. Restart the wrangler dev server to pick them up.
+
+**What your next session should look like:** ~$3/hour instead of ~$20, and the 1h TTL is now doing what it was meant to rather than costing you the 2× write premium for nothing.
+
+Worth doing on that session: REQ-143 and REQ-145 mean token spend is now recorded per request. You can read the real `cache_read_input_tokens` instead of trusting my model — if cross-turn reads are non-zero and scale with history, the fix is confirmed in production rather than in a simulator. Happy to pull those numbers once you've run a session.
 
 <!-- xgd-chat-end -->
