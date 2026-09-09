@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-209
 created_by: xgd
 created_at: '2026-09-09T22:31:00.782948+00:00'
-updated_at: '2026-09-09T23:36:58.964898+00:00'
+updated_at: '2026-09-09T23:37:39.642813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -56,5 +56,14 @@ Now the toolbox helpers and operations.
 Now the surface declaration.
 
 Now the operations, group, and `write_image` description.
+
+<!-- xgd-turn id="94254c77-f8dc-495e-b913-8234cc75f166-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T23:37:38.794094+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
