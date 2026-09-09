@@ -6,10 +6,10 @@ title: 'The system KB in the Worker: bundle-resident index, AI binding, knowledg
   surface on the builder toolbox'
 created_by: xgd
 created_at: '2026-08-28T21:12:01.399464+00:00'
-updated_at: '2026-09-09T17:02:59.997673+00:00'
+updated_at: '2026-09-09T21:32:50.270415+00:00'
 completed_at: null
-last_field_updated: bundled_in
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 8
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.27
+  bundled_in: bundle-87be4669
 ---
 
 # The system KB in the Worker: bundle-resident index, AI binding, knowledge surface on the builder toolbox
