@@ -47,6 +47,7 @@ import {
   editConfigGet,
   editConfigSet,
   editDocumentGet,
+  editDrawingRead,
   editDocumentSet,
   editL1Get,
   editL1Set,
@@ -67,6 +68,16 @@ import {
   type CopyTargetOptions,
 } from '../edit'
 import { CONSULTANT_ROLE } from './roles'
+import {
+  MeasureUnavailableError,
+  NodeNotFoundError,
+  evaluateRelations,
+  measurementResponse,
+  relateAnchors,
+  solveTranslation,
+  type DrawingMeasurer,
+} from './measure-core'
+import { AnchorError } from '@1stcontact/site-schema'
 
 /**
  * The declared surface, IMPORTED AS DATA rather than read from disk (REQ-146).
@@ -145,6 +156,40 @@ function scopeOf(p: Params, opts: EditOptions): CopyTargetOptions {
   return { ...opts, module: opt(p, 'module'), slot: opt(p, 'slot') }
 }
 
+/**
+ * Turn a measuring failure into the surface's own refusal shape (REQ-209).
+ *
+ * WHY IT IS TRANSLATED AND NOT RETHROWN. Every other operation on this surface
+ * fails as a {@link CommandError}, which is what carries the code the Toolbox
+ * renders a refusal from. The vocabulary's own errors know the SENTENCE — which
+ * anchor, which axis, which node references exist instead — and know nothing
+ * about this surface, which is right: they are shared with `measure_page`
+ * (DOC-52 §3.6). So the sentence is kept verbatim and only the envelope is
+ * added. Anything already a `CommandError` passes through untouched.
+ */
+function refusal(error: unknown): unknown {
+  if (error instanceof CommandError) return error
+  if (error instanceof NodeNotFoundError) {
+    return new CommandError({ code: 'NOT_FOUND', message: error.message })
+  }
+  if (error instanceof AnchorError) {
+    return new CommandError({ code: 'SCHEMA_INVALID', message: error.message })
+  }
+  if (error instanceof MeasureUnavailableError) {
+    return new CommandError({
+      code: 'ENVIRONMENT',
+      message: error.message,
+      hint: 'Say so to the user rather than guessing at coordinates.',
+    })
+  }
+  return error
+}
+
+/** One of the site's own drawings, by the bare name it was written under. */
+function drawingSource(slug: string, opts: EditOptions, name: string): Promise<string> {
+  return editDrawingRead(slug, name, opts)
+}
+
 
 /** One operation implementation, keyed by the `op` the declaration names. */
 export type L1Operations = Record<string, (params: Params) => unknown>
@@ -186,7 +231,55 @@ export function l1Operations(
    * says so.
    */
   extra: Partial<L1Operations> = {},
+  /**
+   * How a drawing is rendered and measured (REQ-209), or `null` where this
+   * deployment has no browser to render it in.
+   *
+   * NULL IS AN ORDINARY DEPLOYMENT, not a misconfiguration — the same one that
+   * composes no fidelity surface. The three measuring operations are still
+   * declared and still granted, and they REFUSE WITH A SENTENCE naming the
+   * reason rather than being withheld: withholding them per deployment would
+   * put the grant in two places and turn a capability question into a start-up
+   * failure. The browser is the same one the fidelity surface takes, asked for
+   * once — a session that could take a picture of a drawing but not measure one
+   * is a shape nobody asked for.
+   */
+  measurer: DrawingMeasurer | null = null,
 ): L1Operations {
+  /** Measure one of the site's own drawings, or say why nothing could be. */
+  const measure = async (name: string) => {
+    if (!measurer) throw refusal(new MeasureUnavailableError())
+    const svg = await drawingSource(slug, opts, name)
+    try {
+      return { svg, measurement: await measurer(svg) }
+    } catch (error) {
+      throw refusal(error)
+    }
+  }
+
+  /**
+   * Evaluate the relations a write stated, against the drawing that landed.
+   *
+   * AGAINST WHAT WAS WRITTEN, not against what was passed in — the artifact is
+   * the thing the assertion is about, and re-reading it is what makes the check
+   * a check rather than a restatement.
+   *
+   * NOTHING DISAPPEARS. A relation that cannot be evaluated at all — a misspelt
+   * anchor, a node that is gone, a deployment with no browser — is reported WITH
+   * THE REASON rather than dropped, because a silently absent assertion reads
+   * exactly like one that passed, and that is the one thing an advisory check
+   * must never look like.
+   */
+  const assertOnWrite = async (name: string, stated: readonly string[]) => {
+    try {
+      const { measurement } = await measure(name)
+      return evaluateRelations(measurement, stated)
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error)
+      return stated.map((relation) => ({ relation, why }))
+    }
+  }
+
   return {
     describe_site: async () => ({
       config: ((await editConfigGet(slug, undefined, opts)).data as { config: unknown }).config,
@@ -376,12 +469,83 @@ export function l1Operations(
     // only writes were assets would otherwise hold a baseline that never
     // advanced, and would be told next turn that its own upload was somebody
     // else's work — the one thing the counter exists to prevent.
+    /**
+     * Render one of the site's own drawings and answer with its geometry.
+     *
+     * READ-EFFECT, AND ON THIS SURFACE RATHER THAN THE FIDELITY ONE. The thing
+     * it reads is a drawing IN THIS SITE, and reaching it needs the site store —
+     * which the fidelity surface deliberately has not got. To the model there is
+     * one flat list of tools, so which surface carries them is an internal
+     * matter; what is not internal is that a drawing is addressed the same way
+     * here as everywhere else in the site.
+     */
+    measure_drawing: async (p) => {
+      const name = req(p, 'drawing')
+      const { svg, measurement } = await measure(name)
+      return measurementResponse(name, measurement, svg)
+    },
+
+    /** The signed distance between two anchors, and the axis it lies on. */
+    relate: async (p) => {
+      const { measurement } = await measure(req(p, 'drawing'))
+      try {
+        return relateAnchors(measurement, req(p, 'a'), req(p, 'b'))
+      } catch (error) {
+        throw refusal(error)
+      }
+    },
+
+    /**
+     * The attribute value that achieves a stated relation.
+     *
+     * The operation that removes the iteration: with `measure_drawing` and
+     * `relate` alone the loop is still measure → compute → write → re-measure,
+     * and with this it is state the intent → get the number → write it once.
+     */
+    solve: async (p) => {
+      const { measurement } = await measure(req(p, 'drawing'))
+      try {
+        return solveTranslation(measurement, {
+          move: opt(p, 'move'),
+          so: req(p, 'so'),
+          equals: req(p, 'equals'),
+          offset: typeof p.offset === 'number' ? p.offset : undefined,
+        })
+      } catch (error) {
+        throw refusal(error)
+      }
+    },
+
+    /**
+     * Write a drawing, and — when relations were stated — say whether it holds
+     * them (REQ-209).
+     *
+     * THE CHECK BELONGS ON THE WRITE. `solve` is arithmetic and will be right;
+     * what fails is the transcription hop between it and the artifact — the
+     * number lands on the wrong attribute, the same rewrite changes the
+     * font-size so the solved value is stale before it is written, an ancestor
+     * gains a transform. A write that echoes its own relations checks them
+     * whether or not anyone remembered to.
+     *
+     * ADVISORY, NEVER GATING, and the write happens FIRST. A refusal here would
+     * be a new failure mode with no upside: the model may have changed something
+     * deliberately, and a blocked write on a stale assertion is worse than a
+     * visible non-zero delta.
+     *
+     * A RENDER HAPPENS ONLY WHEN `assert` IS PRESENT. Ordinary writes are a pure
+     * string scan with no browser, and stay that way.
+     */
     write_image: async (p) => {
-      const out = await editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
+      const name = req(p, 'name')
+      const svg = req(p, 'svg')
+      const out = await editAssetWrite(slug, name, svg, {
         ...opts,
         force: p.replace === true,
       })
-      return { ...(out.data as object), now: out.at }
+      const written = { ...(out.data as object), now: out.at }
+      const stated = Array.isArray(p.assert) ? (p.assert as string[]) : []
+      if (stated.length === 0) return written
+      return { ...written, asserted: await assertOnWrite(name, stated) }
     },
 
     remove_asset: async (p) => {
@@ -426,9 +590,10 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           slug: string,
           opts: EditOptions,
           extra: Partial<L1Operations> = {},
+          measurer: DrawingMeasurer | null = null,
         ) {
           super(L1_DECLARATION)
-          for (const [op, run] of Object.entries(l1Operations(slug, opts, extra))) {
+          for (const [op, run] of Object.entries(l1Operations(slug, opts, extra, measurer))) {
             ;(this as unknown as Params)[op] = run
           }
         }
@@ -525,6 +690,7 @@ export async function createL1Toolbox(
     store,
     extraOps = {},
     extraSurfaces = [],
+    measurer = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -543,6 +709,17 @@ export async function createL1Toolbox(
     store: SiteStore
     /** Operations only the host's runtime can implement — see {@link l1Operations}. */
     extraOps?: Partial<L1Operations>
+    /**
+     * How a drawing is rendered and measured (REQ-209), or absent where this
+     * deployment has no browser.
+     *
+     * THE SAME BROWSER THE FIDELITY SURFACE TAKES, asked for once. A deployment
+     * either has one or it does not, and asking that question twice is how the
+     * two answers come to disagree. Absent, the three measuring operations are
+     * still declared and still granted and refuse with a sentence naming the
+     * reason — see {@link l1Operations}.
+     */
+    measurer?: DrawingMeasurer | null
     /**
      * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
      * with it — a LIST since REQ-157, because there are now two of them.
@@ -578,7 +755,7 @@ export async function createL1Toolbox(
   // learn which store they got, which is what lets the same surface run against
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
-  const surfaces: Untyped[] = [new L1Toolbox(slug, { ...opts, store }, extraOps)]
+  const surfaces: Untyped[] = [new L1Toolbox(slug, { ...opts, store }, extraOps, measurer)]
   let granted = instance
   for (const extra of extraSurfaces) {
     surfaces.push(extra.surface)

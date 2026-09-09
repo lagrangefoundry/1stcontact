@@ -8,6 +8,7 @@
         "ManageComponents",
         "WriteConfig",
         "ManagePalette",
+        "MeasureDrawings",
         "DrawImages"
       ]
     },
