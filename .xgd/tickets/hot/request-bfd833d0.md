@@ -5,10 +5,10 @@ type: request
 title: 'Library: a type icon, a one-line row, and the wording clients actually read'
 created_by: xgd
 created_at: '2026-09-02T20:59:01.075259+00:00'
-updated_at: '2026-09-02T23:15:22.086237+00:00'
+updated_at: '2026-09-09T04:18:21.329492+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 3
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.45
+  bundled_in: bundle-f2d4641b
 ---
 
 # Library: a type icon, a one-line row, and the wording clients actually read
