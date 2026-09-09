@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-09-09T23:02:25.659029+00:00'
+updated_at: '2026-09-09T23:06:26.606751+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -153,3 +153,46 @@ property of**, not which surfaces it must not weaken:
   `previewRenderer` so the capture answers from the same instance the
   `/preview/*` route uses. CAP-85 already places where a render runs, and the
   renderings themselves, out of its own scope.
+
+
+
+## Overlap cluster 2 (2026-09-09): STORY-124 confirmed in place against CAP-102
+
+Confirmed STORY-124 (cloud browser capture) in place here, against CAP-102
+(Platform Build, Deploy & Live-Origin Verification). This is the other half of the
+`bundle-8eef3846` capture pair whose sibling, STORY-125, cluster 1 confirmed on the
+same day; the ownership rule recorded there — **how a capture is taken is owned
+here** — decides this story too, and is not restated.
+
+The survey's boundary was "capture as a capacity of the deployed runtime vs.
+platform deployment configuration". The two are separated by a test that needs no
+judgement, because each side already states it:
+
+- **CAP-102's STORY-119 owns the configuration.** AC-1341 asserts that every
+  Worker's named environment repeats every top-level variable and binding, with
+  bindings identified *structurally* — any block carrying a binding name — so the
+  browser binding this story introduced is covered without that check being edited.
+  Its evidence is the parsed configuration, across the tree.
+- **This capability owns the runtime consequence.** AC-1461 asserts what a running
+  deployment *does* when the capability is absent: it boots, editing, rendering and
+  publishing are unaffected, and only a screenshot fails, with a named catchable
+  error identifying the missing configuration entry. Its evidence is a started
+  deployment exercised through a real screenshot request.
+
+A static property of configuration files and a dynamic property of a running
+deployment are different artifacts, so neither criterion can absorb the other.
+STORY-124's Technical Context already records the deferral in the same terms ("No
+AC here restates it; this story claims only the browser-specific consequence"), and
+no AC on either story was found to duplicate one on the other — AC-1468, the only
+other candidate, asserts the deployed application's own module graph and declared
+dependencies, where CAP-102's AC-1426 owns the build's generic refusal mechanism.
+
+**Recorded defect, not repaired here** (a confirm makes no content change):
+STORY-124's Technical Context says "Filed under CAP-102 (1c Capture & Diff
+Fidelity)". The parenthetical name is correct and matches where the story actually
+sits; the numeral is stale — CAP-102 is the deployment capability the story is
+being distinguished *from*, and the phrase it goes on to quote ("adding a
+browser-driving verb") is this capability's own scope text. That single wrong
+numeral is the most likely reason the pair surfaced as a cluster at all, and it
+will keep surfacing until a step permitted to edit story content corrects it to
+CAP-63.
