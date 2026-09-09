@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-09-09T23:28:19.496629+00:00'
+updated_at: '2026-09-09T23:30:20.065560+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -35,9 +35,9 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
   that decide which two elements are compared and which node a split control's
   surface axes resolve against. Includes the conditions under which an axis
   records a value at all — the painted-marker precondition, per-text-node run
-  geometry, the offline re-extract against a bundle's own mirrored font faces —
-  and the reporting layer over the resulting deltas: per-defect (not per-cell)
-  aggregation and the ranked cause-cluster view with its dispositions.
+  geometry, the offline re-extract against a bundle's own mirrored font faces.
+  The taxonomy that groups these axes into causes lives with the reporting layer
+  in the next-but-one bullet, but the axes it names are these.
 - **Gradients as a captured and diffed value** — text-fill (`background-clip: text`)
   and panel/surface gradients captured with direction and ordered colour stops
   (including stop position offsets), and diffed as fidelity axes. The authoring
@@ -49,9 +49,11 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
 - **Size-aware and cross-size diffing** — the shared `--size` viewport selector on
   `values-diff` and pixel `diff`, the per-width reference screenshots capture
   persists, the ladder-wide `values-diff --multi-viewport` mode that projects a
-  served draft across every persisted rung and reports cell-for-cell worst-first
-  (with its `--collapse` per-defect reporting layer), and the standalone
-  `responsive-diff` N-way cross-size node analysis with its change classifier.
+  served draft across every persisted rung and reports cell-for-cell worst-first,
+  the reporting stack layered over it — `--collapse` (cells → per-defect rows) and
+  `--clusters` (defects → ranked causes carrying a `fix` / `review` / `accept`
+  disposition and their width scope) — and the standalone `responsive-diff` N-way
+  cross-size node analysis with its change classifier.
 - **The `1c` CLI as a process — verb-agnostic correctness.** The guarantees that
   hold at the dispatcher, around whichever verb was named, and are therefore owned
   here for the *whole* command set rather than per command: boolean flags parse as
