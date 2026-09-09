@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T22:33:04.133273+00:00'
+updated_at: '2026-09-09T22:38:29.473490+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -916,5 +916,11 @@ And separately — the returned `advanceWidth` and `capHeight` are computed from
 Accessibility isn't a reason to avoid it, incidentally — the `<img>` carries `alt`, and `<title>` / `aria-label` are both allowlisted inside the SVG.
 
 So: real, worth doing for the wordmark specifically, but it fixes *portability* — and what actually cost you two hours last night was *positioning*, which REQ-209 handles.
+
+<!-- xgd-turn id="5795be05-0e6b-41f9-90ff-c4a0ed10ebc8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T22:38:29.324418+00:00" -->
+#### You
+ok - lets leave that for now, the other changes that you made, have they been documented for the AI anywhere? Can you suggest where that documentation should go? we have DOC tickets of type system_kb - existing doc or new doc?
 
 <!-- xgd-chat-end -->
