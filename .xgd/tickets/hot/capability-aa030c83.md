@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-09-09T23:06:26.606751+00:00'
+updated_at: '2026-09-09T23:28:19.496629+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -30,8 +30,14 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
 
 - **Intrinsic value axes and pairing** — the captured-and-compared per-element
   properties (rendered-text extent, composited surface fill, box border, typography
-  treatments, element effects, image crop), their tolerances and severities, and the
-  element-pairing rules that decide which two elements are compared.
+  treatments, element effects, image crop, adjacent-row gap, band overlay/scrim),
+  their tolerances and severities, and the element-pairing and attribution rules
+  that decide which two elements are compared and which node a split control's
+  surface axes resolve against. Includes the conditions under which an axis
+  records a value at all — the painted-marker precondition, per-text-node run
+  geometry, the offline re-extract against a bundle's own mirrored font faces —
+  and the reporting layer over the resulting deltas: per-defect (not per-cell)
+  aggregation and the ranked cause-cluster view with its dispositions.
 - **Gradients as a captured and diffed value** — text-fill (`background-clip: text`)
   and panel/surface gradients captured with direction and ordered colour stops
   (including stop position offsets), and diffed as fidelity axes. The authoring
@@ -42,18 +48,42 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
   the value-axis ownership rule below.
 - **Size-aware and cross-size diffing** — the shared `--size` viewport selector on
   `values-diff` and pixel `diff`, the per-width reference screenshots capture
-  persists, and the standalone `responsive-diff` N-way cross-size node analysis with
-  its change classifier.
+  persists, the ladder-wide `values-diff --multi-viewport` mode that projects a
+  served draft across every persisted rung and reports cell-for-cell worst-first
+  (with its `--collapse` per-defect reporting layer), and the standalone
+  `responsive-diff` N-way cross-size node analysis with its change classifier.
 - **The `1c` CLI as a process — verb-agnostic correctness.** The guarantees that
   hold at the dispatcher, around whichever verb was named, and are therefore owned
   here for the *whole* command set rather than per command: boolean flags parse as
   boolean and do not swallow following positionals; in `--json` mode stdout carries
   only the single JSON document, with render/bootstrap diagnostics routed to stderr
   and the pages-directory warning suppressed at its source on every verb; a
-  store-selecting flag reaches the render/serve a sub-command triggers; the render
-  path constructs an Astro container only for a page that needs one; and a command
-  that loads a declared runtime dependency refuses at dispatch when the installed
-  tree does not match the committed manifests.
+  store-selecting flag reaches the render/serve a sub-command triggers; the
+  launcher every command boots through configures a plain bundler SSR server, and
+  the render path names no build-transform specifier at all — no source file
+  reachable from any render names one, statically or dynamically, and no such
+  module resolves from disk; and a command that loads a declared runtime
+  dependency refuses at dispatch when the installed tree does not match the
+  committed manifests.
+
+  This last pair is REQ-150's form, and it is unconditional. REQ-89's earlier
+  conditional statement — "the render path constructs an Astro container only for
+  a page that needs one" — was retired when REQ-150 took Astro out of the
+  repository outright; a guarantee measured by observing one render was replaced
+  by one measured across every render path. See STORY-79 guarantees 4 and 5.
+- **Deployed-runtime capture — how a picture is taken when the taker is not a
+  laptop.** The injected browser seam the capture pipeline, the conformance
+  harness and the fidelity gate all already accept, and its second (cloud)
+  implementation: the session economics that seam forces — a leased browser, a
+  per-capture isolated context, release on every exit, one navigation per capture
+  — the named viewport presets and the refusal of an unrecognised one, the honest
+  reporting of a capture state the cloud path cannot actuate, and self-origin
+  fulfilment of our own access-gated preview so that a picture of the operator's
+  draft is the draft rather than a sign-in challenge. The capture preconditions
+  are one set for every capture path: a cloud capture and a laptop capture are
+  the same capture. This bullet and the "how a capture is taken is owned here"
+  ownership rule below state the same boundary; a reader working from Scope alone
+  should reach the same placement the rule does.
 
 ## Ownership rule: CLI mechanism here, verb meaning with the verb's capability
 
