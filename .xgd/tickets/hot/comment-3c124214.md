@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:57:11.576406+00:00'
+updated_at: '2026-09-09T19:59:28.432631+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -473,5 +473,11 @@ Creating the document now.
 Two things I recorded as your calls rather than mine, since you overturned my earlier positions: points clear on send (§4.7), and one point plus measurement subsumes drag (§4.8) — which is why drag-as-communication is now in §4.11 Out of scope.
 
 Ready to cut implementation tickets whenever you want. Items 1–3 are the ones that would have saved last night.
+
+<!-- xgd-turn id="162fbe79-7861-4013-8bdc-c0a8c8e0f3b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T19:59:27.902494+00:00" -->
+#### You
+What are the 5 open questions?
 
 <!-- xgd-chat-end -->
