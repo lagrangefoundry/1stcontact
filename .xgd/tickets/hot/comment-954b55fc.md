@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T16:30:03.420170+00:00'
+updated_at: '2026-09-09T16:32:29.362873+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -392,5 +392,33 @@ Want me to write this up as a follow-up ticket, and add the missing cross-turn c
 <!-- xgd-chat role="user" ts="2026-09-09T16:30:02.747804+00:00" -->
 #### You
 Yes, a 2x saving in token cost is worth the loss of DOC-22 architectural purity. Can you create an lf ticket to make this change and also have the ticket update DOC-22 to represent the new representation and explain why.
+
+<!-- xgd-turn id="580defb9-a952-49ee-8dc1-83473b6ff9f8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T16:32:29.165762+00:00" -->
+#### Claude
+Let me read DOC-22's relevant sections so the ticket amends the right thing.
+
+**REQ-144** created in lagrange-framework (`request-50149acb`), `draft`, priority `high`.
+
+> components/ai — deliver the per-turn tiers past the message history, not in front of it (amends DOC-22)
+
+**The change:** `system` keeps the assembled priming alone. The volatile (summary) and reminder tiers get appended to the final user message at request-build time — same text, same order, same point in the conversation, just after the history instead of in front of it.
+
+Three details that make or break it, all specified:
+
+- Applied at build time, **never written back** into stored history — otherwise turn 3 carries turn 1's stale signals.
+- The write breakpoint goes **before** the appended tail, not on it. Marking the reminder would cache a block guaranteed to differ next turn.
+- CLI backends unchanged. They have no `cache_control`, so there's nothing to buy — which makes the delivery channel backend-dependent, stated as an explicit fact rather than left to inference.
+
+**The DOC-22 amendment** is scope item 8 with six requirements of its own — amend §2's tier table (the Reminders row's Channel cell literally names the superseded channel), amend §6, record the measurement, record what was given up, and note that Anthropic's purpose-built mid-conversation `system` message would be the tidier home but needs Opus 5 / 4.8 / Fable 5, not the Sonnet 4.6 this backend runs.
+
+The framing I asked for on the "why": **Amendment V is generalised, not reversed.** It ruled "stable first, volatile last" and this does exactly that — applied to the whole request rather than to one segment of it, because the request is the unit the cache actually matches on. Amendment V optimised the largest prefix anyone had thought to cache at the time; once the history is cached too, the same principle points further right.
+
+**Ten acceptance criteria**, including the one REQ-143 lacked: *across two consecutive turns whose reminders differ*, the second turn's first request must read a cached prefix covering the first turn's history. That's the criterion whose absence let the gap through.
+
+One thing the ticket settles as a side effect: REQ-143's 1-hour TTL default. Extended-tier writes cost 2× against the short tier's 1.25×, so without cross-turn reads the 1h default is *worse* than 5 minutes (~$7 vs ~$5) — paying a premium for a lifetime it never collects. REQ-144 is what makes 1h correct rather than a pessimisation. If REQ-144 is going to sit in the backlog a while, drop the TTL to 5 minutes in the meantime.
+
+Still outstanding, and I'd suggest doing it before REQ-143 reconciles: REQ-143's body still reads as fully satisfied, so the in-turn-only limitation will disappear rather than become the follow-up. Want me to add a short "As shipped — the limitation this leaves" note to it pointing at REQ-144?
 
 <!-- xgd-chat-end -->
