@@ -6,9 +6,9 @@ title: 'Size-aware diffing: compare a captured site at a chosen viewport across 
   persisted ladder'
 created_by: xgd
 created_at: '2026-07-19T02:36:39.277949+00:00'
-updated_at: '2026-09-09T23:28:30.725349+00:00'
+updated_at: '2026-09-09T23:30:23.911340+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: updated_by
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -16,6 +16,8 @@ fields:
   story_kind: feature
   story_points: 3
   uat_coverage: fail
+  updated_by:
+  - bundle-ab9e0cb6
 ---
 
 ## Story
@@ -40,11 +42,18 @@ In scope:
 
 7. **`--collapse`: report per defect, not per cell** — a single real defect that reproduces at all six rungs is one defect seen six times, not six defects. `--collapse` deduplicates the cell rows down to one row per distinct defect, so the ×N-viewport multiplier stops inflating the count and the report's headline number is a count of things to fix. The un-collapsed cell view remains the default, because which rungs a defect appears at is itself diagnostic (a defect present only at the narrow rungs is a breakpoint problem, not a value problem).
 
-Out of scope: the standalone cross-size `responsive-diff` analysis command (separate story, builds on this one) — that command analyses ONE captured site across sizes and is not a reproduction-vs-reference comparison, where the `--multi-viewport` mode here is exactly a reproduction-vs-reference comparison repeated per rung; per-breakpoint reproduction dials; inferring CSS units or between-size transitions (REQ-61 fixes the objective at "looks the same at each discrete size"); the identity of the individual value axes being compared in each cell (STORY-75 owns those).
+8. **`--clusters`: rank the collapsed defects by cause, each with a disposition** — the layer above `--collapse`, and the one that makes a long report actionable. Collapsed defects are rolled up by the **cause** each evidences rather than by the property it fired on, because several properties are one cause: arrangement and containment are both *layout structure*; shape, border and outline are all *control styling*. Each cause carries its count, the worst tier any member reached, the set of widths it fires at, and a few representative elements, ranked count-first then worst-tier.
+
+    Each cause also carries a **disposition** — `fix` (a real, closeable gap), `review` (judge per case, typically structural), or `accept` (a capture artifact or sub-visual residual to sign off) — and the report summarises as "N counted defects roll up to M causes: X fix / Y review / Z accept". This is what turns a hundred-row diff into a handful of decisions: the operator makes one call per cause instead of per row. Two rules keep the roll-up honest: **derived axes are never counted** (a position delta is a consequence of some other defect, not a defect of its own, so counting it double-counts its cause), and **width scope is always shown**, so a cause that fires only at the narrow rungs is not read as an all-width one — the exact misreading the ladder-merged view would otherwise invite.
+
+    The cause taxonomy names STORY-75's value axes; the dispositions are the standing per-cause verdicts the noise audit reached (a reference webfont FOUT defaults to `accept` for the reason STORY-75 item 7 gives). A property with no taxonomy entry falls back to its own name at `review` rather than being dropped, so a newly added axis appears in the ranking the day it lands instead of silently vanishing from the count.
+
+Out of scope: the standalone cross-size `responsive-diff` analysis command (separate story, builds on this one) — that command analyses ONE captured site across sizes and is not a reproduction-vs-reference comparison, where the `--multi-viewport` mode here is exactly a reproduction-vs-reference comparison repeated per rung; per-breakpoint reproduction dials; inferring CSS units or between-size transitions (REQ-61 fixes the objective at "looks the same at each discrete size"); the identity, tolerance and severity of the individual value axes being compared in each cell, and whether any given delta is real (STORY-75 owns those — this story owns which reference cell each comparison runs against, and how the resulting deltas are ordered, counted and grouped for reading).
 
 ## Technical Context
 - Shares the `mobile|tablet|desktop` viewport vocabulary already used by the shot/viewport preset system; the same vocabulary is reused by the downstream `responsive-diff` command.
-- The values-diff reference at a size comes from the persisted multi-viewport ladder; a single deterministic reference cell is chosen per width (prefer the primary engine at rest). The ladder persistence and the `--multi-viewport` diff mode landed under REQ-58 (T2/A) and are owned by this story; the `--collapse` per-defect reporting layer over that mode landed under REQ-64.
+- The values-diff reference at a size comes from the persisted multi-viewport ladder; a single deterministic reference cell is chosen per width (prefer the primary engine at rest). The ladder persistence and the `--multi-viewport` diff mode landed under REQ-58 (T2/A) and are owned by this story; the `--collapse` per-defect reporting layer over that mode landed under REQ-64, and the `--clusters` cause view over *that* landed under REQ-76.
+- **The three reporting views are one stack, which is why they are one story.** Cells (`--multi-viewport`) → defects (`--collapse`) → causes (`--clusters`): each consumes the previous one's output, and each exists to remove a different way the raw cell count misleads. Cells inflate by the viewport multiplier; defects inflate by the property multiplier (one cause firing on three properties); causes are what an operator can actually decide about. Splitting them across stories would separate a function from the collapse it calls on its first line.
 - Generalizes the single-fixed-width comparison this capability (CAP-63, 1c Capture & Diff Fidelity) started from, in two directions: to a caller-chosen width via `--size`, and to the whole ladder at once via `--multi-viewport`. The per-element axes being compared in each cell are STORY-75's; this story owns *which* reference cell each comparison runs against and how the resulting cells are ordered and counted.
 - Divergence note for regression: both `--size` and `--multi-viewport` are optional and default to the legacy single-width path, so existing single-width diff behavior is preserved byte-for-byte when neither flag is present. `--multi-viewport` is a boolean toggle; that it parses as one rather than swallowing the following slug is STORY-79's argv guarantee, not restated here.
 
