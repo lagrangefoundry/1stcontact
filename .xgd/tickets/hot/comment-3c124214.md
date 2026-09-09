@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:18:10.853743+00:00'
+updated_at: '2026-09-09T20:20:34.631478+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -734,5 +734,49 @@ That closes Q2 completely, I think: the vocabulary, `measure`'s semantics, and n
 <!-- xgd-chat role="user" ts="2026-09-09T20:18:10.141376+00:00" -->
 #### You
 I like that! Please add it to your doc. Then we need REQ tickets for the work - how do you imagine splitting this?
+
+<!-- xgd-turn id="f627b02b-d55c-4864-90cf-44195d0a4def-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T20:20:33.860456+00:00" -->
+#### Claude
+DOC-52 updated — §5 added (~10k chars), sections renumbered, Q2 marked settled with a pointer from §3.4.
+
+## Proposed REQ split
+
+| | REQ | Covers | Depends on |
+|---|---|---|---|
+| **A** | SVG authoring guidance | §3.1 `tspan` runs, §3.2 real-font rule, §5.6 id convention | — |
+| **B** | Anchor vocabulary + `measure_drawing` + `relate` | §5.1–5.3, §5.4 (relate) | — |
+| **C** | `solve` | §5.4 | B |
+| **D** | `assert` on `write_image` | §5.5 | B |
+| **E** | Point resolution model | §4.6 | — |
+| **F** | Marked Points UI | §4.3–4.5, §4.7 | E |
+| **G** | `outline_text` | §3.5 | — |
+| **H** | `measure_page` | §3.6 | B |
+| **I** | L1 runs — schema + renderer | §3.7 | — |
+| **J** | L1 runs — fold recovery | §3.7 | I |
+| **K** | L1 runs — editor exposure | §3.7, Q3 | I |
+
+**Critical path for last night's failure: A → B → C.** E and F run in parallel with all of it — Marked Points shares nothing with the measurement work.
+
+## The reasoning behind the cuts
+
+**Why B bundles three things.** `relate` is about twenty lines on top of the resolution layer `measure` already needs, so splitting it buys a ticket and no isolation. The vocabulary *could* be its own REQ — the repo has precedent, `edit.ts`/REQ-117 is exactly a pure-contract ticket — but I'd rather state the placement requirement inside B: **the anchor set lives in a shared `site-schema` module, not inside the tool.** That gets the anti-drift protection H needs without a third ticket.
+
+**Why C is separate from B.** It returns a *write instruction* rather than an observation, and it carries the root-space/local-space asymmetry (§5.4) which is the one genuine bug-factory in the design. That deserves its own tests and its own review.
+
+**Why D is separate.** It modifies a **write** op on a **different surface** (`l1-surface`, not `fidelity`), and it puts a browser into a path that today is a pure string scan. Different risk profile from anything else here, even though it's small.
+
+**Why E is separate from F.** E is the load-bearing part — the multi-frame resolution, the `<img>`-rect + viewBox inversion, the `near:` neighbourhood — and it's testable headlessly. F is overlay and composer work with entirely different testing needs. Contract-first matches how REQ-116/117 landed ahead of the editor.
+
+**Why I/J/K split three ways.** I is shippable alone: the AI can author runs and they render. J only matters for capture fidelity. K only matters for the human editor, and it's the one gated on Q3. Bundling them would make the largest item on the list a single unreviewable ticket.
+
+## Two things worth your call
+
+1. **A may not need the free-coding protocol at all.** It's description text in `l1-surface.json` — arguably configuration, in which case no branch and no UATs. If you'd rather treat surface text as code, it needs the full ceremony.
+
+2. **E delivers no user-visible value on its own.** If you'd prefer every REQ to ship something a user can see, merge E and F. I'd keep them apart, but it's a house-style question more than a technical one.
+
+Want me to create all eleven? I'd suggest A, B, C and E first, and hold G–K until the first four have landed and the vocabulary has met reality.
 
 <!-- xgd-chat-end -->
