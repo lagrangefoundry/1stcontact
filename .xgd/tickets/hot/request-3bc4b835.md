@@ -5,10 +5,10 @@ type: request
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: xgd
 created_at: '2026-09-01T00:50:39.990490+00:00'
-updated_at: '2026-09-02T23:17:43.460392+00:00'
+updated_at: '2026-09-09T17:03:17.116544+00:00'
 completed_at: null
-last_field_updated: body
-status: bundled
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
