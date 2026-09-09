@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-09T23:45:28.744945+00:00'
+updated_at: '2026-09-09T23:50:33.519863+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,13 @@ Output-cap truncation is the leading explanation and fits the ~45s-per-attempt t
 Also newly found on the capture side: one `capture_site` does four separate navigation passes and only the first is inside the retry loop.
 
 Defect A's source is `lagrange-framework` — different ticket store, needs its own ticket. Defect B is local to this repo. Want me to file the framework ticket and start on either?
+
+<!-- xgd-turn id="fac5a93f-dc96-49e7-947e-f29f13bc1e75-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T23:50:33.291354+00:00" -->
+#### You
+Was it using the webfetch or the capture tool - the latter is ours so e could at least try both of www.foo... and foo..., right?
+
+lets talk about the bug 4k tokens sounds small. Does L1 require a full rewrite every cycle or does it permit partial updates?
 
 <!-- xgd-chat-end -->
