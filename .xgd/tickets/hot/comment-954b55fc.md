@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T15:44:42.145642+00:00'
+updated_at: '2026-09-09T15:47:07.946746+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -234,5 +234,57 @@ ok REQ-143 has been implemented - can you check to see if it matches what you ex
 <!-- xgd-chat role="user" ts="2026-09-09T15:44:41.689843+00:00" -->
 #### You
 ok REQ-143 has been implemented - can you check to see if it matches what you expect?
+
+<!-- xgd-turn id="6daefbc6-47b5-45fb-b864-8b9d7f77cf9f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T15:47:07.629809+00:00" -->
+#### Claude
+Reviewed. The implementation is uncommitted in the `free-REQ-143` worktree (~2,100 lines, JS + Python + conformance). Status is `free_coding`, `fields.commits` unset — protocol steps 4/5 still outstanding.
+
+## It matches, and in two places it's better than what I asked for
+
+All six scope items and all eight ACs are implemented. **JS: 739/739 pass**, including the 17 new REQ-143 UATs. (Python I could not run — the xgd venv's installed `lagrangefoundry` shadows `PYTHONPATH`, and `uv` is blocked by the sandbox cache path. I read the Python side instead: full parity, same functions, same constants.)
+
+Two things they got right that I hadn't specified:
+
+- **Budget read off the *built* system, not predicted.** `breakpointCount(system)` counts actual emitted markers, because `cacheBreakpoints` silently drops offsets that can't mark a prefix — so an assembly configured for 3 may emit 1 and leave 3 slots the history is entitled to.
+- **TTL uniformity is forced by an API rule I didn't know to state.** Longer-TTL entries must precede shorter-TTL ones in a request, and system always precedes messages — so a per-half TTL would be a per-half way to build an invalid request. Hence one `cacheControl(ttl)` for both halves.
+
+Usage capture folds `message_start` (input) *and* `message_delta` (settled output), and reads before the abort check so an interrupted turn still reports what it was billed for. The OpenAI wire got the same four counters, with `prompt_tokens` normalised by subtracting cached so `input_tokens` means the same thing on both wires. That's beyond scope and correct.
+
+## One structural gap — and it's my spec's fault
+
+**Cross-turn message caching will not hit on your workload.**
+
+`systemBlock` composes `[baseSystem, volatile, reminder]` with volatile and reminder **last** — deliberately, per DOC-22 Amendment V, to protect the *system* breakpoints sitting in front of them. But `messages[]` comes *after* `system` in the cache prefix. When the reminder changes, every message breakpoint from the previous turn dies.
+
+And 1stcontact's reminders change nearly every turn. `priming.json` registers three dynamic providers — `site.line`, `site.changes` (the counter delta), `corpus.delta` — and host-core.ts pushes fresh signals per turn by design. On a session where `set_l1`/`write_image` ran on most turns, that's most turns.
+
+Re-modelled on the same measured session:
+
+| | |
+|---|---|
+| Today | $17.13 |
+| **As I projected** (cross-turn hits) | **$2.90** |
+| **As implemented** (in-turn only) | **$6.88** |
+
+Still a 2.5× win — just not the 5–7.5× the ticket claims. And there's a sting: in the in-turn-only regime the 1h TTL is *worse* than 5-min ($6.88 vs $5.08), because you pay the 2× extended-write premium repeatedly and never collect the long-lived read it buys.
+
+The UATs can't catch this — every one exercises a single turn. The linear-growth test measures a 41-round-trip loop, which is the single exchange in the session that had 41 tools; the other 14 had 1–10, and the test's own comment notes a short loop "barely amortises the write."
+
+To be clear about where the miss originated: my AC read *"on a session's second and subsequent requests **within a turn**."* I never wrote an AC about the second *turn*. They built what I specified.
+
+## Fixing it
+
+- Move volatile+reminder out of `system` into the tail of `messages[]` — after the read breakpoint, inside the write. Works on any model, but contradicts Amendment V, so it's a design decision.
+- Anthropic's mid-conversation `{role: "system"}` message exists for precisely this, but it's Opus 5 / Opus 4.8 / Fable 5 / Mythos 5 only — **not** Sonnet 5, and this backend defaults to `claude-sonnet-4-6`. Not available without a model change.
+- Interim: keep the 5-min TTL until cross-turn hits work. Strictly cheaper in the current regime.
+
+## Minor
+
+- **No Python `usage_capture` UAT.** JS has 10; the Python implementation is complete but untested. AC 6/7 are JS-only in coverage terms.
+- `state.cachedThrough` advances before the retry loop — correct for rate-limit retries, but if the request ultimately throws, the next one marks a boundary never written. Self-healing (one extra write), worth a comment rather than a fix.
+
+Want me to add the missing cross-turn AC to REQ-143's body? That's the reconciliation-relevant move — without it the ticket reads as fully satisfied, and the gap disappears rather than becoming the follow-up it should be.
 
 <!-- xgd-chat-end -->
