@@ -346,6 +346,20 @@ describe('story-16f2793c — capture persists per-width reference screenshots', 
       expect(existsSync(ladderScreenshotPath(bundleDir, vp.width)), `screenshot-${vp.width}.png present`).toBe(true)
     }
 
+    // The ladder is a capture-time artifact: the per-element VALUE manifest is
+    // persisted at every rung, not at the default width alone — that is what gives
+    // `--size` and `--multi-viewport` a reference cell at each width to pair against.
+    const persistedWidths = new Set(res.multiState.projections.map((p) => p.viewport.width))
+    for (const vp of RESPONSIVE_VIEWPORTS) {
+      expect(persistedWidths.has(vp.width), `value manifest projected at ${vp.width}`).toBe(true)
+    }
+    // …and each such projection carries a per-element value manifest, not just a
+    // viewport stamp, so there is something at that rung to diff against.
+    for (const vp of RESPONSIVE_VIEWPORTS) {
+      const atWidth = res.multiState.projections.filter((p) => p.viewport.width === vp.width)
+      expect(atWidth.every((p) => Array.isArray(p.manifest.elements)), `manifest at ${vp.width}`).toBe(true)
+    }
+
     // The persisted value matrix carries no embedded image bytes…
     const matrix = readFileSync(path.join(bundleDir, 'multistate.json'), 'utf8')
     expect(matrix).not.toContain('IMGBYTES')
