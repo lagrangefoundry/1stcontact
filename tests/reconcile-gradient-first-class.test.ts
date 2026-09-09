@@ -151,5 +151,15 @@ describe('story-82eb6908 — gradients as a first-class value', () => {
       panelGradient: 'not-a-gradient',
     })
     expect(notAnObject.some((e) => e.field === 'panelGradient')).toBe(true)
+
+    // REQ-114 retired the module-level palette-role alias, so a role-valued stop
+    // is REJECTED like any other non-literal colour — every stop is routed through
+    // the same colour rule, and the error names that stop's own colour field.
+    const roleStop = validateModuleContent(gradientMeta, {
+      panelGradient: { angleDeg: 'to-br', stops: ['#f1f5f9', 'accent'] },
+    })
+    expect(roleStop.some((e) => e.field === 'panelGradient.stops[1].color')).toBe(true)
+    // ...and only that stop: the hex one beside it still passes.
+    expect(roleStop.some((e) => e.field === 'panelGradient.stops[0].color')).toBe(false)
   })
 })
