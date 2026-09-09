@@ -6,7 +6,7 @@ title: 'The AI can measure a drawing: an anchor vocabulary, geometry that answer
   relationships, and a write that verifies itself'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:52.609301+00:00'
-updated_at: '2026-09-09T23:00:13.568433+00:00'
+updated_at: '2026-09-09T23:47:19.865274+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -268,10 +268,15 @@ the one thing an advisory check must never look like.
 
 ### What the measurement does not hand over
 
-The current attribute values and the local-to-root scale that `solve` works from
+The current attribute values, the local-to-root scale that `solve` works from,
+whether a rotation stands in the way, and each node's own path through the tree
 are **stripped before the model sees the measurement**. They are how the
 arithmetic is done, not something to do arithmetic with, and every field a model
-can see is a field it will try to reason from.
+can see is a field it will try to reason from. The path is carried on the node
+rather than read back out of the walk that produced it: a composed run's ink is
+the union of the runs inside it, the nesting is what says which those are, and
+recovering it by position would go quietly wrong the moment a node with no
+measurable box was passed over.
 
 ### How the browser is asked
 
@@ -312,5 +317,10 @@ authored, ink against advance measured rather than fixtured, per-glyph extents, 
 node with no `id` under its path, an empty node flagged, the cap-height ratio
 landing on a capital's real ink top, a platform-dependent font stack reporting a
 `requested` ≠ `resolved` mismatch, an absent family falling through to its
-fallback, and a nested transform resolved away. It reports loudly and skips when
-no browser can be launched.
+fallback, and a nested transform resolved away.
+
+Where no Chromium can be launched — none installed, or an OS sandbox that refuses
+to let one start — every case in that file **marks itself skipped with the
+reason** rather than passing on an empty body. A green tick standing in for a
+measurement nobody took is indistinguishable from evidence, which is the one
+thing the only test of the geometry must never look like.
