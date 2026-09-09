@@ -5,10 +5,10 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-09-02T17:48:27.176999+00:00'
+updated_at: '2026-09-09T17:03:12.041732+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 13
