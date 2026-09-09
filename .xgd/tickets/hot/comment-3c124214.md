@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T17:33:34.596839+00:00'
+updated_at: '2026-09-09T18:09:58.770023+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -132,5 +132,23 @@ I'd lean `interact.js` for the invariant.
 0 and 1 together would have turned last night's 17 minutes into about two exchanges.
 
 Want me to write up 0 as a docs change now, and/or open tickets for 1–2? (I'll keep everything on CHAT-49 unless you tell me otherwise.)
+
+<!-- xgd-turn id="a4fbf340-a8bd-495f-865b-ed8a48bd01dd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T18:09:58.462777+00:00" -->
+#### You
+**And an honest tension.** DOC-46 and DOC-33 are emphatic that the client answers questions about their business and *never* drags a block or picks a font — "no templates, and nothing for you to design either." A vector nudger is a designer tool. I think this is most valuable as an **operator/builder** capability (you, building 1st Contact's own site) and much weaker as a client-facing one. Worth deciding which audience it's for before it's built, because that changes the UI a lot. <-- we start out with principles, and then we learn. I have to say it was a very painful experience last night trying to describe the changes that I wanted to the logo and having Claude fumble again and again failing to get is even close to what I was asking for. So I agree you changes could help with that but I am thinking about this as a communication problem as well as an AI visibility problem. "Move the ST a little closer to the 1" <-- what is meant by a little? You don't have to do very many iterations of this game before it becomes frustrating, if I could just move the ST to where I wanted it to be I wouldn't need to address that complex language challenge.
+
+So, obviously we need to allow the AI better visibility, and give it better instructions on how to handle this situation. 
+  - the AI said that it could not change font within a text string so 1 {superscript, coral}st{/superscript,coral} Contact could not be represented. Is that true? Ist is something we should consider fixing?
+  - alignment is critical - once we give the AI tools for understanding size and position properly can we get it to align things correctly
+
+On the communication problem - some thoughts:
+ - direct manipulation could just be for communication - AI has final say and can fix alignments etc, user manipulation is to help the AI understand
+ - alternative - perhaps a mode with a translucent grid overlay so I can literally tell the AI "three squares closer to the 1, 4 squares higher"
+ - alternative - user can point with the mouse and capture the coordinates to the chat - "PLease put it here"
+ - alternative - user can draw free hand with the mouse and reference the drawing
+ 
+The pointer capture seems the most straightfoward - perhaps in combination with the grid? Both of these could be valualbe beyond vector graphics to discuss spacing and padding issues
 
 <!-- xgd-chat-end -->
