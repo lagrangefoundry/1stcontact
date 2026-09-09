@@ -5,10 +5,10 @@ type: bundle
 title: REQ-155 + BUG-40 + REQ-160 + BUG-41 + BUG-42 + 3 more
 created_by: xgd
 created_at: '2026-09-09T00:17:23.326690+00:00'
-updated_at: '2026-09-09T00:19:03.060568+00:00'
+updated_at: '2026-09-09T04:18:05.943148+00:00'
 completed_at: null
 last_field_updated: status
-status: reconciling
+status: ready_to_reconcile
 fields:
   commits:
   - working_sha: 835230e1bd60b8c2dbd2d681962a4a9ac78abdb7
