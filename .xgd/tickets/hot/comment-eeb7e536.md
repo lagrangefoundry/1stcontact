@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T17:48:44.805033+00:00'
+updated_at: '2026-09-09T18:17:33.000938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -212,5 +212,15 @@ Want me to write this up as a DOC ticket now that the shape is clearer?
 - [Set up apex proxying · Cloudflare for Platforms docs](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/apex-proxying/setup/)
 - [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 - [Is there a limit to how many domains I can add for DNS on the free plan? — Cloudflare Community](https://community.cloudflare.com/t/is-there-a-limit-to-how-many-domains-i-can-add-to-my-account-for-dns-with-the-free-plan/501353)
+
+<!-- xgd-turn id="fa790da3-81db-4209-8665-0151899a8d40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T18:17:32.958776+00:00" -->
+#### You
+On email - a part of our solution is monitoring - we should devise checks to ensure email send and receive is correctly routing.
+
+I have lost track of A and B at this point - can you summarize what you are proposing the solution to be?
+
+I'm uncomfortable with any solution in which www.mybiz.com goes to a page, but mybiz.com says "This site is not yet set up - would you like to buy this domain?" - that just doesn't feel like its really a solution - if we take that off the table where are we left?
 
 <!-- xgd-chat-end -->
