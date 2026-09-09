@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T18:09:58.770023+00:00'
+updated_at: '2026-09-09T18:12:12.560202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,116 @@ On the communication problem - some thoughts:
  - alternative - user can draw free hand with the mouse and reference the drawing
  
 The pointer capture seems the most straightfoward - perhaps in combination with the grid? Both of these could be valualbe beyond vector graphics to discuss spacing and padding issues
+
+<!-- xgd-turn id="a4fbf340-a8bd-495f-865b-ed8a48bd01dd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T18:12:12.450123+00:00" -->
+#### Claude
+Let me check the inline-formatting claim against the schema before answering it.
+
+You're right, and I'd go further than conceding the point: the reframe changes what should be built.
+
+"Move the st a little closer" fails because *a little* is a continuous quantity with no efficient encoding in language. Every iteration is a lossy round trip — your intent → words → my guess → render → your perception → words — and nothing in that loop converges, because no step carries a number. Thirteen iterations wasn't the AI being dim; it was a channel with no bandwidth for the thing being communicated.
+
+The principle that falls out: **your hand is a better encoder of position than your vocabulary, and the machine is a better encoder of alignment than either.** You say *roughly there, that feels right*; the AI says *exactly cap-aligned to 0.1 units*. Neither is good at the other's job. That division is worth building around, and it's precisely your "AI has final say" idea.
+
+---
+
+## Your two direct questions
+
+### Can't the AI do `1 {coral,superscript}st{/} Contact`?
+
+**In L1 page text: true, it can't.** `packages/site-schema/src/l1/schema.ts:1098`:
+
+```ts
+export const l1TextSchema = z.object({
+  kind: z.literal('text'),
+  text: z.string(),          // ← flat string
+  axes: l1TextAxesSchema.optional(),   // ← apply to the whole run
+  …
+}).strict()
+```
+
+One string, one set of axes, `.strict()`. No runs, no spans, no inline vocabulary.
+
+**In SVG: false.** `<tspan>` does exactly this and the validator already accepts it — that's the `{ ok: true }` I ran last night's markup against. So the AI was reasoning about L1 and applied the conclusion to a surface where it didn't hold.
+
+**Should we fix L1? Yes, and it's bigger than the logo.** Right now the only way to get one coloured word in a headline is three text nodes positioned absolutely — which is the exact trap that ate last night, except on the page it's worse: absolute positioning of text fragments is fragile at every breakpoint and breaks the moment copy reflows. So "no inline runs" isn't a missing typographic nicety, it's a latent structural hazard that pushes the AI toward brittle geometry for something as ordinary as an ordinal or an emphasised word.
+
+The contained version: `text` accepts either a string (unchanged — every existing document stays valid) **or** a one-level array of `{text, axes?}` runs, where run axes are a narrow subset — fill/palette ref, size scale, weight, baseline shift. No nesting, no links inside runs. That keeps the schema closed.
+
+The real cost isn't the schema, it's the blast radius: the renderer emits spans, the fold has to *recover* runs from captured HTML, `probes.ts` text estimation changes, and DOC-28 §3's exposure rule ("a plain string or a pick from a closed list") needs an answer for multi-run copy. Simplest honest answer for the editor: one field per run.
+
+Worth noting these two fixes don't compete — for a **logo** you want outlines anyway (portability); for **page copy** you want runs. Different surfaces, different answers.
+
+### Will telemetry actually get alignment right?
+
+Partly — and the distinction matters more than I gave it credit for. **Numbers let you *verify* alignment. Font metrics let you *solve* it.**
+
+Bounding boxes alone still leave the AI nudging and re-checking. But cap-height alignment has a closed form. Given the font's capHeight ratio:
+
+```
+top("1")  = baseline₁  − capHeight × 62
+top("st") = baseline_st − capHeight × 20
+⟹ baseline_st = baseline₁ − capHeight × (62 − 20)
+```
+
+One equation. Exact. No iteration, no screenshot. That's a completely different activity from `y=40 → y=44 → let me look again`, and it's the strongest argument for exposing **font metrics**, not just boxes — which `outline_text` gives for free and `measure_drawing` should report too.
+
+The honest caveat: that still bakes in a number, and it's wrong again the moment the font or size changes. So the durable shape is that the AI *recomputes from metrics* whenever anything changes, and measurement becomes a **check**, not a discovery.
+
+Which suggests the measurement tool should answer *relational* questions, not just dump geometry. Forty bounding boxes is a lot of tokens to reason over; `capTop delta = 2.4u` is one number and directly actionable. I'd support both — boxes for exploration, an assertion form (`are these cap-tops level, ±0.5u?`) for verification.
+
+---
+
+## The communication channel
+
+Ranking your four, and I disagree with you on one:
+
+**1. Pointer capture — yes, and it's mostly already built.**
+
+The edit bridge (`packages/framework/src/l1/edit-client.ts:105`) already resolves a click to `{moduleId, slot, path}` plus the element — the genuinely hard part, including the module/slot address-space scoping. It just hands that to a modal instead of to the chat. The event already carries `clientX/clientY`; the offset within the resolved element is `clientX − element.getBoundingClientRect().left`. Two lines.
+
+The design decision that actually matters is **what space the coordinate is reported in**. Raw viewport pixels are nearly useless to me. It has to be resolved against what's under the cursor:
+
+> *point is inside asset `wordmark-option-a.svg` at user-space (31.2, 24.8)*
+> *point is inside L1 node `0.1.2`, 12px from its left edge, at viewport width 375*
+
+That resolution is what makes it actionable rather than one more number to guess with — and it's what already exists. This is the cheapest thing on the list by a wide margin and the most general: it works on any surface, not just drawings.
+
+**2. Drag-as-communication — the natural second step, and cheaper than I implied last time.**
+
+Instead of a point, send a delta: *this node, moved by (−4, +2)*. Your "AI has final say" framing is what makes this cheap: it sidesteps DOC-28 §7.3 entirely, because you're not editing structure, you're **specifying intent**. No write path, no diff, no validation, no re-render — the gesture produces a *message*, not a mutation.
+
+And note: for L1 nodes this needs **no renderer change at all**, because you're dragging a ghost outline and reporting the delta, never moving the real element. Only the SVG-internals case needs the inline-SVG edit channel.
+
+**3. Grid overlay — I'd rank this below where you put it, for one specific job, and endorse it for another.**
+
+As a *positioning* channel it's dominated by pointing: "three squares closer" makes you do a quantisation in your head, and it only means anything if I know the square size — so it's pointer capture with a lossy human-performed rounding step inserted. Pointing is strictly less work for you and strictly more precise.
+
+But your instinct that it's valuable beyond vector graphics is right, for a different job: **reading off and discussing spacing that already exists.** *"This gap is three squares, that one is five — make them match."* That's a genuine gap in the current tooling and it's about your eye, not mine — once `measure_page` exists I won't need a grid to measure, but you will still want one to *see* an inconsistency you can't currently name. Build it as a measurement and discussion aid, not as a position-specification mechanism.
+
+**4. Freehand — most expressive, most ambiguous, third priority.**
+
+Good at what language and pointing are both bad at: *this shape*, *curve it like this*, *this area is wrong* — circles and arrows on a screenshot. Real value, but it's annotation and critique, not precise positioning, and it costs an image round trip, which is the expensive channel. Worth having eventually; not the thing that fixes last night.
+
+---
+
+## Where that leaves the plan
+
+| | |
+|---|---|
+| **0.** `tspan` + real-font docs | free — kills the guessing for text marks today |
+| **1.** Pointer capture into chat | small — reuses the edit bridge; helps everywhere, not just SVG |
+| **2.** `measure_drawing` + font metrics + an alignment assertion | small–medium — turns nudging into arithmetic |
+| **3.** `outline_text` | medium — exact *and* portable wordmarks |
+| **4.** L1 inline runs | larger — fixes a latent hazard well beyond logos |
+| **5.** Drag-as-communication | medium — natural successor to 1; no renderer change for L1 nodes |
+| **6.** Grid overlay (as a spacing-discussion aid) | small–medium |
+| **7.** Freehand annotation | medium |
+
+0 + 1 + 2 together would have turned last night into two or three exchanges, and none of the three is large.
+
+Shall I write this up into the CHAT-49 body now? That's a document change, so no branch needed — and then we can cut tickets off it for whichever of 1–3 you want to start with.
 
 <!-- xgd-chat-end -->
