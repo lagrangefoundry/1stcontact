@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T18:58:10.240228+00:00'
+updated_at: '2026-09-09T18:59:42.414269+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -355,5 +355,71 @@ Second pill - the problem that I am trying to solve for here is the following. I
 Dragging the x to update it - ok
 
 Suggestion: an **unsent** pill's point clears on re-render (it's a live reference and the thing it referenced moved); an **already-sent** pill keeps its literal coordinates forever, because that's history and it's fine. <-- I was actually expecting that a pill lasts for a single turn - as soon as you hit send the points clear and you start over next turn - I guess keeping them and dragging them is interesting and perhaps better
+
+<!-- xgd-turn id="6e0af957-3efb-4bd1-a7fb-4d394b7ebc40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T18:59:42.028679+00:00" -->
+#### Claude
+Taking these in turn — you're right on two of them and I'd change my earlier position on both.
+
+## Coordinate frames, and the variable that's actually load-bearing
+
+Report all the frames, agreed. On the extra variables, only some earn their place:
+
+- **Viewport width — essential.** L1 geometry is keyframed across six widths with `interpolate`/`snap` segments, so a point at 375 means something different at 1200. Without the width the pill is unreadable.
+- **Document coordinates, not client.** Report position relative to the document, and scroll position stops mattering at all rather than becoming a third number to carry.
+- **Which render it was taken against.** Needed for staleness — see below, where it turns out to matter less than I thought.
+- **Device pixel ratio — no.** User space is already CSS px; DPR adds a number nobody divides by.
+
+There's a subtlety the width exposes, and it's the same fault line as before:
+
+- A point **inside a drawing** is width-independent. The SVG has one coordinate space, no breakpoints. "Put the cap-top here" has exactly one meaning and one fix.
+- A point **on an L1 node** is width-dependent. If you mark at desktop and say "move it here", you might mean *at this width* or *at every width* — and those are different edits to different keyframes.
+
+So the feature is unambiguous for drawings and genuinely ambiguous for page layout. Not a blocker — I should just ask when it's the second case, and the pill carrying the width is what lets me know to ask. Worth building in as a rule rather than discovering it later.
+
+One implementation contract while we're here: the preview iframe is currently **unscaled** — I checked, `previewScale` in `page-style.js` is about font preview in the modal, and there's no transform on the iframe. Point capture depends on that. If a "fit to pane" zoom ever gets added, click coordinates need un-scaling or every point silently lands in the wrong place.
+
+## You're right about A — and further than you said
+
+Redundant, yes. And the argument doesn't stop there: **one point plus measurement subsumes drag-as-communication entirely.** A drag is a delta; a delta is source-plus-destination; the source is always something I can measure. So all I ever need is the destination. That kills the drag feature I was still holding a slot for, by your own reasoning.
+
+Where two points genuinely earn their keep is not deltas but **extents and equalities**:
+
+- *"The underline should run from here to here"* — an extent. Two points, neither redundant. That's exactly last night's `x1="80" x2="240"`, hardcoded and wrong at both ends.
+- *"Make this gap match that gap"* — four points, no object being moved at all, nothing measurable substituting for any of them.
+
+So: keep multiple points, drop the delta as the motivating story.
+
+## The deleted-pill problem — I misread step 5
+
+That's a real failure and a common one; text fields eat chips on backspace. Your `+` is the right shape and it's better than my objection, because it separates the intents cleanly and removes the hit-tolerance problem I was actually complaining about. So: **`x` deletes the point, `+` re-inserts a pill, dragging the X body moves it.**
+
+Two things I'd add underneath it, because the `+` is treating the symptom:
+
+- **Make the pill atomic.** One backspace removes the whole chip, never part of it. That's standard chip behaviour and it prevents the mangled half-pill state entirely.
+- **Make composer deletion undoable.** Ctrl-Z is what you'll actually reach for in that moment, before you think to look back at the page for a `+`.
+
+With those two, `+` stops being recovery machinery — but I'd still keep it, because it independently serves *"move this to A, and align that to A too"*: one point, two references, in one message.
+
+Cheap safety net on top: since the chip reads "Point A", let typing `Point A` re-resolve to it. Costs nothing if the matching is lenient.
+
+## Lifetime — your instinct is better than mine
+
+Clear on send. I proposed the more complicated thing and it isn't worth it.
+
+The reason is that persistence only pays when the marked point stays valid across the turn, and in your actual loop it almost never does: you mark it *because* you want that thing to move, then it moves. So you'd be re-placing points anyway, while we'd be carrying the whole re-projection apparatus — anchor to node plus offset, re-project after render, invalidate when the node vanishes — to serve the minority case where you marked something you weren't changing.
+
+Clearing on send makes that entire category of design problem disappear. Sent pills keep their literal coordinates in the transcript, which is just history and needs no machinery at all.
+
+Dragging still earns its place *within* a turn — your first placement is usually approximate, and nudging the X beats delete-and-replace. It just doesn't need to survive the send.
+
+One optional nicety: keep the cleared Xs visible but greyed until the new render lands, so you can still see what you referred to while the answer is coming. Small, and it doesn't reintroduce staleness because they're already inert.
+
+---
+
+That leaves the spec in decent shape: multi-frame pills carrying viewport width, points that are single-turn, `x`/`+`/drag on the label, and the width-ambiguity rule for page nodes.
+
+Shall I write it up into CHAT-49 now? Document change, no branch — and it'd give us the thing to cut implementation tickets from, starting with the `tspan` docs fix and pointer capture, which are the two that would have saved last night.
 
 <!-- xgd-chat-end -->
