@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T18:39:17.925847+00:00'
+updated_at: '2026-09-09T18:58:10.240228+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -341,5 +341,19 @@ You're pointing at *"the top of the t"* — a feature, approximately. If the pil
 The remaining gap is keyboard-only users, who can't place a point at all. Acceptable for this feature, as long as pointing never becomes the *only* way to express a position.
 
 Want me to write this up into CHAT-49 as a UX spec — your sketch plus the resolution model, the anchoring/staleness rules, and the pill format? That's a document change, so no branch needed, and it'd give us something to cut implementation tickets from.
+
+<!-- xgd-turn id="6e0af957-3efb-4bd1-a7fb-4d394b7ebc40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T18:58:09.637014+00:00" -->
+#### You
+I understand we need to define coordinates, but as your example suggests we could provide multiple coordinate systems. There are other variables to such as the browser window size that we could include and may be necessary.
+
+Move st from A to B <-- A is redundant in that story - why do I need to tell you where st is now? But yes multiple points can provide flexibility
+
+Second pill - the problem that I am trying to solve for here is the following. I click on the page pointer appears and the pill appears in my message. I start typing. I make a mistake and delete some words accidentally deleting the pill – oops. What do I do now the X is positioned on the page but I have no pill how do I refer to it? The idea was that a second click on the same ex would generate a duplicate pill to deal with the situation where I accidentally deleted the first one. We could provide another control in the label to do this - a + as well as an x
+
+Dragging the x to update it - ok
+
+Suggestion: an **unsent** pill's point clears on re-render (it's a live reference and the thing it referenced moved); an **already-sent** pill keeps its literal coordinates forever, because that's history and it's fine. <-- I was actually expecting that a pill lasts for a single turn - as soon as you hit send the points clear and you start over next turn - I guess keeping them and dragging them is interesting and perhaps better
 
 <!-- xgd-chat-end -->
