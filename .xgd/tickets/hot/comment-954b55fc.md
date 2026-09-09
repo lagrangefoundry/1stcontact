@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T16:22:21.245987+00:00'
+updated_at: '2026-09-09T16:22:52.537944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -294,5 +294,97 @@ Want me to add the missing cross-turn AC to REQ-143's body? That's the reconcili
 Sorry WAY too much detail - it sounds like you have a fix but it involves moving some repeated content from the system prompt to the message prompt?
 
 Can we take a step back. I would like you to explain how the caching system works and in particular how it interacts with the system and user prompts and then help me understand (1) what REQ-143 actually delivered and (2) how you can improve it?
+
+<!-- xgd-turn id="82fc4f7c-c236-4e88-8c7b-0c1c87a77b99-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T16:22:52.180980+00:00" -->
+#### Claude
+# How prompt caching works
+
+Every request you send is one long sequence:
+
+```
+[ tools ] [ system ] [ messages ] → model
+```
+
+The cache is a **prefix match**. Anthropic hashes that sequence from the start and finds the longest stored prefix that matches byte-for-byte. Two consequences follow, and everything else is detail:
+
+- **A change invalidates everything *after* it, not before it.** Change one character at position 50,000 and positions 0–49,999 still come from cache; 50,000-onward is paid fresh.
+- **Order is destiny.** Anything that changes often should sit as late in the sequence as possible.
+
+You mark where the cache may stop with `cache_control` breakpoints — up to 4. Pricing:
+
+| | cost |
+|---|---|
+| normal input | 1× |
+| cache **read** | 0.1× |
+| cache **write**, 5-min | 1.25× |
+| cache **write**, 1-hour | 2× |
+
+So caching pays when content is written once and read many times.
+
+## The thing that makes it expensive here
+
+A tool-using turn is not one request. After every tool result the backend calls the API again, resending the whole conversation. Your 41-tool exchange was 42 requests. Uncached, the same history gets paid for 42 times — that's the quadratic curve.
+
+## Where system vs. messages bites
+
+Your system prompt is built as three parts, in this order:
+
+```
+[ baseSystem — priming, ~stable ] [ volatile — summary ] [ reminder — per-turn ]
+```
+
+Stable first, volatile last. That's deliberate, and it's *correct* for protecting the system prompt's own breakpoints — the reminder can change freely without disturbing the priming cached in front of it.
+
+But the reminder is still **inside `system`**, and `messages` comes **after `system`**. So:
+
+> When the reminder changes, everything after it is invalidated — and that means the entire message history.
+
+Your reminder changes nearly every turn by design: it carries "the site moved under you" (a counter delta) and "the client's knowledge grew". Those are the signals that make it useful.
+
+# (1) What REQ-143 actually delivered
+
+It added rolling cache breakpoints to the message history, a 1-hour TTL, and token telemetry. Well built — all eight acceptance criteria met, 739/739 JS tests pass, Python at parity.
+
+**Within one turn, it works.** The 42 requests of a long tool loop now write history once and read it thereafter.
+
+**Across turns, it doesn't** — the changing reminder wipes the message cache at every turn boundary.
+
+Modelled on your measured session:
+
+| | |
+|---|---|
+| Before | $17 |
+| What I told you to expect | ~$3 |
+| **What it actually delivers** | **~$7** |
+
+Real, but 2.5× rather than 6×. Your session was one 41-tool exchange and fourteen short ones — so most of it lands on the side that doesn't cache.
+
+One footnote: in this regime the 1-hour TTL is actively *worse* than 5 minutes (~$7 vs ~$5), because you keep paying the 2× write premium for a long life you never get to use.
+
+**This gap is mine, not theirs.** My acceptance criteria said "second and subsequent requests *within a turn*." I never wrote one about the second *turn*. They built exactly what I specified.
+
+# (2) How to improve it
+
+**Move the reminder from the end of `system` to the end of `messages`.**
+
+That's the whole fix. Same text, same words, reaching the model at the same point in the sequence — but now it sits *after* the message history rather than in front of it:
+
+```
+before:  [tools][priming | reminder][history..............]   ← reminder change kills history
+after:   [tools][priming][history..............][reminder]   ← history stays cached
+```
+
+Now the only thing invalidated by a changing reminder is the reminder itself. Cross-turn caching starts working, and you get the ~$3 figure.
+
+Two caveats worth knowing before you decide:
+
+- It contradicts DOC-22 Amendment V, which put volatile content last *in the system block* for the original reason. This extends that same principle across the whole request — so it's a design decision, not a patch.
+- Anthropic has a purpose-built feature for exactly this (a mid-conversation `system` message), but it's Opus 5 / Opus 4.8 / Fable 5 only. You're on Sonnet 4.6, so it isn't available without a model change. Appending to the message tail works on any model.
+
+**Cheap interim:** drop the TTL back to 5 minutes. One word, saves ~$2/session, and costs nothing to reverse once cross-turn caching works.
+
+Want me to write this up as a follow-up ticket, and add the missing cross-turn criterion to REQ-143 so the gap doesn't vanish at reconciliation?
 
 <!-- xgd-chat-end -->
