@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:13:59.980468+00:00'
+updated_at: '2026-09-09T20:16:17.149549+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -666,5 +666,11 @@ Those are different spaces, and they have to be, because a node inside `<g trans
 - **`fonts[].resolved`** is how `system-ui` gets caught — a `requested` ≠ `resolved` mismatch is the signal, and it's visible without a screenshot.
 
 Want me to fold both this and the vocabulary into DOC-52 as the settled answer to Q2?
+
+<!-- xgd-turn id="3392b1b9-d04e-4408-bf36-ed42043d1f8b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T20:16:17.107461+00:00" -->
+#### You
+Measure can be used to check if solve delivered what was expected?
 
 <!-- xgd-chat-end -->
