@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T18:19:17.325865+00:00'
+updated_at: '2026-09-09T18:46:28.555408+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -304,5 +304,13 @@ One implementation note worth knowing early: **Workers can't do outbound SMTP**,
 ---
 
 Shall I write this up as a DOC ticket now? There's enough here — the single architecture, the decline case and its rationale, the Email Routing/Workspace branch, and the check list — that it's worth having somewhere durable before it scrolls away.
+
+<!-- xgd-turn id="e2e82044-0988-4694-bd9f-a161789f9161-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T18:46:28.434195+00:00" -->
+#### You
+**Email Routing cannot coexist with an existing mail provider.** It takes over MX for the whole domain, and Cloudflare blocks MX edits while it's on. <-- I don't understand this statement - what is the context? We have assumed that we control the nameserving, correct? So this is a scenario where the user has an existing email provider, we take their nameserving over and (correctly!) copy their configuration. You are saying that will keep their current email provider?
+
+We need to decide if we have to take over email provision or whether we can live with other third parties doing it - aside from configuration complexity I'm not sure how much we care?
 
 <!-- xgd-chat-end -->
