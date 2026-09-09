@@ -6,9 +6,9 @@ title: 'The project knowledge base: tenant-scoped corpus, incremental index, and
   map''s two triggers'
 created_by: xgd
 created_at: '2026-08-30T23:18:38.731734+00:00'
-updated_at: '2026-09-09T17:03:08.628765+00:00'
+updated_at: '2026-09-09T17:03:09.502052+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: bundled_in
 status: ready_to_reconcile
 fields:
   priority: high
@@ -21,7 +21,6 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.23
-  bundled_in: bundle-203b1dc2
 ---
 
 # The project knowledge base: tenant-scoped corpus, incremental index, and the map's two triggers
