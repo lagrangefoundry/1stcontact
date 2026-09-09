@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T18:37:19.076238+00:00'
+updated_at: '2026-09-09T18:39:17.925847+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -274,5 +274,72 @@ I'm not sure we have quite captured the UX here. Lets talk about the pointer, le
 5 - re-clicking on (or near enough to) a X creates another Pill in the chat.
 
 With this I can now construct a message: "Please raise the st so that the top of the t is at (Point A)" for example
+
+<!-- xgd-turn id="f036d8ca-1b09-4dac-abec-9ca1ff5bad60-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T18:39:17.738585+00:00" -->
+#### Claude
+Let me check one thing that bears directly on the design — where `screenshot` actually renders from.
+
+Good sketch — the core move is right, and one thing in it is better than you may realise. But there's a decision it doesn't make that determines whether the feature works at all, and I found a constraint that raises the stakes on it.
+
+## The constraint: I will never see your marks
+
+`screenshot` takes `kind: 'edit'` — *"the page as your user is editing it right now"* — but it renders **server-side**. Your red Xs live in your browser's overlay. They are not in the render, so no screenshot I take will ever contain them.
+
+That's good news twice over — the marks can't pollute `compare`, and they can't leak into fidelity gates. But it means **the pill text is the entire channel.** There's no fallback where I squint at an X. Whatever the pill expands to is all I get, so its contents are the design.
+
+## The decision the sketch doesn't make: what is a point *anchored to*?
+
+You wrote "it will give the actual coordinate info." Which coordinate? This is where it lives or dies.
+
+Say you mark the top-left of where you want the "t". If the pill expands to viewport pixels — `(142, 88)` — it's close to useless: I'm editing an SVG whose user space is `0 0 320 86`, drawn into an `<img>` at some size, inside an L1 node, at some viewport width. Raw pixels ask me to invert a transform chain I can't see. That's the same guessing game in a new costume.
+
+It has to resolve *through* the hit chain, and carry every frame at once, because I don't know in advance which one I need:
+
+```
+Point A — inside image node 0.1 (asset wordmark-option-a.svg)
+  svg user space: (31.2, 24.8)    [viewBox 0 0 320 86]
+  node-relative:  (58, 46) of 148×40
+  viewport:       (142, 88) at width 375
+```
+
+~40 tokens, unambiguous, and the first line is *directly* the number I'd write into `y=`. No arithmetic, no inference.
+
+**And the good news: the SVG line doesn't need the renderer change I was worried about.** You can't hit-test inside an `<img>` — but you don't have to. Given the img's rect, the asset's viewBox and `preserveAspectRatio`, user space is a pure scale-and-offset inversion. The server knows the viewBox. So pointer capture does **not** need inlined SVG in the edit channel, which takes the one expensive piece off the critical path.
+
+## The bit of your sketch that's better than you said
+
+**Two points are a vector.** "Move the top of the t from Point A to Point B" is a *delta*, expressed exactly, with two clicks. So the point tool already subsumes drag-as-communication — dragging becomes a convenience, not a separate capability. I'd drop it from the plan and let two points carry it.
+
+## Where I'd push back
+
+**Re-click for a second pill (your step 5).** I think this is the one weak joint. "On or near enough to" is a hit tolerance, and it fights directly with placing a *new* point close by — which is exactly what you'd do for a tight spacing question ("the gap between here and here"). It also overloads one gesture with two intents.
+
+I'd split them: **empty space = new point; the X itself (a small target, ~16px, not a generous radius) = re-insert that pill.** And make **dragging an X move the point**, updating any unsent pill. Dragging is more useful than re-clicking anyway, because your first placement is usually approximate.
+
+**The fade timer.** Time-based fades fire while you're still reading. Same benefit, better trigger: fade the label when the **pointer moves away from it**, or when the next point lands. No timer, no punishment for lingering.
+
+**Staleness — the one your workflow will hit.** Your loop is: mark → ask → I change the logo → ask again. After my change the page re-renders, and Point A is an X drawn over a page that no longer exists. Suggestion: an **unsent** pill's point clears on re-render (it's a live reference and the thing it referenced moved); an **already-sent** pill keeps its literal coordinates forever, because that's history and it's fine. Cheap, and it never silently lies.
+
+**Letter reuse** is fine — sent pills carry literal coordinates, so I won't be confused by two Point As. You might be, so show coordinates on pill hover. Minor, not a blocker.
+
+**Toggle vs. modifier-click.** Worth naming why the toggle wins: alt-click avoids a mode, but it's a power-user idiom, it's undiscoverable, and it doesn't exist on touch. Toggle is right. But note it **reassigns edit mode's primary gesture** — today click-to-edit opens a modal (`edit-client.ts:105` does `preventDefault()` then `onSegment`). If Mark Points is on and clicking the headline doesn't open its editor, that must be *obvious*: crosshair cursor, persistent visible state, and I'd keep the hover outlines on but dimmed, because knowing which element you're marking inside previews what the pill will say.
+
+## One addition I'd argue for
+
+Have the pill carry **what's near the point**, not just where it is:
+
+```
+  near: cap-top of "1" (2.1u above), left edge of "Contact" (17u right)
+```
+
+You're pointing at *"the top of the t"* — a feature, approximately. If the pill tells me there's a cap-height line 2 units away, I can recognise the intent and place it **exactly** on that line rather than at your approximate pixel. That's your "AI has final say" principle doing real work: you supply the intent, I supply the precision. It's also strictly better than snapping the X for you, which would be a guess made at the wrong end and would fight you when you genuinely meant "just below".
+
+---
+
+The remaining gap is keyboard-only users, who can't place a point at all. Acceptable for this feature, as long as pointing never becomes the *only* way to express a position.
+
+Want me to write this up into CHAT-49 as a UX spec — your sketch plus the resolution model, the anchoring/staleness rules, and the pill format? That's a document change, so no branch needed, and it'd give us something to cut implementation tickets from.
 
 <!-- xgd-chat-end -->
