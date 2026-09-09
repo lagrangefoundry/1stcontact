@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T02:54:08.603885+00:00'
+updated_at: '2026-09-09T15:12:53.165642+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -216,5 +216,11 @@ Three things I scoped **out** and said why in the ticket:
 I did not cut a branch or write code — you asked for the ticket, and the implementation is in a different repo from this session's `XGD_PROJECT_ROOT`. Say the word if you want me to pick it up, and note it'll need a `cd` to lagrange-framework plus a branch cut there.
 
 One caveat worth repeating: the measurement in the ticket body is a *model*, not a reading, because item 4 doesn't exist yet. Its two estimated inputs are labelled as such, and the sensitivity sweep is in the Summary. Once item 4 lands, the real numbers may move — the 5–7.5× ratio is robust across the sweep, but I'd rather you see the assumption than inherit it silently.
+
+<!-- xgd-turn id="3089ccfb-0e09-462b-852e-2fa44d4e3969-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T15:12:52.637328+00:00" -->
+#### You
+ok REQ-143 has been implemented - can you check to see if it matches what you expect?
 
 <!-- xgd-chat-end -->
