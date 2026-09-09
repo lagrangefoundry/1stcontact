@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:59:28.432631+00:00'
+updated_at: '2026-09-09T19:59:48.864911+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -479,5 +479,25 @@ Ready to cut implementation tickets whenever you want. Items 1–3 are the ones 
 <!-- xgd-chat role="user" ts="2026-09-09T19:59:27.902494+00:00" -->
 #### You
 What are the 5 open questions?
+
+<!-- xgd-turn id="162fbe79-7861-4013-8bdc-c0a8c8e0f3b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T19:59:47.889056+00:00" -->
+#### Claude
+From §6 of DOC-52:
+
+1. **Does the SVG validator enforce the real-font rule (§3.2), or does it stay documentation only?** Enforcement is the natural home, but it makes the validator font-registry-aware — new coupling between the security scanner and the licence index.
+
+2. **Does `measure_drawing` return geometry, relations, or both?** §3.4 argues both — raw boxes for exploration, relational answers for verification — but the relational vocabulary (`cap-top`, `baseline`, `gap`, and what an `align()` query actually accepts) needs pinning down before it's built.
+
+3. **How does the copy editor expose multi-run text (§3.7)?** "One field per run" is the simple answer; whether it survives contact with DOC-28 §3's exposure rule — *"a plain string or a pick from a closed list"* — needs checking against a real example.
+
+4. **Does `outline_text` need a licence gate in `1c fonts check`, and does any currently-registered face permit outlining?** Converting to outlines can be a separate grant from webfont use.
+
+5. **What is the point-density limit?** A–Z bounds it at 26, almost certainly more than anyone needs — but the overlay's behaviour when points overlap is unspecified.
+
+**Which actually gate work:** only **Q2**, and it gates sequencing item 3 (`measure_drawing` + abstract references). **Q5** is minor polish on item 2 (Marked Points) and can be settled during implementation. Q1 doesn't block anything — the documented rule ships either way. Q3 and Q4 sit against items 6 and 4, both far out.
+
+So if you want to start, items 1 and 2 need nothing answered first.
 
 <!-- xgd-chat-end -->
