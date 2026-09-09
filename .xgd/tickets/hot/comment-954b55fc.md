@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T15:12:53.165642+00:00'
+updated_at: '2026-09-09T15:44:36.792014+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,6 +220,12 @@ One caveat worth repeating: the measurement in the ticket body is a *model*, not
 <!-- xgd-turn id="3089ccfb-0e09-462b-852e-2fa44d4e3969-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-09T15:12:52.637328+00:00" -->
+#### You
+ok REQ-143 has been implemented - can you check to see if it matches what you expect?
+
+<!-- xgd-turn id="08e51b4b-4b22-4add-b01f-2ab6bec0ea3c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T15:44:36.704752+00:00" -->
 #### You
 ok REQ-143 has been implemented - can you check to see if it matches what you expect?
 
