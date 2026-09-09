@@ -6,10 +6,10 @@ title: '1st Contact chat: assistant replies to the previous turn — final assis
   message never recorded in backend state'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T03:04:44.845566+00:00'
-updated_at: '2026-09-09T03:21:41.346216+00:00'
+updated_at: '2026-09-09T03:21:44.294398+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: wont_fix
 fields:
   auto_merge_back: true
   needs_review: false
