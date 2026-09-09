@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T17:18:46.220269+00:00'
+updated_at: '2026-09-09T17:47:00.857606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -140,5 +140,18 @@ Want me to write this up as a DOC ticket? It's design substance that belongs som
 - [Set up apex proxying · Cloudflare for Platforms docs](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/apex-proxying/setup/)
 - [Top Level Domains supported · Cloudflare Registrar docs](https://developers.cloudflare.com/registrar/top-level-domains/)
 - [Cloudflare launches domain registration API — Domain Name Wire](https://domainnamewire.com/2026/04/15/cloudflare-launches-domain-registration-api/)
+
+<!-- xgd-turn id="00ba9aca-50db-4289-ba97-ed5dd09433f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T17:47:00.540042+00:00" -->
+#### You
+Cost: we inherit their MX/SPF/DKIM, so we become a single point of failure for their **email**. <-- Look at our feature set, this isn't just about webhosting, I think we need to control their email, don't we? Also BTW surely it is Cloudflare that takes over their email, not us?
+
+At some level all these liabilities are opportunities - these are places we can solve problems for customers with automated solutions...
+
+1. Doesn't have to be day 1
+2. 3. ok
+
+So help me understand the apex proxy experience: The customer owns mybiz.com on GoDaddy. By shifting to CF as nameserver we can serve www.mybiz.com - what happens if a user types mybiz.com into a browser?
 
 <!-- xgd-chat-end -->
