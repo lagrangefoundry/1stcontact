@@ -6,16 +6,19 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-08-31T11:28:20.469423+00:00'
+updated_at: '2026-09-09T23:28:37.789988+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-aa030c83
   story_kind: upgrade
   story_points: 2
-  updated_by: bundle-b3b7c399
+  updated_by:
+  - bundle-b3b7c399
+  - bundle-15c1f647
+  - bundle-31e474b9
   uat_coverage: fail
 ---
 
@@ -250,8 +253,10 @@ reports and names the remedy, it never runs it.
   the manifest change still carries `astro`, so the absence assertions only hold
   once the tree matches the lockfile. CI is unaffected: it installs
   `--frozen-lockfile` from scratch.
-- Related capabilities: CAP-63 (1c Values-Diff Fidelity), CAP-65 (1c
-  Size-Aware Diffing) — the commands whose output this hygiene protects, and the
+- Related stories and capabilities: the sibling stories in this same capability,
+  CAP-63 (1c Capture & Diff Fidelity) — STORY-75 (the intrinsic value axes) and
+  STORY-77/STORY-78 (size-aware and cross-size diffing) — the commands whose
+  output this hygiene protects, and the
   same commands guarantee 6 gates; the aligned-crops perceptual pipeline whose
   store routing guarantee 3 protects; the behavior-module capability that made
   the modules plain functions, which is what lets guarantee 5 be unconditional;
