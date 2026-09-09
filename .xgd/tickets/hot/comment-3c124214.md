@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T20:08:41.074574+00:00'
+updated_at: '2026-09-09T20:10:07.282747+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -505,5 +505,94 @@ So if you want to start, items 1 and 2 need nothing answered first.
 <!-- xgd-chat role="user" ts="2026-09-09T20:08:41.020739+00:00" -->
 #### You
 What is your recommendation for a relational vocabulary - how does that actually work?
+
+<!-- xgd-turn id="8c70242e-c1ac-46ee-ae29-7430632ab8d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T20:10:06.827407+00:00" -->
+#### Claude
+Let me verify two prerequisites the vocabulary depends on.
+
+Here's my recommendation. It turns on one distinction that I under-specified in the doc.
+
+## The distinction that decides everything
+
+"The top of the 1" is ambiguous in a way that matters, and getting it wrong is why alignment *looks* off even when the numbers agree. Three different lines:
+
+- **Font lines** — derived from the font's metrics × font-size, independent of the string: `baseline`, `cap-top`, `x-top`, `ascender`, `descender`. Exact, stable, computable without rendering.
+- **Ink extents** — the actual painted bounds of *this* string in *this* font: `ink-top`, `ink-left`, etc. Needs real outlines.
+- **Advance** — where the pen lands: `advance-end`. Differs from `ink-right` by the right side bearing.
+
+These are not interchangeable. For "st", `ink-top` is the top of the **t's ascender**, which in most faces sits *above* `cap-top`. For "1", the digit usually aligns to cap height. So `align(ink-top, ink-top)` and `align(cap-top, cap-top)` give **visibly different results**, and your instruction last night — *"the top of the t should align with the top of the 1"* — was an ink statement, not a typographic one.
+
+And §2's `x="27"` was trying to express "where the 1 ends" — which is `ink-right` if you want tight optical spacing, `advance-end` if you want normal typesetting. The session had no way to say which, and no way to get either.
+
+**So the vocabulary must name the family explicitly.** That's the single most important thing in it.
+
+## The grammar
+
+`<node>.<anchor>` — node by `id`, anchor from a closed set:
+
+| Family | Anchors | Applies to |
+|---|---|---|
+| Box | `left` `right` `top` `bottom` `centre-x` `centre-y` | any node |
+| Ink | `ink-left` `ink-right` `ink-top` `ink-bottom` | text |
+| Font | `baseline` `cap-top` `x-top` `ascender` `descender` | text |
+| Advance | `advance-start` `advance-end` | text |
+
+Closed set, no expressions, no nesting. Axis is **inferred** from the anchor (`top`/`baseline`/`cap-top` → y; `left`/`right` → x), which removes a parameter and makes a mismatched pair — `relate(a.top, b.left)` — a refusal rather than a silently meaningless number.
+
+## Three operations, and only one of them matters much
+
+**`measure(nodes?)`** → anchors resolved to numbers. Exploration. Takes a node list so it isn't all-or-nothing; a whole drawing is expensive.
+
+**`relate(a, b)`** → `{ delta: 2.4, axis: 'y' }`. Verification. One number.
+
+**`solve({ move, so, equals, offset? })`** → the attribute value that achieves it:
+
+```
+solve({ move: '#ord', so: '#ord.cap-top', equals: '#one.cap-top' })
+  → { y: 29.4 }
+```
+
+**`solve` is the one that removes the iteration**, and it's the reason to build this rather than just returning boxes. With `measure`/`relate` alone the loop is still *measure → compute → write → re-measure*. With `solve` it's *state the intent → get the number → write it once*.
+
+It's also nearly free given the other two: for translation the delta from `relate` **is** the correction — linear, single subtraction. Which gives a clean scope boundary: **`solve` handles translation only.** It never solves scale or rotation, and it doesn't need to, because alignment is entirely translational.
+
+## Relations: two, not more
+
+`equals`, and `offset(n)` for a deliberate gap:
+
+```
+solve({ move: '#contact', so: '#contact.advance-start',
+        equals: '#ord.ink-right', offset: 6 })
+```
+
+I'd **defer equal-distribution** ("make this gap match that gap"). It's a real want — it's the four-point case in §4.8 — but it needs multi-node solving and a different return shape, and it shouldn't hold up the 95% that `equals` + `offset` covers.
+
+## Two conventions that turn out to be free
+
+I verified both against `validateSvg` just now — `{"ok":true,"errors":[]}`:
+
+**Addressing needs `id`s**, and `id` is already allowlisted on `<text>` *and* `<tspan>`. So the prerequisite is a documentation rule alongside §3.1: *when you draw something you intend to position precisely, give it an id.*
+
+**Recorded intent can be a comment**, and comments pass the validator:
+
+```xml
+<!-- #ord.cap-top = #one.cap-top -->
+```
+
+This directly addresses the staleness limit I flagged in §3.4. It's a note, not an enforced constraint — SVG has no constraint system and I'm not proposing one — but it means when the font-size changes, the intent is still legible and `solve` can be re-run instead of re-guessed. Optionally `solve` could read them back and re-derive every recorded relation in one call.
+
+## One vocabulary, two surfaces
+
+The same grammar should serve `measure_page`. Different coordinate space, identical anchors for the box family; page nodes additionally want `content-*` vs `border-*` vs `margin-*` box-model edges, which I'd add then rather than now. One vocabulary across both surfaces is worth more than a perfect fit to either.
+
+## Token shape
+
+`measure` on a whole drawing is expensive; `relate` and `solve` return one number. The guidance should be **default to `solve`, fall back to `measure` only when exploring an unfamiliar drawing** — which is the opposite of how a geometry dump would naturally get used.
+
+---
+
+Shall I fold this into DOC-52 as the settled answer to Q2? That would unblock sequencing item 3, and leave Q5 as the only open question against near-term work.
 
 <!-- xgd-chat-end -->
