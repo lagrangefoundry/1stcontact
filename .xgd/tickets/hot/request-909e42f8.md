@@ -6,10 +6,10 @@ title: 'Corpus export correctness: doc_kind filter, unrestricted shipped corpus,
   listing'
 created_by: xgd
 created_at: '2026-08-31T20:33:32.231166+00:00'
-updated_at: '2026-09-09T17:03:14.528910+00:00'
+updated_at: '2026-09-09T21:32:49.608058+00:00'
 completed_at: null
-last_field_updated: bundled_in
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -26,6 +26,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.22
+  bundled_in: bundle-87be4669
 ---
 
 # Corpus export correctness: the `doc_kind` filter, an unrestricted shipped corpus, and exhaustive listing
