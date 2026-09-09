@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T18:12:12.560202+00:00'
+updated_at: '2026-09-09T18:37:19.076238+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -261,5 +261,18 @@ Good at what language and pointing are both bad at: *this shape*, *curve it like
 0 + 1 + 2 together would have turned last night into two or three exchanges, and none of the three is large.
 
 Shall I write this up into the CHAT-49 body now? That's a document change, so no branch needed — and then we can cut tickets off it for whichever of 1–3 you want to start with.
+
+<!-- xgd-turn id="f036d8ca-1b09-4dac-abec-9ca1ff5bad60-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T18:37:18.908454+00:00" -->
+#### You
+I'm not sure we have quite captured the UX here. Lets talk about the pointer, let me sketch a UX and we can discuss:
+1 - Lets suppose this is edit mode only feature
+2 - Within edit mode I have a toggle "Mark Points" - I switch it on
+3 - I left click with the mouse in three locations on the page at each location I get a little red X (or appropriate high contrast color) and a label Point A, Point B...the label appears with the click but fades after N seconds and reappears if I hover the mouse over the X (because otherwise the label might obscure where I want another point to go. Each label has an X when you click the X it deletes the point. Letters A,B, C... are resused after deletion
+4 - as the point appears, a Pill appears in the chat (Point A). This can be deleted when fed to the AI it will give the actual coordinate info.
+5 - re-clicking on (or near enough to) a X creates another Pill in the chat.
+
+With this I can now construct a message: "Please raise the st so that the top of the t is at (Point A)" for example
 
 <!-- xgd-chat-end -->
