@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T22:44:52.760085+00:00'
+updated_at: '2026-09-09T23:37:29.880783+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -491,5 +491,11 @@ So all four are now live: BUG-48, REQ-143, REQ-144, REQ-145. Restart the wrangle
 **What your next session should look like:** ~$3/hour instead of ~$20, and the 1h TTL is now doing what it was meant to rather than costing you the 2× write premium for nothing.
 
 Worth doing on that session: REQ-143 and REQ-145 mean token spend is now recorded per request. You can read the real `cache_read_input_tokens` instead of trusting my model — if cross-turn reads are non-zero and scale with history, the fix is confirmed in production rather than in a simulator. Happy to pull those numbers once you've run a session.
+
+<!-- xgd-turn id="e4d3adb0-56df-4595-a6a5-cac0a193b043-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T23:37:29.553242+00:00" -->
+#### You
+Can you take a look at the Lagrange Foundry transcript 40 mins of discussion - a lot of failed tool calls, so not much progress - cost so far about $1.67 definite improvement
 
 <!-- xgd-chat-end -->
