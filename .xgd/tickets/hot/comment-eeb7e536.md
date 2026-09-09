@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T18:46:28.555408+00:00'
+updated_at: '2026-09-09T18:48:03.941329+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -312,5 +312,63 @@ Shall I write this up as a DOC ticket now? There's enough here — the single ar
 **Email Routing cannot coexist with an existing mail provider.** It takes over MX for the whole domain, and Cloudflare blocks MX edits while it's on. <-- I don't understand this statement - what is the context? We have assumed that we control the nameserving, correct? So this is a scenario where the user has an existing email provider, we take their nameserving over and (correctly!) copy their configuration. You are saying that will keep their current email provider?
 
 We need to decide if we have to take over email provision or whether we can live with other third parties doing it - aside from configuration complexity I'm not sure how much we care?
+
+<!-- xgd-turn id="e2e82044-0988-4694-bd9f-a161789f9161-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T18:48:03.619003+00:00" -->
+#### Claude
+You're right, and I wrote that badly. Let me separate two things I ran together.
+
+**Taking over nameservers does not affect who provides their email.** We hold the zone, we copy their MX pointing at Google Workspace, mail continues to flow to Google exactly as before. Nothing changes for them. That's the default and it's correct.
+
+**Cloudflare Email Routing is a separate optional product** — free forwarding — that we would have to deliberately switch on. *That's* what seizes MX. It's not a consequence of holding the zone; it's a consequence of enabling one specific feature. My sentence made it sound like the former.
+
+So the constraint is narrow: never enable Email Routing for a customer who already has email on that domain. It's only interesting for customers who have none.
+
+Let me check one thing before answering your actual question, since it bears on the sending side.
+
+## The question splits three ways
+
+"Email" is three different products with three different answers, and they keep getting welded together:
+
+**1. Sending as them.** Not optional — we already do it, that's what the SPF at apex and `send.` is for. Our deliverability *is* our product quality: if an enquiry confirmation lands in spam, the whole thing failed. We care enormously.
+
+**2. Receiving enquiries.** Plausibly core. The product is called First Contact; if a prospect emails the business, handling that is arguably the thing we exist to do.
+
+**3. Hosting their mailboxes.** Being their Google Workspace. Commodity.
+
+Your instinct is right that we don't care much — but only about (3).
+
+## The recommendation
+
+**Never host mailboxes.** It's zero-margin against Google at £5–6/user, and the risk profile is completely different from web hosting: a website being down is embarrassing, email being down means the business cannot operate, and lost mail is unrecoverable. On top of that, mailbox migration — years of mail, calendars, contacts — is the single most painful job in small-business IT, and we'd be signing up to do it repeatedly, for free, at the exact moment we're trying to make a good first impression.
+
+Third parties doing this is *good* for us. It's someone else's uptime obligation.
+
+**Always own sending.** Already true. Worth noting per-domain DKIM and sender reputation isolation matter here — if we send everyone from one shared pool and one customer's content trips a filter, everyone's deliverability suffers.
+
+**Get enquiry ingestion without touching their MX.** This is the bit that dissolves the apparent conflict, and it's the thing worth knowing:
+
+**MX is per-name, not per-domain.** `mybiz.com` can point at Google while `enquiries.mybiz.com` points at us. Both valid, no conflict, no risk to their existing mail. So receiving enquiries never requires becoming their email provider.
+
+Three ways to ingest, in preference order:
+
+- **Website form.** Plain HTTP, no email involved, no DNS, no risk. This is the primary path and probably covers most of the volume.
+- **One forwarding rule in their existing provider** — `hello@mybiz.com` → our ingest address. Works with Workspace, M365, anything. One-time config, doesn't touch MX.
+- **MX on a subdomain** we control. Fully automatable, but the address is uglier.
+
+## Where Email Routing actually fits
+
+Only one segment: the customer with **no email on that domain** — currently handing out `bristolfurniture1987@gmail.com`. For them, `hello@bristolfurniture.co.uk` forwarding to the inbox they already use is free, one API call, and squarely on-brand. An enquiry arriving at a professional address instead of a personal Gmail is literally first-contact quality.
+
+But there's a sharp edge worth deciding on before offering it: **Email Routing is forwarding only.** They receive at `hello@` and then reply *from* their Gmail address. So we'd sell them a professional address that visibly isn't one the moment they answer. Closing that means giving them an outbound path too — Gmail's "send mail as" needs SMTP credentials from somewhere, which Email Routing doesn't provide. So either we solve the reply path or we're shipping half a feature that undercuts its own pitch.
+
+Relevant to that: Cloudflare now has an **Email Sending** product (transactional, Workers Paid plan) alongside Email Routing. It might be the outbound half. But it's beta and the docs don't say whether it supports multi-tenant sending on behalf of customer domains, which is the only way it's useful to us. Worth watching, not worth betting the design on yet.
+
+## So the boundary
+
+We take responsibility for **the records being correct**. We don't take responsibility for **the mail servers being up**.
+
+That's a clean line, it's the one the monitoring enforces, and it means a customer on Workspace is fully supported without us being anywhere near their mail.
 
 <!-- xgd-chat-end -->
