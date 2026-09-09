@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T16:32:29.362873+00:00'
+updated_at: '2026-09-09T22:34:16.148606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -420,5 +420,13 @@ The framing I asked for on the "why": **Amendment V is generalised, not reversed
 One thing the ticket settles as a side effect: REQ-143's 1-hour TTL default. Extended-tier writes cost 2× against the short tier's 1.25×, so without cross-turn reads the 1h default is *worse* than 5 minutes (~$7 vs ~$5) — paying a premium for a lifetime it never collects. REQ-144 is what makes 1h correct rather than a pessimisation. If REQ-144 is going to sit in the backlog a while, drop the TTL to 5 minutes in the meantime.
 
 Still outstanding, and I'd suggest doing it before REQ-143 reconciles: REQ-143's body still reads as fully satisfied, so the in-turn-only limitation will disappear rather than become the follow-up. Want me to add a short "As shipped — the limitation this leaves" note to it pointing at REQ-144?
+
+<!-- xgd-turn id="19827a2a-567a-4895-85da-8810d9ef13fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T22:34:16.087385+00:00" -->
+#### You
+ok REQ-144 and REQ-145 are complete, are the changes in place?
+
+Also see BUG-48 there were several issue with my chat session yesterday - can you verify that these are resolved?
 
 <!-- xgd-chat-end -->
