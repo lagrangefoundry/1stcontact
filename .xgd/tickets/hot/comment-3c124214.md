@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:59:48.864911+00:00'
+updated_at: '2026-09-09T20:08:41.074574+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -499,5 +499,11 @@ From §6 of DOC-52:
 **Which actually gate work:** only **Q2**, and it gates sequencing item 3 (`measure_drawing` + abstract references). **Q5** is minor polish on item 2 (Marked Points) and can be settled during implementation. Q1 doesn't block anything — the documented rule ships either way. Q3 and Q4 sit against items 6 and 4, both far out.
 
 So if you want to start, items 1 and 2 need nothing answered first.
+
+<!-- xgd-turn id="8c70242e-c1ac-46ee-ae29-7430632ab8d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T20:08:41.020739+00:00" -->
+#### You
+What is your recommendation for a relational vocabulary - how does that actually work?
 
 <!-- xgd-chat-end -->
