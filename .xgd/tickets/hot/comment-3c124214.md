@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T21:25:38.127332+00:00'
+updated_at: '2026-09-09T22:32:13.624084+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -848,5 +848,11 @@ Each body is written behaviour-first in the house `## What changes` style, and e
 **CHAT-49** has a closing pointer to all four.
 
 One thing worth flagging before anyone starts REQ-209: the guidance half of it is docs-only (`l1-surface.json` description text) and lands first within the ticket. That means the `system-ui` defect currently in the 1st Contact draft wordmark — which is live and renders differently per visitor — can be fixed as soon as that lands, without waiting for the measurement ops.
+
+<!-- xgd-turn id="8d06b963-0972-40a9-a3f9-72f4f8eb2f4a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-09T22:32:12.509879+00:00" -->
+#### You
+I don't understand outline_text?
 
 <!-- xgd-chat-end -->
