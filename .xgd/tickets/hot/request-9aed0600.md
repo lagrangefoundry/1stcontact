@@ -16,6 +16,7 @@ fields:
   - REQ-209
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-583f91f4
 ---
 
 ## What changes
