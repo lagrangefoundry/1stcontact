@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:54:20.079894+00:00'
+updated_at: '2026-09-09T19:57:11.576406+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -443,5 +443,35 @@ Reading the ticket: body is just `<!-- xgd-chat-end -->`, and `ticket append` in
 <!-- xgd-chat role="user" ts="2026-09-09T19:54:19.519763+00:00" -->
 #### You
 No no please create a net DOC ticket for this
+
+<!-- xgd-turn id="3d2a588c-14d9-4e41-b740-3a2be2d706f2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T19:57:10.738974+00:00" -->
+#### Claude
+Creating the document now.
+
+**[[DOC-52]]** created (`doc-94a83031`), `doc_kind: architecture`, ~26k chars — and linked from CHAT-49.
+
+## What's in it
+
+**§1–2 — the failure, as evidence.** 13 `write_image` + 13 `screenshot` between 02:15 and 02:31, the ruler-grid hack, and the four lines of SVG that resulted — carrying both defects visibly: positions that were guessed, and a `system-ui` stack that makes those positions wrong on every non-macOS visitor. That second one is flagged as a **live defect in the draft**, not just a tooling story.
+
+**§3 — giving the AI eyes**, cost-ordered:
+
+- §3.1 `tspan` runs — the capability that already existed, verified against `validateSvg` → `{ ok: true }`. Documentation omission, nothing to build.
+- §3.2 a mark names a real font.
+- §3.3 `measure_drawing` — user-space geometry, per-glyph `getExtentOfChar`, resolved font.
+- §3.4 **abstract references** — named anchors (`cap-top`, `baseline`, `gap`) and relational queries (`align(#ord, #one, 'cap-top') → delta = 2.4u`), with the closed-form cap-height derivation showing why metrics *solve* alignment where boxes only *verify* it.
+- §3.5 `outline_text`, with the licence caveat.
+- §3.6 `measure_page`.
+- §3.7 **multi-variate text** — the flat `text: z.string()` at `schema.ts:1098`, argued as a latent structural hazard rather than a typographic nicety, with a contained one-level-runs proposal and an honest account of the blast radius.
+
+**§4 — Marked Points.** Your sketch, plus: the constraint that the AI never sees the marks (so the pill is the whole channel), the multi-frame resolution model with `near:`, pill semantics including **cut/copy/paste**, the `+` control with your deleted-pill motivation, single-turn lifetime with the **greyed-Xs-until-re-render** nicety, the one-point-is-enough argument, the width-ambiguity rule, and why none of it breaches DOC-28 §7.3.
+
+**§5–6 — sequencing and five open questions**, including whether §3.2 becomes validator-enforced and what the relational vocabulary actually is.
+
+Two things I recorded as your calls rather than mine, since you overturned my earlier positions: points clear on send (§4.7), and one point plus measurement subsumes drag (§4.8) — which is why drag-as-communication is now in §4.11 Out of scope.
+
+Ready to cut implementation tickets whenever you want. Items 1–3 are the ones that would have saved last night.
 
 <!-- xgd-chat-end -->
