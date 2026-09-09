@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-09T23:50:33.519863+00:00'
+updated_at: '2026-09-09T23:52:08.221081+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,32 @@ Defect A's source is `lagrange-framework` — different ticket store, needs its 
 Was it using the webfetch or the capture tool - the latter is ours so e could at least try both of www.foo... and foo..., right?
 
 lets talk about the bug 4k tokens sounds small. Does L1 require a full rewrite every cycle or does it permit partial updates?
+
+<!-- xgd-turn id="fac5a93f-dc96-49e7-947e-f29f13bc1e75-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T23:52:07.886260+00:00" -->
+#### Claude
+**1. It was `capture_site` — ours, and yes, we can try both.**
+
+Not a WebFetch. All four attempts went through `capture_site` (`fidelity-core.ts:370-419` → `capture/pipeline.ts`), and the fidelity surface has six operations of which `capture_site` is the only one that reaches the network — so there was no other route the AI could have taken. The candidate list belongs at `fidelity-core.ts:370`: try what was asked for, and on a DNS failure try the other host form before giving up. That's a contained change in this repo.
+
+**2. On the 4k cap — L1 permits partial updates for editing, but not for growing, and that's the real problem.**
+
+`set_l1` is bounded by address on purpose. The code comment says why: *"A whole-document write would be simpler and worse: it costs the caller the entire page on every change."* Rewriting one heading costs one heading. That part is fine.
+
+But `set_l1` is the only element write on the surface — 32 operations, none of the others touch the element tree — and **it cannot create**. `editL1Set` calls `replaceL1Node` and raises `NOT_FOUND` ("Address '…' resolves to no node", `edit.ts:919-926`) when the address doesn't already exist. The surface states it directly: *"There is no separate way to insert or delete."*
+
+So every addition rewrites the parent group including all siblings already in it. Building an N-section page from an empty one costs 1+2+…+N sections written — O(N²) — and, decisively, **the final call contains the entire page however you split the work**, because the last section added rewrites root with all N children.
+
+That's the part worth sitting with: there is no incremental path that stays under a small cap. The minimum possible single write for a finished five-section page *is* the whole page. 4096 tokens isn't just tight — it's below the floor the surface's own design imposes. Raising the cap buys headroom; it doesn't remove the floor.
+
+Two levels of fix:
+
+- **Raise `max_tokens` and read `stop_reason`.** Small, unblocks the immediate failure, turns a 10-minute silent loop into an actionable error. Leaves the O(N²) growth cost.
+- **Add insert/remove to the L1 surface** — write a child at a parent address and index, delete one — so growth is O(N) and each call is bounded by the size of the thing being added, not its parent. This is the structural fix, but it deliberately reverses a documented design decision, so it's your call rather than something I should just do.
+
+Both follow-ups are recorded in BUG-67. My recommendation: take the first level now in the framework (it's three small changes and it stops the silent loop), and treat the insert/remove question as a separate design decision — the O(N²) cost is a real constraint on how big a page the builder can ever grow, and it'll bite again at a larger page size even with a 64k cap.
+
+Want me to file the framework ticket for the `max_tokens`/`stop_reason` work, and start on the `capture_site` host-candidate fix here under BUG-67?
 
 <!-- xgd-chat-end -->
