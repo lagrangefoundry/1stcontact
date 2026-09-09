@@ -6,9 +6,9 @@ title: 'The AI can measure a drawing: an anchor vocabulary, geometry that answer
   relationships, and a write that verifies itself'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:52.609301+00:00'
-updated_at: '2026-09-09T22:37:01.262060+00:00'
+updated_at: '2026-09-09T23:00:13.568433+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -196,3 +196,121 @@ the intent is still legible and can be re-solved rather than re-guessed.
 - `write_image` with an `assert` block reports a non-zero delta when the written
   document does not satisfy the stated relation, and still writes it.
 - `write_image` without an `assert` block performs no render.
+
+
+---
+
+## How it landed
+
+Implementation decisions taken in the free-coding session, recorded here because
+they are behaviour a reader of the ticket would otherwise have to infer from the
+diff.
+
+### Where the operations live
+
+`measure_drawing`, `relate` and `solve` are **operations on the L1 surface**, in
+a new read-effect group `MeasureDrawings`, sitting immediately before
+`write_image` in the declaration so the drawing operations read in the order they
+are used. They are not on the fidelity surface, even though that is where the
+browser lives, because the thing they read is a drawing *in this site* and
+reaching it needs the site store — which the fidelity surface deliberately has
+not got. To the model there is one flat list of tools, so which surface carries
+them is an internal matter.
+
+The browser they need is taken from **the same place the fidelity surface's
+comes from** rather than added as a second dependency. A deployment either has a
+browser or it does not, and asking that question twice is how the two answers
+come to disagree — a session that could take a picture of a drawing but not
+measure one is a shape nobody asked for.
+
+### A deployment with no browser says so
+
+Where there is no browser, the three operations are still declared and still
+granted, and they **refuse with a sentence naming the reason** rather than being
+withheld. Withholding them per deployment would put the grant in two places and
+turn a capability question into a start-up failure. A `write_image` carrying an
+`assert` block on such a deployment still writes, and reports against each
+relation that nothing could be checked.
+
+### The relation syntax, shared by `assert` and the recorded comment
+
+A relation is one string: `<node>.<anchor> = <node>.<anchor>`, optionally `+` or
+`-` a number. `assert` takes a list of them, and it is the same sentence the
+drawing records in a comment — deliberately, because they are the same claim.
+Nothing richer is accepted: no operators, no expressions. A relation is a claim
+about two anchors, and anything more is the constraint system this ticket says it
+is not building.
+
+`measure_drawing` **reports every relation the drawing records, with what it is
+worth now**. That is what makes recording one worth doing: the intent outlives
+the number, so when a type size changes the claim is still legible and its delta
+is already on the table.
+
+### Assertions report; nothing disappears
+
+A relation that cannot be evaluated at all — a misspelt anchor, a node that is
+gone, a string that is not a relation — is **reported with the reason** rather
+than dropped. An absent assertion reads exactly like one that passed, which is
+the one thing an advisory check must never look like.
+
+### Refusals that name what to do instead
+
+- A node reference the drawing has not got is refused **with the list of
+  references it does have**, because the commonest cause is a node with no `id`
+  and seeing its path is what prompts adding one.
+- `solve` refuses a node no single attribute can move (a `<line>`, a `<path>`)
+  and says which kinds it does move. It moves `<text>`, `<tspan>`, `<rect>`,
+  `<circle>` and `<ellipse>`.
+- `solve` refuses a node inside a rotated or skewed transform, where moving along
+  one axis is not something one attribute can do.
+- `solve` takes `move` as an optional parameter — `so` already names the node —
+  and refuses when the two disagree rather than silently preferring one.
+
+### What the measurement does not hand over
+
+The current attribute values and the local-to-root scale that `solve` works from
+are **stripped before the model sees the measurement**. They are how the
+arithmetic is done, not something to do arithmetic with, and every field a model
+can see is a field it will try to reason from.
+
+### How the browser is asked
+
+The drawing is rendered **inside the site's own draft page, in a shadow root**.
+The page is the font context: a drawing's geometry is the geometry of the font it
+actually gets, and which font that is depends on the `@font-face` rules the site
+declares, so measuring against a blank document would measure a different drawing
+from the one a visitor sees. The shadow root is what stops the page's own
+stylesheets restyling the drawing on the way past — `@font-face` is
+document-scoped and reaches inside it, ordinary selectors do not.
+
+Ink extents come from the canvas text metrics (`actualBoundingBox*`) rather than
+from `getBBox()`, because Chromium's `getBBox()` on a `<text>` returns a box built
+from the font's ascent and descent — which is the box family, and is already
+reported. The font's proportions are **measured in the browser rather than parsed
+out of the font file**: a parser is a dependency bought for four numbers, and
+measuring gives the proportions of the face that actually resolved rather than of
+the one that was asked for.
+
+### The wordmark itself
+
+Correcting the wordmark currently in the 1st Contact draft is a change to site
+data, not to code, and is not part of this commit.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-209_measure_a_drawing.test.ts` — always runs. The anchor
+vocabulary and the arithmetic over a measurement, plus the surface that carries
+them, against DOC-52 §5.3's own measurement of the wordmark as a fixture: ink
+against advance (8.4 units apart), cap-top against ink-top as two different
+alignments, axis inference and the refusal of a mismatched pair, `solve` handing
+back a place as well as a number and its value zeroing the relation, `assert`
+reporting without blocking, and a write with no assertion costing no render.
+
+`tests/test_UAT_FC_REQ-209_measure_in_a_browser.test.ts` — the measuring script
+against real Chromium: composed `<tspan>` runs placing themselves with no `x`
+authored, ink against advance measured rather than fixtured, per-glyph extents, a
+node with no `id` under its path, an empty node flagged, the cap-height ratio
+landing on a capital's real ink top, a platform-dependent font stack reporting a
+`requested` ≠ `resolved` mismatch, an absent family falling through to its
+fallback, and a nested transform resolved away. It reports loudly and skips when
+no browser can be launched.
