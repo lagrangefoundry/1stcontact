@@ -6,16 +6,21 @@ title: 'The AI can measure a drawing: an anchor vocabulary, geometry that answer
   relationships, and a write that verifies itself'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:52.609301+00:00'
-updated_at: '2026-09-09T23:47:19.865274+00:00'
+updated_at: '2026-09-09T23:48:14.623298+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6ab9144c
+  commits:
+  - working_sha: 1e0e30bd07c0affb6a8044bf37d69bce345be9b6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.141
 ---
 
 ## What changes
