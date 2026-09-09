@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T02:47:26.346172+00:00'
+updated_at: '2026-09-09T02:48:40.921029+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,45 @@ All four are in `@lagrangefoundry/ai`, not this repo. Want me to open a lagrange
 <!-- xgd-chat role="user" ts="2026-09-09T02:47:25.670373+00:00" -->
 #### You
 So with caching my $20 comes down to what?
+
+<!-- xgd-turn id="b1846238-442a-4c67-8342-ec5c558af86c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T02:48:40.499058+00:00" -->
+#### Claude
+**About $3.**
+
+The model reproduces your ~$20 for the 18:44–19:31 stretch, so the same model's answer for "with caching" is worth trusting:
+
+| scenario | input $ | + output | total |
+|---|---|---|---|
+| **Today** — system cached, `messages[]` never | 17.34 | 0.70 | **$18.04** |
+| \+ breakpoint on `messages[]` (5-min TTL) | 3.15 | 0.70 | **$3.85** |
+| \+ breakpoint on `messages[]`, `ttl: "1h"` | 2.68 | 0.70 | **$3.38** |
+
+**≈6.5×. Your $20 hour becomes a $3 hour.**
+
+Sensitivity — the two numbers I estimated rather than measured are the system-prompt size and chars/token. Sweeping both:
+
+| system prompt | today | cached | ratio |
+|---|---|---|---|
+| 20k tok | $16.89–19.00 | $2.29–2.49 | 7.4–7.6× |
+| 30k tok | $17.34–19.45 | $2.68–2.87 | 6.5–6.8× |
+| 45k tok | $18.02–20.13 | $3.25–3.45 | 5.5–5.8× |
+| 60k tok | $18.70–20.81 | $3.83–4.03 | 4.9–5.2× |
+
+The ratio holds at **5–7.5×** across the whole plausible range, and the "today" column brackets your observed $20 throughout. So: **$3–$4, call it 5× cheaper minimum.**
+
+Why it's so large: with a rolling breakpoint, each token is written to cache once at 1.25× and read at 0.1× on every subsequent request. Today each token is paid at 1.0× on all 117 round trips. At 117 requests the arithmetic isn't close.
+
+Two things that number does *not* include:
+
+- **Latency.** Cache reads are also faster to first token, so the "slow" half of your complaint improves too — but I can't quantify it from the ledger, only the token counts.
+- **The $0.70 output floor.** Not cacheable. Irreducible without changing how much Claude writes.
+
+The `ttl: "1h"` line is only worth $0.47 here, but that's because tonight had just 3 cache-expiring gaps. On a session with more thinking time between iterations it matters considerably more, and it's a one-word change.
+
+Worth noting the fix is ~10 lines in `api_tools.js` — the breakpoint machinery already exists for the system prompt (`anthropicSystem`, `CACHE_CONTROL`), it just was never extended to `messages[]`.
+
+Shall I open that lagrange-framework ticket now?
 
 <!-- xgd-chat-end -->
