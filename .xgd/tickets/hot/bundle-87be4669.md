@@ -5,10 +5,10 @@ type: bundle
 title: REQ-164 + REQ-159 + REQ-165 + REQ-163 + REQ-161 + 2 more
 created_by: xgd
 created_at: '2026-09-09T21:32:49.456670+00:00'
-updated_at: '2026-09-09T21:32:49.456670+00:00'
+updated_at: '2026-09-09T21:34:43.010549+00:00'
 completed_at: null
-last_field_updated: created_at
-status: ready_to_reconcile
+last_field_updated: status
+status: reconciling
 fields:
   commits:
   - working_sha: 858d63202fae2badbaf3e8495363244f8bd3a9fd
