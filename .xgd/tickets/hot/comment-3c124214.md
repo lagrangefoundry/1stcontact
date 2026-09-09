@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-49
 created_by: xgd
 created_at: '2026-09-09T17:28:06.441437+00:00'
-updated_at: '2026-09-09T19:52:28.901369+00:00'
+updated_at: '2026-09-09T19:54:03.644346+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -431,5 +431,11 @@ Yes also cut and paste the pill should work as expected
 One optional nicety: keep the cleared Xs visible but greyed until the new render lands, so you can still see what you referred to while the answer is coming. Small, and it doesn't reintroduce staleness because they're already inert. <-- I like that
 
 ok lets try this can you write a document capturing (1) all the enhancements to AI tools including more visibility into measures - distances, sizes, abstract references and multi-variate text and (2) this new feature
+
+<!-- xgd-turn id="e072bffc-7601-41f4-b511-e959eed6469b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-09T19:54:03.301504+00:00" -->
+#### Claude
+Reading the ticket: body is just `<!-- xgd-chat-end -->`, and `ticket append` inserts before that marker — so nothing gets overwritten. Writing the document now.
 
 <!-- xgd-chat-end -->
