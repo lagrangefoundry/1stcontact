@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:35:44.123458+00:00'
+updated_at: '2026-09-10T19:50:41.016169+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -381,5 +381,21 @@ Restarting is necessary but **not sufficient** — the bigger issue is that the 
 Both go through the same `build()`, so both pick up Opus 5 and the 64000 ceiling from the same document — that was the point of the static import.
 
 Want me to merge `free-BUG-67` back into `xgd-working` so you can restart and actually see it?
+
+<!-- xgd-turn id="60598631-3960-4b0f-91ef-6fb065037d74-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:50:40.763231+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-67` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-67`
+- branch HEAD: `f0b65522fa3a6f5cb6cafb37cf78b2e4044ec91f`
+- 2 commit(s) not yet on xgd-working:
+  - `f0b65522fa` BUG-67: move the builder's model to Opus 5
+  - `5046af5c7c` [FREE-CODED] BUG-67: the model and reply ceiling are 1c's decision
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
