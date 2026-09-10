@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Each asset reports what it can be used for, so a caller can narrow to one kind
 created_by: xgd
 created_at: '2026-08-07T04:29:50.005796+00:00'
-updated_at: '2026-08-10T08:15:41.746657+00:00'
+updated_at: '2026-09-10T19:59:16.220076+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c46abfa6
@@ -27,7 +27,7 @@ store still sees fonts and stylesheets.
 
 ## Verification
 
-Ask for the assets of a site whose directory holds pictures, a web font and a
+Ask for the assets of a site whose store holds pictures, a web font and a
 stylesheet. Assert each entry's kind matches its file: pictures as image, the font
 as font, the stylesheet as the residual kind; and assert the unfiltered listing
 contains all of them.
