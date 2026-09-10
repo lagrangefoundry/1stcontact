@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:00:43.965554+00:00'
+updated_at: '2026-09-10T19:15:29.656924+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -244,5 +244,11 @@ I'll check how 1c constructs the backend and what it passes through.
 The distinction worth holding onto: once the store is refreshed, 1c gets sonnet-5 and a 32000 ceiling — which fixes the bug — but by inheriting the framework's opinion, not by choosing. Making it *1c's* decision is one call to `lib.configureBackends(...)` (or `loadBackends(<path>)`) at host start-up, before the first backend is built, sourced from a 1c-side config file or env. Small, and blocked on nothing except the store refresh landing first, since the current store exports neither function.
 
 I've appended all of this to BUG-67 rather than leaving it in chat. The store refresh is still the operator action nothing in this repo can do.
+
+<!-- xgd-turn id="1b034e37-14c0-45c0-a2f4-fab6dddabaa1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:15:29.431748+00:00" -->
+#### You
+I don't understand I explicitly asked for this to be project configurable. I have installed the new version - are you sure we can't configure it here?
 
 <!-- xgd-chat-end -->
