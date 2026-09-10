@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-71
 created_by: xgd
 created_at: '2026-09-10T17:54:51.607573+00:00'
-updated_at: '2026-09-10T18:22:07.951217+00:00'
+updated_at: '2026-09-10T18:30:04.563222+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,15 @@ Two smaller things I found on the way, neither part of this bug:
 - `1c builder` still doesn't build assets before starting `wrangler dev`. Real papercut, worth ~1.3s, but unrelated to this — I'd have been fixing the wrong thing.
 
 Say go and I'll scope BUG-71 to the framework asset graph, cut the branch, and implement (1) and (2) with UATs. If you'd rather ship just (1) first, say so and I'll leave the guard out.
+
+<!-- xgd-turn id="a8a0df7b-7dab-4a06-9180-e15a234884fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:30:04.407625+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
