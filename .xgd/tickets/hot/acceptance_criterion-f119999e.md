@@ -6,14 +6,15 @@ title: The store attachment bytes go to is never the store the public site is se
   from, in the deployed configuration as well as the local one
 created_by: xgd
 created_at: '2026-09-02T00:17:24.513518+00:00'
-updated_at: '2026-09-02T00:26:37.538316+00:00'
+updated_at: '2026-09-10T02:22:17.479413+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a7a12d81
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
