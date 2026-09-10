@@ -6,9 +6,9 @@ title: Off-sample probe asserts the layout envelope holds at unsampled intermedi
   widths
 created_by: xgd
 created_at: '2026-07-22T20:07:11.256057+00:00'
-updated_at: '2026-08-16T08:03:28.400627+00:00'
+updated_at: '2026-09-10T14:42:16.069382+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -20,10 +20,12 @@ fields:
 ## Criterion
 The off-sample probe evaluates a reproduced document at intermediate widths the capture
 never sampled (default 500 and 900px) and reports pass = true with empty findings at
-each width exactly when no two leaf boxes overlap and no leaf clips beyond the viewport.
+each width exactly when the layout envelope holds there — no two leaf boxes overlap, no
+leaf clips beyond the viewport, and no pinned box's flow interior outgrows its keyframe
+height (AC-1630, which owns that third violation).
 
-- Any sibling overlap or horizontal clip at an evaluated width is reported as a finding
-  at that width, and pass = false.
+- Any envelope violation at an evaluated width is reported as a finding at that width,
+  and pass = false.
 - The report lists findings per evaluated width.
 - The probe measures the **structure-recovered overlay**, not the absolute base. On a
   multi-region page — several independently-colliding bands separated by roomy space —
