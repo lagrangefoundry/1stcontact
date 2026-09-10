@@ -5,9 +5,9 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T21:52:19.711776+00:00'
+updated_at: '2026-09-10T21:52:24.634896+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
