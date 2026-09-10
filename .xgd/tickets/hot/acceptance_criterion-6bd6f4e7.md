@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An invalid draft publishes nothing, and the failure happens before any write
 created_by: xgd
 created_at: '2026-08-31T11:34:07.433997+00:00'
-updated_at: '2026-08-31T11:46:20.665322+00:00'
+updated_at: '2026-09-10T16:55:49.407522+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
