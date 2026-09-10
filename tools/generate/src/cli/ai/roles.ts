@@ -122,5 +122,24 @@ export function caretakerReminder(
   return lines.join(' ')
 }
 
+/**
+ * What the caretaker is here to do — the purpose entry of its priming.
+ *
+ * Deliberately the ROLE'S purpose and not a restatement of the system prompt:
+ * this entry answers "what should I go looking for in this corpus", and an agent
+ * told only "you are a caretaker" has no basis for choosing between a document
+ * about storage and one about typography.
+ *
+ * It sits BETWEEN the corpus map and the operations manual, and that placement is
+ * this host's to make. KM once assembled all three into one document and owned
+ * the order; since it became two named providers it renders only its own data and
+ * names no role, so the purpose is an entry of ours, sequenced here.
+ */
+export const CARETAKER_PURPOSE =
+  'You look after a website for someone who is not technical. You will need to ' +
+  'know how this system builds and describes sites — its layout vocabulary, its ' +
+  'components, how pages are stored and published, and the reasoning behind those ' +
+  'designs — so you can act correctly and explain plainly.'
+
 /** The one role this project defines. Named, so nothing addresses it as a literal. */
 export const CARETAKER_ROLE = 'caretaker'

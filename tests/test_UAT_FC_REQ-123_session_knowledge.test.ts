@@ -11,7 +11,7 @@ import {
   resolveEmbedder,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
-import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { aiCore, createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 /**
@@ -143,8 +143,26 @@ describe('REQ-123 — the KB reaches the session', () => {
 
     // Exactly the read set — asserted as an equality rather than a handful of
     // absences, so an operation added upstream cannot slip into the grant
-    // unnoticed just because nobody thought to name it here.
-    expect(knowledgeTools).toEqual(['KnowledgeChunkSearch', 'KnowledgeGet', 'KnowledgeSearch'])
+    // unnoticed just because nobody thought to name it here. The expectation is
+    // DERIVED FROM THE DECLARATION rather than written out: a census goes stale
+    // the first time the read group grows, and the property this case is about is
+    // "the grant is the read group and nothing writes", not "there are three".
+    const { DECLARATION } = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+    const readOps = new Set(
+      DECLARATION.groups
+        .filter((group: { effect: string }) => group.effect === 'read')
+        .flatMap((group: { operations: string[] }) => group.operations),
+    )
+    const readTools = DECLARATION.operations
+      .filter((operation: { op: string }) => readOps.has(operation.op))
+      .map((operation: { tool: string }) => operation.tool)
+      .sort()
+
+    expect(readTools.length).toBeGreaterThan(0)
+    expect(knowledgeTools).toEqual(readTools)
+    expect(
+      DECLARATION.operations.filter((operation: { effect: string }) => operation.effect !== 'read'),
+    ).toEqual([])
   })
 
   it('test_UAT_FC_REQ-123_a_search_runs_through_the_toolbox_and_returns_a_hit', async () => {
@@ -198,25 +216,38 @@ describe('REQ-123 — the KB reaches the session', () => {
     // and how to reach it, so the corpus can grow without the context growing.
     // If the documents themselves were being pasted in, this priming would carry
     // the body text — and it must not.
-    const { KnowledgeDocs } = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+    // TWO PROVIDERS, NOT ONE ASSEMBLED DOCUMENT. KM used to take the role's
+    // purpose and the mechanism and hand back a snapshot whose internal order it
+    // owned; that seam is gone, because a snapshot assembled once cannot reflect
+    // a document published after the session opened. It now renders its own two
+    // texts — `km.landscape` and `km.mechanism` — and names no role, so the
+    // purpose between them is the HOST's entry and the order is the host's too
+    // (see `ai/host-core.ts`, and the criterion-level case in
+    // `reconciliation-assistant-conversation-knowledge`). What REQ-123 asks of
+    // the library is unchanged and is what is asserted here: a map and the means
+    // to reach it, never the bodies.
+    const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
     const box = await createL1Toolbox('studio', {}, { knowledge: runtime })
 
-    const source = await KnowledgeDocs.open(runtime, {
-      rolePurpose: 'You look after a website.',
-      mechanism: box.manual(),
+    const { PrimingProviders } = await aiCore()
+    const providers = new PrimingProviders()
+    bridge.registerKmProviders(providers, () => runtime, {
+      mechanismFor: () => box.manual(),
     })
-    const [priming] = source.documents()
+
+    const ctx = { backend: 'claude' }
+    const landscape = await providers.get(bridge.LANDSCAPE_PROVIDER)(ctx)
+    const mechanism = await providers.get(bridge.MECHANISM_PROVIDER)(ctx)
 
     // The map is there, and it routes: a territory plus where to start.
-    expect(priming).toContain('Behaviour modules')
-    expect(priming).toContain('DOC-A')
+    expect(landscape).toContain('Behaviour modules')
+    expect(landscape).toContain('DOC-A')
     // The documents themselves are NOT — this is the property the design rests on.
-    expect(priming).not.toContain('Autoplay and interval are behavioural config')
-    // And the order is map, then purpose, then mechanism — so the last thing
-    // read is the thing done first.
-    expect(priming.indexOf('Behaviour modules'))
-      .toBeLessThan(priming.indexOf('You look after a website.'))
-    expect(priming.indexOf('You look after a website.'))
-      .toBeLessThan(priming.indexOf('The site you look after'))
+    expect(landscape).not.toContain('Autoplay and interval are behavioural config')
+    expect(mechanism).not.toContain('Autoplay and interval are behavioural config')
+    // And the mechanism is THIS session's projected manual rather than a sentence
+    // written by hand about what it might reach.
+    expect(mechanism).toContain('KnowledgeSearch')
+    expect(mechanism).toContain('set_l1')
   })
 })

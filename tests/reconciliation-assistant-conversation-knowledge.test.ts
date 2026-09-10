@@ -27,13 +27,21 @@ import {
 } from '../tools/generate/src/cli/ai/toolbox'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 import {
+  knowledgeDeps,
+  nodeDeps,
   openSession,
   resetAiHost,
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
+import {
+  openSession as openSessionWith,
+  streamPrompt as streamPromptWith,
+} from '../tools/generate/src/cli/ai/host-core'
+import { CARETAKER_PURPOSE } from '../tools/generate/src/cli/ai/roles'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { says, scriptedClient } from './support/scripted-model-client'
+import type { ModelRequest } from './support/scripted-model-client'
 import type { L1Node } from '@1stcontact/site-schema'
 
 /**
@@ -62,9 +70,6 @@ const SLUG = 'studio'
 const HEADLINE = 'The old headline.'
 /** The address of the page's one text run: root list index, then child index. */
 const HEADLINE_PATH = '0.0'
-
-/** What the caretaker is here to do — priming step 2, and the ordering probe. */
-const PURPOSE = 'You look after a website for someone who is not technical.'
 
 /**
  * Two corpus documents whose BODIES are distinctive, because the load-bearing
@@ -200,19 +205,43 @@ interface Toolbox {
 /** The `ai-knowledge` bridge — the declaration and the grant this host composes. */
 interface Bridge {
   DECLARATION: {
-    operations: { op: string; tool: string; effect: string; returns: { provenance: string } }[]
+    operations: { op: string; tool: string; effect: string; returns: { shape: string } }[]
     groups: { group: string; effect: string; operations: string[] }[]
     scope_axes: Record<string, unknown>
+    shapes: Record<string, Record<string, string>>
   }
   TOOL_NAMES: Record<string, string>
   knowledgeInstanceConfig: (kbs: string[]) => {
     knowledge: { groups: string[]; scope: { kb: string[]; document: string[] } }
   }
-  KnowledgeDocs: { open: (runtime: unknown, opts: object) => Promise<{ documents(): string[] }> }
 }
 
 function bridge(): Promise<Bridge> {
   return import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge')) as Promise<Bridge>
+}
+
+/**
+ * The tools named by the declaration's ONE read group.
+ *
+ * Derived rather than listed, so an operation added upstream is CHECKED here
+ * rather than merely noticed: the grant assertion below compares what a session
+ * is offered against this, and a sixth read operation appearing upstream has to
+ * show up in the session's grant for that equality to hold.
+ */
+function readGroupTools(declaration: Bridge['DECLARATION']): string[] {
+  const read = declaration.groups.filter((group) => group.effect === 'read')
+  const ops = new Set(read.flatMap((group) => group.operations))
+  return declaration.operations
+    .filter((operation) => ops.has(operation.op))
+    .map((operation) => operation.tool)
+    .sort()
+}
+
+/** What the model was told, as one string — `system` is a string or text blocks. */
+function systemOf(request: ModelRequest): string {
+  return typeof request.system === 'string'
+    ? request.system
+    : request.system.map((block) => block.text ?? '').join('\n')
 }
 
 // ── the fixture ──────────────────────────────────────────────────────────────
@@ -254,9 +283,9 @@ describe('the corpus arrives on the surface the site operations arrive on', () =
     )
     const offered = Object.keys(box.schemas())
 
-    // COMPOSITION, not replacement. The three knowledge operations are added, and
-    // the site operations are exactly what they were — asserted as an equality, so
-    // a knowledge surface that quietly displaced or renamed one cannot pass.
+    // COMPOSITION, not replacement. The knowledge operations are added, and the
+    // site operations are exactly what they were — asserted as an equality, so a
+    // knowledge surface that quietly displaced or renamed one cannot pass.
     for (const tool of knowledgeTools) expect(offered).toContain(tool)
     expect(offered.filter((name) => !knowledgeTools.includes(name)).sort()).toEqual(
       siteOnly.slice().sort(),
@@ -284,13 +313,18 @@ describe('the corpus arrives on the surface the site operations arrive on', () =
     expect(hits).toContain('score')
 
     // A retrieved document is authored text arriving in the model's context, so it
-    // comes back MARKED — both in what the operation declares and in what the call
-    // actually returns.
-    for (const operation of DECLARATION.operations) {
-      expect(operation.returns.provenance, operation.tool).toBe('untrusted')
-    }
+    // comes back MARKED. Asserted on WHAT THE CALL RETURNS — the wrapping is the
+    // marking, and it is the thing a model actually sees. The declaration's half
+    // is that every knowledge result declares whose text it is: `origin` is a
+    // field of every returned shape, and it is the knowledge base that vouches
+    // (or does not) rather than the operation that asserts a constant.
     expect(hits.startsWith(UNTRUSTED_OPEN)).toBe(true)
     expect(hits.trimEnd().endsWith(UNTRUSTED_CLOSE)).toBe(true)
+    for (const operation of DECLARATION.operations) {
+      const shape = DECLARATION.shapes[operation.returns.shape]
+      expect(shape, operation.tool).toBeDefined()
+      expect(Object.keys(shape), operation.tool).toContain('origin')
+    }
 
     // …and a change to the site, through the same box, so the two calls can be
     // compared in one trail rather than in two.
@@ -326,22 +360,23 @@ describe('the knowledge grant is read-only and confined by one declaration', () 
     const { DECLARATION, knowledgeInstanceConfig } = await bridge()
     const box: Toolbox = await createL1Toolbox(SLUG, { cwd }, { knowledge: runtime })
 
-    // Exactly the three read operations, as an EQUALITY rather than a handful of
-    // absences — so an operation added upstream cannot enter the grant unnoticed
-    // just because nobody thought to name it here.
+    // THE OFFERED SET IS THE DECLARATION'S READ GROUP, as an equality — and the
+    // expectation is DERIVED from the declaration rather than hand-listed, so an
+    // operation added upstream is checked here rather than merely noticed. A
+    // census would go stale the first time the group grew; this does not, and it
+    // still fails if the grant and the declaration come apart.
     const offered = Object.keys(box.schemas())
       .filter((name) => knowledgeTools.includes(name))
       .sort()
-    expect(offered).toEqual(['KnowledgeChunkSearch', 'KnowledgeGet', 'KnowledgeSearch'])
+    expect(offered).toEqual(readGroupTools(DECLARATION))
+    expect(offered.length).toBeGreaterThan(0)
 
     // Read-only is enforced by ABSENCE: every declared operation is a read and the
-    // one group is the read group, so there is no corpus-writing operation for the
-    // assistant to reach for or to argue about.
-    expect(DECLARATION.operations.map((operation) => operation.effect)).toEqual([
-      'read',
-      'read',
-      'read',
-    ])
+    // only group is the read group, so there is no corpus-writing operation for
+    // the assistant to reach for or to argue about. Stated as "nothing writes"
+    // rather than as a count, which is the property and not the census.
+    expect(DECLARATION.operations.filter((operation) => operation.effect !== 'read')).toEqual([])
+    expect(DECLARATION.groups.filter((group) => group.effect !== 'read')).toEqual([])
     expect(DECLARATION.groups.map((group) => group.group)).toEqual(['ReadKnowledge'])
 
     // ONE named set fills BOTH scope axes — what may be searched and what may be
@@ -369,44 +404,79 @@ describe('the knowledge grant is read-only and confined by one declaration', () 
 
 describe('a conversation is primed with the map and the manual, not the documents', () => {
   it('test_UAT_AC1319_priming_carries_the_map_then_the_purpose_then_the_manual', async () => {
+    // OBSERVED, NOT MIRRORED. Earlier this case assembled the priming itself out
+    // of the host's inputs, so a host that primed with a hand-written mechanism
+    // — or, as happened, one whose call into the knowledge library had stopped
+    // existing — would still have passed. It now opens a real conversation and
+    // takes a real turn, and reads what the MODEL was actually sent.
+    //
+    // Everything on this side of the model is the host's own: `nodeDeps` is the
+    // runtime `1c` assembles, `knowledgeDeps` is the exact wiring a workspace
+    // with a built corpus gets, and the ordering under test is the entry list in
+    // `host-core.ts`. Only the corpus is this file's, because the host reads the
+    // repository's and the point here is a corpus whose bodies are known.
     const cwd = makeWorkspace()
-    const { KnowledgeDocs } = await bridge()
-    const box: Toolbox = await createL1Toolbox(SLUG, { cwd }, { knowledge: runtime })
+    const client = scriptedClient([says('Understood.')])
+    setModelClient(client)
 
-    // Assembled exactly as the host assembles it: the role's purpose, and the
-    // manual PROJECTED from this session's actual grant as the mechanism.
-    const manual = box.manual().trim()
-    const source = await KnowledgeDocs.open(runtime, { rolePurpose: PURPOSE, mechanism: manual })
-    const [priming] = source.documents()
+    try {
+      const deps = { ...(await nodeDeps({ cwd })), ...(await knowledgeDeps(runtime)) }
 
-    // The map's territories, and for each the document it routes to.
-    expect(priming).toContain('## Behaviour modules')
-    expect(priming).toContain('## Storage')
-    expect(priming).toContain('DOC-A')
-    expect(priming).toContain('DOC-B')
+      const opened = await openSessionWith(SLUG, { cwd }, deps)
+      expect(opened.ready, opened.error).toBe(true)
 
-    // …and NOT the prose of the documents it describes. This is the property the
-    // whole design rests on: the corpus can grow without the primed context
-    // growing with it, because what is primed is a map and the means to pull the
-    // rest, never the bodies.
-    expect(priming).not.toContain(BODY_A)
-    expect(priming).not.toContain(BODY_B)
+      const kinds: string[] = []
+      for await (const event of streamPromptWith(
+        opened.sessionId,
+        'What can you do?',
+        { cwd },
+        deps,
+      )) {
+        kinds.push(event.kind)
+      }
+      expect(kinds.filter((kind) => kind === 'done')).toHaveLength(1)
+      expect(client.seen).not.toHaveLength(0)
 
-    // The manual is the mechanism, verbatim — so the corpus is reached through
-    // this session's real grant rather than through a sentence written by hand
-    // about what it might have.
-    expect(priming).toContain(PURPOSE)
-    expect(priming).toContain(manual)
-    expect(manual).toContain('KnowledgeSearch')
+      const priming = systemOf(client.seen[0])
 
-    // The order is load-bearing, asserted on the CONTENT rather than only on the
-    // headings: the map, then what this assistant is here to do, then the manual
-    // last, so the last thing read is the thing done first.
-    expect(priming.indexOf('## Behaviour modules')).toBeLessThan(priming.indexOf(PURPOSE))
-    expect(priming.indexOf(PURPOSE)).toBeLessThan(priming.indexOf(manual))
-    expect(priming.indexOf('# What exists')).toBeLessThan(priming.indexOf('# Your purpose'))
-    expect(priming.indexOf('# Your purpose')).toBeLessThan(priming.indexOf('# How to search'))
-  })
+      // The map's territories, and for each the document it routes to.
+      expect(priming).toContain('## Behaviour modules')
+      expect(priming).toContain('## Storage')
+      expect(priming).toContain('DOC-A')
+      expect(priming).toContain('DOC-B')
+
+      // …and NOT the prose of the documents it describes. This is the property the
+      // whole design rests on: the corpus can grow without the primed context
+      // growing with it, because what is primed is a map and the means to pull the
+      // rest, never the bodies.
+      expect(priming).not.toContain(BODY_A)
+      expect(priming).not.toContain(BODY_B)
+
+      // The order is load-bearing, asserted on the CONTENT rather than only on the
+      // headings: the map, then what this assistant is here to do, then how to
+      // reach the rest last, so the last thing read is the thing done first.
+      expect(priming).toContain('# What exists')
+      expect(priming).toContain('# How to search')
+      expect(priming).toContain(CARETAKER_PURPOSE)
+      expect(priming.indexOf('# What exists')).toBeLessThan(priming.indexOf(CARETAKER_PURPOSE))
+      expect(priming.indexOf('## Behaviour modules')).toBeLessThan(
+        priming.indexOf(CARETAKER_PURPOSE),
+      )
+      expect(priming.indexOf(CARETAKER_PURPOSE)).toBeLessThan(priming.indexOf('# How to search'))
+
+      // The mechanism carries the manual PROJECTED from this session's actual
+      // grant, not a sentence written by hand about what it might have: every
+      // tool this turn offered the model is named in it, knowledge and site alike.
+      const mechanism = priming.slice(priming.indexOf('# How to search'))
+      expect(client.seen[0].tools).not.toHaveLength(0)
+      for (const tool of client.seen[0].tools) expect(mechanism, tool.name).toContain(tool.name)
+      expect(mechanism).toContain('KnowledgeSearch')
+      expect(mechanism).toContain('set_l1')
+    } finally {
+      setModelClient(null)
+      resetAiHost()
+    }
+  }, 180000)
 })
 
 // ── degradation is not failure, and the two are distinguished ────────────────

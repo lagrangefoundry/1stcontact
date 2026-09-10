@@ -15,7 +15,7 @@
  *   - `FileArchive` and the file junction, both under {@link sessionsDir};
  *   - the append-only file audit sink;
  *   - `add_asset` and `publish`, the two operations that need a disk;
- *   - the system KB and the priming document KM builds from it.
+ *   - the system KB, and the two priming providers KM renders from it.
  *
  * WHY THE SPLIT IS NOT OPTIONAL. A Worker that imports this file imports
  * `../commands`, and `../commands` reaches the filesystem store — `fsSiteStore`,
@@ -85,20 +85,6 @@ export function sessionsDir(opts: GlobalOptions): string {
 }
 
 /**
- * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
- *
- * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
- * priming answers "what should I go looking for in this corpus", and an agent
- * told only "you are a caretaker" has no basis for choosing between a document
- * about storage and one about typography.
- */
-const CARETAKER_PURPOSE =
-  'You look after a website for someone who is not technical. You will need to ' +
-  'know how this system builds and describes sites — its layout vocabulary, its ' +
-  'components, how pages are stored and published, and the reasoning behind those ' +
-  'designs — so you can act correctly and explain plainly.'
-
-/**
  * The system knowledge runtime, or `null` when the KB has not been built.
  *
  * Built once per process rather than per site: the KB is a release artefact
@@ -126,42 +112,67 @@ function openKnowledge(): Promise<Untyped | null> {
 }
 
 /**
+ * What a built system KB contributes to the host: the surface, and the priming.
+ *
+ * ONE FUNCTION BECAUSE THEY ARE ONE DECISION. The surface and the priming come as
+ * a pair or not at all — both are built from the same runtime, and a session
+ * primed with the map but not granted the corpus would be told to go and read
+ * documents it cannot open. Naming the pair rather than inlining it is also what
+ * lets a test observe the wiring the host actually uses instead of restating it:
+ * the seam that broke silently when KM's priming API moved was exactly this one.
+ *
+ * @param knowledge An open `KnowledgeRuntime` — never null; a host with no corpus
+ *   does not call this.
+ */
+export async function knowledgeDeps(
+  knowledge: Untyped,
+): Promise<Pick<HostDeps, 'knowledgeSurface' | 'priming'>> {
+  const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+  return {
+    knowledgeSurface: {
+      surface: new bridge.KnowledgeToolbox(knowledge),
+      // `knowledgeInstanceConfig` at the package root; `instanceConfig` is the
+      // name inside the module it comes from.
+      granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
+    },
+    // KM's priming is a PAIR OF NAMED PROVIDERS — `km.landscape` (the map of
+    // what territories exist) and `km.mechanism` (how to reach the rest) — and
+    // it no longer owns where they sit relative to the role's purpose: that
+    // sequence is declared in `host-core.ts`, in the entry list. What is decided
+    // HERE is what the mechanism says, and it is not a sentence written by hand
+    // about what the session might reach: it is this session's own projected
+    // manual, so the corpus is described through the grant it actually has.
+    //
+    // The runtime is passed as a CALLABLE because that is what the pair takes —
+    // both providers re-read on every assembly, which is what makes a recycled
+    // segment reflect a document published after the conversation opened.
+    priming: {
+      landscape: bridge.LANDSCAPE_PROVIDER,
+      mechanism: bridge.MECHANISM_PROVIDER,
+      register: (providers: Untyped, box: Untyped) =>
+        bridge.registerKmProviders(providers, () => knowledge, {
+          mechanismFor: () => box.manual(),
+        }),
+    },
+  }
+}
+
+/**
  * Assemble Node's runtime for one call.
  *
  * Everything here was previously a lookup performed deep inside the host. It is
  * the same set of decisions, made once, where the runtime is known.
  *
- * The KNOWLEDGE SURFACE and the PRIMING come as a pair or not at all: both are
- * built from the same runtime, and a session primed with the landscape but not
- * granted the corpus would be told to go and read documents it cannot open.
+ * Exported for the same reason the Worker's `workerHost` is: a runtime assembly
+ * is a thing a caller may want to build and inspect without going through a
+ * transport. The three entry points below still assemble it themselves, so
+ * nothing about the operator's path changes.
  */
-async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
+export async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
   const lib = await ai()
   const store = fsSiteStore(ctxOf(opts))
   const dir = sessionsDir(opts)
   const knowledge = await openKnowledge()
-
-  let knowledgeSurface: HostDeps['knowledgeSurface'] = null
-  let priming: HostDeps['priming'] = null
-  if (knowledge !== null) {
-    const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
-    knowledgeSurface = {
-      surface: new bridge.KnowledgeToolbox(knowledge),
-      // `knowledgeInstanceConfig` at the package root; `instanceConfig` is the
-      // name inside the module it comes from.
-      granted: bridge.knowledgeInstanceConfig([SYSTEM_KB]),
-    }
-    // KM owns the internal order of the one document it assembles: the map of
-    // what exists, then what this agent is for, then how to reach the rest. The
-    // manual goes in as the `mechanism` — the last thing read is the thing done
-    // first — so the corpus is reached through THIS session's actual grant
-    // rather than through a sentence written by hand about what it might have.
-    priming = async (box: Untyped) =>
-      bridge.KnowledgeDocs.open(knowledge, {
-        rolePurpose: CARETAKER_PURPOSE,
-        mechanism: box.manual(),
-      })
-  }
 
   return {
     lib,
@@ -169,8 +180,9 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     archive: new lib.FileArchive(dir),
     logDir: path.join(dir, 'live'),
     audit: fileAuditSink(opts),
-    knowledgeSurface,
-    priming,
+    knowledgeSurface: null,
+    priming: null,
+    ...(knowledge !== null ? await knowledgeDeps(knowledge) : {}),
   }
 }
 

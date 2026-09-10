@@ -51,7 +51,12 @@
 
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
-import { CARETAKER_ROLE, CARETAKER_SYSTEM, caretakerReminder } from './roles'
+import {
+  CARETAKER_PURPOSE,
+  CARETAKER_ROLE,
+  CARETAKER_SYSTEM,
+  caretakerReminder,
+} from './roles'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 
 /**
@@ -176,14 +181,31 @@ export interface HostDeps {
   knowledgeSurface?: { surface: Untyped; granted: Record<string, unknown> } | null
 
   /**
-   * Builds the role's priming `ContextSource` from the constructed Toolbox.
+   * The knowledge system's two named priming providers, or null.
    *
-   * A FACTORY rather than a value, because the priming contains the tool manual
-   * and the manual is a projection of THIS session's actual grant — it cannot be
-   * built before the box it describes. Absent means the manual alone, which is
-   * what a host with no knowledge corpus supplies.
+   * TWO PROVIDERS, NOT ONE ASSEMBLED DOCUMENT. KM used to hand back a snapshot
+   * (`KnowledgeDocs.open(...).documents()`) whose internal order it owned; that
+   * seam is gone, because a snapshot assembled once cannot reflect a document
+   * published after the session opened. It renders the map (`km.landscape`) and
+   * how to reach it (`km.mechanism`) as two providers re-resolved on every
+   * assembly, and names no role.
+   *
+   * So the ORDER IS THIS HOST'S NOW, and it is stated where the role is built:
+   * the map, then what this caretaker is for, then the projected manual last.
+   *
+   * `register` is handed the manager's provider registry and the constructed
+   * Toolbox, because the mechanism IS the manual and the manual is a projection
+   * of THIS session's actual grant — it cannot be built before the box it
+   * describes. Absent means the manual alone, which is what a host with no
+   * knowledge corpus supplies.
    */
-  priming?: ((box: Untyped) => Promise<Untyped>) | null
+  priming?: {
+    /** The provider name carrying the corpus map. */
+    landscape: string
+    /** The provider name carrying how to reach it — the manual goes in here. */
+    mechanism: string
+    register(providers: Untyped, box: Untyped): void
+  } | null
 
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
@@ -320,10 +342,10 @@ export class UnknownSessionError extends Error {
  * The manager for one site: its role, its store, and its registered backend.
  *
  * The role's priming was once the generated tool manual alone. Since REQ-123 the
- * system KB supplies the domain documents, and it arrives through the same
- * `ContextSource` seam this file was already written around — the prediction in
- * the previous version of this comment held, and nothing here changed shape to
- * accommodate it.
+ * system KB supplies the map and the means to search it, and it now arrives as
+ * two NAMED PROVIDERS on this manager's registry rather than as an assembled
+ * document — the same seam the change reminder already used, so what had to move
+ * was the ordering decision (see `build`) and not the shape of this file.
  *
  * What is still deliberate is that NEITHER document is hand-written prose about
  * the tools. The manual is projected from the declaration; the landscape is
@@ -412,42 +434,49 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // the session primes with nothing, which is why this is written out rather than
   // left to look like it still works.
   //
-  // `ContextSource` is duck-typed — `{documents(): string[]}` — so the manual
-  // is supplied in memory. `StaticDocs` reads files; there is no file here, and
-  // writing one so it could be read back would only create something to go
-  // stale.
+  // The manual is supplied in memory rather than through `StaticDocs`, which
+  // reads files: there is no file here, and writing one so it could be read back
+  // would only create something to go stale.
   //
   // Projected per role and per scope, which is a REQUIRED property rather than
   // a nicety: a session's manual never mentions a capability it was not
   // granted, so the model cannot propose one, apologise for one, or probe for
   // one.
   //
-  // LANDSCAPE FIRST, MANUAL LAST, when the KB is built. `KnowledgeDocs` assembles
-  // one document whose internal order is load-bearing and which KM owns: the map
-  // of what exists, then what this agent is for, then how to reach the rest. The
-  // manual goes in as the `mechanism` — the last thing read is the thing done
-  // first — so the corpus is reached through THIS session's actual grant rather
-  // than through a sentence written by hand about what it might have.
+  // MAP FIRST, PURPOSE, MANUAL LAST when the KB is built — and that ORDER IS
+  // DECLARED HERE, in the entry list, rather than inside a document KM assembles.
+  // KM used to take the role's purpose and the manual and hand back one document
+  // whose internal order it owned; it now renders only its own data, as two
+  // providers re-resolved on every assembly, and names no role. So the sequence
+  // is the configuration's — this list — which is where an ordering decision
+  // belongs and where a reader can see it:
+  //
+  //   1. `km.landscape` — the map of what territories exist,
+  //   2. what this caretaker is here to do, so it knows what to look for,
+  //   3. `km.mechanism` — how to reach the rest, carrying THIS session's manual
+  //      as its mechanism, because the last thing read is the thing done first.
+  //
+  // The manual reaches step 3 through `register` below rather than as text, so
+  // the corpus is reached through this session's actual grant rather than through
+  // a sentence written by hand about what it might have. Both providers resolve
+  // per assembly, which is why a document published after the session opened
+  // reaches a recycled segment.
   //
   // This is the alternative to stuffing 32 design documents into every context:
-  // the agent is given a map and the means to pull what it needs.
-  // LANDSCAPE FIRST, MANUAL LAST when the host has a corpus; the manual alone
-  // when it has not. Both satisfy the same duck-typed `ContextSource`, so the
-  // role is constructed identically either way and nothing downstream branches
-  // on which one it got. Either way what comes back is ONE document per entry,
-  // in the order the source hands them over — the tier preserves it.
-  const documents: string[] = (
-    deps.priming ? await deps.priming(box) : { documents: () => [box.manual()] }
-  ).documents()
+  // the agent is given a map and the means to pull what it needs. With no corpus
+  // the manual stands alone as static text — nothing downstream branches on which
+  // shape it got, because both are ordinary priming entries.
+  const documents = deps.priming
+    ? [
+        new lib.Entry({ name: 'caretaker-landscape', provider: deps.priming.landscape }),
+        new lib.Entry({ name: 'caretaker-purpose', text: CARETAKER_PURPOSE }),
+        new lib.Entry({ name: 'caretaker-mechanism', provider: deps.priming.mechanism }),
+      ]
+    : [new lib.Entry({ name: 'caretaker-source-0', text: box.manual() })]
 
   const role = new lib.Role({
     name: CARETAKER_ROLE,
-    priming: [
-      new lib.Entry({ name: 'caretaker', text: CARETAKER_SYSTEM }),
-      ...documents.map(
-        (text: string, i: number) => new lib.Entry({ name: `caretaker-source-${i}`, text }),
-      ),
-    ],
+    priming: [new lib.Entry({ name: 'caretaker', text: CARETAKER_SYSTEM }), ...documents],
     // THE ONE ENTRY THAT IS NOT STATIC (REQ-131). The reminder carries the fact
     // that the site moved, which is only known when the turn begins — so it is a
     // provider rather than text, resolved per turn against the baseline this host
@@ -497,6 +526,14 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // against the CURRENT baseline every turn rather than against the one that held
   // when the manager was built.
   manager.providers.register(REMINDER_PROVIDER, () => reminderFor(slug, deps))
+
+  // The knowledge pair, on the same registry and for the same reason: the two
+  // names the role's priming entries above carry have to resolve to something,
+  // and what they resolve to closes over THIS site's Toolbox — the mechanism is
+  // its projected manual. Registered after the manager exists rather than passed
+  // in its options, exactly as the reminder is, so the framework's own default
+  // product tier and providers are added to rather than replaced.
+  deps.priming?.register(manager.providers, box)
   return manager
 }
 
