@@ -6,9 +6,9 @@ title: 'A published revision stores both halves of the artifact: the rendered ou
   and the frozen definition it was rendered from'
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-31T11:33:12.857855+00:00'
+updated_at: '2026-09-10T16:55:53.814248+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
