@@ -6,14 +6,15 @@ title: A handle sees only its own account's tickets, on the listing path as well
   the one that needs an identifier
 created_by: xgd
 created_at: '2026-09-01T23:58:12.762165+00:00'
-updated_at: '2026-09-02T00:13:30.065520+00:00'
+updated_at: '2026-09-10T02:22:10.879925+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
