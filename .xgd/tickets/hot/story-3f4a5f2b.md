@@ -6,15 +6,16 @@ title: 'Site Storage Port: One Async Store Behind Every Edit, Provable In The Wo
   Runtime'
 created_by: xgd
 created_at: '2026-08-20T05:08:58.535662+00:00'
-updated_at: '2026-08-20T05:24:44.568013+00:00'
+updated_at: '2026-09-10T05:57:56.068205+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: completed
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-c4c7a854
   story_kind: feature
   story_points: 3
+  updated_by: bundle-b3b7c399
 ---
 
 ## Story
@@ -37,11 +38,20 @@ is.**
 **What storage is asked.** One declared set of operations covers everything the editing surface
 needs: does this site have a draft; read its definition; read its pages; apply one whole change;
 list its assets; read one asset's bytes; read its change count; record a change; read the
-changes since a given count; report what the draft has pending against the revision it descends
-from; assemble and validate the current draft. Every one answers asynchronously — including the
-ones a filesystem could answer immediately — because a store with a fast half and a slow half is
-a store callers learn the shape of, and the whole point is that they cannot tell which one they
-got.
+changes since a given count; assemble and validate the current draft. Every one answers
+asynchronously — including the ones a filesystem could answer immediately — because a store with
+a fast half and a slow half is a store callers learn the shape of, and the whole point is that
+they cannot tell which one they got.
+
+**And the port carries the revision storage verbs, whose callers are not the editing surface.**
+REQ-149 added five more questions to the same declared set — list a site's revisions, freeze one,
+read one back, read the revision the draft descends from, and re-parent it — answered by every
+adapter exactly as the editing questions are. They are here because storage is storage: a
+revision that could only be written to a filesystem would put the filesystem back under the seam.
+No editing command asks them; publish and checkout do, and the *sequencing* of a publish over
+them — what a revision record says, and what the draft has pending against the revision it
+descends from — is CAP-82's STORY-94. That last question in particular is no longer a port
+operation at all: it is computed above the port by asking these verbs in order.
 
 **No operation hands back a location.** An asset that came back as an absolute filename would not
 be a convenience, it would be the filesystem leaking through the seam, and a caller that took one
@@ -103,8 +113,11 @@ container-render path the previous single configuration existed for.
 - **What a change record contains, what the counter means, and how a caller reads changes back**
   — the change journal is its own capability; this story owns only that those questions are asked
   of the store like every other, and therefore answer over a store with no filesystem.
-- **Publish, checkout, render and history**, which stay on the filesystem directly; scope was held
-  to the editing surface.
+- **Sequencing a publish or a checkout, and rendering.** Scope here was held to the editing
+  surface: this story owns that the revision storage verbs are declared on the same port and
+  answered by every adapter, not what a publish run does with them. What a revision record says,
+  what the draft has pending against its base, and the publish and history surfaces themselves are
+  CAP-82's STORY-94, which since REQ-149 drives them *through* this port rather than around it.
 - Deploying anything, or serving a published site — a different store, on the far side of a
   deploy.
 
@@ -116,7 +129,9 @@ which was, until now, true of the read path and false of the write path. It sits
 CAP-86 (Structured Copy Editing — what a validated, atomic edit *means*) rather than beside it,
 and underneath CAP-99 (Draft Change Journal — what a change record *says*). CAP-85's builder
 origin owns request confinement and freshness, not the store's shape; CAP-82 (deploy and public
-serving) owns a different store entirely, on the far side of a deploy.
+serving) owns the published side — since REQ-149 its publish sequences over *this* port's
+revision verbs rather than around them, and the bytes a deploy actually serves remain its own
+question, on the far side of a deploy.
 
 **Deliberate non-behaviours, recorded rather than absorbed:**
 
@@ -124,9 +139,11 @@ serving) owns a different store entirely, on the far side of a deploy.
   crash between two of them leaves the draft half-written — exactly as before this work. Do not
   write an acceptance criterion asserting atomicity of the filesystem store; the atomicity claim
   belongs to the later transactional store.
-- **The filesystem-free store is not a revision store.** It reports every file as pending against
-  no base revision, which is precisely what a site that has never published reports. Publishing
-  and checkout remain filesystem-only.
+- **The filesystem-free store was not a revision store when this story landed.** It reported every
+  file as pending against no base revision — precisely what a site that has never published
+  reports — and publishing and checkout ran against the filesystem directly. This is recorded as
+  the state at the time rather than as a standing non-behaviour: REQ-149 later put the revision
+  storage verbs on the port, and every adapter, this one included, now answers them.
 - **Preview trades streaming for buffering.** A draft asset is now read into memory rather than
   streamed, because bytes are what a location-free store can hand over. It is the one behaviour
   this seam costs, and it lands on an operator serving their own draft assets to their own
