@@ -6,14 +6,15 @@ title: The retrofit fits a shade over the same function the definition resolves 
   so the drift it reports is the drift the site paints
 created_by: xgd
 created_at: '2026-08-16T22:26:27.163921+00:00'
-updated_at: '2026-08-16T22:44:01.677669+00:00'
+updated_at: '2026-09-10T20:40:51.369783+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5e7eb0c5
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
