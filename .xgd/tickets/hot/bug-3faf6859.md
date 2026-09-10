@@ -6,9 +6,9 @@ title: 'Image generation: an out-of-credits OpenAI account is reported to the cl
   as a deployment fault'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:50.877405+00:00'
-updated_at: '2026-09-10T22:18:28.238004+00:00'
+updated_at: '2026-09-10T22:18:49.888527+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: wont_fix
 fields:
   auto_merge_back: true
@@ -281,3 +281,39 @@ turn end. That is the right place and it now carries the detail. But **nothing i
 this product reads it**: `outcome.detail` will sit in R2 with no operator-facing
 view over it. Making a failed tool call visible somewhere a person actually looks
 is a separate piece of work and is not part of this bug.
+
+
+## Resolution: won't fix (2026-09-10)
+
+Closed `wont_fix` against **1stcontact**. The diagnosis stands and is not disputed —
+the sentence the client read was false, and the path that produced it is real. What is
+being declined is a fix *in this repo*, for two independent reasons.
+
+**1. Nothing here is broken.** The proximate cause was an OpenAI account with no
+credits. `apps/control-app/src/imagegen.ts` is wiring only and forbids local
+workarounds in its own header; it dispatched correctly, received a framework error and
+surfaced it faithfully. There is no line in this repo whose behaviour was wrong.
+
+**2. The defect is upstream and the local fix would be worse than none.** The error
+taxonomy, the `host_detail` suppression and `Toolbox._record` reading the *rendered*
+string instead of the exception all live in `lagrange-framework`. Patching this surface
+would restore the operator's diagnosis for `generator_unavailable` alone and leave
+`store_unavailable` and every other `host_detail: false` code equally blind — a repair
+that reads as fixed while the class of bug survives intact, which is the more expensive
+outcome.
+
+**Where it is tracked:** `lagrange-framework` **BUG-50** (`bug-3821b4f2`), at `draft`,
+carrying the full diagnosis and fix design. Fixing BUG-50 resolves the symptom recorded
+here with no further change in this repo. If it turns out that the framework fix needs a
+1stcontact-side counterpart, that is a new ticket against the actual requirement — not
+a reopening of this one.
+
+**Operational note:** the immediate unblock is billing, not code — top up at
+`https://platform.openai.com/settings/organization/billing/`. Deployed sessions are
+unaffected: production carries no OpenAI secret, so the image tool is absent there by
+design rather than failing. This reproduces in local dev only.
+
+**Retained as a diagnosis record.** The value of this ticket is the evidence trail —
+the two audit objects, the `429 credit_balance_exhausted` probe, and the three-mechanism
+composition that turned billing into "a deployment fault". That is the input to BUG-50
+and should not be archived away from it.
