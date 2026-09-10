@@ -6,14 +6,15 @@ title: A declared country alone derives the site's locale, currency and timezone
   and reaches the rendered language
 created_by: xgd
 created_at: '2026-08-31T12:28:31.505592+00:00'
-updated_at: '2026-08-31T12:33:35.405401+00:00'
+updated_at: '2026-09-10T04:00:49.791678+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
