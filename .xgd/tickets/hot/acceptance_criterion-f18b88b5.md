@@ -6,14 +6,15 @@ title: A site mounting a behavior module renders in the edge runtime, serving th
   component's own bytes
 created_by: xgd
 created_at: '2026-08-31T11:05:54.985660+00:00'
-updated_at: '2026-08-31T11:12:57.349998+00:00'
+updated_at: '2026-09-10T13:22:00.453541+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
