@@ -28,14 +28,21 @@
     "so a high cap costs nothing until it is used; per-session spend is the right",
     "cost control and this is not it.",
     "",
-    "claude-sonnet-5 has a 1M context window and a 128K output ceiling, so 64000 is",
+    "claude-opus-5 has a 1M context window and a 128K output ceiling, so 64000 is",
     "about half of what one reply may be and ~6% of the room the turn has — it does",
-    "not meaningfully compete with input. Naming it here pins it rather than",
-    "inheriting it, which is the point: moving to Opus 5 is now this one line."
+    "not meaningfully compete with input. On Opus 5 thinking is ON by default and",
+    "max_tokens bounds thinking and response text TOGETHER, so this is a shared",
+    "budget rather than 64000 of reply — an argument for the ceiling being roomy,",
+    "which it is.",
+    "",
+    "The adapter sends model, max_tokens, system, messages, tools and stream only.",
+    "That matters for this model: Opus 5 removes budget_tokens, temperature, top_p",
+    "and top_k, and refuses an assistant prefill, so a request carrying any of them",
+    "would 400. There is nothing here for it to refuse."
   ],
 
   "claude": {
-    "model": "claude-sonnet-5",
+    "model": "claude-opus-5",
     "max_tokens": 64000
   }
 }
