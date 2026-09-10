@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-09-10T11:18:23.991099+00:00'
+updated_at: '2026-09-10T11:18:56.893678+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -15,9 +15,8 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: fail
-  updated_by: request-8a132869
+  updated_by: request-f26cbe32
 ---
-
 
 ## Story
 **As a** site owner, **I want** my site's layout defined as validated structured
