@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   COUNTRY_DEFAULTS,
+  DEFAULT_COUNTRY,
   UNDECLARED_LOCALE,
   localeDirection,
   resolveSiteLocale,
@@ -139,6 +140,29 @@ describe('story-17ba490e — site locale identity', () => {
     expect(langDir(await generatorHtmlTag())).toEqual({ lang: 'en', dir: 'ltr' })
     expect(resolveSiteLocale({}).locale).toBe(UNDECLARED_LOCALE)
 
+    // The asymmetry the AC turns on: only the LANGUAGE is withheld from a
+    // region, because only the language is what a screen reader pronounces and a
+    // search index stores. There is no region-free currency and no region-free
+    // clock, so the default country answers for those three or nothing does. The
+    // WHOLE resolution is asserted — not just its language — so drift in either
+    // direction fails: a locale that acquires `-US`, or a currency/timezone that
+    // goes undefined.
+    expect(resolveSiteLocale({})).toEqual({
+      country: DEFAULT_COUNTRY,
+      locale: UNDECLARED_LOCALE,
+      currency: COUNTRY_DEFAULTS[DEFAULT_COUNTRY].currency,
+      timezone: COUNTRY_DEFAULTS[DEFAULT_COUNTRY].timezone,
+      dir: 'ltr',
+    })
+    expect(resolveSiteLocale({})).toMatchObject({
+      country: 'US',
+      currency: 'USD',
+      timezone: 'America/New_York',
+    })
+    // Not the default country's locale — that is the fabrication this avoids,
+    // and asserting it pins the two halves as different behaviours, not one.
+    expect(resolveSiteLocale({}).locale).not.toBe(COUNTRY_DEFAULTS[DEFAULT_COUNTRY].locale)
+
     // The other half, asserted against the ACTUAL stored sites rather than a
     // fixture, because "no migration required" is a claim about them
     // specifically. A published revision is frozen: if the capability broke one,
@@ -240,6 +264,11 @@ describe('story-17ba490e — site locale identity', () => {
     expect(localeDirection('az-Arab')).toBe('rtl')
     expect(localeDirection('az-Latn')).toBe('ltr')
     expect(localeDirection('en-IE')).toBe('ltr')
+
+    // An unrecognised locale is left-to-right — both the overwhelming majority
+    // and what a browser assumes anyway, so the unknown case must not fall to
+    // `rtl` and lay an ordinary page out backwards.
+    expect(localeDirection('qz-XX')).toBe('ltr')
   })
 
   it('test_UAT_AC1433_a_bad_locale_field_is_a_validation_error_at_a_machine_readable_path', () => {
@@ -272,6 +301,18 @@ describe('story-17ba490e — site locale identity', () => {
       // altogether, both validate.
       expect(validateSite(siteJson({ [field]: corrected })).ok, `${field}=${corrected} was refused`).toBe(true)
       expect(validateSite(siteJson()).ok).toBe(true)
+    }
+
+    // The permissive side, which is what makes the list above a BOUNDARY rather
+    // than an allowlist. The locale field's rule is well-formedness, not registry
+    // membership: a language subtag the platform does not recognise is far more
+    // likely to be a real minority language than a typo, and refusing it refuses
+    // a real business its own language. Without this, the rule could tighten to
+    // registry membership and no test would notice until that customer signed up.
+    for (const locale of ['qz', 'qz-IE', 'zxx', 'tlh-Latn-US']) {
+      expect(validateSite(siteJson({ locale })).ok, `${locale} was refused`).toBe(true)
+      // Accepted, not accepted-then-rewritten: it survives resolution unchanged.
+      expect(resolveSiteLocale({ locale }).locale, `${locale} was rewritten by resolution`).toBe(locale)
     }
   })
 
