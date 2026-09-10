@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T22:18:16.438070+00:00'
+updated_at: '2026-09-10T22:19:11.416185+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -255,5 +255,26 @@ One thing to decide: I saved the WIP diff to `lagrange-framework/.xgd/tmp/BUG-50
 <!-- xgd-chat role="user" ts="2026-09-10T22:18:15.687818+00:00" -->
 #### You
 please delete the tmp ticket, move this one to won't fix and explain why
+
+<!-- xgd-turn id="e8fd0310-7581-4a66-8e1c-676df76bf0f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:19:10.269123+00:00" -->
+#### Claude
+Status took. Now recording the rationale in the body.
+
+Done.
+
+**Deleted** — `lagrange-framework/.xgd/tmp/BUG-50-wip.patch` is gone. The WIP implementation no longer exists anywhere; BUG-50 will be implemented from its ticket body, in its own repo.
+
+**BUG-68 → `wont_fix`**, with the rationale appended to the body. The reasoning:
+
+- **Nothing in 1stcontact was broken.** The proximate cause was an out-of-credits OpenAI account. `apps/control-app/src/imagegen.ts` is wiring only — it dispatched correctly, got a framework error back, and surfaced it faithfully. There's no line in this repo whose behaviour was wrong.
+- **A local fix would be worse than none.** The error taxonomy, the `host_detail` suppression, and `Toolbox._record` reading the *rendered* string rather than the exception are all upstream. Patching this one surface would restore the operator's diagnosis for `generator_unavailable` and leave `store_unavailable` and every other `host_detail: false` code equally blind — it would read as fixed while the bug class survived.
+
+The ticket stays as a diagnosis record rather than being archived: the two audit objects, the `429 credit_balance_exhausted` probe, and the three-mechanism composition are the evidence BUG-50 is built on.
+
+**Cross-referenced both ways.** `lagrange-framework` BUG-50 now states it's the sole tracker, so whoever picks it up doesn't assume a parallel fix is coming from this side.
+
+Worth keeping separate from all of the above: the actual outage is still live and is a billing matter — top up at `platform.openai.com/settings/organization/billing/`. Production is unaffected (no OpenAI secret deployed, so the tool is absent by design there); this reproduces in local dev only.
 
 <!-- xgd-chat-end -->
