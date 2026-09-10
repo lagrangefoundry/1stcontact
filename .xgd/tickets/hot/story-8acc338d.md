@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-09-10T14:08:21.680631+00:00'
+updated_at: '2026-09-10T14:10:17.856491+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -81,7 +81,7 @@ The fold emits the **full language**, not text alone:
 **An axis the page makes responsive folds to a track, not to one desktop value.**
 The width ladder does not only fix geometry. A numeric axis whose value differs
 across the sampled widths is emitted as a per-width keyframe track on the same
-terms as geometry — the numeric type axes (size, line height, letter spacing) and
+terms as geometry — the numeric type axes (font size, line height, letter spacing) and
 each padding side independently — while an axis holding a single value everywhere
 stays a plain scalar. Reading every axis from the node's widest present sample (the
 desktop rendering) is correct only for an axis the page holds constant: for one the
