@@ -6,14 +6,15 @@ title: A conversation persists as a record found by its session identifier, with
   transcript as a comment and the body left for a summary
 created_by: xgd
 created_at: '2026-09-02T00:31:17.727707+00:00'
-updated_at: '2026-09-02T00:42:25.097278+00:00'
+updated_at: '2026-09-10T02:22:27.988603+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
