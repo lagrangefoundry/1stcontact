@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Switching modes changes what is displayed without rebuilding the pane
 created_by: xgd
 created_at: '2026-08-07T01:44:27.749421+00:00'
-updated_at: '2026-08-16T10:02:57.496766+00:00'
+updated_at: '2026-09-10T11:07:13.644730+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
