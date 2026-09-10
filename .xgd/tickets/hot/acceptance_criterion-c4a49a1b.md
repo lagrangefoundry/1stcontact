@@ -6,14 +6,15 @@ title: Each capture's record of what its page requested contains only that page'
   own requests
 created_by: xgd
 created_at: '2026-08-31T22:53:32.700654+00:00'
-updated_at: '2026-08-31T23:04:42.511180+00:00'
+updated_at: '2026-09-10T01:55:16.126493+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-080c6036
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
