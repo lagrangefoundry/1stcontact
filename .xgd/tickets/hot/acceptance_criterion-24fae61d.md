@@ -6,9 +6,9 @@ title: Every operation the assistant is offered is granted, takes no site, and r
   no path
 created_by: xgd
 created_at: '2026-08-10T08:36:02.679145+00:00'
-updated_at: '2026-08-20T04:43:38.553406+00:00'
+updated_at: '2026-09-10T21:47:07.555023+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
