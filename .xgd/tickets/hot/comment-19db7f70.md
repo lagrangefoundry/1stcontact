@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-71
 created_by: xgd
 created_at: '2026-09-10T17:54:51.607573+00:00'
-updated_at: '2026-09-10T18:16:00.462392+00:00'
+updated_at: '2026-09-10T18:19:16.810973+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,54 @@ I ran `./bin/1c assets`; it took **1.3 seconds** and the directory is there now.
 So the fix I proposed is: have `1c builder` run that 1.3-second copy itself, before it starts the server. Then the served copy is never missing and never behind the source, and neither failure can happen. That's the whole change — it's not clever, it just stops making the operator remember a step the machine can do.
 
 Does that make sense now? If so I'll write BUG-71 up and implement it.
+
+<!-- xgd-turn id="ae722b75-32e2-43a9-9f4f-ed876e0936fb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:19:16.645991+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c assets  
+modules    4 css, 4 client.js → packages/framework/src/modules/module-assets.ts
+builder    30 files
+webui      59 files, 7 import-map entries, 6 stylesheets
+framework  edit-client.js, site-schema-edit.js, site-schema-shade.js, marked-points.js, site-schema-anchors.js, measure-svg.js
+ai         /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/workers.js
+ticketing  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing/src/index.js
+knowledge  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/knowledge/src/index.js
+bridge     /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge/src/index.js
+auth       /Users/martin/lagrangefoundry/1stcontact/node_modules/@lagrangefoundry/auth-passwordless/src/index.js
+imagegen   /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-imagegen/src/index.js
+kb         12 document(s), 1196KB inlined, awareness primed not indexed
+out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+((.venv-working) ) martin@nyx 1stcontact % bin/1c assets
+modules    4 css, 4 client.js → packages/framework/src/modules/module-assets.ts
+builder    30 files
+webui      59 files, 7 import-map entries, 6 stylesheets
+framework  edit-client.js, site-schema-edit.js, site-schema-shade.js, marked-points.js, site-schema-anchors.js, measure-svg.js
+ai         /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/workers.js
+ticketing  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ticketing/src/index.js
+knowledge  /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/knowledge/src/index.js
+bridge     /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-knowledge/src/index.js
+auth       /Users/martin/lagrangefoundry/1stcontact/node_modules/@lagrangefoundry/auth-passwordless/src/index.js
+imagegen   /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-imagegen/src/index.js
+kb         12 document(s), 1196KB inlined, awareness primed not indexed
+out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+((.venv-working) ) martin@nyx 1stcontact % bin/1c kb build
+index:  11 document(s), 0 embedded
+chunks: 351
+map:    5 territories, 19 access point(s), written by claude_code
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+The builder did not start.
+
+**What failed:** could not load http://127.0.0.1:8788/builder/main.js
+
+**GET /api/sites:** 200 [{"slug":"1stcontact","latest":null},{"slug":"gigabytealchemy","latest":null},{"slug":"xgd","latest":null}]
+
+An asset the builder imports is missing. Run `1c assets`, then restart the builder — the assets manifest is read at startup.
+
+The document loaded; its client did not. Full detail is in the browser console.
 
 <!-- xgd-chat-end -->
