@@ -12,6 +12,7 @@ import path from 'node:path'
 import { cmdNew, cmdRender, run, startBuilder } from '../tools/generate/src/cli'
 import type { BuilderHandle } from '../tools/generate/src/cli'
 import { L1_EDIT_PATH_ATTR } from '../packages/site-schema/src/l1/edit'
+import { shadeHex } from '../packages/site-schema/src/l1/shade'
 import type { L1Node } from '@1stcontact/site-schema'
 
 /**
@@ -610,6 +611,13 @@ describe('story-37a3921b — a region’s colour, and the controls it cannot hon
     // carries it — the position is stored, never flattened into a colour.
     expectOk(await setFields(cwd, A_PANEL_COPY, { color: { ref: 'ink', shade: -0.25 } }))
     expect(axesOf(cwd, A_PANEL_COPY).color).toEqual({ ref: 'ink', shade: -0.25 })
+    // …and the page paints what the entry resolves to AT THAT POSITION, which is
+    // a different colour from the entry's own. Storing the position is only half
+    // the claim: a render that dropped the shade would still pass the assertion
+    // above while painting the wrong colour.
+    const shaded = shadeHex(PALETTE.ink.value, -0.25)
+    expect(shaded).not.toBe(PALETTE.ink.value)
+    expect(await renderedHtml(cwd)).toContain(shaded)
 
     // The field is offered WHETHER OR NOT the site has a palette yet — most
     // folded sites hold literals and no palette at all, and withdrawing the field

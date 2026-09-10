@@ -47,6 +47,8 @@ const SYSTEM_COPY = 'Set in whatever the reader happens to have.'
 const INHERITED_COPY = 'A run that declares no size of its own.'
 const FULL_COPY = 'A run whose family declares an italic face.'
 const SLIDE_COPY = 'The only slide.'
+const UNWEIGHTED_COPY = 'A run that declares no weight of its own.'
+const UNWEIGHTED_REWORDED = 'The same run, reworded and saved whole.'
 /** Long enough that a single-line control would hide most of it. */
 const LONG_COPY =
   'A headline long enough that the box it was authored for cannot hold it, which is accepted: the operator gets the words they asked for and tidies the layout afterwards.'
@@ -68,6 +70,13 @@ const A_FULL = '0.5'
 const A_LONG = '0.6'
 /** An image region — a plain-text alt beside a closed pick. */
 const A_IMAGE = '0.7'
+/**
+ * Satoshi — a FACED family, so the weight chooser is offered — declaring no
+ * weight of its own. The one run on the page whose reported weight is the seed
+ * rather than a value read from the node. Appended last so every address above
+ * is undisturbed.
+ */
+const A_UNWEIGHTED = '0.9'
 /** Rooted in the carousel instance's repeated `slide` slot. */
 const A_SLIDE = '0'
 
@@ -156,6 +165,17 @@ function seedPage(cwd: string, slug: string): void {
       },
       { kind: 'image', src: 'assets/hero.jpg', alt: 'A hero image' },
       { kind: 'slot', name: 'gallery' },
+      // The run whose weight is SEEDED rather than read. `A_SYSTEM` cannot serve
+      // this: its family declares no faces, so it is offered no weight field at
+      // all. This one is in Satoshi — four declared faces, so the chooser is
+      // live — and simply declares no weight, which is the only state in which
+      // the seed is reported and echoing it back is not a change.
+      {
+        kind: 'text',
+        id: 'unweighted',
+        text: UNWEIGHTED_COPY,
+        axes: { fontFamily: SATOSHI_STACK, fontSizePx: 18 },
+      },
     ],
   }
 
@@ -399,6 +419,34 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     const inherited = await fieldsOf(A_INHERITED)
     expect(inherited.map((f) => f.name)).not.toContain('fontSizePx')
     expect(await valuesOf(A_INHERITED)).not.toHaveProperty('fontSizePx')
+
+    // A WEIGHT IS THE ONE REPORTED VALUE NOT READ FROM THE NODE. A chooser has
+    // to show something selected — it cannot be withheld the way a size is — so
+    // a run declaring no weight of its own reports the LOWEST face the document
+    // declares, seeded rather than fabricated.
+    expect(draftAxes(A_UNWEIGHTED)).not.toHaveProperty('fontWeight')
+    const unweighted = await fieldsOf(A_UNWEIGHTED)
+    expect(unweighted.find((f) => f.name === 'fontWeight')!.enum).toEqual([
+      '400',
+      '500',
+      '700',
+      '900',
+    ])
+    expect((await valuesOf(A_UNWEIGHTED)).fontWeight).toBe('400')
+
+    // And ECHOING THAT SEED BACK IS NOT A CHANGE. A saved form posts every field
+    // the region exposed, so the seed rides along on a save that only rewrote the
+    // words — which must report the words alone as changed, and must not write a
+    // weight the run never declared into the definition.
+    const echoed = await set(A_UNWEIGHTED, {
+      text: UNWEIGHTED_REWORDED,
+      fontWeight: '400',
+    })
+    expect(echoed.ok).toBe(true)
+    expect(echoed.exitCode).toBe(0)
+    expect(echoed.data!.changed).toEqual(['text'])
+    expect(draftNode(A_UNWEIGHTED).text).toBe(UNWEIGHTED_REWORDED)
+    expect(draftAxes(A_UNWEIGHTED)).toEqual({ fontFamily: SATOSHI_STACK, fontSizePx: 18 })
 
     // ...and a run whose family yields fewer than two weights is offered no
     // weight chooser, because a chooser holding its only option is a label.

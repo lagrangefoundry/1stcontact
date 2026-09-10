@@ -38,6 +38,19 @@ const REMOTE = 'https://cdn.example.com/offsite.jpg'
 /** A handle that is safe and well-formed but names nothing the site has. */
 const ABSENT = '/assets/nowhere.png'
 
+/**
+ * The site's palette. AC-1045 requires the entries to travel back with the SAME
+ * answer that describes a panel's fields, so a caller can draw the choices the
+ * colour field offers without a second call. The scaffold declares none — a
+ * starter page needs no palette — so the fixture declares one, which is what
+ * makes "they come back" a claim the answer can fail.
+ */
+const PALETTE = {
+  ink: { value: '#101822' },
+  sand: { value: '#f4f0e8' },
+  moss: { value: '#3a7d44' },
+}
+
 const SHORT_COPY = 'Over the backdrop.'
 /** A second run, so a violation can be planted where no edit under test touches. */
 const DECOY_COPY = 'A second line, never edited here.'
@@ -70,8 +83,16 @@ const A_OFFSITE = '0.2'
 const A_IMAGE = '0.3'
 /** A run of copy that also carries a background of its own. */
 const A_PAINTED_COPY = '0.4'
-/** Appended by the one test that needs it — an empty handle fails the envelope. */
-const A_EMPTY_HANDLE = '0.5'
+/**
+ * Appended by the one test that needs it: a panel that paints — so it is a
+ * region — but declares NO FILL. The asymmetry AC-1049 draws needs it, a fill
+ * may be SET where none was declared while a background may not, and no seeded
+ * panel supplies it. Appended FIRST, because it is the one written to and the
+ * empty handle below refuses every write once it exists.
+ */
+const A_NO_FILL = '0.5'
+/** Appended after it — an empty handle fails the envelope. */
+const A_EMPTY_HANDLE = '0.6'
 
 /** Every paint parameter the backdrop carries alongside its background image. */
 const BACKDROP_PAINT = {
@@ -106,6 +127,7 @@ function seedSite(cwd: string, slug: string): void {
   const siteJson = draftPath(cwd, slug, 'site.json')
   const base = JSON.parse(readFileSync(siteJson, 'utf8'))
   base.assets = [{ id: 'beta', src: 'beta.png', alt: 'The beta image' }]
+  base.palette = PALETTE
   writeFileSync(siteJson, JSON.stringify(base, null, 2))
 
   const homePath = draftPath(cwd, slug, 'pages', 'home.json')
@@ -321,6 +343,11 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     })
     expect((draftNode(cwd, A_BACKDROP).axes as Record<string, unknown>).backgroundImageUrl).toBe(HERO)
 
+    // And the site's palette entries travel back with the SAME answer, so a
+    // caller can draw the choices the colour field offers without a second call
+    // — the panel's answer carries them exactly as a run's does.
+    expect(got.data!.palette).toEqual(PALETTE)
+
     // Nothing else of the panel's paint is offered. The panel demonstrably
     // CARRIES all of it — so this is a boundary the derivation draws, not an
     // absence in the fixture. REQ-140 moved the fill across that boundary and
@@ -368,6 +395,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
       expect(body.kind).toBe('container')
       expect(body.fields).toEqual(fields)
       expect(body.values).toEqual(got.data!.values)
+      expect(body.palette).toEqual(PALETTE)
     })
   })
 
@@ -383,15 +411,15 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     // click and outline should not open on an empty answer. So what it exposes
     // now is its colour — and still no picker, which is the claim. The absence
     // being pinned is the picker's, not the whole form's.
-    const page = JSON.parse(draftBytes(cwd))
-    page.l1.root.children.push({
-      kind: 'box',
-      id: 'empty-handle',
-      axes: { surfaceFill: '#0a0a0a', backgroundImageUrl: '' },
-    })
-    writeFileSync(homeJsonPath(cwd), JSON.stringify(page, null, 2))
+    // The panel that paints but declares NO FILL goes in first, and alone: it is
+    // the one this test writes to, and the empty handle below fails the
+    // envelope's URL allowlist, which would refuse every write after it exists
+    // and make a field-level refusal indistinguishable from an ambient one.
+    const withNoFill = JSON.parse(draftBytes(cwd))
+    withNoFill.l1.root.children.push({ kind: 'box', id: 'no-fill', axes: { borderRadiusPx: 8 } })
+    writeFileSync(homeJsonPath(cwd), JSON.stringify(withNoFill, null, 2))
 
-    for (const addr of [A_FILL_ONLY, A_EMPTY_HANDLE]) {
+    for (const addr of [A_FILL_ONLY, A_NO_FILL]) {
       const got = await readFields(cwd, addr)
       expect(got.ok, addr).toBe(true)
       expect(got.exitCode, addr).toBe(0)
@@ -401,6 +429,52 @@ describe('story-37a3921b — a painted panel’s background image, through the s
       expect((got.data!.fields as Field[]).map((f) => f.name), addr).toEqual(['surfaceFill'])
       expect(fieldNamed(got, 'backgroundImageUrl'), addr).toBeUndefined()
     }
+    // The panel declaring no fill reports the field with NO current value rather
+    // than a resolved or invented one.
+    expect((await readFields(cwd, A_NO_FILL)).data!.values).not.toHaveProperty('surfaceFill')
+
+    // THE SAME ASYMMETRY DOES NOT HOLD OF THE FILL. A colour written into a
+    // panel that declared none LANDS — it cannot take the panel out of the set
+    // of addressable regions, since the panel is already painting something or it
+    // would not be a region — and the re-rendered page paints it.
+    const filled = await cli(cwd, ...setArgs(A_NO_FILL, { surfaceFill: { ref: 'moss' } }))
+    expect(filled.ok).toBe(true)
+    expect(filled.data!.changed).toEqual(['surfaceFill'])
+    expect(draftNode(cwd, A_NO_FILL).axes).toEqual({
+      borderRadiusPx: 8,
+      surfaceFill: { ref: 'moss' },
+    })
+    expect(await renderedBytes(cwd)).toContain(PALETTE.moss.value)
+
+    // And NO control on either form can CLEAR a fill, for the same reason no
+    // control can clear a background: emptiness is not a value this field admits,
+    // so a cleared submission is refused AT THE FIELD — the fault names the fill
+    // rather than the page — and the panel keeps what it paints.
+    for (const cleared of [null, '']) {
+      const refused = await cli(cwd, ...setArgs(A_NO_FILL, { surfaceFill: cleared }))
+      expect(refused.ok, String(cleared)).toBe(false)
+      expect(refused.error!.code, String(cleared)).toBe('SCHEMA_INVALID')
+      expect(refused.error!.path, String(cleared)).toBe(`${A_NO_FILL}/surfaceFill`)
+      expect(draftNode(cwd, A_NO_FILL).axes, String(cleared)).toEqual({
+        borderRadiusPx: 8,
+        surfaceFill: { ref: 'moss' },
+      })
+    }
+
+    // Now the empty handle, whose answer is the same as a panel carrying none.
+    const withEmptyHandle = JSON.parse(draftBytes(cwd))
+    withEmptyHandle.l1.root.children.push({
+      kind: 'box',
+      id: 'empty-handle',
+      axes: { surfaceFill: '#0a0a0a', backgroundImageUrl: '' },
+    })
+    writeFileSync(homeJsonPath(cwd), JSON.stringify(withEmptyHandle, null, 2))
+    const empty = await readFields(cwd, A_EMPTY_HANDLE)
+    expect(empty.ok).toBe(true)
+    expect(empty.exitCode).toBe(0)
+    expect(empty.error).toBeUndefined()
+    expect((empty.data!.fields as Field[]).map((f) => f.name)).toEqual(['surfaceFill'])
+    expect(fieldNamed(empty, 'backgroundImageUrl')).toBeUndefined()
 
     // The picker offers no way to introduce a background where none exists: the
     // field a panel that DOES carry one exposes has no empty choice, and is

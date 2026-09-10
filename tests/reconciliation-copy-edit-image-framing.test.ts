@@ -355,11 +355,31 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
       expect(field.max, name).toBeTypeOf('number')
     }
 
+    // The hue shift and the blur are the AXIS, not a projection of one, so they
+    // are offered under the name and in the unit the definition itself holds.
+    expect((await fieldNamed(A_PLAIN, 'hueRotateDeg'))!).toMatchObject({
+      type: 'integer',
+      min: 0,
+    })
+    expect((await fieldNamed(A_PLAIN, 'blurPx'))!).toMatchObject({ type: 'integer', min: 0 })
+
     // Several adjustments in ONE form produce ONE change to the site, not one
     // per adjustment...
-    const saved = await set(A_PLAIN, { saturatePct: 40, grayscalePct: 60, brightnessPct: 110 })
+    const saved = await set(A_PLAIN, {
+      saturatePct: 40,
+      grayscalePct: 60,
+      brightnessPct: 110,
+      hueRotateDeg: 90,
+      blurPx: 4,
+    })
     expect(saved.ok).toBe(true)
-    expect(saved.data!.changed).toEqual(['saturatePct', 'grayscalePct', 'brightnessPct'])
+    expect(saved.data!.changed).toEqual([
+      'saturatePct',
+      'grayscalePct',
+      'brightnessPct',
+      'hueRotateDeg',
+      'blurPx',
+    ])
     expect((await cli(cwd, 'status', 'acme')).data!.modified).toEqual(['pages/home.json'])
 
     // ...and the region stores them in the form a BROWSER reports, converted from
@@ -368,24 +388,51 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
     // is what an operator means, `saturate: 0.4` is what the definition holds, so
     // a page folded from a capture and a page adjusted by hand say the same thing
     // the same way.
-    expect(draftAxes(A_PLAIN).filter).toEqual({ saturate: 0.4, grayscale: 0.6, brightness: 1.1 })
+    //
+    // BUT ONLY WHERE THE CONTROL IS A PROJECTION. The hue shift and the blur are
+    // held under the same name the control offers, with NO conversion between
+    // what was submitted and what is stored — a control is a projection only
+    // where it is one. That distinction is the whole point of this criterion, and
+    // it is what a single `scale` applied to all six would silently destroy.
+    expect(draftAxes(A_PLAIN).filter).toEqual({
+      saturate: 0.4,
+      grayscale: 0.6,
+      brightness: 1.1,
+      hueRotateDeg: 90,
+      blurPx: 4,
+    })
+    const stored = draftAxes(A_PLAIN).filter as Record<string, number>
+    expect(stored.hueRotateDeg).toBe(90)
+    expect(stored.blurPx).toBe(4)
+    // The contrast: the percentage controls submitted the number and stored a
+    // different one; these two stored exactly what was submitted.
+    expect(stored.saturate).not.toBe(40)
 
-    // The rendered page carries the adjustment.
+    // The rendered page carries the adjustment — both the converted fractions and
+    // the un-converted degrees and pixels, in their own units.
     expect(renderedPage(saved)).toContain('grayscale(0.6) saturate(0.4) brightness(1.1)')
+    expect(renderedPage(saved)).toContain('hue-rotate(90deg)')
+    expect(renderedPage(saved)).toContain('blur(4px)')
 
-    // A control left at its identity throughout is NEVER written — `contrastPct`,
-    // `hueRotateDeg` and `blurPx` were offered and never submitted, and the
-    // stored adjustment holds nothing for them.
-    for (const axis of ['contrast', 'hueRotateDeg', 'blurPx']) {
-      expect(draftAxes(A_PLAIN).filter).not.toHaveProperty(axis)
-    }
+    // A control left at its identity throughout is NEVER written — `contrastPct`
+    // was offered and never submitted, and the stored adjustment holds nothing
+    // for it.
+    expect(draftAxes(A_PLAIN).filter).not.toHaveProperty('contrast')
 
     // THE IDENTITY IS NOT THE SAME NUMBER FOR EVERY CONTROL — unchanged (100%)
     // for the scaling adjustments, none-at-all (0) for the rest — so each is
-    // judged against its own. Returning each to its identity removes that
-    // adjustment...
-    const back = await set(A_PLAIN, { saturatePct: 100, brightnessPct: 100 })
+    // judged against its own. Returning EACH to its own identity removes that
+    // adjustment, and a control submitted at an identity it already sat at is
+    // not reported as a change at all.
+    const back = await set(A_PLAIN, {
+      saturatePct: 100,
+      brightnessPct: 100,
+      contrastPct: 100,
+      hueRotateDeg: 0,
+      blurPx: 0,
+    })
     expect(back.ok).toBe(true)
+    expect(back.data!.changed).toEqual(['saturatePct', 'brightnessPct', 'hueRotateDeg', 'blurPx'])
     expect(draftAxes(A_PLAIN).filter).toEqual({ grayscale: 0.6 })
 
     // ...and removing the LAST one removes the group holding them, leaving no
