@@ -6,15 +6,16 @@ title: 'Self-origin fulfilment: a picture of my own draft is the draft, not a si
   challenge'
 created_by: xgd
 created_at: '2026-08-31T23:20:40.311983+00:00'
-updated_at: '2026-08-31T23:30:56.310929+00:00'
+updated_at: '2026-09-10T01:55:45.438632+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-8eef3846
   capability_uid: capability-aa030c83
   story_kind: feature
   story_points: 2
+  uat_coverage: pass
 ---
 
 ## Story
