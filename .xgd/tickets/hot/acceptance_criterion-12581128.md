@@ -6,14 +6,15 @@ title: The fold derives each text run's nowrap threshold as a width from the lad
   single-line suffix
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T14:40:30.523151+00:00'
-updated_at: '2026-09-10T14:40:30.523151+00:00'
+updated_at: '2026-09-10T15:36:57.629416+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
