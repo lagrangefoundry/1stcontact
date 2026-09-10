@@ -6,14 +6,15 @@ title: The builder's published view redirects here, so published bytes have exac
   one serving path
 created_by: xgd
 created_at: '2026-08-31T11:53:20.122847+00:00'
-updated_at: '2026-08-31T12:07:25.709363+00:00'
+updated_at: '2026-09-10T16:55:55.929590+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
