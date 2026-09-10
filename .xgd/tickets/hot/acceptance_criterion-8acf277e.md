@@ -6,9 +6,9 @@ title: The form is sized for real copy with a tall resizable editing area, and S
   stays reachable at every window size
 created_by: xgd
 created_at: '2026-08-10T07:48:20.976780+00:00'
-updated_at: '2026-08-16T04:19:22.291188+00:00'
+updated_at: '2026-09-10T23:34:36.168712+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3bf94bd4
@@ -34,9 +34,10 @@ A dialog that is one sentence and a Close button is not stretched to a copy
 editor's width; it stays narrow. That narrowing is keyed on the absence of **any
 editing surface** rather than on the presence of a message: a refusal appearing
 inside an open form does not snap the panel narrower around copy the operator is
-still holding, and a dialog that is all thumbnails and no text keeps the full
-width even though it has no editing box — it is a grid of pictures, which is the
-one thing that needs the width most.
+still holding, and a dialog with no editing box at all — a painted backdrop,
+whose controls are its thumbnail grid and its colour row — keeps the full width
+even though it has no box for words: it is a grid of pictures, which is the one
+thing that needs the width most.
 
 ## Verification
 
@@ -46,6 +47,7 @@ the viewport. Shrink the viewport well below the panel's natural height and
 assert the panel is still within it and the Save control is still within the
 viewport and clickable. Assert the editing area is resizable by the operator.
 Open a nothing-to-edit dialog and assert the narrower width. Then provoke a
-refusal in an open fields form and assert its width is unchanged. Open a dialog
-that exposes only an image choice and assert it takes the full width rather than
-the message width, with Save reachable.
+refusal in an open fields form and assert its width is unchanged. Open a painted
+backdrop's dialog — its picker and its colour row, with no editing box — and
+assert it takes the full width rather than the message width, with Save
+reachable.
