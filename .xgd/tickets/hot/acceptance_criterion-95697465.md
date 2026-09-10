@@ -6,9 +6,9 @@ title: Every field marked unavailable carries a plain-English reason, and no fie
   is marked unavailable without one, on every region of every stored site
 created_by: xgd
 created_at: '2026-08-20T02:57:20.815550+00:00'
-updated_at: '2026-08-20T03:25:23.278425+00:00'
+updated_at: '2026-09-10T17:33:39.362746+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -28,17 +28,18 @@ get it changed — never the internal name of a parameter — because the reader
 is written for is the person editing the site, and "ask me in chat" is the only
 route they have.
 
-It is carried on the field itself, so every reader of the derivation gets the
-same sentence: the browser that draws the row, the command line that lists the
-region's fields, and the AI's own tool surface. None of them can offer a control
+It is carried on the field itself, so the pairing is a property of the derivation
+rather than of any one reader: whatever reads the answer — the browser that draws
+the row, a command line that lists the region's fields, the AI's own tool surface
+— receives the mark and the sentence together. None of them can offer a control
 it will then be refused for, and none of them can offer a different explanation.
 
 ## Verification
 
 Walk every region of every page of every site in the store, request its fields,
 and assert of each returned field that it is marked unavailable if and only if it
-carries a reason, and that no reason is an empty string. Assert the same answer
-through the command line and through the builder origin, so the pairing is a
-property of the derivation rather than of one reader. Include in the walk a run
-whose family declares no faces at all, and assert its italic control is neither
-unavailable nor carrying a reason — the sweep must be able to fail.
+carries a reason, and that no reason is an empty string. Assert the reason
+travels on the field itself in that same answer, so no reader has to be asked
+separately for it. Include in the walk a run whose family declares no faces at
+all, and assert its italic control is neither unavailable nor carrying a reason —
+the sweep must be able to fail.
