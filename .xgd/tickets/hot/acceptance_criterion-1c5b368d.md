@@ -6,14 +6,15 @@ title: The operator surface retains every invocation's log, declared for both en
   and placed so the production route survives
 created_by: xgd
 created_at: '2026-08-31T17:17:59.003904+00:00'
-updated_at: '2026-08-31T17:25:13.539616+00:00'
+updated_at: '2026-09-10T05:44:40.771963+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
