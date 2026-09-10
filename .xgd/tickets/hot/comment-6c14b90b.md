@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:57:22.963457+00:00'
+updated_at: '2026-09-10T23:00:35.575681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -238,5 +238,31 @@ Say go and I'll write the REQ, update BUG-78 to depend on it, and start on the b
 <!-- xgd-chat role="user" ts="2026-09-10T22:57:22.710752+00:00" -->
 #### You
 Please create the ticket - I will use the tickets own agent to build it.
+
+<!-- xgd-turn id="2a5de84e-c61a-4fc1-9e8d-10c2bb73158c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T23:00:34.064336+00:00" -->
+#### Claude
+Done — one ticket.
+
+## REQ-223 — *Public forms accept a submission: lead capture, asset delivery, and the controls that keep it safe*
+
+`request-7d9f8b2e`, status `draft`, priority high. Eleven sections, fifteen numbered acceptance criteria, written for an agent that wasn't in this conversation — so every claim carries its evidence and every deliberate choice carries the reason it was chosen, to survive a builder who'd otherwise "fix" it.
+
+What's in it:
+
+- **§1 what's true today** — three shipped forms pointed at routes that have never existed, with the verification dates. Includes CHAT-56's prior record of the same gap, and the finding that REQ-7 (cited in code comments as wiring Turnstile) is an abandoned D1-schema ticket, so that work is unowned.
+- **§3 the architecture** — `/api/lead` on `public-site`, same-origin, tenant from the URL, write handed to `control-app` over a service binding. §3.2 requires the internal seam be an RPC entrypoint rather than a path, on the grounds that a path is something a request can name and `access.ts` argues at length against surfaces that are one misconfiguration from public.
+- **§5 asset delivery** — the whitepaper requirement, the reframing of relay risk (we control the content; recipient choice is what's dangerous), and *at most one send per address per asset, ever*. Flagged explicitly as **not** a rate limit and not to be softened into one, with the real cost stated: someone who loses the email can't re-request it, and the remedy is an authenticated operator re-send.
+- **§6 the controls** — honeypot, Turnstile, rate limiting, body limits, each with what it's actually for and how it fails. Turnstile fails closed when unconfigured. Includes the note that CORS constrains browsers and nothing else, so the UATs should assume a non-browser caller.
+- **§7 the opt-in checkbox** as the consent record rather than a feature — storing the answer *and* the wording shown, since wording reconstructed later evidences nothing.
+- **§9 out of scope**, with your notification decision recorded as a dated operator decision, plus the two limbs of DOC-5's strategy we're not doing, so their absence reads as a choice.
+- **§10 deployment steps** — Turnstile keys, the service binding, and the Access bypass policies.
+
+BUG-78 is updated: `blocked_by: [REQ-223]`, existing diagnosis preserved, with an appended section giving the two config values that close it and the note that the sign-in half additionally needs the Access policy, which lead capture deliberately doesn't.
+
+One thing worth carrying forward: **the missing Access bypass is not created by any of this**. `/sign-in` and `/api/email/webhook` are unreachable in production right now, which means REQ-202's sign-in and REQ-198's delivery webhook are both dead there today. REQ-223 routes around it for lead capture, but nothing routes around it for sign-in.
+
+Unrelated housekeeping: the Gmail, Google Calendar and Google Drive connectors need authorising in your claude.ai connector settings before I can use them — nothing here needed them, but the session flagged them as unauthenticated.
 
 <!-- xgd-chat-end -->
