@@ -23,6 +23,7 @@ import {
   listSiteAssets,
 } from '../../tools/generate/src/cli/edit'
 import { CommandError } from '../../tools/generate/src/cli/errors'
+import { PreviewRenderer } from '../../tools/generate/src/cli/preview'
 import type {
   RevisionContent,
   RevisionEntry,
@@ -46,14 +47,16 @@ import type { SiteFixture, SiteSeedOptions } from './site-factory'
  * adapter is held to it; an adapter that answers differently fails in its own
  * project with the same assertion text.
  *
- * WHAT IS NOT HERE, AND WHY. The two preview cases (`PreviewRenderer` renders
- * the draft; a preview asset comes back as bytes) live in the node suite alone.
- * Not because of D1 — the store serves them fine — but because rendering reaches
- * the filesystem, which workerd does not have. (It used to run through Astro's
- * container API; REQ-148/REQ-150 removed that, so the reason is the filesystem
- * now, not a missing build transform. The placement is unchanged.) Relocating
- * the render is DOC-12 §7's next step and REQ-145's scope; asserting it here
- * would mean asserting it nowhere, since the file would fail to load.
+ * THE RENDER IS HERE TOO, NOW. The two preview cases (`PreviewRenderer` renders
+ * the draft; a preview asset comes back as bytes) used to sit in the node suite
+ * alone, first because the render ran through Astro's container API and then,
+ * after REQ-148/REQ-150 removed that, because the reason had never been
+ * re-checked against the tree. Neither barrier exists: `PreviewRenderer` reads
+ * the store and `MIME` and nothing else, and `renderSiteFiles` runs inside
+ * workerd (`test_UAT_AC1395_…` renders a cloud-loaded draft there; the
+ * `/preview/<slug>/edit/` route in `test_UAT_AC1447_…` serves one over D1 and
+ * R2). So the render is asked of every adapter, from here, like every other
+ * question.
  */
 
 /** What a suite hands this module: a name, and a way to make a site. */
@@ -340,6 +343,35 @@ export function describeSiteStoreContract(
 
       // A site the store does not hold is null, not an empty draft.
       expect(await opts.store.loadDraft('no-such-site')).toBeNull()
+    })
+
+    // ── the render, over the same port (AC-1385) ─────────────────────────────
+    //
+    // `PreviewRenderer` is a CONSUMER of the port, not a member of it — the
+    // store has no render verb — which is why the two render questions are
+    // named apart from the compared answer vector in `storage-questions.ts`.
+    // Apart is not absent: they are asked of every adapter, here.
+
+    it('test_UAT_AC1385_the_draft_renders_from_whatever_store_served_it', async () => {
+      const { slug, opts } = await fixture()
+
+      const rendered = await new PreviewRenderer(opts.store).file(slug, 'draft', '/')
+      expect(rendered?.kind).toBe('text')
+      expect((rendered as { body: string }).body).toContain('<html')
+    })
+
+    it('test_UAT_AC1385_a_preview_asset_comes_back_as_bytes', async () => {
+      const { slug, opts } = await fixture()
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"></svg>'
+      await editAssetWrite(slug, 'mark', svg, opts)
+
+      const file = await new PreviewRenderer(opts.store).file(slug, 'draft', '/assets/mark.svg')
+      expect(file).toMatchObject({ kind: 'bytes', contentType: 'image/svg+xml' })
+      expect(new TextDecoder().decode((file as { body: Uint8Array }).body)).toBe(svg)
+      // A traversal out of the assets root resolves to nothing on any adapter.
+      expect(await new PreviewRenderer(opts.store).file(slug, 'draft', '/assets/../site.json')).toBe(
+        null,
+      )
     })
 
     // ── the revision half of the port (REQ-149, AC-1619) ─────────────────────

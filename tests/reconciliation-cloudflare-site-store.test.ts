@@ -266,9 +266,11 @@ describe('story-fde7370b — the cloud site store, from the host runtime', () =>
       'export async function askStorageQuestions',
     )
 
-    // THE DECLARED EXCEPTION. The two questions that RENDER the draft are
-    // excluded on purpose, not missing: they are named in the shared module, and
-    // they are answered here, by both filesystem-hosted stores.
+    // THE TWO RENDER QUESTIONS. Named apart from the compared vector because
+    // rendering is not a verb the store has, not because a runtime cannot do it:
+    // they are asked of ALL THREE adapters in `site-store-contract.ts`, the
+    // cloud store included. Asserted here as answered by both stores this
+    // runtime can hold.
     expect([...RENDER_QUESTIONS]).toEqual(['renderDraftPage', 'renderDraftAsset'])
     for (const question of RENDER_QUESTIONS) {
       expect(STORAGE_QUESTIONS as readonly string[]).not.toContain(question)

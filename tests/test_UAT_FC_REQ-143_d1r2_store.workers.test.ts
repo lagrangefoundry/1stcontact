@@ -304,9 +304,9 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
 
       // The whole assembled, validated, palette-resolved definition — which is
       // the ONLY input `renderSiteFiles` reads. Equal here means the two stores
-      // cannot render differently; the node suite proves that second half, since
-      // the render needs Astro's container API and workerd has no transform for
-      // it (DOC-12 §7 / REQ-145).
+      // cannot render differently, whichever runtime does the rendering. (That
+      // workerd renders at all is no longer in question since REQ-148/REQ-150:
+      // `test_UAT_AC1395_…` renders a cloud-loaded draft here, in this runtime.)
       const strip = (r: unknown): unknown => {
         const value = (r as { ok: true; value: Record<string, unknown> }).value
         // `sourceDir` is descriptive and names its own store by design — it is

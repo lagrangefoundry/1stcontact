@@ -3,7 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  editAssetWrite,
   editCopySet,
   editL1Get,
   editPageAdd,
@@ -12,7 +11,6 @@ import {
   editPaletteGet,
   editPaletteRename,
 } from '../tools/generate/src/cli/edit'
-import { PreviewRenderer } from '../tools/generate/src/cli/preview'
 import {
   makeFsSite,
   makeMemorySite,
@@ -46,11 +44,6 @@ const EDIT_TS = path.join(HERE, '..', 'tools', 'generate', 'src', 'cli', 'edit.t
 
 describe('REQ-142 — the SiteStore port', () => {
   const open: SiteFixture[] = []
-  const fixture = (make: (o?: never) => SiteFixture, options?: unknown): SiteFixture => {
-    const f = (make as (o?: unknown) => SiteFixture)(options)
-    open.push(f)
-    return f
-  }
 
   afterEach(async () => {
     for (const f of open.splice(0)) await f.dispose()
@@ -101,36 +94,11 @@ describe('REQ-142 — the SiteStore port', () => {
     describeSiteStoreContract(backend, (f) => open.push(f))
   }
 
-  // The two cases the contract deliberately leaves here: they render, and the
-  // render reaches the filesystem, which workerd does not have. (Before
-  // REQ-148/REQ-150 the reason was Astro's container API and its build
-  // transform; both are gone, the placement is not.) Relocating it is
-  // DOC-12 §7's next step (REQ-145), not this one's.
-  describe.each([
-    { name: 'filesystem', make: makeFsSite },
-    { name: 'memory', make: makeMemorySite },
-  ])('rendering over the $name store', ({ make }) => {
-    it('UAT_FC_REQ-142 the draft renders from whatever store served it', async () => {
-      const { slug, opts } = fixture(make)
-      const rendered = await new PreviewRenderer(opts.store).file(slug, 'draft', '/')
-      expect(rendered?.kind).toBe('text')
-      expect((rendered as { body: string }).body).toContain('<html')
-    })
-
-    it('UAT_FC_REQ-142 a preview asset comes back as bytes', async () => {
-      const { slug, opts } = fixture(make)
-      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"></svg>'
-      await editAssetWrite(slug, 'mark', svg, opts)
-
-      const file = await new PreviewRenderer(opts.store).file(slug, 'draft', '/assets/mark.svg')
-      expect(file).toMatchObject({ kind: 'bytes', contentType: 'image/svg+xml' })
-      expect(new TextDecoder().decode((file as { body: Uint8Array }).body)).toBe(svg)
-      // A traversal out of the assets root resolves to nothing on either adapter.
-      expect(await new PreviewRenderer(opts.store).file(slug, 'draft', '/assets/../site.json')).toBe(
-        null,
-      )
-    })
-  })
+  // The two render cases moved INTO that body (AC-1385). They used to sit here
+  // because the render was said to need something workerd has not — Astro's
+  // container API, and after REQ-148/REQ-150 removed it, the filesystem. Neither
+  // is true: `PreviewRenderer` reads the store and `MIME`, and `renderSiteFiles`
+  // runs in workerd. So all three adapters render, from the one body.
 
   // ── AC-5: a multi-file change is ONE call ─────────────────────────────────
 

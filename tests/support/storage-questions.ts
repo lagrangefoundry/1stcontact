@@ -47,13 +47,20 @@ export const STORAGE_QUESTIONS = [
 ] as const
 
 /**
- * The declared exception: the two questions that RENDER the draft.
+ * The two questions that RENDER the draft, named apart from the vector above.
  *
- * They are answered by the filesystem-hosted stores only, because the render at
- * this point still runs through a build transform the Workers runtime has none
- * of. Declared here, in the shared module, rather than left as a gap someone
- * would have to notice — an absent question and an excluded one look identical
- * from inside a suite that never asks it.
+ * Apart, because rendering is not a verb the store has: `PreviewRenderer` is a
+ * CONSUMER of the port, and what it answers with is an artifact rather than an
+ * answer two adapters can be compared on value-for-value. NOT because a runtime
+ * cannot render — every runtime can. (It used to run through Astro's container
+ * API, which workerd had no transform for; REQ-148/REQ-150 removed both, and
+ * `test_UAT_AC1395_…` renders a cloud-loaded draft inside workerd while
+ * `test_UAT_AC1447_…` serves a real `/preview/<slug>/edit/` request from D1 and
+ * R2.) The render is asked of all three adapters in `site-store-contract.ts`.
+ *
+ * Named here rather than left as a gap someone would have to notice — an absent
+ * question and an excluded one look identical from inside a suite that never
+ * asks it.
  */
 export const RENDER_QUESTIONS = ['renderDraftPage', 'renderDraftAsset'] as const
 

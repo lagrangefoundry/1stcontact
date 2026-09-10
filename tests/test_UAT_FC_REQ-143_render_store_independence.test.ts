@@ -9,16 +9,17 @@ import { memorySiteStore } from '../tools/generate/src/store/memory-store'
 import type { LoadedSite, LoadResult } from '../tools/generate/src/store/assemble'
 
 /**
- * REQ-143 AC-6, the half that needs Astro — a site renders the same from any
- * store that holds it.
+ * REQ-143 AC-6, the host-runtime half — a site renders the same from any store
+ * that holds it.
  *
  * WHY AC-6 IS PROVED IN TWO PLACES. The claim is that a site imported from
  * `storage/sites/` renders byte-identically from the D1/R2 store and the
- * filesystem store. No single test can assert that today, because the two ends
- * live in runtimes that cannot meet: D1 exists only inside workerd, and the
- * render runs through Astro's container API, which workerd has no transform for.
- * Relocating the render is precisely DOC-12 §7 phase 2's next step (REQ-145) and
- * is not this ticket.
+ * filesystem store, and the two ends sit in different runtimes: D1 exists only
+ * inside workerd, and `storage/sites/` is a directory only the host can walk.
+ * (The render itself is not the obstacle. It once was — it ran through Astro's
+ * container API and workerd had no transform for it — but REQ-148/REQ-150
+ * removed that, and the workerd suite now renders a cloud-loaded draft in
+ * place.)
  *
  * So the claim is split at the one place it can be split without a gap —
  * {@link LoadedSite}, which is the ONLY input `renderSiteFiles` reads:
