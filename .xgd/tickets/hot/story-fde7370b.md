@@ -6,16 +6,19 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-09-02T00:52:51.857128+00:00'
+updated_at: '2026-09-10T05:57:59.985031+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
   capability_uid: capability-c4c7a854
   story_kind: upgrade
   story_points: 3
-  updated_by: request-13a5e206
+  updated_by:
+  - bundle-b3b7c399
+  - bundle-78f4e2fe
+  - request-13a5e206
 ---
 
 ## Story
@@ -148,9 +151,13 @@ declares a single bucket, and stops being true the moment a second binding is co
 
 ### Out of scope
 
-- **Any production caller.** This story ships the store, its schema, the copy path and the
-  bindings. The command line still runs on the filesystem and the builder is still a proxy — the
-  relocation of the builder origin is its own story.
+- **What a production caller does with this store.** This story ships the store, its schema, the
+  copy path and the bindings. The command line still runs on the filesystem. The deployed builder
+  origin, by contrast, is a live caller: REQ-145 deleted the proxy and the origin opens *this*
+  store on every route — which is why BUG-36 and BUG-37 are reports against it, and why the
+  per-request behaviour formalized above is observable at all. What stays out of scope is the
+  origin's *own* behaviour — request confinement, freshness, the bootstrap that acts on the
+  refusal reason — which is CAP-85's story, not this one's.
 - **Who acts on the refusal reason.** This story owns the refusal and its discriminant. The
   deployment bootstrap that registers its own configured account on the strength of it belongs to
   the builder-origin story, which is where the outage was.
@@ -158,9 +165,12 @@ declares a single bucket, and stops being true the moment a second binding is co
   surface's caching of a rendered result is its own, and is deliberately left as it is: a cached
   renderer would hold the store handle it was built with and read through an account check
   predating the request, which is the staleness the per-request handle exists to refuse.
-- **Publishing, checkout and revision history**, which remain filesystem-backed here and move in
-  their own story. This store reports every file as pending against no base, which is exactly what
-  a site that has never published reports.
+- **The publish sequence over the revision verbs.** This store is a revision store, not a
+  draft-only one: REQ-149's migration gives it a revision table and a base revision on the site
+  row, and it answers the port's revision verbs — including reading and re-parenting the revision
+  the draft descends from — exactly as the other adapters do. What is out of scope here is the
+  *sequencing*: what a publish or a checkout run does with those verbs, what a revision record
+  says, and what the draft has pending against its base belong to CAP-82's STORY-94.
 - **Migrating the operator's existing site tree.** The copy path is what will do it; running it is
   not part of this.
 - **Deployed remote behaviour.** Everything is proved inside the Workers runtime against real
