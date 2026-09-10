@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:34:43.349366+00:00'
+updated_at: '2026-09-10T19:35:44.123458+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -357,5 +357,29 @@ All four commits are recorded on the ticket, status `free_coded`. The 5 pre-exis
 <!-- xgd-chat role="user" ts="2026-09-10T19:34:43.295366+00:00" -->
 #### You
 Do I need to restart the server to pick up the changes?
+
+<!-- xgd-turn id="501bce18-3c05-4b77-9a4c-e9cd57a99195-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:35:43.558265+00:00" -->
+#### Claude
+Good question — and the answer has a catch that has nothing to do with restarting. Let me check how the server actually loads this.
+
+The main checkout is on `xgd-working` and has no `backends.json` — the work is in the worktree. Let me confirm how the CLI loads it:
+
+Restarting is necessary but **not sufficient** — the bigger issue is that the change isn't in your checkout.
+
+**The blocker:** your main checkout `/Users/martin/lagrangefoundry/1stcontact` is on `xgd-working`, and `backends.json` doesn't exist there. The work is on `free-BUG-67`, in the xgd worktree. Restarting a server in the main checkout picks up nothing at all — it isn't a stale-cache problem, the files aren't there. That branch needs merging back first (the ticket has `auto_merge_back: True`), or you run the builder from the worktree.
+
+**Once it's in your checkout, a restart is enough** — no build step. `bin/1c` runs `node tools/generate/bin/1c.mjs`, which compiles the CLI through a Vite SSR server and `ssrLoadModule` at process boot. `tools/generate/src/cli/**` has no build artifact, so booting the process *is* the build. This is not the `./bin/1c assets` case — that's for `src/builder/*.js` browser assets, and we didn't touch those.
+
+**And a restart is genuinely required — you can't skip it.** `host-core.ts:386` caches `SessionManager`s in a module-level `managers` map, and the backend reads its configuration when it's *constructed*, not per request. So a long-running builder keeps serving the old ceiling from a manager built before the edit, even with the new file on disk. Only `resetAiHost()` (`:1155`) or a fresh process clears it.
+
+**Which server matters, since there are two:**
+- `1c builder` — Node, `builder.ts:10` imports `./ai/host`. This is the one from the ticket's session. Restart it.
+- `apps/control-app` — the Worker; `router.ts:31` imports `host-core` from source. `wrangler dev` rebuilds on source change, but restart it too rather than trusting the watcher.
+
+Both go through the same `build()`, so both pick up Opus 5 and the 64000 ceiling from the same document — that was the point of the static import.
+
+Want me to merge `free-BUG-67` back into `xgd-working` so you can restart and actually see it?
 
 <!-- xgd-chat-end -->
