@@ -6,9 +6,9 @@ title: The workspace and everything it displays are reachable from one origin by
   admitted caller, with nothing reinterpreted in between
 created_by: xgd
 created_at: '2026-08-07T01:44:09.731162+00:00'
-updated_at: '2026-09-10T10:01:44.007752+00:00'
+updated_at: '2026-09-10T11:07:09.187550+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
