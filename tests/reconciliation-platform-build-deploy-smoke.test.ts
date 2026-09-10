@@ -639,20 +639,52 @@ describe('story-d5167ced — the build discovers every Worker and bundles it for
       expect(broken.log()).toEqual([])
 
       // ── the check can be skipped for an environment that cannot satisfy it ──
-      const skipped = realRepoShims('build-skip')
-      const proceeded = sh(path.join(REPO, 'bin', 'build'), ['--skip-preflight'], {
+      //
+      // TWO runs, because the claim has two halves and no single tree can show
+      // both. The option's purpose is observable only on the environment that
+      // cannot satisfy the check — but "the remaining stages run normally" is
+      // observable only on one that can.
+      //
+      // Half one: the SAME incomplete environment the run above stopped on. With
+      // the flag, the preflight does not run at all — the stage header is absent
+      // and the refusal that stopped the previous run is gone — and control
+      // reaches the next stage. What this half deliberately does NOT assert is a
+      // zero exit: `--skip-preflight` gates the preflight stage and nothing else
+      // (`bin/build:87-90`), so the unconditional `Control-app assets` stage that
+      // follows — AC-1427's subject — still needs the component this environment
+      // hides. A deliberately incomplete tree building clean is not something
+      // this criterion claims, and asserting it would make the test fail on
+      // exactly the machines where its first leg passes.
+      const skippedIncomplete = realRepoShims('build-skip-incomplete')
+      const past = sh(path.join(REPO, 'bin', 'build'), ['--skip-preflight'], {
         cwd: REPO,
         env: {
-          ...skipped.env,
+          ...skippedIncomplete.env,
           UAT_HIDDEN_SPECS: JSON.stringify([`${WEBUI_SCOPE}/webui-shell`]),
           NODE_OPTIONS: `--import ${hook}`,
         },
+      })
+      expect(past.out).not.toContain('==> Preflight')
+      expect(past.all).not.toContain(`${WEBUI_SCOPE}/webui-shell (browser) does not resolve`)
+      expect(past.code).not.toBe(EXIT_CODES.ENVIRONMENT)
+      // A later stage was entered: the run got past the check, which is the only
+      // thing the flag promises on a tree like this one.
+      expect(past.out, past.all).toContain('==> Control-app assets')
+
+      // Half two: the real tree, which CAN satisfy the check. Skipping it leaves
+      // every remaining stage running normally — one package build, one bundle
+      // per discovered app, zero exit — with the preflight header still absent.
+      const skipped = realRepoShims('build-skip')
+      const proceeded = sh(path.join(REPO, 'bin', 'build'), ['--skip-preflight'], {
+        cwd: REPO,
+        env: skipped.env,
       })
       try {
         expect(proceeded.out).not.toContain('==> Preflight')
         expect(proceeded.code, proceeded.all).toBe(0)
         expect(skipped.log().filter((l) => l.startsWith('pnpm|'))).toHaveLength(1)
         expect(skipped.log().filter((l) => l.startsWith('npx|'))).toHaveLength(APPS.length)
+        expect(proceeded.out).toContain('Build complete.')
       } finally {
         for (const app of APPS) {
           if (!before.has(app)) rmSync(path.join(REPO, 'apps', app, 'dist'), { recursive: true, force: true })

@@ -13,7 +13,12 @@
  *     does not answer. Each on its own option, each skipped BY NAME when that
  *     option is absent, and neither able to fail against the other axis.
  *   • AC-1426 — the build refuses a Worker whose TYPE program reaches a
- *     filesystem-bound module, naming the import chain that got there.
+ *     filesystem-bound module, naming the MODULE it cannot type. The build
+ *     prints no import chain and nothing in the repository composes one; the
+ *     chain from a Worker entry point to the offending module — the specifier to
+ *     change — is the property's own instrument (`typeProgramOf`/`chainTo`, in
+ *     `tests/support/type-program.ts`), whose non-vacuity is therefore asserted
+ *     here rather than assumed.
  *   • AC-1427 — the build generates the uncommitted derived artifacts BEFORE it
  *     typechecks, so a fresh checkout builds.
  *
@@ -50,6 +55,10 @@ import {
   // @ts-expect-error — plain JS with no type declarations, deliberately: it has
   // to run from a shell straight after a deploy with no transform available.
 } from '../tools/generate/bin/smoke.mjs'
+// AC-1426's instrument, in the one place it is defined. See that module's header
+// for why the walk follows type-only edges and why the module list is written
+// out rather than detected.
+import { chainTo, filesystemBoundIn, typeProgramOf } from './support/type-program'
 
 const REPO = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 
@@ -349,92 +358,6 @@ describe('story-d5167ced — the smoke check asserts the operator surface is pri
 // AC-1426 — the build refuses a type program that reaches the filesystem
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Modules that reach `node:fs` or `node:path`, directly or otherwise.
- *
- * Listed rather than detected, because detection would have to walk the very
- * graph under test and would agree with it by construction. These are the
- * file-backed halves of the store, named in their own headers as the parts a
- * Worker must never reach.
- */
-const FILESYSTEM_BOUND = [
-  'tools/generate/src/store/fsutil.ts',
-  'tools/generate/src/store/paths.ts',
-  'tools/generate/src/store/loadSite.ts',
-  'tools/generate/src/store/fs-store.ts',
-  'tools/generate/src/store/history.ts',
-  'tools/generate/src/store/base.ts',
-  'tools/generate/src/store/journal.ts',
-  'tools/generate/src/store/index.ts',
-  'tools/generate/src/cli/commands.ts',
-]
-
-/** Source with comments removed, so prose cannot trip the walk. */
-function withoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-}
-
-function resolveSpec(fromFile: string, spec: string): string | null {
-  if (!spec.startsWith('.')) return null
-  const base = path.resolve(path.dirname(fromFile), spec)
-  for (const candidate of [base, `${base}.ts`, `${base}.js`, path.join(base, 'index.ts'), base.replace(/\.js$/, '.ts')]) {
-    try {
-      if (readFileSync(candidate) !== undefined) return candidate
-    } catch {
-      /* not this one */
-    }
-  }
-  return null
-}
-
-/**
- * Every module the TYPECHECKER would pull in from `entry` — type-only edges
- * included, because that is precisely what `tsc` does and precisely what a
- * bundle-level guard cannot see.
- */
-function typeProgramOf(entry: string): Map<string, string[]> {
-  const seen = new Map<string, string[]>()
-  const queue = [entry]
-  while (queue.length > 0) {
-    const file = queue.pop() as string
-    if (seen.has(file)) continue
-    const source = withoutComments(readFileSync(file, 'utf8'))
-    const edges: string[] = []
-    for (const match of source.matchAll(/\b(?:import|export)\b[\s\S]*?\bfrom\s+['"]([^'"]+)['"]/g)) {
-      const next = resolveSpec(file, match[1])
-      if (next) edges.push(next)
-    }
-    seen.set(file, edges)
-    queue.push(...edges)
-  }
-  return seen
-}
-
-/** The SHORTEST import chain from `entry` to `target` — the specifier to change. */
-function chainTo(graph: Map<string, string[]>, entry: string, target: string, root: string): string[] {
-  const previous = new Map<string, string>()
-  const queue = [entry]
-  const visited = new Set([entry])
-  while (queue.length > 0) {
-    const file = queue.shift() as string
-    if (file === target) {
-      const chain = [file]
-      let at = file
-      while (previous.has(at)) {
-        at = previous.get(at) as string
-        chain.unshift(at)
-      }
-      return chain.map((f) => path.relative(root, f))
-    }
-    for (const next of graph.get(file) ?? []) {
-      if (visited.has(next)) continue
-      visited.add(next)
-      previous.set(next, file)
-      queue.push(next)
-    }
-  }
-  return []
-}
 
 describe('story-d5167ced — the build refuses a Worker type program that reaches the filesystem', () => {
   it('test_UAT_AC1426_a_type_only_reach_to_the_filesystem_fails_the_build_and_this_walk_names_the_chain', () => {
@@ -450,7 +373,7 @@ describe('story-d5167ced — the build refuses a Worker type program that reache
 
     const entry = path.join(REPO, 'apps/control-app/src/index.ts')
     const graph = typeProgramOf(entry)
-    const reached = FILESYSTEM_BOUND.map((rel) => path.join(REPO, rel)).filter((f) => graph.has(f))
+    const reached = filesystemBoundIn(REPO).filter((f) => graph.has(f))
     expect(
       reached.map((f) => path.relative(REPO, f)),
       reached.map((f) => chainTo(graph, entry, f, REPO).join('\n    → ')).join('\n\n  '),
@@ -538,9 +461,10 @@ describe('story-d5167ced — the build refuses a Worker type program that reache
     // The chain is the instrument's report, not build output: the build's
     // typecheck stage is `tsc --noEmit`, which names the offending module (the
     // assertion above) and prints no chain. Nothing in bin/, tools/, apps/ or
-    // packages/ composes one. `typeProgramOf`/`chainTo` above are what turn the
-    // offending module into the specifier to change — which is why their
-    // non-vacuity is asserted rather than assumed.
+    // packages/ composes one. `typeProgramOf`/`chainTo`, imported from
+    // `tests/support/type-program.ts`, are what turn the offending module into
+    // the specifier to change — which is why their non-vacuity is asserted here
+    // rather than assumed.
     const offendingEntry = path.join(offending, 'worker.ts')
     const offendingGraph = typeProgramOf(offendingEntry)
     const offender = path.join(offending, 'loadSite.ts')
