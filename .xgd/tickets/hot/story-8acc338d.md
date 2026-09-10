@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-09-10T14:10:17.856491+00:00'
+updated_at: '2026-09-10T14:22:11.027216+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -51,8 +51,22 @@ The fold emits the **full language**, not text alone:
 - a **box** leaf for a text-free element that paints a standalone surface,
   carrying its per-side padding and the surface's own colour adjustment alongside
   the fill, border, shadow and backdrop blur it already folded;
+- a **section-background** box for a captured band that paints behind its own
+  content, carrying two axes: the band's background photograph *and* its
+  translucent **scrim**. A hero veil is a colour with its **own alpha**, not
+  element opacity, so it folds as a second axis of that one box rather than as a
+  node of its own. Each axis is read from the widest width that carries it,
+  independently — a band may paint an image at some widths and only a scrim at
+  others — and a section folds when it paints an image **or** a scrim, so a veil
+  over a solid band is carried as faithfully as one over a photograph. A band that
+  paints neither folds no box, and a plain band never gains a scrim it did not
+  have. Without this the veil is dropped and the band reproduces at full
+  brightness, under text the reference had darkened its backdrop for;
 - a **backdrop** box leaf for a captured element that paints *behind* content — a
-  background photograph at any depth, or a full-bleed opaque panel fill. A
+  background photograph at any depth, or a full-bleed opaque panel fill (*opaque*
+  deliberately: a full-bleed **translucent** fill is not a backdrop, it is the
+  band's own scrim, and is folded as the section-background box's overlay axis
+  instead). A
   backdrop is placed in the document's **background layer**, behind the runs of
   the band it sits under, rather than in document order (which would paint a hero
   photograph over the hero's own headline). Its edges join the section-edge set
@@ -94,6 +108,19 @@ already includes the element's own padding — so folding the per-side pad inset
 leaf's content inside geometry the fold has already pinned, rather than inflating
 it. That is what gives a badge or a control its shape and its click target while
 its measured box stays exactly where the capture found it.
+
+**The ladder also fixes where a run stopped wrapping.** Alongside the visibility
+rule — which is the same shape of fact, read off the same ladder — the fold
+derives for each text run the smallest captured width at which the reference set
+it on a single line at that width *and at every wider one*. It is a **width, not a
+flag**, and that distinction is the whole of it: a threshold can never claim more
+than the reference showed, so a run that is one line at 1024 but two at 1280
+yields the higher rung rather than the lower, and a width whose line count cannot
+be measured breaks the suffix rather than reading as "one line" — the reading that
+would pin a real paragraph unbreakable and overprint whatever sits absolutely
+positioned below it. The fold derives the threshold and carries it on the run;
+what the renderer then does with it above that width is the copy-editing
+capability's floor (CAP-70, STORY-83 / AC-1010), not this story's.
 
 **A second sampling axis: viewport height.** The width ladder alone cannot see a
 viewport-relative extent. A `100vh` hero measuring 1024 at 768x1024 and 768 at
@@ -137,7 +164,8 @@ would re-roll the reference in the same step).
 
 **Materializing a folded bundle as a servable site.** A folded document is only a
 file until something can serve it, so the capability also owns the operator verb
-that imports a bundle as **a site whose home page *is* its folded L1 document**,
+`1c repro <slug> --ref <bundle>`, which imports a bundle as **a site whose home
+page *is* its folded L1 document**,
 mirroring the bundle's assets into the draft so the existing render / serve / shot
 / diff / values-diff loop works on the reproduction unchanged. It is **idempotent**
 — re-running wipes and rebuilds — and on the reproduction values it adds and
@@ -158,13 +186,15 @@ nothing in the render/reproduction path consumes them, and the folded L1 documen
 renders as a complete reproduction on its own.
 
 **In scope:** the fold to one L1 document in the full language (text, image, box,
+section-background boxes carrying a band's image and its translucent scrim,
 backdrops in the background layer, reconstructed surfaces, page band, behaviour
 seams with rebased control leaves, font table), the framing and colour-adjustment
 axes a captured picture or surface carries, the per-side padding fold, per-width
 responsive tracks for the type and padding axes that vary, the self-painting-run
 discrimination and captured-surface-rect card geometry, the viewport-height
-response derived from height probes, oracle retention, the offline re-fold, the
-materialization of a bundle as a servable L1 site with its assets localized,
+response derived from height probes, the derived nowrap threshold a run carries,
+oracle retention, the offline re-fold, the materialization of a bundle as a
+servable L1 site with its assets localized (`1c repro`),
 geometry keyframes + interpolate/snap classification + visibility rules, the typed
 residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
@@ -174,8 +204,12 @@ axis vocabulary these folded values land in, the `control` node kind and its
 emitter, and the resource-table form (owned by the L1 Layout Substrate capability);
 what a behavior module declares and how it wires a bound control (owned by the
 behavior-module contract); the capture-side rules that decide a band's extent,
-index the backdrops, shoot the height probe and record a run's surface shape, and
-the values-diff axis coverage (owned by the values-diff fidelity capability); the
+index the backdrops, shoot the height probe, record a run's surface shape, and
+resolve a band's scrim through the canvas colour probe (including the exclusion
+that keeps a translucent fill out of the backdrop index — CAP-63, STORY-75), and
+the values-diff axis coverage (owned by the values-diff fidelity capability);
+how the renderer spends the derived nowrap threshold as a wrapping floor above
+that width (owned by the structured copy-editing capability, STORY-83 / AC-1010); the
 editor surface that writes the same framing parameters by hand (owned by the
 structured copy-editing capability); the end-to-end reproduction acceptance gate,
 its fidelity pairing of non-text leaves, and structure recovery (owned by the
@@ -217,6 +251,14 @@ its fidelity pairing of non-text leaves, and structure recovery (owned by the
   flag: a painted background image always is one, and a solid fill is one when it
   spans the viewport. Backdrops are ordered after the section-background boxes they
   are a peer of, because a nested backdrop sits inside the section it overlays.
+- A section-background box is folded from the capture's per-band section values
+  rather than from the element manifest, because a band's photograph and its veil
+  are painted by the band itself and never enter the manifest. Both axes ride one
+  box: the substrate already carried a typed overlay and the renderer already
+  layered it above the background image, so nothing downstream needed changing —
+  the fold reading only the image URL was the whole of the gap, and a scrim that
+  was captured correctly still could not round-trip. The per-axis widest-width read
+  is what lets an image and a scrim that appear at different rungs both survive.
 - The height probe deliberately re-shoots an *existing* ladder width rather than
   adding a new one: the ladder defines keyframes, screenshots and diff cells, and a
   duplicate width would perturb all three. A band takes its response from its
