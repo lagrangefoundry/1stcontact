@@ -6,7 +6,7 @@ title: The slug reservation consults the complete ISO 639-1 registry, not a cura
   subset
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T04:03:23.505101+00:00'
-updated_at: '2026-09-10T04:04:29.214962+00:00'
+updated_at: '2026-09-10T04:09:43.788080+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
