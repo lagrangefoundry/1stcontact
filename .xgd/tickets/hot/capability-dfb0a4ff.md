@@ -5,12 +5,13 @@ type: capability
 title: 'Client Material Store: What A Site Is Made From, As Tickets'
 created_by: xgd
 created_at: '2026-09-01T23:55:53.160898+00:00'
-updated_at: '2026-09-01T23:55:53.160898+00:00'
+updated_at: '2026-09-10T02:22:32.277840+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: client-material-store
+  uat_coverage: pass
 ---
 
 The site store holds *sites*. This holds everything a site is made **from**.
