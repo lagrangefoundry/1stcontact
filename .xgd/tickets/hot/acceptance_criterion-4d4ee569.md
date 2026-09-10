@@ -6,14 +6,15 @@ title: The corpus can be built alone, with no model and no credentials, and stil
   leaves a coherent tree
 created_by: xgd
 created_at: '2026-08-20T04:16:33.966110+00:00'
-updated_at: '2026-08-20T04:37:28.305241+00:00'
+updated_at: '2026-09-10T08:04:16.896196+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
