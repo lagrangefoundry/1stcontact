@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Out-of-range, oversize, and freeform documents are rejected by the envelope
 created_by: xgd
 created_at: '2026-07-22T19:32:24.574998+00:00'
-updated_at: '2026-08-09T05:40:21.555002+00:00'
+updated_at: '2026-09-10T12:38:31.787920+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -35,7 +35,10 @@ bounds above, on the same path that renders, publishes, edits and imports a
 site. A document that clears only the *shape* check — typed axes, closed enums,
 no unknown keys — is not accepted; the numeric bounds, the URL-scheme
 allowlist, the node-count cap, geometry-track well-formedness and the unique-id
-rule apply to it identically.
+rule apply to it identically. **That authored-page guarantee is stated here as
+context and is owned and proven by AC-849 and AC-850**, which drive validation
+through a real site definition; this criterion's own evidence is the rule-by-rule
+rejection at the document boundary.
 
 The unknown-key rule admits no grandfathered exceptions, including for renamed
 fields. A `slot` leaf authored with the pre-REQ-87 `capability` key instead of
@@ -59,6 +62,7 @@ validator returns a "not ok" result (rejection) for each; submit the equivalent
 in-range document and observe acceptance, confirming the boundary is the range
 and not the property. For the rename case, submit the same slot twice — once
 keyed `behavior` and once keyed `capability` — and observe acceptance of the
-former and rejection of the latter. Repeat a representative violation as an
-**authored page inside a site definition** and observe the same rejection there,
-confirming the envelope is not conditioned on how the document was produced.
+former and rejection of the latter. The site-definition repeat is **not** part of
+this criterion's verification: AC-849 and AC-850 drive the same rejections
+through an authored page inside a site definition, and duplicating that arm here
+would restate their evidence rather than add any.
