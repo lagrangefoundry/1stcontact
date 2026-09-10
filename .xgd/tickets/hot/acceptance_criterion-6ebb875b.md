@@ -6,9 +6,9 @@ title: A document is addressed by its human id and reads back as a document, wit
   structured fields dropped rather than coerced
 created_by: xgd
 created_at: '2026-08-20T04:16:47.312192+00:00'
-updated_at: '2026-08-20T04:37:26.320508+00:00'
+updated_at: '2026-09-10T07:46:47.184400+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c4f329d3
@@ -24,4 +24,6 @@ Read back out of the corpus, an exported document is a document again: it has th
 
 ## Verification
 
-Export the real document store, read the corpus back through an ordinary document reader, and assert for every document that its identity matches the human-id shape, that its title and body are non-empty, and that it carries the provenance reference back to its originating ticket. Separately, render a document carrying both a scalar and a structured field and assert the scalar is present, the structured field is absent, and no coerced placeholder text appears anywhere in the result.
+Export a store holding a known set of documents, read the corpus back through an ordinary document reader, and assert for every document that its identity matches the human-id shape, that its title and body are non-empty, and that it carries the provenance reference back to its originating ticket. The set is seeded so the read-back always has documents to assert over: a loop over an empty corpus asserts nothing while reporting green, which is the failure that survives a passing suite. Apply the same assertions to the real document store's export, where the count must also round-trip.
+
+Separately, render a document carrying both a scalar and a structured field and assert the scalar is present, the structured field is absent, and no coerced placeholder text appears anywhere in the result.
