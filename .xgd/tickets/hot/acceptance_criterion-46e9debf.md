@@ -6,7 +6,7 @@ title: A channel address resolves the same addresses it always did, and never an
   outside its own channel
 created_by: xgd
 created_at: '2026-08-10T07:29:27.687900+00:00'
-updated_at: '2026-09-10T09:49:37.136970+00:00'
+updated_at: '2026-09-10T10:01:47.652047+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -33,9 +33,10 @@ answered as not found rather than from a neighbouring page, channel or site.
 
 That an address which walks *out* of a served tree is refused is not restated
 here. AC-978 asserts that once, in both plain and percent-encoded form, across
-all three trees the origin serves — the rendered channels among them — and
-asserts the outcome is identical on each. This criterion covers the addresses
-that stay inside the tree and still must not be satisfied.
+every tree the origin serves — the rendered channels among them, alongside each
+prefix of the built-artifact tree — and asserts the outcome is identical on
+each. This criterion covers the addresses that stay inside the tree and still
+must not be satisfied.
 
 ## Verification
 
