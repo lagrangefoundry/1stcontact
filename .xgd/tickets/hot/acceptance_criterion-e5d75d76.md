@@ -6,14 +6,15 @@ title: An ambiguous or impossible instant, and an unrecognised zone id, are refu
   an explicit offset is accepted
 created_by: xgd
 created_at: '2026-08-31T12:39:15.321439+00:00'
-updated_at: '2026-08-31T12:47:20.525776+00:00'
+updated_at: '2026-09-10T03:25:03.153943+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-0598c150
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
