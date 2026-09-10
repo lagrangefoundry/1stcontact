@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   COUNTRY_DEFAULTS,
+  DEFAULT_COUNTRY,
   UNDECLARED_LOCALE,
   localeDirection,
   resolveSiteLocale,
@@ -131,6 +132,28 @@ describe('REQ-151 — site locale identity, and rendered lang/dir', () => {
     const tag = await generatorHtmlTag()
     expect(langDir(tag)).toEqual({ lang: 'en', dir: 'ltr' })
     expect(resolveSiteLocale({}).locale).toBe(UNDECLARED_LOCALE)
+
+    // AC-1's other half, and the asymmetry it turns on: the language is the only
+    // value withheld from a region, because it is the only one a screen reader
+    // pronounces and a search index stores. There is no region-free currency and
+    // no region-free clock, so the default country answers for those three or
+    // nothing does — and the whole resolution is asserted here so a later drift
+    // in EITHER direction (a locale that acquires `-US`, a currency that goes
+    // undefined) fails rather than passing on the one field this used to check.
+    expect(resolveSiteLocale({})).toEqual({
+      country: DEFAULT_COUNTRY,
+      locale: UNDECLARED_LOCALE,
+      currency: COUNTRY_DEFAULTS[DEFAULT_COUNTRY].currency,
+      timezone: COUNTRY_DEFAULTS[DEFAULT_COUNTRY].timezone,
+      dir: 'ltr',
+    })
+    expect(resolveSiteLocale({})).toMatchObject({
+      country: 'US',
+      currency: 'USD',
+      timezone: 'America/New_York',
+    })
+    // Not the default country's locale — that is the fabrication this avoids.
+    expect(resolveSiteLocale({}).locale).not.toBe(COUNTRY_DEFAULTS[DEFAULT_COUNTRY].locale)
   })
 
   it('test_UAT_FC_REQ-151_every_real_site_on_disk_still_validates', () => {
@@ -254,6 +277,21 @@ describe('REQ-151 — site locale identity, and rendered lang/dir', () => {
       expect(result.ok, `${field}=${String(value)} was accepted`).toBe(false)
       if (result.ok) continue
       expect(result.errors.map((e) => e.path)).toContain(`/config/${field}`)
+    }
+  })
+
+  it('test_UAT_FC_REQ-151_an_unregistered_but_well_formed_language_tag_validates', () => {
+    // AC-6's permissive side, which makes the list above a BOUNDARY rather than
+    // an allowlist. Locale validation is well-formedness, not registry
+    // membership: a language subtag we do not recognise is far more likely to be
+    // a real minority language than a typo, and refusing it refuses a real
+    // business its own language. Without this, the rule could tighten to registry
+    // membership and no test would notice until that customer signed up.
+    for (const locale of ['qz', 'qz-IE', 'zxx', 'tlh-Latn-US']) {
+      const result = validateSite(siteJson({ locale }))
+      expect(result.ok, `${locale} was refused`).toBe(true)
+      // And it survives resolution unchanged — accepted, not accepted-then-rewritten.
+      expect(resolveSiteLocale({ locale }).locale).toBe(locale)
     }
   })
 
