@@ -6,16 +6,16 @@ title: 'Reproduction treatments: card veil/border, placeholder & inline contact 
   and footer copyright/colour overrides'
 created_by: xgd
 created_at: '2026-07-19T03:34:08.590836+00:00'
-updated_at: '2026-09-10T11:17:24.303468+00:00'
+updated_at: '2026-09-10T11:18:53.591117+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-ae9d65d6
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-31e474b9
+  updated_by: request-f26cbe32
   uat_coverage: stale
 ---
 
