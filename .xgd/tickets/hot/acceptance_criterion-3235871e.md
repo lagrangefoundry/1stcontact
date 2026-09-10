@@ -6,15 +6,15 @@ title: Italic is offered unavailable only on positive evidence of absence, with 
   reason, and a change to it is refused while a re-posted status quo passes
 created_by: xgd
 created_at: '2026-08-12T18:08:18.417977+00:00'
-updated_at: '2026-08-20T02:55:12.271214+00:00'
+updated_at: '2026-09-10T19:18:51.471603+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 ## Criterion
