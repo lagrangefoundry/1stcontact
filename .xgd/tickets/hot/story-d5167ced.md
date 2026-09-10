@@ -5,7 +5,7 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-09-10T04:45:25.354736+00:00'
+updated_at: '2026-09-10T05:19:20.708243+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -62,7 +62,9 @@ filesystem dependency through a type-only edge — the bundle stays correct, the
 guard that walks only runtime imports stays green while it happens. That is not hypothetical: it
 is how this build broke, on a single specifier reaching a module that merely re-exported the type
 it wanted. The build therefore refuses a Worker whose type program reaches a filesystem-bound
-module, walking every import the typechecker does and naming the import chain that got there.
+module: the typecheck walks every import the typechecker does, type-only edges included, and fails
+naming the module it cannot type. The chain from the entry point to that module — the specifier to
+change — is reconstructed by the check that holds this property, not printed by the build.
 
 **Deploy — one path, and seams instead of knowledge.** A rehearsal is a *target*, not a second
 script: the same hooks run in the same order and the same command line is composed, with one
@@ -154,7 +156,8 @@ echoes a value back.
   named remedy.
 - Generating the control application's build artifacts before the typecheck that consumes them.
 - Building every discovered Worker against the production environment, and the artifacts reported.
-- Refusing a Worker whose type program reaches a filesystem-bound module, naming the chain.
+- Refusing a Worker whose type program reaches a filesystem-bound module, naming the module the
+  typecheck cannot type; the chain from the entry point to it is the verifying walk's report.
 - Deploying discovered Workers, with rehearsal and real deploy on one path; target selection and
   the refusal of an unknown app.
 - The hook contract: discovery by executability, sorted order, the context each hook receives,
@@ -284,8 +287,14 @@ configuration, which is what this story can observe and what a regression can ho
 4. **The type-program refusal is a build criterion, not a Worker-portability one.** The intent
    files it under REQ-149 because that is where it was found, and describes it as a `bin/build`
    failure the suite could not see. Decided: it belongs to "refuse before you emit", which this
-   story owns, and is stated as an observable build outcome — the build fails and names the import
-   chain — rather than as a description of the walker.
+   story owns, and is stated as an observable build outcome — the build fails and names the
+   filesystem-bound module its typecheck cannot type — rather than as a description of the walker.
+   *Corrected 2026-09-09:* the outcome originally read "names the import chain". It does not. The
+   typecheck stage is `tsc --noEmit`, which names the offending module; no walker exists in `bin/`,
+   `tools/`, `apps/` or `packages/` to compose a chain. The chain from the entry point — which
+   REQ-149 describes as the work of "a UAT [that] now walks type-only imports too", and states as a
+   repository property rather than a `bin/build` feature — belongs to the verifying walk. The
+   placement call above stands; only what the build emits needed correcting.
 
 *Decided 2026-08-31, reconciling BUNDLE-21 (BUG-37) against this story.*
 
