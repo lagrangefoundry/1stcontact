@@ -6,9 +6,9 @@ title: A region that exposes nothing answers with an empty field list and succee
   rather than failing
 created_by: xgd
 created_at: '2026-08-07T02:02:08.300539+00:00'
-updated_at: '2026-08-20T02:54:24.535762+00:00'
+updated_at: '2026-09-10T19:17:53.687587+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
