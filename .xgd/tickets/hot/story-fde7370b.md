@@ -6,7 +6,7 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-09-10T05:57:59.985031+00:00'
+updated_at: '2026-09-10T05:58:05.200629+00:00'
 completed_at: null
 last_field_updated: updated_by
 status: updated
@@ -16,7 +16,6 @@ fields:
   story_kind: upgrade
   story_points: 3
   updated_by:
-  - bundle-b3b7c399
   - bundle-78f4e2fe
   - request-13a5e206
 ---
