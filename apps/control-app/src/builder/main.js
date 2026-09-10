@@ -1,9 +1,12 @@
 import { mountBuilder } from './app.js'
 import { fetchAiStatus, fetchBusinesses, publishSite } from './api.js'
 import { loadOrSignOut } from './session.js'
-import { mountL1EditBridge } from '/framework/edit-client.js'
+import { mountL1EditBridge, resolveEditTarget } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
 import { shadeHex } from '/framework/site-schema-shade.js'
+import * as markedPoints from '/framework/marked-points.js'
+import * as anchors from '/framework/site-schema-anchors.js'
+import { measureScript } from '/framework/measure-svg.js'
 
 /**
  * Browser entry point. Kept separate from `app.js` so the composition can be
@@ -55,7 +58,27 @@ if (loaded) {
     person: businesses.person,
     aiStatus,
     publish: (slug) => publishSite(slug),
-    editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+    /**
+     * ONE OBJECT, because these are one contract: every module in it is served
+     * from `packages/` (and, for the measuring script, from the one place the
+     * capture driver reads it too), so the browser runs the SAME arithmetic the
+     * renderer, the palette and `measure_drawing` run rather than a second
+     * hand-written opinion free to drift.
+     *
+     * `resolveEditTarget`, `markedPoints`, `anchors` and `measureScript` are
+     * Marked Points' half ([[REQ-210]]): resolve a clicked pixel to a segment,
+     * invert the transform chain under it, name the lines it is near, and
+     * measure the drawing the way `measure_drawing` measures it.
+     */
+    editBridge: {
+      mountL1EditBridge,
+      resolveEditTarget,
+      formatL1Path,
+      L1_EDIT_PAGE_ATTR,
+      markedPoints,
+      anchors,
+      measureScript,
+    },
     shadeHex,
   })
 }

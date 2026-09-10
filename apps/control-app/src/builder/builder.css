@@ -179,6 +179,16 @@ body {
   color: var(--shell-accent, #7c3aed);
 }
 
+/* Mark Points ([[REQ-210]]). The pressed state has to be unmistakable rather
+   than tasteful: while it is on, a click in the preview places a point instead
+   of opening the segment's editor, and a reader who cannot see that the gesture
+   has moved is a reader who thinks the editor is broken. */
+.builder-toolbar__points[aria-pressed='true'] {
+  background: var(--shell-accent, #7c3aed);
+  border-color: var(--shell-accent, #7c3aed);
+  color: #fff;
+}
+
 .builder-split {
   flex: 1 1 auto;
   min-height: 0;
