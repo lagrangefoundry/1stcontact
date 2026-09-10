@@ -5,7 +5,7 @@ type: doc
 title: Designing the site — craft, judgement, and the ways this goes wrong
 created_by: CHAT-44
 created_at: '2026-09-08T21:45:43.157184+00:00'
-updated_at: '2026-09-08T22:03:00.694940+00:00'
+updated_at: '2026-09-10T00:42:27.669160+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -442,7 +442,52 @@ the numbers tell you where to look when it isn't.
 
 ---
 
-## 14. A starting reference set
+## 14. Modals — a real option now, and usually the wrong one
+
+You can put content behind a modal: a control on the page opens a panel over it,
+the page behind dims, and the panel closes on Escape, on a click outside it, or
+on whatever Close you gave it. It is ordinary layout — you author the panel the
+way you author any other box, so it can be as designed as anything else on the
+page.
+
+**Reach for it rarely.** A modal is the strongest interruption a page has, and
+its cost is real: it hides the page, it takes the keyboard, and on a phone it
+covers the whole screen. Almost everything that *feels* like it wants a modal is
+better as a section of the page.
+
+Three cases where it is genuinely the right shape:
+
+- **A short flow that must not lose the reader's place.** Signing in is the
+  canonical one — the person is in the middle of reading, and a modal is what
+  lets them come back to the same scroll position rather than a fresh page.
+- **A confirmation that has to be answered before anything else happens.**
+- **A picture or a video worth seeing large**, where the page around it is the
+  thing you are deliberately removing.
+
+And the cases where it is not, which is most of them:
+
+- **Anything the client wants to be found.** A modal is invisible to somebody
+  scanning the page, and to a search engine reading it.
+- **A form of any length.** A contact form belongs on the page, where it has
+  room and where a mistake does not cost the reader the modal.
+- **Anything that would trap somebody on a phone.** If the panel is taller than
+  a small screen, be certain the Close is reachable without scrolling to it.
+- **Announcements, offers, newsletter prompts.** A modal the reader did not ask
+  for is the single most disliked pattern on the web. If a client asks for one,
+  say what it costs before you build it.
+
+**The rule that decides it:** a modal is for something the reader *asked for*.
+If they did not act to open it, it should not be over the page.
+
+Two craft notes. **Give it a way out you can see** — Escape and a click outside
+both work without you doing anything, but a visible Close is what a reader looks
+for, so author one. And **do not put a scroll entrance on a modal panel**: it
+starts closed, so an animation that runs when something scrolls into view has
+nothing to run on. Animate the panel's contents instead, or leave it.
+
+---
+
+## 15. A starting reference set
 
 Sites worth capturing and studying when you want to see a principle executed
 rather than described. **This is a starting set and not a house style** — the
@@ -479,7 +524,7 @@ for a second" is.
 
 ---
 
-## 15. Related
+## 16. Related
 
 - The page-language reference and the tool reference — **the vocabulary and the
   operations. Generated, always current, and the place to look when something
