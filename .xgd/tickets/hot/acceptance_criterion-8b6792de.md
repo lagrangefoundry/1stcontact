@@ -7,9 +7,9 @@ title: Asking an image region what it exposes leads with which image goes there 
   for how the picture is framed, shaped and colour-adjusted
 created_by: xgd
 created_at: '2026-08-07T04:40:50.004278+00:00'
-updated_at: '2026-08-16T06:55:40.369290+00:00'
+updated_at: '2026-09-10T17:30:00.892883+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -59,5 +59,4 @@ stable order) and include no font or stylesheet; and that the alt-text field is 
 plain-text field. Assert the returned current values are the handle and alt text
 as they stand in the draft. Assert every remaining field is either a bounded
 whole number carrying both bounds or a closed pick carrying a non-empty option
-list, and that none of them is a free-form string. Assert the same answer is
-returned when the region is read through the builder origin.
+list, and that none of them is a free-form string.
