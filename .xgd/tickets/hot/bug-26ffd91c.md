@@ -5,9 +5,9 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-09-10T21:43:54.864925+00:00'
+updated_at: '2026-09-10T21:50:36.493430+00:00'
 completed_at: null
-last_field_updated: severity
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -196,6 +196,121 @@ trips to discover both.
 
 ---
 
+## Defect 4 — the modal has no second screen, and three separate things stop it
+
+The operator's brief, verbatim: *"clicking the continue will replace that content
+in the modal with a message — 'Please check your email. If you are already a
+member we have just sent you a sign up link.'"*
+
+It does not advance. Three independent causes, any one of which is enough.
+
+### 4a — it was never built to swap; the message is additive
+
+`client.js` `submitAddress` un-hides a paragraph and disables two controls. It
+never removes or hides the address field, the Continue button, the ✕ or the
+label:
+
+```js
+if (sent) sent.hidden = false
+for (const node of [email, form.querySelector('button[type="submit"]')]) {
+  if (node) node.disabled = true
+}
+```
+
+So the panel does not *become* the confirmation — it grows one more line beneath a
+greyed-out form. `contact-form` faced the same requirement and answered it with a
+real swap:
+
+```js
+root.innerHTML = successHtml || '<p>Thanks — your message has been sent.</p>'
+```
+
+Two components, one requirement, two different answers, and the sign-in one
+does not satisfy the brief it was given. `sentMessage`'s own doc comment reasons
+carefully about *what* the message says and never about *what it replaces*.
+
+### 4b — the configured endpoint is not a route, and it is cross-origin
+
+The instance is configured with:
+
+```
+signIn: "https://app.1stcontact.io/auth/request-link"
+```
+
+There is no such path anywhere in the codebase. The real endpoint already exists
+and is `POST /sign-in` (`apps/control-app/src/sign-in.ts`, [[REQ-202]]) — one of
+four routes deliberately matched ahead of the Access gate. The AI told the
+operator these were "placeholders your engineers will need to point at whatever
+actually handles sign-in", when a working endpoint was already there to be named.
+
+The consequence is not a quiet 404. `client.js` deliberately never reads the
+response, so a 404 would still count as *completed* and show the sent message.
+But this POST is **cross-origin** and carries `Content-Type: application/json`,
+so it takes a CORS preflight; with no CORS headers coming back the `fetch`
+**rejects**, and a rejected fetch is the one case routed to the error paragraph
+instead:
+
+```js
+} catch (_e) {
+  if (error) error.hidden = false
+  return          // ← returns before the sent message and before disabling
+}
+```
+
+So on the draft preview, Continue produces the error state, not the sent state —
+and because the `return` precedes the disable, the button does not even grey out.
+Nothing visibly happens.
+
+### 4c — even on the success path, the message paints outside the card
+
+`sent` and `error` are emitted as direct children of the `<form>`, siblings of
+the authored dialog subtree:
+
+```html
+<form class="account-chrome__dialog" …>
+  <label class="account-chrome__label" …>          <!-- clipped, Defect 1 -->
+  {the L1 dialog slot — the 380px card the AI styled}
+  <p class="account-chrome__sent"  data-fc-invariant hidden>…</p>
+  <p class="account-chrome__error" data-fc-invariant hidden>…</p>
+</form>
+```
+
+Once enhanced, that form *is* the overlay:
+
+```css
+.account-chrome[data-account-chrome-enhanced] .account-chrome__dialog {
+  position:fixed; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; background:rgba(0,0,0,0.5);
+}
+```
+
+So the two message paragraphs are column flex items **outside** the card,
+centred on the 50%-black scrim. Their only styling is
+`.account-chrome__sent, .account-chrome__error { margin: 0 }` — no background, no
+colour — so they render in the page's default dark ink on a dark scrim.
+
+And they cannot be fixed from the page: both are `data-fc-invariant`, painted by
+the component, bound to no slot node. **This is Defect 1 again, on two more
+elements.** Three of this component's four text surfaces — the field label, the
+confirmation, the error — are component-painted, unstyleable, and positioned
+outside the region the author controls.
+
+### Why the tests did not catch it
+
+`test_UAT_FC_REQ-200_account_chrome.test.ts` asserts exactly what the code does:
+
+```ts
+expect(outcomes[0]).toBe('false|Check your email for a sign-in link.|true')
+```
+
+`sent.hidden === false` is true, and the message is identical at 202/404/500 —
+which is the [[REQ-134]] property that test exists to defend, and it holds. What
+no test asks is whether the panel now *reads* as a confirmation: whether the form
+is gone, whether the message is inside the card, whether it is legible against
+what is behind it. The unit test is in JSDOM, where the overlay CSS does not
+apply and geometry does not exist.
+---
+
 ## What this cost
 
 The component was correct throughout. Every turn spent on it went to
@@ -213,14 +328,19 @@ correct error-localiser defeated by a schema shape it was never shown.
 
 ## Scope question for the operator
 
-This is one investigation and three unrelated fixes, in three packages:
+This is one investigation and four unrelated fixes, in three packages:
 
-1. `account-chrome`'s label contract (framework module + its docs)
-2. behavior config strictness (`behavior.ts`)
-3. slot-error localisation (`site-schema`)
+1. `account-chrome`'s three invariant text surfaces — the field label, the sent
+   message, the error — none of which the page can style or position
+   (Defects 1, 1b, 4c)
+2. The sign-in dialog does not swap to a confirmation state (Defect 4a), and the
+   site is configured against an endpoint that does not exist when a real one
+   does (Defect 4b — arguably a config fix, not a code one)
+3. Behavior config strictness (`behavior.ts`, Defect 2)
+4. Slot-error localisation (`site-schema`, Defect 3)
 
-They can be one free-coded cycle or three. [[BUG-77]] is open and untitled — say
-the word and I'll split into it, or keep all three here.
+They can be one free-coded cycle or several. [[BUG-77]] is open and untitled —
+say the word and I'll split, or keep all four here.
 
 ## Test plan
 
@@ -235,3 +355,8 @@ To be decided once scope is settled. Sketch, per defect:
 3. `set_l1` into a behavior slot with a bad axis key reports the offending path
    and key, matching what the same node reports in the page's own `l1` tree; an
    unknown `kind` names the valid kinds.
+4. After a completed submit the address field and submit control are no longer
+   presented, and the confirmation is inside the authored card rather than a
+   sibling of it — asserted on rendered geometry, not only on `hidden`, since
+   `hidden` is precisely what the existing UAT already proves and it was not
+   enough.
