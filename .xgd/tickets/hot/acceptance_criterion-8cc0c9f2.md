@@ -6,7 +6,7 @@ title: A control the toolbar replaces stops reacting, so a workspace held open a
   nothing
 created_by: xgd
 created_at: '2026-08-10T11:19:04.966985+00:00'
-updated_at: '2026-08-16T10:03:30.077815+00:00'
+updated_at: '2026-09-10T11:06:56.437195+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
