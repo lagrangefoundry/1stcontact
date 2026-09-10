@@ -6,9 +6,9 @@ title: Only a parameter the operator actually changed overrides the box; every u
   axis keeps its opening dressing
 created_by: xgd
 created_at: '2026-08-13T01:09:17.138934+00:00'
-updated_at: '2026-08-16T04:19:39.732371+00:00'
+updated_at: '2026-09-10T23:17:21.279163+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3bf94bd4
@@ -35,13 +35,22 @@ parameter set would visibly lighten the moment it appeared — and would keep
 lightening on the first unrelated change. The box must keep the rendered weight
 until the operator changes the weight.
 
+The rule does not soften where a control does exist. The run's colour has a row
+in the sheet (AC-1279), and an untouched colour is still governed by the same
+claim: the box takes its colour from the page as rendered, so staging a colour
+the operator did not stage cannot happen, and no other axis is re-derived when
+the colour row is the one that moves.
+
 ## Verification
 
 Open the dialog over a run of copy and record every aspect of the box's
 presentation before touching anything. Change one parameter and assert that
-exactly that aspect changed and every other one — including the run's colour and
-family, which the sheet has no control for at all — is byte-identical to what was
-recorded. Open the dialog over a run whose weight is inherited from around it
+exactly that aspect changed and every other one is byte-identical to what was
+recorded — including the run's **family**, which the sheet has no control for at
+all, its **tracking**, which is opening dressing rather than anything the sheet
+exposes, the paint behind the words, and its **colour**, which does have a row in
+the sheet and must still hold the value the render gave it while that row is
+untouched. Open the dialog over a run whose weight is inherited from around it
 rather than declared on the run itself, touch nothing, and assert the box
 previews the weight the page renders rather than the value the sheet reports;
 then change an unrelated parameter and assert the weight still has not moved.
