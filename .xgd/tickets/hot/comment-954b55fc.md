@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T00:14:43.102179+00:00'
+updated_at: '2026-09-10T00:30:36.931995+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -617,5 +617,11 @@ The shared store still reads `claude-sonnet-4-6`. Same as REQ-144 — it needs w
 **Cost.** Expect roughly +30% per equivalent session from the tokenizer, plus whatever adaptive thinking adds on top — it's on now where it was off before. REQ-143's usage telemetry will tell you the real number; the CHAT-47 baselines are no longer comparable.
 
 **The truncation bug is still there.** A 32k ceiling makes it rare, not safe: a `tool_use` block that never receives `content_block_stop` is still dispatched with `{}`, and `stop_reason` is still read nowhere in the backends. I noted that explicitly in both the ticket and the commit so it doesn't get treated as fixed. Want me to file it?
+
+<!-- xgd-turn id="7a13f50a-6f63-4b7e-9130-0a9e803f356a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:30:36.859427+00:00" -->
+#### You
+I think we should upgrade - I assume this is a 1c setting?
 
 <!-- xgd-chat-end -->
