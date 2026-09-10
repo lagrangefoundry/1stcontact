@@ -6,7 +6,7 @@ title: The conversation is stored through the store the site belongs to and repl
   after the host that served it is gone
 created_by: xgd
 created_at: '2026-08-10T08:35:57.540058+00:00'
-updated_at: '2026-09-10T21:47:06.409672+00:00'
+updated_at: '2026-09-10T22:10:56.925419+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -39,3 +39,13 @@ their original text and attribution. Do this on both hosts — the operator's lo
 one and the deployed one — since the store, not the host, is what the replay comes
 from. Then remove the site's conversation from the store and re-open: the
 conversation is empty, demonstrating the store is where it lived.
+
+The junction's bound is its own observation, because a restart taken between
+completed turns cannot reach it. Hold a turn open part-way through — the model
+answering over time rather than instantly, so that "while a turn is in flight" is
+a state something can stand in — and read the store from there: it already holds
+the completed conversation and does not yet hold the turn being spoken. Then
+discard all in-memory state from inside that turn and re-open: the completed
+exchange replays intact and well-formed, and the answer that was still being
+spoken is not there. That is the cost stated exactly — the turn, and not the
+conversation.
