@@ -181,13 +181,19 @@ describe('story-d5167ced — the retention declaration joins no binding set', ()
       expect(bucket.vars).not.toContain('head_sampling_rate')
     }
 
-    // The production binding set still holds exactly what it held before the
-    // retention block was written: the structured-data store, the object bucket
-    // and the asset binding. Were retention miscounted, the criteria asserting
-    // this exact set would begin failing on a declaration that binds nothing.
-    const EXPECTED = ['assets:ASSETS', 'd1_databases:DB', 'r2_buckets:SITES']
-    expect([...config.envs.production.bindings].sort()).toEqual(EXPECTED)
-    expect([...config.topLevel.bindings].sort()).toEqual(EXPECTED)
+    // The named environment's binding set is IDENTICAL to the top level's, and
+    // both are non-empty — so this is not vacuously satisfied by a reader that
+    // simply returns nothing. Asserted as a relation between the two levels
+    // rather than as equality against an enumerated snapshot: a frozen list
+    // begins failing the next time an unrelated intent adds a binding, which is
+    // this criterion's own warned-about failure arriving from the opposite
+    // direction — not a non-binding block miscounted, but a genuine binding
+    // counted against a list written before it existed. WHICH bindings must be
+    // present, and that each is repeated, is AC-1341's to state.
+    const topLevelBindings = [...config.topLevel.bindings].sort()
+    const productionBindings = [...config.envs.production.bindings].sort()
+    expect(topLevelBindings.length, 'the reader returned no bindings at all').toBeGreaterThan(0)
+    expect(productionBindings).toEqual(topLevelBindings)
 
     // And the check's own answer carries nothing derived from the retention
     // declaration: no binding is reported missing at all, and neither of
