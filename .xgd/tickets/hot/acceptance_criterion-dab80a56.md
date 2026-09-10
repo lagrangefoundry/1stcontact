@@ -6,14 +6,15 @@ title: A deployment with nowhere to put attachment bytes is refused when the sto
   is built, not at the first upload
 created_by: xgd
 created_at: '2026-09-01T23:58:01.852207+00:00'
-updated_at: '2026-09-02T00:13:30.166523+00:00'
+updated_at: '2026-09-10T02:22:09.784683+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
