@@ -6,9 +6,9 @@ title: 'Image generation: an out-of-credits OpenAI account is reported to the cl
   as a deployment fault'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:50.877405+00:00'
-updated_at: '2026-09-10T00:00:58.233301+00:00'
+updated_at: '2026-09-10T00:10:43.383280+00:00'
 completed_at: null
-last_field_updated: severity
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -141,3 +141,62 @@ and the code fix belongs to `lagrange-framework`.
   in local dev today.
 - Direct probes of `/v1/models/gpt-image-1` (200) and `/v1/images/generations`
   (429 `credit_balance_exhausted`).
+
+## Where the reason is exposed today: nowhere
+
+Asked directly — *does the image tool return the issue anywhere?* — the answer is
+no, in all three directions at once:
+
+- **To the model:** no. `host_detail: false` makes `renderHostError` drop the
+  detail before the sentence is built.
+- **To the durable audit trail:** no. `Toolbox._record` stores the *rendered*
+  string in `outcome.error`, so the audit inherits the model's redaction.
+- **To the logs:** no. There is no `console.*` on the failure path in
+  `toolbox/runtime.js`, and `apps/control-app/src/ai.ts` never sees the error
+  object — only the string the runtime already flattened.
+
+The two audit objects from the failing turn are in local R2 at
+`audit/biz_5b101742d436573a04a2512fb7ecdbb5/site-unnamed/`, and read side by side
+they show the defect exactly:
+
+```json
+// 1788997568.318-0000.json   — unknown_aspect_ratio, host_detail: true
+"error": "Error: CreateImage failed (unknown_aspect_ratio). That is not a shape
+          this generator offers. The host reports: Backend \"openai\" does not
+          support \"aspectRatios\": 16:9 is not among 1:1, 3:2, 2:3"
+
+// 1788997573.947-0001.json   — generator_unavailable, host_detail: false
+"error": "Error: CreateImage failed (generator_unavailable). The image generator
+          could not be reached. This is a deployment fault rather than something
+          to retry differently."
+```
+
+Same tool, same turn, seconds apart. The first is diagnosable from the audit
+alone. The second is not, and `You have no credits remaining` appears in no
+record this system keeps.
+
+**`host_detail` is doing two jobs and only one of them was designed.** Its stated
+purpose is to decide what the *model* is told — and for this error that judgement
+is right, because the customer must not read "you have no credits remaining"
+about the business they are buying from. But because the audit record is written
+from the rendered string rather than from the exception, the same flag silently
+decides what the *operator* is told, and there the judgement is wrong. One flag,
+two audiences, no way to answer them differently.
+
+## The fix, restated
+
+This sharpens item 1 of *What to do* above rather than replacing it. **Do not
+flip `host_detail` to `true`** — the model's sentence should stay vague, for the
+reason the flag exists. Split the audiences instead:
+
+- `Toolbox._record` should carry the **unrendered** failure — at minimum
+  `describeFailure(error).detail` — alongside the rendered `outcome.error` it
+  already stores. The audit is operator-facing and is exactly where an
+  unredacted provider message belongs; it is already tenant-scoped in R2 and is
+  never shown to a customer.
+- With that in place the customer keeps a vague, non-alarming sentence, the model
+  keeps a sentence it cannot leak a vendor name from, and an operator reading the
+  audit for a failed turn sees `credit_balance_exhausted` and knows to top up.
+
+Both changes are in `lagrange-framework` (`components/ai/js/src/toolbox/`).
+Still no code change in this repository.
