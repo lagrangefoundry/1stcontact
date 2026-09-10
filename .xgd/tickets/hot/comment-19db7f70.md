@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-71
 created_by: xgd
 created_at: '2026-09-10T17:54:51.607573+00:00'
-updated_at: '2026-09-10T18:19:16.810973+00:00'
+updated_at: '2026-09-10T18:22:07.951217+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,51 @@ The builder did not start.
 An asset the builder imports is missing. Run `1c assets`, then restart the builder — the assets manifest is read at startup.
 
 The document loaded; its client did not. Full detail is in the browser console.
+
+<!-- xgd-turn id="ae722b75-32e2-43a9-9f4f-ed876e0936fb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T18:22:07.810495+00:00" -->
+#### Claude
+That changes the diagnosis. Let me check whether the server is up so I can ask it directly.
+
+The report names `main.js`, but a module script's error event fires on the *top-level* script even when a nested import 404s. Let me walk the actual import graph.
+
+That's the bug, and it isn't about assets being missing.
+
+I was wrong about the cause. Running `1c assets` could never have fixed this, which is exactly what you observed. Here is the real one.
+
+## The actual bug
+
+`apps/control-app/dist-assets/framework/site-schema-edit.js`, line 1:
+
+```js
+import { l1TextRuns } from './text';
+```
+
+In a browser that means `GET /framework/text`. There is no such file — `dist-assets/framework/` contains exactly six files, and `text.js` is not one of them. So that request 404s, the module graph fails, and the error event fires on the *top-level* script, which is why the page blamed `main.js`. `main.js` is fine. I walked the whole graph: 71 modules and 6 stylesheets resolve, and `./text` is the single break.
+
+**Why it broke today.** Commit `df9862ce77` — *"feat(l1): one string of page copy can vary within itself"*, dated 2026-09-10 — added `text.ts` next to `packages/site-schema/src/l1/edit.ts` and imported it.
+
+**Why the asset build didn't notice.** `tools/generate/src/cli/assets.ts:68` has `FRAMEWORK_SOURCES`, a hand-written list of six files. `transpileForBrowser` (line 114) type-strips **one file at a time** and rewrites **one** specifier pattern, `@1stcontact/site-schema` → `/framework/site-schema-edit.js`. It does not follow imports. So `text.ts` was never emitted, and `./text` was never rewritten.
+
+**Why this is the first time it's bitten.** Every other relative import in those six sources is `import type` — the TypeScript transpiler erases those, so they never became browser fetches. `l1TextRuns` is the first *value* import to a sibling module. The build has always had this hole; nothing had stepped in it.
+
+That's also why the boot guard's hint was misleading rather than wrong: an asset in the import graph really was missing. It just wasn't one `1c assets` knows how to produce.
+
+## What I'd fix
+
+Two parts, and I'd rather do both:
+
+1. **Follow the graph.** Transpile the transitive closure of relative value imports rather than a fixed list, emitting each sibling and rewriting its specifier to the emitted URL — including adding the `.js` a browser needs and TypeScript doesn't. That makes the build self-maintaining.
+2. **Refuse to ship a broken tree.** After the build, resolve every specifier in every emitted file against what was actually emitted, and fail `1c assets` if one dangles. That is roughly the check I just ran by hand, and it converts this entire failure class from a blank page into a build error at the moment it's introduced.
+
+(1) alone would fix today's break. (2) is what stops the next one. I'd skip the tempting third option — just adding `text.ts` to the list — because it re-arms the same trap for whoever adds the next sibling.
+
+Two smaller things I found on the way, neither part of this bug:
+
+- Your instinct on `1c serve` was right, and it's already done: REQ-177 deleted the command, `req177-discontinue-raw-server.test.ts` keeps it deleted. The file that remains is `startServe`, a library used by `1c shot`, `1c aligned-crops` and the conformance harness — deleting it breaks screenshots. The only stale thing is the CLI usage text at `index.ts:508`, which still lists `serve` as a command. Text edit.
+- `1c builder` still doesn't build assets before starting `wrangler dev`. Real papercut, worth ~1.3s, but unrelated to this — I'd have been fixing the wrong thing.
+
+Say go and I'll scope BUG-71 to the framework asset graph, cut the branch, and implement (1) and (2) with UATs. If you'd rather ship just (1) first, say so and I'll leave the guard out.
 
 <!-- xgd-chat-end -->
