@@ -6,15 +6,15 @@ title: values-diff --multi-viewport projects the draft across every persisted ru
   and reports worst-cell-first
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:43.139957+00:00'
-updated_at: '2026-09-09T23:53:43.139957+00:00'
+updated_at: '2026-09-10T00:40:13.025053+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-16f2793c
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
