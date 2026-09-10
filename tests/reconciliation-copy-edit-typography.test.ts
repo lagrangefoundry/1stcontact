@@ -624,6 +624,22 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     expect(back.data!.changed).toEqual(['textTransform'])
     expect(draftAxes(A_HEADLINE)).not.toHaveProperty('textTransform')
 
+    // BUT NOT EVERY PARAMETER HAS SUCH A VALUE. A size and a weight assert
+    // whatever they hold — neither has a setting that means "nothing declared" —
+    // so these two controls change a parameter and never clear one. Clearing
+    // them is the AI's business rather than this surface's.
+    const resized = await set(A_HEADLINE, { fontSizePx: 48, fontWeight: '400' })
+    expect(resized.ok).toBe(true)
+    expect([...(resized.data!.changed as string[])].sort()).toEqual(['fontSizePx', 'fontWeight'])
+    expect(draftAxes(A_HEADLINE)).toMatchObject({ fontSizePx: 48, fontWeight: 400 })
+
+    // Returning each to the value the run started at writes that value back
+    // rather than removing the axis: there is no value on either control an
+    // operator could pick that would leave the parameter undeclared.
+    const restored = await set(A_HEADLINE, { fontSizePx: 72, fontWeight: '700' })
+    expect(restored.ok).toBe(true)
+    expect(draftAxes(A_HEADLINE)).toMatchObject({ fontSizePx: 72, fontWeight: 700 })
+
     // A CHANGE MAP THAT CHANGES NOTHING IS REPORTED AS CHANGING NOTHING, and
     // leaves the stored draft byte-identical — so the modal cannot put a history
     // in the draft that nobody asked for.
