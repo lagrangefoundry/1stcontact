@@ -530,6 +530,16 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
   it('test_UAT_AC988_an_unknown_field_a_non_text_value_or_a_choice_never_offered_is_refused', async () => {
     // AC-988 — every entry is checked before any is applied, and each of the
     // three refusals names the offending field and writes nothing.
+    //
+    // Two further kinds AC-988 enumerates are proven under a neighbouring
+    // criterion's name, through these same production paths, and are
+    // deliberately NOT duplicated here: the COLOUR refusals by
+    // `test_UAT_AC1271`, and the STATUS-QUO carve-out (re-posting a field's
+    // existing value alongside a genuine edit to another) by `test_UAT_AC1272` /
+    // `test_UAT_AC1276` — all in
+    // `reconciliation-copy-edit-colour-and-availability.test.ts` — plus
+    // `test_UAT_AC1121` (a bound) and `test_UAT_AC1120` (a locked non-colour) in
+    // `reconciliation-copy-edit-typography.test.ts`.
     const before = draftBytes(cwd)
 
     // (1) A field the addressed region does not expose — the caller resolved

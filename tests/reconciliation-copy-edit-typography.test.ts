@@ -558,6 +558,24 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     expect(draftBytes()).toBe(before)
     expect(draftAxes(A_HEADLINE).fontStyle).toBeUndefined()
 
+    // RE-POSTING THE VALUE THE FIELD ALREADY HOLDS IS NOT A CHANGE AND PASSES.
+    // The form posts every field it was given, not only the ones that were
+    // touched, so an unavailable italic rides along on every save — including
+    // one that only rewrote the words. Refusing the status quo would make the
+    // lock freeze the whole run, its words included, on every save. This is the
+    // NON-COLOUR side of the same carve-out AC-1276 proves for a locked colour:
+    // `lockError` (`packages/site-schema/src/l1/edit.ts`) compares the posted
+    // value against the one the derivation just reported and lets an identical
+    // one through.
+    const saved = await set(A_HEADLINE, { text: 'Reworded, italic untouched.', italic: false })
+    expect(saved.ok).toBe(true)
+    // One field named as changed — the words — and NOT the locked one.
+    expect(saved.data!.changed).toEqual(['text'])
+    expect(draftNode(A_HEADLINE).text).toBe('Reworded, italic untouched.')
+    // Passing the status quo through is not the same as writing it in: the run
+    // still declares no style of its own.
+    expect(draftAxes(A_HEADLINE)).not.toHaveProperty('fontStyle')
+
     // Where it is live it simply works...
     expect((await set(A_SYSTEM, { italic: true })).ok).toBe(true)
     expect(draftAxes(A_SYSTEM).fontStyle).toBe('italic')
@@ -721,6 +739,17 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     // is PER FIELD: the region says of each field whether it holds text, one of
     // a closed list, a whole number or a yes/no, and the value is measured
     // against that one.
+    //
+    // Two of AC-988's kinds are proven under a neighbouring criterion's name,
+    // through these same production paths, and are deliberately NOT duplicated
+    // here:
+    //   - the COLOUR refusals (unknown entry, free hex, unrecognised part,
+    //     out-of-range part) — `test_UAT_AC1271`
+    //     (`reconciliation-copy-edit-colour-and-availability.test.ts`);
+    //   - the STATUS-QUO carve-out, re-posting a field's existing value
+    //     alongside a genuine edit to another — `test_UAT_AC1272` and
+    //     `test_UAT_AC1276` (same file) for a colour, `test_UAT_AC1121` below
+    //     for a bound, and `test_UAT_AC1120` above for a locked non-colour.
     const before = draftBytes()
 
     // A field the region does not expose — the caller resolved against a

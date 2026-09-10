@@ -508,6 +508,15 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // field this region does not expose means the caller resolved against a
     // different region than it is writing to, so dropping it silently would
     // land a partial edit.
+    //
+    // Two of AC-988's kinds are proven under a neighbouring criterion's name,
+    // through these same production paths, and are deliberately NOT duplicated
+    // here: the COLOUR refusals by `test_UAT_AC1271`, and the STATUS-QUO
+    // carve-out (re-posting a field's existing value alongside a genuine edit to
+    // another) by `test_UAT_AC1272` / `test_UAT_AC1276` — all in
+    // `reconciliation-copy-edit-colour-and-availability.test.ts` — plus
+    // `test_UAT_AC1121` (a bound) and `test_UAT_AC1120` (a locked non-colour) in
+    // `reconciliation-copy-edit-typography.test.ts`.
     const before = draftBytes(cwd)
 
     const unknown = await cli(cwd, ...setArgs(A_SHORT, { headline: 'Not a field here.' }))
