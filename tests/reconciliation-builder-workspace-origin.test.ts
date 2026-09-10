@@ -3,9 +3,11 @@
  * showing the operator's real rendered site, served from a single origin.
  *
  * These UATs drive real entry points only — the builder origin over HTTP
- * (`startBuilder`), the `control-app` Worker under `unstable_dev`, and the
- * `1c` command functions that produce what the origin serves. Nothing reaches
- * into a handler directly: every claim here is about bytes a browser is handed.
+ * (`startBuilder`), the `control-app` Worker's own `fetch` (in-process for
+ * AC-964, under `unstable_dev` for AC-965, which is about a Worker that could
+ * not be configured and so must be stood up as one), and the `1c` command
+ * functions that produce what the origin serves. Nothing reaches into a route
+ * handler directly: every claim here is about bytes a browser is handed.
  *
  * THE COMPONENT DEPENDENCY IS IMPLICIT, and that is a stated coverage gap
  * (story Technical Context). The shared webui components arrive from an
@@ -44,15 +46,20 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { unstable_dev, type UnstableDevWorker } from 'wrangler'
+import { unstable_dev } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
-import { applyLocalD1Schema } from './support/local-d1'
 // REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
 // JWT before it proxies anything. AC-964 and AC-965 are about what an ADMITTED
 // caller receives, so they now authenticate rather than assert the pre-gate
 // behaviour — the forwarding and failure-reporting contracts they pin are
 // unchanged, only unreachable to a caller Access has not admitted.
 import { startAccessTeam, type AccessTeam } from './support/access'
+// The Worker's OWN `fetch`, driven in-process. `unstable_dev` is not used for
+// AC-964 any more: it spawns a `wrangler dev` child, which makes the gate
+// assertions hostage to a subprocess that cannot start in a sandboxed checkout,
+// and the entry point under test is this handler either way.
+import controlWorker from '../apps/control-app/src/index'
+import type { Env as WorkerEnv } from '../apps/control-app/src/index'
 import {
   chromeHtml,
   cmdNew,
@@ -669,101 +676,151 @@ describe('story-e674c60a component consumption route', () => {
 // ── the single origin, fronted by the Worker ─────────────────────────────────
 
 describe('story-e674c60a control-app front', () => {
-  let cwd: string
-  let builder: BuilderHandle
-  let worker: UnstableDevWorker
   let access: AccessTeam
   let admitted: Record<string, string>
 
   beforeAll(async () => {
     if (!WEBUI_INSTALLED) return
-    cwd = await makeWorkspace()
-    builder = await startBuilder({
-      cwd,
-      clientDir: path.join(REPO, 'apps/control-app/src/builder'),
-    })
     access = await startAccessTeam()
     admitted = await access.headers()
-    // The Worker reads its own D1 now, and miniflare's local database
-    // starts with no schema (REQ-145).
-    applyLocalD1Schema(REPO)
-    worker = await unstable_dev('apps/control-app/src/index.ts', {
-      config: 'apps/control-app/wrangler.toml',
-      vars: {
-        BUILDER_ORIGIN: builder.url.replace(/\/$/, ''),
-        ACCESS_TEAM_DOMAIN: access.teamDomain,
-        ACCESS_AUD: access.aud,
-      },
-      experimental: { disableExperimentalWarning: true },
-    })
   }, 120000)
 
   afterAll(async () => {
-    await worker?.stop()
-    await builder?.close()
     await access?.close()
-    if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
-  it('test_UAT_AC964_one_host_answers_every_route_with_the_origin_response_verbatim', async () => {
-    // AC-964 — the workspace document, its components, its browser source, the
-    // rendered channels and its operations all come from ONE host, so the frame
-    // showing a site is never a foreign document. The front reinterprets
-    // nothing: status, content type and body are the origin's own.
+  /**
+   * The Worker's env, in the deployed shape, with the STORE BINDINGS UNREACHABLE.
+   *
+   * Neither route this leg sweeps may open a store — the document is composed
+   * and the artifact is served by the assets binding — so a binding that throws
+   * the moment it is touched turns "it happens not to be opened" into something
+   * a test can fail on. It is also what makes this leg possible at all: the node
+   * pool has no D1 or R2, which is why the store-backed half of AC-964's sweep
+   * lives in `reconciliation-workspace-admission.workers.test.ts`.
+   */
+  function workerEnv(): WorkerEnv {
+    const unreachable = (what: string) => () => {
+      throw new Error(`${what} was touched while answering a store-free route.`)
+    }
+    return {
+      DB: new Proxy({}, { get: unreachable('D1') }) as D1Database,
+      SITES: new Proxy({}, { get: unreachable('R2') }) as R2Bucket,
+      TENANT_ID: 'story-e674c60a',
+      ACCESS_TEAM_DOMAIN: access.teamDomain,
+      ACCESS_AUD: access.aud,
+      ACCESS_DEV_OPEN: '',
+      ASSETS: distAssets(),
+    } as WorkerEnv
+  }
+
+  /** The assets binding, reading the real `1c assets` output off disk. */
+  function distAssets(): Fetcher {
+    const dir = path.join(REPO, 'apps', 'control-app', 'dist-assets')
+    return {
+      fetch: async (input: Request | string) => {
+        const { pathname } = new URL(typeof input === 'string' ? input : input.url)
+        const file = path.join(dir, pathname)
+        if (!file.startsWith(dir) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+          return new Response('Not found', { status: 404 })
+        }
+        return new Response(fs.readFileSync(file), {
+          status: 200,
+          headers: { 'content-type': 'text/javascript; charset=utf-8' },
+        })
+      },
+    } as unknown as Fetcher
+  }
+
+  /** One request at the Worker's own `fetch`, admitted or not. */
+  const call = (p: string, withToken: boolean): Promise<Response> =>
+    controlWorker.fetch(
+      new Request(`https://app.example${p}`, withToken ? { headers: admitted } : undefined),
+      workerEnv(),
+    )
+
+  it('test_UAT_AC964_the_admitted_split_holds_with_a_real_access_token', async () => {
+    // AC-964 — for an ADMITTED caller the workspace document and its browser
+    // source come from one host; the same host, asked by a caller the gate has
+    // NOT admitted, serves neither, and the refusal carries none of the bytes
+    // the route would have produced.
+    //
+    // WHAT THIS LEG IS FOR, AND WHAT IT IS NOT. The criterion's sweep spans four
+    // classes and three of them are store-backed, which this pool has no D1 or
+    // R2 to answer — so the FULL four-class sweep, over real data, is
+    // `reconciliation-workspace-admission.workers.test.ts`. What that file
+    // cannot do is mint a token: `node:http` does not exist inside workerd, so
+    // its admitted caller is the loopback dev-server bypass. Here it is a REAL
+    // Cloudflare Access team on loopback issuing REAL RS256 tokens, verified by
+    // the Worker's own gate against the team's published JWKS. Breadth there,
+    // token fidelity here; the criterion needs both and neither restates the
+    // other.
+    //
+    // THE FORMER SIDE-BY-SIDE COMPARISON IS GONE, deliberately. It compared the
+    // Worker's bytes with the local transport's for the same route, which is
+    // AC-1401's claim — one route table behind two front doors — and is now
+    // asserted there, against a declaration both doors answer to. Restating it
+    // here would have been a route compared with itself, which the AC's own
+    // Verification says must not happen.
     if (!WEBUI_INSTALLED) {
-      unverified('the verbatim-forwarding comparison (the chrome route needs the components)')
+      unverified('the admitted/unadmitted split (the chrome route needs the components)')
       return
     }
 
-    // WHAT "VERBATIM" MEANS NOW. This AC was written when the front was a proxy
-    // and the origin a separate process: forwarding had to reinterpret nothing.
-    // Since REQ-145 there is no forwarding — the Worker IS the origin, and the
-    // Node transport is a second front door onto the same `route()`. So the
-    // claim is checked where it still has teeth: the two hosts must produce the
-    // SAME BYTES for everything that does not depend on which store is behind
-    // them, which is what proves they share one route table rather than agreeing
-    // by coincidence.
-    const sameBytes = [
-      '/', // the workspace document
-      `/webui/webui-shell/${webuiExports('webui-shell')['.'].replace(/^\.\//, '')}`, // a component module
+    const classes = [
+      { klass: 'the workspace document', path: '/', contentType: 'text/html' },
+      { klass: 'the browser source', path: '/builder/main.js', contentType: 'text/javascript' },
     ]
 
-    for (const route of sameBytes) {
-      const viaWorker = await worker.fetch(route, { headers: admitted })
-      const direct = await fetch(new URL(route, builder.url))
-      expect(viaWorker.status, route).toBe(direct.status)
-      expect(viaWorker.headers.get('content-type'), route).toBe(
-        direct.headers.get('content-type'),
+    for (const { klass, path: route, contentType } of classes) {
+      // ── admitted, with a token the gate actually verified ─────────────────
+      const ok = await call(route, true)
+      expect(ok.status, `${klass} admitted`).toBe(200)
+      expect(ok.headers.get('content-type'), `${klass} admitted`).toContain(contentType)
+      const body = await ok.text()
+      expect(body.length, `${klass} admitted body is empty`).toBeGreaterThan(0)
+
+      // ── unadmitted: refused, carrying none of those bytes ─────────────────
+      const refused = await call(route, false)
+      expect(refused.status, `${klass} unadmitted`).toBe(401)
+      const refusedBody = await refused.text()
+      expect(refusedBody, `${klass}: the refusal carried the route's own bytes`).not.toContain(
+        body.slice(0, 64),
       )
-      expect(await viaWorker.text(), route).toBe(await direct.text())
     }
 
-    // The store-backed routes cannot be byte-compared: the Worker reads D1 and
-    // R2, the transport reads the operator's filesystem, and that difference is
-    // the point of the ticket rather than a defect. What must hold is that the
-    // ONE host answers them — a listing and a rendered page, from the same
-    // origin as the document and the component above.
-    const listing = await worker.fetch('/api/sites', { headers: admitted })
-    expect(listing.status).toBe(200)
-    expect(listing.headers.get('content-type')).toContain('application/json')
+    // The document's references resolve ON THE SAME HOST: every specifier it
+    // declares is root-relative, so there is no second origin for the browser to
+    // reach for, and the host serving the document serves them too.
+    const html = await (await call('/', true)).text()
+    const importmap = JSON.parse(
+      /<script type="importmap">(.*?)<\/script>/s.exec(html)![1],
+    ) as { imports: Record<string, string> }
+    const referenced = [...Object.values(importmap.imports), '/builder/main.js']
+    expect(referenced.length).toBeGreaterThan(1)
+    for (const ref of referenced) {
+      expect(ref.startsWith('/'), `${ref} is not root-relative`).toBe(true)
+      expect(ref, `${ref} names another origin`).not.toMatch(/^https?:/)
+      expect((await call(ref, true)).status, `${ref} is not served by this host`).toBe(200)
+      // …and behind the same gate, so no reference is a way around it.
+      expect((await call(ref, false)).status, `${ref} is reachable unadmitted`).toBe(401)
+    }
 
-    const rendered = await worker.fetch('/preview/alpha/draft/', { headers: admitted })
-    expect([200, 404]).toContain(rendered.status)
-    expect(rendered.headers.get('cache-control')).toBe('no-store, must-revalidate')
-
-    // Same-origin by construction: the URL the pane displays is ROOT-RELATIVE,
-    // so the frame's document URL can only ever be this same host.
+    // Same-origin by construction for the pane too: the URL the display panel
+    // shows is ROOT-RELATIVE, so the frame's document URL can only ever be this
+    // same host. That the address is SERVED needs a store, and is asserted over
+    // one in the workers-pool leg named above.
     const { previewUrl } = (await import('../apps/control-app/src/builder/api.js')) as {
       previewUrl: (slug: string, channel: string) => string
     }
-    expect(previewUrl('alpha', 'draft').startsWith('/')).toBe(true)
-    expect(previewUrl('alpha', 'draft')).not.toMatch(/^https?:/)
-    // …and that path is served by the very host serving the chrome.
-    expect((await worker.fetch(previewUrl('alpha', 'draft'), { headers: admitted })).status).toBe(200)
+    for (const channel of ['draft', 'edit']) {
+      expect(previewUrl('alpha', channel).startsWith('/')).toBe(true)
+      expect(previewUrl('alpha', channel)).not.toMatch(/^https?:/)
+    }
 
-    // …and it is the GATE that stands between the two, not routing: the same
-    // route, unauthenticated, never reaches the origin at all (REQ-147 AC4).
-    expect((await worker.fetch(previewUrl('alpha', 'draft'))).status).toBe(401)
+    // …and it is the GATE that stands between a caller and the origin, not
+    // routing: the same route, unauthenticated, never reaches it (REQ-147 AC4).
+    expect((await call(previewUrl('alpha', 'draft'), false)).status).toBe(401)
   })
 })
 

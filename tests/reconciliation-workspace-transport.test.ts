@@ -27,6 +27,11 @@ import { chromeHtml } from '../apps/control-app/src/chrome'
 import { run } from '../tools/generate/src/cli'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
+import {
+  answerOf,
+  declaredAnswer,
+  TRANSPORT_CONTRACT,
+} from './support/transport-contract'
 
 const REPO = path.resolve(__dirname, '..')
 const SLUG = 'alpha'
@@ -99,44 +104,42 @@ describe('story-e674c60a — the builder command is a transport over the one rou
   it('test_UAT_AC1401_the_builder_command_is_a_transport_defaulting_to_the_local_store', async () => {
     const get = (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init)
 
-    // ── the workspace document, returned unchanged ──────────────────────────
-    // Composed by the route table, not read from anywhere, so the local door
-    // handing it over verbatim is checkable byte for byte.
-    const document = await get('/')
-    expect(document.status).toBe(200)
-    expect(document.headers.get('content-type')).toContain('text/html')
-    expect(await document.text()).toBe(chromeHtml())
-
-    // ── one that READS the store ────────────────────────────────────────────
-    const listing = await get('/api/sites')
-    expect(listing.status).toBe(200)
-    expect(listing.headers.get('content-type')).toContain('application/json')
-    const sites = (await listing.json()) as { slug: string }[]
-    expect(sites.map((s) => s.slug)).toContain(SLUG)
-
-    // ── one that WRITES it, through the same edit functions `1c` dispatches to ─
-    const wrote = await get('/api/palette', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: SLUG, op: 'add', name: 'accent', value: '#0f172a' }),
-    })
-    expect(wrote.status).toBe(200)
-    const readBack = (await (await get(`/api/palette?slug=${SLUG}`)).json()) as {
-      entries: { name: string; value: string }[]
+    // ── THE LOCAL DOOR, AGAINST THE DECLARATION BOTH DOORS ANSWER TO ────────
+    // The criterion asks that the same request produce the same status, content
+    // type and shape of answer from the local front door AND from the deployed
+    // runtime. The two cannot be driven from one file — a workerd test has no
+    // `node:http` to stand up `startBuilder`, and this pool has no D1 or R2 to
+    // give the deployed Worker a store — so they are compared through one
+    // shared statement instead of one shared process: `TRANSPORT_CONTRACT`
+    // declares the answer, this leg asserts the local door against it, and
+    // `reconciliation-workspace-transport.workers.test.ts` asserts the deployed
+    // runtime against the SAME declaration. Neither leg can weaken it alone.
+    //
+    // The sweep spans the classes the criterion names — a route that reads the
+    // store, one that writes it, and one that renders — plus the document.
+    const swept = new Set<string>()
+    for (const route of TRANSPORT_CONTRACT) {
+      const res = await get(route.path(SLUG), route.init?.(SLUG))
+      expect(
+        await answerOf(res, route, SLUG),
+        `the local front door on ${route.name}`,
+      ).toEqual(declaredAnswer(route))
+      swept.add(route.klass)
     }
-    expect(readBack.entries).toContainEqual(
-      expect.objectContaining({ name: 'accent', value: '#0f172a' }),
-    )
+    // The declaration itself must keep spanning them: a contract quietly reduced
+    // to one class would let both legs go on passing over nothing.
+    expect([...swept].sort()).toEqual(['document', 'read', 'render', 'write'])
 
-    // ── and one that RENDERS ────────────────────────────────────────────────
-    const rendered = await get(`/preview/${SLUG}/draft/`)
-    expect(rendered.status).toBe(200)
-    expect(rendered.headers.get('content-type')).toContain('text/html')
-    expect((await rendered.text()).length).toBeGreaterThan(0)
+    // The document is additionally checkable BYTE FOR BYTE here, which the
+    // deployed leg cannot do: it is composed by the route table rather than read
+    // from anywhere, so "handed over unchanged" has a literal meaning for the
+    // one door that runs in the same process as the composer.
+    expect(await (await get('/')).text()).toBe(chromeHtml())
 
-    // The route table's own freshness directive, inherited rather than restated
-    // by this front door — which is what proves the response came out of it.
-    for (const p of ['/', '/api/sites', `/preview/${SLUG}/draft/`, '/nothing-here']) {
+    // The route table's own freshness directive on a route that MISSES, too —
+    // the contract covers the hits, and a door that set the directive itself
+    // would be a door with behaviour of its own.
+    for (const p of ['/nothing-here']) {
       expect((await get(p)).headers.get('cache-control'), p).toBe('no-store, must-revalidate')
     }
 
