@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T17:51:49.701129+00:00'
+updated_at: '2026-09-10T19:18:38.627315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -780,5 +780,11 @@ That's what `accept` is for: the orchestrator states its checks up front, the bu
 The return path is already in your vocabulary, incidentally — the reminder tier tells the orchestrator "the site moved under you" via `site.changes`, so a delegation returning a counter delta plus a summary lands through the channel the system already speaks.
 
 Want me to write this up as a design ticket? It'd want a DOC amendment like REQ-144 had, since the builder role and the grant split are architecture, not just a new tool.
+
+<!-- xgd-turn id="7828b9ef-0998-4cc4-97cd-f2cd06e7d96b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:18:37.998726+00:00" -->
+#### You
+I think this would be valuable as a framework tool - could you write this up as a REQ in Lagrange Framework please?
 
 <!-- xgd-chat-end -->
