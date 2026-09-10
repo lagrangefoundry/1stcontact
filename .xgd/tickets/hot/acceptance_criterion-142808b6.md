@@ -6,15 +6,15 @@ title: A modern-colour-space gradient captures its full ordered stop list resolv
   to hex in-browser
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:50:44.588885+00:00'
-updated_at: '2026-09-09T23:50:44.588885+00:00'
+updated_at: '2026-09-10T01:26:10.471183+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-82eb6908
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: fail
 ---
 
 ## Criterion
