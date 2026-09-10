@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:11:03.260089+00:00'
+updated_at: '2026-09-10T22:23:19.881528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,16 @@ The rest follows from that:
 1. **Does an enquiry notify the business owner, or only appear in the contacts list?** DOC-47 warns that a form which posts nowhere visible is the worst outcome — a row in a list nobody logs into is a soft version of that.
 2. **Turnstile now, or honeypot plus rate limit and accept the spam?** Wiring it needs Cloudflare keys and reopens REQ-7.
 3. **Scope.** BUG-78 is currently the diagnosis. Cleanest split I see: BUG-78 keeps the two content fixes and the Access policy; the capture endpoint becomes its own REQ, since it's a capability with its own acceptance criteria. Say the word and I'll write both up — I won't file anything until you do.
+
+<!-- xgd-turn id="8b165770-6441-4fc1-aa8e-e02e510066ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:23:19.613414+00:00" -->
+#### You
+Unfortunately, if you read our documentation and look at the XGD draft site you will see that email capture needs to send links to the White papers, to the email address that was captured.
+
+1. I think notifications as a feature in its own right for now just update the contact database
+2. Can you tell me exactly what turnstile and honey pot do? Are these cloud flare features or new dependencies? I was expecting that Cloudflare could provide us with the necessary rate limiting etc.
+
+Once we have clarity on these design decisions we should determine whether that is the need for additional tickets
 
 <!-- xgd-chat-end -->
