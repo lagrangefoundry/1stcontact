@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: The revision storage verbs are the same declared set, answered by every adapter
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T06:14:30.736668+00:00'
-updated_at: '2026-09-10T06:14:30.736668+00:00'
+updated_at: '2026-09-10T07:15:39.099371+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
