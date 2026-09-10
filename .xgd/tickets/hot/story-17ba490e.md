@@ -5,15 +5,16 @@ type: story
 title: 'Site Locale Identity: A Site Says Where It Is, And Every Page Declares It'
 created_by: xgd
 created_at: '2026-08-31T12:27:25.034269+00:00'
-updated_at: '2026-08-31T12:33:33.153587+00:00'
+updated_at: '2026-09-10T04:00:59.268904+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-b3b7c399
   capability_uid: capability-bcbcdaf1
   story_kind: feature
   story_points: 2
+  uat_coverage: fail
 ---
 
 ## Story
