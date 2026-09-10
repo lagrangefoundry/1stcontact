@@ -6,14 +6,15 @@ title: Every declared binding names the same target in both deployment halves, a
   the schema is applied before upload with a rehearsal that changes nothing
 created_by: xgd
 created_at: '2026-08-31T09:48:12.827758+00:00'
-updated_at: '2026-09-02T00:44:14.923998+00:00'
+updated_at: '2026-09-10T07:16:02.097998+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
