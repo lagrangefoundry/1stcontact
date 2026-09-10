@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T00:24:36.472142+00:00'
+updated_at: '2026-09-10T00:27:30.611189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,24 @@ So the shape of the real fix is: 64k stops the immediate bleeding, `stop_reason`
 I'm investigating uprade to Sonnet 5.
 
 Can you create a ticket in Lagrange Foundry to handle this please?
+
+<!-- xgd-turn id="69e079fd-45cc-45d5-8f40-3b86c1750ecc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:27:30.281233+00:00" -->
+#### Claude
+Done, but the situation shifted while we were talking — worth reading before you go further.
+
+**The Sonnet 5 upgrade already exists and is already implemented.** `lagrange-framework` **REQ-146** — "default the API backend to claude-sonnet-5, and give max_tokens room for it" — status `free_coded`, commit `329d894771` on `xgd-working`, landed 17:13 today. It moves `DEFAULT_MODEL` to `claude-sonnet-5`, replaces the hardcoded `4096` with a construction option defaulting to `DEFAULT_MAX_TOKENS = 32000`, keeps the request streaming, and asserts no Sonnet-5-rejected parameter is sent. It cites this session's twelve-`set_l1` finding directly, and it reaches the same two conclusions we did independently — adaptive thinking is now on by omission, and the new tokenizer emits ~30% more tokens, so the ceiling has to cover strictly more. I didn't file a duplicate.
+
+**What I did create: `lagrange-framework` BUG-49** — "a reply truncated at the output ceiling dispatches an unfinished tool call, and nothing reports it". REQ-146 deliberately scoped this out in its own words: *"Raising the ceiling makes it rarer; it does not make it safe. That is its own bug and should be filed separately."* So BUG-49 carries the rest: read `stop_reason`; refuse a `tool_use` block that never got `content_block_stop` instead of dispatching it; kill the `{raw:…}` and `{}` fallbacks; stop `AnthropicWire.parse` turning a non-object input into `{}` by spreading it; record the real input on the audit refusal paths; persist per-turn usage. Python and JS together, with acceptance criteria for each.
+
+**One thing you'll want to know before you test any of it:** the shared store this repo actually loads — `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/backends/claude_api.js` — still reads `claude-sonnet-4-6` and `max_tokens: 4096`. The framework commit hasn't reached it. A builder session started right now would fail exactly the same way, and nothing in 1stcontact can change that.
+
+Two notes on Sonnet 5 itself, since you're investigating it:
+
+- REQ-146's audit is the right one and it passes — the backend sends no `temperature`/`top_p`/`top_k`, no `budget_tokens`, no prefill. Deliberately sending no `thinking` field is also correct, and its reasoning is better than mine would have been: an explicit `{type:"adaptive"}` would 400 on pre-4.6 models and break callers who pin an older model via the `model` option.
+- **Task budgets become available on Sonnet 5** and weren't on 4.6. That's the thing that would let the model pace itself against a ceiling rather than be guillotined by one — advisory, token-denominated, and the model can see it. Not in either ticket. Given BUG-49 is about surviving truncation, a task budget is the complementary move: avoiding it. Worth its own ticket if you want it.
+
+BUG-67 now records all of this and is down to Defect B — the capture host-candidate fix — as the only part that's this repo's to code. Want me to start on that?
 
 <!-- xgd-chat-end -->
