@@ -5,7 +5,7 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-09-10T13:22:12.658806+00:00'
+updated_at: '2026-09-10T13:36:29.039636+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
@@ -14,7 +14,7 @@ fields:
   capability_uid: capability-ae9d65d6
   story_kind: upgrade
   story_points: 3
-  uat_coverage: fail
+  uat_coverage: pass
   updated_by: request-f26cbe32
 ---
 
