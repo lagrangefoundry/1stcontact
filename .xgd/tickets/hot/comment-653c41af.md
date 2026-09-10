@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T00:09:23.835640+00:00'
+updated_at: '2026-09-10T00:10:54.177997+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,38 @@ The thing worth fixing is that you had to ask me. `generator_unavailable` is dec
 <!-- xgd-chat role="user" ts="2026-09-10T00:09:23.751094+00:00" -->
 #### You
 This is not really an error that we want a customer to see but it is important that its exposed does our image tool return the issue?
+
+<!-- xgd-turn id="3e8af836-9220-458c-9a05-d4d18a01822b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:10:53.617374+00:00" -->
+#### Claude
+**No. It returns it nowhere** — not to the model, not to the audit trail, not to logs.
+
+I pulled the two audit objects from that turn out of local R2. They sit side by side and show the defect exactly:
+
+```json
+// 1788997568.318-0000.json   — unknown_aspect_ratio, host_detail: true
+"error": "…The host reports: Backend \"openai\" does not support
+          \"aspectRatios\": 16:9 is not among 1:1, 3:2, 2:3"
+
+// 1788997573.947-0001.json   — generator_unavailable, host_detail: false
+"error": "…The image generator could not be reached. This is a deployment
+          fault rather than something to retry differently."
+```
+
+Same tool, same turn, five seconds apart. The first is diagnosable from the audit alone. The second isn't, and `You have no credits remaining` appears in no record this system keeps.
+
+**`host_detail` is doing two jobs and only one of them was designed.** Its stated purpose is deciding what the *model* is told — and for this error that judgement is right, exactly as you say: a customer must not read "you have no credits remaining" about the business they're buying from. But `Toolbox._record` writes `outcome.error` from the *rendered* string rather than from the exception, so the same flag silently decides what the *operator* is told too. One flag, two audiences, no way to answer them differently.
+
+So the fix isn't to flip the flag. It's to split the audiences:
+
+- `_record` should carry the **unrendered** failure — at minimum `describeFailure(error).detail` — alongside the rendered `outcome.error` it already stores.
+- The audit is operator-facing, tenant-scoped in R2, and never shown to a customer. That is precisely where an unredacted provider message belongs.
+
+Then the customer keeps a vague, non-alarming sentence, the model keeps one it can't leak a vendor name from, and whoever reads the audit for a failed turn sees `credit_balance_exhausted` and knows to top up.
+
+I've updated BUG-68 with the audit evidence and this sharpened recommendation. Both changes land in `lagrange-framework` (`components/ai/js/src/toolbox/`) — still nothing to code here.
+
+One caveat on scope: I only traced the `CreateImage` path. `host_detail: false` is also on `store_unavailable`, and any other surface using it has the same blind spot — worth a sweep when the framework fix goes in.
 
 <!-- xgd-chat-end -->
