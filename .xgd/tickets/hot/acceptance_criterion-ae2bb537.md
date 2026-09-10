@@ -6,7 +6,7 @@ title: The build discovers every Worker in the tree and bundles each against the
   environment, after the preflight passes
 created_by: xgd
 created_at: '2026-08-20T05:30:58.617490+00:00'
-updated_at: '2026-09-10T05:34:16.891211+00:00'
+updated_at: '2026-09-10T05:44:24.954429+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
