@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T00:01:15.809145+00:00'
+updated_at: '2026-09-10T00:07:50.560467+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,17 @@ Two smaller things in the same episode:
 BUG-68 now carries the full diagnosis, kept at `draft`. **No code lands here**: `apps/control-app/src/imagegen.ts` is wiring only and says so — the taxonomy, the suppression and the parameter description are all `lagrange-framework`'s. The three candidate upstream fixes are written up in the ticket. Say the word if you want framework tickets filed for them.
 
 The immediate unblock is topping up the OpenAI account.
+
+<!-- xgd-turn id="f75194c1-e61b-4681-b327-8fc85e0a9f33-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:07:50.515548+00:00" -->
+#### You
+There is an 
+
+OPENAI_API_KEY in 
+
+~/Documents/secrets/1c.dev.env
+
+That is included in the server start up
 
 <!-- xgd-chat-end -->
