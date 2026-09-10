@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:10:08.093663+00:00'
+updated_at: '2026-09-10T21:12:27.140596+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,71 @@ Tell me your calls on 1, 4 and 5 and I'll write EPIC-1's body as the umbrella an
    Once you have responded to this, I think there is a secondary discussion about image size that we should have. For images displayed on the site, how many versions of the image should we keep? Images taken with a modern iPhone are huge we don't necessarily want to serve those on a website at that scale it would be very wasteful of bandwidth. I'm bringing her up in this contacts partly to ask the question should image resizing be one of the tools capabilities? And then orthogonally should we have automatic capabilities for image sizing.
    
    Note that our tickets can have multiple attachments, so it might be natural to maintain versions and sizes in the same ticket.
+
+<!-- xgd-turn id="755601a2-db29-4b9d-be59-35273d480218-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:12:27.095909+00:00" -->
+#### Claude
+Good — the recipe idea is the right call and it makes several other things fall out for free. Some practicalities on each, then the sizing discussion.
+
+## 1. Markdown image "written by the tool" — one wrinkle
+
+A tool result doesn't become a chat bubble; it goes back to the model (and to the tool pane). Only an **assistant text turn** is in the transcript, and the transcript is what replays on reload. So "written by the tool" has to mean: **the tool authors the exact markdown line and hands it to the model, and the surface prose tells the model to paste it verbatim into its reply.** Tool authors the string, model places it. That's the version that survives reload, and placement stays natural ("here's the hero — want it warmer?").
+
+The failure mode is the model not pasting it. It's visible and cheap (the image is still in the library), and the surface has an `absences` section built for exactly this kind of instruction. I don't think it's worth host-injecting a trailer to close it, but say if you'd rather be certain.
+
+Small note that connects to your sizing question: day one the chat `<img>` can just be CSS-constrained and download the full bytes — fine on a builder-local fetch. It wants to become a thumbnail rendition once the ladder below exists.
+
+## 2. Edits as a recipe
+
+This is the part I'd nail down carefully, because the design has one genuinely open question.
+
+**What's stored.** The original bytes, forever, as the material's own attachment. Beside it, an ordered list of parameterised operations on the record. Any state = original + a prefix of the recipe.
+
+**Your 4(b) falls out without a history log.** "The crop needs to be a little wider" isn't undo — it's *editing the crop op's parameters*. Because ops are parameterised rather than baked, every past state is reachable by editing or removing an op, in any order, forever. So I'd **persist the recipe and keep the undo/redo stack as editor session state only**. Cheaper, and it gives you something better than undo: an edit list you can revise out of order, months later.
+
+**Two things that will bite if we don't decide them up front:**
+- **Coordinates must be normalised** (fractions, not pixels). If crop is in pixels and a resize is inserted before it, the crop silently moves. Normalised fractions plus a canonical order (geometry before adjustments) keeps a recipe meaningful under editing.
+- **A closed op vocabulary, shared by the UI and the tool** — one list, one implementation, or they drift within a month. My proposed minimum: `crop`, `rotate`, `flip`, `resize`, `adjust{brightness,contrast,saturation}`.
+
+**The open question: who flattens the recipe into bytes?** Canvas-only means *the browser is the renderer* — and the public site must serve edited images whether or not a builder browser was ever open. Three ways out:
+
+| | |
+|---|---|
+| **Worker renders** | Needs JPEG/WebP decode+encode in workerd. We have PNG-only today (`tools/generate/src/cli/png.ts`), and REQ-156 already established no-native-modules as the constraint. Real work, but it's the only version where an AI crop reaches the published site on its own. |
+| **Browser renders, uploads bytes** | Nearly free. But an AI edit doesn't take effect until someone opens the builder, and the site can serve a stale image meanwhile. |
+| **Hybrid** | Browser renders when present; worker renders lazily on first request for a stale rendition. Best behaviour, most moving parts. |
+
+I lean **worker renders**, precisely because you want this as an AI tool. An AI capability that silently needs a human's browser open isn't one. This is the decision I most need from you — it's the difference between a small ticket and a real one.
+
+**As an AI tool**, `edit_image` composes with decision 3: the assistant looks at the image, crops, looks again. The sixth `picture` kind should be able to show either the original or the current recipe state, or the model can't check its own work.
+
+## 3. Sizing — I'd split it in two, hard
+
+These are two different things and conflating them is how a library ends up with five copies of everything:
+
+- **Editorial versions** — *what the picture is*. The recipe. The client's business, visible, editable.
+- **Delivery renditions** — *the same picture at several widths*. A consequence of publishing. The client should never see them, never be asked about them, and never be able to get them wrong.
+
+**Your multi-attachment instinct is already proven in the codebase.** A capture bundle is one ticket carrying 11–99 attachments addressed by member name — `transport.fileUrl(uid, member)` in `library.js` is the existing accessor. So "one material, many byte-streams" isn't new machinery, it's an established pattern. Original + current rendition + a width ladder in one ticket is exactly the shape it already supports.
+
+**What I found on the delivery side:**
+- `assetRefSchema` is `{id, src, alt, focalPoint?}` — **one `src`, no `srcset`**. But the good news is the schema doesn't need to change: `packages/framework/src/l1/render.ts:2459` is the single place an `<img>` is emitted, and it could emit `srcset`/`sizes` from a rendition manifest without the site document knowing anything about it.
+- **`focalPoint` already exists**, which means someone already thought about the same picture at different aspect ratios. Worth being deliberate that crop and focal point don't fight: **crop is "this picture is that shape"; focalPoint is "when a band forces an aspect on it, keep this bit in frame."** Both earn their place; the editor UI should probably let you set the focal point too.
+
+**Answers to your two questions:**
+- **Should resize be a tool capability?** Yes — but for an editorial reason (a logo that is 400px wide because that's what it is), not a bandwidth reason. The surface prose has to say so explicitly, or the model will start hand-optimising delivery and fight the ladder.
+- **Should sizing be automatic?** Yes, entirely. Generated at promote-to-site-asset, never upscaled past the source, ladder capped at the original's own dimensions. A client answering "what size should this be?" is a question we failed to absorb.
+
+**One risk on "images taken with a modern iPhone":** the default capture format is **HEIC**, which browsers cannot decode in `<img>` or canvas. A HEIC upload today can't be previewed, can't be edited client-side, and can't be served. I haven't confirmed what our upload path does with one — worth checking before we design around canvas.
+
+## What I need from you
+
+1. **Who flattens** — worker codec, browser, or hybrid? (My lean: worker.)
+2. **HEIC** — convert at the door, or refuse it? (I'll check what we do today either way.)
+3. **Ladder trigger** — on promotion to a site asset, or only at publish?
+4. Does the editor also expose **focal point**, or is that a later thing?
+
+Give me those and I'll title EPIC-1, write its body as the umbrella, and cut the children — which now looks like: chat image; sixth `picture` kind; the recipe model + editor modal + `edit_image` tool; the rendition ladder + `srcset` in `render.ts`; and the two lagrange-framework tickets (the `create_image` surface prose, which currently promises the model the picture never enters the conversation, and generative `edit_image` for colorize/background if you still want that).
 
 <!-- xgd-chat-end -->
