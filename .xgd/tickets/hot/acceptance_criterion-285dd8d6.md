@@ -6,7 +6,7 @@ title: Asking a region what it exposes declares that an image field's options ar
   images, without changing which of them may be chosen
 created_by: xgd
 created_at: '2026-08-12T16:04:12.775992+00:00'
-updated_at: '2026-09-10T17:30:04.684276+00:00'
+updated_at: '2026-09-10T17:45:41.475992+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -44,9 +44,14 @@ of values than one that honours it.
 In a seeded site whose asset store holds several images, ask an image region
 what it exposes and assert the image field is a closed-list field that declares
 its options are images, while its alt-text field carries no such declaration.
-Ask the same of a painted panel carrying a background image and assert its one
-field declares the same thing; ask it of a run of copy and assert its field
-declares nothing of the kind.
+
+Ask the same of a painted panel carrying a background image and assert its
+**background-image field** declares the same thing, while the **fill field
+beside it on that same panel** carries no such declaration — the second instance
+of the discrimination this criterion exists to make, the declaration following
+the kind of field rather than the kind of region exactly as it does for the alt
+text beside an image region's picker. Ask it of a run of copy and assert none of
+its fields declares anything of the kind.
 
 Assert the option lists themselves are unchanged by the declaration: the same
 handles, each once, in the same stable order, still including the handle the
