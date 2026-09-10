@@ -5,12 +5,13 @@ type: capability
 title: 'System Knowledge Base: The Corpus, Its Index & Its Generated Map'
 created_by: xgd
 created_at: '2026-08-20T04:14:21.909140+00:00'
-updated_at: '2026-08-20T04:14:21.909140+00:00'
+updated_at: '2026-09-10T08:04:47.136988+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: system-knowledge-base
+  uat_coverage: pass
 ---
 
 # System Knowledge Base: The Corpus, Its Index & Its Generated Map
