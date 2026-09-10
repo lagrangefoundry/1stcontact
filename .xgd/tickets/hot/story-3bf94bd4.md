@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-20T04:11:32.662361+00:00'
+updated_at: '2026-09-10T22:59:05.383959+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -63,16 +63,19 @@ operator's.
   exposes its words, and beside them what colour they are and how that run is set
   — how big, how heavy, italic or not, capitalised or not; an image region exposes
   **which image goes here** — a closed picker of the site's own images, always
-  including the handle already in place — alongside its alt text; a painted panel
-  exposes the colour it is painted. It is a **form over structured
-  fields** — not editing on the page itself, not a rich-text surface, and with no
-  route to markup or styling: every control this dialog can be asked to draw is
+  including the handle already in place — alongside its alt text and **how the
+  picture is seen**, the framing, shape and colour adjustment the write path
+  offers on it; a painted panel exposes the colour it is painted. It is a
+  **form over structured fields** — not editing on the page itself, not a
+  rich-text surface, and with no route to markup or styling: every control this
+  dialog can be asked to draw is
   one of a small closed set of shapes, and the set is the write path's to state.
   The gesture is deliberately **kind-agnostic**: it resolves a click to a region
   and opens a form over whatever that region exposes, so a region kind that gains
   fields reaches the operator through this same loop with nothing here to change
   — which is exactly how image selection arrived, then a run's typography after
-  it, and then colour after that. One confirmed form is **one change** no matter
+  it, then colour after that, and then a picture's framing and adjustment with
+  nothing here changed at all. One confirmed form is **one change** no matter
   how many fields it held or how many controls those fields were spread across,
   so the operator's Save is the single moment anything is written — and a form the
   operator changed nothing in is not an edit at all: confirming it and cancelling
@@ -181,8 +184,9 @@ operator's.
 - **A dialog that composes several controls and still saves once.** The dialog
   decides **per field** which control draws it: the image grid and the colour row
   it draws itself, the words and the parameters each a separately mounted instance
-  of the shared form component. So an image region's picker and its alt text sit in
-  one dialog, a copy region's words, its colour and its typography sit in one
+  of the shared form component. So an image region's picker, its alt text and the
+  parameters that say how the picture is framed, shaped and adjusted sit in one
+  dialog, a copy region's words, its colour and its typography sit in one
   dialog, and a region that exposes only a background image gets no text-editing
   box at all. Every part is staged and none is committed on its own: Save merges
   them into a **single change** carrying only what the operator touched, one
@@ -217,10 +221,12 @@ operator's.
 entry, which is a deliberate, separate act inside the palette editor rather than
 anything a region can reach; line height, letter spacing, alignment and every
 other paint axis, and the rest of a panel's paint — pattern, overlay, gradient;
-per-run restyling inside a passage; image **framing** — crop, scale, scrim,
-rotation, edge effects and free positioning — together with asset upload and any
-image processing; structural editing — adding, removing, reordering, resizing or
-repositioning anything; and undo beyond cancelling the open form.
+per-run restyling inside a passage; the half of image framing that is still
+unbuilt — **zoom and true source-rect crop** (a picture pans today but does not
+zoom), **tint or scrim over an `<img>`**, **framing of a painted surface's own
+background image**, and **drag-driven crop handles** — together with asset upload
+and any image processing; structural editing — adding, removing, reordering,
+resizing or repositioning anything; and undo beyond cancelling the open form.
 
 ## Technical Context
 
@@ -248,10 +254,14 @@ repositioning anything; and undo beyond cancelling the open form.
   that identifies a rendering as editable, and what a highlighted region looks
   like. The gesture only says *which* region is live; the rendering says how
   live looks.
-- **Kind-agnosticism proved three times, not merely claimed.** Image selection
+- **Kind-agnosticism proved four times, not merely claimed.** Image selection
   reached the operator without a single change to the gesture; a run's typography
   reached it by adding one branch to the same per-field question; colour reached it
-  by adding a second. The derivation — one function on the write-path side — is
+  by adding a second; and a picture's framing, shape and colour adjustment — a
+  region kind that had exposed two fields gaining thirteen parameters at once —
+  reached it through the existing non-string split with no change here at all,
+  which is the strongest instance of the property rather than a fourth
+  restatement of it. The derivation — one function on the write-path side — is
   the only place a region kind is taught what it exposes, and this story reads that
   list and knows nothing about kinds. Enum membership and palette membership are
   both re-checked on the write side, so the closed picker is a property of the
