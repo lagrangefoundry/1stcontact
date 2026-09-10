@@ -6,7 +6,7 @@ title: The workspace's secondary pane is a working conversation surface for the 
   being displayed, with no action from the operator
 created_by: xgd
 created_at: '2026-08-10T08:46:25.975622+00:00'
-updated_at: '2026-08-16T04:42:02.958023+00:00'
+updated_at: '2026-09-10T22:44:47.814408+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
