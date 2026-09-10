@@ -6,9 +6,9 @@ title: '1c assets: framework bridges emit dangling sibling imports, so the build
   never boots'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T17:54:23.271115+00:00'
-updated_at: '2026-09-10T18:32:05.478526+00:00'
+updated_at: '2026-09-10T18:47:15.970018+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -70,38 +70,57 @@ visible was a blank page in a browser.
 
 **1. Emit the graph, not a list.** The six declared entries keep their stable
 public URLs (`/framework/<name>.js`) — the builder imports those by name. From
-each one, follow the relative imports that *survive transpilation* (so
-type-only imports stay erased and no type-only module is emitted), resolve each
-to its source file, emit it, and rewrite the specifier to the URL it was
-emitted at. Recurse. A dependency is emitted at a URL derived from its
-repo-relative source path, so two same-named modules in different packages
-cannot collide.
+each one, follow the relative imports that *survive transpilation*, resolve each
+to its source file, emit it, and rewrite the specifier to the URL it was emitted
+at. Recurse.
 
-**One URL per source file.** Resolution is keyed on the absolute source path,
+Following the **transpiled output** rather than the source is what keeps
+type-only modules out of the browser: `transpileModule` erases `import type` and
+elides any import whose bindings never reach the emitted JS, so what survives is
+exactly what the browser will fetch. Reading the source instead would ship
+`./palette` and `./types`, which exist only at compile time.
+
+A dependency is emitted under its **repo-relative source path**, so two packages
+that each hold a `text.ts` cannot collide, and the URL in a stack trace names
+the file to open. An import that resolves to no file, or to a file outside the
+repository, fails the build where it is found rather than being emitted as a
+specifier nothing can serve.
+
+**One URL per source file.** Resolution is keyed on the absolute source path and
 seeded with the entries, so a module that is both an entry and someone's
-dependency is emitted once and imported by its entry URL from both places.
-Emitting it twice would give the page two module instances and two copies of
-whatever state they hold.
+dependency is emitted once and imported by its entry URL everywhere. Emitting it
+twice would give the page two instances of one module — two copies of whatever
+state it holds. The emitted tree is therefore *closed*: every `/framework/` URL
+it imports is a file it contains, and no file is served under a second name.
+
+**A comment that quotes an import is prose, not an edge.** Specifiers are found
+with the compiler's own scanner rather than by pattern-matching text. This is not
+a stylistic preference — a regex first version rewrote a doc comment that quoted
+an import as an example, followed the specifier out of it, and emitted a module
+nothing imports, which imported `zod`, which cannot be served, which failed the
+build over a line of prose.
 
 **2. Refuse to ship a tree that cannot load.** After the tree is assembled and
 **before it is swapped into place**, walk the import graph from
 `/builder/main.js` and resolve every static specifier — relative and absolute
-against the emitted tree, bare against the import map — plus every stylesheet
-the import map declares. If anything dangles, `1c assets` fails with an
-`ENVIRONMENT` `CommandError` naming each unresolved specifier and the file that
-imports it.
+against the emitted tree, bare against the import map — plus every stylesheet the
+import map declares. If anything dangles, `1c assets` fails with an
+`ENVIRONMENT` error that names **every** unresolved specifier, not just the
+first, each with the file that imports it — the half the boot guard could not
+give — and tells the operator their previous build is untouched.
 
-Checking before the swap matters: a build that refuses leaves the previous
-working `dist-assets` exactly where it was, which is the property the
-staging-directory design already exists to provide.
+Checking before the swap is what makes strictness safe: a refusal leaves the
+previous working `dist-assets` exactly where it was, which is the property the
+staging-directory design already exists to provide. Checking after would mean
+every refusal also broke the thing it was protecting.
 
 The check is anchored at `/builder/main.js` because that is what the page
 actually loads; a file no entry reaches cannot produce this failure and is not
 the build's business.
 
 **3. Say so in the report.** `1c assets` prints the size of the graph it
-verified, so "the imports were checked" is something the operator can see
-rather than something they have to trust.
+verified — modules and stylesheets — so "the imports were checked" is something
+the operator can see rather than something they have to trust.
 
 Not fixed here, and deliberately: `1c builder` still does not build assets
 before starting `wrangler dev`, and the CLI usage text still lists the `serve`
@@ -109,20 +128,33 @@ command REQ-177 deleted.
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-71_framework_import_graph.test.ts`, driving the real
-`1c assets` entry point against this repository:
+`tests/test_UAT_FC_BUG-71_framework_import_graph.test.ts`, driving `1c assets`
+itself once and asserting against the tree it wrote — the bug was invisible to
+every artifact short of the emitted bytes, so a test that asked the build what it
+did rather than reading what it wrote would have passed throughout. The graph
+walk in the test resolves specifiers independently of the one in the build, so
+the evidence is about the tree rather than about the checker agreeing with
+itself.
 
-- the sibling module `l1/text.ts` is emitted, and no emitted framework file
-  still carries an extensionless relative specifier;
-- the builder's import graph resolves end to end from `/builder/main.js` —
-  the regression this ticket exists for, asserted against the tree the build
-  actually wrote;
-- a source file that is both an entry and a dependency is emitted once, at its
-  entry URL;
-- the report states the graph size that was verified;
-- a staged tree with a dangling specifier is refused, with the offending
-  specifier and its importer named, and the previously built `dist-assets`
-  left untouched.
+- the sibling module `l1/text.ts` is emitted, `site-schema-edit.js` imports it at
+  that URL, and no emitted framework file still carries a relative or
+  extensionless specifier;
+- the builder's import graph resolves end to end from `/builder/main.js`, over a
+  graph large enough to prove the walk did not stop at the entry — the regression
+  this ticket exists for;
+- the emitted framework tree is closed and each file appears once;
+- the report states the graph size, and it is the size the independent walk
+  found;
+- a staged tree with dangling specifiers is refused as `ENVIRONMENT` with all of
+  them named — a missing absolute import, an unmapped bare specifier and a
+  missing stylesheet — each against its importer, with a specifier that appears
+  only inside a comment correctly ignored, and the refusal telling the operator
+  the previous `dist-assets` is untouched;
+- a whole staged tree passes and reports its size.
 
-Regression scope: the same file plus `tests/bug23-repro-local-assets.test.ts`
-and the framework suites (`tests/framework-*.test.ts`).
+Regression scope: the same file, `tests/bug23-repro-local-assets.test.ts`, the
+framework suites (`tests/framework-*.test.ts`),
+`tests/req177-discontinue-raw-server.test.ts` and
+`tests/test_UAT_FC_BUG-50_builder_env_files.test.ts`; plus the full `node`
+vitest project, whose 11 failing files are unchanged by this work (verified
+against the same tree with the fix reverted).
