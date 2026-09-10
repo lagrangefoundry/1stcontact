@@ -7,7 +7,7 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-09-10T17:10:04.354611+00:00'
+updated_at: '2026-09-10T17:33:42.759543+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -172,7 +172,14 @@ consequence for what this surface writes.
   it opens is also where a first entry gets added, and withdrawing the field
   would make the palette unreachable from the only surface that wants one; a
   region that declares no colour of its own reports no value rather than the
-  colour it inherits. For an image region the answer **leads with which image goes
+  colour it inherits. The words themselves come back **whole**: copy longer than
+  the box it renders into is accepted, and reopening the region returns the
+  entire string character for character, never truncated, elided or clipped —
+  overflowing is a fact about the box the rendering allots, not about what the
+  region holds, and an editor shown a shortened value would save the shortening
+  back. A value that is long or carries a line break therefore additionally asks
+  for a control able to display it in full, and a short single-line one does not.
+  For an image region the answer **leads with which image goes
   here** —
   a choice from a closed list of the site's images, narrowed to what an image can
   actually point at, and always including the handle the region holds now — and
