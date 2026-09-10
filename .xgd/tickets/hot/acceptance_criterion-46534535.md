@@ -6,7 +6,7 @@ title: One render backs both the artifact written to disk and the bytes the orig
   serves — same file set, same bytes, both channels
 created_by: xgd
 created_at: '2026-08-10T07:29:07.725899+00:00'
-updated_at: '2026-08-16T10:03:21.592882+00:00'
+updated_at: '2026-09-10T11:06:50.963633+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
