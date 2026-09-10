@@ -6,9 +6,9 @@ title: A run's words open in the dressed box and its colour and typography in a 
   beneath it, split by the control a field declares, staging into one save
 created_by: xgd
 created_at: '2026-08-12T18:26:56.287166+00:00'
-updated_at: '2026-08-20T03:37:15.076203+00:00'
+updated_at: '2026-09-10T23:17:24.387922+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3bf94bd4
@@ -66,9 +66,21 @@ typography control is; assert every colour and typography control is inside the
 sheet and the words' control is not; assert the sheet follows the box in the
 document, and that the sheet's rows appear in the order the surface declared
 them. Assert a region exposing no words at all renders no editing box, and that a
-region exposing only a colour renders a sheet and no box. Change the words in the
-box, a parameter in the sheet and the colour, confirm once, and assert a single
-change carrying all three and a single re-rendering. Touch only a parameter and
-assert confirming saves it; touch nothing in any of them and assert confirming
-writes and re-renders nothing. Shrink the viewport and assert the sheet is
-bounded and scrolls while Save remains within the viewport and clickable.
+region exposing only a colour renders a sheet and no box.
+
+Exercise the kind-agnostic half on a region that is not copy: open the dialog
+over an **image** region — the one region that carries all three routes at once —
+and assert its `src`, whose descriptor declares its options are images, is drawn
+as the thumbnail grid; its `alt`, which is plain words, is drawn in the editing
+box; and its framing, shape, rotation, scale and colour-adjustment parameters are
+every one of them drawn in the sheet, with none of the three routes decided by
+the fact that the region is an image. Partition the descriptors the surface
+reports rather than a list of names written into the test, so a field the
+derivation grows lands by its declared control on its own.
+
+Change the words in the box, a parameter in the sheet and the colour, confirm
+once, and assert a single change carrying all three and a single re-rendering.
+Touch only a parameter and assert confirming saves it; touch nothing in any of
+them and assert confirming writes and re-renders nothing. Shrink the viewport and
+assert the sheet is bounded and scrolls while Save remains within the viewport
+and clickable.
