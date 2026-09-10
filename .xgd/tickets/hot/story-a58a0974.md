@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-10T21:47:25.815521+00:00'
+updated_at: '2026-09-10T22:02:42.459524+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -145,12 +145,17 @@ Out of scope:
   and the readable-document axis are filled from a single named set, so a session
   cannot end up able to read documents it was never allowed to search for.
   Writing the two by hand would be a second place for them to drift apart.
-- **Priming order is load-bearing**: the map of what exists, then what this role
-  is for, then the projected tool manual last — the last thing read is the thing
-  done first. The manual remains a projection of the operations actually granted,
-  so a session's priming never mentions a capability it does not have, and the
-  map is generated from the corpus rather than written by hand. Neither document
-  is hand-authored prose about the tools.
+- **Priming order is load-bearing, and the order is this host's**: the map of
+  what exists, then what this role is for, then the projected tool manual last —
+  the last thing read is the thing done first. The manual remains a projection of
+  the operations actually granted, so a session's priming never mentions a
+  capability it does not have, and the map is generated from the corpus rather
+  than written by hand. Neither document is hand-authored prose about the tools.
+  The knowledge library renders only its own two texts — the map, and how to
+  reach it — as named providers resolved on every assembly, and states no role;
+  where the role's purpose sits between them is declared in this host's own
+  priming entry list. Resolving per assembly is also what lets a document
+  published after the conversation opened reach it.
 - **Degradation is not failure, and the two are distinguished.** No knowledge base
   built is the pre-knowledge assistant — tools but no documents — and is reported
   to nobody, because nothing is wrong. A knowledge base that was built and then
@@ -205,6 +210,16 @@ Out of scope:
   through the site's own store (REQ-143 / REQ-146), with the identifier resolved
   against that account's storage rather than anything a process remembers
   (BUG-38).
+- **The assistant library is not pinned by this repository.** It is resolved out
+  of the shared component store another project's deliberate install writes, so
+  nothing in this checkout's lockfile holds it still and an upstream change
+  arrives here with no commit of ours. That is not hypothetical: the knowledge
+  library's read group grew, provenance moved from the operation onto the
+  knowledge base that vouches for a document, and its priming became two named
+  providers — all without a change here. The criteria below are therefore written
+  to the properties (the grant *is* the declared read group; a result comes back
+  marked) rather than to a census of what the library happened to declare, so the
+  next such change is checked rather than merely noticed.
 - **Recorded caveat on evidence.** The session-side behaviour is proven over a
   real corpus, a real index and the real granted surface, with a stand-in
   embedding model at the single model boundary. A knowledge base built against
