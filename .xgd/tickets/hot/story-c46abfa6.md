@@ -6,9 +6,9 @@ title: Ask my site what assets it has, and get the truth rather than what it hap
   to have declared
 created_by: xgd
 created_at: '2026-08-07T04:29:09.386086+00:00'
-updated_at: '2026-09-10T20:40:57.032960+00:00'
+updated_at: '2026-09-10T20:45:50.552415+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: request-66e4c630
@@ -68,8 +68,8 @@ would have meant two ideas of what a site's assets are.
 - **Uploading, importing, converting or resizing an asset.** The store lists what
   exists; nothing here writes or transforms a file.
 - **Licence and provenance obligations** over an asset's bytes — that is a
-  project-level question (CAP-80), asked of the same files with an entirely
-  different answer.
+  project-level question, owned by this capability's sibling story STORY-92
+  (story-8685be2d), asked of the same files with an entirely different answer.
 - **Choosing an asset for a region of a page.** Offering a closed choice and
   writing it into a page belongs to the copy-editing write path (CAP-86); this
   story only supplies the list it draws from.
@@ -86,10 +86,12 @@ would have meant two ideas of what a site's assets are.
   exists and is shared.
 - **Relationship to CAP-70 (Framework Substrate).** Binding a handle to the bytes
   a page actually serves is CAP-70's. This capability stops at enumerating.
-- **Relationship to CAP-80 (Asset Provenance & Licence Compliance).** CAP-80 is a
-  project-level index of licence obligations over governed files. A licence
-  obligation attaches to the asset, a listing attaches to the site; the two are
-  deliberately held apart.
+- **Relationship to the project-level licence index (STORY-92 / story-8685be2d).**
+  Asset provenance and licence compliance was its own capability (CAP-80) when
+  this story was written; it has since been consolidated into this capability and
+  now sits here as a sibling story — a project-level index of licence obligations
+  over governed files. A licence obligation attaches to the asset, a listing
+  attaches to the site; the two are deliberately held apart.
 - **This replaces a partial truth rather than adding a second one.** An asset
   listing command existed before this work but reported the declared registry
   alone — which, given the state of every real site, was reliably empty. The
