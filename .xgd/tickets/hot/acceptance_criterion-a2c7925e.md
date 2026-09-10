@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Behavior client behaviour ships as one page-referenced asset
 created_by: xgd
 created_at: '2026-07-22T19:54:48.716204+00:00'
-updated_at: '2026-08-09T05:40:29.492578+00:00'
+updated_at: '2026-09-10T12:40:07.455517+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-179b8c06
@@ -40,3 +40,15 @@ emitted filename and the page reference are both `capabilities.js` /
 assert no asset and no script reference are produced. Confirm the contact-form
 enhancement and carousel autoplay behaviours are present in the shipped asset
 (not lost to a 404).
+
+**On the no-client-behaviour arm.** The shipped render path takes its catalog
+from a static import and accepts no catalog or resolver injection, so the only
+way to reach the empty-catalog branch is to **substitute the framework catalog
+module** for that arm — `getModuleClientJs` returning `''` behind the same
+`@1stcontact/framework/worker` entry point `render.ts` imports. That substitution
+is the arm's premise, not a shortcut around the code under test: the render
+pipeline, the CLI commands, and the filesystem are all real, and the positive arm
+guards against vacuity by asserting the real catalog does ship client behaviour.
+Should the render path ever gain a catalog/resolver seam of the shape
+`assertModuleConforms` uses, this arm should be rewritten to drive it and the
+substitution dropped.
