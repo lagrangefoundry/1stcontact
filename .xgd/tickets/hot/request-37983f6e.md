@@ -5,9 +5,9 @@ type: request
 title: Modals in L1 — the overlay role and the disclosure verb
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:17:52.482228+00:00'
-updated_at: '2026-09-10T00:31:42.650825+00:00'
+updated_at: '2026-09-10T00:50:10.284970+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -159,14 +159,35 @@ The renderer **retags** the node's own element as `<button type="button">` rathe
 than wrapping it, so the class, every paint axis and the focus ring stay on the
 element the author styled. This is [[REQ-106]]'s discipline, verbatim.
 
-The button carries `aria-haspopup="dialog"`, `aria-controls` naming the panel,
-and `aria-expanded`.
+An **opening** action carries `aria-haspopup="dialog"`, `aria-controls` naming
+the panel, and `aria-expanded`. A **closing** action carries neither
+`aria-haspopup` nor `aria-expanded`: a Close is not the thing that reveals the
+panel, and a control claiming a disclosure state it does not own is worse than
+one claiming nothing.
 
-### 5.2 The dialog element
+### 5.2 The dialog element, inside a covering shell
 
 `role="dialog"` and `aria-modal="true"`, plus `aria-label` when the role named
 one. The panel is focusable as a fallback target (`tabindex="-1"`) so focus has
 somewhere to land in a panel holding nothing focusable.
+
+Here — and only here — the renderer **wraps** rather than retags. Covering the
+page and dimming it is a statement about the page *around* the panel, which the
+panel's own element cannot make; and unlike a link, the wrap costs nothing,
+because focus goes to the panel and every axis the author wrote stays on it. The
+`id` stays on the panel, so `aria-controls` points at the region rather than at
+the scrim.
+
+The shell contributes **no box** until the script marks the document, so an
+unenhanced page lays the panel out exactly where it would have been unwrapped.
+
+Two things about the covered viewport are the renderer's rather than the
+author's, because an obligation pins them: the shell scrolls when a panel is
+taller than the screen, and the panel does not shrink to fit it. A modal whose
+foot cannot be reached is broken, and no axis an author writes could rescue it.
+
+Several panels may be open at once, and each opens and closes on its own. The
+scroll lock lifts only when the last of them closes.
 
 ### 5.3 The no-JS baseline: script only ever subtracts
 
@@ -201,9 +222,24 @@ pins:
 
 No document can name a selector, a key, or a script. Every number and colour the
 author wrote is compiled into the stylesheet by the renderer; the script reads
-only its own markers.
+only its own markers — so it is byte-identical for every site, which is what
+makes it vettable once. The script and the invariant stylesheet are exported by
+name, so a CSP-bound consumer can hash them rather than hunt for them in markup.
 
-### 5.5 The edit render
+### 5.5 A panel's scroll entrance is not emitted
+
+A panel starts closed, so it never scrolls into view; a `reveal` on it could
+therefore never fire, and REQ-100's pre-state rule would leave it at `opacity: 0`
+forever — visible only as a modal that opens onto nothing. The two axes do not
+compose, so the emitter declines the one that cannot work rather than shipping
+the trap. A reveal on the panel's *contents* is unaffected.
+
+### 5.6 A document that declares no modal is unchanged
+
+No shell, no stylesheet, no script, and every other role — a link above all —
+renders byte-for-byte as it did before.
+
+### 5.7 The edit render
 
 The edit channel emits **no dialog script**, and an action node keeps its
 `<button>` element while losing the target attribute that would act — precisely
@@ -229,9 +265,13 @@ The system knowledge base gains this vocabulary:
 - `REF-l1` is projected from the schemas, so the new role, the new verb and their
   shapes appear there from the declaration itself — including the three new
   structural rules, whose prose is their doc comment.
-- A new authored system-KB document describes **when a modal is the right answer
-  and when it is not**, how the two roles compose, and the baseline discipline —
-  the judgement an assistant needs that a field list cannot carry.
+- The judgement a field list cannot carry — **when a modal is the right answer
+  and when it is not** — goes to the two authored documents that already own
+  those questions rather than to a new one: [[DOC-48]] gains a section on the
+  craft (the three cases it genuinely fits, the many it does not, and the rule
+  that decides between them), and [[DOC-47]] records that a modal is now
+  something the assistant can build, and that it is ordinary layout rather than a
+  new component.
 
 ## 8. Acceptance
 
@@ -244,10 +284,13 @@ The system knowledge base gains this vocabulary:
 5. An `action` naming an id that does not exist, or that exists but carries no
    `dialog`, is refused.
 6. A node carrying both `action` and `link` is refused.
-7. An action node renders as `<button type="button">` keeping its own class,
-   carrying `aria-haspopup="dialog"`, `aria-controls` and `aria-expanded="true"`.
+7. An action node renders as `<button type="button">` keeping its own class; an
+   opening one carries `aria-haspopup="dialog"`, `aria-controls` and
+   `aria-expanded="true"`, and a closing one carries neither `aria-haspopup` nor
+   `aria-expanded`.
 8. A dialog node renders with `role="dialog"`, `aria-modal="true"`, `tabindex="-1"`
-   and its `aria-label` when one was given.
+   and its `aria-label` when one was given, inside a shell that contributes no box
+   until the script marks the document.
 9. The scrim colour and opacity, the placement, and the panel's own paint all
    come from the document; none of them appear in any module's stylesheet.
 10. A document carrying a dialog emits the dialog script exactly once; a document
@@ -257,5 +300,12 @@ The system knowledge base gains this vocabulary:
     `<button>` while losing the attribute that would act.
 13. The overlay presentation is gated on a marker only the script sets, so the
     unenhanced page lays the panel out in flow.
-14. `REF-l1` renders the new role, the new verb, their shapes and the new
+14. A `reveal` on a panel is not emitted, and a document declaring no modal
+    renders byte-for-byte as it did before.
+15. The reader can open a panel, close it, dismiss it with Escape and with a
+    click on the scrim but never with a click inside it, and can turn either
+    dismissal off; focus moves in on open and returns to whatever opened it on
+    close; Tab cannot leave an open panel; the page behind does not scroll, and
+    stops being locked only when the last panel closes.
+16. `REF-l1` renders the new role, the new verb, their shapes and the four new
     structural rules, with no vocabulary gap reported.
