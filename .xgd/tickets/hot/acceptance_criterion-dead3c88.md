@@ -6,14 +6,15 @@ title: The map is kept out of the corpus it describes, and is retrievable as tha
   knowledge base's awareness report
 created_by: xgd
 created_at: '2026-08-20T04:17:09.433631+00:00'
-updated_at: '2026-08-20T04:37:23.381013+00:00'
+updated_at: '2026-09-10T08:04:39.893926+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
