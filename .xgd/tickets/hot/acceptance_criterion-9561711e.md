@@ -6,9 +6,9 @@ title: 'Editing through the builder''s origin is the same surface: a rejected ed
   returns the validator''s own fault, and a saved edit leaves both renderings current'
 created_by: xgd
 created_at: '2026-08-07T02:02:58.806555+00:00'
-updated_at: '2026-09-10T17:29:54.305849+00:00'
+updated_at: '2026-09-10T19:18:21.618669+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
