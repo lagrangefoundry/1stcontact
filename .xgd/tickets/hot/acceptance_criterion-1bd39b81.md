@@ -6,14 +6,15 @@ title: A site declaring no locale renders the region-free language and every sto
   site still validates
 created_by: xgd
 created_at: '2026-08-31T12:28:30.561636+00:00'
-updated_at: '2026-09-10T03:37:57.737820+00:00'
+updated_at: '2026-09-10T04:00:48.675653+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
