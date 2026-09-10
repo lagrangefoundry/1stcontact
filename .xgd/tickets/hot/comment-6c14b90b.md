@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:23:19.881528+00:00'
+updated_at: '2026-09-10T22:26:09.875505+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -138,5 +138,58 @@ Unfortunately, if you read our documentation and look at the XGD draft site you 
 2. Can you tell me exactly what turnstile and honey pot do? Are these cloud flare features or new dependencies? I was expecting that Cloudflare could provide us with the necessary rate limiting etc.
 
 Once we have clarity on these design decisions we should determine whether that is the need for additional tickets
+
+<!-- xgd-turn id="8b165770-6441-4fc1-aa8e-e02e510066ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:26:09.745817+00:00" -->
+#### Claude
+Let me go read the whitepaper flow before I answer — my proposed invariant may not survive it.
+
+You're right, and it kills the invariant I proposed. Let me correct it, then answer the Turnstile/honeypot question precisely.
+
+## The whitepaper requirement, confirmed
+
+`storage/sites/xgd/draft/pages/whitepapers.json` — submit label *"Send me both papers"*, success *"On their way — check your inbox."* Both XGD forms post to `/api/lead`. And CHAT-56 records the state: *"Papers are email-gated now"*, plus *"Whitepaper delivery has no artifact and no backend. No PDFs exist in either repo; the papers are ticket bodies. `/api/lead` does not exist. Deferred by the operator as 'easy mechanics'."*
+
+So mail to an address we've never seen is a product requirement, not an edge case. "Only mail addresses we already hold" is dead.
+
+**The replacement.** An open relay is one where the attacker controls the recipient *and* the content. Here we author the content absolutely — our template, our links, our domain. What's left isn't arbitrary spam, it's four narrower things: mail-bombing a victim, deliverability damage, quota burn, and list poisoning. Deliverability is the one that actually frightens me — unsolicited mail earns spam complaints, complaints degrade the sending domain, and the first casualty is sign-in links not arriving. Abuse of the marketing form breaks the login.
+
+The rule that survives:
+
+> A public endpoint sends **at most one** message per address, with content **we** author, and never to an address that has bounced or complained.
+
+One-per-address is the structural control, and it's nearly free: `addContact` is already idempotent on `(tenant_id, email)`, and `contact_events` is already an append-only log, so *"have we sent this address the papers"* is a query the schema can answer today. An attacker can cause a victim to receive exactly one email, once — the same exposure as any newsletter on the internet, and irreducible for an email-gated asset. Suppression on bounce/complaint comes free too: REQ-198's webhook already brings delivery outcomes back.
+
+## What Turnstile and the honeypot actually are
+
+**Honeypot — not a product, not a dependency, and already half-built.** It's a technique: a form field hidden from humans and tempting to naive bots; if it comes back filled, discard the submission. `contact-form/component.ts` already renders ours (`hp_company_url`, CSS-hidden, `tabindex="-1"`, `autocomplete="off"`, marked `data-fc-invariant` so a designer can't restyle it visible), and `client.js` deliberately includes it in the payload — its comment says *"the honeypot field rides along so the server can reject filled-honeypot submissions."* The client half shipped. The server half has never existed because the server has never existed. Zero cost, catches only unsophisticated bots.
+
+**Turnstile — Cloudflare's own product, and also already half-built.** It's their CAPTCHA replacement, free and unlimited on every plan including free. Not an npm dependency: a `<script>` tag from `challenges.cloudflare.com`, and one server-side `fetch` to their siteverify endpoint with a secret key. Two config values per deployment. The module already renders the mount — `<div class="contact-form__turnstile" data-turnstile-target>`. The code comments say it's "wired in REQ-7", but REQ-7 is a D1 schema ticket that was **abandoned**, so those references are stale and nothing owns this work.
+
+**Rate limiting — yes, Cloudflare provides it, in three different places.** WAF rate limiting rules at the zone level (dashboard config, matches path/method/IP — good for crude flood protection on `/api/lead`); the Workers **rate limiting binding**, declared in `wrangler.toml` and called as `env.LIMITER.limit({ key })`, which is native, dependency-free, and lets us choose the key; and Bot Fight Mode for bot scoring. The exact allowances on the free plan I'd want to confirm against your dashboard rather than assert — say the word and I'll check the zone via the API.
+
+**What Cloudflare can't do** is the part that matters most: it sees traffic, not meaning. It cannot know that this address already received the papers, or that this one hard-bounced last week. So the split is clean rather than either/or — Cloudflare handles volume, IPs and bots; we handle the identity-level rules, which are cheap because the data model already holds them.
+
+Worth noting you already wrote this down: DOC-5's *Public Form Strategy* specifies exactly Turnstile + rate limiting + honeypot + AI spam detection + reputation checks, and *"do not solve spam by forcing visitors to create accounts."* I'm not proposing a new dependency, I'm proposing we finally wire the documented one.
+
+## Two things that change the scope
+
+**The two sites disagree about where forms post.** XGD uses `/api/lead` — relative, same-origin, which on a published site means public-site, and public-site is read-only by construction and 405s every non-GET. The 1st Contact homepage uses an absolute `https://app.1stcontact.io/…`, which means cross-origin, CORS, and an Access bypass. Those are two different architectures for one job and we should pick one deliberately. This is the one design decision I still need from you, and I'd want to lay out the tradeoff properly rather than bury it here.
+
+**The beta form and the whitepaper form are not the same problem.** "Apply to join the early beta" promises no artifact — a place on a list is the whole deliverable, so capture alone satisfies it completely. "Send me both papers" promises two PDFs *that do not exist in either repo*. So BUG-78 is fixable end-to-end now; whitepaper delivery is blocked on content that hasn't been written, regardless of what we build.
+
+## Proposed tickets
+
+Given #1 — contact database only, no notifications — here's the split I'd suggest:
+
+- **BUG-78** (this one): the two broken configs — `beta-apply` → the real endpoint, and `auth/request-link` → `/sign-in`, which REQ-200 had set correctly before something replaced it.
+- **New REQ — lead capture endpoint.** `/api/lead`: honeypot enforcement, one-send-per-address, bounce suppression, rate limiting, the frozen acknowledgement. The capability BUG-78 depends on.
+- **New REQ — Turnstile wiring.** Both forms, both halves. REQ-7 is abandoned, so this is unowned.
+- **New REQ — mailing-list opt-in checkbox.** CHAT-56 already flags that `contact-form` supports `text|email|tel|textarea` only and that a checkbox is a module config addition needing its own ticket. This is also the consent record for GDPR, and the tenant is IE.
+- **New BUG or ops task — the Access bypass policy.** `/sign-in` and `/api/email/webhook` are both edge-blocked in production today. Nothing we build is reachable until that's set.
+- **Not mine to file — the whitepaper PDFs.** Content, and it blocks the XGD site's promise.
+
+Confirm the split and answer the same-origin-vs-cross-origin question, and I'll write them up.
 
 <!-- xgd-chat-end -->
