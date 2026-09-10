@@ -6,9 +6,9 @@ title: A request that tries to escape a served tree is never satisfied, identica
   on the channels and on every artifact prefix
 created_by: xgd
 created_at: '2026-08-07T01:45:12.257776+00:00'
-updated_at: '2026-09-10T10:01:36.277263+00:00'
+updated_at: '2026-09-10T11:07:24.574155+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
