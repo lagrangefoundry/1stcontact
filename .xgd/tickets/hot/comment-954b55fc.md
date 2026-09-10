@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T00:34:07.587288+00:00'
+updated_at: '2026-09-10T17:46:59.052383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -677,5 +677,11 @@ Once I can write `/Users/martin/lagrangefoundry/node_modules`, the sequence is:
 then I'll verify the shared store reads `claude-sonnet-5` / `32000` and confirm nothing else in the store shifted. Ping me when it's ready and I'll run it.
 
 If you actually meant the other thing — making the model a 1c-level setting rather than a framework default — that's a different fix and I'd need a ticket for it. Say which and I'll pick it up.
+
+<!-- xgd-turn id="81b435c9-91dd-47ae-b564-2b5e14916f05-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T17:46:58.781626+00:00" -->
+#### You
+It is desirable for the strategic conversations to use Opus (or even Fable). But unnecessary for the actual website construction part. Are there ways we could be multi modal? Have a more powerful model be the front face but use cheaper agents to do work for it?
 
 <!-- xgd-chat-end -->
