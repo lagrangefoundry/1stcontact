@@ -6,14 +6,15 @@ title: Every painted panel exposes the colour it is filled with, written the sam
   way, while a region that paints nothing is offered none
 created_by: xgd
 created_at: '2026-08-20T02:56:22.392206+00:00'
-updated_at: '2026-08-20T06:32:36.832948+00:00'
+updated_at: '2026-09-10T19:19:02.093767+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
