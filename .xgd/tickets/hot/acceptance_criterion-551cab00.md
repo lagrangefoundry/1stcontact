@@ -6,14 +6,15 @@ title: The displayed amount is exact, including at the top of the numeric range 
   for negative amounts
 created_by: xgd
 created_at: '2026-08-31T12:39:12.489803+00:00'
-updated_at: '2026-08-31T12:47:20.901788+00:00'
+updated_at: '2026-09-10T03:25:00.004771+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-0598c150
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
