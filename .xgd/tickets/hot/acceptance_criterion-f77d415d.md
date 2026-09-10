@@ -6,14 +6,15 @@ title: Renaming an entry moves the key in place and rewrites every reference in 
   write; positions and transparency survive and the site renders byte-identically
 created_by: xgd
 created_at: '2026-08-20T01:20:13.700020+00:00'
-updated_at: '2026-08-20T01:50:35.937118+00:00'
+updated_at: '2026-09-10T02:54:30.686808+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
