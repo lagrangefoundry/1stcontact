@@ -6,14 +6,15 @@ title: A rehearsal runs the same hooks and composes the same deploy invocation, 
   nothing, and is reported as rehearsed
 created_by: xgd
 created_at: '2026-08-20T05:31:03.038826+00:00'
-updated_at: '2026-08-20T05:57:20.951971+00:00'
+updated_at: '2026-09-10T05:44:25.981181+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
