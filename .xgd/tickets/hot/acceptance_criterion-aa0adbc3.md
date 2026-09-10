@@ -6,14 +6,15 @@ title: The manual carries the cross-cutting rule for a site that moved, a sequen
   that starts from the change log, and an undo absence that cites it
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T08:28:39.855772+00:00'
-updated_at: '2026-09-10T08:28:39.855772+00:00'
+updated_at: '2026-09-10T09:14:45.342649+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
