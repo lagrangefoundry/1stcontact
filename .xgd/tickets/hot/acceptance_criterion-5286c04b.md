@@ -6,9 +6,9 @@ title: A deployment that names no account and one naming a deactivated account a
   reported as distinct, explanatory failures
 created_by: xgd
 created_at: '2026-08-07T01:44:14.144764+00:00'
-updated_at: '2026-08-31T16:50:44.829874+00:00'
+updated_at: '2026-09-10T11:07:10.283148+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
