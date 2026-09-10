@@ -6,14 +6,15 @@ title: Requests to any other host still reach the network, so third-party fonts 
   images appear in the picture
 created_by: xgd
 created_at: '2026-08-31T23:21:13.816028+00:00'
-updated_at: '2026-08-31T23:30:57.151512+00:00'
+updated_at: '2026-09-10T01:55:28.390193+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-7fa314f5
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
