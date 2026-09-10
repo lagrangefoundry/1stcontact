@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-31T17:40:56.028131+00:00'
+updated_at: '2026-09-10T20:57:19.902670+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -71,10 +71,13 @@ In scope:
 - **Where the conversation runs** — the same host serves the conversation from
   the operator's machine and from the deployed edge runtime, over one session
   model, one tool loop and one write path. Which one is answering is not
-  something the conversation contract knows: what a turn is, what it may reach,
-  where the transcript lives and how a failure is reported are the same either
-  way, and the stored transcript is the same bytes, so a conversation begun in
-  one can be read by the other. Nor does it know *which instance* of a host is
+  something the conversation contract knows: what a turn is, what it may reach
+  and where the transcript lives are the same either way, and the stored
+  transcript is the same bytes, so a conversation begun in one can be read by
+  the other. A failure is reported honestly on both — never dressed as the
+  assistant having tried — in the shape that origin's own answer takes; the
+  shapes themselves differ, and are stated per origin under *Reconciliation
+  Decisions* below. Nor does it know *which instance* of a host is
   answering: a conversation identifier is resolved against durable, account-scoped storage
   rather than against anything the process that issued it happens to remember,
   so a turn runs on a process that never opened the session, and successive
@@ -99,7 +102,7 @@ Out of scope:
   reaches the site *through that surface and nothing else*, and that its
   knowledge operations are offered from that same surface.
 - **The write path.** Validation, atomicity and re-render are unchanged and
-  belong to the structured edit capability (CAP-87 / story-37a3921b); the
+  belong to the structured edit capability (CAP-86 / story-37a3921b); the
   assistant is a second producer of the same kind of change, not a second path.
 - **The browser pane.** The surface that renders the conversation for the
   operator is its own story, for the same reason the display panel and the origin
@@ -128,7 +131,7 @@ Out of scope:
   be probed. This story adds routes to that origin and inherits those properties
   rather than restating them.
 - Every change the assistant makes goes through the same validated, atomic write
-  path the command line and the click-to-edit modal use (CAP-87 /
+  path the command line and the click-to-edit modal use (CAP-86 /
   story-37a3921b). Nothing here re-implements validation, atomicity or re-render,
   and nothing here can bypass them.
 - **Two surfaces, one toolbox.** The knowledge operations and the site operations
@@ -192,12 +195,16 @@ Out of scope:
   establish at all. Losing the cache costs the host, never the conversation.
   This is what lets "the same session model on either host" hold in a runtime
   where two requests are not promised the same process.
-- **The system knowledge base sits above tenancy, and this repo has no tenancy
-  yet.** REQ-123 records the design a later store ticket inherits — the corpus is
-  a release artefact that takes the scope parameters and does not vary by them,
-  so identical query text yields identical results for everyone. Recorded here
+- **The system knowledge base sits above tenancy; the conversation does not.**
+  REQ-123 records the design a later store ticket inherits — the corpus is a
+  release artefact that takes the scope parameters and does not vary by them, so
+  identical query text yields identical results for every account. Recorded here
   because it is why per-tenant knowledge bases can be added later without
-  revisiting this wiring; nothing tenant-scoped is claimed or built by this story.
+  revisiting this wiring. The claim is about the *corpus* alone: the conversation
+  around it is account-scoped, and its transcript and audit are tenant-partitioned
+  through the site's own store (REQ-143 / REQ-146), with the identifier resolved
+  against that account's storage rather than anything a process remembers
+  (BUG-38).
 - **Recorded caveat on evidence.** The session-side behaviour is proven over a
   real corpus, a real index and the real granted surface, with a stand-in
   embedding model at the single model boundary. A knowledge base built against
