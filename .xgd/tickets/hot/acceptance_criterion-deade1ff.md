@@ -6,14 +6,15 @@ title: Every 1c command boots through a plain Vite SSR server the launcher confi
   itself, with no build-framework plugin
 created_by: xgd
 created_at: '2026-08-31T11:18:48.212830+00:00'
-updated_at: '2026-08-31T11:28:21.824701+00:00'
+updated_at: '2026-09-10T01:54:58.279545+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 Every `1c` command boots through a plain Vite SSR server that the launcher
