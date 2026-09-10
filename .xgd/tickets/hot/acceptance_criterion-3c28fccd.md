@@ -6,9 +6,9 @@ title: A background handle the site does not offer is refused at the field, whol
   before the shared validator runs
 created_by: xgd
 created_at: '2026-08-10T08:23:23.774000+00:00'
-updated_at: '2026-09-10T17:30:03.511029+00:00'
+updated_at: '2026-09-10T19:18:37.588381+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
