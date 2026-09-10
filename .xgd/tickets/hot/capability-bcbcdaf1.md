@@ -5,12 +5,13 @@ type: capability
 title: 'Site Locale Identity: Where A Business Is, And What The Page Declares'
 created_by: xgd
 created_at: '2026-08-31T12:26:48.368651+00:00'
-updated_at: '2026-08-31T12:26:48.368651+00:00'
+updated_at: '2026-09-10T04:01:00.293025+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: site_locale_identity
+  uat_coverage: fail
 ---
 
 # Capability: Site Locale Identity — Where A Business Is, And What The Page Declares
