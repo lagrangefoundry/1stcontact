@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T17:50:30.431036+00:00'
+updated_at: '2026-09-10T17:51:49.701129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -729,5 +729,56 @@ Want me to spec either? The effort one is small; delegation is a real design tic
 <!-- xgd-chat role="user" ts="2026-09-10T17:50:30.387483+00:00" -->
 #### You
 What does the interface to the delegation tool look like? Does the orchestrator give open prompts to the builder?\
+
+<!-- xgd-turn id="03d46269-6978-4816-a547-fd20413ffb81-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T17:51:49.655351+00:00" -->
+#### Claude
+Good question — the answer splits, and the split is the design.
+
+## Yes to open prose for *intent*. No to open prose for *authority*.
+
+```
+delegate(
+  goal:    "Hero segment for the Lagrange Foundry page — the wordmark
+            left, tagline beneath, generous vertical rhythm."   # prose, open
+  page:    "home"                       # declared
+  within:  "seg-hero"                   # declared, optional; absent = whole page
+  accept:  ["renders at mobile and desktop",
+            "no palette colour outside the site palette"]        # structured
+)
+→ { summary, changed: [ops + counter delta], decisions: [...] }   # not the transcript
+```
+
+The prose field is genuinely necessary — you cannot enumerate design intent in a schema, and forcing the orchestrator to serialise it would spend Opus tokens encoding something the builder immediately decodes. Prose is the efficient channel for *what outcome I want*.
+
+What the builder **may do** comes from its role's declared grant in `instances.json`, not from the prompt. Your capability groups already carve this cleanly:
+
+| group | consultant | builder |
+|---|---|---|
+| ReadSite, MeasureDrawings, DrawImages, SeeSite | ✓ | ✓ |
+| AuthorPages (`set_l1`, `set_page_style`) | ✓ | ✓ |
+| ManageComponents | ✓ | ✓ |
+| **ManagePages** (`add_page`/`remove_page`) | ✓ | ✗ |
+| **WriteConfig** (`set_config`) | ✓ | ✗ |
+| **ManagePalette** | ✓ | ✗ |
+
+So the builder lays out and draws; it can't invent brand colours, restructure the site, or rewrite config. Those are the decisions worth Opus. **No phrasing of `goal` can widen that** — which is precisely what makes an open prose field safe here.
+
+Three reasons not to go fully open (just a prompt, no scope):
+
+1. It would be the one hole in a declared-surface architecture. Every other capability is declared, grouped, granted and audited; a free-text `delegate` that reaches anything is a policy bypass with extra steps.
+2. Your audit ledger records `params` and `policy.decision` per call. "The orchestrator said some words" isn't an auditable record of which capability was exercised.
+3. A cheap model with an open-ended brief is exactly where cheap models wander. The scope is what buys the reliability.
+
+## The risk that decides whether this is worth building
+
+**Verification cost.** If Opus has to screenshot and inspect everything the builder did, you've relocated the tokens, not saved them — and the inspection happens at $5/$25.
+
+That's what `accept` is for: the orchestrator states its checks up front, the builder runs them *itself* and reports pass/fail, and the expensive model only looks when something failed. Get that wrong and delegation is theatre. It's the part I'd want measured before committing to the design.
+
+The return path is already in your vocabulary, incidentally — the reminder tier tells the orchestrator "the site moved under you" via `site.changes`, so a delegation returning a counter delta plus a summary lands through the channel the system already speaks.
+
+Want me to write this up as a design ticket? It'd want a DOC amendment like REQ-144 had, since the builder role and the grant split are architecture, not just a new tool.
 
 <!-- xgd-chat-end -->
