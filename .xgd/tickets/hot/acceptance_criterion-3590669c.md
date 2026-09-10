@@ -6,7 +6,7 @@ title: The corpus is reachable from the same granted surface as the site operati
   gated, marked untrusted and audited like an edit
 created_by: xgd
 created_at: '2026-08-20T04:42:03.244448+00:00'
-updated_at: '2026-09-10T21:47:22.296620+00:00'
+updated_at: '2026-09-10T22:01:54.513880+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,25 +14,28 @@ fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
 A conversation opened for a site while a system knowledge base is built offers
-the assistant the knowledge operations — search whole documents, search at
-section granularity, and read one document in full — **alongside** every site
-operation it already had, from one granted surface rather than from a second
-route. A knowledge call therefore behaves like any other declared operation: it
-is gated by the same grant, its result is marked as untrusted content because a
-retrieved document is authored text arriving in the assistant's context, and it
-lands in the same audit trail under the same session and role as a change to the
-site. Running a search from that surface answers with ranked hits naming the
-documents that match.
+the assistant the knowledge system's read operations — searching the corpus by
+meaning, seeing what a document contains, and reading the part of it that matters
+— **alongside** every site operation it already had, from one granted surface
+rather than from a second route. A knowledge call therefore behaves like any
+other declared operation: it is gated by the same grant, its result comes back
+marked as untrusted content because a retrieved document is authored text
+arriving in the assistant's context, and it lands in the same audit trail under
+the same session and role as a change to the site. Running a search from that
+surface answers with ranked hits naming the documents that match.
 
 ## Verification
 With a built knowledge base, open a conversation for a site and inspect what the
 assistant is offered: the knowledge operations are present and the site-changing
 and site-reading operations are unchanged. Run a search through that surface for
 a phrase a corpus document is about, and the answer names that document. Inspect
-the audit trail: the knowledge call is recorded there the same way an edit is, and
-the operation's declared result carries the untrusted-content marking.
+what that call returned: it arrives wrapped in the untrusted-content markers, and
+every result the declaration describes states whose text it is — the knowledge
+base vouching for a document, or not — rather than the caller having to know.
+Inspect the audit trail: the knowledge call is recorded there the same way an
+edit is, under the same session and role.
