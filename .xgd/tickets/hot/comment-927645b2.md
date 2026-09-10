@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-73
 created_by: xgd
 created_at: '2026-09-10T19:40:37.002084+00:00'
-updated_at: '2026-09-10T19:40:37.002084+00:00'
+updated_at: '2026-09-10T19:46:10.813117+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-317820d4
@@ -48,5 +48,39 @@ fields:
 ```
 
 Seeing this in the dev-server console
+
+<!-- xgd-turn id="f6f708bc-7806-4a6b-8b8e-fb522404f8f3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:46:09.541188+00:00" -->
+#### Claude
+Diagnosed from the wrangler debug log (`~/Library/Preferences/.wrangler/logs/wrangler-2026-09-10_19-01-21_076.log`) — the console only shows the sanitised half of these.
+
+**What they are:** `internal error; reference = <id>` is workerd's redacted internal-error form. `env.AI` is the **only remote binding** in `apps/control-app/wrangler.toml` (DB, SITES, BLOBS, BROWSER, ASSETS are all local), so anything failing through a remote proxy is Workers AI.
+
+**The timing is the giveaway:**
+
+| | |
+|---|---|
+| last remote-preview session established | 19:23:21 |
+| first burst | 19:31:39 (+8m18s) |
+| further bursts | 19:32:47, 19:38:41, 19:38:58 — all still failing |
+
+No further `edge-preview` POST appears in the log. Wrangler has no refresh timer for the preview token; its only expiry handling (`handlePreviewSessionUploadError`, CF code 10049 → *"Preview token expired, fetching a new one"*) fires on **re-upload**, i.e. on a worker reload. So once the dev server idles past the token's lifetime, every `env.AI` call fails until something triggers a reload.
+
+Workers AI itself is fine — a direct REST call to `@cf/baai/bge-small-en-v1.5` on the account returns vectors right now.
+
+**What it costs you in practice:** every knowledge-base search in the chat panel fails after a few idle minutes, and the only signal is that opaque reference id.
+
+Two things I have *not* established, and won't claim: I didn't reproduce it, and the "exactly three errors per burst" is unexplained — `CoRankedKnowledge.search` fans out over 2 KBs under `Promise.all`, so the third call is unaccounted for.
+
+**Options** (BUG-73 now records all of this):
+
+1. **Workaround** — touch a file to force a reload; the token refreshes on re-upload.
+2. **Real fix** — stop using the remote binding locally. `WorkersAiEmbedder` already takes `{accountId, apiToken}` over REST, which is the path `1c kb build` uses. Select that in local dev and `env.AI` isn't needed at all: no preview session, no expiry, no per-call charges, and the standing "AI bindings always access remote resources" warning disappears.
+3. **Legibility** — whatever the cause, a failed embed should name the binding and the KB rather than surfacing a bare workerd reference.
+
+Production is unaffected either way — a deployed Worker reaches Workers AI in-datacentre with no preview session involved.
+
+Want me to take (2), and is it worth folding (3) in at the same time? I haven't cut a branch or written code yet.
 
 <!-- xgd-chat-end -->
