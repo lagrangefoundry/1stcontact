@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:25:41.417248+00:00'
+updated_at: '2026-09-10T21:47:38.231254+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -223,5 +223,14 @@ A bonus: the sixth `picture` kind gets easier. The Worker applies the recipe and
 4. **Flip** — drop it from the vocabulary if the platform can't do it, or keep it as a client-side-only op? (Keeping it means two renderers again, which I'd avoid.)
 
 Answer those and I'll title EPIC-1, write its body as the umbrella — the principle being *a picture you made is one you can see, name, change without losing what it was, and publish at a sane size* — and cut the children: chat image; sixth `picture` kind; recipe + editor modal + `edit_image` tool; HEIC-at-ingest; publish-time ladder + `srcset`; and the two lagrange-framework tickets for the `create_image` surface prose and generative `edit_image`.
+
+<!-- xgd-turn id="d513713d-70a4-48a4-8149-15dfc1559904-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:47:37.917674+00:00" -->
+#### You
+1- sure 
+2 - discard it we can't do anything with it and the user has a copy by definition
+3 - whatever is conventional
+4 - drop it for now - lets keep things simple for v1
 
 <!-- xgd-chat-end -->
