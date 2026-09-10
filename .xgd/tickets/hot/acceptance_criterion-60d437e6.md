@@ -6,14 +6,15 @@ title: Each distinct silent breakage fails the smoke check non-zero, naming the 
   and what it expected
 created_by: xgd
 created_at: '2026-08-20T05:31:25.328242+00:00'
-updated_at: '2026-08-20T05:57:19.308479+00:00'
+updated_at: '2026-09-10T05:44:31.169764+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
