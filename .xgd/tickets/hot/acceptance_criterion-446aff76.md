@@ -6,14 +6,15 @@ title: The browser session is released when a capture fails and when the run exc
   its time ceiling, and a time-limit exit is reported distinctly
 created_by: xgd
 created_at: '2026-08-31T22:53:31.688763+00:00'
-updated_at: '2026-08-31T23:04:42.616914+00:00'
+updated_at: '2026-09-10T01:55:15.099755+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-080c6036
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
