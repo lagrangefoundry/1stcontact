@@ -6,9 +6,9 @@ title: A page is only ever served at its slash-free URL, so its document-relativ
   asset references resolve against the published site root
 created_by: xgd
 created_at: '2026-08-06T19:03:19.148429+00:00'
-updated_at: '2026-09-10T16:05:51.150358+00:00'
+updated_at: '2026-09-10T16:56:09.782292+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-66115f6b
