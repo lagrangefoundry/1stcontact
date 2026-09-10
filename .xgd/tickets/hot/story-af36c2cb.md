@@ -6,9 +6,9 @@ title: 'The edit render: a third channel that deliberately does not work, showin
   all content at once with every editable region outlined and addressable'
 created_by: xgd
 created_at: '2026-08-06T21:25:04.945391+00:00'
-updated_at: '2026-08-16T04:19:54.551692+00:00'
+updated_at: '2026-09-10T22:59:01.956393+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-0385746c
@@ -36,11 +36,15 @@ needs a third: the page the editor is built on.
 
 **In scope**
 
-- **A third channel** — the same site definition rendered a third way, into its
-  own output location, always from the draft. A revision is immutable, so
-  selecting one and asking for the edit render settles on the draft rather than
-  combining the two. It is a render mode, not a new artifact: never published,
-  never content-addressed, never entered into a site's revision history.
+- **A third channel** — the same site definition rendered a third way, always
+  from the draft. A revision is immutable, so selecting one and asking for the
+  edit render settles on the draft rather than combining the two. It is a render
+  **mode**, not a new artifact: never published, never content-addressed, never
+  entered into a site's revision history. Where it is materialised it lands in
+  its own output location, beside the shipped channels and never among them; it
+  is also rendered per request, with no output location at all, by the origin
+  that serves the editing workspace — the mode is what is load-bearing, not the
+  directory.
 - **Deliberately non-functional** — a link keeps its element but carries no
   navigable target, so clicking it can mean "edit this copy" rather than "leave
   this page". A form carries no destination and no submit verb. No behaviour or
@@ -128,8 +132,12 @@ needs a third: the page the editor is built on.
 - **Preserved animation.** Explicitly rejected by the intent for this phase:
   untriggered reveals hide segments, motion competes with the outline signal,
   and a segment mid-transition has no stable box to outline.
-- **Serving the edit render over the public web.** It is a local render channel;
-  the published and preview channels remain the only shipped ones.
+- **Serving the edit render to site visitors.** The edit channel is never
+  published and never reaches a visitor of the site it renders — no published
+  artifact carries it and no revision records it. It is reachable only through
+  the operator-gated builder origin, which renders it per request; that origin,
+  and the gate in front of it, belong to the workspace capability rather than to
+  this story.
 
 ## Technical Context
 
