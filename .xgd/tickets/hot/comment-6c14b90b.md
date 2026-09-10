@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T21:48:01.472449+00:00'
+updated_at: '2026-09-10T21:50:01.296857+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -52,5 +52,11 @@ The no-JS fallback is no better: a native POST would land on the Access login re
 - **C — narrow B**, apex site only.
 
 My recommendation: **B**, because the beta form is the one thing our own shop window exists to do and A leaves it collecting nothing — but it's genuinely bigger than a bug, so tell me whether you want it under BUG-78 or split. And say whether the sign-in URL comes with it.
+
+<!-- xgd-turn id="9662df59-a4e2-44f4-954c-7937ca7a870b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:50:00.455991+00:00" -->
+#### You
+I think B but I don't understand C?
 
 <!-- xgd-chat-end -->
