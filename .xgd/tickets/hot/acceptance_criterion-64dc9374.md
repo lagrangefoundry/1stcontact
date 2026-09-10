@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: The text a record carries is bounded and visibly cut when it exceeds the limit
 created_by: xgd
 created_at: '2026-08-20T02:27:21.484762+00:00'
-updated_at: '2026-08-20T02:46:15.943398+00:00'
+updated_at: '2026-09-10T09:14:33.324218+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
