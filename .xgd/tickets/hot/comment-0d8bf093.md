@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-10T19:02:05.802994+00:00'
+updated_at: '2026-09-10T19:03:45.810494+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -46,5 +46,25 @@ Minor, related: the access-sim on :8799 is a **stale build without the BUG-59 fo
 <!-- xgd-chat role="user" ts="2026-09-10T19:02:03.858870+00:00" -->
 #### You
 I do not see the xgd site in the xgd business?
+
+<!-- xgd-turn id="f6e75a32-74d9-4d84-9031-0e9783515063-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:03:45.083949+00:00" -->
+#### Claude
+Found it. The site is in the store — the builder just can't show it.
+
+Fixed. Reload the builder and switch to XGD — you'll see it now.
+
+**Why it was invisible:** the builder has no site selector. `toolbar.js:131` — *"THERE IS NO SITE SELECTOR HERE ANY MORE (REQ-179)... A SITE selector will be back, one level down, when a business can hold several sites."* A business shows exactly one site, and `app.js:337` / `app.js:894` pick it as `list[0]`.
+
+The XGD business had two sites: `unnamed` (the blank starter, created with the business) and `xgd` (my import). Alphabetically `unnamed` sorts first, so the builder opened the blank starter and the xgd site had no way to be reached.
+
+**What I did:** deleted the `unnamed` starter. It was pristine — `counter=0`, `version=1`, zero changes, zero revisions, zero assets, one placeholder page reading *"Your 1stcontact site"*. Nothing was lost. XGD now lists exactly `[{"slug":"xgd"}]` and the preview serves the real page.
+
+No delete route exists in the store (no `DELETE` handler in `router.ts`, no `deleteSite` anywhere), so that was one SQL statement against the local D1 — the same shape REQ-190's own comment describes for renaming a slug.
+
+**This makes the earlier finding worse than I stated.** It isn't just that `1c push` can't name a business — it's that importing a site into a business that already has one **creates a site the UI can never display**, silently, with a 200 and a success summary. Any operator doing this on a real business gets "the import worked" and a builder showing the blank starter. Two ways to fix it (either would do): give `/api/import` a way to name the target site, or have the starter step aside when a business's only site is an untouched scaffold.
+
+Still worth a ticket — want me to file it? And the stale access-sim on :8799 is still 404ing everything it should proxy, which will bite the next `1c push` you run locally.
 
 <!-- xgd-chat-end -->
