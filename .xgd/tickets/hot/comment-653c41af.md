@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T19:02:02.620479+00:00'
+updated_at: '2026-09-10T22:18:16.438070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -249,5 +249,11 @@ Yes — I was, and I shouldn't have been. Undone.
 **BUG-68** now records where the fix lands and states explicitly that no code lands against it here. Nothing in 1stcontact changed except ticket content.
 
 One thing to decide: I saved the WIP diff to `lagrange-framework/.xgd/tmp/BUG-50-wip.patch` (1822 lines, gitignored) rather than destroy it outright. It's unreviewed and untested. My inclination is that the BUG-50 session should implement from the ticket body rather than resurrect a patch written from the wrong repo — say the word and I'll delete it.
+
+<!-- xgd-turn id="e8fd0310-7581-4a66-8e1c-676df76bf0f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:18:15.687818+00:00" -->
+#### You
+please delete the tmp ticket, move this one to won't fix and explain why
 
 <!-- xgd-chat-end -->
