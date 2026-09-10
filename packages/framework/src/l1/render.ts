@@ -27,12 +27,14 @@ import {
   type SiteLocaleInput,
 } from '@1stcontact/site-schema'
 import type {
+  L1Action,
   L1AxisSizing,
   L1Border,
   L1Column,
   L1ColumnAnchor,
   L1ColumnTerm,
   L1Container,
+  L1Dialog,
   L1Document,
   L1Filter,
   L1FocusRing,
@@ -1815,6 +1817,217 @@ export const L1_EDIT_CSS = [
   `[${L1_EDIT_SEGMENT_ATTR}].${L1_EDIT_HOT_CLASS} { outline: 2px solid rgba(99, 102, 241, 0.9); outline-offset: 3px }`,
 ].join('\n')
 
+// ── REQ-212 modals: the overlay role and the disclosure verb ──────────────────
+//
+// The construction is REQ-100's and REQ-108's, a third time. A document names a
+// *typed value bag* and only this emitter knows it compiles to a covering shell,
+// a scrim, a `role="dialog"`, a focus trap and one shared key listener. No
+// document can name a selector, a key, an attribute or a script.
+//
+// FIVE THINGS MAKE IT SAFE TO PUT A MODAL IN THE SUBSTRATE AT ALL:
+//
+//   1. **It fails VISIBLE.** The overlay rules are every one of them gated on a
+//      `data-l1-dialog-ready` marker that only the script sets. No script, a
+//      throw, a blocked bundle — and the panel is an ordinary in-flow part of the
+//      page, open, and usable. The server never renders it closed, so script only
+//      ever *subtracts*. Hiding in CSS and revealing in JS would invert that,
+//      which is how a modal library turns a broken script into content nobody can
+//      reach. This is `account-chrome`'s discipline, generalised.
+//
+//   2. **The shell WRAPS rather than retags.** REQ-106 retags a linked node
+//      because an `<a>` around it would take the focus the author styled. Here the
+//      opposite holds: the panel must keep every one of its own axes while
+//      something else does the covering, and focus goes to the PANEL. So the
+//      renderer emits a shell around it — the one place in L1 where a wrap is the
+//      faithful shape rather than the lazy one.
+//
+//   3. **The script carries no instance data.** Every colour, placement and
+//      opt-out the author wrote is compiled into the stylesheet or into a boolean
+//      attribute here. The script reads only its own markers, so it is byte-
+//      identical for every site and vetted once.
+//
+//   4. **The two dismissals default ON.** A modal that cannot be escaped and
+//      cannot be clicked away is a trap, so the ATTRIBUTE is the opt-OUT: an
+//      author has to say so deliberately rather than by forgetting.
+//
+//   5. **A dialog node's `reveal` is not emitted.** A panel that starts hidden
+//      never intersects, so its entrance would never fire and REQ-100's pre-state
+//      rule would leave it at `opacity: 0` forever — visible only as a modal that
+//      opens onto nothing. The axes are not composable, so the emitter declines
+//      the one that cannot work rather than shipping the trap.
+
+/** The shell class every overlay panel is wrapped in. */
+const DIALOG_CLASS = 'l1-dlg'
+/** On the shell: the `id` of the panel it holds — the script's handle on the pair. */
+const DIALOG_ATTR = 'data-l1-dialog'
+/** On the shell, by the script only: this panel is open. */
+const DIALOG_OPEN_ATTR = 'data-l1-open'
+/** On `<html>`, by the script only: the overlay rules are in force (see §1). */
+const DIALOG_READY_ATTR = 'data-l1-dialog-ready'
+/** On `<html>`, by the script only, while any panel is open: the scroll lock. */
+const DIALOG_LOCK_ATTR = 'data-l1-dialog-lock'
+/** On the shell: Escape does NOT close this one (the opt-out — see §4). */
+const DIALOG_NOESC_ATTR = 'data-l1-dialog-noesc'
+/** On the shell: a scrim click does NOT close this one (the opt-out — see §4). */
+const DIALOG_NOSCRIM_ATTR = 'data-l1-dialog-noscrim'
+/** On an action node: which panel activating it opens. */
+const DIALOG_OPENS_ATTR = 'data-l1-opens'
+/** On an action node: which panel activating it closes. */
+const DIALOG_CLOSES_ATTR = 'data-l1-closes'
+
+/**
+ * The layer an open panel sits on.
+ *
+ * A renderer constant rather than an axis, exactly as REQ-108's lobe count is:
+ * "above everything" is the only answer a modal can have, and a document that
+ * could pick its own would eventually pick one a header sat on top of. The value
+ * is `account-chrome`'s, which has held every stacking context on the site.
+ */
+const DIALOG_Z_INDEX = 2147483000
+
+/** A typed placement → the flex alignment it names on the shell's main axis. */
+const DIALOG_PLACEMENT: Record<'center' | 'top' | 'bottom', string> = {
+  center: 'center',
+  top: 'flex-start',
+  bottom: 'flex-end',
+}
+
+/**
+ * The invariant half of the overlay presentation — emitted once per document
+ * that carries any dialog at all, and never per panel.
+ *
+ * `display: contents` is the unenhanced base: the shell contributes no box, so
+ * the panel inside it lays out exactly as though the renderer had not wrapped it.
+ * That is what makes §1's baseline pixel-honest rather than merely functional.
+ *
+ * `overflow: auto` on the shell is an obligation, not taste: a panel taller than
+ * the viewport whose foot cannot be reached is a broken modal, and no axis the
+ * author writes can rescue it. `flex-shrink: 0` on the panel is the other half —
+ * a column flex container would otherwise squash it to fit rather than scroll.
+ */
+const DIALOG_INVARIANT_RULES: Rule[] = [
+  { selector: `.${DIALOG_CLASS}`, decls: ['display: contents'] },
+  { selector: `html[${DIALOG_READY_ATTR}] .${DIALOG_CLASS}`, decls: ['display: none'] },
+  {
+    selector: `html[${DIALOG_READY_ATTR}] .${DIALOG_CLASS}[${DIALOG_OPEN_ATTR}]`,
+    decls: [
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'position: fixed',
+      'inset: 0',
+      `z-index: ${DIALOG_Z_INDEX}`,
+      'overflow: auto',
+    ],
+  },
+  {
+    selector: `html[${DIALOG_READY_ATTR}] .${DIALOG_CLASS}[${DIALOG_OPEN_ATTR}] > *`,
+    decls: ['flex-shrink: 0'],
+  },
+  {
+    selector: `html[${DIALOG_LOCK_ATTR}], html[${DIALOG_LOCK_ATTR}] body`,
+    decls: ['overflow: hidden'],
+  },
+]
+
+/** The same rules as a stylesheet, for a consumer that wants the text of them. */
+export const L1_DIALOG_CSS = DIALOG_INVARIANT_RULES.map(
+  (r) => `${r.selector} { ${r.decls.join('; ')} }`,
+).join('\n')
+
+/**
+ * One panel's own half of the overlay: where it sits in the covered viewport and
+ * what the page behind it is dimmed with. Both are gated on the ready marker, so
+ * an unenhanced page paints no scrim over content it is not covering.
+ */
+function dialogShellRules(shellSelector: string, dialog: L1Dialog): Rule[] {
+  const decls: string[] = [`justify-content: ${DIALOG_PLACEMENT[dialog.placement ?? 'center']}`]
+  if (dialog.backdrop) {
+    const scrim = withAlpha(dialog.backdrop.color, dialog.backdrop.opacity)
+    if (scrim) decls.push(`background-color: ${scrim}`)
+  }
+  return [
+    {
+      selector: `html[${DIALOG_READY_ATTR}] ${shellSelector}[${DIALOG_OPEN_ATTR}]`,
+      decls,
+    },
+  ]
+}
+
+/**
+ * The one renderer-owned script that drives every modal on the page — vetted
+ * once, identical for every site, carrying no instance data of any kind.
+ *
+ * It sets the ready marker FIRST and synchronously, at the top of the body, so
+ * the panels below it are already governed by the closed rule by the time they
+ * paint. Wiring waits for the document, because the elements it wires do not
+ * exist yet; the only visible consequence is that an opener's `aria-expanded`
+ * tells the truth about the server's markup for one tick before the script
+ * corrects it, which is the same tick `account-chrome` has always had.
+ *
+ * Everything it owns is an obligation rather than a preference: focus moves in
+ * and comes back, Tab cannot leave, Escape closes, the scrim closes, the page
+ * behind does not scroll. A document can turn off exactly two of those, and only
+ * by having said so in its own typed axis.
+ */
+export const L1_DIALOG_SCRIPT = `(function(){
+var R='${DIALOG_READY_ATTR}',L='${DIALOG_LOCK_ATTR}',O='${DIALOG_OPEN_ATTR}';
+var d=document.documentElement;
+try{d.setAttribute(R,'')}catch(e){return}
+var openers=[];
+function panelOf(s){return s.firstElementChild}
+function shellFor(id){
+try{var ss=document.querySelectorAll('[${DIALOG_ATTR}]');
+for(var i=0;i<ss.length;i++)if(ss[i].getAttribute('${DIALOG_ATTR}')===id)return ss[i]}catch(e){}
+return null}
+function tabbable(el){
+try{return el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')}catch(e){return[]}}
+function anyOpen(){
+try{return document.querySelector('[${DIALOG_ATTR}]['+O+']')}catch(e){return null}}
+function mark(id,open){
+for(var i=0;i<openers.length;i++)if(openers[i].getAttribute('${DIALOG_OPENS_ATTR}')===id)
+openers[i].setAttribute('aria-expanded',open?'true':'false')}
+function open(id,trigger){
+var s=shellFor(id);if(!s||s.hasAttribute(O))return;
+s.setAttribute(O,'');s.__l1From=trigger||null;mark(id,true);
+d.setAttribute(L,'');
+var p=panelOf(s);if(!p)return;
+var f=tabbable(p);
+try{(f.length?f[0]:p).focus()}catch(e){}}
+function close(id){
+var s=shellFor(id);if(!s||!s.hasAttribute(O))return;
+s.removeAttribute(O);mark(id,false);
+var back=s.__l1From;s.__l1From=null;
+if(!anyOpen())d.removeAttribute(L);
+try{if(back&&back.focus)back.focus()}catch(e){}}
+function run(){
+var ss=document.querySelectorAll('[${DIALOG_ATTR}]');
+for(var i=0;i<ss.length;i++){ss[i].removeAttribute(O);
+(function(s){s.addEventListener('click',function(ev){
+if(ev.target===s&&!s.hasAttribute('${DIALOG_NOSCRIM_ATTR}'))close(s.getAttribute('${DIALOG_ATTR}'))})})(ss[i])}
+d.removeAttribute(L);
+openers=[];
+var os=document.querySelectorAll('[${DIALOG_OPENS_ATTR}]');
+for(var i=0;i<os.length;i++){openers.push(os[i]);os[i].setAttribute('aria-expanded','false');
+(function(b){b.addEventListener('click',function(ev){
+if(ev.preventDefault)ev.preventDefault();open(b.getAttribute('${DIALOG_OPENS_ATTR}'),b)})})(os[i])}
+var cs=document.querySelectorAll('[${DIALOG_CLOSES_ATTR}]');
+for(var i=0;i<cs.length;i++)(function(b){b.addEventListener('click',function(ev){
+if(ev.preventDefault)ev.preventDefault();close(b.getAttribute('${DIALOG_CLOSES_ATTR}'))})})(cs[i]);
+document.addEventListener('keydown',function(ev){
+var s=anyOpen();if(!s)return;
+if(ev.key==='Escape'){if(s.hasAttribute('${DIALOG_NOESC_ATTR}'))return;
+if(ev.preventDefault)ev.preventDefault();close(s.getAttribute('${DIALOG_ATTR}'));return}
+if(ev.key!=='Tab')return;
+var p=panelOf(s);if(!p)return;
+var f=tabbable(p);if(!f.length){if(ev.preventDefault)ev.preventDefault();try{p.focus()}catch(e){}return}
+var first=f[0],last=f[f.length-1];
+if(ev.shiftKey&&document.activeElement===first){if(ev.preventDefault)ev.preventDefault();try{last.focus()}catch(e){}}
+else if(!ev.shiftKey&&document.activeElement===last){if(ev.preventDefault)ev.preventDefault();try{first.focus()}catch(e){}}
+else if(!p.contains(document.activeElement)){if(ev.preventDefault)ev.preventDefault();try{first.focus()}catch(e){}}})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
+})();`
+
 interface RenderState {
   n: number
   rules: Rule[]
@@ -1832,6 +2045,8 @@ interface RenderState {
   hasReveal?: boolean
   /** REQ-108 — set once any node accents, so a page with no accent ships no script. */
   hasPointerAccent?: boolean
+  /** REQ-212 — set once any node opens as an overlay, so a page with no modal ships no script. */
+  hasDialog?: boolean
   /** REQ-116 — render the edit channel: addresses stamped, the page inert. */
   edit?: boolean
 }
@@ -1991,8 +2206,50 @@ function emitNode(
         (nodeLink?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
         (nodeLink?.ariaLabel ? ` aria-label="${escapeHtml(nodeLink.ariaLabel)}"` : '')
       : ''
-  /** The element name to emit — the anchor when linked, else the node's own. */
-  const tag = (own: string): string => (href ? 'a' : own)
+  // REQ-212 — the disclosure verb. Same retag discipline as the link above, and
+  // for the same reason: the node's own element BECOMES the button, so the class,
+  // every paint axis and the REQ-99 focus ring stay on the element the author
+  // styled. A wrapper would take the focus and leave the styled box unfocused.
+  //
+  // `type="button"` is not a default: a bare `<button>` inside a form submits it,
+  // and a Close that posted the form it sits in is worse than no Close at all.
+  //
+  // The validator has already refused a node carrying both `link` and `action`,
+  // so the two retags can never contend for the same element.
+  //
+  // REQ-116 — in the edit render the button has no target: the element, its class
+  // and its box are kept and only the attribute that would ACT is dropped,
+  // exactly as a link keeps its `<a>` and loses its `href`.
+  const nodeAction: L1Action | undefined = (node as { action?: L1Action }).action
+  const actionTarget = nodeAction?.opens ?? nodeAction?.closes
+  const acts = nodeAction !== undefined && !href
+  const actionAttrs = !acts
+    ? ''
+    : ' type="button"' +
+      (state.edit || actionTarget === undefined
+        ? ''
+        : ` aria-controls="${escapeHtml(actionTarget)}"` +
+          (nodeAction?.opens !== undefined
+            ? // The server renders the panel OPEN (see L1_DIALOG_SCRIPT §1), so the
+              // control's state starts honest and the script corrects it once it
+              // has folded the panel away. A hard-coded `false` here would be a
+              // lie on exactly the pages where the script never runs.
+              ` aria-haspopup="dialog" aria-expanded="true" ${DIALOG_OPENS_ATTR}="${escapeHtml(actionTarget)}"`
+            : ` ${DIALOG_CLOSES_ATTR}="${escapeHtml(actionTarget)}"`))
+
+  // REQ-212 — the overlay role. `aria-modal` is on the PANEL rather than on the
+  // shell that covers the page, because the panel is the region a screen reader
+  // confines itself to; `tabindex="-1"` gives focus somewhere to land in a panel
+  // holding nothing focusable, which is the case the trap would otherwise spin on.
+  const nodeDialog: L1Dialog | undefined = (node as { dialog?: L1Dialog }).dialog
+  const isDialog = nodeDialog !== undefined && !state.edit
+  const dialogAttrs = !isDialog
+    ? ''
+    : ' role="dialog" aria-modal="true" tabindex="-1"' +
+      (nodeDialog?.ariaLabel ? ` aria-label="${escapeHtml(nodeDialog.ariaLabel)}"` : '')
+
+  /** The element name to emit — the anchor when linked, the button when it acts, else the node's own. */
+  const tag = (own: string): string => (href ? 'a' : acts ? 'button' : own)
   const base: string[] = []
 
   if (node.geometry) {
@@ -2094,7 +2351,7 @@ function emitNode(
       // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
       // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
       if (href) base.unshift('display: block', 'text-decoration: none', 'color: inherit')
-      html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
+      html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
       break
     }
     case 'control': {
@@ -2184,7 +2441,7 @@ function emitNode(
         .map((child, i) => emitNode(child, state, [...path, i]))
         .join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
-      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${inner}</${tag('div')}>`
+      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}${dialogAttrs}>${inner}</${tag('div')}>`
       break
     }
     case 'container': {
@@ -2221,7 +2478,7 @@ function emitNode(
         })
         .join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
-      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${inner}</${tag('div')}>`
+      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}${dialogAttrs}>${inner}</${tag('div')}>`
       break
     }
   }
@@ -2283,7 +2540,11 @@ function emitNode(
   // observer script would be the trap: the pre-state rule would still hold at
   // `opacity: 0`, so a page that fades its copy in on scroll would render that
   // copy invisible — and a segment nobody can see is a segment nobody can click.
-  if (node.reveal && !state.edit) {
+  // REQ-212 — and a panel that starts closed never intersects, so its entrance
+  // would never fire and the pre-state rule above would leave it invisible inside
+  // a modal that opens onto nothing. The two axes do not compose; the emitter
+  // declines the one that cannot work rather than shipping the trap.
+  if (node.reveal && !state.edit && !isDialog) {
     const settledOpacity = node.kind === 'slot' ? 1 : (node.axes?.opacity ?? 1)
     const { rules, transitions: t } = revealRules(
       selector,
@@ -2331,6 +2592,25 @@ function emitNode(
   }
 
   if (base.length) state.rules.push({ selector, decls: base })
+
+  // REQ-212 — the covering shell, wrapped LAST so every rule above still lands on
+  // the panel's own selector and nothing re-wraps what this produced. The panel
+  // keeps its class, its box and its focus; the shell does the covering and the
+  // dimming, which is presentation the panel cannot express about the page around
+  // it. The document's `id` is on the panel, so `aria-controls` points at the
+  // region rather than at the scrim.
+  if (isDialog && nodeDialog) {
+    const shell = `${name}-dlg`
+    state.rules.push(...dialogShellRules(`.${shell}`, nodeDialog))
+    // The invariant half rides in once, on the first panel the document declares.
+    if (!state.hasDialog) state.rules.push(...DIALOG_INVARIANT_RULES)
+    state.hasDialog = true
+    const optOut =
+      (nodeDialog.dismissOnEscape === false ? ` ${DIALOG_NOESC_ATTR}` : '') +
+      (nodeDialog.dismissOnBackdrop === false ? ` ${DIALOG_NOSCRIM_ATTR}` : '')
+    html = `<div class="${DIALOG_CLASS} ${shell}" ${DIALOG_ATTR}="${escapeHtml(node.id ?? '')}"${optOut}>${html}</div>`
+  }
+
   return html
 }
 
@@ -2459,6 +2739,9 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   const scripts: string[] = []
   if (state.hasReveal) scripts.push(L1_REVEAL_SCRIPT)
   if (state.hasPointerAccent) scripts.push(L1_POINTER_SCRIPT)
+  // REQ-212 — same terms: a page with no modal ships no modal script at all, and
+  // the edit render ships none regardless (its panels stay in flow and settled).
+  if (state.hasDialog) scripts.push(L1_DIALOG_SCRIPT)
   if (!scripts.length) return { html: body, css }
   const js = scripts.join('\n')
   return { html: `<script>${js}</script>\n${body}`, css, js }

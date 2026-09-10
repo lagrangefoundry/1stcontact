@@ -201,6 +201,42 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           root: { kind: 'image', src: 'javascript:alert(1)', alt: '' },
         } as Partial<L1Document>),
       ),
+      // REQ-212 — the four modal rules. Each needs a whole document rather than a
+      // node, because all four are questions about a node's relationship with
+      // another one somewhere else in the tree.
+      dialogNeedsId: refusals(
+        page({ root: { kind: 'box', dialog: {}, children: [] } } as Partial<L1Document>),
+      ),
+      oneActionVerb: refusals(
+        page({
+          root: {
+            kind: 'box',
+            children: [
+              { kind: 'text', text: 'x', action: {} },
+              { kind: 'box', id: 'p', dialog: {}, children: [] },
+            ],
+          },
+        } as Partial<L1Document>),
+      ),
+      actionTargetsDialog: refusals(
+        page({
+          root: {
+            kind: 'box',
+            children: [{ kind: 'text', text: 'x', action: { opens: 'nowhere' } }],
+          },
+        } as Partial<L1Document>),
+      ),
+      actionOrLink: refusals(
+        page({
+          root: {
+            kind: 'box',
+            children: [
+              { kind: 'text', text: 'x', link: { href: '/a' }, action: { opens: 'p' } },
+              { kind: 'box', id: 'p', dialog: {}, children: [] },
+            ],
+          },
+        } as Partial<L1Document>),
+      ),
       // The two REQ-175 findings are reported rather than refused, and
       // deliberately: both references can dangle for a reason nobody can fix — a
       // capture that could not mirror a face or an image — and refusing the
