@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Slugs that merely resemble or extend a language code still validate
 created_by: xgd
 created_at: '2026-08-31T12:28:45.983189+00:00'
-updated_at: '2026-09-10T04:00:58.202742+00:00'
+updated_at: '2026-09-10T04:09:42.685170+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
