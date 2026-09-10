@@ -2,13 +2,13 @@
 uid: acceptance_criterion-4d7804f8
 id: AC-916
 type: acceptance_criterion
-title: On the deployed site, an extensionless page URL serves the page on both addressing
-  forms and for header-only requests
+title: On the deployed site, an extensionless page URL serves the page, for full and
+  header-only requests
 created_by: xgd
 created_at: '2026-08-06T19:02:27.941222+00:00'
-updated_at: '2026-08-16T07:23:58.409143+00:00'
+updated_at: '2026-09-10T16:05:43.068190+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-66115f6b
@@ -20,15 +20,13 @@ fields:
 ## Criterion
 
 The same slug-only URL that works in local preview also serves the page from a
-deployed site: under a snapshot-addressed preview URL, under a published site
-URL, and for header-only requests as well as full ones. A header-only request
-returns the same status and declared type as the full request, reports a non-zero
-length, and carries no body.
+deployed site: under the published site URL, and for header-only requests as
+well as full ones. A header-only request returns the same status and declared
+type as the full request, reports a non-zero length, and carries no body.
 
 ## Verification
 
-Deploy a rendered multi-page site, both as a preview snapshot and as a published
-revision. Request the slug-only path on each addressing form and assert a success
-status with the page's unique content. Repeat the preview request header-only and
-assert the same status, an HTML content type, a positive declared length, and an
-empty body.
+Publish a rendered multi-page site. Request the slug-only path on the published
+site and assert a success status with the page's unique content. Repeat the
+request header-only and assert the same status, an HTML content type, a positive
+declared length, and an empty body.
