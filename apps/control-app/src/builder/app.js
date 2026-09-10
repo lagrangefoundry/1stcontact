@@ -738,8 +738,38 @@ export function mountBuilder(root, options = {}) {
    * it did not disappear.
    */
   let generation = 0
+
+  /**
+   * WHICH CONVERSATION A SESSION IS, TO THIS BUILDER ([[BUG-69]]).
+   *
+   * The origin's id names a site — `site-<slug>` — and that is unique wherever
+   * it is resolved, because every request is business-scoped and the host reads
+   * it against that business's own store. It is not unique HERE: slugs are per
+   * business, so two businesses may each hold a site named the same way, and
+   * `site-unnamed` beside one of them is a different conversation from
+   * `site-unnamed` beside the other.
+   *
+   * SCOPED EXACTLY THE WAY A URL IS. `api.js` prefixes a path with the selected
+   * business and leaves it bare when there is none; this does the same to an id,
+   * for the same reason and with the same shape — the pane's notion of "the
+   * conversation on screen" then moves precisely when the thing it names moves.
+   *
+   * The failure without it: a switch between two businesses whose sites share a
+   * slug re-read the right transcript and the pane discarded it as one it was
+   * already showing, leaving the previous business's conversation beside the new
+   * business's site.
+   */
+  function conversationKey(businessId, sessionId) {
+    return businessId ? `${businessId}/${sessionId}` : sessionId
+  }
+
   async function showSite(slug) {
     const mine = ++generation
+    // CAPTURED, NOT READ LATER. The open below is async and `currentBusiness`
+    // may have moved on by the time it answers — the generation token already
+    // stops that answer reaching the pane, and this keeps the key describing the
+    // scope the read was actually made under either way.
+    const scope = currentBusiness
     if (!slug) {
       chat.setSession(null)
       return
@@ -750,12 +780,13 @@ export function mountBuilder(root, options = {}) {
     // already said the deployment-wide thing. So the pane is handed the same
     // sentence the banner carries, and no request is made.
     if (blocked) {
-      chat.setSession({
+      const unconfigured = {
         sessionId: `unconfigured:${slug}`,
         turns: [],
         ready: false,
         error: aiStatus.message ?? 'The assistant is not available.',
-      })
+      }
+      chat.setSession(unconfigured, conversationKey(scope, unconfigured.sessionId))
       return
     }
     try {
@@ -767,7 +798,7 @@ export function mountBuilder(root, options = {}) {
       // slower of the two.
       const [session] = await Promise.all([openSession(slug), markdownReady])
       if (mine !== generation) return
-      chat.setSession(session)
+      chat.setSession(session, conversationKey(scope, session.sessionId))
     } catch (err) {
       // The note this writes is markdown too, so the failure path waits as well.
       await markdownReady
@@ -776,12 +807,13 @@ export function mountBuilder(root, options = {}) {
       // one is — in the pane, with the transcript it does not have. `ready:false`
       // is the same story the origin tells when it CAN answer, so the pane needs
       // no second failure mode.
-      chat.setSession({
+      const unopened = {
         sessionId: `unopened:${slug}`,
         turns: [],
         ready: false,
         error: `The assistant could not be reached: ${err.message}`,
-      })
+      }
+      chat.setSession(unopened, conversationKey(scope, unopened.sessionId))
     }
   }
 
@@ -869,6 +901,12 @@ export function mountBuilder(root, options = {}) {
       // does has to be done here instead. This is the case that makes "the scope
       // moved" and "the site changed" genuinely different events: a reload, or
       // two businesses that happen to name a site the same way.
+      //
+      // CALLING IT WAS NEVER ENOUGH ON ITS OWN ([[BUG-69]]). The session the
+      // origin answers with is named after the slug, so on this path it came
+      // back with the id already on screen and the pane treated the swap as a
+      // no-op — the right transcript, read and discarded. `conversationKey`
+      // is what makes the two tellable apart.
       void showSite(slug)
     } else {
       panel.setSite(slug)
