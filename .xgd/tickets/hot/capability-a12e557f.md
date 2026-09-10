@@ -5,9 +5,9 @@ type: capability
 title: 'Site Delivery: Deploy & Public Serving'
 created_by: xgd
 created_at: '2026-08-06T18:38:00.342753+00:00'
-updated_at: '2026-09-10T16:14:22.727258+00:00'
+updated_at: '2026-09-10T16:56:21.018595+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: site-delivery-deploy-and-public-serving
