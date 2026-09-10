@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:39:54.406161+00:00'
+updated_at: '2026-09-10T22:40:50.592327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -197,5 +197,40 @@ Confirm the split and answer the same-origin-vs-cross-origin question, and I'll 
 <!-- xgd-chat role="user" ts="2026-09-10T22:39:54.363269+00:00" -->
 #### You
 There is a fairly significant over head to me for each ticket - the scope of tickets can be large - please reduce the number of REQs you need
+
+<!-- xgd-turn id="645868fb-8651-43f5-b389-be224501c63e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:40:50.450759+00:00" -->
+#### Claude
+One REQ. Here's the compression.
+
+## One new ticket: *Public forms accept a submission, safely*
+
+Everything I listed collapses into a single capability with one acceptance story — a visitor submits a public form, they land in the contact database, and the endpoint cannot be turned into a spam or DoS instrument. Splitting it was me organising by implementation area, which is your overhead, not a real boundary. In particular:
+
+- **Turnstile isn't separable.** Shipping the endpoint without it means knowingly deploying an under-defended public surface and filing a ticket against ourselves. DOC-5 already specifies honeypot + Turnstile + rate limiting as *one* strategy, not three features.
+- **The opt-in checkbox isn't separable.** It's a small `contact-form` config addition, and it's the consent record — which is part of capturing an address in an IE tenant, not a follow-up to it.
+
+So: endpoint, honeypot enforcement, Turnstile, rate limiting, one-send-per-address, bounce suppression, frozen acknowledgement, opt-in checkbox. One ticket, one branch, one reconciliation.
+
+## Two things that don't become tickets
+
+**The Access bypass policy** is Cloudflare configuration, not code — a deployment step recorded inside the REQ. It's owed regardless: `/sign-in` and `/api/email/webhook` are edge-blocked in production today.
+
+**The whitepaper PDFs** are content you'd write, and they don't block the REQ. The delivery mechanism can be built and tested against the asset as an abstraction; the beta form needs no artifact at all. I'll note the dependency in the ticket and leave it with you.
+
+**BUG-78 stays as it is** — it already exists, it's the record of what you actually hit, and its fix is two config values once the endpoint is live. No new overhead there.
+
+## The origin decision — my recommendation
+
+Same-origin, on public-site, forwarding to control-app over a **service binding**. Concretely: the form posts to `/api/lead` (relative), public-site takes it, and hands the write to control-app through a binding rather than a public request.
+
+That buys four things at once. No CORS and no preflight. No Access bypass needed for lead capture, because a service-binding call never traverses the edge — which matters a lot given the bypass is currently missing and is precisely what's breaking sign-in. The site key comes from the URL grammar public-site already parses, so a spammer can't retarget another tenant by editing the action. And relative URLs work identically in local dev and production, whereas the absolute `https://app.1stcontact.io/…` on the homepage is broken locally for exactly the reason you hit it.
+
+The cost is honest: public-site is emphatically read-only today and this makes it accept exactly one POST on exactly one path, with everything else still 405. I'd state that as a deliberate, narrow amendment in the ticket rather than let it be discovered. It also means XGD's existing `/api/lead` was the right convention all along and the homepage's absolute URL is the anomaly.
+
+One caveat so it isn't a surprise later: this does **not** fix sign-in in production. That stays cross-origin on control-app and still needs the bypass policy. Proxying sign-in the same way would fix it, but that's a different change and I'm not folding it in.
+
+Say go and I'll write the REQ, update BUG-78 to depend on it, and start on the branch. If you'd rather the endpoint live on control-app after all, tell me now — it changes the shape of the whole ticket.
 
 <!-- xgd-chat-end -->
