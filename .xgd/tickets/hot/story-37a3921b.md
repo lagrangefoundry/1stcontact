@@ -7,7 +7,7 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-20T06:33:15.110455+00:00'
+updated_at: '2026-09-10T17:08:18.549838+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -257,8 +257,13 @@ consequence for what this surface writes.
   and the explanation a refused write returns can never be two different
   stories.
 - **Refusing a change and never the status quo.** Every one of those field
-  refusals measures the value against what the region *just reported*, and lets a
-  value equal to it through whatever it is. A saved form carries every field the
+  refusals that measures a value against a bound, against this site's palette or
+  against a field's unavailability measures it against what the region *just
+  reported*, and lets a value equal to it through whatever it is. The other two
+  need no comparison to reach the same outcome: a value of the wrong shape for
+  its field is refused on its shape alone, and a value that is not one of the
+  options the region offered cannot be the one the region holds, because a
+  region's options always include its own current value. A saved form carries every field the
   region exposed, not only the ones that were touched, so a re-post of an
   unchanged value has to be a no-op: otherwise a run captured beyond a bound, a
   run holding a literal colour, or a run whose colour is unavailable would become
@@ -294,11 +299,17 @@ consequence for what this surface writes.
   and no other does, and **adjusting** a picture bakes no file for exactly the
   reason **choosing** one does not — every tool here writes a parameter the
   renderer applies, and none of them is an image processor.
-- **Leaving no trace when nothing changed.** Every parameter this surface writes
-  has a value at which it says nothing, and setting a control back to it
-  *removes* the parameter rather than recording it — and if that empties the
+- **Leaving no trace when nothing changed.** Every parameter that *has* a value
+  at which it says nothing — each framing and shape axis at its identity, italic
+  when it is off, capitalisation when it is none — is *removed* when a control is
+  set back to it rather than recorded, and if that empties the
   group the parameter lived in, the group goes too, so a picture that arrived
-  carrying no parameters at all is left carrying none. A colour reference is
+  carrying no parameters at all is left carrying none. Not every parameter has
+  one: a size, a weight and a colour have no setting that means "nothing
+  declared" — a run inherits each of them when the axis is absent rather than
+  falling to a default this surface could write back — so those controls change a
+  parameter and never clear one, and clearing them is the AI's business, exactly
+  as it already is for a panel's fill and its background image. A colour reference is
   written in its canonical form for the same reason: the positions a resolver
   treats as absent are pruned rather than stored, so a picker that always sends
   its slider position cannot turn a colour that did not move into a diff. An
