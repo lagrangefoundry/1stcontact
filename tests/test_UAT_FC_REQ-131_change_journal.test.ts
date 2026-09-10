@@ -12,7 +12,7 @@ import {
 } from '../tools/generate/src/cli/edit'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
-import { says, scriptedClient } from './support/scripted-model-client'
+import { modelSaw, says, scriptedClient } from './support/scripted-model-client'
 import { createL1Toolbox, L1_DECLARATION } from '../tools/generate/src/cli/ai/toolbox'
 import { JOURNAL_WINDOW } from '../tools/generate/src/store'
 import type { ChangeSlice } from '../tools/generate/src/store'
@@ -398,7 +398,7 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
     // A quiet turn says nothing about changes. A reminder that reported "nothing
     // happened" every turn is a reminder that gets skimmed on the turn something
     // did.
-    expect(client.seen[0].system).not.toMatch(/list_changes with since/)
+    expect(modelSaw(client.seen[0])).not.toMatch(/list_changes with since/)
 
     // The operator edits their own site between turns — through the SAME route
     // the builder's modal posts to, so this is the real second producer and not
@@ -417,9 +417,11 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
 
     await turn(sessionId, 'make the heading bigger')
 
-    // The signal rides the system channel, names how much moved, and carries the
-    // baseline to ask from — so the assistant never has to have remembered one.
-    const primed = client.seen[1].system
+    // The signal is in front of the model for that turn, names how much moved, and
+    // carries the baseline to ask from — so the assistant never has to have
+    // remembered one. Which field carries it is the library's business; that the
+    // model was told is the property.
+    const primed = modelSaw(client.seen[1])
     expect(primed).toMatch(/changed this site since your last turn — 1 change\b/)
     expect(primed).toMatch(/list_changes with since: \d+/)
     expect(primed).toContain('never write over a change you have not read')

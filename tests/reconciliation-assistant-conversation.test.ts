@@ -15,7 +15,7 @@ import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, modelSaw, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * **One continuing conversation about one site** (story-a58a0974).
@@ -519,7 +519,12 @@ describe('what the assistant is offered', () => {
     setModelClient(client)
     await speak(base, SLUG, 'What can you do?')
 
-    const { system, tools } = client.seen[0]
+    const { tools } = client.seen[0]
+    // What the model was told, across every field that carries it: the priming
+    // arrives split into cache-marked blocks and the per-turn reminder rides the
+    // turn's tail, so a read of `system` alone is a read of one placement rather
+    // than of what was said.
+    const system = modelSaw(client.seen[0])
     const names = tools.map((t) => t.name)
 
     // Exactly the operations its grant allows — the same projection the surface

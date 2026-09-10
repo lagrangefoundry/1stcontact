@@ -211,14 +211,18 @@ export function sessionIdFor(slug: string): string {
 const managers = new Map<string, Promise<Untyped>>()
 
 /**
- * The `Role` object each manager was built with, under the same key (REQ-131).
+ * The name this host's per-turn reminder is registered under (REQ-131).
  *
- * Held because the reminder is no longer a constant. `SessionManager` reads
- * `role.reminder` at the top of EVERY turn, so refreshing it there is all it
- * takes to push a per-turn signal through the system channel — no upstream
- * change, and no second delivery mechanism to keep in step with the first.
+ * The reminder is not a constant — it carries the change signal — and a `Role` is
+ * FROZEN upstream, so the way a host supplies per-turn text is a reminder
+ * *provider*: a callback the session manager resolves at the top of every turn.
+ * Rewriting a field on the role object worked only for as long as the manager
+ * happened to re-read it, and upstream has since sealed that door deliberately.
+ *
+ * One name for the whole host: the callback is bound per manager, and a manager
+ * is per site, so the name never has to carry a slug.
  */
-const roles = new Map<string, Untyped>()
+const REMINDER_PROVIDER = 'caretaker.reminder'
 
 /**
  * The draft change count as it stood at the end of each site's last turn.
@@ -399,36 +403,57 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       }),
   )
 
+  // THE ROLE TIER IS AN ENTRY LIST NOW, not four fields on one class. Upstream
+  // replaced `system` / `source` / `reminder` with three ordered tiers whose
+  // entries are each either static text or a named provider resolved at assembly
+  // time. Nothing about WHAT this host says to a session changes — the preamble
+  // first, then the projected documents — only how it is declared. Declaring it
+  // the old way is not an error upstream reports: the extra keys are ignored and
+  // the session primes with nothing, which is why this is written out rather than
+  // left to look like it still works.
+  //
+  // `ContextSource` is duck-typed — `{documents(): string[]}` — so the manual
+  // is supplied in memory. `StaticDocs` reads files; there is no file here, and
+  // writing one so it could be read back would only create something to go
+  // stale.
+  //
+  // Projected per role and per scope, which is a REQUIRED property rather than
+  // a nicety: a session's manual never mentions a capability it was not
+  // granted, so the model cannot propose one, apologise for one, or probe for
+  // one.
+  //
+  // LANDSCAPE FIRST, MANUAL LAST, when the KB is built. `KnowledgeDocs` assembles
+  // one document whose internal order is load-bearing and which KM owns: the map
+  // of what exists, then what this agent is for, then how to reach the rest. The
+  // manual goes in as the `mechanism` — the last thing read is the thing done
+  // first — so the corpus is reached through THIS session's actual grant rather
+  // than through a sentence written by hand about what it might have.
+  //
+  // This is the alternative to stuffing 32 design documents into every context:
+  // the agent is given a map and the means to pull what it needs.
+  // LANDSCAPE FIRST, MANUAL LAST when the host has a corpus; the manual alone
+  // when it has not. Both satisfy the same duck-typed `ContextSource`, so the
+  // role is constructed identically either way and nothing downstream branches
+  // on which one it got. Either way what comes back is ONE document per entry,
+  // in the order the source hands them over — the tier preserves it.
+  const documents: string[] = (
+    deps.priming ? await deps.priming(box) : { documents: () => [box.manual()] }
+  ).documents()
+
   const role = new lib.Role({
     name: CARETAKER_ROLE,
-    system: CARETAKER_SYSTEM,
-    // `ContextSource` is duck-typed — `{documents(): string[]}` — so the manual
-    // is supplied in memory. `StaticDocs` reads files; there is no file here, and
-    // writing one so it could be read back would only create something to go
-    // stale.
-    //
-    // Projected per role and per scope, which is a REQUIRED property rather than
-    // a nicety: a session's manual never mentions a capability it was not
-    // granted, so the model cannot propose one, apologise for one, or probe for
-    // one.
-    //
-    // LANDSCAPE FIRST, MANUAL LAST, when the KB is built. `KnowledgeDocs` assembles
-    // one document whose internal order is load-bearing and which KM owns: the map
-    // of what exists, then what this agent is for, then how to reach the rest. The
-    // manual goes in as the `mechanism` — the last thing read is the thing done
-    // first — so the corpus is reached through THIS session's actual grant rather
-    // than through a sentence written by hand about what it might have.
-    //
-    // This is the alternative to stuffing 32 design documents into every context:
-    // the agent is given a map and the means to pull what it needs.
-    // LANDSCAPE FIRST, MANUAL LAST when the host has a corpus; the manual alone
-    // when it has not. Both satisfy the same duck-typed `ContextSource`, so the
-    // role is constructed identically either way and nothing downstream branches
-    // on which one it got.
-    source: deps.priming ? await deps.priming(box) : { documents: () => [box.manual()] },
-    reminder: caretakerReminder(slug),
+    priming: [
+      new lib.Entry({ name: 'caretaker', text: CARETAKER_SYSTEM }),
+      ...documents.map(
+        (text: string, i: number) => new lib.Entry({ name: `caretaker-source-${i}`, text }),
+      ),
+    ],
+    // THE ONE ENTRY THAT IS NOT STATIC (REQ-131). The reminder carries the fact
+    // that the site moved, which is only known when the turn begins — so it is a
+    // provider rather than text, resolved per turn against the baseline this host
+    // holds and the counter the store answers with.
+    reminders: [new lib.Entry({ name: 'caretaker-reminder', provider: REMINDER_PROVIDER })],
   })
-  roles.set(managerKey(slug, deps), role)
 
   // A TRANSCRIPT ARCHIVE, not a session store. Upstream replaced the whole-object
   // `save(session)` store with an incremental archive port (`apply` / `load` /
@@ -456,11 +481,41 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // adapters would pass every test in workerd and lose every conversation in
   // production — the precise failure lagrange-framework REQ-103 measured before
   // drawing the port.
-  return new lib.SessionManager(
+  const manager = new lib.SessionManager(
     { [CARETAKER_ROLE]: role },
     deps.archive,
     deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir },
   )
+
+  // REQ-131 — the push half of the change journal, bound to THIS manager's
+  // registry. Registered here rather than passed in the options above because
+  // supplying a registry there opts out of the framework's own default product
+  // tier and providers, which this host wants: the signal is an addition to what
+  // ships, not a replacement for it.
+  //
+  // The callback closes over the site and its store, so the reminder is resolved
+  // against the CURRENT baseline every turn rather than against the one that held
+  // when the manager was built.
+  manager.providers.register(REMINDER_PROVIDER, () => reminderFor(slug, deps))
+  return manager
+}
+
+/**
+ * The reminder this site's session gets for the turn about to begin (REQ-131).
+ *
+ * The comparison happens here because a reminder provider is resolved at the top
+ * of every turn, which is exactly the moment "has anything moved since my last
+ * turn" has an answer. The counter comes off the store port (REQ-146/REQ-142),
+ * not off the filesystem — the same number, through the port a Worker also has.
+ *
+ * No baseline yet means the session has not taken a turn, so there is nothing it
+ * could have missed: the plain reminder, with no signal.
+ */
+async function reminderFor(slug: string, deps: HostDeps): Promise<string> {
+  const before = baselines.get(managerKey(slug, deps))
+  if (before === undefined) return caretakerReminder(slug)
+  const at = await deps.store.counter(slug)
+  return caretakerReminder(slug, { at: before, changes: at - before })
 }
 
 /** The stored transcript, or nothing. A site with no conversation yet is normal. */
@@ -578,26 +633,12 @@ export async function* streamPrompt(
   const manager = await managerFor(slug, opts, deps)
   await attach(manager, sessionId, slug)
 
-  // REQ-131 — the push half of the change journal. The comparison happens here
-  // because this is the only place that knows where a turn begins, and the
-  // reminder is refreshed rather than re-registered because the manager reads
-  // `role.reminder` afresh on every turn.
-  // THE COUNTER COMES OFF THE STORE PORT NOW (REQ-146), not off the filesystem.
-  // It was `draftCounter(ctxOf(opts), slug)` — synchronous, and reading the
-  // journal file directly. `SiteStore.counter` is the same number through the
-  // port REQ-142 drew, so it is one line here and the only cost is an `await`
-  // the surrounding function was already able to take.
+  // REQ-131 — the push half of the change journal. The comparison itself is NOT
+  // here: it lives in {@link reminderFor}, which this site's manager resolves at
+  // the top of every turn through its reminder provider. What remains here is the
+  // half only the turn boundary knows — where a turn ENDS.
   const key = managerKey(slug, deps)
   const store = deps.store
-  const role = roles.get(key)
-  const before = baselines.get(key)
-  const at = await store.counter(slug)
-  if (role) {
-    role.reminder =
-      before === undefined
-        ? caretakerReminder(slug)
-        : caretakerReminder(slug, { at: before, changes: at - before })
-  }
 
   try {
     yield* manager.promptStream(sessionId, text)
@@ -638,6 +679,5 @@ export async function aiStatus(
  */
 export function resetAiHost(): void {
   managers.clear()
-  roles.clear()
   baselines.clear()
 }

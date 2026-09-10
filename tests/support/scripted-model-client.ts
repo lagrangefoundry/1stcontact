@@ -27,11 +27,49 @@
  * a test written against it is asserting against a fiction.
  */
 
-/** What the host sends the model — the half of a turn a test can assert on. */
+/**
+ * What the host sends the model — the half of a turn a test can assert on.
+ *
+ * `system` is a STRING or a list of `{type: 'text', text}` blocks: the backend
+ * splits it at the priming's cache boundaries and sends blocks when there is one
+ * to declare. A test asking what the model was told reads {@link modelSaw}
+ * rather than either shape by hand.
+ */
 export interface ModelRequest {
-  system: string
+  system: string | { type: string; text?: string }[]
   messages: { role: string; content: unknown }[]
   tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
+}
+
+/** Flatten one wire content value — string, or a list of text blocks — to text. */
+function textOf(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((block) =>
+      block && typeof block === 'object' && 'text' in block
+        ? String((block as { text: unknown }).text ?? '')
+        : '',
+    )
+    .join('\n')
+}
+
+/**
+ * EVERYTHING the model was sent on one request, as one string.
+ *
+ * The per-turn reminder is not a field of its own. It rides the TAIL of the last
+ * message (the library's REQ-144): appended past the history rather than in front
+ * of it, so no cache breakpoint ever lands on a block guaranteed to differ next
+ * turn. It used to ride `system`, and a suite that still reads only `system` is
+ * asserting against a placement the library has moved — which is silent, because
+ * "the signal is absent" is what half of these assertions want to see.
+ *
+ * Reading the whole request is deliberately placement-agnostic: what a reminder
+ * assertion is actually about is whether the model was told, not which field
+ * carried it, and that property survives the next time upstream moves the tail.
+ */
+export function modelSaw(req: ModelRequest): string {
+  return [textOf(req.system), ...req.messages.map((message) => textOf(message.content))].join('\n\n')
 }
 
 /** One Anthropic streaming event, as the SDK emits them. */
