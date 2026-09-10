@@ -6,9 +6,9 @@ title: A reference carries a continuous shade on [-1, +1], mixing the entry towa
   black or white in Oklab
 created_by: xgd
 created_at: '2026-08-16T22:15:38.010665+00:00'
-updated_at: '2026-08-16T22:21:50.155342+00:00'
+updated_at: '2026-09-10T12:00:15.660732+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c490f1cf
@@ -36,9 +36,13 @@ stored:
   rejected; a clamp would silently paint a colour nobody asked for, which is the
   render-time fallback this model does not have. Every value on the range inclusive,
   including both endpoints, validates.
-- **`shade` and `alpha` are independent axes on the same reference** and compose in
-  either combination: the entry at a shade, at an opacity, or at both, with neither
-  displacing the other.
+
+`shade` rides on the reference rather than on the entry for the same reason `alpha`
+does, and the two compose in either combination. That claim and its verification
+belong to AC-930, whose headline is precisely that both variation axes are axes of
+the *reference*; this criterion owns the shade axis itself — its continuity, its
+Oklab mixing, its verbatim zero, and its endpoint validation — and does not restate
+the composition rule.
 
 ## Verification
 
@@ -49,6 +53,4 @@ lightness never decreases as the shade rises, and strictly increases over steps 
 eye can distinguish, so a mix that folded back on itself somewhere in the middle
 could not pass. Validate documents carrying shades just outside each end and well
 outside, and confirm each is rejected while the endpoints and interior values are
-accepted. Finally resolve the same entry at a shade, at an alpha, and at both, and
-confirm the three results are the shaded colour, the opaque colour at that opacity,
-and the shaded colour at that opacity.
+accepted. Composition with `alpha` is verified once, under AC-930.
