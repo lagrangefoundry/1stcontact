@@ -6,14 +6,15 @@ title: The ticket store's schema is applied as a migration in the declared locat
   in sequence after the site store's
 created_by: xgd
 created_at: '2026-09-01T23:56:42.318162+00:00'
-updated_at: '2026-09-02T00:13:30.800044+00:00'
+updated_at: '2026-09-10T02:22:03.466007+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
