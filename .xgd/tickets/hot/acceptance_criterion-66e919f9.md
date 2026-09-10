@@ -2,13 +2,13 @@
 uid: acceptance_criterion-66e919f9
 id: AC-945
 type: acceptance_criterion
-title: 'A retrofit that cannot be proved lossless writes nothing: the command fails
-  with a diagnostic and every file is left untouched'
+title: 'A retrofit that cannot be proved within the bound writes nothing: the command
+  fails with a diagnostic and every file is left untouched'
 created_by: xgd
 created_at: '2026-08-06T21:08:29.338855+00:00'
-updated_at: '2026-08-16T22:57:10.219076+00:00'
+updated_at: '2026-09-10T19:59:05.137421+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5e7eb0c5
