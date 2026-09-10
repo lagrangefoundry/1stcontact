@@ -90,10 +90,17 @@ function leavesOf(doc: ReturnType<typeof foldToL1>) {
 describe('AC-729 a text-free media element folds to an image leaf with its resolved source and alternative text', () => {
   it('test_UAT_AC729_media_folds_to_image_leaf_with_src_alt_and_axes', () => {
     // REQ-136 widened this AC with "the leaf carries its framing" — the captured
-    // pan and colour adjustment. Those are proven by their own siblings,
+    // pan and colour adjustment. The rule-by-rule proofs of those two families
+    // (every spelling, every clamp, the no-ops) are their own siblings,
     // test_UAT_AC1133_* and test_UAT_AC1134_* in
-    // tests/reconciliation-l1-fold-framing-and-adjustment.test.ts; this test
-    // remains the media-element fold the AC is named for.
+    // tests/reconciliation-l1-fold-framing-and-adjustment.test.ts.
+    //
+    // What belongs HERE, and nowhere else, is AC-729's actual claim: the UNION of
+    // framing + adjustment + finishing on ONE leaf, "omitting any axis the
+    // element does not paint". The `hero-media` fixture below is the only place
+    // in the repo where a single image element paints all three families, so the
+    // closed `toEqual` on its axes is what proves the union rather than three
+    // separately-proven halves.
     const residuals: FoldResidual[] = []
     const doc = foldToL1(
       multiFrom((w) => [
@@ -101,9 +108,13 @@ describe('AC-729 a text-free media element folds to an image leaf with its resol
         textless({
           role: 'hero-media',
           objectFit: 'cover',
+          // Framing: which part of itself the box shows (REQ-136).
+          objectPosition: '30% 70%',
           intrinsicAspect: 1.5,
           src: 'https://cdn.example.com/hero.jpg',
           alt: 'A plated dish',
+          // Adjustment: the colour-adjustment stack (REQ-136).
+          filter: 'saturate(0.6)',
           borderRadiusPx: 12,
           opacity: 0.9,
           blendMode: 'multiply',
@@ -158,16 +169,25 @@ describe('AC-729 a text-free media element folds to an image leaf with its resol
     expect(logo.alt).toBe('Company logo')
     expect(wide.alt).toBe('')
 
-    // The image axes the language expresses, and ONLY the ones it paints.
+    // The UNION on one leaf — framing (fit + which part of itself its box shows),
+    // adjustment (the colour-adjustment stack) and finishing (radius, opacity,
+    // blend, border, shadow) — and ONLY the axes the element paints. The closed
+    // `toEqual` is what makes the second half true: nothing defaulted an axis in.
     expect(hero.axes).toEqual({
       objectFit: 'cover',
+      objectPosition: { xPct: 30, yPct: 70 },
+      filter: { saturate: 0.6 },
       borderRadiusPx: 12,
       opacity: 0.9,
       blendMode: 'multiply',
       border: { widthPx: 2, color: '#112233', style: 'solid' },
       boxShadow: { offsetXPx: 0, offsetYPx: 4, blurPx: 12, spreadPx: 1, color: '#000000' },
     })
+    // The bare <img> paints one axis and carries exactly one — the same closed
+    // assertion in its negative form.
     expect(logo.axes).toEqual({ objectFit: 'contain' })
+    expect(logo.axes).not.toHaveProperty('objectPosition')
+    expect(logo.axes).not.toHaveProperty('filter')
 
     // A geometry track pinning all four sides at every present sampled width:
     // an image's extent is not derivable from its content, so height is pinned.
@@ -193,26 +213,12 @@ describe('AC-729 a text-free media element folds to an image leaf with its resol
     // Everything above was expressible → nothing signalled.
     expect(residuals).toEqual([])
 
-    // A media element captured with no resolvable source produces no leaf at all:
-    // it is signalled as a residual rather than emitted as a broken image.
-    const brokenResiduals: FoldResidual[] = []
-    const brokenDoc = foldToL1(
-      multiFrom((w) => [
-        textless({
-          role: 'broken-media',
-          objectFit: 'cover',
-          intrinsicAspect: 1,
-          src: null,
-          box: { x: 0, y: 200, width: w, height: 300 },
-        }),
-      ]),
-      { residuals: brokenResiduals },
-    )
-    expect(leavesOf(brokenDoc).filter((n) => n.kind === 'image')).toEqual([])
-    expect(validateL1(brokenDoc).ok).toBe(true)
-    const signalled = brokenResiduals.find((r) => r.kind === 'image')
-    expect(signalled?.reason).toMatch(/src/i)
-    expect(signalled?.widths).toEqual(LADDER)
+    // The opposite outcome — a media element with no resolvable source, which
+    // emits no leaf and takes the residual channel instead — is owned and
+    // verified by AC-733 (`test_UAT_AC733_*`, which asserts it via
+    // `byKind('image', /src/i)`). Proving it a second time here would put two
+    // tests on one behaviour the matrix assigns to one AC, and would grow this
+    // UAT past the boundary AC-729's own body draws.
   })
 })
 

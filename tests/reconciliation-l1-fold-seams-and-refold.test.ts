@@ -161,6 +161,26 @@ describe('AC-812 a captured backdrop folds to a box leaf in the background layer
       (n) => n.kind === 'box' && n.axes?.surfaceFill === HERO_FILL && !n.axes?.backgroundImageUrl,
     )
     expect(heroBands.length).toBeGreaterThan(0)
+
+    // …and the OTHER half of the layering rule: the backdrop sits behind the runs
+    // of the band it is under, but AFTER the section-background boxes it is a peer
+    // of. Absolutely-positioned siblings with no z-index paint in source order, so
+    // a backdrop emitted BEFORE its band would have the band's opaque fill paint
+    // over the hero photograph — the mirror image of the defect (b) guards.
+    const lastBandIndex = Math.max(...heroBands.map((b) => leaves.indexOf(b)))
+    expect(lastBandIndex).toBeGreaterThanOrEqual(0)
+    expect(backdropIndex, 'the backdrop paints after the bands it is a peer of').toBeGreaterThan(
+      lastBandIndex,
+    )
+    // The same order in the rendered document, where it is what actually paints.
+    const heroBandIds = heroBands.map((b) => b.id).filter(Boolean) as string[]
+    expect(heroBandIds.length).toBeGreaterThan(0)
+    for (const id of heroBandIds) {
+      expect(html.indexOf(`id="${id}"`), `band ${id} is emitted before the backdrop`).toBeLessThan(
+        html.indexOf(`id="${backdrop.id}"`),
+      )
+    }
+
     for (const band of heroBands) {
       if (band.kind !== 'box') throw new Error('expected a box leaf')
       for (const kf of band.geometry!.keyframes) {

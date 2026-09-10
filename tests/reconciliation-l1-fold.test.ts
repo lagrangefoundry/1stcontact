@@ -186,6 +186,13 @@ function signalsFor(width: number): RawSignals {
   }
 }
 
+/**
+ * A flex `<section>` with two repeated percentage-sized children — the shape that
+ * exercises every one of AC-694's six sidecar dimensions on the always-run path:
+ * ancestry (`parentId`), the parent's computed layout, authored sizing unit per
+ * axis, position mode, sibling-repetition count, and ascending `@media`
+ * breakpoints. A single parentless node could only ever evidence two of them.
+ */
 const CANNED_HINTS: StructuralHints = {
   viewport: { width: 1280, height: 900 },
   mediaBreakpoints: [640, 1024],
@@ -202,6 +209,44 @@ const CANNED_HINTS: StructuralHints = {
       heightUnit: null,
       repeatCount: 1,
       box: { x: 0, y: 0, width: 1280, height: 400 },
+    },
+    {
+      id: 1,
+      parentId: 0,
+      tag: 'div',
+      a11yRole: 'generic',
+      position: 'static',
+      display: 'block',
+      parentLayout: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: '24px',
+        gridTemplateColumns: null,
+      },
+      widthUnit: 'percent',
+      heightUnit: 'px',
+      repeatCount: 2,
+      box: { x: 0, y: 0, width: 620, height: 400 },
+    },
+    {
+      id: 2,
+      parentId: 0,
+      tag: 'div',
+      a11yRole: 'generic',
+      position: 'absolute',
+      display: 'block',
+      parentLayout: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: '24px',
+        gridTemplateColumns: null,
+      },
+      widthUnit: 'percent',
+      heightUnit: 'px',
+      repeatCount: 2,
+      box: { x: 660, y: 0, width: 620, height: 400 },
     },
   ],
 }
@@ -536,11 +581,46 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     const hints = readHints(result.bundleDir)
     expect(hints).not.toBeNull()
     expect(hints!.mediaBreakpoints).toEqual([...hints!.mediaBreakpoints].sort((a, b) => a - b))
+
+    // ── The sidecar's CONTRACT: all six dimensions, on the always-run path ─────
+    // Each dimension is asserted here — where every runner reaches it — so the
+    // sidecar's shape is proven without a browser. What the engine-gated branch
+    // below adds is extraction ACCURACY against real computed styles, not the
+    // contract itself.
+    expect(hints!.nodes.length).toBeGreaterThan(1)
+    // (1) ancestry: a root carries `parentId: null`, a child names its parent,
+    //     and every named parent is a node in the same sidecar.
+    const ids = new Set(hints!.nodes.map((n) => n.id))
+    const roots = hints!.nodes.filter((n) => n.parentId === null)
+    const children = hints!.nodes.filter((n) => n.parentId !== null)
+    expect(roots.length).toBeGreaterThan(0)
+    expect(children.length).toBeGreaterThan(0)
+    for (const n of children) expect(ids.has(n.parentId!)).toBe(true)
+    // (2) the parent's computed layout, reported for a child of a flex parent…
+    const flexChildHint = hints!.nodes.find((n) => n.parentLayout?.display.includes('flex'))
+    expect(flexChildHint, 'a node reporting its parent computed layout').toBeDefined()
+    expect(flexChildHint!.parentLayout!.justifyContent).toBe('space-between')
+    //     …and null exactly where there is no element parent.
+    for (const n of roots) expect(n.parentLayout).toBeNull()
+    // (3) authored sizing unit, PER AXIS — both are carried, independently.
     expect(hints!.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)
+    expect(hints!.nodes.some((n) => n.heightUnit === 'px')).toBe(true)
+    // (4) position mode, per node.
+    expect(new Set(hints!.nodes.map((n) => n.position))).toEqual(
+      new Set(['relative', 'static', 'absolute']),
+    )
+    // (5) sibling-repetition count — always present and at least 1, and >1 where
+    //     siblings really do share a tag+class signature.
+    for (const n of hints!.nodes) expect(n.repeatCount).toBeGreaterThanOrEqual(1)
+    expect(hints!.nodes.some((n) => n.repeatCount > 1)).toBe(true)
+    // (6) ascending @media breakpoints — asserted above, and non-empty here so
+    //     the sort check is not vacuously true on an empty list.
+    expect(hints!.mediaBreakpoints.length).toBeGreaterThan(0)
 
     // With a real engine, the same pass reports the parent's computed layout
     // (flex + justify-content) and a percentage-sized child against a real @media
-    // breakpoint. Skip cleanly where Chromium is unavailable.
+    // breakpoint. Skip cleanly where Chromium is unavailable — this branch proves
+    // extraction ACCURACY; the contract above already ran.
     if (!(await chromiumAvailable())) return
     const html = `<!doctype html><html><head><style>
       .row { display: flex; justify-content: space-between; gap: 24px; }
