@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T17:46:59.052383+00:00'
+updated_at: '2026-09-10T17:48:32.058002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -683,5 +683,45 @@ If you actually meant the other thing — making the model a 1c-level setting ra
 <!-- xgd-chat role="user" ts="2026-09-10T17:46:58.781626+00:00" -->
 #### You
 It is desirable for the strategic conversations to use Opus (or even Fable). But unnecessary for the actual website construction part. Are there ways we could be multi modal? Have a more powerful model be the front face but use cheaper agents to do work for it?
+
+<!-- xgd-turn id="81b435c9-91dd-47ae-b564-2b5e14916f05-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T17:48:31.932354+00:00" -->
+#### Claude
+Good question, and there may already be machinery for it. Let me check what exists before answering.
+
+Yes — three shapes, and the codebase is closer to one of them than the others.
+
+**What's there today:** `registerBackend(name, factory)` already supports any number of named backends. But `backendName` is bound per session at `createSession(role, backend)` and every later call reads `session.backendName` — so **one session is one model, for its life.** There's no delegation machinery in the library (I checked; the `agent` surface is context introspection, not sub-agents).
+
+## The trap in the obvious version
+
+The tempting fix is per-turn model switching — Opus for strategy turns, Sonnet for construction turns, same conversation. **Don't.** Prompt caches are keyed per model. Alternating A/B/A/B means A's third turn can only read back to where A last wrote, then pays full price for everything B added in between — and vice versa. You'd roughly halve the hit rate and pay writes twice, undoing most of what REQ-143/144 bought.
+
+## The shape that actually works
+
+**A delegation tool.** The strong model stays the single conversational face. A `build`/`delegate` operation opens a *separate session* on a cheap backend with a narrow brief, runs it to completion, and returns a summary. Two properties fall out:
+
+- The Opus conversation never carries the construction transcript — it sees a brief and a result, not 40 tool calls and 21 screenshots.
+- Each side keeps its own clean cache lineage. No interleaving, nothing invalidated.
+
+This is also the shape Anthropic recommends for multi-agent work generally: a coordinator plus cheaper workers for the reading- and payload-heavy sub-tasks.
+
+**And it's cheaper than what you run now, not just cheaper than all-Opus.** From your 09-08 session, the bulk of spend was construction — 21 screenshots, 18 `set_l1`, 21 `write_image`, 15 `get_l1`. Move that to Haiku 4.5 ($1/$5) and it's ~3× cheaper than Sonnet does it today; the strategic layer on Opus ($5/$25) stays small enough that its rate barely matters. All-Opus-no-delegation would instead cost you ~1.67× today.
+
+## Two cheaper things first
+
+**Effort levels.** The backend sends no `output_config` at all right now. Sonnet 5 supports `low`→`max`, and effort doesn't touch the cache prefix, so it's a per-turn dial with no architectural cost: `low` for mechanical construction turns, `high`/`xhigh` for strategy. Much of the benefit, a fraction of the work. I'd do this before building delegation.
+
+**The advisor tool.** Anthropic-native: a cheap executor consults a stronger advisor inside a single request. It inverts your framing — the cheap model is the face — but it gets strong reasoning where it matters with no new architecture. Constraint: the advisor must be at least as capable as the executor.
+
+## What I'd do
+
+1. Send `output_config.effort`, per-turn — small, immediate, no cache risk.
+2. Then a delegation surface, if the numbers still justify it once REQ-143's telemetry shows where the tokens actually go.
+
+That ordering matters: you now have per-request usage recording, so you can *measure* the strategy/construction split rather than assume it. I'd rather size the delegation work against real numbers than my estimate from an audit ledger.
+
+Want me to spec either? The effort one is small; delegation is a real design ticket and would want a DOC amendment like REQ-144 had.
 
 <!-- xgd-chat-end -->
