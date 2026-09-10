@@ -60,7 +60,10 @@ const NAVY = '#0f172b'
 const TILE = '#ece6dd'
 
 describe('BUG-19 — fold recognises a full-bleed bar as a band, not tiny cards', () => {
-  it('test_UAT_FC_BUG-19_distributed_bar_runs_become_a_full_bleed_band', () => {
+  // Re-attributed to AC-731 (reconciliation of BUG-19): the AC now states the
+  // full-bleed bar rule in full, and this is its authoritative evidence — the
+  // proof lives here rather than being copied into the reconciliation suite.
+  it('test_UAT_AC731_distributed_bar_runs_become_a_full_bleed_band', () => {
     // A tan section band, then a footer bar: three narrow navy runs on one row,
     // hugging the left/right edges with a large central gap (space-between).
     const ms = multiFrom((w) => [
@@ -88,7 +91,7 @@ describe('BUG-19 — fold recognises a full-bleed bar as a band, not tiny cards'
     expect(navyCards.length).toBe(0)
   })
 
-  it('test_UAT_FC_BUG-19_evenly_tiled_card_grid_stays_cards_not_a_band', () => {
+  it('test_UAT_AC731_evenly_tiled_card_grid_stays_cards_not_a_band', () => {
     // Regression guard: a 3-column tile row (same fill, no treatment, small EVEN
     // gaps) must NOT be mistaken for a bar — these are cards, not a section band.
     const ms = multiFrom((w) => [
@@ -130,7 +133,7 @@ describe('BUG-19 — fold recognises a full-bleed bar as a band, not tiny cards'
     }
   })
 
-  it('test_UAT_FC_BUG-19_navy_band_paints_full_width_in_the_render', () => {
+  it('test_UAT_AC731_navy_band_paints_full_width_in_the_render', () => {
     const ms = multiFrom((w) => [
       run(w, 'Heading', { x: 50, y: 100, width: w - 100, height: 40 }, { surfaceFill: BAND }),
       run(w, '© Studio 2025', { x: 50, y: 900, width: 160, height: 24 }, { surfaceFill: NAVY }),

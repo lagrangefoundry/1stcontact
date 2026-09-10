@@ -67,7 +67,11 @@ const textLeaves = (doc: ReturnType<typeof foldToL1>) =>
   (doc.root.children ?? []).filter((n): n is Extract<typeof n, { kind: 'text' }> => n.kind === 'text')
 
 describe('BUG-20 — chip runs carry their own surface', () => {
-  it('test_UAT_FC_BUG-20_badge_run_folds_to_a_text_leaf_carrying_its_own_pill', () => {
+  // Re-attributed to AC-731 (reconciliation of BUG-20): AC-731 now states the
+  // self-painting rule — a run whose corner radius reaches half its painted height
+  // folds its surface onto its own text leaf and emits no backing box. These three
+  // probes are that clause's authoritative evidence.
+  it('test_UAT_AC731_badge_run_folds_to_a_text_leaf_carrying_its_own_pill', () => {
     const doc = foldToL1(cardWithBadge())
     const badge = textLeaves(doc).find((t) => t.text === 'Coming soon')
     expect(badge, 'the badge run must survive as a text leaf').toBeDefined()
@@ -91,7 +95,7 @@ describe('BUG-20 — chip runs carry their own surface', () => {
     }
   })
 
-  it('test_UAT_FC_BUG-20_chip_paints_once_no_duplicate_badge_box_behind_it', () => {
+  it('test_UAT_AC731_chip_paints_once_no_duplicate_badge_box_behind_it', () => {
     const doc = foldToL1(cardWithBadge())
     const boxes = (doc.root.children ?? []).filter((n) => n.kind === 'box')
     // The chip paints itself, so no box may carry the badge's own fill — a
@@ -139,7 +143,7 @@ describe('BUG-20 — chip runs carry their own surface', () => {
     expect(validateL1(overrun).ok, 'an unclamped sentinel radius must be rejected').toBe(false)
   })
 
-  it('test_UAT_FC_BUG-20_a_modestly_rounded_single_run_card_is_not_a_chip', () => {
+  it('test_UAT_AC731_a_modestly_rounded_single_run_card_is_not_a_chip', () => {
     // The discriminator is pill SATURATION, not "has a radius". A single-run card
     // paints a modest rounding + shadow on its own element too (BUG-14); treating
     // that as a chip would delete the card box and its accent bar.

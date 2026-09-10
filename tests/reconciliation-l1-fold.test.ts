@@ -22,14 +22,19 @@
  *   AC-696  the pre-L1 `adopt-values` reproduction command is removed; the
  *           independent `adopt-gaps` sibling is unaffected
  *
- * The fold/render/validator probes run everywhere; the real-browser branch of the
- * hint probe (AC-694) skips cleanly on a runner without Chromium installed.
+ * The fold/render/validator probes run everywhere. AC-694 is proven in three
+ * layers: the sidecar CONTRACT over a fake driver (plumbing: capture →
+ * hints.json → readHints), the DERIVATION of all six dimensions by running the
+ * shipped `HINTS_SCRIPT` over a real parsed document, and — declared
+ * `it.skipIf(!HAS_CHROMIUM)` so an unrun branch reports as skipped rather than
+ * passed — extraction against a real engine.
  */
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { JSDOM } from 'jsdom'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { validateL1, type L1Node } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
@@ -56,6 +61,26 @@ import {
 } from '../tools/generate/src/cli/capture'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
+
+/**
+ * Resolved ONCE, at module scope, so the engine-gated probe can declare itself
+ * `it.skipIf(...)` rather than returning early from inside its own body. An early
+ * return reports GREEN having asserted nothing; a declared skip is visible in the
+ * run summary, which is the difference between "this ran" and "this was reported".
+ */
+const HAS_CHROMIUM = await chromiumAvailable()
+
+/** The fixture the hint probes read: a flex row, %-sized repeated children, a
+ *  positioned sibling, and one real `@media` breakpoint. Every one of AC-694's
+ *  six sidecar dimensions is derivable from it. */
+const HINTS_FIXTURE_HTML = `<!doctype html><html><head><style>
+      .row { display: flex; justify-content: space-between; gap: 24px; }
+      .col { width: 50%; height: 200px; background: #eee; position: static; }
+      .pin { position: absolute; top: 0; left: 0; width: 100px; height: 10px; }
+      @media (min-width: 600px) { .row { gap: 40px; } }
+    </style></head><body>
+      <section class="row"><div class="col">A</div><div class="col">B</div><div class="pin">P</div></section>
+    </body></html>`
 
 // A complete RawRun with sensible defaults — the fold needs `box`, the rest are
 // the required geometry/typography fields the extractor always emits.
@@ -617,21 +642,85 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     //     the sort check is not vacuously true on an empty list.
     expect(hints!.mediaBreakpoints.length).toBeGreaterThan(0)
 
-    // With a real engine, the same pass reports the parent's computed layout
-    // (flex + justify-content) and a percentage-sized child against a real @media
-    // breakpoint. Skip cleanly where Chromium is unavailable — this branch proves
-    // extraction ACCURACY; the contract above already ran.
-    if (!(await chromiumAvailable())) return
-    const html = `<!doctype html><html><head><style>
-      .row { display: flex; justify-content: space-between; gap: 24px; }
-      .col { width: 50%; height: 200px; background: #eee; }
-      @media (min-width: 600px) { .row { gap: 40px; } }
-    </style></head><body>
-      <section class="row"><div class="col">A</div><div class="col">B</div></section>
-    </body></html>`
+    // Extraction ACCURACY — that these six dimensions are DERIVED from a real
+    // document rather than handed to the driver — is proven by the two probes
+    // below, one always-run and one engine-gated.
+  })
+
+  it('test_UAT_AC694_structural_hints_are_derived_from_a_real_document', () => {
+    // The probe above drives `FakeDriver`, which answers `HINTS_SCRIPT` with a
+    // canned constant — it proves the capture → hints.json → readHints plumbing,
+    // and deliberately not the derivation. Here the REAL `HINTS_SCRIPT` runs in
+    // page scope over a real parsed document, real cascade and real stylesheet
+    // rules, so every dimension below is computed by the shipped extractor.
+    //
+    // jsdom has no layout engine, so `getBoundingClientRect()` is all-zero and the
+    // script's own `visible()` gate would reject every node. The rect and the
+    // document's scroll extent are the ONLY prosthetics; `box` is not one of the
+    // six dimensions under test, and none of the assertions below reads it.
+    const dom = new JSDOM(HINTS_FIXTURE_HTML, { runScripts: 'dangerously', pretendToBeVisual: true })
+    const win = dom.window as unknown as {
+      eval: (script: string) => unknown
+      document: Document
+      Element: { prototype: { getBoundingClientRect: () => unknown } }
+    }
+    Object.defineProperty(win.document.documentElement, 'scrollWidth', { value: 1024, configurable: true })
+    Object.defineProperty(win.document.documentElement, 'scrollHeight', { value: 900, configurable: true })
+    let row = 0
+    win.Element.prototype.getBoundingClientRect = function (): unknown {
+      const top = row++ * 10
+      return { x: 0, y: top, left: 0, top, width: 300, height: 200, right: 300, bottom: top + 200, toJSON: () => ({}) }
+    } as never
+
+    const hints = win.eval(HINTS_SCRIPT) as StructuralHints
+    expect(hints.nodes.length).toBeGreaterThan(1)
+
+    // (1) ancestry — the two `.col` children and the `.pin` sibling all name the
+    //     `.row` section, which in turn names the body; the body is the root.
+    const section = hints.nodes.find((n) => n.tag === 'section')
+    const body = hints.nodes.find((n) => n.tag === 'body')
+    expect(body?.parentId).toBeNull()
+    expect(section?.parentId).toBe(body!.id)
+    const divs = hints.nodes.filter((n) => n.tag === 'div')
+    expect(divs).toHaveLength(3)
+    for (const d of divs) expect(d.parentId).toBe(section!.id)
+
+    // (2) the parent's computed layout, read off the real cascade.
+    for (const d of divs) {
+      expect(d.parentLayout?.display).toContain('flex')
+      expect(d.parentLayout?.justifyContent).toBe('space-between')
+      expect(d.parentLayout?.gap).toBe('24px')
+      expect(d.parentLayout?.gridTemplateColumns).toBeNull()
+    }
+    expect(body?.parentLayout?.display).not.toContain('flex')
+
+    // (3) authored sizing unit per axis, recovered from the matched CSS rules —
+    //     `%` survives as `percent` even though the computed value is px, and the
+    //     `.pin` sibling's px width is reported as px on the same run.
+    const cols = divs.filter((d) => d.widthUnit === 'percent')
+    expect(cols).toHaveLength(2)
+    for (const c of cols) expect(c.heightUnit).toBe('px')
+    expect(divs.filter((d) => d.widthUnit === 'px')).toHaveLength(1)
+
+    // (4) position mode, per node — the two columns are static, the pin absolute.
+    expect(divs.filter((d) => d.position === 'static')).toHaveLength(2)
+    expect(divs.filter((d) => d.position === 'absolute')).toHaveLength(1)
+
+    // (5) sibling-repetition count — the two `.col` siblings share a tag+class
+    //     signature and count 2; the lone `.pin` counts 1.
+    expect(cols.every((c) => c.repeatCount === 2)).toBe(true)
+    expect(divs.find((d) => d.position === 'absolute')?.repeatCount).toBe(1)
+
+    // (6) the page's real @media breakpoints, in ascending order.
+    expect(hints.mediaBreakpoints).toEqual([600])
+  })
+
+  // Engine-gated, and DECLARED as such: on a runner without Chromium this reports
+  // as skipped, not as a green test that asserted nothing.
+  it.skipIf(!HAS_CHROMIUM)('test_UAT_AC694_structural_hints_extracted_by_a_real_engine', async () => {
     const server = createServer((_req, res) => {
       res.setHeader('content-type', 'text/html; charset=utf-8')
-      res.end(html)
+      res.end(HINTS_FIXTURE_HTML)
     })
     servers.push(server)
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
@@ -647,6 +736,17 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     expect(flexChild?.parentLayout?.justifyContent).toBe('space-between')
     // Authored sizing unit (%) reported for a column.
     expect(real.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)
+    // Ancestry: the `.col` children name the `.row` section, which a real engine
+    // resolves through the same pre-order walk.
+    const section = real.nodes.find((n) => n.tag === 'section')
+    expect(section).toBeDefined()
+    const divs = real.nodes.filter((n) => n.tag === 'div' && n.parentId === section!.id)
+    expect(divs.length).toBe(3)
+    // Position mode, off real computed styles.
+    expect(divs.filter((d) => d.position === 'static')).toHaveLength(2)
+    expect(divs.filter((d) => d.position === 'absolute')).toHaveLength(1)
+    // Sibling-repetition count for the two `.col` siblings.
+    expect(divs.filter((d) => d.repeatCount === 2)).toHaveLength(2)
   })
 
   it('test_UAT_AC695_folded_document_renders_without_hint_sidecar', () => {

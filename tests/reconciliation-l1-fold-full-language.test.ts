@@ -390,6 +390,137 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
     expect(css).toContain(`background-color: ${PANEL}`)
     expect(css).toContain('background-image: linear-gradient(90deg,')
   })
+
+  // ── the page base is chosen by painted EXTENT, not by run count ─────────────
+  //
+  // AC-731 names a three-rung chain: the fill covering the greatest total band
+  // height (bands and captured backdrops alike), then — only when no full-bleed
+  // band was reconstructed at all — the fill the greatest number of runs sit on,
+  // and only failing that the captured canvas fill. The fixture above cannot
+  // discriminate the first rung from the second: its tallest band and its
+  // most-common run fill are the same colour. Each probe below makes the two
+  // rungs disagree, so the ordering itself is what is under test.
+
+  /** A resting capture over the ladder that also carries the page's canvas fill. */
+  function multiWithCanvas(
+    elementsAt: (width: number) => ValueElement[],
+    bodyBackground: string,
+  ): MultiStateCapture {
+    const ms = multiFrom(elementsAt)
+    for (const p of ms.projections) {
+      ;(p.manifest as { bodyBackground?: string }).bodyBackground = bodyBackground
+    }
+    return ms
+  }
+
+  const bandsOf = (doc: ReturnType<typeof foldToL1>) =>
+    leavesOf(doc).filter((n) => n.kind === 'box' && (n.id ?? '').startsWith('section-band-'))
+
+  it('test_UAT_AC731_page_base_is_the_tallest_band_not_the_most_common_run_fill', () => {
+    const HERO = '#101828' // ONE run, but 520px of painted band
+    const STRIPE = '#f8f5f2' // THREE runs, but only 160px of painted band
+    const ms = multiFrom((w) => [
+      run('Hero headline', { x: 20, y: 40, width: w - 40, height: 520 }, { surfaceFill: HERO }),
+      run('Stripe A', { x: 20, y: 620, width: w - 40, height: 40 }, { surfaceFill: STRIPE }),
+      run('Stripe B', { x: 20, y: 680, width: w - 40, height: 40 }, { surfaceFill: STRIPE }),
+      run('Stripe C', { x: 20, y: 740, width: w - 40, height: 40 }, { surfaceFill: STRIPE }),
+    ])
+    const doc = foldToL1(ms)
+    expect(validateL1(doc).ok).toBe(true)
+
+    // Both fills really did reconstruct full-bleed bands — otherwise the two
+    // rungs would not be in competition and the probe would be vacuous.
+    const fills = bandsOf(doc).map((b) => (b.kind === 'box' ? b.axes?.surfaceFill : undefined))
+    expect(new Set(fills)).toEqual(new Set([HERO, STRIPE]))
+
+    // Count says STRIPE (3 runs vs 1). Extent says HERO (520px vs 160px).
+    // The AC says extent wins.
+    expect(doc.background).toBe(HERO)
+    expect(renderL1Document(doc).css).toContain(`body { background-color: ${HERO} }`)
+  })
+
+  it('test_UAT_AC731_page_base_falls_back_to_the_most_common_run_fill_when_no_band_is_reconstructed', () => {
+    const CARD = '#e8dfd3' // three shadowed panels — a treated surface is never a band fill
+    const ODD = '#dbeafe' // one
+    const CANVAS = '#fffdf7'
+    const SHADOW = 'rgba(0, 0, 0, 0.1) 0px 4px 12px 0px'
+    const ms = multiWithCanvas(
+      () => [
+        run('Panel one', { x: 40, y: 100, width: 200, height: 40 }, { surfaceFill: CARD, boxShadow: SHADOW }),
+        run('Panel two', { x: 40, y: 400, width: 200, height: 40 }, { surfaceFill: CARD, boxShadow: SHADOW }),
+        run('Panel three', { x: 40, y: 700, width: 200, height: 40 }, { surfaceFill: CARD, boxShadow: SHADOW }),
+        run('Odd one out', { x: 40, y: 1000, width: 200, height: 40 }, { surfaceFill: ODD, boxShadow: SHADOW }),
+      ],
+      CANVAS,
+    )
+    const doc = foldToL1(ms)
+    expect(validateL1(doc).ok).toBe(true)
+
+    // Nothing spans the page, so the first rung has nothing to measure…
+    expect(bandsOf(doc)).toHaveLength(0)
+    // …and the second rung answers: the fill the most runs sit on — NOT the
+    // canvas, which is the last resort and is present here to prove it is not
+    // reached while a run fill survives.
+    expect(doc.background).toBe(CARD)
+    expect(doc.background).not.toBe(CANVAS)
+  })
+
+  it('test_UAT_AC731_page_base_falls_back_to_the_captured_canvas_fill_as_a_last_resort', () => {
+    const CANVAS = '#fffdf7'
+    const ms = multiWithCanvas(
+      (w) => [
+        // No run carries a composited surface at all, so neither the band rung
+        // nor the run-count rung has anything to offer.
+        run('Plain heading', { x: 20, y: 40, width: w - 40, height: 48 }),
+        run('Plain body', { x: 20, y: 120, width: w - 40, height: 96 }),
+      ],
+      CANVAS,
+    )
+    const doc = foldToL1(ms)
+    expect(validateL1(doc).ok).toBe(true)
+
+    expect(bandsOf(doc)).toHaveLength(0)
+    expect(doc.background).toBe(CANVAS)
+    expect(renderL1Document(doc).css).toContain(`body { background-color: ${CANVAS} }`)
+  })
+
+  it('test_UAT_AC731_a_captured_backdrop_counts_towards_the_page_base_extent', () => {
+    // BUG-27 — a page whose panels are all nested reconstructs almost no bands of
+    // its own, so the measured backdrops are the only honest evidence of what the
+    // page is mostly painted in. Here the ONLY full-bleed paint is a captured
+    // backdrop; the run fill is both more common (2 runs vs 0) and the only thing
+    // the band rung could otherwise see.
+    const DEEP = '#0f172b'
+    const CARD = '#e8dfd3'
+    const CANVAS = '#ffffff'
+    const SHADOW = 'rgba(0, 0, 0, 0.1) 0px 4px 12px 0px'
+    const ms = multiWithCanvas(
+      (w) => [
+        textless({
+          role: 'generic',
+          surfaceFill: DEEP,
+          box: { x: 0, y: 0, width: w, height: 900 },
+        }),
+        run('Nested one', { x: 60, y: 120, width: 220, height: 40 }, { surfaceFill: CARD, boxShadow: SHADOW }),
+        run('Nested two', { x: 60, y: 400, width: 220, height: 40 }, { surfaceFill: CARD, boxShadow: SHADOW }),
+      ],
+      CANVAS,
+    )
+    const doc = foldToL1(ms)
+    expect(validateL1(doc).ok).toBe(true)
+
+    // The backdrop folded as a real full-bleed box leaf…
+    const backdrop = leavesOf(doc).find((n) => n.kind === 'box' && n.axes?.surfaceFill === DEEP)
+    expect(backdrop, 'the captured backdrop must fold to a box leaf').toBeDefined()
+    for (const kf of backdrop!.geometry!.keyframes) expect(kf.width).toBe(kf.at)
+    // …no band was reconstructed from the runs…
+    expect(bandsOf(doc)).toHaveLength(0)
+    // …and its 900px of paint — not the two-run CARD fill, not the canvas —
+    // is what the page base reads.
+    expect(doc.background).toBe(DEEP)
+    expect(doc.background).not.toBe(CARD)
+    expect(doc.background).not.toBe(CANVAS)
+  })
 })
 
 // ── AC-732: text pixel-mover families + painted-only font table ───────────────

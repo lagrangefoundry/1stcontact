@@ -88,7 +88,12 @@ function frameAt(box: L1Box, at: number): { x: number; y: number; width: number;
 }
 
 describe('REQ-88 — a card takes the captured surface rect; a mirrored face binds its family', () => {
-  it('test_UAT_FC_REQ-88_a_card_adopts_the_captured_surface_rect_and_radius', () => {
+  // Re-attributed to AC-731 (reconciliation of REQ-88 round-5): AC-731 now states
+  // that a backing box's edges, radius and grouping identity come from the
+  // captured surface rect — two runs on one rect merge, two on different rects
+  // never do, and a viewport-wide surface is the band. These three probes are that
+  // clause's authoritative evidence.
+  it('test_UAT_AC731_a_card_adopts_the_captured_surface_rect_and_radius', () => {
     // Two runs inside one panel. Their own boxes are inset from the panel by an
     // asymmetric margin (24 left, 32 top) that no vertical-rhythm estimate could
     // recover, and both are square — the rounding lives on the panel element.
@@ -112,7 +117,7 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
     expect(card!.axes?.borderRadiusPx).toBe(8)
   })
 
-  it('test_UAT_FC_REQ-88_sibling_panels_sharing_no_surface_stay_separate_and_aligned', () => {
+  it('test_UAT_AC731_sibling_panels_sharing_no_surface_stay_separate_and_aligned', () => {
     // Three tiles in a row, each its own surface. The measured rect is an identity:
     // same rect joins, different rects never do — so the tiles cannot merge into one
     // box, and none drifts to a different x/width from its siblings.
@@ -137,7 +142,7 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
     expect(got).toEqual(TILES)
   })
 
-  it('test_UAT_FC_REQ-88_a_full_viewport_surface_is_a_band_so_the_run_keeps_its_own_box', () => {
+  it('test_UAT_AC731_a_full_viewport_surface_is_a_band_so_the_run_keeps_its_own_box', () => {
     // A quote sitting directly on the section: its painting ancestor IS the band, so
     // the run must keep its own box. Adopting the band rect stretched an 868x29
     // accent rule to 1280x595.

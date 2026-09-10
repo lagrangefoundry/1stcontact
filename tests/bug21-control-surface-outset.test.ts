@@ -89,7 +89,11 @@ function submitControlOf(form: FoldedForm): { axes?: Record<string, unknown> } |
 }
 
 describe('BUG-21 — a padded control surface is not outset by padding its box already includes', () => {
-  it('test_UAT_FC_BUG-21_padded_control_surface_matches_its_captured_box_at_every_width', () => {
+  // Re-attributed to AC-731 (reconciliation of BUG-21): AC-731 names the padded
+  // control as the second self-painting family — an authored *vertical* padding
+  // inset carries the surface onto the run's own leaf and emits no backing box,
+  // while a gradient or a left-accent rule keeps the run on the backing-box path.
+  it('test_UAT_AC731_padded_control_surface_matches_its_captured_box_at_every_width', () => {
     const doc = foldToL1(pageWithButton())
     const control = textLeaves(doc).find((t) => t.text === 'Subscribe')
     expect(control, 'the control run must survive as a text leaf').toBeDefined()
@@ -107,7 +111,7 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     expect(control!.padding).toEqual({ topPx: 12, rightPx: 24, bottomPx: 12, leftPx: 24 })
   })
 
-  it('test_UAT_FC_BUG-21_no_outset_card_box_is_emitted_behind_a_padded_control', () => {
+  it('test_UAT_AC731_no_outset_card_box_is_emitted_behind_a_padded_control', () => {
     const doc = foldToL1(pageWithButton())
     // The regression: a card box behind the control, outset on all four sides —
     // 2x the height and ~50px too wide, and negative x at the narrow widths.
@@ -171,7 +175,7 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     expect(kf.height!).toBe(72)
   })
 
-  it('test_UAT_FC_BUG-21_a_padded_run_carrying_an_ancestor_accent_stays_on_the_card_path', () => {
+  it('test_UAT_AC731_a_padded_run_carrying_an_ancestor_accent_stays_on_the_card_path', () => {
     // A `pl`-indented callout inside a bordered-left card: the accent bar is
     // ancestor-attributed and the chip axes cannot carry it, so this run must NOT be
     // treated as self-painting — the card keeps its bar.
