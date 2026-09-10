@@ -6,14 +6,15 @@ title: 1c assets still bootstraps on a fresh checkout without loading the CLI ba
   and its --json output is one clean document
 created_by: xgd
 created_at: '2026-08-31T11:18:58.275135+00:00'
-updated_at: '2026-08-31T11:28:21.577421+00:00'
+updated_at: '2026-09-10T01:55:00.438998+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 `1c assets` — the one command whose output everything else imports — still
