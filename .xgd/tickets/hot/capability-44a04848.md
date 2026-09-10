@@ -5,7 +5,7 @@ type: capability
 title: 'Assistant Pane: The Conversation Beside The Page'
 created_by: xgd
 created_at: '2026-08-10T08:45:31.120965+00:00'
-updated_at: '2026-08-16T04:42:18.701100+00:00'
+updated_at: '2026-09-10T22:44:58.664835+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
