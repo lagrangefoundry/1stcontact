@@ -6,7 +6,7 @@ title: A draft that no longer validates is reported where the operator is lookin
   naming the offending field
 created_by: xgd
 created_at: '2026-08-10T07:29:18.175064+00:00'
-updated_at: '2026-08-16T10:03:27.079506+00:00'
+updated_at: '2026-09-10T11:06:53.168484+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
