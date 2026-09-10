@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:26:09.875505+00:00'
+updated_at: '2026-09-10T22:39:54.406161+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,11 @@ Given #1 — contact database only, no notifications — here's the split I'd su
 - **Not mine to file — the whitepaper PDFs.** Content, and it blocks the XGD site's promise.
 
 Confirm the split and answer the same-origin-vs-cross-origin question, and I'll write them up.
+
+<!-- xgd-turn id="645868fb-8651-43f5-b389-be224501c63e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:39:54.363269+00:00" -->
+#### You
+There is a fairly significant over head to me for each ticket - the scope of tickets can be large - please reduce the number of REQs you need
 
 <!-- xgd-chat-end -->
