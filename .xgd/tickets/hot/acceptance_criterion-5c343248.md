@@ -6,14 +6,15 @@ title: A caller advancing its baseline from its own writes never sees its own ed
   reported back
 created_by: xgd
 created_at: '2026-08-20T02:27:06.438199+00:00'
-updated_at: '2026-08-20T02:46:17.163580+00:00'
+updated_at: '2026-09-10T09:14:27.919046+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
