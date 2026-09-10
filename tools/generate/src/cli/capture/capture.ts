@@ -85,6 +85,15 @@ export async function cmdCapturePage(
     driverFactory: opts.driverFactory,
     retries: opts.retries,
   })
+  // THE HOST THAT ANSWERED, NOT THE ONE THAT WAS TYPED (BUG-67 B5).
+  //
+  // The pipeline may have corrected the hostname — `www.example.com` typed for
+  // a site that only serves its apex, or the reverse. That correction has to
+  // carry, because a capture is FOUR navigation passes and only the first ran
+  // inside the pipeline: leaving the other three on `url` would have the ladder,
+  // the screenshots and the hints all still asking for the name that had nothing
+  // behind it, and a bundle assembled half from one host and half from failures.
+  const captured = result.capture.url
   // The name comes from the captured URL, not from anywhere the caller chose —
   // see `bundleNameFor`. Both adapters therefore agree on what this bundle is
   // called, which is what lets a cloud capture and a laptop capture of the same
@@ -96,7 +105,7 @@ export async function cmdCapturePage(
   // %-vs-fixed reflow (a wordmark that drifts on resize) is invisible at a single
   // width. Project the reference across RESPONSIVE_VIEWPORTS at rest and persist it
   // so `values-diff --multi-viewport` has a per-width reference to pair against.
-  const multiState = await runMultiStateCapture(url, {
+  const multiState = await runMultiStateCapture(captured, {
     states: ['rest'],
     driverFactoryFor:
       opts.driverFactoryFor ?? (opts.driverFactory ? () => opts.driverFactory! : undefined),
@@ -114,7 +123,7 @@ export async function cmdCapturePage(
   // REQ-61 — the image sibling of the ladder: a full-page reference screenshot at
   // each width, so `1c diff --size` compares our reproduction against a same-width
   // reference rather than the single desktop shot.
-  const ladderShots = await captureLadderScreenshots(url, { driverFactory: opts.driverFactory })
+  const ladderShots = await captureLadderScreenshots(captured, { driverFactory: opts.driverFactory })
   await writeLadderScreenshots(bundle, ladderShots)
 
   // REQ-83 — fold the retained ladder into ONE L1 document (the reproduction
@@ -131,7 +140,7 @@ export async function cmdCapturePage(
   })
   await writeL1(bundle, l1)
   await writeForms(bundle, forms)
-  const hints = await captureStructuralHints(url, {
+  const hints = await captureStructuralHints(captured, {
     driverFactory: opts.driverFactory,
   })
   await writeHints(bundle, hints)
