@@ -2,13 +2,13 @@
 uid: acceptance_criterion-0d6bc58c
 id: AC-1385
 type: acceptance_criterion
-title: Every storage question answers identically over all three live stores, with
-  the render cases a named exception
+title: Every storage question answers identically over all three live stores, the
+  render included
 created_by: xgd
 created_at: '2026-08-31T09:47:17.168052+00:00'
-updated_at: '2026-09-10T06:46:32.413554+00:00'
+updated_at: '2026-09-10T06:46:37.921946+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-fde7370b
