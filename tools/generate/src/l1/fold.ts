@@ -20,6 +20,7 @@
 import {
   L1_ENVELOPE,
   isSafeUrl,
+  l1PlainText,
   validateL1,
   type L1BlendMode,
   type L1Border,
@@ -49,6 +50,8 @@ import {
   type L1Slot,
   type L1Text,
   type L1TextAxes,
+  type L1TextRun,
+  type L1TextRunAxes,
   type L1TextResponsive,
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
@@ -58,6 +61,10 @@ import {
 // graph of everything that folds a capture — including, once REQ-157 arrived, a
 // Worker. The builder this actually uses is pure and now lives on its own.
 import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-table'
+// REQ-211 — the ONE decision about which captured runs are pieces of one
+// sentence, shared with the fidelity oracle in `probes.ts`. See that module's
+// header for why it cannot be a branch in either caller.
+import { flowLead, rejoinableFlows, type InlineFlow } from './inline-runs'
 import {
   boxDistance,
   clusterControls,
@@ -576,6 +583,61 @@ function foldPadding(el: ValueElement): L1Padding | undefined {
 }
 
 /** Map a captured element's authored axes onto the typed L1 text-axis subset. */
+/**
+ * REQ-211 — the baseline lift a captured run declares, in `em` of its own size.
+ *
+ * `vertical-align` is a mixed vocabulary: two keywords that mean "a superscript"
+ * and "a subscript" with no stated distance, a length, and a set of table/line
+ * box keywords that are not a lift at all. Only the first two forms and a length
+ * are read; `top` / `middle` / `bottom` align a run against its line box rather
+ * than shifting it off a baseline, and rendering them as a shift would move
+ * text the reference did not move.
+ *
+ * The keyword distances are the conventional ones browsers use for `<sup>` and
+ * `<sub>`. They are approximations of an engine's own internal constants, which
+ * are not exposed — this is a transcription face, and an approximate lift in the
+ * right direction reproduces an ordinal, where no lift at all does not.
+ */
+function foldBaselineShift(el: ValueElement): number | undefined {
+  const v = el.verticalAlign
+  if (!v || v === 'baseline') return undefined
+  if (v === 'super') return 0.4
+  if (v === 'sub') return -0.2
+  const px = /^(-?[\d.]+)px$/.exec(v)
+  if (px && el.fontSizePx > 0) return clamp(Number(px[1]) / el.fontSizePx, -10, 10)
+  return undefined
+}
+
+/**
+ * REQ-211 — one captured run as an L1 run: its words, and only what it does
+ * DIFFERENTLY from the node it is being rejoined into.
+ *
+ * Only the difference, because the node already declares the paragraph. A run
+ * that restated the base colour would render identically and read as though the
+ * author had picked it — and it would survive a later edit to the node's own
+ * colour, silently pinning one word to the old palette entry.
+ *
+ * The size is a RATIO, which is the whole reason a scale exists rather than a
+ * pixel size: the node routinely carries a per-width font-size track, and a run
+ * pinned in pixels would win at every width that track covers.
+ */
+function foldTextRun(el: ValueElement, base: ValueElement): L1TextRun {
+  const axes: L1TextRunAxes = {}
+  if (el.color && !el.colorInferred && el.color !== base.color) axes.color = el.color
+  if (base.fontSizePx > 0 && el.fontSizePx > 0 && el.fontSizePx !== base.fontSizePx) {
+    axes.sizeScale = clamp(Math.round((el.fontSizePx / base.fontSizePx) * 1000) / 1000, 0.1, 8)
+  }
+  if (el.fontWeight && el.fontWeight !== base.fontWeight) axes.fontWeight = el.fontWeight
+  const slope = (v: string | null | undefined): 'normal' | 'italic' =>
+    v === 'italic' || v === 'oblique' ? 'italic' : 'normal'
+  if (slope(el.fontStyle) !== slope(base.fontStyle)) axes.fontStyle = slope(el.fontStyle)
+  const shift = foldBaselineShift(el)
+  if (shift !== undefined) axes.baselineShiftEm = shift
+  const run: L1TextRun = { text: el.textFlow ?? el.text }
+  if (Object.keys(axes).length > 0) run.axes = axes
+  return run
+}
+
 function textAxes(el: ValueElement): L1TextAxes {
   const axes: L1TextAxes = {}
   // Colour is dropped when the capture only *guessed* it (the #000/#fff sentinel),
@@ -878,6 +940,22 @@ export interface FoldableElement {
   blendMode?: string | null
   /** BUG-27 — a painted CSS `background-image` handle (the hero / section imagery). */
   backgroundImageUrl?: string | null
+  // ── REQ-211 the inline flow this element belongs to ────────────────────────
+  //
+  // Declared here as well as on `ValueElement` because this shape is what the
+  // FIDELITY ORACLE is handed (`OracleSource`), and the oracle has to rejoin
+  // exactly the flows the fold rejoins. Leaving them off the declared contract
+  // would make that agreement an accident of the concrete object rather than a
+  // property of the interface both sides are written against.
+  inlineGroup?: string
+  inlineIndex?: number
+  inlineBox?: { x: number; y: number; width: number; height: number } | null
+  textFlow?: string
+  verticalAlign?: string | null
+  color?: string
+  fontSizePx?: number
+  fontWeight?: number
+  fontStyle?: string | null
 }
 
 /**
@@ -1756,6 +1834,17 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const edgeResponses = sectionEdgeResponses(probes, projections)
   const columnFit = fitColumn(projections)
 
+  // REQ-211 — the rejoin plan. Built from EVERY projection, not just the widest:
+  // the row loop reads a row's widest PRESENT element, which for a run that
+  // disappears on desktop is a narrower sample, and a plan keyed only on the
+  // widest ladder rung would then not recognise it.
+  const flowOf = new Map<ValueElement, InlineFlow<ValueElement>>()
+  for (const p of projections) {
+    for (const flow of rejoinableFlows(p.manifest.elements)) {
+      for (const m of flow.members) flowOf.set(m, flow)
+    }
+  }
+
   const residuals = opts.residuals
   const signal = (el: ValueElement, reason: string, presentWidths: number[]): void => {
     residuals?.push({ kind: residualKindOf(el), reason, capturedAxes: capturedAxesOf(el), widths: presentWidths })
@@ -1794,9 +1883,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     // box/image leaf pins all four sides (height too); a text leaf's height is
     // natural (from flow), so its keyframes omit height (the text path below).
     const framed = row.cells.filter((c) => c.element?.box)
-    const buildGeometry = (withHeight: boolean): L1Geometry => {
+    const buildGeometry = (withHeight: boolean, useFlowBox = false): L1Geometry => {
       const keyframes = framed.map((c) => {
-        const box = c.element!.box!
+        // REQ-211 — a rejoined node lays out inside its FLOW ROOT, not inside the
+        // tight box of whichever fragment carries it. The fragment's box is where
+        // one piece of glyphs landed; the root's is the space the sentence has to
+        // flow in, and pinning the fragment's would re-wrap the copy into the
+        // width of its longest word.
+        const box = (useFlowBox ? c.element!.inlineBox : undefined) ?? c.element!.box!
         // REQ-88 — a text box rounds its width UP. A shrink-to-fit run's captured
         // box IS its glyph extent (element width === renderedTextBox width), so
         // rounding to nearest makes the box narrower than the text it must hold
@@ -1842,6 +1936,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
         continue
       }
+      // REQ-211 — a run that is one piece of a varying inline flow is folded as
+      // part of that flow's node, not as a node of its own. The flow's LEAD run
+      // carries it; every other member is consumed here, which is also what stops
+      // it contributing a second surface row and a duplicate card behind the same
+      // sentence. The oracle drops the same members (`probes.ts`), so nothing the
+      // fold rejoins is left counted twice on the reference side.
+      const flow = flowOf.get(widest)
+      if (flow && flowLead(flow) !== widest) continue
       // BUG-20 — a self-painting chip (a `rounded-full` badge) carries its own
       // surface on the text leaf; a bare run carries only type axes.
       const chip = isSelfPaintingRun(widest)
@@ -1851,13 +1953,20 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // over its own glyphs is routinely a fraction of a pixel, and each engine
       // measures glyphs differently — so without this the reference's own line
       // count is re-decided, per browser, by rounding. See `axes.nowrapFromPx`.
-      const nowrapFrom = nowrapThreshold(framed.map((c) => ({ width: c.width, element: c.element! })))
+      // REQ-211 — never on a rejoined node. The threshold states a fact about ONE
+      // fragment's glyph extent inside a box the fold pinned to it; a rejoined
+      // node's box is the flow root's, which the reference already sized to hold
+      // the whole sentence, so there is nothing left for a rounding error to
+      // decide and pinning `nowrap` could only push the copy out of its own box.
+      const nowrapFrom = flow
+        ? undefined
+        : nowrapThreshold(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (nowrapFrom !== undefined) axes.nowrapFromPx = nowrapFrom
       const node: Extract<L1Node, { kind: 'text' }> = {
         kind: 'text',
-        text: widest.text,
+        text: flow ? flow.members.map((m) => foldTextRun(m, widest)) : widest.text,
         axes,
-        geometry: buildGeometry(false),
+        geometry: buildGeometry(false, Boolean(flow)),
       }
       // BUG-18 — keyframe the numeric type axes that vary across the ladder, so
       // font-size (etc.) scales per width instead of pinning the desktop value.
@@ -2287,7 +2396,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (chip.padding) submitControl.padding = chip.padding
       if (chip.responsivePadding) submitControl.responsivePadding = chip.responsivePadding
       controlNodes.push(submitControl)
-      form.submitLabel = chip.text
+      form.submitLabel = l1PlainText(chip.text)
     }
     form.form = {
       kind: 'box',

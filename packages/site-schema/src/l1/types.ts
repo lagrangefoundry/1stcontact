@@ -55,7 +55,10 @@ import type {
   l1SlotSchema,
   l1SurfaceAxesSchema,
   l1TextAxesSchema,
+  l1TextContentSchema,
   l1TextResponsiveSchema,
+  l1TextRunAxesSchema,
+  l1TextRunSchema,
   l1TextSchema,
   l1TransformSchema,
   l1TransitionSchema,
@@ -80,6 +83,10 @@ export type L1LayoutKeyframe = z.infer<typeof l1LayoutKeyframeSchema>
 export type L1ResponsiveLayout = z.infer<typeof l1ResponsiveLayoutSchema>
 export type L1Visibility = z.infer<typeof l1VisibilitySchema>
 export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
+// REQ-211 — one level of inline variation: a node's copy is a string or runs.
+export type L1TextRunAxes = z.infer<typeof l1TextRunAxesSchema>
+export type L1TextRun = z.infer<typeof l1TextRunSchema>
+export type L1TextContent = z.infer<typeof l1TextContentSchema>
 // BUG-18 responsive scalar-axis tracks.
 export type L1ScalarKeyframe = z.infer<typeof l1ScalarKeyframeSchema>
 export type L1ScalarTrack = z.infer<typeof l1ScalarTrackSchema>

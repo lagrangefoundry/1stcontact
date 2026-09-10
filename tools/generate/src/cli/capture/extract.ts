@@ -116,6 +116,29 @@ export interface RawRun extends RawGeometry {
   /** REQ-64 — computed `text-align`, normalized start→left / end→right. Type-A: a
    *  centred vs left-aligned run was only visible indirectly as a `position` delta. */
   textAlign: 'left' | 'center' | 'right' | 'justify'
+  // ── REQ-211 the inline flow this run belongs to ────────────────────────────
+  //
+  // A `<p>Hello <em>world</em></p>` is TWO text nodes and has always been
+  // captured as two runs — so the fold saw two runs where the reference has one
+  // sentence, and pinned each at its own absolute box. That is the DOC-52 §2
+  // trap on a page rather than in a drawing, and it is worse there: a pair of
+  // separately-positioned fragments comes apart at every width the copy reflows
+  // at. These four fields are what let the fold put the sentence back together.
+  //
+  // Recorded whenever a flow holds more than one run, whether or not the fold
+  // will act on it — the capture's job is to say what the page IS, and the
+  // decision about which flows are worth rejoining belongs downstream, where the
+  // fidelity oracle can be made to take the same view (`inline-runs.ts`).
+  /** Identifies the inline flow: its root element, and which `<br>`-delimited line of it. */
+  inlineGroup?: string
+  /** This run's position in that flow, in document order. */
+  inlineIndex?: number
+  /** The flow root's own rect — the box the rejoined runs lay out inside. */
+  inlineBox?: Box | null
+  /** This run's text with its OWN separating spaces kept (`text` is trimmed). */
+  textFlow?: string
+  /** Computed `vertical-align` when the run is lifted off the baseline, else null. */
+  verticalAlign?: string | null
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (the nearest
    *  painted ancestor background), null when the run sits on the section band. */
   surfaceFill?: string | null
@@ -1102,6 +1125,8 @@ export const EXTRACT_SCRIPT = `(() => {
     return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
   }
 
+  // REQ-211 -- a document-wide sequence for inline-flow ids. See flowIds.
+  var FLOW_SEQ = 0;
   // Collect visible text runs under a root, in document order, skipping any node
   // within an excluded subtree (so band content never duplicates item content).
   function runsUnder(root, excludes) {
@@ -1114,20 +1139,81 @@ export const EXTRACT_SCRIPT = `(() => {
     // exactly one run (unchanged) and off the text node itself when it does not.
     var nodes = [];
     var runCounts = new Map();
+    // REQ-211 -- a whitespace-only node between two inline runs carries the space
+    // that separates them. It is skipped as a run (it has no glyphs and no box),
+    // so the space it stands for is handed to the next run that IS emitted;
+    // without this, <span>A</span> <span>B</span> rejoins as "AB".
+    var pendingSpace = false;
     for (; (n = walker.nextNode()); ) {
-      var t = n.nodeValue.replace(/\\s+/g, ' ').trim();
-      if (!t) continue;
+      var flow = n.nodeValue.replace(/\\s+/g, ' ');
+      var t = flow.trim();
       var owner = n.parentElement;
-      if (!owner || !visible(owner)) continue;
-      if (moduleInvariant(owner)) continue;
-      if (excludes && insideAny(owner, excludes)) continue;
-      nodes.push({ node: n, el: owner, text: t });
+      if (!owner || !visible(owner)) { if (!t) pendingSpace = true; continue; }
+      if (moduleInvariant(owner)) { if (!t) pendingSpace = true; continue; }
+      if (excludes && insideAny(owner, excludes)) { if (!t) pendingSpace = true; continue; }
+      if (!t) { pendingSpace = true; continue; }
+      if (pendingSpace && flow.charAt(0) !== ' ') flow = ' ' + flow;
+      pendingSpace = false;
+      nodes.push({ node: n, el: owner, text: t, flow: flow });
       runCounts.set(owner, (runCounts.get(owner) || 0) + 1);
     }
-    for (var ri = 0; ri < nodes.length; ri++) {
-      n = nodes[ri].node;
-      var text = nodes[ri].text;
-      var el = nodes[ri].el;
+    // REQ-211 -- assign each run to the inline flow it sits in. The flow root is
+    // the nearest ancestor that is NOT display: inline, so <em>/<span>/<sup>
+    // climb to the block that holds them while an inline-BLOCK, a flex item or a
+    // grid item does not -- each of those establishes its own formatting context
+    // and its text is a separate flow, however the markup happens to nest.
+    // Blockification is what makes a row of flex links stay N runs rather than
+    // silently becoming one sentence.
+    //
+    // A <br> ENDS a flow. Two lines of one element are two flows: rejoining them
+    // would put the break back on the browser's own wrapping, which is exactly
+    // the decision the reference had already made.
+    function flowRootOf(el) {
+      var node = el;
+      for (var i = 0; i < 24 && node.parentElement; i++) {
+        if (getComputedStyle(node).display !== 'inline') break;
+        node = node.parentElement;
+      }
+      return node;
+    }
+    // The root id comes from a script-level sequence, not from this call's own
+    // list: runsUnder runs once per band and once per repeated item, and a
+    // per-call index would give the first flow of every band the same id -- so
+    // two unrelated sentences in two sections would rejoin as one.
+    var flowRoots = [];
+    var flowIds = [];
+    var flowInfo = [];
+    for (var gi = 0; gi < nodes.length; gi++) {
+      var groot = flowRootOf(nodes[gi].el);
+      var ri = flowRoots.indexOf(groot);
+      if (ri === -1) { ri = flowRoots.length; flowRoots.push(groot); flowIds.push('f' + (FLOW_SEQ++)); }
+      var brs = groot.getElementsByTagName('br');
+      var seg = 0;
+      for (var bi2 = 0; bi2 < brs.length; bi2++) {
+        if (brs[bi2].compareDocumentPosition(nodes[gi].node) & Node.DOCUMENT_POSITION_FOLLOWING) seg++;
+      }
+      flowInfo.push({ key: flowIds[ri] + ':' + seg, root: groot });
+    }
+    var flowMembers = new Map();
+    for (var gj = 0; gj < flowInfo.length; gj++) {
+      var mk = flowInfo[gj].key;
+      var list = flowMembers.get(mk);
+      if (list) list.push(gj); else flowMembers.set(mk, [gj]);
+    }
+    // A flow's own leading and trailing whitespace never paints -- the browser
+    // strips it -- so it is stripped here rather than travelling into the run
+    // text and reappearing as an invented indent when the runs are rejoined.
+    flowMembers.forEach(function (members) {
+      if (members.length < 2) return;
+      var first = nodes[members[0]];
+      first.flow = first.flow.replace(/^ +/, '');
+      var last = nodes[members[members.length - 1]];
+      last.flow = last.flow.replace(/ +$/, '');
+    });
+    for (var ri2 = 0; ri2 < nodes.length; ri2++) {
+      n = nodes[ri2].node;
+      var text = nodes[ri2].text;
+      var el = nodes[ri2].el;
       // The element's box IS the run's box only while it holds a single run; when
       // it holds several, that shared box says nothing about where this one paints.
       var ownRun = runCounts.get(el) === 1;
@@ -1153,9 +1239,22 @@ export const EXTRACT_SCRIPT = `(() => {
       // REQ-63 — the run's own painted box border (was fields-only). A card /
       // heading hairline or bottom rule is now a comparable value on text runs.
       var runBorder = boxBorderOf(s);
+      // REQ-211 -- the flow, recorded only where there IS one (a single-run flow
+      // is the ordinary case and gains nothing from being told it is a flow of
+      // one). inlineBox is the ROOT's rect, not the run's: rejoined runs lay
+      // out inside the block that holds them, and each run's own tight box says
+      // where a glyph landed rather than where the sentence may go.
+      var flowKey = flowInfo[ri2].key;
+      var flowGroup = flowMembers.get(flowKey);
+      var inFlow = flowGroup && flowGroup.length > 1;
       out.push({
         role: roleOf(el),
         text: text,
+        inlineGroup: inFlow ? flowKey : undefined,
+        inlineIndex: inFlow ? flowGroup.indexOf(ri2) : undefined,
+        inlineBox: inFlow ? absBox(flowInfo[ri2].root) : undefined,
+        textFlow: inFlow ? nodes[ri2].flow : undefined,
+        verticalAlign: (inFlow && s.verticalAlign && s.verticalAlign !== 'baseline') ? s.verticalAlign : undefined,
         color: resolvedColor || '#000000',
         colorInferred: !resolvedColor,
         fontFamily: familyStack(s.fontFamily),

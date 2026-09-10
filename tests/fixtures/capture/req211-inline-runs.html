@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-211 — a sentence that varies within itself</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; font-family: Georgia, serif; background: #ffffff; color: #111827; }
+      section { padding: 40px 20px; }
+      /* THE CASE. One sentence, four text nodes: an emphasised word, a coloured
+         word and a superscript ordinal, all in one inline flow. Today this folds
+         to four separately-pinned fragments that come apart when the copy
+         reflows; it has to fold to one node carrying four runs. */
+      h1 { font-size: 48px; line-height: 60px; font-weight: 700; }
+      h1 em { font-style: italic; }
+      h1 .accent { color: #e76f51; font-weight: 800; }
+      /* CONTROL A. Two inline spans that differ in NOTHING. There is no inline
+         variation to express, so rejoining would trade exact boxes for a flowed
+         one and buy nothing — these must stay separate. */
+      p.uniform { font-size: 20px; line-height: 28px; }
+      /* CONTROL B. A <br> ends a flow: two lines of one element are two flows,
+         because rejoining them would put the break back on the browser's own
+         wrapping — a decision the reference had already made. */
+      p.broken { font-size: 20px; line-height: 28px; }
+      /* CONTROL C. A flex row blockifies its children, so each link is its own
+         formatting context and its own flow, however the markup nests. */
+      nav.row { display: flex; gap: 24px; font-size: 18px; line-height: 24px; }
+      nav.row a { color: #1a3a6b; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1>Serving <em>real</em> <span class="accent">food</span> since <sup>19</sup>92</h1>
+    </section>
+    <section>
+      <p class="uniform"><span>Plain words</span> <span>and more of them</span></p>
+      <p class="broken">First captured line<br />second captured line</p>
+      <nav class="row"><a href="#a">Home</a><a href="#b">About</a><a href="#c">Contact</a></nav>
+    </section>
+  </body>
+</html>

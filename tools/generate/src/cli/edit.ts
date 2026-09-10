@@ -7,6 +7,7 @@ import {
   formatL1Path,
   L1_DOCUMENT_KEYS,
   l1OpaqueHexSchema,
+  l1PlainText,
   l1PaletteNameSchema,
   parseL1Path,
   renameL1PaletteRef,
@@ -141,7 +142,7 @@ async function note(
 function textOf(node: L1Node): string {
   const runs: string[] = []
   const walk = (n: L1Node): void => {
-    if (n.kind === 'text') runs.push(n.text)
+    if (n.kind === 'text') runs.push(l1PlainText(n.text))
     for (const child of (n as { children?: L1Node[] }).children ?? []) walk(child)
   }
   walk(node)
