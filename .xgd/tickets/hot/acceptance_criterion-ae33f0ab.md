@@ -6,9 +6,9 @@ title: A definition changed outside the workspace is shown on the next request, 
   no render step and no restart — and two workspaces never share a rendering
 created_by: xgd
 created_at: '2026-08-10T07:29:13.015523+00:00'
-updated_at: '2026-08-31T10:11:40.441297+00:00'
+updated_at: '2026-09-10T09:31:10.437292+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -29,15 +29,23 @@ This closes the staleness class that serving stored renderings carried: a change
 made outside the workspace's own save path used to be invisible until someone
 re-rendered, and a stale page looks exactly like a working one, just older.
 
-A rendering is reused between requests, because producing a whole channel for
-every file a page pulls would be wasteful — but the reuse is held against **the
+Where a rendering is reused between requests, the reuse is held against **the
 store the request reads through**, never against the account that store belongs
-to. Two workspaces open at once therefore each serve their own site's
-definitions: they are two stores and two renderings. Keyed on the account they
-would be one, because every local workspace is the same notional account, and
-the first workspace opened would go on answering for all the others — a whole
-workspace showing another workspace's site, which reads as a rendering that
-simply will not update.
+to. That key is chosen for isolation, not for cost. Two workspaces open at once
+therefore each serve their own site's definitions: they are two stores and two
+renderings. Keyed on the account they would be one, because every local
+workspace is the same notional account, and the first workspace opened would go
+on answering for all the others — a whole workspace showing another workspace's
+site, which reads as a rendering that simply will not update.
+
+The same key decides *where* reuse happens at all, and it is not everywhere. A
+local front door holds one store for a workspace's life, so its renderings are
+reused across that workspace's requests. The deployed origin builds a fresh
+store per request, so the reuse is never hit and no rendering is reused there;
+that is deliberate, because a store held across requests carries an account
+check made before the request. What keeps the deployed origin cheap is a layer
+lower — the store's own reuse of the assembled definition against the site's
+write version — and is asserted there rather than here.
 
 ## Verification
 
