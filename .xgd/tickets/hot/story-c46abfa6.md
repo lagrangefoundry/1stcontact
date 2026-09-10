@@ -6,16 +6,16 @@ title: Ask my site what assets it has, and get the truth rather than what it hap
   to have declared
 created_by: xgd
 created_at: '2026-08-07T04:29:09.386086+00:00'
-updated_at: '2026-09-10T19:43:54.114193+00:00'
+updated_at: '2026-09-10T20:40:57.032960+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: request-66e4c630
   capability_uid: capability-b4ac88fc
   story_kind: feature
   story_points: 2
-  uat_coverage: stale
+  uat_coverage: pass
 ---
 
 ## Story
