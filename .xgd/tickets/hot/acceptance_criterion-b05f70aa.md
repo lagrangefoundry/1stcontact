@@ -6,15 +6,15 @@ title: A band's translucent veil is captured as its own overlay value, resolved 
   the colour probe
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:48:02.774603+00:00'
-updated_at: '2026-09-09T23:48:02.774603+00:00'
+updated_at: '2026-09-10T00:56:55.441754+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
