@@ -6,7 +6,7 @@ title: 'Image generation: an out-of-credits OpenAI account is reported to the cl
   as a deployment fault'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:50.877405+00:00'
-updated_at: '2026-09-10T00:10:43.383280+00:00'
+updated_at: '2026-09-10T19:01:26.687978+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -200,3 +200,29 @@ reason the flag exists. Split the audiences instead:
 
 Both changes are in `lagrange-framework` (`components/ai/js/src/toolbox/`).
 Still no code change in this repository.
+
+
+## Where the fix lands
+
+**`lagrange-framework` BUG-50** (`bug-3821b4f2`) — *"The audit trail inherits the
+model's redaction, so a suppressed diagnosis is lost to the operator too"*.
+Created 2026-09-10, at `draft`, carrying the full diagnosis and the fix design.
+
+There is no honest 1stcontact-side fix. `apps/control-app/src/imagegen.ts` is
+wiring only and forbids local workarounds in its own header; the error taxonomy,
+the `host_detail` suppression and the `_record` rendering are all framework
+concerns, and patching one surface here would leave `store_unavailable` and every
+other `host_detail: false` code equally blind.
+
+This ticket therefore stays a diagnosis record. **No code lands against BUG-68.**
+
+## Immediate unblock
+
+Top up the OpenAI account at
+`https://platform.openai.com/settings/organization/billing/`. No restart and no
+repo change is needed.
+
+Separately: `wrangler secret list --env production` shows only `ANTHROPIC_API_KEY`
+and `RESEND_API_KEY`, so deployed sessions have no image tool at all. That is
+deliberate per `bin/deploy.d/secrets/30-openai-api-key`, which deploys without it
+and says so — noted here only because it means this reproduces in local dev only.
