@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A material is a valid record before any text has been extracted from it
 created_by: xgd
 created_at: '2026-09-02T00:31:01.345402+00:00'
-updated_at: '2026-09-02T00:42:25.382452+00:00'
+updated_at: '2026-09-10T02:22:25.921681+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
