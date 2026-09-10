@@ -5,12 +5,13 @@ type: capability
 title: Platform Build, Deploy & Live-Origin Verification
 created_by: xgd
 created_at: '2026-08-20T05:28:19.444381+00:00'
-updated_at: '2026-08-20T05:28:19.444381+00:00'
+updated_at: '2026-09-10T05:44:43.952161+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: Platform Build, Deploy & Live-Origin Verification
+  uat_coverage: pass
 ---
 
 Building the platform's own Workers, deploying them, and proving afterwards that what deployed actually serves.
