@@ -7,14 +7,15 @@ title: 'The surface states the cost of removal and rename from the counts it sho
   it will rewrite first'
 created_by: xgd
 created_at: '2026-08-20T01:59:50.879531+00:00'
-updated_at: '2026-08-20T02:20:56.781489+00:00'
+updated_at: '2026-09-10T02:54:50.246482+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
