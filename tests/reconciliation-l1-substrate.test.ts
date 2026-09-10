@@ -257,10 +257,14 @@ describe('AC-684 geometry keyframes produce per-viewport layout (interpolate vs 
     expect(band(1280)).toContain('width: 900px')
     expect(band(1280)).not.toContain('calc(')
 
-    // Real-browser confirmation: the interpolate wordmark actually moves and
-    // widens across the ladder, with the endpoints matching the authored
-    // keyframes. Skips cleanly where no engine is installed.
-    if (chromiumReady) {
+  }, 180000)
+
+  // The criterion's real-browser confirmation is a separate, engine-gated arm:
+  // declared with `it.runIf` so a run without an engine REPORTS A SKIP rather
+  // than passing over an `if (chromiumReady)` block that silently did not run.
+  itChromium(
+    'test_UAT_AC684_interpolate_wordmark_moves_and_widens_in_a_real_browser',
+    async () => {
       const projections = await captureL1(heroDoc(), {
         engines: ['chromium'],
         widths: WIDTHS,
@@ -292,8 +296,9 @@ describe('AC-684 geometry keyframes produce per-viewport layout (interpolate vs 
       // Above the largest keyframe the largest keyframe holds.
       expect(at(1440).x).toBeCloseTo(at(1280).x, 1)
       expect(at(1440).width).toBeCloseTo(at(1280).width, 1)
-    }
-  }, 180000)
+    },
+    180000,
+  )
 })
 
 // ── AC-685: injection payloads in content values are inert in the output ───────
@@ -364,6 +369,27 @@ describe('AC-686 out-of-range, oversize, and freeform documents are rejected by 
     expect(accepts(slotDoc('behavior')), 'renamed key accepted').toBe(true)
     expect(accepts(slotDoc('capability')), 'legacy key rejected as unknown').toBe(false)
 
+    // A closed-enum axis is bounded by its declared vocabulary, and the envelope
+    // is where that bound is enforced: the emitter re-checks text, colour,
+    // font-family, length and image source (AC-685), but an enum reaches CSS as
+    // itself — so the validator, not the emitter, is what stands between a
+    // free-typed enum value and the stylesheet (Security Policy §2, Layer 1).
+    // The boundary is again the vocabulary, not the property: the same axis
+    // carrying a declared member is accepted.
+    const transformDoc = (value: string): unknown => ({
+      widths: WIDTHS,
+      root: { kind: 'text', text: 'x', axes: { textTransform: value } },
+    })
+    expect(accepts(transformDoc('uppercase')), 'declared enum member accepted').toBe(true)
+    // The rejection names the offending axis and the vocabulary it violated, so
+    // the refusal is locatable rather than opaque.
+    const enumResult = validateL1(transformDoc('rotate(1deg);color:red'))
+    expect(enumResult.ok, 'out-of-vocabulary enum rejected').toBe(false)
+    if (!enumResult.ok) {
+      expect(enumResult.errors.map((e) => e.path)).toContain('/root/axes/textTransform')
+      expect(enumResult.errors.some((e) => /uppercase/.test(e.message))).toBe(true)
+    }
+
     // Each document below violates exactly one envelope rule and must be rejected.
     const rejected: Record<string, unknown> = {
       fontSizeTooBig: {
@@ -397,6 +423,16 @@ describe('AC-686 out-of-range, oversize, and freeform documents are rejected by 
       disallowedImageScheme: {
         widths: WIDTHS,
         root: { kind: 'image', src: 'javascript:alert(1)', alt: 'x' },
+      },
+      outOfVocabularyEnum: transformDoc('rotate(1deg);color:red'),
+      outOfVocabularyImageEnum: {
+        widths: WIDTHS,
+        root: {
+          kind: 'image',
+          src: '/hero.png',
+          alt: 'x',
+          axes: { objectFit: 'cover;}@import "evil.css";p{' },
+        },
       },
       freeformUnknownKey: {
         widths: WIDTHS,

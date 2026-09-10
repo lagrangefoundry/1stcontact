@@ -30,7 +30,7 @@ import { contactForm as ContactForm } from '../packages/framework/src/modules/co
 describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
   it('test_UAT_AC719_card_and_footer_treatments_authored_as_l1_leaf_axes', () => {
     // (a) The delivery mechanism is gone: the module catalog holds only the two
-    // survivor capabilities. No services-grid/footer (or any deleted layout
+    // survivor behavior modules. No services-grid/footer (or any deleted layout
     // module) survives, so no cardVeil/cardBorder/footer-colour dial can exist.
     expect([...registry.keys()].sort()).toEqual(['carousel@3', 'contact-form@4'])
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {

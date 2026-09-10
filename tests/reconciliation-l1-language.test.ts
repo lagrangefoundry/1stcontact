@@ -556,11 +556,20 @@ describe('AC-727 a document font resource table binds a family handle to its ser
       expect(unsafe).not.toContain('@font-face')
       // …and the stylesheet's braces stay balanced (nothing broke out of a rule).
       expect((unsafe.match(/}/g) ?? []).length).toBe((unsafe.match(/{/g) ?? []).length)
+    },
+    180000,
+  )
 
-      // ── End-to-end: the bound face actually paints the glyphs ────────────────
-      // Skips cleanly where no engine or no font asset is available.
-      if (!chromiumReady || !FONT_ASSET) return
+  // The criterion's end-to-end clause — the bound face actually paints the
+  // glyphs — is a separate, engine-gated arm: declared with `it.runIf` so a run
+  // without an engine or without a font asset REPORTS A SKIP rather than passing
+  // over a bare `return` that silently ended the test early.
+  const itBrowserFont = it.runIf(chromiumReady && FONT_ASSET !== null)
 
+  itBrowserFont(
+    'test_UAT_AC727_bound_face_paints_at_its_own_glyph_metrics_in_a_real_browser',
+    async () => {
+      const fontAsset = FONT_ASSET as string
       const FAMILY = 'L1BoundProbeFace' // deliberately not installed on any host
       const FONT_URL = '/fonts/bound.ttf'
       const textDoc = (withTable: boolean): L1Document => ({
@@ -583,7 +592,7 @@ describe('AC-727 a document font resource table binds a family handle to its ser
       })()`
 
       const measure = async (withTable: boolean) => {
-        const serve = await serveWithFont(textDoc(withTable), FONT_ASSET, FONT_URL)
+        const serve = await serveWithFont(textDoc(withTable), fontAsset, FONT_URL)
         const driver = await createEngineDriver('chromium')()
         try {
           await driver.navigate(serve.url, { width: 1280, height: 900 })
