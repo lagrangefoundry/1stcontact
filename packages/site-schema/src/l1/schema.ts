@@ -1195,18 +1195,101 @@ export const l1NodeAxisGroupsSchema = z.object(nodeAxisGroupsShape).strict()
 /** The inferred shape of {@link l1NodeAxisGroupsSchema} — every field optional. */
 export type L1NodeAxisGroups = z.infer<typeof l1NodeAxisGroupsSchema>
 
+// ── Multi-variate text (REQ-211) ─────────────────────────────────────────────
+//
+// A run of page copy could not vary within itself. One coloured word in a
+// headline, an ordinal set as a superscript, an emphasised phrase — each cost
+// three absolutely-positioned `text` leaves, whose coordinates are a guess and
+// whose responsive behaviour is wrong the moment the copy reflows (DOC-52 §3.7).
+// The schema was therefore not merely missing a nicety: it actively pushed the
+// author toward brittle geometry for ordinary typography.
+//
+// The fix is one level of inline structure and no more. `text` accepts either a
+// string — unchanged, so every existing document stays valid — or an ordered
+// list of runs. There is no nesting and no `link` inside a run: arbitrary
+// nesting is rich text, which is a different product decision, and an inline
+// anchor is a second addressing problem while the renderer remains the sole
+// `<a>` sink.
+
+/**
+ * The axes ONE RUN may vary from the node it sits in — deliberately a narrow
+ * subset of {@link l1TextAxesSchema}, not the whole bag.
+ *
+ * Why a subset: every axis that describes the *block* (alignment, measure, the
+ * wrap threshold, the painted surface, a list marker) is meaningless on a
+ * fragment of a line, and every axis that describes the *face* (family, tracking,
+ * line-height) is what makes a paragraph read as one paragraph. What is left is
+ * exactly what inline variation is for — a different colour, a different size, a
+ * different weight, a different slope, and a lift off the baseline.
+ *
+ * Both sizes are RELATIVE, and that is the point rather than a shorthand. A node
+ * routinely carries a per-width `responsive.fontSizePx` track (BUG-18); a run
+ * declaring absolute pixels would win at every width the track covers and pin
+ * the ordinal at its desktop size on a phone. A scale rides the track for free.
+ */
+export const l1TextRunAxesSchema = z
+  .object({
+    /** The run's own fill — a literal or a palette reference, like any colour. */
+    color: l1Color.optional(),
+    /**
+     * Multiplier on the node's own size, emitted as `em`. `0.6` is an ordinal;
+     * `1.2` is a lead-in word. Bounded by the envelope rather than here, so the
+     * refusal an out-of-range value produces names the field and the node.
+     */
+    sizeScale: finite.positive().optional(),
+    fontWeight: finite.optional(),
+    fontStyle: z.enum(['normal', 'italic']).optional(),
+    /**
+     * Baseline shift in `em` of the RUN's own size — positive raises. A
+     * superscript ordinal is `sizeScale: 0.6` with a shift around `0.5`; a
+     * subscript is a negative one. `vertical-align` rather than a transform, so
+     * the line box still accounts for the run and neighbouring lines do not
+     * collide with it.
+     */
+    baselineShiftEm: finite.optional(),
+  })
+  .strict()
+
+/** One run of a multi-variate text node: its words, and how they differ. */
+export const l1TextRunSchema = z
+  .object({
+    /**
+     * VERBATIM, including the spaces that separate this run from its neighbours.
+     * The renderer concatenates runs with nothing between them and the plain-text
+     * projection does the same, so `['Hello ', 'world']` is a sentence and
+     * `['super', 'script']` is one word — a joiner that invented a space could
+     * not express the second.
+     */
+    text: z.string(),
+    axes: l1TextRunAxesSchema.optional(),
+  })
+  .strict()
+
+/**
+ * A text node's copy: one string, or two-or-more runs.
+ *
+ * **A one-element array is not a legal spelling of a plain string.** Two ways to
+ * write the same thing is the drift this codebase refuses everywhere else: the
+ * fold, the renderer and the editor would each need a rule about which one they
+ * emit, and the first to disagree makes a document that reads differently
+ * depending on who wrote it. `min(2)` makes the canonical form structural rather
+ * than a convention someone has to remember.
+ */
+export const l1TextContentSchema = z.union([z.string(), z.array(l1TextRunSchema).min(2)])
+
 // ── Nodes — a discriminated union on `kind` ───────────────────────────────────
 //
 // `container` and `box` are recursive; Zod v4 handles this with a lazy getter on
 // the `children` field (the schema is still a ZodObject, so it remains a legal
 // discriminated-union option and its inferred type recurses automatically).
 
-/** A leaf of styled, escaped text. */
+/** A leaf of styled, escaped text — one run, or several (REQ-211). */
 export const l1TextSchema = z
   .object({
     kind: z.literal('text'),
     id: z.string().optional(),
-    text: z.string(),
+    /** REQ-211 — one string, or an ordered list of runs that vary within it. */
+    text: l1TextContentSchema,
     axes: l1TextAxesSchema.optional(),
     /** BUG-18 — per-width tracks for the numeric type axes that vary across the ladder. */
     responsive: l1TextResponsiveSchema.optional(),

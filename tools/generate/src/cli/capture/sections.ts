@@ -125,6 +125,13 @@ function toContentRun(r: RawRun): ContentRun {
   run.filter = r.filter
   run.textShadow = r.textShadow
   run.maskEdge = r.maskEdge
+  // REQ-211 — the inline flow, carried verbatim. Present only on a run that
+  // shares a flow with another; the fold decides which flows to rejoin.
+  if (r.inlineGroup !== undefined) run.inlineGroup = r.inlineGroup
+  if (r.inlineIndex !== undefined) run.inlineIndex = r.inlineIndex
+  if (r.inlineBox) run.inlineBox = r.inlineBox
+  if (r.textFlow !== undefined) run.textFlow = r.textFlow
+  if (r.verticalAlign !== undefined) run.verticalAlign = r.verticalAlign
   run.transformRotateDeg = r.transformRotateDeg
   run.transformScale = r.transformScale
   run.motion = r.motion

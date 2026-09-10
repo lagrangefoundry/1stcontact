@@ -1,4 +1,4 @@
-import { formatL1Path, type L1Node } from '@1stcontact/site-schema'
+import { formatL1Path, l1PlainText, type L1Node } from '@1stcontact/site-schema'
 
 /**
  * The derived segment model (REQ-129, REQ-131).
@@ -41,7 +41,7 @@ const LABEL_CHARS = 60
  */
 export function labelOf(node: L1Node): string {
   if (node.kind === 'text') {
-    const text = node.text.replace(/\s+/g, ' ').trim()
+    const text = l1PlainText(node.text).replace(/\s+/g, ' ').trim()
     return text.length > LABEL_CHARS ? `${text.slice(0, LABEL_CHARS - 1)}…` : text
   }
   if (node.kind === 'image') return node.alt || node.src

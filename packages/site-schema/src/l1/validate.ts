@@ -74,6 +74,21 @@ export const L1_ENVELOPE = {
    * rule — the schema pins them to 0..1, which is the whole of their range.
    */
   filterAmount: { min: 0, max: 4 },
+  /**
+   * REQ-211 — how far one run may scale away from the size its node declares.
+   * The floor keeps an ordinal from becoming a sub-pixel artefact the reader
+   * cannot see but the layout still reserves a line box for; the ceiling keeps a
+   * "run" from being a display heading smuggled into the middle of a paragraph,
+   * which is a different node and should be written as one. The node's own size
+   * is still bounded by `fontSizePx`, so the product of the two is bounded too.
+   */
+  runSizeScale: { min: 0.1, max: 8 },
+  /**
+   * REQ-211 — the baseline lift a run may take, in `em` of its own size. A
+   * superscript is about half an em; ten is a run flung clear of its own line
+   * box, overlapping whatever is above it, with nothing in flow to say so.
+   */
+  runBaselineShiftEm: { min: -10, max: 10 },
 } as const
 
 /**
@@ -594,6 +609,41 @@ function walk(
         errors.push({ path: `${path}/axes/${k}`, message: `${k}=${v} out of range` })
       }
     }
+  }
+
+  // REQ-211 — a multi-variate node's runs take the same bounds their node does,
+  // on the axes they share. A run is a piece of the same paragraph, so an
+  // envelope that stopped at the node would leave the one place inline variation
+  // can be authored as the one place it is unbounded — which is precisely the
+  // hole an envelope exists to close (see `checkSurface`'s reasoning for the
+  // interaction state, which is the same argument on a different axis).
+  if (node.kind === 'text' && typeof node.text !== 'string') {
+    node.text.forEach((run, i) => {
+      const a = run.axes
+      if (!a) return
+      const at = `${path}/text/${i}/axes`
+      if (a.fontWeight !== undefined && !inRange(a.fontWeight, L1_ENVELOPE.fontWeight.min, L1_ENVELOPE.fontWeight.max)) {
+        errors.push({
+          path: `${at}/fontWeight`,
+          message: `fontWeight=${a.fontWeight} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
+        })
+      }
+      if (a.sizeScale !== undefined && !inRange(a.sizeScale, L1_ENVELOPE.runSizeScale.min, L1_ENVELOPE.runSizeScale.max)) {
+        errors.push({
+          path: `${at}/sizeScale`,
+          message: `sizeScale=${a.sizeScale} out of range [${L1_ENVELOPE.runSizeScale.min}, ${L1_ENVELOPE.runSizeScale.max}]`,
+        })
+      }
+      if (
+        a.baselineShiftEm !== undefined &&
+        !inRange(a.baselineShiftEm, L1_ENVELOPE.runBaselineShiftEm.min, L1_ENVELOPE.runBaselineShiftEm.max)
+      ) {
+        errors.push({
+          path: `${at}/baselineShiftEm`,
+          message: `baselineShiftEm=${a.baselineShiftEm} out of range [${L1_ENVELOPE.runBaselineShiftEm.min}, ${L1_ENVELOPE.runBaselineShiftEm.max}]`,
+        })
+      }
+    })
   }
 
   // BUG-18 — responsive scalar-axis tracks: each keyframe value bounded by its

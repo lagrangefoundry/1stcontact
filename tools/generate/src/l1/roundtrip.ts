@@ -12,7 +12,7 @@
  */
 import http from 'node:http'
 import { renderL1Page } from '@1stcontact/framework'
-import type { L1Document, L1Node } from '@1stcontact/site-schema'
+import { l1TextRuns, type L1Document, type L1Node } from '@1stcontact/site-schema'
 import { evalScalarTrack } from './probes'
 import {
   createEngineDriver,
@@ -130,29 +130,49 @@ export function expectedTextManifest(doc: L1Document, viewport: Viewport): Value
     if (track) return evalScalarTrack(track, viewport.width)
     return node.axes?.[axis]
   }
+  // REQ-211 — ONE ELEMENT PER RUN, not per node. The manifest's unit is a
+  // captured text node, and the browser gives a run its own text node the moment
+  // the run paints anything (the renderer wraps exactly those runs in a span). A
+  // projection that emitted one element for a three-run heading would expect one
+  // element where the re-capture has three, and the gate would report the two it
+  // never claimed as unmatched — while saying nothing about whether the coloured
+  // word was actually coloured, which is the one thing it was asked.
+  //
+  // A run's axes are resolved AGAINST ITS NODE: what the browser computes for a
+  // span is the node's cascade with the run's own declarations over it, and the
+  // relative sizes are multiplied out here for the same reason they are `em` in
+  // the CSS — the node's size may itself be a per-width track.
   const elements: ValueElement[] = textNodes(doc.root)
-    .filter((n) => n.kind === 'text' && n.text.trim() !== '')
-    .map((n) => {
+    .flatMap((n) => {
       const node = n as Extract<L1Node, { kind: 'text' }>
       const a = node.axes ?? {}
-      const el: ValueElement = {
-        text: node.text,
-        role: 'body',
-        // REQ-114 — the manifest's unit is a painted literal. A document reaching
-        // the round-trip gate has been resolved (`loadSite`) or was never
-        // referenced (the fold emits literals), so a ref here is not a colour we
-        // can project and falls back to the same default an absent axis takes.
-        color: typeof a.color === 'string' ? a.color : '#000000',
-        fontFamily: a.fontFamily ?? '',
-        fontSizePx: resolve(node, 'fontSizePx') ?? 16,
-        fontWeight: a.fontWeight ?? 400,
-      }
-      const ls = resolve(node, 'letterSpacingPx')
-      if (ls !== undefined) el.letterSpacingPx = ls
-      const lh = resolve(node, 'lineHeightPx')
-      if (lh !== undefined) el.lineHeightPx = lh
-      if (a.textAlign !== undefined) el.textAlign = a.textAlign
-      return el
+      const nodeSize = resolve(node, 'fontSizePx') ?? 16
+      return l1TextRuns(node.text)
+        .filter((run) => run.text.trim() !== '')
+        .map((run) => {
+          const ra = run.axes ?? {}
+          const color = ra.color ?? a.color
+          const el: ValueElement = {
+            text: run.text,
+            role: 'body',
+            // REQ-114 — the manifest's unit is a painted literal. A document reaching
+            // the round-trip gate has been resolved (`loadSite`) or was never
+            // referenced (the fold emits literals), so a ref here is not a colour we
+            // can project and falls back to the same default an absent axis takes.
+            color: typeof color === 'string' ? color : '#000000',
+            fontFamily: a.fontFamily ?? '',
+            fontSizePx: Math.round(nodeSize * (ra.sizeScale ?? 1)),
+            fontWeight: ra.fontWeight ?? a.fontWeight ?? 400,
+          }
+          const ls = resolve(node, 'letterSpacingPx')
+          if (ls !== undefined) el.letterSpacingPx = ls
+          const lh = resolve(node, 'lineHeightPx')
+          if (lh !== undefined) el.lineHeightPx = lh
+          if (a.textAlign !== undefined) el.textAlign = a.textAlign
+          const fontStyle = ra.fontStyle ?? a.fontStyle
+          if (fontStyle !== undefined) el.fontStyle = fontStyle
+          return el
+        })
     })
   return { source: 'l1:expected', elements, sections: [], viewport }
 }

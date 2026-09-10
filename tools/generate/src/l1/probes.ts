@@ -30,14 +30,19 @@
  * per-site patch.
  */
 import {
+  l1PlainText,
   resolveLayoutMode,
   validateL1,
   type L1Document,
   type L1Geometry,
   type L1Node,
   type L1ScalarTrack,
+  type L1Text,
 } from '@1stcontact/site-schema'
 import { classifyElement, isSynthesizedSurfaceId, type FoldableElement } from './fold'
+// REQ-211 — the same rejoin decision the fold makes, asked here so the oracle
+// and the reproduction count the same things. See `inline-runs.ts`.
+import { flowLead, flowText, rejoinableFlows, type InlineFlow } from './inline-runs'
 
 // ── geometry & box helpers ────────────────────────────────────────────────────
 
@@ -158,7 +163,7 @@ export function evalScalarTrack(track: L1ScalarTrack, width: number): number {
  * fidelity to a browser's shaper is not required.
  */
 function estimateTextHeight(
-  text: string,
+  content: L1Text['text'],
   fontSizePx: number,
   lineHeightPx: number | undefined,
   availWidth: number,
@@ -168,9 +173,35 @@ function estimateTextHeight(
   const lh = lineHeightPx && lineHeightPx > 0 ? lineHeightPx : Math.round(fs * 1.4)
   const avgChar = fs * 0.5
   const perLine = Math.max(1, Math.floor(Math.max(1, availWidth) / avgChar))
-  const chars = Math.max(1, Math.ceil(text.length * scale))
+  const chars = Math.max(1, Math.ceil(runCharCost(content) * scale))
   const lines = Math.max(1, Math.ceil(chars / perLine))
   return lines * lh
+}
+
+/**
+ * REQ-211 — how much line a node's copy consumes, in characters of the node's
+ * OWN size.
+ *
+ * The model measures a line as a character count against one average glyph
+ * width, so a run set at 0.6 of the node's size does not consume 0.6 of a line
+ * per character — it consumes 0.6 of a character. Weighting each run's length by
+ * its scale is the smallest change that keeps the model's one assumption
+ * (advance is proportional to size) true of a node whose runs are not all the
+ * same size.
+ *
+ * A node whose runs declare no scale therefore costs exactly `text.length`,
+ * which is what the plain string of the same copy costs — so the estimate over a
+ * multi-run node is IDENTICAL to the estimate over the same words written as one
+ * run, and emphasising a word cannot move a page's predicted height.
+ *
+ * Line-height is deliberately not scaled with the runs. A taller run does raise
+ * the line box it sits in, but the node still declares one `lineHeightPx` and
+ * the browser resolves the rest; guessing at it here would trade a known
+ * approximation for an unknown one.
+ */
+function runCharCost(content: L1Text['text']): number {
+  if (typeof content === 'string') return content.length
+  return content.reduce((n, run) => n + run.text.length * (run.axes?.sizeScale ?? 1), 0)
 }
 
 /** Whether a node is out of flow (positioned by its own absolute geometry). */
@@ -305,7 +336,11 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // A pinned text keyframe may pin a height; otherwise the height is natural.
       const pinnedH = pinned ? node.geometry!.keyframes[0].height : undefined
       box.height = pinnedH !== undefined ? pinnedH * opts.contentScale : natural
-      ctx.leaves.push({ path, kind: 'text', text: node.text, id: node.id, box, pinned })
+      // The WORDS, whatever shape the node holds them in. This is the fidelity
+      // measure's join key (see `sampleFidelity`), and the oracle side joins the
+      // same run group into the same string — so a node that emphasises a word
+      // still pairs with the element it was folded from.
+      ctx.leaves.push({ path, kind: 'text', text: l1PlainText(node.text), id: node.id, box, pinned })
       return box.height
     }
     case 'image': {
@@ -538,11 +573,28 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
     if (seenKey.has(key)) continue
     seenKey.add(key)
     if (p.state && p.state !== 'rest') continue
+    // REQ-211 — the oracle counts what the FOLD counts. A varying inline flow is
+    // one node after the fold, so it is one oracle box here: its runs' text
+    // rejoined, in the flow root's rect. Leaving the fragments in would report
+    // every rejoined sentence as N-1 unmatched runs on the reference side — the
+    // measure manufacturing the defects it exists to find. `inline-runs.ts` is
+    // the single place that decides which flows those are.
+    type OracleElement = (typeof p.manifest.elements)[number]
+    const rejoined = new Map<OracleElement, InlineFlow<OracleElement>>()
+    for (const flow of rejoinableFlows(p.manifest.elements)) {
+      for (const m of flow.members) rejoined.set(m, flow)
+    }
     for (const el of p.manifest.elements) {
       if (!el.box) continue
       const kind = classifyElement(el)
       if (kind === 'text') {
         if (!el.text || el.text.trim() === '') continue
+        const flow = rejoined.get(el)
+        if (flow) {
+          if (flowLead(flow) !== el || !flow.box) continue
+          out.push({ text: flowText(flow), kind, width: p.viewport.width, box: flow.box })
+          continue
+        }
         out.push({ text: el.text, kind, width: p.viewport.width, box: el.box })
       } else if (kind === 'image' || kind === 'box') {
         out.push({ text: el.text ?? '', kind, width: p.viewport.width, box: el.box })
