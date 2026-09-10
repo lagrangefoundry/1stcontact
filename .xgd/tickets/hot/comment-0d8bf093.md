@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-10T19:03:45.810494+00:00'
+updated_at: '2026-09-10T23:55:25.065114+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,11 @@ No delete route exists in the store (no `DELETE` handler in `router.ts`, no `del
 **This makes the earlier finding worse than I stated.** It isn't just that `1c push` can't name a business — it's that importing a site into a business that already has one **creates a site the UI can never display**, silently, with a 200 and a success summary. Any operator doing this on a real business gets "the import worked" and a builder showing the blank starter. Two ways to fix it (either would do): give `/api/import` a way to name the target site, or have the starter step aside when a business's only site is an untouched scaffold.
 
 Still worth a ticket — want me to file it? And the stale access-sim on :8799 is still 404ing everything it should proxy, which will bite the next `1c push` you run locally.
+
+<!-- xgd-turn id="28d7c115-7257-479d-a94a-516cf3bcacda-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T23:55:24.780871+00:00" -->
+#### You
+Can you create me a screenshot of the xgd.dev site please? I need to show it to the Lagrange chat and they are walled off from each other
 
 <!-- xgd-chat-end -->
