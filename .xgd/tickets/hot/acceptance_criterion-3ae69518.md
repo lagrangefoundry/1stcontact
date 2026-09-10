@@ -6,14 +6,15 @@ title: A document is in the knowledge base only when it explicitly opts in, and 
   as a genuine boolean
 created_by: xgd
 created_at: '2026-08-20T04:16:45.054659+00:00'
-updated_at: '2026-09-10T07:46:43.776016+00:00'
+updated_at: '2026-09-10T08:04:25.755347+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
