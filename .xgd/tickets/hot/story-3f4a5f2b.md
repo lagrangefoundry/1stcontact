@@ -6,9 +6,9 @@ title: 'Site Storage Port: One Async Store Behind Every Edit, Provable In The Wo
   Runtime'
 created_by: xgd
 created_at: '2026-08-20T05:08:58.535662+00:00'
-updated_at: '2026-09-10T05:57:56.068205+00:00'
+updated_at: '2026-09-10T06:33:24.664377+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -86,8 +86,11 @@ the site, and means nothing in a Worker.
 **And the claim is checked where it will run.** Tests execute in two runtimes routed by filename
 alone: a file marked with the workers suffix runs inside the Workers runtime with a real database
 binding and a real object-store binding, under the same compatibility settings the deployed
-Workers declare; every other test runs in the runtime that has a filesystem and keeps the Astro
-container-render path the previous single configuration existed for.
+Workers declare; every other test runs in the runtime that has a filesystem and keeps the
+component-render path the previous single configuration existed for. Since REQ-148 made behavior
+modules plain TypeScript functions and REQ-150 replaced Astro's build configuration with plain
+Vitest, what separates the two runtimes is the filesystem rather than a build transform — the
+render itself is unchanged, and still runs only in the runtime that has one.
 
 ### In scope
 
