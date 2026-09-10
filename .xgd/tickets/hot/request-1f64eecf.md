@@ -5,9 +5,9 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-10T21:55:58.456994+00:00'
+updated_at: '2026-09-10T22:28:48.824403+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -72,3 +72,71 @@ call, which is the larger half of the value.
 The renderer that applies a recipe, from the recipe ticket — this operation needs
 something to ask for the current state of an edited picture. Against an unedited
 image it works on the bytes as stored, so it is not blocked on the editor.
+
+
+---
+
+## Answered from EPIC-1, 2026-09-10
+
+**1. Which namespace: both, addressed the way each is already named.**
+
+Restricting to site assets would exclude the epic's originating complaint. The
+client's words were *"ask AI to create an image → AI says it can't see it"* — and
+a generated image is **material** (`imagegen.ts`: `IMAGE_MATERIAL_TYPE =
+'material'`), not a site asset. Restricting to material would exclude the
+assistant's own drawings, which are site assets with no material record at all.
+Both are pictures the assistant made, and the epic's rule is about pictures, not
+about which store happens to hold them.
+
+**The objection that the assistant cannot enumerate material does not bite.** It
+does not need to: the handle arrives in the tool result that created the picture,
+which is exactly the case this epic exists to fix. A material *listing* operation
+is a different capability and is deliberately out of scope — the assistant can
+look at a picture it was told about, and at any site asset `list_assets` shows.
+
+**2. Raster lands after REQ-219. SVG does not, and takes the browser path.**
+
+For raster formats the answer is the Images binding, and the `depends_on` already
+records it. It normalises arbitrary stored bytes to PNG, which preserves both
+things the cheap `describe.ts` path would give up — the downscale, whose *reason*
+is the strongest argument in the epic, and the `size` field the `picture` shape
+documents as "after any reduction" — and it is the only thing that makes
+`compare` work at all.
+
+**SVG cannot go that way** and must not wait for it. Cloudflare Images does not
+transform SVG, so a drawn wordmark needs rasterising and the only rasteriser here
+is the browser. `measure-core.ts` is the precedent to copy, and its reason is the
+right one for this case specifically: it navigates the site's own draft preview
+**because the page is the font context**, which is precisely what a wordmark
+needs. Site assets are already served in-process at
+`/preview/<slug>/<channel>/assets/<name>`, so no new plumbing is required.
+
+So this ticket has two paths behind one kind, and the SVG path can be built
+before REQ-219 exists.
+
+**3. The CLI host omits the kind.**
+
+Following `adoptCapture`, and following `imageSurface` returning `null` where the
+deployment cannot do the thing — the property `imagegen.ts` states as its second:
+a deployment without the capability has no tool, so the manual never mentions it
+and the model cannot propose, apologise for, or probe for one. A CLI session
+simply has five kinds.
+
+## Corrections to the body above
+
+Two sentences are wrong as written and the investigation is right about both.
+
+- *"It is downscaled on the way in… the machinery and the argument are already in
+  `fidelity-core.ts`."* The machinery is there and is **PNG-only** —
+  `decodePng` / `refuseNonPng`, deliberately so since REQ-156. It works because
+  all five existing kinds get their bytes from `driver.screenshot()`, which is
+  always PNG. `ResolvedPicture.bytes` carries an unstated PNG contract that this
+  kind is the first to break.
+- *"`compare` gains it for free."* Free for a stored PNG. `compare` decodes
+  **both** sides, so for any other format it needs a raster nothing in the repo
+  can currently produce. It is free only once the binding normalises.
+
+Also worth carrying into the implementation: `drivableSteps` needs its own
+refusal sentence for the new kind — a stored image is not a page, so `after` is
+meaningless against it — and `pictureUrl` must return `null`, since it is the
+"has a live page" predicate the value gates read.
