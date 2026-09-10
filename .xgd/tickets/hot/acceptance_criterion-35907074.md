@@ -6,7 +6,7 @@ title: A run's words open in the dressed box and its colour and typography in a 
   beneath it, split by the control a field declares, staging into one save
 created_by: xgd
 created_at: '2026-08-12T18:26:56.287166+00:00'
-updated_at: '2026-09-10T23:17:24.387922+00:00'
+updated_at: '2026-09-10T23:34:29.561684+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -28,11 +28,13 @@ it.
 
 **The split is decided by the kind of control a field declares**, never by the
 region's kind and never by the field's name. A field that is plain words is drawn
-in the box; every other shape a region can expose — a bounded number, a choice
-from a list the surface supplied, a yes/no, a colour — is drawn in the sheet. So
-the day a region exposes a second run of words, or a fifth parameter, neither
-half needs to learn about it, exactly as the thumbnail grid is chosen by the
-descriptor rather than by which region produced the field.
+in the box; a field whose descriptor declares that its options are images is
+drawn as the grid this dialog draws itself (AC-1112); every other shape a region
+can expose — a bounded number, a choice from a list the surface supplied, a
+yes/no, a colour — is drawn in the sheet. So the day a region exposes a second
+run of words, or a fifth parameter, neither half needs to learn about it, exactly
+as the thumbnail grid is chosen by the descriptor rather than by which region
+produced the field.
 
 The sheet holds **one order, and it is the surface's**. The colour rows and the
 typed parameters are drawn by two different controls, and a control the dialog
