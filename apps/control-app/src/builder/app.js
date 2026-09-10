@@ -1,6 +1,7 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
+import { createMarkedPoints } from './points.js'
 import {
   ACCOUNT_ACTION_ID,
   ACCOUNT_LABEL,
@@ -29,6 +30,7 @@ import { createUploadOverlay } from './upload.js'
 import {
   colorsAction,
   createToolbar,
+  markPointsAction,
   modeToggleAction,
   openInNewTabAction,
   publishAction,
@@ -358,7 +360,14 @@ export function mountBuilder(root, options = {}) {
       // `colors` in BOTH channels: a palette is a property of the site, not of
       // one rendering of it, so there is no mode in which changing it is
       // meaningless (REQ-133).
-      actions: ['mode-toggle', 'colors', 'open-new-tab', 'publish'],
+      //
+      // `mark-points` in THIS ONE ONLY ([[REQ-210]]). View mode must behave
+      // exactly as published (DOC-28 §7.1) — links work, nothing is
+      // intercepted — and a control that reassigns the click there would be
+      // precisely that interception. Naming it from the mode is also the whole
+      // of the enforcement: the strip renders what the active mode lists, so
+      // there is no channel in which the toggle is present and inert.
+      actions: ['mode-toggle', 'mark-points', 'colors', 'open-new-tab', 'publish'],
     })
     .restore()
 
@@ -405,6 +414,24 @@ export function mountBuilder(root, options = {}) {
       ...opts,
     })
 
+  /**
+   * Marked Points ([[REQ-210]]) — the reader points, and the pointing becomes
+   * text in the message.
+   *
+   * IT IS CREATED HERE, ABOVE THE TOOLBAR AND ABOVE THE PANE, because it
+   * outlives both: the strip rebuilds its controls on every mode and site
+   * change, and the pane is remounted per conversation, while a placed point
+   * has to survive until the render it was taken against is replaced. The two
+   * composer calls it needs are declared below and reached through this closure
+   * — the pane does not exist yet at this line, and cannot, because it takes
+   * this controller's `expand`.
+   */
+  const points = createMarkedPoints({
+    api: editBridge,
+    insertToken: (token) => insertPointToken(token),
+    removeToken: (label) => removePointToken(label),
+  })
+
   const toolbar = createToolbar({
     panel,
     // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
@@ -413,6 +440,7 @@ export function mountBuilder(root, options = {}) {
     context: { getSite: () => currentSite },
     actions: [
       modeToggleAction(),
+      markPointsAction(points),
       colorsAction(openPalette),
       openInNewTabAction(),
       publishAction(publish),
@@ -447,7 +475,43 @@ export function mountBuilder(root, options = {}) {
     // Fired PER WRITE rather than at the end of the turn, so a request answered
     // by several edits shows the page unfolding as the assistant works.
     onSiteChanged: () => panel.frame.contentWindow?.location.reload(),
+    // [[REQ-210]] — the pill's expansion is the assistant's ENTIRE channel for a
+    // marked point: `screenshot` renders server-side and the marks live in the
+    // reader's own browser overlay, so there is no render in which one appears.
+    expandPrompt: (markdown) => points.expand(markdown),
   })
+
+  /**
+   * The two composer calls Marked Points needs.
+   *
+   * THROUGH `getChat()` RATHER THAN A HELD HANDLE, because the pane replaces its
+   * chat on every conversation switch — a handle captured once would be writing
+   * into a component that is no longer on screen. `null` before a site is
+   * selected is ordinary and does nothing.
+   */
+  function insertPointToken(token) {
+    const box = chat.getChat()
+    if (!box) return
+    const current = box.getInputMarkdown()
+    box.setInputMarkdown(`${current}${current === '' || /\s$/.test(current) ? '' : ' '}${token} `)
+    box.focus()
+  }
+
+  /**
+   * Take a deleted point's pills out of the draft.
+   *
+   * NOT MERELY TIDY. Labels are reused the moment they are free, so a reference
+   * left behind would quietly bind to a DIFFERENT point the next time that
+   * letter is handed out — a message that says one thing and means another,
+   * with nothing on screen to show it.
+   */
+  function removePointToken(label) {
+    const box = chat.getChat()
+    if (!box) return
+    const current = box.getInputMarkdown()
+    const next = current.replace(new RegExp(`\\[\\s*point\\s+${label}\\s*\\]\\s?`, 'gi'), '')
+    if (next !== current) box.setInputMarkdown(next)
+  }
 
   const splitHost = document.createElement('div')
   splitHost.className = 'builder-split'
@@ -473,6 +537,21 @@ export function mountBuilder(root, options = {}) {
   const rebind = () => {
     editor?.destroy()
     editor = null
+    /**
+     * Marked Points adopts the new document too ([[REQ-210]]).
+     *
+     * A NEW DOCUMENT IS A NEW RENDER, so the points go with the old one — and
+     * that is the design, not a limitation being worked around. A reader marks
+     * a point BECAUSE they want that thing to move, and then it moves;
+     * persistence would buy the minority case at the price of re-projection
+     * machinery (anchor to node plus offset, re-project, invalidate when the
+     * node disappears) that clearing makes unnecessary in its entirety.
+     *
+     * ABOVE the `editBridge` guard on purpose: a host with no bridge still has
+     * a mode to leave, and leaving it with marks on the page would be worse
+     * than never having drawn them.
+     */
+    points.bind(panel.frame.contentDocument ?? null)
     // No bridge supplied → no editing. The browser entry always supplies one;
     // a host that does not (a test mounting only the chrome) gets the pane and
     // the toolbar with no edit loop, rather than a module that fails to load.
@@ -507,6 +586,20 @@ export function mountBuilder(root, options = {}) {
     })
   }
   panel.frame.addEventListener('load', rebind)
+
+  /**
+   * Mark Points is an EDIT-MODE mode, so leaving edit mode leaves it
+   * ([[REQ-210]], DOC-28 §7.1).
+   *
+   * The strip already stops OFFERING the toggle in View — a mode renders the
+   * actions it names — but a toggle that is merely unreachable is still on, and
+   * its capture-phase click would go on intercepting in a channel that must
+   * behave exactly as published. Turning it off is what makes the strip's
+   * omission true rather than decorative.
+   */
+  panel.on('mode', (mode) => {
+    if (mode !== 'edit') points.setActive(false)
+  })
 
   /**
    * The Library (REQ-161), in its own tab beside the site.
@@ -880,6 +973,7 @@ export function mountBuilder(root, options = {}) {
       upload.destroy()
       library.destroy()
       chat.destroy()
+      points.destroy()
       editor?.destroy()
       toolbar.destroy()
       split.destroy()
