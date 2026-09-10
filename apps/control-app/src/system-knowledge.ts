@@ -8,11 +8,8 @@ import {
   registerKmProviders,
 } from './generated/ai-knowledge'
 import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
-import {
-  WorkersAiEmbedder,
-  knowledgeBasesFromMapping,
-  memoryIndexSource,
-} from './generated/knowledge'
+import { knowledgeBasesFromMapping, memoryIndexSource } from './generated/knowledge'
+import { embedderFor, type EmbedderEnv } from './embedder'
 import { DocDirStore, bundleDocReader } from './generated/ticketing'
 import { CORPUS_TYPE, SHIPPED_SOURCE, SYSTEM_KB } from '../../../tools/generate/src/cli/kb-model'
 import KB_CONFIG from '../../../kb/knowledge_bases.json'
@@ -43,8 +40,10 @@ import KB_CONFIG from '../../../kb/knowledge_bases.json'
  *
  * THE MODEL IS THE SAME MODEL ON BOTH SIDES, and that is a correctness property
  * rather than a convenience. `1c kb build` embeds the corpus with Workers AI's
- * `bge-small-en-v1.5` over REST; `WorkersAiEmbedder({binding: env.AI})` is the
- * same model reached in-datacentre. Vectors from two different models are not
+ * `bge-small-en-v1.5` over REST, and `embedder.ts` reaches that same model here —
+ * in-datacentre through the `AI` binding, or over REST with a credential
+ * ([[BUG-73]]). Which TRANSPORT carries it is a deployment's business; which
+ * MODEL answers is not, because vectors from two different models are not
  * comparable and the failure mode is not an error but plausible-looking nonsense.
  *
  * THE ABSENT CASE IS ORDINARY AND MUST STAY ORDINARY. An operator who has never
@@ -61,11 +60,17 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 // always has to name the source keying its index map too ([[BUG-55]]).
 export { SYSTEM_KB, SHIPPED_SOURCE }
 
-/** The bindings the system KB needs: the embedding model, and nothing else. */
-export interface SystemKnowledgeEnv {
-  /** Workers AI. Absent degrades to no knowledge, exactly as an unbuilt KB does. */
-  AI?: { run(model: string, input: unknown): Promise<unknown> }
-}
+/**
+ * The bindings the system KB needs: the embedding model, and nothing else.
+ *
+ * IT IS `EmbedderEnv` ENTIRELY ([[BUG-73]]) — this KB has no store, no bucket and
+ * no tenant, so "which bindings" and "how do we embed" are the same question
+ * here. Naming the resolver's shape rather than the `AI` binding is what let the
+ * REST transport reach this half without a second edit.
+ *
+ * Absent degrades to no knowledge, exactly as an unbuilt KB does.
+ */
+export type SystemKnowledgeEnv = EmbedderEnv
 
 /** The shape `1c assets` inlines — `kb.ts`'s `KbBundle`, seen from this side. */
 export interface SystemKbBundle {
@@ -117,16 +122,21 @@ export function bundleStore(bundle: SystemKbBundle): Untyped {
  * Open the system knowledge runtime, or `null` when there is nothing to open.
  *
  * Two ways to get `null`, and both are degradations rather than failures:
- * the KB was never built (`KB === null`), or the AI binding is absent so there is
- * no embedder to search with. Neither may throw — a builder that cannot answer a
- * question about the design documents is still a builder, whereas one that will
- * not boot is not.
+ * the KB was never built (`KB === null`), or this deployment can reach no model
+ * at all — neither binding nor credential — so there is no embedder to search
+ * with. Neither may throw — a builder that cannot answer a question about the
+ * design documents is still a builder, whereas one that will not boot is not.
  *
- * (`knowledge.ts` raises `AiNotConfiguredError` for the missing binding instead,
- * and the difference is deliberate rather than an inconsistency. There, the
- * binding is the *only* way a client's own uploads become findable at all, and a
+ * (`knowledge.ts` raises `AiNotConfiguredError` for the missing embedder instead,
+ * and the difference is deliberate rather than an inconsistency. There, an
+ * embedder is the *only* way a client's own uploads become findable at all, and a
  * silent failure would leave material indexed nowhere. Here the corpus is
  * optional to begin with.)
+ *
+ * HALF A REST CREDENTIAL STILL THROWS, and that is not a contradiction of "may
+ * not throw": `PartialAiCredentialError` is a configuration MISTAKE rather than
+ * an absence, and the whole of [[BUG-73]] B4 is that it must not be absorbed into
+ * a degradation nobody is told about.
  *
  * @param opts.bundle a corpus to open instead of the built-in one — the seam the
  *   UATs use to plant a document with a known answer, and the same shape
@@ -141,8 +151,11 @@ export async function systemKnowledge(
   if (bundle === null) return null
   let embedder = opts.embedder
   if (embedder === undefined) {
-    if (!env.AI) return null
-    embedder = new WorkersAiEmbedder({ binding: env.AI })
+    // `null` STAYS `null` HERE, and that asymmetry with `knowledge.ts` is the one
+    // the paragraph above defends: the resolver reports "no embedder" and each KB
+    // decides what that means ([[BUG-73]] B7).
+    embedder = embedderFor(env, SYSTEM_KB)
+    if (embedder === null) return null
   }
   const store = bundleStore(bundle)
   const kb = systemKb()
