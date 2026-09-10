@@ -6,14 +6,15 @@ title: A deployment that names no account is refused when the store is built, wi
   a named error saying where to declare it
 created_by: xgd
 created_at: '2026-09-01T23:57:52.715939+00:00'
-updated_at: '2026-09-02T00:13:30.271937+00:00'
+updated_at: '2026-09-10T02:22:08.731745+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
