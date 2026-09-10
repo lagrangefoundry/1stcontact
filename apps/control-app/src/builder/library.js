@@ -74,6 +74,7 @@ import {
   fetchMaterialItem,
   materialFileUrl,
   saveMaterialDescription,
+  saveMaterialRole,
   subscribeMaterial,
 } from './api.js'
 import { UPLOAD_AREAS } from './config.js'
@@ -134,11 +135,39 @@ const UNPLACED_LABEL = 'Not on the site'
 const UNPLACED_HINT =
   "You asked for this to go on your site and it did not get there. It is still here — try adding it again."
 
-/** The §9 rights block, shown read-only. The client's own record of what we hold. */
+/** The role labels, taken from the overlay so the two surfaces cannot disagree. */
+const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
+
+/**
+ * The same labels as an option list, and the way back from one ([[REQ-213]]).
+ *
+ * THE OPTIONS ARE THE LABELS AND NOT THE IDS, because `mountFields` renders an
+ * `enum` entry as both the option's value and its text — and the label is what
+ * this pane has always DISPLAYED for a role. Offering `site` / `reference` in the
+ * select would mean the field read one way and edited another, which is the
+ * commonest way a form teaches somebody the wrong vocabulary for their own data.
+ *
+ * SO THE ROUND TRIP IS EXPLICIT: `ROLE_LABEL` out, `ROLE_ID` back. Both are
+ * derived from `UPLOAD_AREAS`, so the drop areas remain the one place the two
+ * roles are named and a third area would arrive here without an edit.
+ */
+const ROLE_OPTIONS = UPLOAD_AREAS.map((a) => a.label)
+const ROLE_ID = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.label, a.id]))
+
+/**
+ * The §9 rights block. The client's own record of what we hold — read-only but
+ * for the one row that was never inferred ([[REQ-213]], see `roleIsTheirs`).
+ */
 const RIGHTS_FIELDS = [
   { name: 'filename', label: 'File' },
   { name: 'kind', label: 'Kind' },
-  { name: 'role', label: 'What it is for' },
+  // AN ENUM RATHER THAN A STRING, AND THAT IS THE WHOLE OF THE CONTROL. The
+  // component renders a native select for `type: 'enum'` and commits on pick,
+  // so making this editable is configuration of the block that already exists
+  // rather than a second editing vocabulary — the same argument the description
+  // field below rests on. `required` suppresses the empty option: a material is
+  // for one of two things and "neither" is not an answer a client can give.
+  { name: 'role', label: 'What it is for', type: 'enum', enum: ROLE_OPTIONS, required: true },
   { name: 'origin', label: 'Where it came from' },
   { name: 'rights', label: 'Rights' },
   { name: 'republishable', label: 'Can appear on the site', type: 'boolean' },
@@ -162,9 +191,6 @@ const CAPTURE_RIGHTS_FIELDS = RIGHTS_FIELDS.filter((f) => f.name !== 'filename')
 function isCapture(row) {
   return row.kind === 'capture'
 }
-
-/** The role labels, taken from the overlay so the two surfaces cannot disagree. */
-const ROLE_LABEL = Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label]))
 
 /** The one field the description form carries — `mountFields` keys its row on it. */
 const DESCRIPTION_FIELD = 'body'
@@ -258,6 +284,31 @@ function unplaced(row) {
   return row.role === 'site' && placedList(row).length === 0
 }
 
+/**
+ * Whether *what it is for* is this client's to correct ([[REQ-213]]).
+ *
+ * THE ONE ROW OF THE RIGHTS RECORD THAT WAS NOT INFERRED. Every other field in
+ * that block comes from provenance ([[DOC-38]] §10.1) and is read-only because of
+ * it — a client who could set `republishable` by hand would be answering the
+ * legal question that section refuses to ask. An UPLOAD's role is different in
+ * kind: it is not inferred at all, it is which of two drop areas a human chose
+ * ([[REQ-161]]), and a client who dropped their shopfront photograph on *"just
+ * for you to read"* has no other way to say so.
+ *
+ * `uploaded` AND NOTHING ELSE, and the two exclusions are not near misses — see
+ * `reviseRole` in `material.ts`, which holds the same rule as the actual gate and
+ * argues each one. This is the SURFACE half: a field the origin will refuse must
+ * not be offered as editable, because a control that always fails is worse than
+ * no control.
+ *
+ * ABSENT READS AS `uploaded`, matching `MaterialRow`'s own default — the origin
+ * makes the same reading, so the pane and the gate agree about a row that
+ * predates the field rather than disagreeing quietly.
+ */
+function roleIsTheirs(row) {
+  return (row.origin ?? 'uploaded') === 'uploaded'
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -287,6 +338,10 @@ export function createLibraryPanel(options = {}) {
       list: fetchMaterial,
       item: fetchMaterialItem,
       save: saveMaterialDescription,
+      // WHAT IT IS FOR, CORRECTED (REQ-213). Beside `save` rather than folded
+      // into it: they are two routes with two refusal vocabularies, and the one
+      // that can be refused is the one the pane has to roll back.
+      setRole: saveMaterialRole,
       fileUrl: materialFileUrl,
       // OPTIONAL AT THE SEAM, AND THE PANEL CHECKS FOR IT (REQ-201). A suite
       // that injects a transport to assert something else entirely should not
@@ -425,6 +480,33 @@ export function createLibraryPanel(options = {}) {
 
   // --- the detail ---------------------------------------------------------------
   /**
+   * The rights block's values, off a row.
+   *
+   * ITS OWN FUNCTION BECAUSE IT IS READ TWICE NOW (REQ-213) — once at mount, and
+   * again after a role change, which alters three of these at once. Building the
+   * second copy by hand is how the two come to disagree about which fields a
+   * correction touches.
+   */
+  function rightsValues(row) {
+    return {
+      filename: row.filename,
+      kind: row.kind,
+      role: ROLE_LABEL[row.role] ?? row.role ?? '',
+      origin: row.origin,
+      rights: row.rights,
+      republishable: row.republishable,
+      // JOINED, BECAUSE THE FIELD IS A LIST. `mountFields` reads a scalar, and
+      // `placed_on` holds one slug in v1 and several when a business may hold
+      // several sites — so the list is rendered as one, and an unplaced
+      // material shows nothing rather than an empty bracket. Labelled `Placed
+      // on` rather than `Used on` (REQ-181): it says where the bytes went, and
+      // a draft asset is not yet in use by anyone.
+      placed_on: placedList(row).join(', '),
+      source_url: row.source_url ?? '',
+    }
+  }
+
+  /**
    * One material, in full.
    *
    * BUILT SYNCHRONOUSLY, FILLED ASYNCHRONOUSLY. `openDetail` must return an
@@ -450,29 +532,43 @@ export function createLibraryPanel(options = {}) {
     view.append(rights)
     fields = mountFields(rights, {
       schema: isCapture(row) ? CAPTURE_RIGHTS_FIELDS : RIGHTS_FIELDS,
-      values: {
-        filename: row.filename,
-        kind: row.kind,
-        role: ROLE_LABEL[row.role] ?? row.role ?? '',
-        origin: row.origin,
-        rights: row.rights,
-        republishable: row.republishable,
-        // JOINED, BECAUSE THE FIELD IS A LIST. `mountFields` reads a scalar, and
-        // `placed_on` holds one slug in v1 and several when a business may hold
-        // several sites — so the list is rendered as one, and an unplaced
-        // material shows nothing rather than an empty bracket. Labelled `Placed
-        // on` rather than `Used on` (REQ-181): it says where the bytes went, and
-        // a draft asset is not yet in use by anyone.
-        placed_on: placedList(row).join(', '),
-        source_url: row.source_url ?? '',
+      values: rightsValues(row),
+      // READ-ONLY BUT FOR ONE ROW, AND NOT BECAUSE THE REST ARE HARD TO EDIT.
+      // These are the rights record, and DOC-38 §10.1 is explicit that it is
+      // inferred from provenance rather than asserted by anyone — a client who
+      // could set `republishable` by hand would be answering the legal question
+      // that section refuses to ask.
+      //
+      // `role` IS THE EXCEPTION BECAUSE IT IS THE ONE THAT WAS NEVER INFERRED
+      // (REQ-213). For an upload it is which of two drop areas a human chose, so
+      // correcting a mis-drop asserts nothing §10.1 has not already accepted —
+      // and `roleIsTheirs` is what keeps that narrow. A WHITELIST rather than a
+      // per-field flag: it says in one place which fields may be touched, so the
+      // block cannot acquire a second editable field by someone adding a
+      // descriptor.
+      editable: roleIsTheirs(row) ? ['role'] : false,
+      // AUTO, FOR THE SAME REASON THE DESCRIPTION IS: picking an option in a
+      // two-option select is already an unambiguous decision, and a Save button
+      // beside it would be a second click to confirm the first. `auto` also
+      // reverts the control itself when the origin refuses — which this origin
+      // does, in two named ways — and surfaces the refusal against the field.
+      commit: 'auto',
+      onCommit: async (changes) => {
+        // THE LABEL BACK TO THE VALUE. The select offers what the pane displays;
+        // the origin has never been asked to parse those words.
+        const saved = await transport.setRole(row.uid, ROLE_ID[changes.role])
+        // THE WHOLE BLOCK REPAINTS, NOT JUST THE ROW THAT WAS PICKED. A role
+        // change is not confined to its own field: the origin derives
+        // `republishable` from it, and widening to a site asset PLACES the bytes
+        // and writes `placed_on`. Both are on this block, two rows below the one
+        // the client just used, and leaving them showing the old answer would
+        // make the record contradict itself on screen.
+        Object.assign(row, saved)
+        fields.setValues(rightsValues(row))
+        // And the list, because the row's role badge and REQ-181's warning are
+        // both read off exactly what just changed.
+        apply()
       },
-      // READ-ONLY, AND NOT BECAUSE IT IS HARD TO MAKE THEM EDITABLE. These are
-      // the rights record, and DOC-38 §10.1 is explicit that it is inferred from
-      // provenance rather than asserted by anyone — a client who could set
-      // `republishable` by hand would be answering the legal question that
-      // section refuses to ask. The one thing they may change is what the
-      // material SAYS, below.
-      editable: false,
     })
 
     const heading = el('h3', 'builder-library__heading', 'What this is')

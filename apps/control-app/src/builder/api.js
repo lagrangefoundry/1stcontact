@@ -604,6 +604,31 @@ export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
   )
 }
 
+/**
+ * Correct what a piece of material is FOR ([[REQ-213]]).
+ *
+ * `role` IS THE WIRE VALUE (`site` | `reference`) AND NOT THE LABEL the client
+ * saw. The Library's select is built from the upload overlay's own areas so the
+ * two surfaces cannot show different words for the same thing, but the words are
+ * a presentation of the value and the origin has never been asked to parse them.
+ *
+ * THROUGH `copyEnvelope`, WHICH IS THE POINT OF THE CALL AS MUCH AS THE WRITE.
+ * The origin refuses this in two named ways — material whose role was inferred
+ * rather than chosen, and a file already on the site — and each refusal carries a
+ * sentence written for the person who clicked. `copyEnvelope` turns the failure
+ * envelope into a `CopyError` whose `message` IS that sentence, which is what
+ * `mountFields` then shows inline against the field it rolled back.
+ */
+export async function saveMaterialRole(uid, role, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/material/role'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uid, role }),
+    }),
+  )
+}
+
 // --- the User tab ([[REQ-170]]) -----------------------------------------------
 //
 // SCOPED LIKE EVERY OTHER READ. `scoped()` puts the selected business in the
