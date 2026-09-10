@@ -6,14 +6,15 @@ title: Material may name the site it was gathered for, or belong to the account 
   large
 created_by: xgd
 created_at: '2026-09-02T00:31:08.492703+00:00'
-updated_at: '2026-09-02T00:42:25.240353+00:00'
+updated_at: '2026-09-10T02:22:26.939590+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
