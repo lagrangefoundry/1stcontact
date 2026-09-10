@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:15:29.656924+00:00'
+updated_at: '2026-09-10T19:23:11.741843+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -250,5 +250,72 @@ I've appended all of this to BUG-67 rather than leaving it in chat. The store re
 <!-- xgd-chat role="user" ts="2026-09-10T19:15:29.431748+00:00" -->
 #### You
 I don't understand I explicitly asked for this to be project configurable. I have installed the new version - are you sure we can't configure it here?
+
+<!-- xgd-turn id="1b034e37-14c0-45c0-a2f4-fab6dddabaa1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:23:11.400413+00:00" -->
+#### Claude
+Let me re-check the installed store — that may have changed under me.
+
+You're right, and my layer-2 finding is now stale — the store has `backend_config.js` and `defaults/backends.json` in it. The seam is live here. What's still true is only layer 3: 1c never calls it. That's unblocked now, so let me build it.
+
+Now let me understand 1c's existing config mechanisms and the host start-up path.
+
+This involves choosing a model id and output ceiling, so let me check the reference rather than go from memory.Reference confirms `claude-sonnet-5` (1M context, 128K max output) and ~64000 as the streaming default — matching the ticket's own reasoning. Now the protocol. First, ticket scope language for the 1c-side change:
+
+Ticket scoped. Now the branch:
+
+Now the module that installs it:
+
+Now wire it into `build()`, before the backend is registered:
+
+All six functions are exported. Now the support-file field and the UAT:
+
+The malformed-document case is muddled — let me clean it up:
+
+Now run it. First the worktree needs its generated assets (known location artifact):
+
+6 of 7 pass — including the decisive wire assertions. The 7th is my own assertion being naive: it matches the words in the doc comment. Scanning code rather than prose:
+
+All 7 pass. Now checking I haven't broken the other chat-host suites that share the model double:
+
+Need to know whether those are mine. Checking the branch base:
+
+Same 5 failures without my change — pre-existing on the branch base, unrelated (priming/reminder assembly). Now typecheck and commit:
+
+No type errors in the changed files. Committing:
+
+Now step 5 — record the commit on the ticket alongside the two existing ones:
+
+The third entry landed as a string rather than an object. Fixing with the proper field write:
+
+Let me verify the Worker rung actually exposes `configureBackends` — the Worker takes a different entry than Node:
+
+`export * from './core.js'` — the Worker rung carries it too, so both hosts get the same settings. Recording the tooling gotcha I hit:
+
+You were right — you'd installed it, and my layer-2 reading was stale. The seam was live; 1c just wasn't reaching it. It is now.
+
+**What landed** (`free-BUG-67`, commit `5046af5c7c`, `[FREE-CODED]`):
+
+- **`ai/backends.json`** — the project's own document: `claude-sonnet-5`, `max_tokens: 64000`. Changing either is an edit to this file and nothing else.
+- **`ai/backends.ts`** — installs it via the framework's `configureBackends`.
+- **`host-core.ts`** — calls it in `build()`, ahead of `registerBackend`.
+
+Two design points worth your eye, since both were choices:
+
+**A document, not the constructor options.** `ClaudeAPIBackend` does take `model`/`maxTokens`, and passing them at the one construction site was shorter. But `registerBackend` takes a *zero-argument* factory — configuration reaches every construction site, an argument reaches one. Same reason `priming.json` is a document rather than an array literal in `roles.ts`.
+
+**Static import, never `node:fs`.** The framework also ships `loadBackends(path)`, but `host-core.ts` is the half workerd loads. A file read would put a filesystem in that import graph and let the CLI and the Worker disagree about what this project sends. I confirmed the `/workers` rung does `export * from './core.js'`, so both hosts get the same settings.
+
+**On 64000 rather than the framework's 32000:** that's the figure the ticket's own sizing analysis reached, and I re-checked it against the current API reference rather than trusting the note — streaming requests default to ~64000, the reason to go lower (~16000) is HTTP timeouts on non-streaming requests, and the adapter passes `stream: true`. Sonnet 5 is 1M context / 128K max output, so it's ~half the output ceiling.
+
+**Tests:** 7 new UATs, all passing, asserting on the wire — `ScriptedClient.seen[n]` is the request as the backend built it, so `max_tokens` there is the number Anthropic would receive. Expected values are read *from* `backends.json` rather than restated, so the test proves editing that file is what changes the request. One case resets to the framework default first and confirms the wire still carries 64000, which is what proves `build` installs it rather than depending on a prior call.
+
+Two things to flag:
+
+- **5 pre-existing failures** in the neighbouring priming suites (`REQ-182`, `BUG-63` — reminder assembly). I verified they fail identically on the branch base with my change stashed, so they're not mine, but they are failing.
+- **I did not add an env-var override**, and recorded that as a deliberate non-goal in the ticket: it'd be a second source of truth only the Node host could read — the exact split the static import prevents. If you want the model changeable without a commit, that's a real ask but a different shape, and worth its own ticket.
+
+Ticket is `free_coded` with all three commits recorded as proper objects. The scope language for this half went into the body *before* I cut the branch, so every UAT traces to it.
 
 <!-- xgd-chat-end -->
