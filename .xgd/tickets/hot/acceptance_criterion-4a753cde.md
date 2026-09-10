@@ -6,14 +6,15 @@ title: Asking a run what it exposes also answers with the nearest painted panel 
   it and the colour that panel is filled with, read-only
 created_by: xgd
 created_at: '2026-08-20T02:58:23.988415+00:00'
-updated_at: '2026-08-20T03:25:21.653443+00:00'
+updated_at: '2026-09-10T19:19:18.614720+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
