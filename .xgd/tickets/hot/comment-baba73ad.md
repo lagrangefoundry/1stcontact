@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:23:34.884385+00:00'
+updated_at: '2026-09-10T21:25:41.417248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,57 @@ Give me those and I'll title EPIC-1, write its body as the umbrella, and cut the
 Our principle is JAMStack - all the rendering, flattening, resizing for publication should be done at build time (publish)
 
 HEIC - ideally convert on upload
+
+<!-- xgd-turn id="f786b6ad-7d4a-4f46-ad9f-c72c2ebd151f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:25:41.069088+00:00" -->
+#### Claude
+That principle resolves the hard question, and there's a good surprise in the wrangler config.
+
+## Where "build time" actually is
+
+`POST /api/publish` **renders the revision inside the control-app Worker** and writes bytes to R2; `public-site` only serves what's there (`apps/public-site/src/index.ts` — "D1 says which revision, R2 holds its bytes"). So build time is workerd. No node, no sharp, no CI step. That's the constraint everything else has to fit.
+
+But two bindings already declared change the picture:
+
+- **`[browser]` — Browser Rendering**, headless Chromium via `@cloudflare/puppeteer` (REQ-154), already in production for screenshots. That is a canvas we already pay for.
+- Not yet bound, but available on the platform: the **Images binding** (`env.IMAGES.input().transform().output()`), which is a *declarative* transform pipeline — resize, rotate, trim, background, brightness, contrast, gamma, sharpen, format conversion.
+
+That second one matters because **our op vocabulary maps almost one-to-one onto it**. A recipe wouldn't need a canvas at all — it would be a transform chain. Which gives the cleanest possible answer to "who flattens":
+
+**One renderer, used in three places.** The Images binding applies the recipe: for the editor's true preview, for the model's view of a picture, and at publish for the flattened output plus the width ladder. The client browser only does the *interaction* — dragging a crop box with a CSS transform overlay — then commits the recipe and re-fetches the real bytes. That's how real editors behave anyway, and it means the preview and the published artifact are produced by the same code, which is the property that stops a client cropping one thing and publishing another.
+
+Two honest caveats: it's a new platform dependency that needs enabling on the account and bills per transform, and I'd want to confirm the exact op list (I'm confident about crop/rotate/resize/brightness/contrast/format; **flip** I doubt, and we may have to drop it or do it client-side). The fallback if you don't want the dependency is Browser Rendering as the canvas — already bound, already paid for, but heavier per publish and it **cannot decode HEIC**, which brings us to:
+
+## HEIC
+
+Chrome does not decode HEIC, so neither the client's canvas nor Browser Rendering can read an iPhone upload. Conversion has to happen **server-side on the upload path** (`material.ts`), and the Images binding is the thing on the platform that does it. This is the strongest single argument for taking that dependency — without it, "convert on upload" needs a wasm libheif in the Worker.
+
+It also has to be **synchronous with the upload**, or the Library shows a broken image until it finishes.
+
+One tension to settle: converting at the door means the HEIC bytes are gone, which brushes against your rule that the original is never lost. I'd **keep the HEIC as the archival original and treat the converted JPEG as the working original the recipe applies to** — one extra copy, principle intact. Say if you'd rather just discard it.
+
+## Sizing, under JAMStack
+
+The split becomes very clean, because a published revision is *already* a frozen byte snapshot:
+
+- **The ladder is generated at publish**, into that revision's own R2 prefix (`<root>/<slug>/rev/NNNN/assets/…`). Immutable, versioned with the revision, disposable — exactly the semantics that already exist.
+- **The draft gets no ladder.** It isn't the public site; it serves the working rendition. That halves the work.
+- **`render.ts:2459` is the single place an `<img>` is emitted** — it gains `srcset`/`sizes` from the ladder manifest, and **`assetRefSchema` never changes**. The site document stays innocent of delivery.
+- Never upscale; the ladder caps at the source's own dimensions.
+- **Content-address each rendition** on `sha(original + recipe + width)`. Publishes are frequent and image edits are rare, so an unchanged picture costs zero transforms on republish. The material store already content-addresses blobs (`t/<tenant>/blob/<sha256>`), so it's the established pattern rather than a new one.
+
+And `resize` still earns its place in the *editorial* op list — a logo that is 400px because that's what it is — with the surface prose stating plainly that delivery sizes are handled automatically, so the model doesn't start hand-optimising bandwidth against the ladder.
+
+A bonus: the sixth `picture` kind gets easier. The Worker applies the recipe and downscales to something model-sized in the same call — which answers the context-cost worry directly, and matches what `fidelity-core.ts` already does to screenshots.
+
+## Last four decisions
+
+1. **Take the Images binding dependency?** It buys HEIC, the ladder, and one renderer for preview/model/publish. Without it we're on Browser Rendering plus a wasm HEIC decoder.
+2. **Keep the HEIC original alongside the converted JPEG, or discard it?**
+3. **Ladder widths** — I'd propose 480 / 960 / 1440 / 2048 long edge, capped at source. Object if you want different steps.
+4. **Flip** — drop it from the vocabulary if the platform can't do it, or keep it as a client-side-only op? (Keeping it means two renderers again, which I'd avoid.)
+
+Answer those and I'll title EPIC-1, write its body as the umbrella — the principle being *a picture you made is one you can see, name, change without losing what it was, and publish at a sane size* — and cut the children: chat image; sixth `picture` kind; recipe + editor modal + `edit_image` tool; HEIC-at-ingest; publish-time ladder + `srcset`; and the two lagrange-framework tickets for the `create_image` surface prose and generative `edit_image`.
 
 <!-- xgd-chat-end -->
