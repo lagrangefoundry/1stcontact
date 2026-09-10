@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-09T23:56:43.954020+00:00'
+updated_at: '2026-09-10T00:24:36.472142+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -157,5 +157,13 @@ But 4096 isn't earning its keep as a limit:
 **Two things I checked while there.** `claude-sonnet-4-6` is current, not deprecated, so nothing forces a migration. But **task budgets** — an advisory ceiling the model *can* see and pace itself against, which is the thing that would make the builder finish gracefully instead of being cut off — aren't available on Sonnet 4.6; they need Opus 5, Sonnet 5, Fable 5, or Opus 4.7/4.8. That's a model-choice conversation, separate from this fix.
 
 So the shape of the real fix is: 64k stops the immediate bleeding, `stop_reason` makes any future truncation diagnosable instead of a ten-minute silent loop, and the O(N²) growth cost from the missing insert/remove ops is the thing that will bite again at a larger page even with a 64k cap. All recorded in BUG-67.
+
+<!-- xgd-turn id="69e079fd-45cc-45d5-8f40-3b86c1750ecc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:24:36.320857+00:00" -->
+#### You
+I'm investigating uprade to Sonnet 5.
+
+Can you create a ticket in Lagrange Foundry to handle this please?
 
 <!-- xgd-chat-end -->
