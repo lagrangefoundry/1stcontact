@@ -6,14 +6,15 @@ title: The declaration is what the build actually uses, is never overwritten by 
   build, and a missing declaration is refused by name
 created_by: xgd
 created_at: '2026-08-20T04:17:10.740286+00:00'
-updated_at: '2026-09-10T07:45:29.064085+00:00'
+updated_at: '2026-09-10T08:04:40.947657+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
