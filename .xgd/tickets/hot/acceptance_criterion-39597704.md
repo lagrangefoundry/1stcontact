@@ -6,9 +6,9 @@ title: A text-free media element folds to an image leaf with its resolved source
   alternative text and the framing it is seen through
 created_by: xgd
 created_at: '2026-07-29T04:04:57.769004+00:00'
-updated_at: '2026-08-16T08:03:15.354090+00:00'
+updated_at: '2026-09-10T14:41:20.221587+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-8acc338d
@@ -27,15 +27,17 @@ which part of itself its box shows), how it is adjusted (the colour-adjustment
 stack painted over it), and how it is finished (corner radius, opacity, blend mode,
 border, shadow) — omitting any axis the element does not paint. The claim is
 therefore how the picture is *seen* and not only which picture it is and what it is
-called. A media element captured with no resolvable source, or with no box at any
-sampled width, produces no leaf at all: it is signalled as a residual rather than
-emitted as a broken image.
+called.
+
+This criterion governs what a **foldable** media element emits. The opposite
+outcome — a media element with no resolvable source, or with no box at any sampled
+width, which emits no leaf and takes the residual channel instead — is owned and
+verified by AC-733, which specifies the residual channel for every element the fold
+cannot express.
 
 ## Verification
 Fold a capture containing images; assert an image leaf exists per media element with
 the captured source and alternative text, a height-bearing keyframe at each present
 width, a stable id, and the expected axes including a non-default framing pair and a
 folded colour adjustment where the element paints them; render it and assert the
-emitted markup carries that source. Fold a fixture whose media element has no
-resolvable source and assert no image leaf is emitted and a residual is signalled
-instead.
+emitted markup carries that source.
