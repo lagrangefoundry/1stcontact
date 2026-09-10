@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T00:14:43.102179+00:00'
+updated_at: '2026-09-10T00:34:07.587288+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -617,5 +617,65 @@ The shared store still reads `claude-sonnet-4-6`. Same as REQ-144 — it needs w
 **Cost.** Expect roughly +30% per equivalent session from the tokenizer, plus whatever adaptive thinking adds on top — it's on now where it was off before. REQ-143's usage telemetry will tell you the real number; the CHAT-47 baselines are no longer comparable.
 
 **The truncation bug is still there.** A 32k ceiling makes it rare, not safe: a `tool_use` block that never receives `content_block_stop` is still dispatched with `{}`, and `stop_reason` is still read nowhere in the backends. I noted that explicitly in both the ticket and the commit so it doesn't get treated as fixed. Want me to file it?
+
+<!-- xgd-turn id="7a13f50a-6f63-4b7e-9130-0a9e803f356a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:30:36.859427+00:00" -->
+#### You
+I think we should upgrade - I assume this is a 1c setting?
+
+<!-- xgd-turn id="7a13f50a-6f63-4b7e-9130-0a9e803f356a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:31:47.760523+00:00" -->
+#### Claude
+No — it isn't a 1c setting. Let me confirm the mechanism and try the one step that's left.
+
+Not a 1c setting — 1stcontact has no model configuration at all.
+
+`host-core.ts:626` constructs the backend with only `client`, `apiKey` and `tools`, so it inherits the library's `DEFAULT_MODEL`. (`ai.ts:208` *reads* `backend.model` to report it, but nothing sets it.) That's why the framework change is the whole change.
+
+**It's a deliberate operator step in lagrange-framework.** `bin/install`'s own docstring is explicit: *"UPDATES ARE DELIBERATE. Nothing reaches a consumer until this command runs."* Presumably the same step you ran for "144 shipped".
+
+I tried to run it and it's blocked in my sandbox:
+
+```
+!! js install failed: [Errno 1] Operation not permitted:
+   PosixPath('/Users/martin/lagrangefoundry/node_modules/@anthropic-ai/sdk')
+```
+
+`/Users/martin/lagrangefoundry/node_modules` is outside my write allow-list — I can write the individual repos, not their shared parent. I checked afterwards that nothing was half-applied: the store still reads `claude-sonnet-4-6` / `4096`, and `@anthropic-ai/sdk` is intact. Clean failure, not a partial one.
+
+**What you need to run:**
+
+```
+cd /Users/martin/lagrangefoundry/lagrange-framework
+./bin/install --lang js --component ai
+```
+
+Then restart the wrangler dev server. (`--lang all` if you want the Python peer too — 1stcontact only needs the JS one.)
+
+Worth considering separately: **should** the model be a 1c setting? The backend already takes a `model` option, so exposing it through 1c config would let you pin or A/B a model per deployment without cutting a framework release — useful if you want to compare Sonnet 5 against 4.6 on real sessions rather than switching wholesale. Small ticket if you want it; not needed for this upgrade.
+
+<!-- xgd-turn id="ee29eabc-9915-4494-bf4f-f889b9225b64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:33:47.412931+00:00" -->
+#### You
+oh that must change let me get that fixed
+
+<!-- xgd-turn id="ee29eabc-9915-4494-bf4f-f889b9225b64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:34:07.534151+00:00" -->
+#### Claude
+Understood — I'll leave it with you.
+
+Once I can write `/Users/martin/lagrangefoundry/node_modules`, the sequence is:
+
+```
+./bin/install --lang js --component ai
+```
+
+then I'll verify the shared store reads `claude-sonnet-5` / `32000` and confirm nothing else in the store shifted. Ping me when it's ready and I'll run it.
+
+If you actually meant the other thing — making the model a 1c-level setting rather than a framework default — that's a different fix and I'd need a ticket for it. Say which and I'll pick it up.
 
 <!-- xgd-chat-end -->

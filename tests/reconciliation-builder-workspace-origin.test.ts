@@ -456,6 +456,19 @@ describe('story-e674c60a builder origin', () => {
         ok: false,
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
+      // And the other correction the Library makes ([[REQ-213]]) — what a piece
+      // of material is FOR. Probed in the same rejection shape, and it reaches
+      // one for the same reason its sibling does: the uid and the role are
+      // checked on the request's own arguments, before a store is opened. The
+      // cacheable-refusal harm is sharper here than on a read, because this
+      // refusal is one a client ACTS on — "take it off your site first" — so a
+      // cached copy would keep telling them to do something they have done.
+      {
+        route: '/api/material/role',
+        url: '/api/material/role',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
 
       // A rendered page in EACH channel, plus the two ways a preview request
       // fails. `published` REDIRECTS since REQ-149 (D4) — a 302 is still a

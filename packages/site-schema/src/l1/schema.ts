@@ -895,6 +895,113 @@ export const l1LinkSchema = z
 /** REQ-106 — the navigation role a node may take. */
 export type L1Link = z.infer<typeof l1LinkSchema>
 
+// ── Modals (REQ-212) ──────────────────────────────────────────────────────────
+//
+// L1 could not express a modal at all, and the substrate said so out loud:
+// `account-chrome`'s stylesheet ships `position: fixed; inset: 0` with the note
+// "no L1 axis can express `position: fixed`", alongside a 50%-black scrim no
+// site can vary. DOC-25 §10.2 says a conforming behaviour ships zero CSS beyond
+// its declared invariants, so that block is an admission of a substrate gap
+// rather than a principled carve-out — and it left "put this behind a modal"
+// reachable only by writing a new behaviour module for each flow.
+//
+// A modal is TWO things, and they are separate because they sit on different
+// nodes: a subtree that presents as an overlay, and something elsewhere on the
+// page that opens it. Neither is a *kind* of thing — both are roles a subtree
+// takes — so they are node-level fields exactly like {@link l1LinkSchema} and
+// {@link l1RevealSchema}, not a seventh and eighth node kind.
+//
+// This is REQ-100's argument, applied again. Motion became an L1 *adjective*
+// rather than a module partly because a module would make animated content
+// unfoldable by construction — `fold` maps captured node axes onto L1 node axes
+// and never authors a module. A captured reference site with a modal has
+// precisely that problem.
+//
+// The obligations ride in on REQ-106's rail: L1 already carries what is not
+// negotiable, because the renderer is the sole sink. `newTab` cannot be asked
+// for without its `rel`; an `href` clears `isSafeUrl`. In the same way a
+// document here names WHICH panel and WHAT it looks like, and the renderer owns
+// the dialog role, the focus trap, the Escape key, the scroll lock and the
+// return of focus — none of which any document can name, vary or defeat.
+
+/**
+ * REQ-212 — the **overlay role**: this subtree presents above the page rather
+ * than in its flow.
+ *
+ * It carries only what a reference can legitimately vary. The panel's fill,
+ * rounding, border, shadow, padding and measure are its ordinary surface and
+ * sizing axes — the role adds no way to paint, because a modal panel is a box
+ * and L1 already knows how to paint one.
+ *
+ * A node carrying this MUST declare an `id` ({@link L1_STRUCTURAL_RULES}): the
+ * id is what an {@link l1ActionSchema} names, and a panel nothing can open is a
+ * panel nobody sees.
+ *
+ * The two dismissals default to ON. A modal that cannot be escaped and cannot be
+ * clicked away is a trap, so an author has to say so deliberately rather than by
+ * omission — the same direction `newTab`'s `rel` pairing takes.
+ */
+export const l1DialogSchema = z
+  .object({
+    /**
+     * The scrim painted over the page behind the panel. Absent → no scrim, and
+     * the page behind stays fully visible. Reuses the hero overlay's shape
+     * because it is the same statement: a colour, at an opacity, over what is
+     * already there.
+     */
+    backdrop: l1OverlaySchema.optional(),
+    /** Where the panel sits in the covered viewport. Absent → `center`. */
+    placement: z.enum(['center', 'top', 'bottom']).optional(),
+    /** Whether Escape closes it. Absent → true. */
+    dismissOnEscape: z.boolean().optional(),
+    /**
+     * Whether a click on the scrim closes it. Absent → true. A click *inside*
+     * the panel never closes it, which is not a dial: a panel that dismissed
+     * itself when its own field was clicked would be unusable.
+     */
+    dismissOnBackdrop: z.boolean().optional(),
+    /** An accessible name, for when the panel's visible content is not one. */
+    ariaLabel: z.string().optional(),
+  })
+  .strict()
+
+/** REQ-212 — the overlay role a subtree may take. */
+export type L1Dialog = z.infer<typeof l1DialogSchema>
+
+/**
+ * REQ-212 — the **disclosure verb**: what activating this node does to a panel
+ * elsewhere on the page.
+ *
+ * A CLOSED SET OF TWO, deliberately, and not an event system. Every general
+ * "on click, do X" vocabulary ends as a scripting language with a schema in
+ * front of it, at which point the substrate no longer bounds what a document can
+ * make a page do. Two verbs bound it absolutely: a document can change which of
+ * its own declared panels is open, and there is no third thing it can say.
+ *
+ * Exactly one verb per node. A node naming both is a toggle nobody asked for and
+ * a contradiction the shape should refuse; a node naming neither is inert markup
+ * wearing a control's semantics. Both are rejected by {@link L1_STRUCTURAL_RULES}
+ * rather than by the object shape, because a union of two single-key objects
+ * reports as "invalid input" at the node and names neither field.
+ *
+ * Mutually exclusive with {@link l1LinkSchema} on one node — a node either
+ * navigates somewhere or acts on this page, and both at once is a control whose
+ * behaviour depends on which handler wins. Enforced structurally: the four kinds
+ * that can carry either declare them in one `.strict()` shape, and the rule
+ * below refuses the pair.
+ */
+export const l1ActionSchema = z
+  .object({
+    /** The `id` of a node carrying {@link l1DialogSchema}, which this opens. */
+    opens: z.string().min(1).optional(),
+    /** The `id` of a node carrying {@link l1DialogSchema}, which this closes. */
+    closes: z.string().min(1).optional(),
+  })
+  .strict()
+
+/** REQ-212 — the disclosure verb a node may take. */
+export type L1Action = z.infer<typeof l1ActionSchema>
+
 // ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
 //
 // L1 had no motion of any kind: no transition, no animation, no notion of
@@ -1196,6 +1303,8 @@ export const l1TextSchema = z
     ...nodeAxisGroupsShape,
     /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
     link: l1LinkSchema.optional(),
+    /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
+    action: l1ActionSchema.optional(),
   })
   .strict()
 
@@ -1284,6 +1393,10 @@ export interface L1BoxNode extends L1NodeAxisGroups {
   axes?: z.infer<typeof l1SurfaceAxesSchema>
   /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
   link?: L1Link
+  /** REQ-212 — the overlay role; the renderer is the sole modal sink. */
+  dialog?: L1Dialog
+  /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
+  action?: L1Action
   children?: L1NodeUnion[]
 }
 
@@ -1313,6 +1426,10 @@ export interface L1ContainerNode extends L1NodeAxisGroups {
   align?: z.infer<typeof l1AlignSchema>
   /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
   link?: L1Link
+  /** REQ-212 — the overlay role; the renderer is the sole modal sink. */
+  dialog?: L1Dialog
+  /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
+  action?: L1Action
   /**
    * REQ-100 — the interval between successive children's reveals, in ms.
    *
@@ -1344,6 +1461,10 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       ...nodeAxisGroupsShape,
       /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
       link: l1LinkSchema.optional(),
+      /** REQ-212 — the overlay role; the renderer is the sole modal sink. */
+      dialog: l1DialogSchema.optional(),
+      /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
+      action: l1ActionSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -1368,6 +1489,10 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       ...nodeAxisGroupsShape,
       /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
       link: l1LinkSchema.optional(),
+      /** REQ-212 — the overlay role; the renderer is the sole modal sink. */
+      dialog: l1DialogSchema.optional(),
+      /** REQ-212 — the disclosure verb; the renderer is the sole `<button>` sink. */
+      action: l1ActionSchema.optional(),
       /** REQ-100 — interval between successive revealing children, in ms. */
       staggerMs: finite.nonnegative().optional(),
       children: z.array(l1NodeSchema),

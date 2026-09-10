@@ -137,6 +137,14 @@ export const L1_STRUCTURAL_RULES = {
   servedFontFamily: 'a painted font family must resolve to a served face or name a generic',
   /** An asset a page references must be one the site actually holds, or the page renders a broken image and says nothing about why. */
   heldAssetReference: 'an asset reference must name an asset the site holds',
+  /** A node presented as an overlay must declare an `id`, because the id is the only thing an action can name and a panel nothing can open is a panel nobody sees. */
+  dialogNeedsId: 'a node carrying `dialog` must declare an `id`',
+  /** An action names exactly one verb: naming both is a toggle the shape cannot mean, and naming neither is inert markup wearing a control's semantics. */
+  oneActionVerb: 'an action must name exactly one of `opens` / `closes`',
+  /** What an action names must exist and must itself carry `dialog`, because opening something that is not an overlay is a no-op the author never sees. */
+  actionTargetsDialog: 'an action must name a node that carries `dialog`',
+  /** A node either navigates somewhere or acts on this page, so `link` and `action` cannot both be present: which one wins would be a property of the renderer rather than of the document. */
+  actionOrLink: 'a node cannot carry both `link` and `action`',
 } as const
 
 /**
@@ -1068,6 +1076,69 @@ export function validateL1(
     kids.forEach((c, i) => scanIds(c, `${path}/children/${i}`))
   }
   scanIds(doc.root, '/root')
+
+  // REQ-212 — the modal rules. All three need the WHOLE document (an action may
+  // name a panel authored anywhere in the tree, above it or below it), so they
+  // run here over the collected ids rather than inside the per-node `walk`.
+  //
+  // `seenIds` above is deliberately reused: it is already the document's id
+  // index, and building a second one would let the two disagree about which node
+  // owns a duplicated id — the exact case the uniqueness rule exists for.
+  const dialogIds = new Set<string>()
+  const scanDialogs = (node: L1Node, path: string): void => {
+    const dialog = (node as { dialog?: unknown }).dialog
+    if (dialog !== undefined) {
+      // The id is the whole handle. Without it the panel is unreachable and the
+      // renderer has nothing to point an `aria-controls` at.
+      if (node.id === undefined) {
+        errors.push({ path: `${path}/dialog`, message: L1_STRUCTURAL_RULES.dialogNeedsId })
+      } else {
+        dialogIds.add(node.id)
+      }
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanDialogs(c, `${path}/children/${i}`))
+  }
+  scanDialogs(doc.root, '/root')
+
+  const scanActions = (node: L1Node, path: string): void => {
+    const action = (node as { action?: { opens?: string; closes?: string } }).action
+    if (action !== undefined) {
+      // Both fields are optional in the shape, because a union of two
+      // single-key objects reports as a bare "invalid input" at the node and
+      // names neither field — which is the opposite of what an AI author
+      // self-corrects from (DOC-8 §6).
+      const named = [action.opens, action.closes].filter((v) => v !== undefined)
+      if (named.length !== 1) {
+        errors.push({
+          path: `${path}/action`,
+          message: `${L1_STRUCTURAL_RULES.oneActionVerb} (named ${named.length})`,
+        })
+      }
+      for (const [verb, target] of [
+        ['opens', action.opens],
+        ['closes', action.closes],
+      ] as const) {
+        if (target !== undefined && !dialogIds.has(target)) {
+          errors.push({
+            path: `${path}/action/${verb}`,
+            message: `${L1_STRUCTURAL_RULES.actionTargetsDialog} — '${target}' ${
+              seenIds.has(target) ? 'carries no `dialog`' : 'names no node'
+            }`,
+          })
+        }
+      }
+      // Both roles on one node is a control whose behaviour depends on which
+      // handler wins. The renderer retags to exactly one element, so this is a
+      // document that cannot be rendered as written rather than a preference.
+      if ((node as { link?: unknown }).link !== undefined) {
+        errors.push({ path: `${path}/action`, message: L1_STRUCTURAL_RULES.actionOrLink })
+      }
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanActions(c, `${path}/children/${i}`))
+  }
+  scanActions(doc.root, '/root')
 
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)
