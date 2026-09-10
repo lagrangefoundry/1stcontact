@@ -5,10 +5,10 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-09-09T21:25:01.708637+00:00'
+updated_at: '2026-09-10T00:29:59.555875+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   story_points: 13
