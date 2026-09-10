@@ -6,14 +6,15 @@ title: The same command in machine-readable form returns the baseline, the curre
   count, truncation and the ordered records
 created_by: xgd
 created_at: '2026-08-20T02:27:55.301291+00:00'
-updated_at: '2026-08-20T02:46:12.796087+00:00'
+updated_at: '2026-09-10T09:14:44.223858+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
