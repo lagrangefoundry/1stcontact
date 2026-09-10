@@ -10,6 +10,7 @@ import {
   ladderScreenshotPath,
   RESPONSIVE_VIEWPORTS,
   run,
+  selectProjectionAtWidth,
   VIEWPORTS,
   writeMultiState,
   writeRasterPng,
@@ -490,4 +491,124 @@ describe('story-16f2793c — pixel diff --size shoots the reproduction at that v
     // or a desktop-sized shot would not be.
     expect(report.meanDiff).toBeCloseTo(0, 5)
   }, 120_000)
+})
+
+// ── AC-1617 — one deterministic reference cell per width ─────────────────────
+//
+// AC-639 asserts the reference comes from the ladder at the selected width; it does
+// not assert WHICH cell at that width. A persisted ladder can hold several
+// projections per width (more than one engine, more than one interaction state), so
+// without a fixed preference the choice falls to iteration order and repeated
+// `--size` runs drift — flaky in a way every other criterion on this story reports
+// clean. This is the ordered preference: Chromium at rest, then any engine at rest,
+// then whatever exists.
+
+/** A projection whose manifest `source` names the exact cell it came from. */
+function cellAt(
+  viewport: Viewport,
+  engine: StateProjection['engine'],
+  state: StateProjection['state'],
+  wordmarkWidth: number,
+): StateProjection {
+  return {
+    engine,
+    viewport,
+    state,
+    manifest: {
+      source: `ref@${engine}:${viewport.width}:${state}`,
+      elements: [elWithBox('Wordmark', wordmarkWidth)],
+      sections: [],
+    },
+  }
+}
+
+/** A bundle carrying exactly the given projections. */
+function bundleOf(projections: StateProjection[]): string {
+  const dir = tmp('ac1617-')
+  writeMultiState(dir, { url: 'ref', projections, notes: [] })
+  return dir
+}
+
+describe('story-16f2793c — AC-1617 the reference cell for a width is deterministic', () => {
+  it('test_UAT_AC1617_chromium_at_rest_is_preferred_and_the_choice_is_stable', () => {
+    // Three projections at one width: the primary cell, another engine at rest, and
+    // a Chromium hover. Only the first may be selected.
+    const vp = VIEWPORTS.tablet
+    const matrix: MultiStateCapture = {
+      url: 'ref',
+      projections: [
+        cellAt(vp, 'webkit', 'rest', 111),
+        cellAt(vp, 'chromium', 'hover', 222),
+        cellAt(vp, 'chromium', 'rest', 333),
+      ],
+      notes: [],
+    }
+
+    const first = selectProjectionAtWidth(matrix, vp.width)
+    expect(first?.engine).toBe('chromium')
+    expect(first?.state).toBe('rest')
+    // Selecting again returns the same cell — the property that makes repeated
+    // `--size` runs byte-for-byte reproducible.
+    expect(selectProjectionAtWidth(matrix, vp.width)).toBe(first)
+  })
+
+  it('test_UAT_AC1617_preference_falls_back_through_at_rest_then_anything', () => {
+    const vp = VIEWPORTS.tablet
+
+    // No Chromium-at-rest → an at-rest projection of another engine is chosen,
+    // in preference to a Chromium cell in a non-rest state.
+    const noPrimary: MultiStateCapture = {
+      url: 'ref',
+      projections: [cellAt(vp, 'chromium', 'hover', 222), cellAt(vp, 'webkit', 'rest', 111)],
+      notes: [],
+    }
+    const atRest = selectProjectionAtWidth(noPrimary, vp.width)
+    expect(atRest?.engine).toBe('webkit')
+    expect(atRest?.state).toBe('rest')
+
+    // No at-rest projection at all → whatever exists at that width is chosen,
+    // rather than nothing.
+    const noRest: MultiStateCapture = {
+      url: 'ref',
+      projections: [cellAt(vp, 'chromium', 'hover', 222)],
+      notes: [],
+    }
+    expect(selectProjectionAtWidth(noRest, vp.width)?.state).toBe('hover')
+  })
+
+  it('test_UAT_AC1617_a_width_the_ladder_never_reached_selects_nothing', () => {
+    // Feeding AC-642's fail-loud path: selection returns nothing rather than
+    // silently substituting a neighbouring width.
+    const matrix: MultiStateCapture = {
+      url: 'ref',
+      projections: [cellAt(VIEWPORTS.mobile, 'chromium', 'rest', 75)],
+      notes: [],
+    }
+    expect(selectProjectionAtWidth(matrix, VIEWPORTS.desktop.width)).toBeUndefined()
+  })
+
+  it('test_UAT_AC1617_two_successive_size_runs_read_the_same_reference_cell', async () => {
+    // End to end through the real command: with three candidate cells at the
+    // selected width, both runs must read the primary one. A non-deterministic
+    // choice would show up here as two different `expectedSource` values — and as
+    // a wordmark delta that appears and disappears between identical runs.
+    const vp = VIEWPORTS.tablet
+    const dir = bundleOf([
+      cellAt(vp, 'webkit', 'rest', 111),
+      cellAt(vp, 'chromium', 'hover', 222),
+      cellAt(vp, 'chromium', 'rest', 333),
+    ])
+    const actual = writeManifest({ source: 'draft:x', elements: [elWithBox('Wordmark', 333)], sections: [] })
+
+    const runA = await cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actual, size: 'tablet' })
+    const runB = await cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actual, size: 'tablet' })
+
+    // Both runs read the Chromium-at-rest cell…
+    expect(runA.expectedSource).toBe(`ref@chromium:${vp.width}:rest`)
+    expect(runB.expectedSource).toBe(runA.expectedSource)
+    // …so the reproduction that matches that cell (333) is clean on both runs,
+    // rather than flagging against webkit's 111 or the hover cell's 222.
+    expect(runA.deltas).toEqual(runB.deltas)
+    expect(runA.deltas.some((d) => d.property === 'size')).toBe(false)
+  })
 })
