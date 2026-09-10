@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:12:27.140596+00:00'
+updated_at: '2026-09-10T21:23:34.884385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -163,5 +163,13 @@ These are two different things and conflating them is how a library ends up with
 4. Does the editor also expose **focal point**, or is that a later thing?
 
 Give me those and I'll title EPIC-1, write its body as the umbrella, and cut the children — which now looks like: chat image; sixth `picture` kind; the recipe model + editor modal + `edit_image` tool; the rendition ladder + `srcset` in `render.ts`; and the two lagrange-framework tickets (the `create_image` surface prose, which currently promises the model the picture never enters the conversation, and generative `edit_image` for colorize/background if you still want that).
+
+<!-- xgd-turn id="f786b6ad-7d4a-4f46-ad9f-c72c2ebd151f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:23:34.483473+00:00" -->
+#### You
+Our principle is JAMStack - all the rendering, flattening, resizing for publication should be done at build time (publish)
+
+HEIC - ideally convert on upload
 
 <!-- xgd-chat-end -->
