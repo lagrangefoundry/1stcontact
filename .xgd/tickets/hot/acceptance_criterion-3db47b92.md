@@ -6,14 +6,15 @@ title: A passage search returns a section of a document and says which document 
   came from
 created_by: xgd
 created_at: '2026-08-20T04:16:59.451391+00:00'
-updated_at: '2026-08-20T04:37:24.302104+00:00'
+updated_at: '2026-09-10T08:04:37.769378+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
