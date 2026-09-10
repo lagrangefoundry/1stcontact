@@ -5,10 +5,10 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-09-10T00:16:39.314269+00:00'
+updated_at: '2026-09-10T00:17:16.067861+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-583f91f4
+  commits:
+  - working_sha: b248d265cae55abea37d22f18bc328de0ca9bc97
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.142
 ---
 
 ## What changes
