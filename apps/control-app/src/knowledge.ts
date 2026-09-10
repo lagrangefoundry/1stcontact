@@ -1,6 +1,5 @@
 import {
   DEFAULT_SOURCE,
-  WorkersAiEmbedder,
   agglomerativeClusterer,
   buildAwareness,
   buildChunkIndex,
@@ -13,6 +12,7 @@ import {
   resolveCorpus,
   search as kmSearch,
 } from './generated/knowledge'
+import { embedderFor, type EmbedderEnv } from './embedder'
 import type { Ticket, TicketStore, TicketStoreEnv } from './tickets'
 import { ticketStoreFor } from './tickets'
 import type { Scope } from './scope'
@@ -229,21 +229,30 @@ export class AiNotConfiguredError extends Error {
   readonly name = 'AiNotConfiguredError'
   constructor() {
     super(
-      'The AI binding is not configured, so the project knowledge base has no ' +
-        'embedder and nothing can be indexed or searched. Declare it in ' +
-        'apps/control-app/wrangler.toml, under [ai] for `wrangler dev` and again ' +
-        'under [env.production.ai], which does not inherit it. The model is ' +
-        'Workers AI’s bge-small-en-v1.5 — the same one the system KB indexes ' +
-        'with, so the two agree by construction.',
+      'Workers AI is not reachable, so the project knowledge base has no ' +
+        'embedder and nothing can be indexed or searched. Either declare the ' +
+        'binding in apps/control-app/wrangler.toml, under [ai] for `wrangler dev` ' +
+        'and again under [env.production.ai], which does not inherit it; or set ' +
+        'CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to reach the same model ' +
+        'over REST ([[BUG-73]]). The model is Workers AI’s bge-small-en-v1.5 ' +
+        'either way — the same one the system KB indexes with, so the two agree ' +
+        'by construction whichever transport carries it.',
     )
   }
 }
 
-/** The bindings the project KB needs on top of the ticket store's. */
-export interface ProjectKnowledgeEnv extends TicketStoreEnv {
-  /** Workers AI. Absent is a configuration error, not a degradation. */
-  AI?: { run(model: string, input: unknown): Promise<unknown> }
-}
+/**
+ * The bindings the project KB needs on top of the ticket store's.
+ *
+ * THE EMBEDDER HALF IS `EmbedderEnv`'s NOW ([[BUG-73]]). It used to name the `AI`
+ * binding directly, which made this interface the third independent statement of
+ * how the Worker reaches a model; it names the resolver's shape instead, so
+ * adding the REST credential to that one place reached every caller.
+ *
+ * Absent is a configuration error here rather than a degradation — see
+ * {@link AiNotConfiguredError}.
+ */
+export interface ProjectKnowledgeEnv extends TicketStoreEnv, EmbedderEnv {}
 
 /** One search hit, as the component ranks it. */
 export interface KnowledgeHit {
@@ -666,8 +675,11 @@ export async function projectKnowledgeFor(
   }
   let embedder = opts.embedder
   if (embedder === undefined) {
-    if (!env.AI) throw new AiNotConfiguredError()
-    embedder = new WorkersAiEmbedder({ binding: env.AI })
+    // `embedderFor` chooses the transport ([[BUG-73]] B1/B2); the RAISE on `null`
+    // stays here, because what an absent embedder means is this KB's decision
+    // and not the resolver's — see B7 and `embedder.ts`'s note on `null`.
+    embedder = embedderFor(env, PROJECT_KB)
+    if (embedder === null) throw new AiNotConfiguredError()
   }
   return new ProjectKnowledge({
     store,

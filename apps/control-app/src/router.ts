@@ -36,6 +36,7 @@ import {
   type WorkerHost,
 } from './ai'
 import { imageSurface } from './imagegen'
+import { canEmbed, type EmbedderEnv } from './embedder'
 import { fidelityDeps } from './shot'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
@@ -441,7 +442,12 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown>> 
  * a second copy here would be free to drift by a character in silence, and the
  * symptom of that drift is mail that is never sent.
  */
-export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv, SessionCookieEnv {
+export interface RouterEnv
+  extends StoreEnv,
+    TicketStoreEnv,
+    MailEnv,
+    SessionCookieEnv,
+    EmbedderEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -472,9 +478,14 @@ export interface RouterEnv extends StoreEnv, TicketStoreEnv, MailEnv, SessionCoo
    *
    * On the router's env because [[REQ-163]]'s ingestion routes index what they
    * create: an unindexed document is INVISIBLE ([[DOC-39]] §4), not merely stale,
-   * so the upload path needs the same binding the KB does. Optional here for the
+   * so the upload path needs the same embedder the KB does. Optional here for the
    * same reason it is optional there — a deployment without it still stores and
    * still lists material, and says loudly that nothing can find it.
+   *
+   * THE BINDING IS ONE OF TWO TRANSPORTS SINCE [[BUG-73]]. The credential half
+   * arrives through `EmbedderEnv` below, and no route reads either directly —
+   * `embedder.ts` is what turns configuration into an embedder, and
+   * {@link defaultIndexer} asks it rather than testing this field.
    */
   AI?: { run(model: string, input: unknown): Promise<unknown> }
   /**
@@ -667,14 +678,19 @@ function secretsOf(env: RouterEnv): Array<string | undefined> {
  * the awareness-map rebuild is deferred behind it, which is the decomposition
  * that leaves the assistant never blocked and never blind.
  *
- * `null` WHEN THE BINDING IS ABSENT, and the caller says so loudly rather than
+ * `null` WHEN NOTHING CAN EMBED, and the caller says so loudly rather than
  * treating it as a degradation. `projectKnowledgeFor` raises rather than
- * degrading when `AI` is missing, which is right for the KB's own routes and
+ * degrading when there is no embedder, which is right for the KB's own routes and
  * wrong here: an upload that 500s because nothing can embed it would lose the
  * client's file to a problem the operator has to fix.
+ *
+ * `canEmbed` AND NOT `env.AI` ([[BUG-73]] B1). This gate and the constructor it
+ * guards have to agree about what "can embed" means; asking the binding here
+ * while `projectKnowledgeFor` asks the resolver would leave a REST-configured
+ * deployment storing every upload and indexing none of them, reporting nothing.
  */
 async function defaultIndexer(env: RouterEnv, scope: Scope): Promise<IndexMaterial | null> {
-  if (!env.AI) return null
+  if (!canEmbed(env)) return null
   const knowledge = await projectKnowledgeFor(env, scope)
   return async () => knowledge.onMaterialWritten()
 }

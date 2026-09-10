@@ -15,6 +15,7 @@ import {
   searchChunks as kmSearchChunks,
 } from './generated/knowledge'
 import { PROJECT_KB, projectKnowledgeFor, type ProjectKnowledgeEnv } from './knowledge'
+import { canEmbed } from './embedder'
 import type { Scope } from './scope'
 import {
   SHIPPED_SOURCE,
@@ -282,10 +283,10 @@ export interface SessionKnowledgeEnv extends ProjectKnowledgeEnv, SystemKnowledg
  *
  * DEGRADATION IS PER KB AND IS SYMMETRIC HERE, which is the one place it differs
  * from `knowledge.ts` — deliberately, and the difference is worth stating rather
- * than reading as an inconsistency. There, an absent `AI` binding RAISES, because
+ * than reading as an inconsistency. There, an absent embedder RAISES, because
  * that path is ingestion and an unindexed upload is invisible rather than merely
- * stale, so failing loudly is the only honest answer. Here the binding is the
- * embedder for *queries*, and without one there is nothing to search in either
+ * stale, so failing loudly is the only honest answer. Here the embedder serves
+ * *queries*, and without one there is nothing to search in either
  * corpus — the system half has always answered `null` to exactly this, and a
  * session that opened for one KB and refused for the other would be a chat panel
  * that will not start because a search is unavailable.
@@ -317,7 +318,12 @@ export async function sessionKnowledgeFor(
   // PROJECT FIRST, and the order is load-bearing all the way down: it is this
   // map's insertion order that becomes the landscape's section order and the
   // co-ranked merge's tie-break.
-  if (opts.embedder !== undefined || env.AI) {
+  // `canEmbed` RATHER THAN `env.AI`, and the change is load-bearing rather than
+  // cosmetic ([[BUG-73]] B1). This gate decides whether the project half opens at
+  // all; testing the binding directly would have told a REST-configured
+  // deployment it could not embed, and the symptom is not an error — it is a
+  // knowledge base that is silently absent from the session.
+  if (opts.embedder !== undefined || canEmbed(env)) {
     const project = await projectKnowledgeFor(env, scope, {
       ...(opts.tickets ? { store: opts.tickets } : {}),
       ...(opts.embedder !== undefined ? { embedder: opts.embedder } : {}),
