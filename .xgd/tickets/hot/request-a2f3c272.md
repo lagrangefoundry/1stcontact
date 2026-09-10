@@ -5,9 +5,9 @@ type: request
 title: The AI must be able to drive the page before it photographs it
 created_by: REQ-212
 created_at: '2026-09-10T20:23:43.136350+00:00'
-updated_at: '2026-09-10T20:23:43.136350+00:00'
+updated_at: '2026-09-10T20:23:59.745041+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -61,7 +61,7 @@ carousel's third slide needs two advances.
   ([[REQ-100]], [[REQ-108]], [[REQ-212]] all turn on the AI never naming one),
   and a tool parameter is not the place to hand that back.
 - **`edit` remains inert.** This is a `draft`-channel capability. The edit
-  channel ships no behaviour by [[REQ-116]], and driving it is [[REQ-214]]'s
+  channel ships no behaviour by [[REQ-116]], and driving it is [[REQ-215]]'s
   problem, not this one.
 - **Failure is loud.** An interaction that half-worked must not photograph
   quietly.
@@ -81,6 +81,6 @@ label".
 
 ## Related
 
-[[REQ-214]] is the operator-facing half of the same problem — carrying page
+[[REQ-215]] is the operator-facing half of the same problem — carrying page
 state across a channel switch. Both want a handle on "which panel is open" and
 should be designed together even if they ship apart.
