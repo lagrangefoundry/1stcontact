@@ -13,6 +13,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-17655906
 ---
 
 # Switching channel must preserve what the page is showing
