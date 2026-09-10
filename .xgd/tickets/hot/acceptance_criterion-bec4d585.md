@@ -6,9 +6,9 @@ title: Translucency and lightness are axes of the reference, so one colour used 
   several opacities or shades is one entry
 created_by: xgd
 created_at: '2026-08-06T20:37:46.135893+00:00'
-updated_at: '2026-08-16T22:14:54.690479+00:00'
+updated_at: '2026-09-10T12:44:01.176606+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c490f1cf
@@ -41,10 +41,17 @@ at what opacity this particular use sits.
 
 ## Verification
 
-Convert a site's colour literals that share one RGB at differing alphas and confirm
-they collapse to a single palette entry referenced at the corresponding alphas, each
-resolving back to the original literal byte-for-byte. Confirm exactness across the
-whole alpha byte range, not only the sampled values. Confirm that neither reference
-axis displaces the other — the same entry referenced at an alpha, at a shade, and at
-both resolves to the opaque colour at that opacity, the shaded colour opaque, and
-the shaded colour at that opacity respectively.
+Author a document whose colour axes reference **one** entry at several alphas, and
+confirm the site validates, that the entry itself is rejected if it carries the
+alpha instead, and that at the load boundary each use resolves back to the literal
+it stands for byte-for-byte. Confirm exactness across the whole alpha byte range,
+not only the sampled values. Confirm that neither reference axis displaces the
+other — the same entry referenced at an alpha, at a shade, and at both resolves to
+the opaque colour at that opacity, the shaded colour opaque, and the shaded colour
+at that opacity respectively.
+
+The *conversion* of an existing site's literals into that shape (`1c colors` →
+`1c colors --assign`) is **not** this criterion's to verify: AC-942 drives the
+census and retrofit commands over a site carrying one RGB at three opacities and
+asserts the collapse to a single entry. This criterion verifies the value model the
+conversion targets, authored directly.
