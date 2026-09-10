@@ -20,10 +20,12 @@
  *
  * WHY A SWITCH IS A REMOUNT AND NOT A CLEAR. `mountChat` has `appendMessage` but
  * no way to empty itself, and that turns out to be the right shape rather than a
- * gap to work around: a fresh instance keyed on the session id also keys the
+ * gap to work around: a fresh instance keyed on the conversation also keys the
  * component's own draft persistence per conversation, so a half-typed message
  * survives a trip to another site and back. Reusing one instance would need a
  * clear the component does not offer AND would give every session the same draft.
+ * WHAT "the conversation" MEANS is the caller's to say — see `setSession`'s
+ * `key`, and [[BUG-69]] for why it is not the session id.
  *
  * THE TRANSCRIPT IS REPLAYED, and that is not decoration. The session remembers
  * the conversation across reloads; if the panel did not, the assistant would
@@ -130,6 +132,7 @@ export function createChatPanel(options = {}) {
 
   let chat = null
   let sessionId = null
+  let sessionKey = null
 
   /** Say something in the panel's own voice — a failure, or why it is frozen. */
   function note(text) {
@@ -152,14 +155,37 @@ export function createChatPanel(options = {}) {
    * the transcript stopped, so the rejoin resumes at exactly the offset the
    * paint reached. They are consumed together or not at all.
    *
+   * WHICH CONVERSATION THIS IS, IS NOT THE SESSION ID ([[BUG-69]]). The origin
+   * derives an id from the slug — `site-<slug>` — and that is unique in the
+   * address space it lives in, because every request is business-scoped and the
+   * host resolves the id against that tenant's own store. It is NOT unique
+   * across businesses: slugs are per-business by design, so two businesses may
+   * each hold a `site-unnamed`, and those are two different conversations.
+   *
+   * This pane cannot see that, and should not have to — it still knows nothing
+   * about sites or businesses. It is TOLD, as `key`: the caller's name for the
+   * conversation, in the caller's own address space. Everything about identity
+   * hangs off it — the no-op below, the remount, and the composer's draft
+   * storage — while the wire `sessionId` stays exactly what turns are addressed
+   * to. Defaulting `key` to the id is what keeps a host with nothing wider in
+   * scope, and every existing caller, unchanged.
+   *
+   * The failure that makes this necessary: a switch between two businesses whose
+   * sites share a slug re-read the right transcript from the origin and then
+   * discarded it, because the id string matched the one already on screen —
+   * leaving one business's conversation beside another business's site.
+   *
    * @param {{sessionId: string, turns?: {role: string, markdown: string}[],
    *          cursor?: number, live?: boolean,
    *          ready?: boolean, error?: string} | null} session
+   * @param {string} [key] identity of the conversation to the caller; defaults
+   *   to the session id, which is what it means where nothing wider is in scope.
    */
-  function setSession(session) {
-    const next = session?.sessionId ?? null
-    if (next === sessionId) return
-    sessionId = next
+  function setSession(session, key) {
+    const next = session ? (key ?? session.sessionId) : null
+    if (next === sessionKey) return
+    sessionKey = next
+    sessionId = session?.sessionId ?? null
 
     chat?.destroy()
     chat = null
@@ -168,7 +194,10 @@ export function createChatPanel(options = {}) {
 
     const id = session.sessionId
     chat = mountChat(element, {
-      id: `${CHAT_ID_PREFIX}${id}`,
+      // KEYED ON THE CONVERSATION, NOT THE WIRE ID. This is also the composer's
+      // draft key, so a half-typed message stays with the business it was typed
+      // under rather than surfacing under another business's same-named site.
+      id: `${CHAT_ID_PREFIX}${next}`,
       emptyText: EMPTY_TEXT,
       toolPane: true,
       ...(storage ? { storage } : {}),
@@ -222,13 +251,17 @@ export function createChatPanel(options = {}) {
   return {
     element,
     setSession,
+    /** The id turns are addressed to — the origin's, unchanged ([[BUG-69]]). */
     getSessionId: () => sessionId,
+    /** What the pane considers the displayed conversation to be ([[BUG-69]]). */
+    getSessionKey: () => sessionKey,
     /** The live panel, or null before a session is set. Tests and the host read it. */
     getChat: () => chat,
     destroy() {
       chat?.destroy()
       chat = null
       sessionId = null
+      sessionKey = null
       element.remove()
     },
   }
