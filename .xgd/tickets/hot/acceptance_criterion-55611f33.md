@@ -6,9 +6,9 @@ title: Each response is typed from the key that answered, with unknown extension
   served as generic binary
 created_by: xgd
 created_at: '2026-08-06T18:49:07.892587+00:00'
-updated_at: '2026-08-31T11:53:09.068918+00:00'
+updated_at: '2026-09-10T16:55:57.986120+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
