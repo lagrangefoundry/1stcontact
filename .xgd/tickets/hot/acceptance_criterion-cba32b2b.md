@@ -6,14 +6,15 @@ title: The ticket schema stays in agreement with the component that publishes it
   and an unavailable component reports a named skip rather than a pass
 created_by: xgd
 created_at: '2026-09-01T23:57:13.709624+00:00'
-updated_at: '2026-09-02T00:13:30.696195+00:00'
+updated_at: '2026-09-10T02:22:04.553204+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
