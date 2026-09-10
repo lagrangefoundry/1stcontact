@@ -6,14 +6,15 @@ title: The identity is accepted from the forwarded header, the browser cookie, o
   an automation service identity
 created_by: xgd
 created_at: '2026-08-31T09:32:12.547116+00:00'
-updated_at: '2026-08-31T17:02:19.693752+00:00'
+updated_at: '2026-09-10T04:34:09.241233+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
