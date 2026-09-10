@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-31T11:12:55.919038+00:00'
+updated_at: '2026-09-10T11:18:27.420192+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -17,6 +17,7 @@ fields:
   uat_coverage: fail
   updated_by: bundle-b3b7c399
 ---
+
 
 ## Story
 **As a** site author (and the AI acting on my behalf), **I want** interactive
@@ -106,6 +107,42 @@ closes both directions — a bound name the behavior does not declare is a
 violation, and a required declared element with no L1 node bound to it is a
 violation. The whole-instance check reports the union of config, slot and control
 violations.
+
+### Where a behaviour sits on a page: it must name the seam it mounts into
+Instance validation proves a module is internally well-formed. **REQ-93 adds the
+page-level half**: a behaviour does not float alongside an L1 document, it mounts
+*inside* one. A captured page is routinely 100% L1 layout plus one behaviour bound
+to a seam within it — the composition DOC-25/26 describe — so `modules` and `l1`
+are not exclusive: modules may accompany `l1` **when each is bound by name to a
+`slot` present in the L1 tree**.
+
+Binding is validated, never best-effort. Each of these is an error with a
+machine-readable path, not a silent no-op:
+
+| rejection | why |
+|---|---|
+| **unbound module** — a module on an L1 page that names no slot | there is no defined place for it to render |
+| **dangling slot name** — names a seam absent from the L1 tree | the binding resolves to nothing |
+| **double-bound seam** — two modules name the same slot | one mount point cannot hold two behaviours |
+| **orphan seam** — a `slot` in the tree no module binds | the seam stays the inert placeholder (legal, but the mount is absent) |
+| **`slot` with no `l1`** — a module names a slot on a page carrying no L1 document | nothing to mount into |
+| **duplicate slot names** in one document | a mount point must be unambiguous |
+
+Both empty is legal — that is the empty starter page.
+
+Because the binding is proved here, the L1 renderer can insert the bound module's
+already-rendered fragment into the seam verbatim; STORY-83 records that emitter
+carve-out and the trust boundary it rests on. This story owns the rule; STORY-83
+owns the emission.
+
+**`mountInL1` — the mounted shape is a shipping shape.** A behaviour's
+conformance obligations are not weaker inside a seam than standing alone, so the
+conformance harness carries a `mountInL1` mode that runs the *same universal ACs*
+against the mounted shape: the fixture's instance is bound to a single full-width,
+unstyled `slot` in a minimal L1 host document, with a keyframe at every probed
+width so the wrapper can never be the thing that overflows. A form that overflows
+only once it is inside a pinned slot is still a violation, and this is the
+position that catches it.
 
 ### A behavior module ships zero CSS — with two declared carve-outs
 Neither survivor may paint any longer. Not less — none. The one exception is a
@@ -220,7 +257,9 @@ island scripts).
 its published `Behavior*` naming, the plain-function component artifact and the
 portable catalog that follows from it, the module's own escaping boundary,
 instance validation incl. the slot-as-L1 security line and the two-directional
-control check, the zero-CSS obligation and its two declared carve-outs (invariant
+control check, **the page-level binding rule and its rejections (REQ-93)** and
+**`mountInL1` as the shape a behaviour inherits its obligations in**, the
+zero-CSS obligation and its two declared carve-outs (invariant
 elements as a real stylesheet, and the edit-channel settled state), the two
 reframed survivor behavior modules and their observable behaviour in both the
 filesystem and the edge runtime, the L2 default-look preset, the shipped-client-JS
