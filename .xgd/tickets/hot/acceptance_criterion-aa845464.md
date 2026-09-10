@@ -6,14 +6,15 @@ title: A check with nothing to test against is reported skipped with its missing
   never as a pass, and counted separately
 created_by: xgd
 created_at: '2026-08-20T05:31:31.941022+00:00'
-updated_at: '2026-08-20T05:57:19.018698+00:00'
+updated_at: '2026-09-10T05:44:32.229749+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
