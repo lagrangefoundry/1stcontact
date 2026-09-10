@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:40:50.592327+00:00'
+updated_at: '2026-09-10T22:57:22.963457+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,11 @@ The cost is honest: public-site is emphatically read-only today and this makes i
 One caveat so it isn't a surprise later: this does **not** fix sign-in in production. That stays cross-origin on control-app and still needs the bypass policy. Proxying sign-in the same way would fix it, but that's a different change and I'm not folding it in.
 
 Say go and I'll write the REQ, update BUG-78 to depend on it, and start on the branch. If you'd rather the endpoint live on control-app after all, tell me now — it changes the shape of the whole ticket.
+
+<!-- xgd-turn id="2a5de84e-c61a-4fc1-9e8d-10c2bb73158c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:57:22.710752+00:00" -->
+#### You
+Please create the ticket - I will use the tickets own agent to build it.
 
 <!-- xgd-chat-end -->
