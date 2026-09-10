@@ -7,9 +7,9 @@ title: 'No edit through this surface can produce raw HTML or CSS: every control 
   or a reference into the site''s own palette'
 created_by: xgd
 created_at: '2026-08-07T02:02:54.192416+00:00'
-updated_at: '2026-08-20T02:54:29.491733+00:00'
+updated_at: '2026-09-10T17:45:46.136739+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -54,7 +54,7 @@ Save a string containing script and style markup into a copy region, and into an
 image region's alt text. Assert each save succeeds, that the rendered page shows
 that string as literal text, and that it introduced no corresponding element or
 active style. Separately, read every region of a page — including a run of copy,
-which exposes fields of four of the five shapes — and assert that every field
+which exposes fields of all five shapes — and assert that every field
 offered is one of the five shapes above, that every closed-list field carries the
 list of values it will accept, and that every bounded-number field carries its
 limits. Post a free colour value, rather than a palette entry name, to a colour
