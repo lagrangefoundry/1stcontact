@@ -7,9 +7,9 @@ title: Asking a painted panel what it exposes returns the colour it is filled wi
   else of its paint
 created_by: xgd
 created_at: '2026-08-10T08:23:08.470214+00:00'
-updated_at: '2026-08-20T02:53:56.986522+00:00'
+updated_at: '2026-09-10T17:30:02.209028+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -63,5 +63,4 @@ alone — and assert it returns the colour field and no image field, with no
 current value for the colour. Assert no field for any other paint parameter is
 present on either. Assert a copy region and an image region in the same page
 still return their own fields unchanged, including when they carry a background
-or a fill of their own. Assert the same answer is returned when the region is
-read through the builder origin.
+or a fill of their own.
