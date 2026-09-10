@@ -6,9 +6,9 @@ title: Content-robustness probe asserts the envelope holds under perturbed (grow
   content
 created_by: xgd
 created_at: '2026-07-22T20:07:13.870340+00:00'
-updated_at: '2026-09-10T14:42:20.122499+00:00'
+updated_at: '2026-09-10T15:37:09.393286+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
