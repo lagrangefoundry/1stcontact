@@ -6,15 +6,15 @@ title: Section band padding is not compared; the measured adjacent-row gap super
   it
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:48:10.538022+00:00'
-updated_at: '2026-09-09T23:48:10.538022+00:00'
+updated_at: '2026-09-10T00:34:35.663649+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
