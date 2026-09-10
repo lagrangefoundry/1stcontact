@@ -5,9 +5,9 @@ type: capability
 title: 'Builder Workspace: Chrome, Origin & Display Panel'
 created_by: xgd
 created_at: '2026-08-07T01:41:35.258770+00:00'
-updated_at: '2026-08-16T10:03:42.225488+00:00'
+updated_at: '2026-09-10T09:30:14.970514+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   name: builder_workspace
@@ -40,16 +40,18 @@ repository holding a private fork of them.
   install a missing one.
 - **The workspace origin** — one host serving the workspace document, its
   components, its browser source, the shared client code the editing gesture
-  runs in the displayed page (served from the same source the renderer is built
-  from, so the two cannot drift), and any rendered channel of any site in the
-  store, plus the operations the workspace performs (listing the store,
-  publishing, and carrying the write path's read/apply operations as a thin
-  transport that adds no semantics of its own, so that a refused edit arrives as
-  an expected refusal in the write path's own terms). An unconfigured origin and
-  an unreachable one are distinct, self-explanatory failures rather than a blank
-  page. Every tree it serves is confined, and every response it returns
-  is treated as stale-on-arrival because it rewrites its own bytes underneath
-  the browser.
+  runs in the displayed page, and any rendered channel of any site in the store,
+  plus the operations the workspace performs: listing the store, publishing, and
+  hosting the write path's read and apply operations. What this capability owns
+  of those last two is only that the bytes and the operations are *reachable
+  here*. That the editing client is built from the same source the renderer is
+  built from, so the two cannot drift, is CAP-87's property (AC-1006); that what
+  the write path reads, writes and refuses is unchanged when it is reached over
+  this origin — including the shape a refusal carries — is CAP-86's (AC-992).
+  An unconfigured origin and an unreachable one are distinct, self-explanatory
+  failures rather than a blank page. Every tree it serves is confined, and every
+  response it returns is treated as stale-on-arrival because it rewrites its own
+  bytes underneath the browser.
 - **The chrome** — a single-tab workspace whose displayed area fills the browser
   window, with one definition site for every name it shows.
 - **The display panel** — a pane that can show any of several registered modes
@@ -66,12 +68,15 @@ repository holding a private fork of them.
 - **The editing gesture** — clicking a segment, the field modal, and the write
   path behind it. Those are separate capabilities; this one owns only the
   surface they are hosted on.
-- **Edit semantics** — what the write path validates, writes and refuses, and
-  what a refusal carries, belong to the write-path capability. This one owns
-  only that those operations are reachable over the workspace origin, as a
-  transport that changes none of it. Likewise what the editing gesture's client
-  code *does* once the browser runs it belongs to the editing capability; this
-  one owns only that those bytes are served from this origin.
+- **Edit semantics** — what the write path validates, writes and refuses, what a
+  refusal carries, and that none of it changes when the operation is reached
+  over this origin rather than from the command line, all belong to the
+  write-path capability (CAP-86, AC-992). This one owns only that those
+  operations are reachable over the workspace origin. Likewise what the editing
+  gesture's client code *does* once the browser runs it, and that it is the one
+  implementation delivered from the renderer's own source, belong to the editing
+  capability (CAP-87, AC-1006); this one owns only that those bytes are served
+  from this origin.
 - **The renderings themselves** — the draft, published and edit channels are
   produced elsewhere; the workspace displays them and never produces them.
 - **Publish semantics** — the workspace invokes the existing publish behaviour
