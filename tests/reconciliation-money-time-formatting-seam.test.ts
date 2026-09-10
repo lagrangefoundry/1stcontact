@@ -246,12 +246,31 @@ describe('story-0598c150 — money & time formatting seam', () => {
     }
 
     // Right shape, not a real date-time. Refused rather than formatted into
-    // whatever the runtime makes of it.
-    for (const impossible of ['2026-13-01T00:00:00Z', '2026-10-28T25:00:00Z']) {
+    // whatever the runtime makes of it. Two distinct classes, and the second is
+    // the dangerous one: an out-of-range component (month 13, hour 25) makes the
+    // runtime's own parser fail, but a day-of-month overflow parses *cleanly* —
+    // ECMAScript builds the day with a rolling MakeDay and never checks the
+    // month's length, so 30 February reads as 2 March. That is the silently-moved
+    // booking this seam exists to refuse, baked into an immutable snapshot.
+    for (const impossible of [
+      '2026-13-01T00:00:00Z',
+      '2026-10-28T25:00:00Z',
+      '2026-02-30T12:00:00Z',
+      '2026-04-31T12:00:00Z',
+      '2026-02-29T12:00:00Z', // 2026 is not a leap year
+    ]) {
       expect(() => formatDateTime(impossible, 'Europe/Dublin', 'en-IE'), impossible).toThrow(
         /is not a real date-time/,
       )
+      expect(() => formatDateTime(impossible, 'Europe/Dublin', 'en-IE'), impossible).toThrow(
+        new RegExp(impossible),
+      )
     }
+
+    // The refusal is of the impossible date, not of the day number: the same day
+    // in a month that has it, and 29 February in a year that has it, both format.
+    expect(formatDateTime('2026-01-30T12:00:00Z', 'Europe/Dublin', 'en-IE')).toContain('30')
+    expect(formatDateTime('2028-02-29T12:00:00Z', 'Europe/Dublin', 'en-IE')).toContain('29')
 
     // A zone id the runtime does not recognise is named as the problem, and the
     // offending id reported — rather than an opaque RangeError surfacing from

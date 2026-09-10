@@ -149,6 +149,29 @@ export function formatMoney(
 }
 
 /**
+ * Does the literal's `YYYY-MM-DD` prefix name a day that exists in that month?
+ *
+ * `new Date()` is not this check. ECMAScript's date-time parser builds the day
+ * with a rolling `MakeDay` and never consults the month's length, so
+ * `2026-02-30T12:00:00Z` parses to a perfectly *valid* Date reading 2 March —
+ * shaped correctly, and two days from the day someone wrote down. A NaN check
+ * catches an out-of-range component (month 13, hour 25) but not this class,
+ * which is the one whose wrong answer is unrecoverable: a booking is baked into
+ * an immutable published snapshot and cannot be re-interpreted afterwards.
+ *
+ * Round-tripped rather than table-driven so leap years come from the runtime's
+ * own calendar. `setUTCFullYear` is used instead of `Date.UTC` because the
+ * latter maps a two-digit year into the 1900s, which would answer the leap
+ * question for the wrong year.
+ */
+function isRealCalendarDate(instant: string): boolean {
+  const [year, month, day] = instant.slice(0, 10).split('-').map(Number)
+  const probe = new Date(0)
+  probe.setUTCFullYear(year, month - 1, day)
+  return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day
+}
+
+/**
  * Render a UTC `instant` as local time in `timeZone`, formatted for `locale`.
  *
  * The instant and the zone are separate arguments because they are separate
@@ -182,7 +205,7 @@ export function formatDateTime(
     )
   }
   const parsed = new Date(instant)
-  if (Number.isNaN(parsed.getTime())) {
+  if (Number.isNaN(parsed.getTime()) || !isRealCalendarDate(instant)) {
     throw new TypeError(`formatDateTime: instant is not a real date-time: ${JSON.stringify(instant)}`)
   }
   if (!isKnownTimezone(timeZone)) {
