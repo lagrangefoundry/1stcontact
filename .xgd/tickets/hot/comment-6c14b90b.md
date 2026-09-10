@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T22:09:27.233442+00:00'
+updated_at: '2026-09-10T22:11:03.260089+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,52 @@ Lets take a step back and talk about requirements rather than implementation for
 both the email capture form AND the sign in form are behavior modules, right? Both need to work, we built part of then because we did not have email wired up, we do now, so we need endpoints for both.
 
 We also need appropriate security solutions so that they do not become spam relays or DOC attack surfaces.
+
+<!-- xgd-turn id="da9b5eac-472d-4b88-bec3-de3db1d4dce2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:11:03.186347+00:00" -->
+#### Claude
+Stepping back is right — and one premise needs correcting before we build on it. Let me check two things first.
+
+Both are behavior modules, yes — `contact-form` and `account-chrome`, and both post their JSON to a URL held in module config. But they are not in the same state, and the difference changes what we have to build.
+
+## Where each one actually stands
+
+**Sign-in is built.** `/sign-in` exists (REQ-202) and is not a stub: CORS preflight, a per-subject rate limit of 5/hour, mail through the wired mailer and templates, and the message recorded against the contact. It was finished *after* email landed. Two things are wrong with it, neither a missing endpoint:
+
+- the homepage config says `https://app.1stcontact.io/auth/request-link`, a route that has never existed — REQ-200 set it to `/sign-in`, and something later replaced that with an invented URL;
+- in production Cloudflare Access blocks `/sign-in` at the edge anyway. I checked: `GET` → 302 to the Access login, `OPTIONS` preflight → 403. Same for `/api/email/webhook`.
+
+**Email capture has no endpoint at all.** That one is a real build.
+
+So the Access point deserves emphasis: there are already two routes in the codebase written to sit ahead of the gate (the delivery webhook, the four sign-in routes) and *neither is reachable in production*. Whatever we build for capture lands behind the same wall. The bypass policy is owed today, before any of this.
+
+## The security requirement that shapes the design
+
+The two endpoints differ on one axis that decides everything else: **does it send mail to an address the caller supplies?**
+
+Sign-in does send mail — but `subjectFor` only resolves addresses **already in the database**, and an unknown address gets nothing, indistinguishably. That is what stops it being a relay: the worst an attacker achieves is mailing someone we already know, five times an hour. `sessions.ts` names Turnstile's absence there as a deliberate decision resting on exactly that.
+
+Capture cannot use that defence — accepting unknown addresses *is the feature*. So I'd propose one invariant across both, rather than two rulebooks:
+
+> **A public endpoint may only cause mail to be sent to an address the database already holds.**
+
+Sign-in already satisfies it. Capture satisfies it by *not* mailing the submitter at all — no confirmation, no double opt-in — and by sending any notification to the business's own address, which we hold. The moment we add a confirmation email to the submitter, we have built an open relay to arbitrary victims, and it stops being fixable by rate limiting.
+
+The rest follows from that:
+
+- **Turnstile stops being optional for capture.** Sign-in's argument for skipping it doesn't transfer, because capture has no known-address rule to lean on. This is REQ-7's unwired mount — the markup is already rendered.
+- **Rate limiting must key on something the caller cannot vary.** Sign-in counts per subject, which works because the subject pre-exists. Everything a capture submission carries is caller-chosen, so the cap has to be per site and per IP. Note the tension: a per-site cap is itself a denial-of-service against the customer — fill the bucket, real enquiries get refused — which is another reason the sharp instrument needs to be Turnstile and the cap a backstop.
+- **Body and field caps enforced before parsing**, so a large body is refused rather than read.
+- **One frozen acknowledgement**, so capture can't be used to test whether an address is already a contact — the property sign-in already has.
+- **Submitted text never reaches mail headers**, and is escaped in any body. A form field is attacker-controlled content arriving in something we send.
+- **Mail quota is a shared resource.** If every capture notifies the owner, a flood burns provider quota and the first thing that breaks is sign-in.
+- **Consent provenance.** The tenant is IE, we're storing an address off a public form, and `contact_events` is append-only and already carries a `detail` blob — recording what the person was shown and when costs nothing now and is unreconstructable later.
+
+## What I need from you
+
+1. **Does an enquiry notify the business owner, or only appear in the contacts list?** DOC-47 warns that a form which posts nowhere visible is the worst outcome — a row in a list nobody logs into is a soft version of that.
+2. **Turnstile now, or honeypot plus rate limit and accept the spam?** Wiring it needs Cloudflare keys and reopens REQ-7.
+3. **Scope.** BUG-78 is currently the diagnosis. Cleanest split I see: BUG-78 keeps the two content fixes and the Access policy; the capture endpoint becomes its own REQ, since it's a capability with its own acceptance criteria. Say the word and I'll write both up — I won't file anything until you do.
 
 <!-- xgd-chat-end -->
