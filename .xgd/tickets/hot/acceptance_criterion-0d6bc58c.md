@@ -6,14 +6,15 @@ title: Every storage question answers identically over all three live stores, th
   render included
 created_by: xgd
 created_at: '2026-08-31T09:47:17.168052+00:00'
-updated_at: '2026-09-10T06:46:37.921946+00:00'
+updated_at: '2026-09-10T07:16:01.028020+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
