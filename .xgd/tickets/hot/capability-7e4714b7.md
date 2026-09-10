@@ -5,13 +5,13 @@ type: capability
 title: 'AI Site Assistant: Per-Site Conversations'
 created_by: xgd
 created_at: '2026-08-10T08:34:05.264297+00:00'
-updated_at: '2026-09-10T21:47:27.309709+00:00'
+updated_at: '2026-09-10T22:22:24.694259+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
 fields:
   name: ai_site_assistant
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 # Capability: AI Site Assistant — Per-Site Conversations
