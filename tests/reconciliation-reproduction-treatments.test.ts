@@ -167,5 +167,27 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     expect(rendered).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
     expect(rendered).toMatch(/<input[^>]*id="cf-name"[^>]*type="text"[^>]*required/)
     expect(rendered).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
+
+    // (d) REQ-93 — the story's headline "compact placeholder-labelled" treatment.
+    // It survives as `config.fields[].labelMode`, a captured fact read off the
+    // reference's a11y tree, NOT as the old `fieldLabels` dial: `placeholder`
+    // puts the words inside the box, `visible` leaves them to an L1 text run.
+    // The accessible name is emitted either way.
+    const placeholderLabelled = ContactForm({
+      config: { ...config, fields: [{ ...config.fields[0], labelMode: 'placeholder' }] },
+      slots: { form },
+    })
+    expect(placeholderLabelled).toMatch(/<input[^>]*id="cf-name"[^>]*placeholder="Your name"/)
+    expect(placeholderLabelled).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+    // …and `visible` (the default) sets no placeholder attribute at all.
+    expect(rendered).not.toContain('placeholder=')
+    expect(rendered).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+
+    // The treatment is config, not a dial: no aesthetic key governs it, and the
+    // invariant elements it rides beside are never bindable to an L1 node.
+    expect(contactFormMeta.config.fields.itemSchema.labelMode.values).toEqual(['visible', 'placeholder'])
+    for (const invariant of ['label', 'honeypot', 'turnstile'] as const) {
+      expect(contactFormMeta.controls[invariant].invariant).toBe(true)
+    }
   })
 })
