@@ -6,9 +6,9 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-08-31T18:03:18.408552+00:00'
+updated_at: '2026-09-10T04:34:23.159639+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -16,6 +16,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   updated_by: bundle-78f4e2fe
+  uat_coverage: pass
 ---
 
 ## Story
