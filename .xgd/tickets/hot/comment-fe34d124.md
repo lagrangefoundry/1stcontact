@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T18:58:13.323903+00:00'
+updated_at: '2026-09-10T19:00:43.965554+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -226,5 +226,23 @@ What's left on BUG-67 is Defect A, which is now entirely framework-side: REQ-146
 <!-- xgd-chat role="user" ts="2026-09-10T18:58:11.858889+00:00" -->
 #### You
 Just to round this up, can you confirm that the model and the context size are now confugrable from 1c?
+
+<!-- xgd-turn id="9e5c3760-1c39-402c-8694-e225def416d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:00:43.223519+00:00" -->
+#### Claude
+I'll check how 1c constructs the backend and what it passes through.
+
+**No — not from 1c, on either count.** Three layers, and they disagree:
+
+**1. Framework source — yes, and it went further than BUG-49 was filed for.** It didn't just add constructor options; it made both settings *data*. `components/ai/js/src/backend_config.js` plus `defaults/backends.json` ship `claude` as `{ model: "claude-sonnet-5", max_tokens: 32000 }`, overridable per key via `configureBackends(mapping)` — exported from the runtime-agnostic `/core` rung so a Worker can configure from KV — or `loadBackends(path)` on Node. Unknown backend or key is rejected at load rather than becoming a 400 on the first turn. `ClaudeAPIBackend` reads them at construction (`claude_api.js:165,167` → `:249,250`).
+
+**2. The installed shared store — no.** `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/backends/claude_api.js` is still `DEFAULT_MODEL = 'claude-sonnet-4-6'` and a hardcoded `max_tokens: 4096` at line 192. There's no `backend_config.js` in it and `src/defaults/` holds only `product.json` and `prose.json`. So a builder session started right now still runs the 4096 ceiling — the twelve-`set_l1` failure is still reproducible, unchanged.
+
+**3. 1c itself — no.** `host-core.ts:614-623` constructs `new lib.ClaudeAPIBackend({ client?, apiKey?, tools })`. Neither `model` nor `maxTokens` is passed, and a repo-wide grep for `configureBackends`, `loadBackends`, `backendSettings`, `backends.json`, `max_tokens`, `maxTokens`, `claude-sonnet` outside `node_modules`/`dist` returns zero hits.
+
+The distinction worth holding onto: once the store is refreshed, 1c gets sonnet-5 and a 32000 ceiling — which fixes the bug — but by inheriting the framework's opinion, not by choosing. Making it *1c's* decision is one call to `lib.configureBackends(...)` (or `loadBackends(<path>)`) at host start-up, before the first backend is built, sourced from a 1c-side config file or env. Small, and blocked on nothing except the store refresh landing first, since the current store exports neither function.
+
+I've appended all of this to BUG-67 rather than leaving it in chat. The store refresh is still the operator action nothing in this repo can do.
 
 <!-- xgd-chat-end -->
