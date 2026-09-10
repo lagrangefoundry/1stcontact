@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-09-10T11:19:00.086516+00:00'
+updated_at: '2026-09-10T11:25:48.976109+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -123,11 +123,14 @@ machine-readable path, not a silent no-op:
 | **unbound module** — a module on an L1 page that names no slot | there is no defined place for it to render |
 | **dangling slot name** — names a seam absent from the L1 tree | the binding resolves to nothing |
 | **double-bound seam** — two modules name the same slot | one mount point cannot hold two behaviours |
-| **orphan seam** — a `slot` in the tree no module binds | the seam stays the inert placeholder (legal, but the mount is absent) |
 | **`slot` with no `l1`** — a module names a slot on a page carrying no L1 document | nothing to mount into |
 | **duplicate slot names** in one document | a mount point must be unambiguous |
 
-Both empty is legal — that is the empty starter page.
+Both empty is legal — that is the empty starter page. So is an **orphan seam**: a
+`slot` in the tree that no module binds is *not* rejected. It stays the inert
+labelled placeholder — the mount is simply absent — and STORY-83 owns what it
+emits in that state. The rule is one-directional: every module must name a live,
+unique seam; a seam need not attract a module.
 
 Because the binding is proved here, the L1 renderer can insert the bound module's
 already-rendered fragment into the seam verbatim; STORY-83 records that emitter
