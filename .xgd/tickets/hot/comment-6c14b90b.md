@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T21:54:04.048952+00:00'
+updated_at: '2026-09-10T22:09:27.233442+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,15 @@ Fair question — let me answer that first, then get moving on B.
 Let me read the design record before I write anything.
 
 Two things worth knowing before I write code:
+
+<!-- xgd-turn id="da9b5eac-472d-4b88-bec3-de3db1d4dce2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T22:09:27.008813+00:00" -->
+#### You
+Lets take a step back and talk about requirements rather than implementation for a moment.
+
+both the email capture form AND the sign in form are behavior modules, right? Both need to work, we built part of then because we did not have email wired up, we do now, so we need endpoints for both.
+
+We also need appropriate security solutions so that they do not become spam relays or DOC attack surfaces.
 
 <!-- xgd-chat-end -->
