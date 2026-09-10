@@ -6,14 +6,15 @@ title: An incompletely configured gate refuses everything with a distinct status
   the missing setting
 created_by: xgd
 created_at: '2026-08-31T09:32:16.691185+00:00'
-updated_at: '2026-08-31T09:41:08.110787+00:00'
+updated_at: '2026-09-10T04:34:11.385284+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
