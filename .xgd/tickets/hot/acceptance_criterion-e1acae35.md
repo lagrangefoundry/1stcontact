@@ -6,7 +6,7 @@ title: The workspace shows the display panel beside a secondary pane with a divi
   that drags, collapses to a rail and reopens to its previous width
 created_by: xgd
 created_at: '2026-08-07T01:44:49.802647+00:00'
-updated_at: '2026-08-16T10:03:05.445209+00:00'
+updated_at: '2026-09-10T11:07:19.121890+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
