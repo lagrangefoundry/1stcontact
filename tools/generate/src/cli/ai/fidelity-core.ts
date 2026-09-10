@@ -41,7 +41,9 @@ import { decodePng, encodePng } from '../png'
 // reconciliation itself needs none of them, and this is the same reconciliation
 // the command runs.
 import { cmdL1Gate, referenceCoverage, reconcileGates } from '../gate-core'
-import { pictureUrl, resolvePicture, PictureNotFoundError, PictureSourceError } from '../picture'
+import { pictureSteps, pictureUrl, resolvePicture, PictureNotFoundError, PictureSourceError } from '../picture'
+import { resolveViewport } from '../capture/screenshot'
+import { drivePage } from '../capture/interact'
 import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
 import { assertPublicUrl, egressGuard, UrlRefusedError } from '../capture/egress-guard'
 import type { EgressRefusal } from '../capture/egress-guard'
@@ -213,7 +215,12 @@ async function imageBlocks(picture: ResolvedPicture): Promise<{
   }
   const note =
     `${picture.label} — ${reduced.width}×${reduced.height}` +
-    (reduced === raster ? '' : ` (reduced from ${raster.width}×${raster.height})`)
+    (reduced === raster ? '' : ` (reduced from ${raster.width}×${raster.height})`) +
+    // REQ-216 — the channel's caption, on the same block that already says what
+    // was looked at. Appended rather than given a block of its own because the
+    // two are one sentence about one picture, and a transcript that has had the
+    // image redacted out of it still carries both.
+    (picture.note ? `. ${picture.note}` : '')
   return {
     blocks: [
       { type: 'text', text: note },
@@ -306,9 +313,16 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           `recording. Name a draft, edit, revision or url picture.`,
       )
     }
+    // REQ-216 — driven the same way the picture beside it is. A manifest read
+    // off the closed page while the screenshot shows the open one would be two
+    // readings of two different states reported as one reading of one page.
+    const steps = pictureSteps(source)
     const driver = await deps.driverFactory()
     try {
-      await driver.navigate(url)
+      // Laid out at the width the steps are named at, for the reason
+      // `screenshotUrl` gives; an undriven manifest keeps its existing load.
+      await driver.navigate(url, steps.length ? resolveViewport(source.viewport) : undefined)
+      if (steps.length) await drivePage(driver, steps)
       return flattenSignals(await driver.query<RawSignals>(EXTRACT_SCRIPT), url)
     } finally {
       await driver.close()
@@ -485,6 +499,11 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
       return {
         a: a.label,
         b: b.label,
+        // REQ-216 — the same caption a picture carries when it is looked at. A
+        // measurement against a channel whose behaviour is off is exactly where
+        // a wrong conclusion gets drawn confidently, so the caveat travels with
+        // the numbers rather than only with the image.
+        ...(a.note || b.note ? { notes: [a.note, b.note].filter(Boolean) } : {}),
         size: { width: common.w, height: common.h },
         meanDifference: core.meanDiff,
         percentDifferent: core.pctOverThreshold,

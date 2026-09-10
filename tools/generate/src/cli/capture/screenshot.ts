@@ -13,6 +13,8 @@
  * intended: a laptop passes Playwright's factory, a Worker passes one from a
  * leased Browser Rendering session, and this file cannot tell.
  */
+import { drivePage } from './interact'
+import type { PageStep } from './interact'
 import type { BrowserDriverFactory, Viewport } from './types'
 
 /**
@@ -53,10 +55,18 @@ export async function screenshotUrl(
   url: string,
   viewport: Viewport,
   factory: BrowserDriverFactory,
+  steps: readonly PageStep[] = [],
 ): Promise<Uint8Array> {
   const driver = await factory()
   try {
-    await driver.navigate(url)
+    // REQ-216 — a DRIVEN shot loads at the width it is going to be driven at,
+    // and an undriven one keeps the load-wide-then-resize behaviour above
+    // verbatim. This is not a mode: it is the precondition driving has and
+    // shooting does not. A hamburger that only exists below 768px cannot be
+    // clicked on a page laid out at 1280, so a step named at `mobile` would
+    // refuse — correctly, and uselessly. Nothing about an undriven shot moves.
+    await driver.navigate(url, steps.length ? viewport : undefined)
+    if (steps.length) await drivePage(driver, steps)
     return await driver.screenshot(viewport)
   } finally {
     await driver.close()
