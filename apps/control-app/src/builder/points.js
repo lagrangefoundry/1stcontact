@@ -51,18 +51,21 @@ const OVERLAY_CSS = `
 .fc-point { position: absolute; width: 0; height: 0; cursor: grab }
 .fc-point.is-sent { cursor: default; opacity: 0.4; filter: grayscale(1) }
 .fc-point__x {
-  position: absolute; left: -9px; top: -9px; width: 18px; height: 18px;
-  display: flex; align-items: center; justify-content: center;
-  font: 700 14px/1 ui-sans-serif, system-ui, sans-serif; color: #fff;
-  text-shadow: 0 0 2px #000, 0 0 4px #000; touch-action: none;
+  position: absolute; left: -11px; top: -11px; width: 22px; height: 22px;
+  touch-action: none;
 }
 .fc-point__x::before {
   content: ''; position: absolute; inset: 4px; border-radius: 50%;
-  background: #e11d48; box-shadow: 0 0 0 2px #fff;
+  background: #e11d48; box-shadow: 0 0 0 2px #fff, 0 1px 2px rgba(0, 0, 0, 0.45);
 }
-.fc-point__x > span { position: relative }
+.fc-point__bar {
+  position: absolute; left: 50%; top: 50%; width: 8px; height: 2px;
+  margin-left: -4px; margin-top: -1px; border-radius: 1px; background: #fff;
+}
+.fc-point__bar--a { transform: rotate(45deg) }
+.fc-point__bar--b { transform: rotate(-45deg) }
 .fc-point__label {
-  position: absolute; left: 12px; top: -11px; display: inline-flex; align-items: center; gap: 6px;
+  position: absolute; left: 13px; top: -11px; display: inline-flex; align-items: center; gap: 6px;
   padding: 2px 4px 2px 8px; border-radius: 11px; white-space: nowrap;
   background: #18181b; color: #fff; font: 600 11px/1.6 ui-sans-serif, system-ui, sans-serif;
   opacity: 0; transition: opacity 120ms; pointer-events: none;
@@ -77,8 +80,21 @@ const OVERLAY_CSS = `
 .fc-point.is-sent .fc-point__btn { display: none }
 `
 
-/** How far the pointer must travel from a fresh label before it fades. */
-const FADE_AWAY_PX = 64
+/**
+ * How far the pointer may stray from a fresh mark before its label fades.
+ *
+ * ASYMMETRIC, BECAUSE THE LABEL IS (BUG-72). It sits to the RIGHT of the point
+ * and carries its own `+` and `×`, so the journey from the mark to a control is
+ * a horizontal one of about a hundred pixels. Measured as one radius from the
+ * point, the label went out from under the cursor before the cursor arrived —
+ * and a hidden label takes its pointer-events with it, so there was nothing
+ * left to hover and no way back except the mark itself. The reach therefore
+ * matches where the label actually is: generous rightward, tight everywhere
+ * else.
+ */
+const FADE_AWAY_PX = 56
+/** How far right the label and its controls reach — see {@link FADE_AWAY_PX}. */
+const LABEL_REACH_PX = 200
 
 /**
  * Measure a drawing the way `measure_drawing` measures it (REQ-209).
@@ -243,7 +259,16 @@ export function createMarkedPoints(options = {}) {
     el.dataset.point = label
     const x = doc.createElement('div')
     x.className = 'fc-point__x'
-    x.append(Object.assign(doc.createElement('span'), { textContent: '✕' }))
+    // TWO BARS, NOT A GLYPH (BUG-72). `✕` centred by flexbox centres the LINE
+    // BOX, and the glyph's ink is not centred within its own em box — so the
+    // cross sat off the disc by a font-dependent amount that differed by
+    // platform. A bar is offset by exactly half its own size, so it is centred
+    // by construction and no font is consulted.
+    for (const side of ['a', 'b']) {
+      const bar = doc.createElement('span')
+      bar.className = `fc-point__bar fc-point__bar--${side}`
+      x.append(bar)
+    }
     const tag = doc.createElement('div')
     tag.className = 'fc-point__label'
     tag.append(Object.assign(doc.createElement('span'), { textContent: `Point ${label}` }))
@@ -362,14 +387,25 @@ export function createMarkedPoints(options = {}) {
     place(ev.clientX, ev.clientY, ev.target)
   }
 
-  /** A fresh label fades when the pointer leaves it — never on a timer. */
+  /**
+   * A fresh label fades when the pointer leaves it — never on a timer.
+   *
+   * "LEAVES IT" MEANS THE LABEL, NOT THE POINT (BUG-72). The region is the one
+   * the mark's chrome occupies (see {@link FADE_AWAY_PX}), and a pointer that
+   * has actually landed on that chrome has plainly not left it — so it holds the
+   * label open for as long as it takes to press `+` or `×`, which is the whole
+   * reason those controls are on it.
+   */
   function onPointerMove(ev) {
+    if (ev.target?.closest?.('.fc-point')) return
     const at = origin()
     for (const mark of marks) {
       if (!mark.el.classList.contains('is-fresh')) continue
       const dx = ev.clientX + (win()?.scrollX ?? 0) - at.x - Number.parseFloat(mark.el.style.left)
       const dy = ev.clientY + (win()?.scrollY ?? 0) - at.y - Number.parseFloat(mark.el.style.top)
-      if (Math.hypot(dx, dy) > FADE_AWAY_PX) mark.el.classList.remove('is-fresh')
+      if (dx > LABEL_REACH_PX || dx < -FADE_AWAY_PX || Math.abs(dy) > FADE_AWAY_PX) {
+        mark.el.classList.remove('is-fresh')
+      }
     }
   }
 
