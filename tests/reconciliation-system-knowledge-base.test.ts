@@ -28,6 +28,7 @@ import {
   optedIn,
   readDocTickets,
   resolveDescriber,
+  SHIPPED_SOURCE,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { run } from '../tools/generate/src/cli'
@@ -334,7 +335,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
     }
 
     const hits = await lib.search('what makes the slides rotate automatically on an interval', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'index')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'index')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -356,7 +357,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
     const binding = await bindKb(root)
 
     const hits = await lib.searchChunks('which swatch is the text colour picked from', {
-      source: nodeIndexSource(path.join(corpusDir(root), 'chunks')),
+      indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), 'chunks')) },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -653,11 +654,11 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       const binding = await bindKb(root)
-      expect(binding.kb.prompt).toBe('Declared prompt, not a hard-coded one.')
+      expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
       expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')
 
-      // Authored data: a build never overwrites it, so a tuned prompt or an
+      // Authored data: a build never overwrites it, so a tuned description or an
       // adjusted weight survives every rebuild.
       const bytes = readFileSync(configPath(root))
       await withStore(CORPUS, () => buildKb(root))
@@ -803,6 +804,13 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
  * as they actually are, survive the trip into the corpus format — and the
  * format's sharp edges are ones only real data reliably has. Reading the store
  * costs a minute, so both ACs share the one run rather than paying twice.
+ *
+ * What the real store may NOT do is decide the verdict. How many documents are
+ * opted in is data no branch controls, and it has already been zero once — which
+ * turned the read-back assertions below into a loop over nothing that passed for
+ * that reason. So each AC is proven over a SEEDED corpus, which cannot degrade,
+ * and the real store is asserted for AGREEMENT — a property that holds at any
+ * size, zero included, and would still catch a rule and an export disagreeing.
  */
 describe('story-c4f329d3 — the real document store, exported and read back', () => {
   let root: string
@@ -817,7 +825,7 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('test_UAT_AC1295_only_a_genuine_boolean_true_opts_a_document_in', () => {
+  it('test_UAT_AC1295_only_a_genuine_boolean_true_opts_a_document_in', async () => {
     // Strictly the boolean, and every other shape is out. A value that merely
     // LOOKS like true is a document whose frontmatter did not parse the way its
     // author assumed; admitting it would hide exactly the failure worth seeing,
@@ -830,25 +838,77 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
     expect(optedIn({ fields: { system_kb: 'true' } })).toBe(false)
     expect(optedIn({ fields: { system_kb: 1 } })).toBe(false)
 
-    // The integration half, against the real store: what the export produced is
+    // The integration half, over a SEEDED store: each of the near-miss shapes
+    // above put on an actual document and run through the real export, so the
+    // rule is proven where it is applied and not only where it is defined. The
+    // seed cannot degrade to nothing, so this half is the one that carries the
+    // AC's weight.
+    await withRoot(async (scratch) => {
+      const seeded = await withStore(
+        [
+          ticket('DOC-IN', 'Genuinely opted in', '# In', { system_kb: true }),
+          ticket('DOC-STR', 'The string true', '# Out', { system_kb: 'true' }),
+          ticket('DOC-ONE', 'The number one', '# Out', { system_kb: 1 }),
+          ticket('DOC-FALSE', 'Explicitly false', '# Out', { system_kb: false }),
+          ticket('DOC-NONE', 'No opt-in at all', '# Out', {}),
+        ],
+        () => exportCorpus(scratch),
+      )
+
+      expect(seeded.docs.map((d) => d.id)).toEqual(['DOC-IN'])
+      expect(seeded.skipped.sort()).toEqual(['DOC-FALSE', 'DOC-NONE', 'DOC-ONE', 'DOC-STR'])
+      expect(corpusFiles(scratch)).toEqual(['DOC-IN.md'])
+    })
+
+    // …and against the real store, AGREEMENT: what the export produced is
     // exactly what the rule selects — nothing silently added, nothing silently
-    // dropped, and no excluded document with a file in the corpus.
+    // dropped, and no excluded document with a file in the corpus. This holds at
+    // any corpus size, so live data cannot turn it red or make it vacuous.
     const shouldBeIn = tickets.filter(optedIn).map((t) => t.id).sort()
     const shouldBeOut = tickets.filter((t) => !optedIn(t)).map((t) => t.id).sort()
 
-    expect(shouldBeIn.length).toBeGreaterThan(0)
     expect(exported.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
     expect(exported.skipped).toEqual(shouldBeOut)
 
     const onDisk = corpusFiles(root)
     for (const id of shouldBeOut) expect(onDisk).not.toContain(`${id}.md`)
-  })
+  }, 300_000)
 
   it('test_UAT_AC1297_a_document_is_addressed_by_its_human_id_and_reads_back_as_a_document', async () => {
     // The address is the HUMAN ID, never the title: a retitled document must
     // stay the same document, or every stored citation dangles.
     const { DocDirStore } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
     const { nodeDocReader } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing', './node'))
+
+    // The shape assertions run over a SEEDED corpus, so there is always
+    // something for them to run over. A loop over an empty corpus asserts
+    // nothing while reporting green, which is the one failure that survives a
+    // passing suite.
+    await withRoot(async (scratch) => {
+      const seeded = await withStore(
+        [
+          ticket('DOC-901', 'Addressed by its id', '# One\n\nBody text.'),
+          ticket('DOC-902', 'And so is this one', '# Two\n\nMore body text.'),
+        ],
+        () => exportCorpus(scratch),
+      )
+      expect(seeded.docs.length).toBe(2)
+
+      const seededStore = new DocDirStore(nodeDocReader(corpusDir(scratch)), { type: 'doc' })
+      const { tickets: seededBack } = await seededStore.query({ type: 'doc' })
+      expect(seededBack.length).toBe(2)
+      for (const doc of seededBack) {
+        expect(doc.uid).toMatch(/^[A-Z]+-\d+$/)
+        expect(doc.title).toBeTruthy()
+        expect(doc.body.length).toBeGreaterThan(0)
+        // The way back to the ticket it came from — the uid cannot survive as the
+        // address, so it survives as provenance.
+        expect(doc.fields.origin_uid).toMatch(/^doc-/)
+      }
+    })
+
+    // The same properties over the real corpus — every document actually
+    // exported reads back as a document, and the count round-trips.
     const store = new DocDirStore(nodeDocReader(corpusDir(root)), { type: 'doc' })
     const { tickets: readBack } = await store.query({ type: 'doc' })
 
@@ -857,8 +917,6 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
       expect(doc.uid).toMatch(/^[A-Z]+-\d+$/)
       expect(doc.title).toBeTruthy()
       expect(doc.body.length).toBeGreaterThan(0)
-      // The way back to the ticket it came from — the uid cannot survive as the
-      // address, so it survives as provenance.
       expect(doc.fields.origin_uid).toMatch(/^doc-/)
     }
 

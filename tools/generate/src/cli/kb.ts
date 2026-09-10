@@ -581,7 +581,11 @@ async function buildMap(
 
   const find = async (query: string): Promise<string[]> => {
     const hits = await lib.search(query, {
-      source: indexSource,
+      // Keyed by SOURCE NAME, not a bare index: a KB resolves its index through
+      // the `source` it declares, so the map here must use the same name the
+      // declaration does. Handing over a single index under no name leaves the
+      // KB with nothing to resolve and the search throws before any query runs.
+      indexes: { [SHIPPED_SOURCE]: indexSource },
       store: binding.store,
       kbs: binding.kbs,
       kb: SYSTEM_KB,
@@ -725,8 +729,10 @@ export async function openKnowledgeRuntime(root: string = kbRoot()): Promise<Unt
   return KnowledgeRuntime.open({
     store: binding.store,
     kbs: binding.kbs,
-    source: nodeIndexSource(path.join(corpusDir(root), INDEX_DIR)),
-    chunkSource: nodeIndexSource(path.join(corpusDir(root), CHUNKS_DIR)),
+    // Both index maps are keyed by the source name the KB declares — the runtime
+    // resolves an index per KB, not one index for the host.
+    indexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), INDEX_DIR)) },
+    chunkIndexes: { [SHIPPED_SOURCE]: nodeIndexSource(path.join(corpusDir(root), CHUNKS_DIR)) },
     embedder: await resolveEmbedder(),
     sources: binding.sources,
   })
