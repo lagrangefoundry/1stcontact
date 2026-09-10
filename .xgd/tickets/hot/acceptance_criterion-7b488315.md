@@ -6,9 +6,9 @@ title: A conversation identifier that names no site this account holds is refuse
   before anything is streamed, and starts no conversation
 created_by: xgd
 created_at: '2026-08-10T08:35:48.124047+00:00'
-updated_at: '2026-08-31T17:33:22.292648+00:00'
+updated_at: '2026-09-10T21:47:03.983261+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
