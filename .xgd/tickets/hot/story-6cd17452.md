@@ -6,15 +6,16 @@ title: 'Draft change journal: know what changed since you last looked, without r
   the site'
 created_by: xgd
 created_at: '2026-08-20T02:25:25.761224+00:00'
-updated_at: '2026-09-10T08:13:20.725679+00:00'
+updated_at: '2026-09-10T09:14:48.316035+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-702b7c02
   story_kind: feature
   story_points: 3
+  uat_coverage: pass
 ---
 
 ## Story
