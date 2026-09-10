@@ -6,14 +6,15 @@ title: One account registry serves both stores, and it carries what the ticket s
   writes, so registration against a freshly migrated database succeeds
 created_by: xgd
 created_at: '2026-09-01T23:57:25.983721+00:00'
-updated_at: '2026-09-02T00:13:30.593095+00:00'
+updated_at: '2026-09-10T02:22:05.596896+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
