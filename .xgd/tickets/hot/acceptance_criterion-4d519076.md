@@ -6,7 +6,7 @@ title: The published way of looking at a site comes from the publish-time render
   and never from today's draft
 created_by: xgd
 created_at: '2026-08-10T07:29:22.721864+00:00'
-updated_at: '2026-08-16T10:03:28.066253+00:00'
+updated_at: '2026-09-10T11:06:54.314493+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
