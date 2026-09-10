@@ -5,12 +5,13 @@ type: capability
 title: 'Site Storage Port: One Async Store Behind Every Edit'
 created_by: xgd
 created_at: '2026-08-20T05:08:07.064393+00:00'
-updated_at: '2026-09-10T05:58:09.481659+00:00'
+updated_at: '2026-09-10T07:16:19.989085+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: site-storage-port
+  uat_coverage: pass
 ---
 
 Storage is something the platform *asks*, not somewhere it *is*.
