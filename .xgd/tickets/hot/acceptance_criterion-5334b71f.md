@@ -6,14 +6,15 @@ title: 'Page-level slot binding: every mounted module names a live, unique seam,
   each failure carries a path'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T12:01:30.944176+00:00'
-updated_at: '2026-09-10T12:01:30.944176+00:00'
+updated_at: '2026-09-10T13:22:06.881255+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: fail
 ---
 
 ## Criterion
