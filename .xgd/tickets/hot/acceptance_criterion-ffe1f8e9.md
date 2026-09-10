@@ -6,14 +6,15 @@ title: A missing or unreadable change history reads as nothing recorded and neve
   fails an edit
 created_by: xgd
 created_at: '2026-08-20T02:27:25.990477+00:00'
-updated_at: '2026-08-20T02:46:15.500442+00:00'
+updated_at: '2026-09-10T09:14:34.522500+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
