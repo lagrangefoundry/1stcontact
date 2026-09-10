@@ -6,14 +6,15 @@ title: Opened over a colour the caller already holds, the surface starts on that
   at that position — and on nothing at all if the entry is gone
 created_by: xgd
 created_at: '2026-08-20T01:59:21.930524+00:00'
-updated_at: '2026-08-20T02:20:58.551697+00:00'
+updated_at: '2026-09-10T02:54:46.070936+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
