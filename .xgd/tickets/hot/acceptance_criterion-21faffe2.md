@@ -6,14 +6,15 @@ title: The filesystem store applies a write carrying a version expectation uncon
   rather than reporting a guarantee it cannot hold
 created_by: xgd
 created_at: '2026-08-31T09:47:42.810724+00:00'
-updated_at: '2026-08-31T10:04:13.679050+00:00'
+updated_at: '2026-09-10T07:16:10.620568+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
