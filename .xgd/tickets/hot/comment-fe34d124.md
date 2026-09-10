@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:24:38.154429+00:00'
+updated_at: '2026-09-10T19:26:12.529236+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -323,5 +323,33 @@ Ticket is `free_coded` with all three commits recorded as proper objects. The sc
 <!-- xgd-chat role="user" ts="2026-09-10T19:24:37.391335+00:00" -->
 #### You
 Can you move the model to Opus 5 please
+
+<!-- xgd-turn id="60d13e3e-07c2-480a-8b30-69bc570066bf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:26:11.870479+00:00" -->
+#### Claude
+Before flipping it — the adapter builds the request, and Opus 5 rejects parameters Sonnet 5 tolerates. Let me check what actually goes on the wire:
+
+Request is clean — `model`, `max_tokens`, `system`, `messages`, `tools`, `stream: true`. No `temperature`, `top_p`, `thinking`, or `budget_tokens`, so nothing Opus 5 rejects. Safe to flip.
+
+The UAT reads the model from the document, so it follows the edit. Ticket first:
+
+One data file changed, all 7 UATs pass with no test edits — which is the seam doing its job. Committing:
+
+Done — `claude-opus-5`, commit `f0b65522fa`.
+
+It was one line of `backends.json`. No TypeScript touched, no test touched: the UAT reads its expected model from the document, so all 7 still pass and now assert Opus 5 on the wire. That's the seam working as designed.
+
+I checked compatibility before flipping rather than after, because a model id isn't a free swap — Opus 5 removes `budget_tokens`, `temperature`, `top_p` and `top_k`, and refuses an assistant prefill. The adapter sends `model`, `max_tokens`, `system`, `messages`, `tools`, `stream` and nothing else (`claude_api.js:249-255`), so there's nothing for it to reject. That's the same property REQ-146 asserted for Sonnet 5, holding for the same reason.
+
+Three things worth knowing about what you just chose:
+
+**The ceiling stays 64000** — Opus 5 has the same 1M context / 128K output envelope the sizing analysis assumed, so the figure doesn't move. But on Opus 5 thinking is **on by default** (omitting `thinking` runs adaptive), and `max_tokens` bounds thinking and response text *together*. So 64000 is now a shared budget rather than 64000 of reply. It's still roomy — that's an argument for having picked a generous ceiling, not for raising it further — but it's a different 64000 than it was under Sonnet 4.6.
+
+**Cost is ~1.7× per token** in both directions ($5/$25 per MTok vs Sonnet 5's $3/$15). The cap doesn't drive that; billing is per token actually generated. The per-turn bill just goes up, which I assume is the trade you're making.
+
+**Task budgets are now reachable.** The sizing analysis in the ticket named these as "the thing that would actually make the builder finish gracefully rather than be cut off," and ruled them out because Sonnet 4.6 didn't support them. Opus 5 does. It's an advisory ceiling the model *can* see and pace against — a genuine fix for the truncation class, where a raised `max_tokens` only makes it rarer. It needs a beta flag and a change to the framework's adapter, so it's real work in the other repo, not a config edit. I haven't done it or filed it; say the word and I'll raise it against lagrange-framework.
+
+All four commits are recorded on the ticket, status `free_coded`. The 5 pre-existing priming-suite failures I flagged earlier are still there and still not mine.
 
 <!-- xgd-chat-end -->
