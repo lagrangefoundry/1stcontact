@@ -5,16 +5,24 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-09-10T17:18:50.764105+00:00'
+updated_at: '2026-09-10T17:25:21.749279+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 13
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6f40c2bc
+  commits:
+  - working_sha: df9862ce77203dac7d95e47cf07db2f2908e36d3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: abd3f5388a5c3bbbedae3740659ec392ba4fcb32
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.145
 ---
 
 ## What changes
