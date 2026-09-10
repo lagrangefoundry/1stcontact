@@ -6,9 +6,9 @@ title: Repeat requests are answered without re-reading the store, while not-foun
   responses are never retained
 created_by: xgd
 created_at: '2026-08-06T18:49:40.257733+00:00'
-updated_at: '2026-08-31T11:53:04.197280+00:00'
+updated_at: '2026-09-10T16:55:59.010486+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
