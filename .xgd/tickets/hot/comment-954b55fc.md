@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T00:31:48.148911+00:00'
+updated_at: '2026-09-10T00:33:47.492132+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -655,5 +655,11 @@ cd /Users/martin/lagrangefoundry/lagrange-framework
 Then restart the wrangler dev server. (`--lang all` if you want the Python peer too — 1stcontact only needs the JS one.)
 
 Worth considering separately: **should** the model be a 1c setting? The backend already takes a `model` option, so exposing it through 1c config would let you pin or A/B a model per deployment without cutting a framework release — useful if you want to compare Sonnet 5 against 4.6 on real sessions rather than switching wholesale. Small ticket if you want it; not needed for this upgrade.
+
+<!-- xgd-turn id="ee29eabc-9915-4494-bf4f-f889b9225b64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:33:47.412931+00:00" -->
+#### You
+oh that must change let me get that fixed
 
 <!-- xgd-chat-end -->
