@@ -9,6 +9,7 @@ import { contactForm as ContactForm } from '../packages/framework/src/modules/co
 import type { BehaviorProps } from '../packages/framework/src/modules/behavior'
 import { contactFormPreset } from '../packages/framework/src/l2/contact-form'
 import { ctxOf, handleBuilderRequest, PreviewRenderer, run } from '../tools/generate/src/cli'
+import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import {
   editAssetAdd,
@@ -415,6 +416,58 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
     const rendered = await new PreviewRenderer(store).file(slug, 'draft', '/')
     expect(rendered?.kind).toBe('text')
     expect((rendered as { body: string }).body).toContain('<html')
+  })
+
+  // ── AC-1620 ────────────────────────────────────────────────────────────────
+
+  it('test_UAT_AC1620_the_toolbox_edits_through_the_store_it_was_given', async () => {
+    const site = track(makeMemorySite(seedWithPalette()))
+    const { slug, opts, store } = site
+
+    // The same fixture AC-1324 uses, for the same reason: no filesystem handle
+    // anywhere, so a tool that reached past the store it was handed fails here
+    // rather than quietly succeeding against the operator's own disk.
+    expect(site.cwd).toBeNull()
+    expect(opts.cwd).toBeUndefined()
+
+    // The store is a PARAMETER. `fsSiteStore(ctxOf(opts))` is what the `1c` host
+    // supplies when none is given, and a runtime without a filesystem cannot
+    // reach it however the call arrives — which is why supplying one has to
+    // displace it entirely rather than merely be preferred.
+    const box = await createL1Toolbox(slug, opts, { store })
+
+    // a read completes against the injected store
+    const described = await box.run('describe_page', { page: 'home' })
+    expect(described).not.toMatch(/not enabled|unknown tool/i)
+    expect(described).toContain('home')
+
+    // a write through a tool lands IN THAT STORE, read back through the port
+    expect(
+      await box.run('set_config', { key: 'palette', settings: { accent: { value: '#ff8800' } } }),
+    ).not.toContain('SCHEMA_INVALID')
+    const written = (await store.readSiteJson(slug)) as {
+      palette: Record<string, { value: string }>
+    }
+    expect(written.palette.accent.value).toBe('#ff8800')
+    // …and the seeded entry the page still references survived the merge.
+    expect(written.palette['brand-teal'].value).toBe('#0d9488')
+
+    // an asset written through a tool crosses as bytes into the same store
+    await box.run('write_image', { name: 'wordmark', svg: SVG, alt: 'mark' })
+    expect(await store.listAssets(slug)).toContain('wordmark.svg')
+    expect(await store.readAsset(slug, 'wordmark.svg')).toEqual(utf8(SVG))
+
+    // refusals carry the envelope the command line carries, decided from what
+    // the injected store holds rather than from anything on disk
+    expect(await box.run('write_image', { name: 'wordmark', svg: SVG })).toContain('CONFLICT')
+
+    // every accepted write advanced the count in the store that was given, and
+    // the refusal moved nothing
+    const counter = await store.counter(slug)
+    expect(counter).toBe(2)
+    const changes = await box.run('list_changes', { since: 0 })
+    expect(changes).not.toMatch(/not enabled|unknown tool/i)
+    expect(await store.counter(slug)).toBe(counter)
   })
 
   // ── AC-1325 ────────────────────────────────────────────────────────────────

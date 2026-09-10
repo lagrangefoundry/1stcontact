@@ -23,6 +23,10 @@ import {
   listSiteAssets,
 } from '../../tools/generate/src/cli/edit'
 import { CommandError } from '../../tools/generate/src/cli/errors'
+import type {
+  RevisionContent,
+  RevisionEntry,
+} from '../../tools/generate/src/store/revision-model'
 import type { SiteFixture, SiteSeedOptions } from './site-factory'
 
 /**
@@ -334,6 +338,85 @@ export function describeSiteStoreContract(
 
       // A site the store does not hold is null, not an empty draft.
       expect(await opts.store.loadDraft('no-such-site')).toBeNull()
+    })
+
+    // ── the revision half of the port (REQ-149, AC-1619) ─────────────────────
+    //
+    // These are here rather than in a publish suite for the same reason the
+    // editing questions are: the claim is that the five revision verbs belong to
+    // the SAME declared set and every adapter answers them. CAP-82's publish
+    // tests prove the sequencing above the port and drive two of the three
+    // adapters; the filesystem-free store's revision verbs were asserted by
+    // nothing at all until this body carried them.
+
+    it('UAT_FC_REQ-149 AC-1619 a site that has never published answers the revision verbs emptily', async () => {
+      const { slug, opts } = await fixture()
+
+      expect(await opts.store.revisions(slug)).toEqual([])
+      expect(await opts.store.draftBase(slug)).toBeNull()
+      expect(await opts.store.readRevision(slug, 1)).toBeNull()
+
+      // As total as the editing questions: a slug the store holds nothing for
+      // answers emptily rather than raising.
+      expect(await opts.store.revisions('no-such-site')).toEqual([])
+      expect(await opts.store.draftBase('no-such-site')).toBeNull()
+      expect(await opts.store.readRevision('no-such-site', 1)).toBeNull()
+    })
+
+    it('UAT_FC_REQ-149 AC-1619 a frozen revision lists, reads back and re-parents the draft', async () => {
+      const { slug, opts } = await fixture()
+
+      const siteJson = await opts.store.readSiteJson(slug)
+      const pages = await opts.store.readPages(slug)
+      const entry: RevisionEntry = {
+        id: 1,
+        publishedAt: '2026-08-17T00:00:00.000Z',
+        message: 'first publish',
+        by: null,
+        basedOn: null,
+        changes: { added: pages.map((p) => `pages/${p.name}`), modified: [], removed: [] },
+        sha: 'contract-sha-1',
+      }
+      const content: RevisionContent = {
+        source: {
+          siteJson,
+          pages,
+          // Bytes, not a name pointing back at the draft: a revision that
+          // referenced the mutable copy would not be frozen at all.
+          assets: [{ name: 'logo.svg', bytes: new TextEncoder().encode('<svg/>') }],
+        },
+        out: new Map([['index.html', '<!doctype html><title>frozen</title>']]),
+      }
+
+      await opts.store.writeRevision(slug, entry, content)
+
+      const listed = await opts.store.revisions(slug)
+      expect(listed.map((r) => r.id)).toEqual([1])
+      expect(listed[0]).toMatchObject({
+        message: 'first publish',
+        basedOn: null,
+        sha: 'contract-sha-1',
+      })
+
+      const read = await opts.store.readRevision(slug, 1)
+      expect(read).not.toBeNull()
+      expect(read!.siteJson).toEqual(siteJson)
+      expect(read!.pages.map((p) => p.name).sort()).toEqual(pages.map((p) => p.name).sort())
+      const frozenAsset = read!.assets.find((a) => a.name === 'logo.svg')
+      expect(frozenAsset).toBeTruthy()
+      expect(new TextDecoder().decode(frozenAsset!.bytes)).toBe('<svg/>')
+
+      // Immutable: a later write to the draft does not move what was frozen.
+      await editConfigSet(slug, 'config', { businessName: 'Renamed after publish' }, opts)
+      expect((await opts.store.readRevision(slug, 1))!.siteJson).toEqual(siteJson)
+
+      // Re-parenting changes what the draft descends from, and nothing else.
+      expect(await opts.store.draftBase(slug)).toBeNull()
+      await opts.store.setDraftBase(slug, 1)
+      expect(await opts.store.draftBase(slug)).toBe(1)
+      expect((await opts.store.revisions(slug)).map((r) => r.id)).toEqual([1])
+      await opts.store.setDraftBase(slug, null)
+      expect(await opts.store.draftBase(slug)).toBeNull()
     })
   })
 }
