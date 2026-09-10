@@ -6,14 +6,15 @@ title: No knowledge base to open is an ordinary state and is silent, on either h
   one that was built and cannot be opened is reported
 created_by: xgd
 created_at: '2026-08-20T04:42:15.957143+00:00'
-updated_at: '2026-08-31T10:37:30.302325+00:00'
+updated_at: '2026-09-10T21:47:12.165414+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
