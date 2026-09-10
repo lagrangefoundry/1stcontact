@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-10T21:44:13.227499+00:00'
+updated_at: '2026-09-10T21:48:40.365852+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,11 @@ Underneath it: `account-chrome` has **no way to label that field at all** from c
 The unifying rule: a reference surface describing a component is generated from the component, or it's a liability. Defect 1 is a hand-written comment contradicting CSS three files away; defect 2 is a validator that can't see what it wasn't told to look for; defect 3 is a correct localiser defeated by a schema shape it was never shown.
 
 One scope question on the ticket: these are three unrelated fixes in three packages (framework module, `behavior.ts`, `site-schema`). BUG-77 is open and untitled — happy to split into it, or keep all three on BUG-76. No code written yet.
+
+<!-- xgd-turn id="1132ad71-7417-4632-a58c-1b6fcaf188b6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:48:39.836669+00:00" -->
+#### You
+The modal is also NOT advancing to the second screen did you get that one?
 
 <!-- xgd-chat-end -->
