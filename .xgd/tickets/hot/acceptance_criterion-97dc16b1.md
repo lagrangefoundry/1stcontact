@@ -6,14 +6,15 @@ title: A colour equal to the one the region reported is not a change, is not con
   and a reference is stored in its canonical form
 created_by: xgd
 created_at: '2026-08-20T02:56:56.023819+00:00'
-updated_at: '2026-08-20T03:25:23.600050+00:00'
+updated_at: '2026-09-10T19:19:10.853994+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
