@@ -6,14 +6,15 @@ title: A turn runs on a host process that never opened the session, and turns ac
   processes stay one conversation
 created_by: xgd
 created_at: '2026-08-31T17:33:27.229285+00:00'
-updated_at: '2026-08-31T17:40:56.330518+00:00'
+updated_at: '2026-09-10T21:47:21.229493+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
