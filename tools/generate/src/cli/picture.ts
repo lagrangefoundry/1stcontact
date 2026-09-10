@@ -24,6 +24,8 @@
 import type { ReferenceStore } from '../store/reference-store'
 import { ladderMember, SCREENSHOT_MEMBER } from '../store/reference-store'
 import type { BrowserDriverFactory, Viewport } from './capture/types'
+import { PageStepSyntaxError, parsePageSteps } from './capture/interact'
+import type { PageStep } from './capture/interact'
 import { resolveViewport, screenshotUrl, VIEWPORTS } from './capture/screenshot'
 import type { ViewportName } from './capture/screenshot'
 import { revisionChannel } from './preview'
@@ -59,6 +61,14 @@ export interface PictureSource {
   url?: string
   /** Which viewport preset to render or read at. Default `desktop`. */
   viewport?: ViewportName
+  /**
+   * REQ-216 — what to do to the page before the shutter opens, in order.
+   *
+   * Each entry is one short phrase — `click "Sign in"`, `fill "Email" with
+   * "someone@example.com"` — read by `capture/interact.ts`. `draft` only: see
+   * {@link drivableSteps} for why the other four kinds refuse.
+   */
+  after?: string[]
 }
 
 /** A resolved picture: the bytes, and what they are of. */
@@ -67,6 +77,20 @@ export interface ResolvedPicture {
   /** A one-line name for the picture, for the model and for the journal. */
   label: string
   viewport: Viewport
+  /**
+   * REQ-216 — what this channel does NOT do, when that is worth saying.
+   *
+   * THE CHEAPER HALF OF THE SAME TICKET, and the one that would have ended the
+   * exchange that prompted it before it started. A picture of the edit channel
+   * looks like a picture of the page and is not one: the behaviour scripts are
+   * absent by [[REQ-116]], so a panel shows its settled state and nothing on it
+   * can be opened. Without a caption the model has to *infer* which page it is
+   * looking at, and inferring is what it got wrong — it invented a "preview
+   * mode" rather than reading a label, because there was no label. It is a
+   * sentence, it costs nothing, and it converts the failure from "the model
+   * invents a mechanism" into "the model reads the caption".
+   */
+  note?: string
 }
 
 /** Raised when a picture source names something that is not there. */
@@ -166,6 +190,54 @@ async function referenceShot(
 }
 
 /**
+ * REQ-216 — the caption an `edit` picture carries.
+ *
+ * Written once, here, because the fact it states is a fact about the CHANNEL
+ * and not about any one operation on it: every verb that resolves a picture
+ * gets the same sentence, and there is no second place for it to drift from.
+ */
+export const EDIT_CHANNEL_NOTE =
+  'This is the edit channel, which ships no behaviour: panels, carousels and ' +
+  'disclosures show their settled state, and nothing on it opens, advances or ' +
+  'submits. Take the same page as a `draft` picture to see what a visitor gets.'
+
+/**
+ * The steps this picture may be driven with, refusing by kind before a browser
+ * is leased.
+ *
+ * DRAFT ONLY, and each of the other four refuses for its own reason rather than
+ * by a blanket rule. `edit` ships no behaviour at all ([[REQ-116]]), so a step
+ * against it would be asking a page to do something it structurally cannot —
+ * and driving that channel is [[REQ-215]]'s problem, not this one. `reference`
+ * is a recording; there is no page to drive. `revision` and `url` are live
+ * pages belonging to the published site and to strangers respectively, and a
+ * click there is a real side effect on somebody else's system — a submitted
+ * enquiry, a real request — which is not what "show me what this looks like"
+ * should ever be able to cause.
+ */
+function drivableSteps(source: PictureSource): PageStep[] {
+  const after = source.after ?? []
+  if (after.length === 0) return []
+  if (source.kind !== 'draft') {
+    throw new PictureSourceError(
+      `only a 'draft' picture can be driven, and this one is '${source.kind}'. ` +
+        (source.kind === 'edit'
+          ? `The edit channel ships no behaviour, so there is nothing there to open or advance. `
+          : source.kind === 'reference'
+            ? `A reference is a recording of a page, not a page. `
+            : `Driving a published revision or somebody else's address would act on a live system. `) +
+        `Ask for the same thing as a 'draft' picture.`,
+    )
+  }
+  try {
+    return parsePageSteps(after)
+  } catch (error) {
+    if (error instanceof PageStepSyntaxError) throw new PictureSourceError(error.message)
+    throw error
+  }
+}
+
+/**
  * Turn a picture source into pixels.
  *
  * THE ONE PLACE. Every operation on the fidelity surface calls this and none
@@ -178,6 +250,10 @@ export async function resolvePicture(
 ): Promise<ResolvedPicture> {
   const viewportName = source.viewport ?? 'desktop'
   const viewport = resolveViewport(viewportName)
+  // Read once, before the switch, so a driven ask against a kind that cannot be
+  // driven refuses by name whichever kind it was — and before any browser is
+  // leased for it.
+  const steps = drivableSteps(source)
 
   switch (source.kind) {
     case 'reference':
@@ -186,10 +262,12 @@ export async function resolvePicture(
     case 'draft':
     case 'edit': {
       const url = previewUrl(deps, source.kind, source.page)
+      const after = steps.length ? `, after ${steps.map((s) => `\`${s.source}\``).join(' then ')}` : ''
       return {
-        bytes: await screenshotUrl(url, viewport, deps.driverFactory),
-        label: `${deps.slug} ${source.kind}${pagePath(source.page)} at ${viewportName}`,
+        bytes: await screenshotUrl(url, viewport, deps.driverFactory, steps),
+        label: `${deps.slug} ${source.kind}${pagePath(source.page)} at ${viewportName}${after}`,
         viewport,
+        ...(source.kind === 'edit' ? { note: EDIT_CHANNEL_NOTE } : {}),
       }
     }
 
@@ -237,6 +315,19 @@ export function pictureUrl(source: PictureSource, deps: PictureDeps): string | n
     default:
       return null
   }
+}
+
+/**
+ * REQ-216 — the same steps `resolvePicture` would drive, for the verbs that read
+ * a LIVE page rather than a screenshot of one.
+ *
+ * Exported rather than duplicated for the reason this whole module exists: a
+ * value manifest taken of the closed page while the picture beside it shows the
+ * open one would be two answers about two different states, presented as one
+ * reading of one page.
+ */
+export function pictureSteps(source: PictureSource): PageStep[] {
+  return drivableSteps(source)
 }
 
 /** Re-exported so the surface's viewport enum is derived, never re-typed. */
