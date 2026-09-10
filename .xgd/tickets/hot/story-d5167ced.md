@@ -5,9 +5,9 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-09-10T05:19:20.708243+00:00'
+updated_at: '2026-09-10T05:44:42.892564+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -15,6 +15,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   updated_by: bundle-78f4e2fe
+  uat_coverage: pass
 ---
 
 ## Story
