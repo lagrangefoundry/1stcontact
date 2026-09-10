@@ -6,14 +6,15 @@ title: The assistant is offered the read and the four palette writes, the writes
   one separately grantable group, and meets the same guards an operator does
 created_by: xgd
 created_at: '2026-08-20T01:20:55.408545+00:00'
-updated_at: '2026-08-20T06:32:00.871120+00:00'
+updated_at: '2026-09-10T02:54:36.194633+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
