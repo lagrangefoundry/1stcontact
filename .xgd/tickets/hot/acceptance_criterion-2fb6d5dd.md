@@ -6,14 +6,15 @@ title: A record names the count, the time, the actor, the operation, the page, a
   label, and the words before and after
 created_by: xgd
 created_at: '2026-08-20T02:27:01.955903+00:00'
-updated_at: '2026-08-20T02:46:17.578160+00:00'
+updated_at: '2026-09-10T09:14:26.786539+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
