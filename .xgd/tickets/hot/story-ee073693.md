@@ -6,7 +6,7 @@ title: 'Palette management: read the site''s colours with their usage counts, an
   change, add, remove or rename them under guards the store enforces'
 created_by: xgd
 created_at: '2026-08-20T01:19:10.715657+00:00'
-updated_at: '2026-08-31T21:32:05.529171+00:00'
+updated_at: '2026-09-10T02:54:51.328623+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
