@@ -5,7 +5,7 @@ type: request
 title: The AI must be able to drive the page before it photographs it
 created_by: REQ-212
 created_at: '2026-09-10T20:23:43.136350+00:00'
-updated_at: '2026-09-10T21:47:59.207066+00:00'
+updated_at: '2026-09-10T22:08:52.021706+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile
