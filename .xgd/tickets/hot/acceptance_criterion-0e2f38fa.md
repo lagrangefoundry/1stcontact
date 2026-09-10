@@ -7,7 +7,7 @@ title: A picture's colour is adjusted through bounded whole-number controls over
   exactly as it found it, container and all
 created_by: xgd
 created_at: '2026-08-12T21:29:03.861779+00:00'
-updated_at: '2026-09-10T18:14:08.988930+00:00'
+updated_at: '2026-09-10T18:29:48.416329+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -60,6 +60,6 @@ submitted. Assert that the hue shift and the blur are held under the same name
 the control offers, with no conversion between what is submitted and what is
 stored. Assert the rendered page carries the adjustment. Save each of those
 controls back to its own identity — a hundred for brightness, contrast and
-saturation, zero for black-and-white — and assert the region carries no colour
-adjustment at all and no empty group in its place. Assert that a control left at
-its identity throughout is never written.
+saturation, zero for black-and-white, the hue shift and the blur — and assert
+the region carries no colour adjustment at all and no empty group in its place.
+Assert that a control left at its identity throughout is never written.
