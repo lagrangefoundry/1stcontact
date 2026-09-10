@@ -61,6 +61,7 @@ import {
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
+import { configureProjectBackends } from './backends'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { browserMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
@@ -551,6 +552,14 @@ async function runTool(box: Untyped, name: string, input: Record<string, unknown
 
 async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<Untyped> {
   const lib = await ai(deps)
+
+  // THE MODEL AND THE REPLY CEILING, AS THIS PROJECT'S DECISION (BUG-67). Ahead
+  // of everything, because the backend registered below reads the configuration
+  // when it is CONSTRUCTED and a manager keeps its instance for its lifetime —
+  // installing after the fact would leave the first session on the framework's
+  // defaults with the file saying otherwise. See `backends.ts` for why this is a
+  // document rather than the constructor options that also exist.
+  configureProjectBackends(lib)
 
   // Constructing the Toolbox is where a CONFIGURATION failure surfaces — a group
   // the surface does not declare, an operation the class does not implement — so

@@ -50,6 +50,19 @@ export interface ModelRequest {
   system: string | SystemBlock[]
   messages: { role: string; content: unknown }[]
   tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
+  /**
+   * The two settings the backend was CONSTRUCTED with, as they reach the wire
+   * (BUG-67).
+   *
+   * Declared here because they are the whole evidence for a configuration
+   * question — "which model is this project running, and how much room does one
+   * reply get" is answerable only from the request, and BUG-67 is what happens
+   * when nobody looks: a 4096 ceiling nothing in the repository named, cutting
+   * tool arguments mid-JSON. Optional because a double may be constructed for a
+   * suite that has no interest in either.
+   */
+  model?: string
+  max_tokens?: number
 }
 
 /**
