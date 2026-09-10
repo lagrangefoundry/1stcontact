@@ -5,12 +5,13 @@ type: capability
 title: 'Operator Access Gate: Who May Reach The Builder'
 created_by: xgd
 created_at: '2026-08-31T09:30:13.761479+00:00'
-updated_at: '2026-08-31T09:30:13.761479+00:00'
+updated_at: '2026-09-10T04:34:24.206000+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: operator_access_gate
+  uat_coverage: pass
 ---
 
 # Capability: Operator Access Gate — Who May Reach The Builder
