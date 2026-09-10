@@ -15,6 +15,12 @@
  *      surrounding split are untouched. This is what makes View↔Edit a swap
  *      rather than a remount.
  *
+ * A HOST MAY ASK TO BE TOLD when the displayed document is about to go and when
+ * a new one has arrived (`onBeforeNavigate`, and the `document` event). The pane
+ * does not know what is worth keeping across a swap — that is [[REQ-215]]'s
+ * question and it belongs to the builder — but it is the only thing that knows
+ * WHEN, so it says when and holds no opinion about what.
+ *
  * A mode that renders something other than a document supplies `mount(host)`
  * instead of `src(state)`; the frame is hidden and a host element is used
  * instead. The toolbar reads `actions` off the active mode, which is why the
@@ -48,8 +54,25 @@ export function createDisplayPanel(options = {}) {
 
   /** @type {Map<string, ModeSpec>} */
   const modes = new Map()
-  const listeners = { mode: [], src: [], site: [] }
+  /**
+   * `document` fires when the frame has loaded one ([[REQ-215]]).
+   *
+   * Chrome that reads the page rather than the state around it — the panel
+   * selector lists the panels the RENDER declares — needs the same
+   * subscribe-with-the-element lifetime every other toolbar control has, and
+   * binding to the frame directly would outlive the control that bound.
+   */
+  const listeners = { mode: [], src: [], site: [], document: [] }
   const storage = options.storage ?? null
+  /**
+   * "The document you can see is about to be replaced" ([[REQ-215]]).
+   *
+   * It fires BEFORE the next `src` is computed, because what a mode resolves to
+   * now depends on what the outgoing document held — which page it was on, how
+   * far down it, which panels were open. Announcing it after the URL had been
+   * decided would be announcing it too late to matter.
+   */
+  const onBeforeNavigate = options.onBeforeNavigate ?? null
 
   let activeId = null
   let site = options.site ?? null
@@ -65,6 +88,7 @@ export function createDisplayPanel(options = {}) {
   function refresh() {
     const mode = activeId === null ? null : modes.get(activeId)
     if (!mode) return
+    onBeforeNavigate?.()
     if (mode.mount) {
       frame.hidden = true
       host.hidden = false
@@ -130,6 +154,8 @@ export function createDisplayPanel(options = {}) {
     if (savedMode && modes.has(savedMode)) setMode(savedMode)
     return api
   }
+
+  frame.addEventListener('load', () => emit('document', frame.contentDocument))
 
   const api = {
     element,

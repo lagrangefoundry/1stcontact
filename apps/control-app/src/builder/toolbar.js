@@ -256,6 +256,64 @@ export function publishAction(publish) {
 }
 
 /**
+ * The panel selector — which of this page's modals the edit render is showing
+ * ([[REQ-215]]).
+ *
+ * IT IS AN ESCAPE HATCH AND AN ENTRANCE IN ONE. A modal reproduced in Edit
+ * covers the page and every control in that render is inert, including the
+ * panel's own Close — so without this, an operator who switched to Edit with a
+ * panel open could leave it only by switching back to View, closing it there and
+ * switching again. The same control is also how you reach the copy inside a
+ * modal you never opened in View at all.
+ *
+ * IT READS THE PAGE, NOT THE DEFINITION. The panels come from the rendered
+ * document, so it needs nothing new from the renderer and cannot offer a panel
+ * the render in front of the operator does not have. A page that declares none
+ * shows no control rather than an empty one.
+ *
+ * PICKING ONE DOES NOT RELOAD. Applying a state to the edit render is two
+ * attributes on a document that is already there, so the panel appears at once
+ * and the operator does not lose their place to see it.
+ */
+export function panelsAction(carry) {
+  return {
+    id: 'panels',
+    create({ panel, subscribe }) {
+      const wrap = document.createElement('label')
+      wrap.className = 'builder-toolbar__panels'
+      const caption = document.createElement('span')
+      caption.textContent = 'Panel'
+      const select = document.createElement('select')
+      wrap.append(caption, select)
+
+      const sync = (doc) => {
+        const entries = doc ? carry.listDialogs(doc) : []
+        wrap.hidden = entries.length === 0
+        select.replaceChildren(new Option('No panel', ''))
+        for (const entry of entries) select.append(new Option(entry.label, entry.id))
+        // Assign, then read back: a carried id the current page no longer
+        // declares leaves the select on its first option, and taking the value
+        // FROM the select rather than from what we asked for is what keeps the
+        // control and the carry from disagreeing about a panel that is gone.
+        select.value = carry.openDialog()
+        if (select.value !== carry.openDialog()) carry.setOpenDialog(select.value)
+      }
+      sync(panel.frame.contentDocument)
+      // Through the toolbar, so the subscription dies with this element — the
+      // strip is rebuilt on every mode and site change and this is created anew
+      // each time.
+      subscribe('document', sync)
+
+      select.addEventListener('change', () => {
+        carry.setOpenDialog(select.value)
+        carry.apply(panel.frame.contentWindow)
+      })
+      return wrap
+    },
+  }
+}
+
+/**
  * Mark Points — the toggle that reassigns edit mode's primary gesture
  * ([[REQ-210]], DOC-52 §4.3).
  *

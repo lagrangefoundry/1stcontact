@@ -204,9 +204,27 @@ body {
 .builder-toolbar__modes button,
 .builder-toolbar__colors,
 .builder-toolbar__publish,
-.builder-toolbar__points {
+.builder-toolbar__points,
+.builder-toolbar__panels,
+.builder-toolbar__panels select {
   font: inherit;
   font-size: var(--builder-control-font-size);
+}
+
+/*
+ * The panel selector ([[REQ-215]]) — which of this page's modals the edit render
+ * is showing. It is a label wrapping a select, and it hides itself on a page
+ * that declares no panel, so the strip does not carry a permanently empty
+ * control for the many pages that have none.
+ */
+.builder-toolbar__panels {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.builder-toolbar__panels[hidden] {
+  display: none;
 }
 
 .builder-toolbar__open {

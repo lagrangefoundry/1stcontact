@@ -24,6 +24,7 @@ import { mountEditor } from './editor.js'
 import { createLibraryPanel } from './library.js'
 import { createPeoplePanel } from './people.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
+import { createPageCarry } from './carry.js'
 import { createDisplayPanel } from './panel.js'
 import { openPalettePopup } from './palette-popup.js'
 import { createUploadOverlay } from './upload.js'
@@ -33,6 +34,7 @@ import {
   markPointsAction,
   modeToggleAction,
   openInNewTabAction,
+  panelsAction,
   publishAction,
 } from './toolbar.js'
 import {
@@ -101,6 +103,18 @@ export function mountBuilder(root, options = {}) {
     publish = async () => {},
     storage,
     editBridge = null,
+    /**
+     * The framework's own page-state module ([[REQ-215]]), supplied by `main.js`
+     * from `/framework/page-state.js`.
+     *
+     * It is what carries the page across a channel switch — which panels are
+     * open, and how each channel is put back into that state. Injected for the
+     * reason the edit bridge is: it is fetched from the origin by an absolute
+     * URL only a browser can resolve. Absent, the carry keeps the page and the
+     * scroll offset and holds no opinion about panels, which is what every host
+     * without a real preview origin gets.
+     */
+    pageState = null,
     chatTransport = null,
     paletteTransport = null,
     /**
@@ -332,9 +346,19 @@ export function mountBuilder(root, options = {}) {
   const shellBar = shell.element.querySelector('.shell-bar')
   ;(shellBar ?? shell.element).prepend(switcher.element)
 
+  /**
+   * What the pane is showing, held across the swap that destroys it
+   * ([[REQ-215]]). See `carry.js` — the panel says WHEN a document goes and
+   * arrives, and this is what decides what is worth keeping.
+   */
+  const carry = createPageCarry({ pageState })
+
   const panel = createDisplayPanel({
     storage: shell.storage(STORAGE_KEYS.panel),
     site: sites[0]?.slug ?? null,
+    // The pane is about to re-derive what it shows; take what the outgoing
+    // document holds before the URL that replaces it is computed from it.
+    onBeforeNavigate: () => carry.capture(panel.frame.contentWindow),
   })
 
   /**
@@ -350,13 +374,15 @@ export function mountBuilder(root, options = {}) {
     .registerMode({
       id: 'view',
       label: 'View',
-      src: ({ site }) => previewUrl(site, 'draft'),
+      // [[REQ-215]] — the SAME page, not the channel's front door: the reader
+      // who switched channel on `/about` is still on `/about`.
+      src: ({ site }) => previewUrl(site, 'draft', carry.pathFor(site)),
       actions: ['mode-toggle', 'colors', 'open-new-tab', 'publish'],
     })
     .registerMode({
       id: 'edit',
       label: 'Edit',
-      src: ({ site }) => previewUrl(site, 'edit'),
+      src: ({ site }) => previewUrl(site, 'edit', carry.pathFor(site)),
       // `colors` in BOTH channels: a palette is a property of the site, not of
       // one rendering of it, so there is no mode in which changing it is
       // meaningless (REQ-133).
@@ -367,7 +393,12 @@ export function mountBuilder(root, options = {}) {
       // precisely that interception. Naming it from the mode is also the whole
       // of the enforcement: the strip renders what the active mode lists, so
       // there is no channel in which the toggle is present and inert.
-      actions: ['mode-toggle', 'mark-points', 'colors', 'open-new-tab', 'publish'],
+      //
+      // `panels` in THIS ONE ONLY ([[REQ-215]]). It chooses which of the page's
+      // modals the render is showing, and in View that choice belongs to the
+      // reader's own hand — a control that made it from the chrome would be
+      // driving a channel whose whole job is to behave exactly as published.
+      actions: ['mode-toggle', 'mark-points', 'panels', 'colors', 'open-new-tab', 'publish'],
     })
     .restore()
 
@@ -441,6 +472,7 @@ export function mountBuilder(root, options = {}) {
     actions: [
       modeToggleAction(),
       markPointsAction(points),
+      panelsAction(carry),
       colorsAction(openPalette),
       openInNewTabAction(),
       publishAction(publish),
@@ -552,6 +584,19 @@ export function mountBuilder(root, options = {}) {
      * than never having drawn them.
      */
     points.bind(panel.frame.contentDocument ?? null)
+    /**
+     * The document that just arrived is put into the state the one before it was
+     * in ([[REQ-215]]).
+     *
+     * ON EVERY LOAD, not only on a channel switch — which is what makes editing
+     * the copy inside an open modal work at all. A save re-renders the page and
+     * reloads the frame, and a carry applied only when the mode moved would
+     * close the panel on the operator's first edit.
+     *
+     * BEFORE the bridge is mounted below, so the segments the editor binds
+     * against are the ones actually on screen.
+     */
+    carry.adopt(panel.frame.contentWindow, currentSite)
     // No bridge supplied → no editing. The browser entry always supplies one;
     // a host that does not (a test mounting only the chrome) gets the pane and
     // the toolbar with no edit loop, rather than a module that fails to load.
