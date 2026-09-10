@@ -5,9 +5,9 @@ type: story
 title: 'Platform Build, Deploy & Smoke: One Path To Ship A Worker, And Proof It Serves'
 created_by: xgd
 created_at: '2026-08-20T05:29:12.423310+00:00'
-updated_at: '2026-08-31T17:25:13.134738+00:00'
+updated_at: '2026-09-10T04:45:25.354736+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -171,10 +171,12 @@ echoes a value back.
 
 ### Out of scope
 
-- **Any live deployment of the control application.** It has never been deployed and its hostname
-  does not resolve; both are deliberately left alone here (see Technical Context). The two
-  control-surface checks are therefore provable against a supplied origin and against a local
-  deploy, not against production.
+- **Any live deployment of the control application.** Deploying it, and keeping it deployed, is
+  not this story's work (see Technical Context). The two control-surface checks are asserted
+  against a **supplied** origin — the seam every other check in this set already uses, and what
+  keeps this story independent of any particular deployment's state. Production is now one such
+  origin rather than an unreachable one: `apps/control-app/ACCESS.md` § "Verifying it" records
+  `bin/smoke --control-origin https://app.1stcontact.io` as the invocation.
 - **The migration and secret hooks themselves.** This story owns the seam and its contract; the
   database migrations and the assistant's API key each arrive as their own hook file, changing
   nothing here. That separation is what keeps this work free of a dependency on the storage chain.
@@ -207,17 +209,25 @@ fail in different ways, and the report says which.
 
 **Where the intent's premise was wrong on the facts, and what was found instead.** The intent
 stated production had been "returning 503 since it was deployed". Investigation against the live
-account established that it had not:
+account at REQ-144's reconciliation established that it had not:
 
-1. The control application's hostname does **not resolve at all** — the route is declared against
-   a zone that has no DNS record for it, where the other Worker's apex uses a custom domain
+1. The control application's hostname did **not resolve at all** — the route was declared against
+   a zone that had no DNS record for it, where the other Worker's apex uses a custom domain
    precisely for this reason.
-2. The control application **has never been deployed** to the account at all.
+2. The control application had **never been deployed** to the account at all.
 
-So the configuration bug was never live; it was a trap set for the first deploy, now sprung
-harmlessly. Neither finding is fixed here, and deliberately. **No acceptance criterion here claims
-a live control-application deploy**, including the two control-surface checks: they are asserted
-against a supplied origin, which is the same seam every other check in this set already used.
+So the `[vars]` bug was never live at that point; it was a trap set for the first deploy, sprung
+harmlessly.
+
+**That state has since been superseded, and what it was cited for is unaffected.** BUG-36
+(2026-08-23) records the Worker deployed and the hostname resolving with Access in front of it:
+`GET https://app.1stcontact.io/api/sites` answering `302` to
+`lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login/…`, and the deployed database queried
+directly with `wrangler d1 execute … --remote`. BUG-37 (2026-08-24) then diagnoses a live Error
+1102 on that same hostname. **No acceptance criterion here claims a live control-application
+deploy**, including the two control-surface checks: they are asserted against a supplied origin,
+which is the same seam every other check in this set already used — a choice that survives the
+deployment state moving in either direction, which is exactly why it was made.
 
 **A residual honest failure, recorded rather than absorbed.** The origin-repetition fix made the
 control application's first-deploy failure *diagnosable* rather than *working*; the runtime
@@ -225,11 +235,16 @@ relocation that makes it actually serve is owned elsewhere and has since happene
 story's checks depends on which side of that relocation the tree is on — they are HTTP assertions
 against an origin.
 
-**Outstanding at reconciliation time, and why.** The secret mechanism is documented and its
-rehearsal path is exercised, but it has **not** been proved end-to-end with a throwaway value
-against the live account — that means writing to production configuration, which was left for the
-operator to authorise. The acceptance criterion here is therefore written about what is
-observable: nothing is committed, and the documented mechanism never echoes a value.
+**The secret mechanism has been exercised against the live account, and the criterion here is
+still about what this story can observe.** REQ-149 records `bin/deploy --dry-run control-app`,
+run from a shell with `ANTHROPIC_API_KEY` unset, reporting `ANTHROPIC_API_KEY already on
+1stcontact-control-app — would leave it`. By that intent's own decision table only a *positive*
+read of the live secret store reaches that outcome — a Worker absent on a first deploy counts as
+absent — so the store answered for that Worker and the name was in the answer: a real value had
+been pushed to the live account. The acceptance criterion here nonetheless stays written about
+what is observable from the repository — nothing is committed, and the documented mechanism never
+echoes a value (AC-1342) — because that is the durable property of the mechanism, not a hedge
+against an unproven push.
 
 **The build artifact is evidence, not input.** The per-Worker bundle produced by the build stage is
 not consumed by the deploy, which rebuilds from source. It exists to prove the artifact builds and
