@@ -6,9 +6,9 @@ title: 'A newly created site is a page that already renders: creation seeds a co
   valid layout document'
 created_by: xgd
 created_at: '2026-08-06T03:42:07.316109+00:00'
-updated_at: '2026-08-16T06:14:15.520937+00:00'
+updated_at: '2026-09-10T19:43:44.864716+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-ee56a66e
@@ -110,9 +110,9 @@ does after the first render.
 - **Intent/implementation agreement.** The operator's stated acceptance (a valid
   document, immediate render and screenshot, an uncontaminated import, no flag and
   no mode detection) is matched by the implementation. The derived-rather-than-
-  restated ladder and the theme-sourced colours are implementation decisions
-  recorded in the intent's dialogue and are documented here as behaviour because
-  both are externally observable.
+  restated ladder and the page-declared literal colours are implementation
+  decisions recorded in the intent's dialogue and are documented here as
+  behaviour because both are externally observable.
 - The pre-implementation question the intent raised — whether a reproduction
   import overwrites or merges — was resolved as *overwrite*, and is pinned by an
   acceptance criterion rather than left as a read of the code.
