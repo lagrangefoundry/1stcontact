@@ -7,7 +7,7 @@ title: Asking a copy region what it exposes returns how the run is set beside it
   from the document's declared faces
 created_by: xgd
 created_at: '2026-08-12T18:08:03.837269+00:00'
-updated_at: '2026-09-10T18:14:12.440984+00:00'
+updated_at: '2026-09-10T18:29:52.277460+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -66,7 +66,11 @@ size, weight, italic and capitalisation, in that order; that size is a
 whole-number field carrying its inclusive bounds; that weight and capitalisation
 are closed lists; and that italic is a yes/no. Assert the reported values are the
 run's own — the representative size for a run whose size varies by viewport, and
-the weight it is actually set in. Assert no family field is offered.
+the weight it is actually set in. Then address a run on the same page that
+declares **no** weight of its own and assert the reported weight is the lowest
+face the document declares; re-post that reported value alongside new words and
+assert the save succeeds and reports the words alone as changed. Assert no family
+field is offered.
 
 Assert every field offered is one of the five control shapes this surface can
 produce, and that every closed list is non-empty.
