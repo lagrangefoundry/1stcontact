@@ -5,15 +5,20 @@ type: request
 title: The AI must be able to drive the page before it photographs it
 created_by: REQ-212
 created_at: '2026-09-10T20:23:43.136350+00:00'
-updated_at: '2026-09-10T21:40:40.213636+00:00'
+updated_at: '2026-09-10T21:41:15.858280+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6bc952d2
+  commits:
+  - working_sha: 09f9faf92fc7a1802e8d23fe2dbc4245de4f8d10
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.155
 ---
 
 # The AI must be able to drive the page before it photographs it
