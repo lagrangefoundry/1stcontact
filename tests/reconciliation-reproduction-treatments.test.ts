@@ -6,14 +6,14 @@
  * The REQ-79 framework pivot re-homed these treatments off the deleted module
  * dials onto the two surviving post-pivot surfaces. One UAT per AC, exercised at
  * the real boundary (the module catalog, the L1 validator + renderer, and the
- * contact-form capability's SSR render):
+ * contact-form behavior module's SSR render):
  *
  *   AC-719  card/band veil + footer copyright/colour treatments are expressed as
  *           L1 leaf axes (colour/opacity literals), not services-grid/footer
  *           module dials — those modules no longer exist in the catalog, and the
  *           L1 envelope rejects out-of-envelope (non-hex / freeform-CSS) values.
  *   AC-718  contact-form presentation (submit look, intro framing) is authored
- *           via capability config + named L1 slots, not aesthetic dials; field
+ *           via behavior config + named L1 slots, not aesthetic dials; field
  *           labelling stays a fixed accessibility obligation of the core.
  */
 import { describe, expect, it } from 'vitest'
@@ -111,9 +111,9 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// AC-718 — contact-form presentation is capability config + L1 slots, not dials
+// AC-718 — contact-form presentation is behavior config + L1 slots, not dials
 // ════════════════════════════════════════════════════════════════════════════
-describe('STORY-82 — contact-form presentation via capability config + L1 slots', () => {
+describe('STORY-82 — contact-form presentation via behavior config + L1 slots', () => {
   const config = {
     action: 'https://example.com/lead',
     fields: [
@@ -136,6 +136,10 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
       expect(Object.keys(contactFormMeta.config)).not.toContain(gone)
     }
     expect(Object.keys(contactFormMeta.slots)).toEqual(['form'])
+    // REQ-96's ask is a single **required** `form` slot — a contract that made it
+    // optional would leave the module free to paint its own form, which is the
+    // whole thing the slot-as-L1 line forbids. Assert the flag, not just the key.
+    expect(contactFormMeta.slots.form.required).toBe(true)
     expect((contactFormMeta as Record<string, unknown>).dials).toBeUndefined()
 
 

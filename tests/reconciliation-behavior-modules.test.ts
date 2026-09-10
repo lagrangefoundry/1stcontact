@@ -469,7 +469,11 @@ describe('story-179b8c06 — contact-form functional render + L1 controls', () =
 // ════════════════════════════════════════════════════════════════════════════
 describe('story-179b8c06 — behavior client behaviour ships once per page', () => {
   afterEach(() => {
-    vi.doUnmock('../packages/framework/src/index')
+    // Must name the path the negative arm actually mocks (`…/src/worker` since
+    // REQ-145). Unmocking the barrel instead left the worker mock installed for
+    // the rest of the file — inert only because nothing later re-imports it
+    // dynamically, and a trap for the first test that does.
+    vi.doUnmock('../packages/framework/src/worker')
     vi.resetModules()
   })
 
