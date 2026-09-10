@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
@@ -35,6 +35,10 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * does not re-open, because a client holds nothing but the identifier it was
  * given.
  *
+ * AC-1320's deployed half rides along for the same reason: "no knowledge base to
+ * open is an ordinary state, on EITHER host" is a claim about two hosts, and the
+ * second of them exists only here.
+ *
  * ONE DOUBLE, and it is the one that cannot be otherwise: the Anthropic client.
  * It speaks the STREAMING wire protocol the backend really consumes, because a
  * finished-message double would make every assertion here an assertion against a
@@ -46,7 +50,8 @@ import { nextSlug, siteSeed } from './support/site-seed'
 // ── the model double ─────────────────────────────────────────────────────────
 
 interface ModelRequest {
-  system: string
+  /** Cache-control blocks, so this is the SDK's structured form and not prose. */
+  system: unknown
   messages: { role: string; content: unknown }[]
   tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
 }
@@ -244,6 +249,105 @@ describe('a conversation is not a property of the process that opened it', () =>
     expect(again.turns[1].markdown).toContain('The first thing I said.')
     expect(again.turns[2].markdown).toContain('Are you still there?')
     expect(again.turns[3].markdown).toContain('The second thing I said.')
+  })
+})
+
+// ── absence of a corpus, on the host that can never reach one ────────────────
+
+/**
+ * Every tool name the knowledge surface declares (`knowledge_surface.json`, the
+ * one declaration AC-1318 scopes both axes from).
+ *
+ * Written out here rather than imported from it, because importing it would
+ * defeat the case: the declaration lives in the shared AI library, which reaches
+ * a Worker only through the build-time bundle, and what is being demonstrated is
+ * that the deployed artifact never pulls that module in at all. A name added or
+ * renamed upstream is still caught, by the `/knowledge/i` sweep beside the list.
+ */
+const KNOWLEDGE_TOOLS = [
+  'KnowledgeSearch',
+  'KnowledgeChunkSearch',
+  'KnowledgeOutline',
+  'KnowledgeGet',
+  'KnowledgeChanges',
+] as const
+
+/**
+ * AC-1320's deployed-host leg.
+ *
+ * The criterion's own Verification asks for the same three observations on BOTH
+ * hosts — "operations offered, no knowledge operation, no error" — precisely so
+ * that absence on the deployed one is *demonstrated* to be the ordinary state
+ * rather than assumed to be. Its companion in
+ * `reconciliation-assistant-conversation-knowledge.test.ts` covers the local host,
+ * where a corpus could have been built and was not; this is the host where one
+ * cannot exist, because the corpus is reachable only from the operator's own
+ * machine.
+ *
+ * The three are observed on a real turn rather than on the open alone: what the
+ * assistant is offered is what the turn CARRIES to the model, so a session that
+ * opened cleanly and then quietly named a knowledge operation would pass an
+ * open-only check.
+ */
+describe('no knowledge base to open is ordinary on the deployed host too', () => {
+  it('test_UAT_AC1320_the_deployed_host_offers_its_site_operations_and_reports_nothing_absent', async () => {
+    const slug = nextSlug('kb-absent')
+    await seedSite(slug)
+
+    // The origin's error output, which is where the built-but-unopenable case
+    // says so on the host that can reach a corpus. Captured across the open AND
+    // the turn, so "nothing was reported" covers the whole conversation rather
+    // than one request of it.
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      newProcess()
+      const model = scriptedClient('Understood.')
+      setModelClient(model)
+
+      const opened = await open(slug)
+      expect(opened.ready, opened.error).toBe(true)
+      expect(opened.error).toBeUndefined()
+
+      const res = await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'What can you do?' })
+      expect(res.status).toBe(200)
+      const events = await frames(res)
+      expect(events.filter((e) => e.kind === 'done')).toHaveLength(1)
+      expect(model.seen).toHaveLength(1)
+
+      const offered = model.seen[0].tools.map((tool) => tool.name)
+
+      // ONE. The site operations are offered. This is the assistant this host had
+      // before the corpus existed anywhere — not a diminished one.
+      expect(offered).toContain('set_l1')
+      expect(offered).toContain('describe_page')
+
+      // TWO. No knowledge operation is offered — neither by its declared name nor
+      // under any name that would let one in.
+      for (const name of KNOWLEDGE_TOOLS) expect(offered, name).not.toContain(name)
+      expect(offered.filter((name) => /knowledge/i.test(name))).toEqual([])
+
+      // …and the priming is silent about a corpus too, so the assistant is not
+      // told to go and read documents it has no operation to open with. Asserted
+      // against the two things AC-1319 proves priming carries WHEN there is a
+      // corpus — the manual, which names the operations, and the landscape, which
+      // is about a knowledge base — rather than against the bare word, which
+      // appears innocently inside "acknowledge" in the caretaker's own prose.
+      const primed = JSON.stringify(model.seen[0].system)
+      for (const name of KNOWLEDGE_TOOLS) expect(primed, name).not.toContain(name)
+      expect(primed).not.toMatch(/knowledge base/i)
+
+      // THREE. Nothing is reported, because nothing is wrong. This is the whole
+      // distinction the criterion exists to make observable: the built-and-
+      // unopenable case names the knowledge base on this same output, so silence
+      // here is a positive statement and not an unchecked one.
+      expect(
+        errors.mock.calls
+          .map((call) => call.map(String).join(' '))
+          .filter((line) => /knowledge base/i.test(line)),
+      ).toEqual([])
+    } finally {
+      errors.mockRestore()
+    }
   })
 })
 

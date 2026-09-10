@@ -12,15 +12,21 @@ import { nextSlug, siteSeed } from './support/site-seed'
 
 /**
  * **One continuing conversation, on the host that is actually deployed**
- * (story-a58a0974 — AC-1404, AC-1405, AC-1408, AC-1409).
+ * (story-a58a0974 — AC-1404, AC-1405, AC-1408, AC-1409, and AC-1057's deployed
+ * half).
  *
  * The companion file `reconciliation-assistant-conversation.test.ts` proves the
  * same conversation contract against the host that runs on the operator's
- * machine. These four criteria are the ones that are only *about* the deployed
+ * machine. Four of these criteria are the ones that are only *about* the deployed
  * runtime — the credential arriving as a deploy secret, the transcript living in
  * shared storage rather than beside a directory, the storage region a request
  * can address, and what a raw failure is allowed to say on the way out. None of
  * them can be established from Node, so they run here.
+ *
+ * AC-1057 is different in kind: it is a property of the STORE rather than of
+ * either host, and it says so — "do this on both hosts … since the store, not the
+ * host, is what the replay comes from". Its local half lives next door; its
+ * deployed half has to run here, because R2 is the other store.
  *
  * WHAT MAKES THIS EVIDENCE. Every assertion below runs INSIDE workerd, through
  * the Worker's own `fetch` (or its own route table), against a real D1 database
@@ -287,9 +293,73 @@ describe('a whole turn runs on the deployed host', () => {
     // The conversation survives: both turns come back, attributed.
     expect(cold.turns.map((t) => t.role)).toEqual(['user', 'assistant'])
     expect(cold.turns[0].markdown).toContain('About us')
-    // …and the reason a turn cannot be run is reported alongside it.
+    // …and the reason a turn cannot be run is reported alongside it, naming the
+    // credential that is missing rather than merely saying that something is.
     expect(cold.ready).toBe(false)
-    expect(cold.error).toBeTruthy()
+    expect(cold.error).toContain('ANTHROPIC_API_KEY')
+  })
+})
+
+// ── the replay comes from the store, not from the host ───────────────────────
+
+/**
+ * AC-1057's deployed-host leg.
+ *
+ * The criterion's Verification asks for the restart-and-replay "on both hosts —
+ * the operator's local one and the deployed one — since the store, not the host,
+ * is what the replay comes from". Its companion in
+ * `reconciliation-assistant-conversation.test.ts` is the local host, where the
+ * store is a directory on disk; this is the host where it is R2, and the point of
+ * running it twice is that the same property holds across two entirely different
+ * stores.
+ *
+ * The second half — delete the conversation and re-open to nothing — is what
+ * makes the first half a statement about WHERE the turns live. Without it a
+ * replay is equally consistent with a second copy cached somewhere else.
+ */
+describe('a conversation is replayed out of the deployed store after the host is gone', () => {
+  it('test_UAT_AC1057_turns_persist_through_the_deployed_store_and_are_replayed_after_a_restart', async () => {
+    const slug = nextSlug('replayed')
+    await seedSite(slug)
+
+    const opened = await open(slug)
+    expect(opened.turns).toEqual([])
+
+    setModelClient(scriptedClient([says('I will remember this after you restart me.')]))
+    const events = await frames(
+      await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Remember this.' }),
+    )
+    expect(events.filter((e) => e.kind === 'done')).toHaveLength(1)
+
+    // Everything the host held — every cached manager, every cached host. This is
+    // the restart, and it is the whole of what a replaced deployment does not
+    // carry over.
+    resetAiHost()
+    resetChatHost()
+    setModelClient(null)
+
+    const replayed = await open(slug)
+    expect(replayed.sessionId).toBe(opened.sessionId)
+    expect(replayed.ready, replayed.error).toBe(true)
+    // Both turns, with their original text and attribution.
+    expect(replayed.turns.map((t) => t.role)).toEqual(['user', 'assistant'])
+    expect(replayed.turns[0].markdown).toContain('Remember this.')
+    expect(replayed.turns[1].markdown).toContain('I will remember this after you restart me.')
+
+    // THE CONVERSATION LIVED IN THE STORE AND NOWHERE ELSE. Remove the site's
+    // conversation from the store the site belongs to, restart again, and the
+    // same open yields an empty conversation — there is no second copy to fall
+    // back on, and the replay above was reading this object.
+    const key = `chat/${TENANT}/${opened.sessionId}.md`
+    expect(await env.SITES.get(key), `no transcript at ${key}`).not.toBeNull()
+    await env.SITES.delete(key)
+
+    resetAiHost()
+    resetChatHost()
+
+    const emptied = await open(slug)
+    expect(emptied.sessionId).toBe(opened.sessionId)
+    expect(emptied.turns).toEqual([])
   })
 })
 

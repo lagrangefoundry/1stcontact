@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -11,7 +12,12 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
-import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import {
+  resetAiHost,
+  sessionIdFor,
+  sessionsDir,
+  setModelClient,
+} from '../tools/generate/src/cli/ai/host'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
@@ -508,6 +514,104 @@ describe('the conversation is stored with the workspace', () => {
     const emptied = await open(base, SLUG)
     expect(emptied.sessionId).toBe(replayed.sessionId)
     expect(emptied.turns).toEqual([])
+  })
+})
+
+// ── the same form, read by the other host ────────────────────────────────────
+
+/**
+ * AC-1405's deployed→local direction.
+ *
+ * The criterion asks for the hop in both directions: "hold a conversation on the
+ * deployed host, then read that same stored transcript with the host that runs
+ * locally … do the reverse". Its companion in
+ * `reconciliation-assistant-conversation-deployed.workers.test.ts` establishes
+ * the deployed side of the pair — that what the Worker writes into R2 IS this
+ * form, byte for byte (`archive.load(id).toFile() === stored`). What is left, and
+ * what this case is, is the other end of that hop: bytes this host did not write,
+ * carrying nothing of the runtime that did, replayed here as the same
+ * conversation.
+ *
+ * The bytes are the contract itself, written out rather than produced by calling
+ * a serialiser — because a fixture round-tripped through this host's own writer
+ * would prove only that it can read itself back, which is the one thing the
+ * criterion is not about. This is the shape the library's `Session.toFile`
+ * specifies: an `xgd-session` JSON header, then `xgd-chat`-marked turns, then the
+ * end marker. If that contract changes, this case fails, which is the point of
+ * spelling it out.
+ */
+describe('a transcript written by the deployed host is read by the local one', () => {
+  it('test_UAT_AC1405_a_transcript_from_the_deployed_host_replays_on_the_local_host', async () => {
+    const ASKED = 'Tell me something I can read back on the other host.'
+    const ANSWERED = 'A conversation written by the deployed host.'
+
+    // The id is DERIVED from the site, not minted — which is what lets a
+    // transcript written by a runtime that never spoke to this one land in the
+    // right conversation here.
+    const sessionId = sessionIdFor(OTHER)
+
+    // The header carries what the session model names and nothing else: no
+    // bucket, no tenant, no key, nothing that would make this file belong to the
+    // runtime that wrote it.
+    const deployed =
+      '<!-- xgd-session\n' +
+      JSON.stringify(
+        {
+          id: sessionId,
+          role: 'caretaker',
+          backend: `claude+site:${OTHER}`,
+          filter_tool_use: false,
+          backend_ref: '',
+        },
+        null,
+        2,
+      ) +
+      '\n-->\n\n' +
+      `<!-- xgd-chat role="user" ts="2026-08-31T09:00:00Z" -->\n#### You\n${ASKED}\n\n` +
+      `<!-- xgd-chat role="assistant" ts="2026-08-31T09:00:01Z" -->\n#### Claude\n${ANSWERED}\n\n` +
+      '<!-- xgd-chat-end -->'
+
+    const store = sessionsDir({ cwd })
+    mkdirSync(store, { recursive: true })
+    writeFileSync(path.join(store, `${sessionId}.md`), deployed)
+
+    // Nothing of this host has seen the file: no manager holds the session, and
+    // the id was never issued here. The model is armed before the open only
+    // because it is what makes this host answerable at all — the replay below
+    // never reaches it.
+    resetAiHost()
+    const client = scriptedClient([says('Yes — and I remember what you said there.')])
+    setModelClient(client)
+
+    const carried = await open(base, OTHER)
+    expect(carried.sessionId).toBe(sessionId)
+    expect(carried.ready, carried.error).toBe(true)
+    // The same turns, with their original text and their original attribution.
+    expect(carried.turns.map((t) => t.role)).toEqual(['user', 'assistant'])
+    expect(carried.turns[0].markdown).toContain(ASKED)
+    expect(carried.turns[1].markdown).toContain(ANSWERED)
+
+    // And it is a conversation, not a read-only replay: the next turn continues
+    // it, and the model is handed the deployed host's exchange as the history it
+    // is continuing.
+    const events = await turn(base, sessionId, 'Do you still have that?')
+    expect(events.filter((e) => e.kind === 'done')).toHaveLength(1)
+    expect(modelSaw(client.seen[0])).toContain(ANSWERED)
+
+    // …and the continued conversation is written back in the SAME form, so the
+    // hop is not one-way: what this host stored is a file the deployed one reads
+    // by the identical rules.
+    const written = readFileSync(path.join(store, `${sessionId}.md`), 'utf8')
+    expect(written.startsWith('<!-- xgd-session\n')).toBe(true)
+    expect(written).toContain(ASKED)
+    expect(written).toContain(ANSWERED)
+    expect(written).toContain('Do you still have that?')
+    for (const foreign of ['bucket', 'r2', 'd1', 'tenant', 'tenantId', 'key', 'etag']) {
+      const header = JSON.parse(
+        written.slice('<!-- xgd-session\n'.length, written.indexOf('\n-->')),
+      ) as Record<string, unknown>
+      expect(Object.keys(header), foreign).not.toContain(foreign)
+    }
   })
 })
 
