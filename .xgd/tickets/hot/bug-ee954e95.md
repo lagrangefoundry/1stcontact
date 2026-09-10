@@ -6,10 +6,10 @@ title: '1c assets: framework bridges emit dangling sibling imports, so the build
   never boots'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T17:54:23.271115+00:00'
-updated_at: '2026-09-10T18:48:14.435096+00:00'
+updated_at: '2026-09-10T19:50:07.267600+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
