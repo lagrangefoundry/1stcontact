@@ -457,14 +457,77 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
     expect(await store.listAssets(slug)).toContain('wordmark.svg')
     expect(await store.readAsset(slug, 'wordmark.svg')).toEqual(utf8(SVG))
 
+    /** The seeded page, as the injected store holds it — not as a tool reports it. */
+    const storedPage = async (): Promise<Record<string, unknown>> => {
+      const held = (await store.readPages(slug)).find((p) => p.name === 'home.json')
+      expect(held).toBeTruthy()
+      return (held as { page: Record<string, unknown> }).page
+    }
+    /** The one element the seed puts on that page, likewise read back through the port. */
+    const storedSegment = async (): Promise<Record<string, unknown>> => {
+      const l1 = (await storedPage()).l1 as { root: { children: Record<string, unknown>[] } }
+      return l1.root.children[0]
+    }
+
+    // one segment is read and written THROUGH THE TOOLS — `get_l1` / `set_l1`
+    // are what the adapter exposes where the command line has `editCopyGet` /
+    // `editCopySet` — and what landed is read back out of the injected store
+    // rather than out of the tool's own answer
+    const read = await box.run('get_l1', { page: 'home', path: '0.0' })
+    expect(read).not.toMatch(/not enabled|unknown tool/i)
+    expect(read).toContain('headline')
+    const replacement = {
+      kind: 'text',
+      id: 'headline',
+      text: 'Edited through the toolbox',
+      axes: { color: { ref: 'brand-teal' }, fontSizePx: 32 },
+    }
+    expect(
+      await box.run('set_l1', { page: 'home', path: '0.0', node: replacement }),
+    ).not.toMatch(/SCHEMA_INVALID|NOT_FOUND|CONFLICT/)
+    expect(await storedSegment()).toMatchObject(replacement)
+
+    // the palette RULES are enforced here as they are on the command line. The
+    // `set_config` merge above cannot reach them — merge can add a key and can
+    // neither remove one nor move one, and it has nothing to say about the
+    // references the last two are defined in terms of — so the four dedicated
+    // tools are the ones asked.
+    expect(
+      await box.run('add_palette_color', { name: 'highlight', color: '#112233' }),
+    ).not.toMatch(/CONFLICT|SCHEMA_INVALID/)
+    const palette = async (): Promise<Record<string, { value: string }>> =>
+      ((await store.readSiteJson(slug)) as { palette: Record<string, { value: string }> }).palette
+    expect((await palette()).highlight.value).toBe('#112233')
+
+    // an unreferenced entry goes …
+    await box.run('remove_palette_color', { name: 'highlight' })
+    expect((await palette()).highlight).toBeUndefined()
+
+    // … and the entry the page still references is refused, with the same
+    // envelope the command line carries, decided from what the injected store
+    // holds — and nothing moves behind the refusal
+    const beforeRefusal = await store.counter(slug)
+    expect(await box.run('remove_palette_color', { name: 'brand-teal' })).toContain('CONFLICT')
+    expect((await palette())['brand-teal'].value).toBe('#0d9488')
+    expect(await store.counter(slug)).toBe(beforeRefusal)
+
+    // a rename is allowed and carries the reference with it, in the page the
+    // store hands back
+    expect(
+      await box.run('rename_palette_color', { name: 'brand-teal', to: 'brand-green' }),
+    ).not.toMatch(/CONFLICT|NOT_FOUND/)
+    expect((await palette())['brand-teal']).toBeUndefined()
+    expect((await palette())['brand-green'].value).toBe('#0d9488')
+    expect((await storedSegment()).axes).toMatchObject({ color: { ref: 'brand-green' } })
+
     // refusals carry the envelope the command line carries, decided from what
     // the injected store holds rather than from anything on disk
     expect(await box.run('write_image', { name: 'wordmark', svg: SVG })).toContain('CONFLICT')
 
     // every accepted write advanced the count in the store that was given, and
-    // the refusal moved nothing
+    // the refusals moved nothing
     const counter = await store.counter(slug)
-    expect(counter).toBe(2)
+    expect(counter).toBe(6)
     const changes = await box.run('list_changes', { since: 0 })
     expect(changes).not.toMatch(/not enabled|unknown tool/i)
     expect(await store.counter(slug)).toBe(counter)

@@ -14,8 +14,6 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { PreviewRenderer } from '../tools/generate/src/cli'
-import { editAssetWrite } from '../tools/generate/src/cli/edit'
 import { MIME as SERVE_MIME, startServe } from '../tools/generate/src/cli/serve'
 import { MIME as STORE_MIME, contentTypeOf } from '../tools/generate/src/store/content-type'
 import { StoreConflictError } from '../tools/generate/src/store/site-store'
@@ -54,8 +52,6 @@ const readRepo = (rel: string): string => readFileSync(path.join(REPO, rel), 'ut
 
 /** The sibling suite that answers the same questions over the cloud store. */
 const WORKERS_SUITE = 'tests/reconciliation-cloudflare-site-store.workers.test.ts'
-
-const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"></svg>'
 
 // ── AC-1398: reading a wrangler.toml one HALF at a time ──────────────────────
 //
@@ -267,23 +263,14 @@ describe('story-fde7370b — the cloud site store, from the host runtime', () =>
     )
 
     // THE TWO RENDER QUESTIONS. Named apart from the compared vector because
-    // rendering is not a verb the store has, not because a runtime cannot do it:
-    // they are asked of ALL THREE adapters in `site-store-contract.ts`, the
-    // cloud store included. Asserted here as answered by both stores this
-    // runtime can hold.
+    // rendering is not a verb the store has, not because a runtime cannot do it.
+    // That naming is what this test owns; the questions THEMSELVES are asked in
+    // `tests/support/site-store-contract.ts`, of all three adapters — the cloud
+    // store included — so they are not re-asked here of the two this runtime can
+    // hold.
     expect([...RENDER_QUESTIONS]).toEqual(['renderDraftPage', 'renderDraftAsset'])
     for (const question of RENDER_QUESTIONS) {
       expect(STORAGE_QUESTIONS as readonly string[]).not.toContain(question)
-    }
-    for (const site of [fs, memory]) {
-      const preview = new PreviewRenderer(site.store)
-      const page = await preview.file(site.slug, 'draft', '/')
-      expect(page?.kind).toBe('text')
-      expect((page as { body: string }).body).toContain('<html')
-
-      await editAssetWrite(site.slug, 'wordmark', SVG, site.opts)
-      const asset = await preview.file(site.slug, 'draft', '/assets/wordmark.svg')
-      expect(asset).toMatchObject({ kind: 'bytes', contentType: 'image/svg+xml' })
     }
   })
 
