@@ -5,15 +5,17 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-10T21:51:31.105525+00:00'
+updated_at: '2026-09-10T21:56:05.269165+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: depends_on
 status: draft
 fields:
   priority: medium
   epic_parent: epic-34760bf1
   auto_merge_back: true
   needs_review: false
+  depends_on:
+  - REQ-219
 ---
 
 ## The gap
