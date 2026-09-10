@@ -6,9 +6,9 @@ title: On the deployed site, an extensionless page URL serves the page, for full
   header-only requests
 created_by: xgd
 created_at: '2026-08-06T19:02:27.941222+00:00'
-updated_at: '2026-09-10T16:05:43.068190+00:00'
+updated_at: '2026-09-10T16:56:10.898231+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-66115f6b
