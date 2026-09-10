@@ -7,7 +7,7 @@ title: Panning a picture writes a typed percentage pair — both components or n
   own value
 created_by: xgd
 created_at: '2026-08-12T21:28:48.818297+00:00'
-updated_at: '2026-08-16T06:56:00.363184+00:00'
+updated_at: '2026-09-10T19:18:55.310813+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
