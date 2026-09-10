@@ -6,14 +6,15 @@ title: The count reported before a rename, the count the rename reports rewritin
   and the references actually rewritten are one number
 created_by: xgd
 created_at: '2026-08-20T01:20:28.709340+00:00'
-updated_at: '2026-08-20T01:50:35.258311+00:00'
+updated_at: '2026-09-10T02:54:32.885183+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
