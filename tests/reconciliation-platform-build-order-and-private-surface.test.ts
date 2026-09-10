@@ -437,7 +437,7 @@ function chainTo(graph: Map<string, string[]>, entry: string, target: string, ro
 }
 
 describe('story-d5167ced — the build refuses a Worker type program that reaches the filesystem', () => {
-  it('test_UAT_AC1426_a_type_only_reach_to_the_filesystem_fails_the_build_naming_the_chain', () => {
+  it('test_UAT_AC1426_a_type_only_reach_to_the_filesystem_fails_the_build_and_this_walk_names_the_chain', () => {
     // ── the tree as it stands: the build proceeds ────────────────────────────
     //
     // The real compiler, over the real Worker's real tsconfig — which declares
@@ -533,7 +533,14 @@ describe('story-d5167ced — the build refuses a Worker type program that reache
     const proceeds = typecheck(corrected)
     expect(proceeds.code, proceeds.all).toBe(0)
 
-    // ── and the refusal names the chain, not a list of unresolved names ───────
+    // ── and THIS WALK names the chain, not a list of unresolved names ─────────
+    //
+    // The chain is the instrument's report, not build output: the build's
+    // typecheck stage is `tsc --noEmit`, which names the offending module (the
+    // assertion above) and prints no chain. Nothing in bin/, tools/, apps/ or
+    // packages/ composes one. `typeProgramOf`/`chainTo` above are what turn the
+    // offending module into the specifier to change — which is why their
+    // non-vacuity is asserted rather than assumed.
     const offendingEntry = path.join(offending, 'worker.ts')
     const offendingGraph = typeProgramOf(offendingEntry)
     const offender = path.join(offending, 'loadSite.ts')
