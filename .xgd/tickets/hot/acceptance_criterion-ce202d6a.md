@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: The assistant's tool adapter edits through the store it was given
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T06:14:35.036839+00:00'
-updated_at: '2026-09-10T06:59:45.092347+00:00'
+updated_at: '2026-09-10T07:15:37.026643+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
