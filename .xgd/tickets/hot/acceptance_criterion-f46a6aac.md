@@ -6,14 +6,15 @@ title: 'A colour is typed here: the native control and the text field mirror eac
   other, and applying repaints the displayed page without a manual refresh'
 created_by: xgd
 created_at: '2026-08-20T01:59:29.280581+00:00'
-updated_at: '2026-08-20T02:20:58.038595+00:00'
+updated_at: '2026-09-10T02:54:47.080564+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
