@@ -248,6 +248,15 @@ describe('story-37a3921b — declaring what a closed list of images holds', () =
     const background = fieldNamed(panel, 'backgroundImageUrl')
     expect(background).toMatchObject({ type: 'enum', format: 'image', required: true })
 
+    // And the fill BESIDE it on that same panel does not — the second instance of
+    // the by-kind-of-field discrimination, exactly as the alt text beside an image
+    // region's picker above. Asserting it here is what keeps "attached by kind of
+    // field, not kind of region" falsifiable on a region that carries both kinds.
+    const fill = fieldNamed(panel, 'surfaceFill')
+    expect(fill.type).toBe('color')
+    expect(fill.format).toBeUndefined()
+    expect(Object.hasOwn(fill, 'format')).toBe(false)
+
     // A run of copy declares nothing of the kind — it holds words, not a handle.
     const copy = await readFields(cwd, A_COPY)
     expect(copy.ok).toBe(true)
