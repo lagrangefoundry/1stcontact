@@ -7,7 +7,7 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-09-10T19:19:19.849272+00:00'
+updated_at: '2026-09-10T19:23:22.743582+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
@@ -17,7 +17,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   updated_by: bundle-77b28def
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Story
