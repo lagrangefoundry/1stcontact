@@ -6,14 +6,15 @@ title: The shared ticket component resolves from any checkout, is named in the b
   report, and a stale install is reported by name with the command that fixes it
 created_by: xgd
 created_at: '2026-09-01T23:58:33.762527+00:00'
-updated_at: '2026-09-02T00:13:29.864744+00:00'
+updated_at: '2026-09-10T02:22:13.041815+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
