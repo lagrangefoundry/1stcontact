@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T19:18:38.627315+00:00'
+updated_at: '2026-09-10T19:20:47.691629+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -786,5 +786,33 @@ Want me to write this up as a design ticket? It'd want a DOC amendment like REQ-
 <!-- xgd-chat role="user" ts="2026-09-10T19:18:37.998726+00:00" -->
 #### You
 I think this would be valuable as a framework tool - could you write this up as a REQ in Lagrange Framework please?
+
+<!-- xgd-turn id="7828b9ef-0998-4cc4-97cd-f2cd06e7d96b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:20:47.508534+00:00" -->
+#### Claude
+DOC-25 is the right home — a framework-shipped surface is exactly its "plugin" concept. Writing it up.
+
+**REQ-148** created in lagrange-framework (`request-a33fbbb4`), `draft`, priority `medium`.
+
+> components/ai — a delegation surface: hand scoped work to a second session on a cheaper model
+
+Framed as a **DOC-25 plugin** — a surface the framework ships and a host adopts, honouring S1–S5 — rather than anything 1stcontact-specific. The consultant/builder split appears once, labelled as an illustrative example and explicitly out of scope.
+
+**The interface**, as three framework-declared parameters: `goal` (prose), `role` (declared — this is where authority comes from), `accept` (the checks). Hosts extend the brief with their own **declared** fields, since the framework can't know that `page` or `within` mean anything — but the extension mechanism is declared parameters, never an opaque passthrough, or the property collapses.
+
+The invariant the ticket is really about, and the one I made DOC-20's amendment rather than DOC-25's: **a delegated session's authority is its role's grant and nothing else.** No phrasing of the prose widens it. That's what makes an open text field safe, and it's what keeps the audit answering "which capability was exercised" rather than "the caller said some words."
+
+Three things I specified that we hadn't discussed, because they're where this design fails if left implicit:
+
+- **No nesting.** A delegated session can't delegate. Without a hard floor, one turn's cost is unbounded and an accidental cycle is a runaway bill rather than an error.
+- **Spend rolls up.** The worker's usage must be reachable from the caller's ledger. Delegation that made spend invisible again would undo exactly what REQ-143/145 bought — and would make this ticket's own premise unmeasurable.
+- **Interruption propagates, failure is an outcome.** A failing worker returns a tool result the caller can reason about, not an exception that kills the caller's turn.
+
+Twelve acceptance criteria. The two that carry the design: a `goal` that explicitly instructs the worker to use an ungranted operation changes nothing about the outcome (AC2), and the caller's cached prefix is unaffected by the worker (AC6).
+
+I kept two things in the Notes deliberately: **`effort` should be tried first** — it's a fraction of the work, doesn't touch the cache prefix, and this ticket shouldn't be used to justify skipping it. And **the worker's model should be chosen from REQ-143/145 telemetry**, not from my estimate off an audit ledger. The ticket specifies mechanism; the tuning is a configuration question answered with numbers you can now actually collect.
+
+Priority `medium` rather than `high` — it's a design ticket behind a cheaper lever, and the sizing wants real data first. Say if you'd rather it were `high`.
 
 <!-- xgd-chat-end -->
