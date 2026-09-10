@@ -6,9 +6,9 @@ title: Every listed asset is named in the same site-local handle form a page alr
   holds
 created_by: xgd
 created_at: '2026-08-07T04:29:45.354526+00:00'
-updated_at: '2026-08-10T08:15:42.766139+00:00'
+updated_at: '2026-09-10T19:59:12.649542+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c46abfa6
@@ -29,7 +29,7 @@ order on every call.
 
 ## Verification
 
-Declare an asset by bare filename in a site whose asset directory holds the same
-file under the qualified form, then ask for the site's assets. Assert one entry,
-not two, and that its handle is the qualified site-local form. Assert the returned
+Declare an asset by bare filename in a site whose asset store holds the same file
+under the qualified form, then ask for the site's assets. Assert one entry, not
+two, and that its handle is the qualified site-local form. Assert the returned
 entries are in handle order.
