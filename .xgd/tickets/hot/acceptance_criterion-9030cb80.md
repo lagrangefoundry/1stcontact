@@ -6,14 +6,15 @@ title: Every document left out of the corpus is named individually, never counte
   and never silent
 created_by: xgd
 created_at: '2026-08-20T04:16:46.169184+00:00'
-updated_at: '2026-09-10T07:51:47.497901+00:00'
+updated_at: '2026-09-10T08:04:26.717188+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
