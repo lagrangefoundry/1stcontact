@@ -6,14 +6,15 @@ title: The build refuses a Worker whose type program reaches a filesystem-bound 
   naming the module it cannot type
 created_by: xgd
 created_at: '2026-08-31T12:12:29.978850+00:00'
-updated_at: '2026-09-10T05:19:03.501247+00:00'
+updated_at: '2026-09-10T05:44:38.655647+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
