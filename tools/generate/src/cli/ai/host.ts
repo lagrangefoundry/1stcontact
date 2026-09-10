@@ -85,6 +85,30 @@ export function sessionsDir(opts: GlobalOptions): string {
 }
 
 /**
+ * Where this process looks for the system KB, when it is not the repository's.
+ *
+ * A TEST SEAM, and declared as one — the second this module has, beside
+ * {@link setModelClient}. {@link kbRoot} is deliberately repo-anchored: the KB is
+ * a release artefact, one serves every site, and a linked worktree must read the
+ * identical one. That is right, and it leaves a case about what a host does with
+ * a corpus — built, unbuilt, or built and unopenable — no honest way to arrange
+ * one except by disturbing the checkout's own, which a killed run then leaves
+ * disturbed. Pointing this process at a throwaway root costs nothing in
+ * production, where nothing calls it and the repository's KB is what is read.
+ *
+ * Cleared by {@link resetAiHost} along with the runtime it selects, so a case
+ * cannot leak its corpus into the next one.
+ */
+let knowledgeRoot: string | null = null
+
+/** Point this process's KB lookup at `root`, or back at the repository's (`null`). */
+export function setKnowledgeRoot(root: string | null): void {
+  knowledgeRoot = root
+  knowledgeRuntime = null
+  workspaces.clear()
+}
+
+/**
  * The system knowledge runtime, or `null` when the KB has not been built.
  *
  * Built once per process rather than per site: the KB is a release artefact
@@ -94,7 +118,9 @@ export function sessionsDir(opts: GlobalOptions): string {
 let knowledgeRuntime: Promise<Untyped | null> | null = null
 function openKnowledge(): Promise<Untyped | null> {
   if (!knowledgeRuntime) {
-    knowledgeRuntime = openKnowledgeRuntime().catch((err: unknown) => {
+    knowledgeRuntime = (
+      knowledgeRoot === null ? openKnowledgeRuntime() : openKnowledgeRuntime(knowledgeRoot)
+    ).catch((err: unknown) => {
       // A KB that was BUILT and then failed to open is not the same as one that
       // was never built, and it must not look the same. The usual cause is the
       // embedding credentials being absent, which would otherwise cost the
@@ -252,5 +278,6 @@ export function resetAiHost(): void {
   resetAiHostCore()
   workspaces.clear()
   knowledgeRuntime = null
+  knowledgeRoot = null
   library = null
 }

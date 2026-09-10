@@ -4,7 +4,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -31,6 +30,7 @@ import {
   nodeDeps,
   openSession,
   resetAiHost,
+  setKnowledgeRoot,
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
@@ -491,14 +491,15 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
     // conversation UATs next door, and reaching for it here would only add a
     // listening socket to a case about what happens inside `build()`.
     //
-    // The knowledge base the host opens is the REPOSITORY's — a release artefact
-    // serving every site, not a per-workspace one — so this case operates on that
-    // real location. Whatever is there is moved aside first and restored after.
-    const corpus = corpusDir()
-    const index = path.join(corpus, 'index')
-    const aside = path.join(corpus, 'index.uat-ac1320-aside')
-    const hadCorpus = existsSync(corpus)
-    const hadIndex = existsSync(index)
+    // THE CORPUS IS THIS CASE'S OWN, not the repository's. The KB the host opens
+    // is repo-anchored by design — a release artefact serving every site — and
+    // this case used to arrange its two situations by renaming the checkout's own
+    // index aside and restoring it in a `finally`. That is a working directory a
+    // killed run leaves damaged, in a case whose whole subject is a host being
+    // interrupted. `setKnowledgeRoot` is the seam that makes the arrangement
+    // local: an empty root is a KB that was never built, and the fixture root
+    // this file already builds is one that WAS.
+    const unbuilt = mkdtempSync(path.join(tmpdir(), 'a58a0974-nokb-'))
 
     const credentials = {
       LAGRANGE_KM_EMBEDDER: process.env.LAGRANGE_KM_EMBEDDER,
@@ -536,10 +537,11 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
     }
 
     try {
-      if (hadIndex) renameSync(index, aside)
-
       // ── never built: an ordinary state, and it is silent ──────────────────
+      // An empty root: no declaration, no corpus, no index. Exactly the workspace
+      // of an operator who has never run `1c kb build`.
       resetAiHost()
+      setKnowledgeRoot(unbuilt)
       errors.mockClear()
 
       const before = await toolsOfferedByATurn()
@@ -556,13 +558,14 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
       ).toEqual([])
 
       // ── built, and it cannot be opened: a different situation ─────────────
-      // An index is present, so the KB WAS built; the embedding credentials its
-      // index needs are not, which is the failure an operator actually hits.
-      mkdirSync(index, { recursive: true })
+      // The fixture root this file builds in `beforeAll` — a real corpus with a
+      // real index, so the KB WAS built. The embedding credentials its index
+      // needs are removed, which is the failure an operator actually hits.
       delete process.env.LAGRANGE_KM_EMBEDDER
       delete process.env.CLOUDFLARE_ACCOUNT_ID
       delete process.env.CLOUDFLARE_API_TOKEN
       resetAiHost()
+      setKnowledgeRoot(kbRootDir)
       errors.mockClear()
 
       // The conversation still opens, and still works on its site operations —
@@ -582,10 +585,10 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
     } finally {
       errors.mockRestore()
       setModelClient(null)
+      // Puts the KB lookup back on the repository's, which is what every other
+      // caller in the process expects. Nothing of the checkout was touched.
       resetAiHost()
-      rmSync(index, { recursive: true, force: true })
-      if (hadIndex) renameSync(aside, index)
-      else if (!hadCorpus) rmSync(corpus, { recursive: true, force: true })
+      rmSync(unbuilt, { recursive: true, force: true })
       for (const [name, value] of Object.entries(credentials)) {
         if (value === undefined) delete process.env[name]
         else process.env[name] = value

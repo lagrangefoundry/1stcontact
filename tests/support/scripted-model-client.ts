@@ -75,8 +75,16 @@ export function modelSaw(req: ModelRequest): string {
 /** One Anthropic streaming event, as the SDK emits them. */
 export type WireEvent = Record<string, unknown>
 
-/** One scripted answer: the events the model streams for a single call. */
-export type ModelStep = (req: ModelRequest) => WireEvent[]
+/**
+ * One scripted answer: the events the model streams for a single call.
+ *
+ * An ASYNC ITERABLE is allowed beside the plain array so a step can stall
+ * part-way through a turn ({@link stalls}) — a real stream arrives over time, and
+ * a case about what is true WHILE a turn is in flight has no other way to hold
+ * one open. The transcription itself stays in this file either way, which is the
+ * rule BUG-39 exists to keep.
+ */
+export type ModelStep = (req: ModelRequest) => WireEvent[] | AsyncIterable<WireEvent>
 
 /** A client, in the shape the backend's injected `client` seam expects. */
 export interface ScriptedClient {
@@ -108,7 +116,10 @@ export function scriptedClient(steps: ModelStep[]): ScriptedClient {
         index += 1
         const events = step(req)
         return (async function* () {
-          for (const event of events) yield event
+          // `for await` over the plain-array case is the same loop it always
+          // was; it additionally accepts a step that produces its events over
+          // time, which is what {@link stalls} needs.
+          for await (const event of events) yield event
         })()
       },
     },
@@ -123,6 +134,61 @@ export const says =
     { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
     { type: 'content_block_stop', index: 0 },
   ]
+
+/** A turn held open part-way through, and the two handles that control it. */
+export interface StalledStep {
+  step: ModelStep
+  /**
+   * Resolves once the host has consumed the assistant text and asked for more —
+   * i.e. the turn is genuinely IN FLIGHT: begun, not finished, nothing about it
+   * yet complete.
+   */
+  entered: Promise<void>
+  /**
+   * Let the stalled turn run to completion. Call it in a `finally`: a step left
+   * stalled leaves the request that is awaiting it pending for the rest of the
+   * run.
+   */
+  release(): void
+}
+
+/**
+ * Prose that STOPS PART-WAY: the text streams, then the turn hangs until released.
+ *
+ * The one thing an instantaneous double cannot express, and the only way to
+ * observe what is true of a conversation *while a turn is in flight* — which is
+ * the whole of the junction's claim (AC-1057): the tier in front of the store
+ * holds the turn being spoken, the store holds the conversation, and losing the
+ * host in between costs the first and not the second. Against a double that
+ * answers before the client can read a byte, a turn is complete and drained
+ * before any "mid-turn" instant exists to look at.
+ *
+ * The events are the same three `says` emits, in the same order — this stalls the
+ * stream, it does not invent a different one.
+ */
+export function stalls(text: string): StalledStep {
+  let enter!: () => void
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve
+  })
+  let open!: () => void
+  const gate = new Promise<void>((resolve) => {
+    open = resolve
+  })
+
+  const step: ModelStep = () =>
+    (async function* () {
+      yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
+      yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } }
+      // Reached only when the host comes back for the next event, so by here the
+      // delta has been consumed and the turn is under way.
+      enter()
+      await gate
+      yield { type: 'content_block_stop', index: 0 }
+    })()
+
+  return { step, entered, release: () => open() }
+}
 
 /** A tool call, with its arguments streamed as partial JSON like the real wire. */
 export const calls =

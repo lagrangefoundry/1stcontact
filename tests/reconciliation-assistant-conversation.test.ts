@@ -21,7 +21,7 @@ import {
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, modelSaw, says, scriptedClient } from './support/scripted-model-client'
+import { calls, modelSaw, says, scriptedClient, stalls } from './support/scripted-model-client'
 
 /**
  * **One continuing conversation about one site** (story-a58a0974).
@@ -515,6 +515,88 @@ describe('the conversation is stored with the workspace', () => {
     expect(emptied.sessionId).toBe(replayed.sessionId)
     expect(emptied.turns).toEqual([])
   })
+
+  /**
+   * AC-1057's second paragraph — the junction's BOUND, which the case above does
+   * not reach because it only ever restarts between completed turns.
+   *
+   * The claim is a pair, and the two halves fail differently: the tier in front
+   * of the store holds only the turn being spoken, and losing the host in the
+   * middle of one therefore costs that turn and never the conversation. A
+   * criterion that omitted the cost would claim more than the code does, which is
+   * why the story states it; stating it obliges someone to look.
+   *
+   * WHY A STALLING MODEL. Against the instantaneous double every other case uses,
+   * there is no mid-turn instant to look at: a turn is answered, drained and
+   * complete before the client can read its first byte — measured, not assumed.
+   * `stalls` holds the stream open after the assistant's text, which is what
+   * makes "while a turn is in flight" a state this suite can actually stand in.
+   *
+   * The host is then lost the way {@link resetAiHost} loses it: every cached
+   * manager goes, and each one's junction is `memoryJunctions()` — the library's
+   * default, and what this host gets — so nothing that had not already drained
+   * survives.
+   */
+  it('test_UAT_AC1057_losing_the_host_mid_turn_costs_that_turn_and_not_the_conversation', async () => {
+    const KEPT = 'Noted — the first thing you told me.'
+    const LOST = 'This answer is still being spoken.'
+    const stalled = stalls(LOST)
+    setModelClient(scriptedClient([says(KEPT), stalled.step]))
+
+    const opened = await open(base, SLUG)
+    await turn(base, opened.sessionId, 'The first thing')
+
+    // A second turn, begun and deliberately not finished. Not awaited: the point
+    // is to stand inside it.
+    const inFlight = post(base, 'prompt', {
+      sessionId: opened.sessionId,
+      text: 'The second thing',
+    }).then((res) => res.text())
+
+    try {
+      await stalled.entered
+
+      // WHILE IT IS IN FLIGHT: the store already holds the conversation, and does
+      // NOT hold the turn being spoken. That is the split the criterion names —
+      // one tier has the history, the other has the sentence in progress.
+      //
+      // Read from the ARCHIVE ITSELF — the session's own transcript — and not
+      // from everything under the transcript directory. The tier in front is
+      // exactly the thing allowed to be holding `LOST` right now; a read wide
+      // enough to include it would be asserting the opposite of the criterion.
+      const archived = readFileSync(
+        path.join(sessionsDir({ cwd }), `${opened.sessionId}.md`),
+        'utf8',
+      )
+      expect(archived).toContain('The first thing')
+      expect(archived).toContain(KEPT)
+      expect(archived).not.toContain(LOST)
+
+      // Now lose the host, mid-turn. Every manager and every junction with it.
+      resetAiHost()
+
+      const replayed = await open(base, SLUG)
+
+      // The conversation is intact — ready, and replaying the completed exchange
+      // with its original text and attribution.
+      expect(replayed.ready, replayed.error).toBe(true)
+      expect(replayed.turns[0]).toEqual({ role: 'user', markdown: 'The first thing' })
+      expect(replayed.turns[1].role).toBe('assistant')
+      expect(replayed.turns[1].markdown).toContain(KEPT)
+
+      // …and the cost is the turn that was in flight, nothing more: no assistant
+      // turn carries the answer that was still being spoken, and what did survive
+      // is a well-formed conversation rather than a half-written one.
+      expect(replayed.turns.map((t) => t.markdown).join('\n')).not.toContain(LOST)
+      expect(replayed.turns.every((t) => t.role === 'user' || t.role === 'assistant')).toBe(true)
+    } finally {
+      // Let the abandoned turn finish rather than leaving its request pending for
+      // the rest of the run. Its writes land after every assertion above, and
+      // `beforeEach` clears the workspace for the next case regardless.
+      stalled.release()
+      await inFlight.catch(() => undefined)
+    }
+  }, 180000)
 })
 
 // ── the same form, read by the other host ────────────────────────────────────
