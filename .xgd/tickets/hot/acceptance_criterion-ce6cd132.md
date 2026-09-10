@@ -6,7 +6,7 @@ title: A page slug that is exactly a locale segment is refused at the authoring 
   with the reason and two alternatives
 created_by: xgd
 created_at: '2026-08-31T12:28:44.987294+00:00'
-updated_at: '2026-09-10T04:00:57.138906+00:00'
+updated_at: '2026-09-10T04:09:41.567859+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
