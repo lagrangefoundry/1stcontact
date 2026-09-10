@@ -7,14 +7,15 @@ title: 'The smoke check asserts the operator surface is private: an unauthentica
   its own option'
 created_by: xgd
 created_at: '2026-08-31T12:12:25.714590+00:00'
-updated_at: '2026-08-31T12:24:33.534590+00:00'
+updated_at: '2026-09-10T05:44:37.575668+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
