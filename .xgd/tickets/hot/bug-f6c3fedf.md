@@ -5,9 +5,9 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-10T23:00:10.284562+00:00'
+updated_at: '2026-09-10T23:00:10.432323+00:00'
 completed_at: null
-last_field_updated: blocked_by
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -101,3 +101,33 @@ Options, for the operator to choose between:
 ## Test plan
 
 To be written once the fix is chosen.
+
+
+## Fix — decided 2026-09-10
+
+**Blocked on [[REQ-223]]**, which builds the endpoint. Operator chose to build
+the capability rather than remove the form (option B of the three above),
+scoped to the contact database only — notification of the business owner is
+deliberately not in it.
+
+Once REQ-223 lands, this bug closes with two configuration values on the
+`1stcontact` home page, and no code:
+
+- `beta-form.action` → `/api/lead` — relative and same-origin, which is the
+  convention the XGD site already uses and which REQ-223 §3 settles as the
+  correct one. The absolute `https://app.1stcontact.io/beta-apply` is the
+  anomaly, and is broken in local dev for the same reason it is broken in
+  production.
+- `signin.signIn` → `https://app.1stcontact.io/sign-in` — restoring the value
+  [[REQ-200]] set. The configured `/auth/request-link` has never existed in the
+  route table; `SIGN_IN_PATH` is and always was `/sign-in`.
+
+**The sign-in half needs one thing this repo cannot deliver**: production
+Cloudflare Access answers `GET /sign-in` with a `302` to its login origin
+(verified 2026-09-10), so the dialog stays broken until a bypass policy is
+added. That is recorded as REQ-223 §10 step 2 and is owed independently of both
+tickets — the same missing policy also makes REQ-198's delivery webhook
+unreachable.
+
+The beta form needs no such thing: REQ-223 routes lead capture through
+`public-site`, which sits in front of no Access gate.
