@@ -5,7 +5,7 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-10T21:56:36.376828+00:00'
+updated_at: '2026-09-10T22:28:26.546993+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -105,3 +105,65 @@ visible, it is cheap — the image is still in the Library — and the surface's
 a trailer after every turn would close it and was rejected: it would put the
 picture in a fixed place rather than where the sentence wants it, for a failure
 that costs a client one click.
+
+
+---
+
+## Answered from EPIC-1, 2026-09-10
+
+The investigation's two questions, and one of its findings, answered from the
+epic's design conversation.
+
+**Yes — `write_image` only, for now.** `create_image` stays genuinely untouched
+until lagrange-framework REQ-149 lands. That is the split this ticket already
+describes; treat it as settled rather than provisional, and ship the drawing half
+without waiting.
+
+**Yes — bake the business-scoped absolute URL into the archived transcript**, and
+the reason is stronger than acceptability. The relative alternative is *actively
+unsafe*: an unscoped `/preview/…` resolves through `resolveScope`'s fallback to
+the first admissible business (`scope.ts:262-266`), which for a multi-business
+operator is precisely the *one business's page rendered with another's assets*
+failure `scope.ts:161-171` exists to prevent. A URL naming `/b/<businessId>`
+explicitly is the safe form, not the compromise. The business id is opaque and
+stable by design — REQ-190 moved the *name* into `tenants.name` so the key never
+has to change — and the transcript is only ever read by someone already admitted
+to that business, so the durable string discloses nothing.
+
+**The consequence is accepted and must be written down.** A `draft/assets/` URL
+names the asset as it stands, not as it stood during that turn. So a drawing
+redrawn with `replace: true` retroactively changes what every earlier transcript
+shows. That is the honest semantics of naming a live asset, there is no stable
+alternative for site assets (they are not content-addressed), and pointing a
+historical bubble at a frozen copy is not worth a second byte store. Say it in
+the ticket so nobody discovers it as a bug.
+
+**Yes — add the `max-width`/`max-height` rule to `builder.css`.** The comment at
+`builder.css:876-882` declines to *restyle* a component that ships its own look.
+Constraining content the component never anticipated is a different act:
+`webui-chat` ships no `img` rule because it never expected an image. Bounding one
+is not an opinion about its design.
+
+## The URL shape is a contract with REQ-220
+
+REQ-220's click handler must recover the picture's identity from the `<img src>`
+in the rendered bubble — `mountChat` sets `innerHTML` per message and offers no
+per-node hook, so delegation off the panel host is the only route. **The markdown
+line this ticket authors is therefore an interface, not an implementation
+detail.** It must be parseable back to the thing it names, and the two tickets
+must agree on the shape before either is written. Both namespaces are in play:
+a drawing is a site asset under `/b/<biz>/preview/<slug>/draft/assets/<file>`,
+and a generated picture will be material under the material file route.
+
+## Corrections to the body above
+
+The paragraph beginning *"The handle is a same-origin URL the builder already
+serves"* is **wrong for this ticket's own half**. `transport.fileUrl(uid)` serves
+*material*; a `write_image` drawing is a **site asset** (`editAssetWrite` →
+`src: '/assets/<name>'`), reached through `assetUrl(slug, handle)` and scoped by
+`previewUrl`. The tool cannot compose that URL from what it holds — it knows the
+slug and nothing about the business — so this ticket needs a local seam of the
+same shape REQ-149 asks for upstream: an optional display-URL factory on
+`HostDeps`, threaded into `createL1Toolbox`'s deps beside `measurer`, supplied by
+`router.ts` from `scope.businessId`, and absent on the CLI host. Absence stays the
+default, so a deployment that cannot show a picture emits no line.
