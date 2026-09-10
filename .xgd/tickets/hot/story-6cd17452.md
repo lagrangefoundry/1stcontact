@@ -6,9 +6,9 @@ title: 'Draft change journal: know what changed since you last looked, without r
   the site'
 created_by: xgd
 created_at: '2026-08-20T02:25:25.761224+00:00'
-updated_at: '2026-08-20T02:46:12.200469+00:00'
+updated_at: '2026-09-10T08:13:20.725679+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -42,6 +42,7 @@ This story provides the mechanism that closes that hole, at three costs:
 - **A bounded window** that degrades gracefully. A baseline older than the retained window is answered with whatever remains plus a truncation flag, and the caller falls back to a full read. There is no correctness cliff.
 - **A read for both callers.** The assistant reads it as a declared read operation in the group it is already granted, marked as third-party content. The operator reads the same log from the command line, in human and machine-readable form. One implementation, so the two cannot come to disagree.
 - **The push signal.** The host compares the count across turn boundaries and, when it moved, says so in the per-turn reminder — which is re-applied every turn and never enters the transcript. In the common case (nothing changed) the whole mechanism costs nothing.
+- **The manual guidance that tells the assistant what to do when the signal fires.** Knowing that the site moved is not the same as knowing how to respond to it, and the response is the same for every operation — so it is carried once, as guidance, rather than repeated per-operation. The assistant's manual gains it in two places: its **overview** carries the cross-cutting rule — your user edits the same page you are working on, you are told at the start of a turn when something moved, look at what changed before you act, and never write over a change you have not read — and a named **sequence** walks the response end to end, signal → read the changes → act, starting from the change log rather than from a defensive re-read of the page.
 
 **Out of scope**
 
@@ -55,12 +56,14 @@ This story provides the mechanism that closes that hole, at three costs:
 
 - **Instrumenting one chokepoint.** The single validated, atomic write path (CAP-86) is the one place all three writers pass through, and it already carries a structured, validated change vocabulary — so this persists something that already flows through it rather than inventing a representation. The count is part of that write surface's contract: **every** write hands it back, including the two whose answers are shaped as an asset rather than as a change. Omitting it there would have been defensible on shape grounds and wrong on behaviour grounds — a session whose last write was an upload would hold a baseline that never advanced and would be told next turn that its own upload was somebody else's work, which is exactly the false alarm the count exists to make impossible.
 - **Records are written at the *return* of a mutating command, never before the write.** That is what makes "a refused write appends nothing" true without a transaction: every write on this surface validates the whole resulting definition and throws on refusal, so reaching the record means the bytes have already landed.
+- **A no-op advances nothing.** A write that changes no field — a copy save where the text is unchanged, a dry-run gap fix — returns the current count and appends no record. Without that rule every no-op save from the editor's modal would look, to the assistant, exactly like the operator rewriting a heading, and the signal would cry wolf on the editor's single most common write.
 - **Divergence from the intent, recorded not absorbed.** The intent says a record is appended *"transactionally with the write it describes"*. As built there is no transaction: recording happens after the write, and a store that cannot take the record leaves the count where it was rather than failing the edit. The failure mode is therefore a *stale* count, not a lost edit — and a stale count over-reports (the caller is later told about its own write) rather than under-reporting, which is the safe direction. Recorded here so regression can see it; a journal is not worth losing an operator's work over, which is the reason it was built this way.
 - **Degradation, never failure.** An unreadable or malformed record store reads as empty. A corrupt log must degrade to "I cannot tell you what changed" and never to "your edit failed". Correctness never depends on the log existing — the fallback is the same full re-read an over-old baseline already takes.
 - **Where it is kept is deliberately outside the draft** and is not version-controlled: a record of every copy edit would churn the tracked tree on every keystroke-settle, and it must never be captured by a publish snapshot or perturb the draft's byte-identity. Losing it costs a re-read and nothing else.
 - **The label comes from the same derived segment model the editor uses for its outlines**, rather than a second derivation that could disagree with it. The record's one-line summary is the command's own human line, so a change reads the same way to the person who made it and to whoever finds it later.
 - **A count is a value the host may legitimately hold across turns**, unlike an address. The difference is that staleness here is *detectable* — a baseline that has fallen behind produces a signal, which is the correct outcome — whereas a stale address produces a write landing somewhere nobody chose.
 - **The baseline is recorded after the turn, not before it**, so the assistant's own writes are absorbed rather than reported back to it, and an abandoned turn leaves no stale baseline behind.
+- **The cross-cutting guidance lives in the manual's overview, not on the operation.** Where to put a rule that applies to every write is itself a decision: repeating "the site may have moved" on each operation would bloat the surface and still be missable, so the rule sits in the overview — which is what an overview is for — and the sequence gives it a concrete shape to follow. The read operation's own description stays about the read.
 - **Pinned decisions** the intent left open: the count is **per-site** (matches "has anything changed"); the window is **500 records** with **300 characters** per text value, sized so a whole consultation session never truncates in practice; actor attribution ships, defaulting to the operator's own tools for an unattributed caller — nothing about *detecting* a change depends on it, so a caller that forgets it produces a less informative record and never a wrong answer.
 - Related: CAP-86 (the write path this instruments), CAP-90 / CAP-92 (the assistant's session and its declared, granted, audited control surface), CAP-87 (the client-side gesture whose edits are the thing being detected).
 
