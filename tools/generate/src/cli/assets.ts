@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
+import { CommandError } from './errors'
 import { buildModuleAssets, type ModuleAssetBuild } from './module-assets'
 import { kbBundle, requireCoherentKb } from './kb'
 import {
@@ -52,7 +53,7 @@ import {
  */
 
 /**
- * The framework bridges, and the one rewrite they need.
+ * The framework bridges — the ENTRY POINTS of the emitted framework tree.
  *
  * These files are TypeScript in `packages/`, and they must STAY the one
  * implementation: `edit-client.ts` reads the same stamp the renderer writes, and
@@ -60,10 +61,20 @@ import {
  * runs once per frame of a drag. A hand-written browser copy of either would be
  * free to drift from the markup and from the pixels respectively.
  *
- * Type-stripping is enough, and bundling is not needed, because these files'
- * only runtime import is each other: `l1/edit.ts` imports nothing at runtime,
- * `l1/shade.ts` imports nothing at all, and `edit-client.ts` imports only
- * `@1stcontact/site-schema`, rewritten below to the sibling URL. One rewrite.
+ * THIS MAP NAMES ENTRIES, NOT THE WHOLE TREE ([[BUG-71]]). It used to be the
+ * complete list of what was emitted, on the stated grounds that "these files'
+ * only runtime import is each other". That was true until it was not:
+ * `l1/edit.ts` gained `import { l1TextRuns } from './text'`, `text.ts` was on
+ * no list, and the browser asked for `/framework/text` and got a 404 — which
+ * took the whole builder down, because one unloadable module in a graph fails
+ * the graph. The list could not have caught it: a hand-maintained inventory of
+ * a dependency graph is correct only until the next import.
+ *
+ * So {@link emitFrameworkTree} FOLLOWS the imports out of each entry below and
+ * emits what it finds. What these names still decide is the stable public URL
+ * `/framework/<name>.js` — the address the builder's own sources import by
+ * hand, which is why it is declared rather than derived. A module reached only
+ * as a dependency has no such caller, and is emitted under its source path.
  */
 const FRAMEWORK_SOURCES: Record<string, string> = {
   'edit-client': 'packages/framework/src/l1/edit-client.ts',
@@ -109,21 +120,259 @@ export interface AssetBuildReport {
   aiImagegenEntry: string
   /** The system KB inlined into `src/generated/kb.js`, built or not (REQ-158). */
   kb: KbAssetReport
+  /** The builder's import graph, proved to resolve before the swap ([[BUG-71]]). */
+  graph: ImportGraphReport
+}
+
+/**
+ * Required lazily, as the request-time route did: `typescript` is a
+ * devDependency and a packaged install that never builds assets should not fail
+ * to load this module over it.
+ */
+function typescript(): typeof import('typescript') {
+  const require = createRequire(import.meta.url)
+  return require('typescript') as typeof import('typescript')
 }
 
 function transpileForBrowser(absPath: string): string {
-  // Required lazily, as the request-time route did: `typescript` is a
-  // devDependency and a packaged install that never builds assets should not
-  // fail to load this module over it.
-  const require = createRequire(import.meta.url)
-  const ts = require('typescript') as typeof import('typescript')
+  const ts = typescript()
   const out = ts.transpileModule(fs.readFileSync(absPath, 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   })
-  return out.outputText.replace(
-    /(['"])@1stcontact\/site-schema\1/g,
-    "'/framework/site-schema-edit.js'",
-  )
+  return out.outputText
+}
+
+/**
+ * Every static module specifier in a file, with the span of the specifier text.
+ *
+ * THE SCANNER, NOT A REGEX. This began as a pattern matching the specifier
+ * position of `import`/`export`/`import()`, and it worked until it read a
+ * DOC COMMENT that quoted an import as an example — whereupon the build
+ * rewrote the comment, followed the specifier out of it, and emitted a module
+ * nothing imports (which in turn imported `zod`, which is not servable, and
+ * failed the build for a line of prose). Comments and string literals are
+ * exactly what a scanner exists to tell apart from code, and TypeScript's is
+ * already loaded here to do the type-stripping.
+ *
+ * `preProcessFile` returns each specifier's position as well as its text, so
+ * the same call serves both readers: {@link emitFrameworkTree} rewrites at
+ * those spans and {@link checkImportGraph} resolves the text.
+ */
+function specifiersOf(code: string): Array<{ text: string; pos: number; end: number }> {
+  const ts = typescript()
+  return ts.preProcessFile(code, true, true).importedFiles.map((f) => {
+    // `pos` IS THE OPENING QUOTE, and `end` is `pos + fileName.length` — so the
+    // span TypeScript hands back is the right length in the wrong place, and
+    // slicing at it verbatim eats the quote and keeps the specifier's last
+    // character. The span is therefore derived from the text rather than taken
+    // on trust, and checked: if a future TypeScript changes this convention the
+    // build says so, instead of quietly emitting files with mangled imports.
+    const pos = f.pos + 1
+    const end = pos + f.fileName.length
+    if (code.slice(pos, end) !== f.fileName) {
+      throw new CommandError({
+        code: 'INTERNAL',
+        message: `TypeScript reported '${f.fileName}' at ${f.pos}, where the source reads '${code.slice(pos, end)}'.`,
+        hint: 'preProcessFile changed how it positions module specifiers — see `specifiersOf`.',
+      })
+    }
+    return { text: f.fileName, pos, end }
+  })
+}
+
+/**
+ * Each specifier in `code`, rewritten by `to` — returning `null` leaves it alone.
+ *
+ * Applied last-first so that replacing one specifier cannot shift the positions
+ * of the ones still to be replaced.
+ */
+function rewriteSpecifiers(code: string, to: (spec: string) => string | null): string {
+  let out = code
+  for (const { text, pos, end } of specifiersOf(code).reverse()) {
+    const next = to(text)
+    if (next !== null) out = out.slice(0, pos) + next + out.slice(end)
+  }
+  return out
+}
+
+/**
+ * The source file a relative specifier names.
+ *
+ * TypeScript writes `./text` and means `./text.ts`; a browser writes `./text`
+ * and means a file literally called `text`. That mismatch is half of [[BUG-71]]
+ * — even had `text.ts` been emitted, `./text` would still have 404ed — so the
+ * extension is resolved here, once, and the specifier is rewritten to the URL
+ * the file was emitted at rather than to a guess.
+ */
+function resolveSibling(fromAbs: string, spec: string): string | null {
+  const base = path.resolve(path.dirname(fromAbs), spec)
+  for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}.js`, path.join(base, 'index.ts')]) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}
+
+/**
+ * Type-strip the framework entries AND everything they import, into `outDir`.
+ *
+ * WHY A GRAPH WALK AND NOT A LIST ([[BUG-71]]). See {@link FRAMEWORK_SOURCES}:
+ * a list of files is a claim about a dependency graph that nothing checks, and
+ * it was wrong within one commit of being written.
+ *
+ * IT FOLLOWS THE TRANSPILED OUTPUT, NOT THE SOURCE, and that is the whole
+ * reason no type-only module is emitted. `transpileModule` erases `import type`
+ * and elides any import whose bindings never appear in the emitted JS, so what
+ * survives into the output is exactly what the browser will actually fetch.
+ * Reading the source instead would emit `./palette` and `./types` — modules
+ * that exist only at compile time — and ship the browser bytes it can never run.
+ *
+ * ONE URL PER SOURCE FILE. `urlOf` is keyed on the absolute source path and
+ * seeded with the declared entries, so a module that is both an entry and
+ * somebody's dependency is emitted once and imported by its entry URL from
+ * everywhere. Emitting it under two URLs would give the page two instances of
+ * one module — two copies of whatever state it holds, agreeing until they did
+ * not, which is the class of bug that does not reproduce.
+ *
+ * A dependency is emitted under its REPO-RELATIVE SOURCE PATH, which is both
+ * collision-proof (two packages may each have a `text.ts`; they cannot share a
+ * path) and legible: the URL in a stack trace names the file to open.
+ */
+function emitFrameworkTree(repoRoot: string, outDir: string): string[] {
+  const urlOf = new Map<string, string>()
+  for (const [name, rel] of Object.entries(FRAMEWORK_SOURCES)) {
+    urlOf.set(path.join(repoRoot, rel), `/framework/${name}.js`)
+  }
+
+  const emitted: string[] = []
+  const done = new Set<string>()
+  const queue = [...urlOf.keys()]
+
+  while (queue.length > 0) {
+    const src = queue.shift() as string
+    if (done.has(src)) continue
+    done.add(src)
+
+    const code = rewriteSpecifiers(transpileForBrowser(src), (spec) => {
+      // The one bare specifier these sources use, and the reason it is rewritten
+      // rather than mapped: `edit-client.ts` imports the site schema as a
+      // package, and in the browser that package IS the sibling bridge.
+      if (spec === '@1stcontact/site-schema') return '/framework/site-schema-edit.js'
+      if (!spec.startsWith('.')) return null
+      const dep = resolveSibling(src, spec)
+      if (dep === null) {
+        throw new CommandError({
+          code: 'ENVIRONMENT',
+          message: `${path.relative(repoRoot, src)} imports '${spec}', which resolves to no file.`,
+          path: spec,
+          hint: 'The framework bridges are served as files — every relative import must name one.',
+        })
+      }
+      let url = urlOf.get(dep)
+      if (url === undefined) {
+        const rel = path.relative(repoRoot, dep)
+        if (rel.startsWith('..')) {
+          throw new CommandError({
+            code: 'ENVIRONMENT',
+            message: `${path.relative(repoRoot, src)} imports '${spec}', which lies outside the repository.`,
+            path: rel,
+            hint: 'A framework bridge can only import files this build can emit — keep it in the repo.',
+          })
+        }
+        url = `/framework/${rel.replace(/\.tsx?$/, '.js')}`
+        urlOf.set(dep, url)
+      }
+      queue.push(dep)
+      return url
+    })
+
+    const file = (urlOf.get(src) as string).replace(/^\/framework\//, '')
+    const target = path.join(outDir, file)
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, code)
+    emitted.push(file)
+  }
+  return emitted
+}
+
+/** What {@link checkImportGraph} proved, so the report can say it was proved. */
+export interface ImportGraphReport {
+  /** Modules reachable from the builder's entry, the entry included. */
+  modules: number
+  /** Stylesheets the import map declares. */
+  styles: number
+}
+
+/** Where a specifier points, as a URL under the served tree — or `null` if nowhere. */
+function resolveUrl(from: string, spec: string, imports: Record<string, string>): string | null {
+  if (spec.startsWith('/')) return spec
+  if (spec.startsWith('.')) return path.posix.join(path.posix.dirname(from), spec)
+  return imports[spec] ?? null
+}
+
+/**
+ * Refuse to ship a tree the browser cannot load ([[BUG-71]]).
+ *
+ * WHAT IT CHECKS AND WHY THAT IS THE RIGHT SCOPE. It walks out from
+ * `/builder/main.js` — the module the chrome document actually loads — and
+ * resolves every static specifier it meets: absolute and relative against the
+ * emitted tree, bare against the import map, plus the stylesheets the map
+ * declares. A file no entry can reach cannot produce a blank page and is not
+ * this check's business; a file that IS reachable and missing takes the entire
+ * builder down, because the module graph fails as a unit.
+ *
+ * IT RUNS AGAINST THE STAGED TREE, BEFORE THE SWAP. That is what makes it
+ * safe to be strict: a refusal leaves the previously built `dist-assets` exactly
+ * where it was, so the operator's builder keeps working while they fix the
+ * cause. Checking after the swap would mean every refusal also broke the thing
+ * it was protecting.
+ *
+ * IT REPORTS ALL OF THEM, not the first. A build failure that names one missing
+ * file per run turns a rename into as many edit-build cycles as it touched
+ * files.
+ */
+export function checkImportGraph(
+  distDir: string,
+  entry: string,
+  map: { imports: Record<string, string>; styles: string[] },
+): ImportGraphReport {
+  const exists = (url: string): boolean => fs.existsSync(path.join(distDir, url.replace(/^\//, '')))
+  const dangling: Array<{ spec: string; from: string }> = []
+  const seen = new Set<string>()
+  const queue: Array<{ url: string; from: string }> = [{ url: entry, from: '(entry)' }]
+
+  while (queue.length > 0) {
+    const { url, from } = queue.shift() as { url: string; from: string }
+    if (seen.has(url)) continue
+    seen.add(url)
+    if (!exists(url)) {
+      dangling.push({ spec: url, from })
+      continue
+    }
+    if (!/\.m?js$/.test(url)) continue
+    const code = fs.readFileSync(path.join(distDir, url.replace(/^\//, '')), 'utf8')
+    for (const { text: spec } of specifiersOf(code)) {
+      const target = resolveUrl(url, spec, map.imports)
+      if (target === null) dangling.push({ spec, from: url })
+      else queue.push({ url: target, from: url })
+    }
+  }
+
+  for (const style of map.styles) if (!exists(style)) dangling.push({ spec: style, from: '(import map)' })
+
+  if (dangling.length > 0) {
+    throw new CommandError({
+      code: 'ENVIRONMENT',
+      message:
+        `The built assets import ${dangling.length} file(s) that were not built:\n` +
+        dangling.map((d) => `  ${d.spec}  <- ${d.from}`).join('\n'),
+      hint:
+        'Nothing was swapped in — the previous dist-assets is untouched. ' +
+        'A relative import inside a framework bridge must name a file in the repo; ' +
+        'a bare specifier must be exported by an installed webui package.',
+    })
+  }
+
+  return { modules: seen.size, styles: map.styles.length }
 }
 
 function copyDir(from: string, to: string): number {
@@ -738,6 +987,12 @@ export interface KbAssetReport {
   exempt?: string[]
 }
 
+/**
+ * What the chrome document loads, and therefore what the graph check walks from.
+ * Must match the module `chrome.ts` writes into its `<script type="module">`.
+ */
+const BUILDER_ENTRY = '/builder/main.js'
+
 /** Build every control-app asset. `repoRoot` is the checkout to read and write in. */
 export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuildReport> {
   // First, because it is the one artifact the RENDER needs rather than the
@@ -784,12 +1039,7 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
 
   const fwOut = path.join(stageDir, 'framework')
   fs.mkdirSync(fwOut, { recursive: true })
-  const frameworkFiles: string[] = []
-  for (const [name, rel] of Object.entries(FRAMEWORK_SOURCES)) {
-    const file = `${name}.js`
-    fs.writeFileSync(path.join(fwOut, file), transpileForBrowser(path.join(repoRoot, rel)))
-    frameworkFiles.push(file)
-  }
+  const frameworkFiles = emitFrameworkTree(repoRoot, fwOut)
 
   const generated = path.join(appDir, 'src', 'generated')
   fs.mkdirSync(generated, { recursive: true })
@@ -804,6 +1054,12 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
   const authEntry = writeAuthShim(generated)
   const aiImagegenEntry = writeAiImagegenShim(generated)
   const kb = await writeKbModule(generated, repoRoot)
+
+  // THE CHECK GOES HERE — after the tree is whole and before it is served.
+  // Every artifact the browser can reach now exists in `stageDir`, and nothing
+  // has replaced `outDir` yet, so this is the one moment at which refusing costs
+  // the operator nothing ([[BUG-71]]).
+  const graph = checkImportGraph(stageDir, BUILDER_ENTRY, { imports, styles })
 
   // The swap, last, once every artifact above exists. Two renames rather than a
   // delete-then-rename: a directory rename cannot land on a non-empty one, and
@@ -830,6 +1086,7 @@ export async function buildControlAppAssets(repoRoot: string): Promise<AssetBuil
     authEntry,
     aiImagegenEntry,
     kb,
+    graph,
   }
 }
 
@@ -844,6 +1101,7 @@ export function formatAssetReport(report: AssetBuildReport): string {
     `builder    ${report.builderFiles} files`,
     `webui      ${report.webuiFiles} files, ${Object.keys(report.imports).length} import-map entries, ${report.styles.length} stylesheets`,
     `framework  ${report.frameworkFiles.join(', ')}`,
+    `graph      ${report.graph.modules} modules, ${report.graph.styles} stylesheets — every import resolves`,
     `ai         ${report.aiWorkersEntry}`,
     `ticketing  ${report.ticketingEntry}`,
     `knowledge  ${report.knowledgeEntry}`,
