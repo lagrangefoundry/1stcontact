@@ -5,16 +5,24 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T21:51:57.455307+00:00'
+updated_at: '2026-09-10T21:52:19.711776+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-17655906
   story_points: 5
+  commits:
+  - working_sha: a6675273f6edd8395045ad4309de9a6d2c33d4ee
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 4378b7d7a7f40469385872d02c78b7ba4baa85a8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.156
 ---
 
 # Switching channel must preserve what the page is showing
