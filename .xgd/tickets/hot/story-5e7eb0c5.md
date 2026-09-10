@@ -3,12 +3,12 @@ uid: story-5e7eb0c5
 id: STORY-97
 type: story
 title: 'Colour census and repeatable palette retrofit: measure a site''s colours,
-  then migrate it onto a palette without moving a pixel'
+  then migrate it onto a palette within a proven per-channel bound'
 created_by: xgd
 created_at: '2026-08-06T21:06:52.787637+00:00'
-updated_at: '2026-08-16T22:44:01.277852+00:00'
+updated_at: '2026-09-10T19:43:59.006696+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: updated
 fields:
   intent_uid: bundle-0385746c
