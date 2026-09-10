@@ -5,15 +5,15 @@ type: acceptance_criterion
 title: Inter-row vertical spacing is compared as its own adjacent-row gap axis
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:48:06.632382+00:00'
-updated_at: '2026-09-09T23:48:06.632382+00:00'
+updated_at: '2026-09-10T00:34:32.348545+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
