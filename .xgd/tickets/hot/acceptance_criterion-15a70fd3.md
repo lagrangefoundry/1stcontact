@@ -7,7 +7,7 @@ title: A captured colour adjustment folds to the typed stack, with one fraction 
   expressible one
 created_by: xgd
 created_at: '2026-08-12T21:48:37.872380+00:00'
-updated_at: '2026-08-16T08:03:26.082077+00:00'
+updated_at: '2026-09-10T15:36:50.263289+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
