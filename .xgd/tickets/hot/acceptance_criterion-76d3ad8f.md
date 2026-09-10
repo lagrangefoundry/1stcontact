@@ -6,9 +6,9 @@ title: Every response the workspace returns is served as non-cacheable through e
   front door, including the workspace document itself
 created_by: xgd
 created_at: '2026-08-07T01:45:07.830525+00:00'
-updated_at: '2026-08-31T10:11:35.793500+00:00'
+updated_at: '2026-09-10T11:07:23.447070+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
