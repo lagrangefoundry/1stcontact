@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:26:12.529236+00:00'
+updated_at: '2026-09-10T19:34:43.349366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -351,5 +351,11 @@ Three things worth knowing about what you just chose:
 **Task budgets are now reachable.** The sizing analysis in the ticket named these as "the thing that would actually make the builder finish gracefully rather than be cut off," and ruled them out because Sonnet 4.6 didn't support them. Opus 5 does. It's an advisory ceiling the model *can* see and pace against — a genuine fix for the truncation class, where a raised `max_tokens` only makes it rarer. It needs a beta flag and a change to the framework's adapter, so it's real work in the other repo, not a config edit. I haven't done it or filed it; say the word and I'll raise it against lagrange-framework.
 
 All four commits are recorded on the ticket, status `free_coded`. The 5 pre-existing priming-suite failures I flagged earlier are still there and still not mine.
+
+<!-- xgd-turn id="501bce18-3c05-4b77-9a4c-e9cd57a99195-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:34:43.295366+00:00" -->
+#### You
+Do I need to restart the server to pick up the changes?
 
 <!-- xgd-chat-end -->
