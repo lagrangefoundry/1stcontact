@@ -6,7 +6,7 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-09-10T22:59:05.383959+00:00'
+updated_at: '2026-09-10T23:35:35.270102+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -193,6 +193,19 @@ operator's.
   unsaved-changes state spans all of them, and a dialog closed with nothing
   touched in **any** control still writes and re-renders nothing. One dialog is
   one diff however many controls it took to fill in.
+- **The dialog is dressed as the workspace's own.** The form the gesture opens
+  is part of the workspace's themed surface rather than a panel beside it: it
+  opens inside the themed subtree, so its panel, border, radius, surface and text
+  resolve that theme's own palette values rather than hardcoded stand-ins that
+  would disguise a value that failed to resolve, and a theme switch while the
+  form is open reaches it. The workspace, the dialog and its controls are all set
+  in one application typeface, applied once at the themed root and inherited
+  beneath it; the family is an application constant rather than a theme value —
+  a theme swaps a palette — and its faces are served from the workspace's own
+  origin, so editing depends on no third party and discloses nothing outside
+  about which sites are being edited. Cancel and Save read as the workspace's own
+  controls. The one stated exception is the refusal colour, for which the
+  workspace theme has no value yet.
 - **The page updating.** A successful Save leaves the operator looking at their
   page with the change on it — the new words, the new size, the new colour, the
   chosen image — with no further step to take, and the gesture still live on the
