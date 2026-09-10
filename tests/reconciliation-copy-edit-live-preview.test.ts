@@ -374,7 +374,7 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
   }
 
   it(
-    'test_UAT_AC1138_size_weight_and_italic_restyle_the_words_as_confirmed_and_write_nothing',
+    'test_UAT_AC1138_size_weight_italic_and_capitalisation_restyle_the_words_as_confirmed_and_write_nothing',
     async () => {
       // NO STYLESHEET INSPECTION. A regex over `builder.css` proves a
       // declaration exists, not that anything happens — and it is exactly what
@@ -617,9 +617,11 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
         const prop = box.style.item(i)
         dressing.set(prop, box.style.getPropertyValue(prop))
       }
-      // The run's colour and its family arrive from the render and have no
-      // control in the sheet at all, which makes them the sharpest witnesses
-      // that nothing was re-derived.
+      // The run's colour and its family both arrive from the RENDER. The family
+      // has no control in the sheet at all; the colour has had one since REQ-140
+      // and is simply not being touched here — either way the dressing is the
+      // render's, which makes them the sharpest witnesses that nothing was
+      // re-derived from the parameter set.
       expect(dressing.get('--preview-color')).toBeTruthy()
       expect(dressing.get('--preview-font-family')).toContain(FAMILY)
       // ...and an axis the sheet does not expose at all.

@@ -69,6 +69,8 @@ const FAMILY = 'Editorial'
 const HEADLINE = 'A run with words and type.'
 const HEADLINE_SIZE_PX = 40
 const BACKGROUND = '/assets/band.png'
+/** The handle the image region holds — one of the same site's own assets. */
+const PICTURE = '/assets/hero.png'
 
 /** What `draft/assets/` holds — images the background picker can offer. */
 const ASSET_FILES: Record<string, string> = {
@@ -81,6 +83,13 @@ const ASSET_FILES: Record<string, string> = {
 const A_RUN = '0.0'
 /** A painted panel carrying a background image and NO text at all. */
 const A_PAINTED_PANEL = '0.1'
+/**
+ * An image: the one region that carries all THREE routes at once — a field whose
+ * options are images (the grid), a field of plain words (the box) and a dozen
+ * typed parameters (the sheet). It is the witness for "never by the region's
+ * kind", which the two copy-and-panel cases above cannot supply.
+ */
+const AN_IMAGE = '0.2'
 
 if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 parameter-sheet suite: ${WEBUI_SKIP_REASON}`)
 
@@ -137,6 +146,16 @@ function seedSite(cwd: string, slug: string): void {
         layout: 'stack',
         axes: { backgroundImageUrl: BACKGROUND, surfaceFill: '#101822' },
         children: [],
+      },
+      // The third shape: a picture. Its `src` declares that its options are
+      // images, its `alt` is plain words, and REQ-136 gives it framing, shape,
+      // rotation, scale and colour-adjustment parameters — three routes out of
+      // one region, none of them chosen by the fact that it is an image.
+      {
+        kind: 'image',
+        id: 'picture',
+        src: PICTURE,
+        alt: 'A picture with words about it.',
       },
     ],
   }
@@ -249,6 +268,8 @@ interface FieldDescriptor {
   label: string
   type: string
   locked?: boolean
+  /** `'image'` is what declares a closed list should be drawn as the grid. */
+  format?: string
 }
 
 describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
@@ -430,9 +451,11 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       expect(words.map((f) => f.name)).toEqual(['text'])
       expect(parameters.length, 'the run exposes parameters beside its words').toBeGreaterThan(1)
       // The parameters are the shapes the criterion enumerates — a bounded
-      // number, a choice from a list the surface supplied, a yes/no.
+      // number, a choice from a list the surface supplied, a yes/no, and since
+      // REQ-140 a colour. Every one of them is a shape the SHEET draws; what the
+      // set asserts is that nothing else has crept in beside the words.
       expect(new Set(parameters.map((f) => f.type))).toEqual(
-        new Set(['integer', 'enum', 'boolean']),
+        new Set(['integer', 'enum', 'boolean', 'color']),
       )
 
       const modal = await openAt(A_RUN)
@@ -468,7 +491,54 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       const panel = await openAt(A_PAINTED_PANEL)
       expect(panel.querySelector('.builder-modal__picker'), 'the panel offers its picker').toBeTruthy()
       expect(panel.querySelector('.builder-modal__box')).toBeNull()
-      expect(panel.querySelector('.builder-modal__props')).toBeNull()
+      // ...and the OTHER half of the same rule: the sheet is drawn wherever
+      // there is anything to put in it. Since REQ-140 this panel exposes its
+      // colour as well as its background image, so it gets a sheet holding that
+      // row and still no box — a region exposing only a colour is the same case.
+      const panelSheet = panel.querySelector('.builder-modal__props')
+      expect(panelSheet, 'the panel gets a sheet for the colour it exposes').toBeTruthy()
+      for (const field of panelFields.filter((f) => f.format !== 'image')) {
+        expect(rowIn(panelSheet!, field.name), `${field.name} is in the sheet`).toBeTruthy()
+      }
+
+      document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await settle(0)
+
+      // ── never by the region's KIND ────────────────────────────────────────
+      //
+      // The two cases above are copy and a panel, so the split could still have
+      // been keyed on the kind and satisfied both. A picture is the region that
+      // makes that impossible: one region, all three routes at once. Partitioned
+      // from the descriptors the ORIGIN reports, so the parameters REQ-136 grew
+      // are routed by what they declare rather than by anything written here.
+      const pictureFields = await descriptorsOf(AN_IMAGE)
+      const asGrid = pictureFields.filter((f) => f.format === 'image')
+      const asWords = pictureFields.filter((f) => f.type === 'string')
+      const asSheet = pictureFields.filter((f) => f.format !== 'image' && f.type !== 'string')
+      expect(asGrid.map((f) => f.name)).toEqual(['src'])
+      expect(asWords.map((f) => f.name)).toEqual(['alt'])
+      expect(asSheet.length, 'a picture exposes parameters beside its handle').toBeGreaterThan(1)
+
+      const picture = await openAt(AN_IMAGE)
+      const pictureBox = picture.querySelector('.builder-modal__box')!
+      const pictureSheet = picture.querySelector('.builder-modal__props')!
+      expect(picture.querySelector('.builder-modal__picker'), 'src draws as the grid').toBeTruthy()
+      expect(pictureBox, 'alt — plain words — opens in the editing box').toBeTruthy()
+      expect(pictureSheet, 'and the framing parameters in the sheet').toBeTruthy()
+      expect(rowIn(pictureBox, 'alt'), 'alt is in the box').toBeTruthy()
+      expect(rowIn(pictureSheet, 'alt'), 'alt is not in the sheet').toBeFalsy()
+      for (const field of asSheet) {
+        expect(rowIn(pictureSheet, field.name), `${field.name} is in the sheet`).toBeTruthy()
+        expect(rowIn(pictureBox, field.name), `${field.name} is not in the box`).toBeFalsy()
+      }
+      // The sheet still follows the box for this region kind too.
+      expect(
+        pictureBox.compareDocumentPosition(pictureSheet) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+
+      document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await settle(0)
+      expect(modals()).toHaveLength(0)
 
       // ── two forms, ONE edit ───────────────────────────────────────────────
       const before = draftNode(A_RUN)

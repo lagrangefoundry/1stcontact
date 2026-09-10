@@ -157,6 +157,9 @@ interface Field {
   enum?: string[]
   required?: boolean
   widget?: string
+  // The bounds a closed numeric control carries (REQ-136's framing parameters).
+  min?: number
+  max?: number
 }
 
 describe('REQ-118 — image selection', () => {
@@ -200,6 +203,25 @@ describe('REQ-118 — image selection', () => {
     // `toMatchObject` since REQ-136: the same values map now also reports how
     // the picture is framed, and this AC is about the picker.
     expect(got.data!.values).toMatchObject({ src: HERO, alt: 'The hero' })
+
+    // The picker and the alt text LEAD the list, and the list does not stop
+    // there: since REQ-136 the same derivation reports how the picture is seen.
+    // Read from the response rather than from a list written here, so a
+    // parameter the derivation grows lands without this test being told.
+    expect(fields.slice(0, 2).map((f) => f.name)).toEqual(['src', 'alt'])
+    const framing = fields.slice(2)
+    expect(framing.length, 'the region exposes more than its picker and words').toBeGreaterThan(0)
+    // Every one of them is CLOSED — a bounded integer or the axis's own keyword
+    // list. There is no control here that can express a length, a colour
+    // function or a path, which is what makes handing them to an operator safe.
+    for (const field of framing) {
+      expect(['integer', 'enum'], `${field.name} is a closed control`).toContain(field.type)
+      if (field.type === 'enum') expect(field.enum!.length).toBeGreaterThan(0)
+      else {
+        expect(typeof field.min).toBe('number')
+        expect(typeof field.max).toBe('number')
+      }
+    }
 
     // A handle the mirror never got is still in its own picker, so opening this
     // segment and saving cannot silently swap the image for the first option.
