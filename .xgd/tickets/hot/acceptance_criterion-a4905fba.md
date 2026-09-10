@@ -6,14 +6,15 @@ title: A whole turn runs on the deployed host with the model key read from a dep
   secret, and its edits land in the shared store
 created_by: xgd
 created_at: '2026-08-31T10:37:44.631322+00:00'
-updated_at: '2026-08-31T10:59:27.633746+00:00'
+updated_at: '2026-09-10T21:47:13.348979+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
