@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:55:14.910528+00:00'
+updated_at: '2026-09-10T21:57:20.246827+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -276,5 +276,34 @@ No code was written and no branch cut — this was scoping.
 <!-- xgd-chat role="user" ts="2026-09-10T21:55:14.029266+00:00" -->
 #### You
 Did you populate dependency fields in the tickets? Do the Lagrange Framework changes need to be done first?
+
+<!-- xgd-turn id="84332c87-a165-4fd7-a661-29fd6d654dd6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:57:18.559679+00:00" -->
+#### Claude
+Good catch — I wrote "Depends on" as prose but left `fields.depends_on` empty. And your second question surfaced something I got wrong in my summary.
+
+Both gaps fixed. Answering your two questions directly:
+
+## Dependency fields — no, I hadn't. Now populated
+
+I'd written "Depends on" as prose only. `fields.depends_on` is now set on the four that need it, all pointing at **REQ-219** (the recipe model and renderer): REQ-218, REQ-220, REQ-221, REQ-222. REQ-219 itself has no ticket dependency — it's the root. REQ-217 has none either, for the reason below.
+
+One deliberate omission: I did **not** put the framework ticket in `depends_on`. Those fields hold local IDs, and 1stcontact already has its own REQ-149 (freeze the draft as a revision) — a bare `REQ-149` there would resolve to the wrong ticket. The repo's existing convention is to name cross-repo dependencies in prose as "lagrange-framework REQ-NNN", which is what I've done.
+
+## Do the framework changes come first? One of them, partly — and I understated this before
+
+I told you REQ-217 was independent. That's wrong for half of it, and your question is what made me check properly:
+
+- **`write_image` (the assistant's SVG drawings) is ours.** `toolbox-core.ts` owns that tool and its surface prose, so a drawing can appear in the chat with no upstream change at all.
+- **`create_image` is not.** Two things upstream block it: the plugin composes the result and offers **no seam for the host to contribute a display handle** (only 1stcontact knows how to form a material URL), and its overview tells the model *"the picture itself never enters this conversation"* — so even a smuggled handle would contradict the manual the model read first. And `imagegen.ts`'s own header forbids the local workaround: *"If any of that ever needs more than wiring, the finding belongs upstream."*
+
+So **lagrange-framework REQ-149 is on the critical path** and worth starting now, in parallel with REQ-219 — it's the longest pole because it's in another repo. REQ-217 can start and half-land against `write_image` while it's in flight.
+
+**lagrange-framework REQ-150 blocks nothing.** Every mechanical operation in this epic is expressible in the transform pipeline; REQ-150 only makes *colorize* answerable later.
+
+Both the epic body and REQ-217 now record this, with the reasoning, so whoever picks up REQ-217 hits the constraint before writing code rather than after.
+
+The genuine first move is still the operator one: enabling the Images binding on the Cloudflare account, which gates REQ-219, REQ-221 and REQ-222.
 
 <!-- xgd-chat-end -->
