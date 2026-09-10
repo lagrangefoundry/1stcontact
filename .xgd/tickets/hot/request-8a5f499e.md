@@ -5,17 +5,16 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T21:33:37.897152+00:00'
+updated_at: '2026-09-10T21:33:41.217764+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-17655906
 ---
-
 
 # Switching channel must preserve what the page is showing
 
