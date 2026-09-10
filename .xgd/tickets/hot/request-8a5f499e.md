@@ -5,9 +5,9 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T20:23:39.801557+00:00'
+updated_at: '2026-09-10T20:23:56.264087+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -74,6 +74,6 @@ state the edit channel shows instead. Today each declares its own settled state
 in CSS keyed off `data-fc-edit`. A general answer to this ticket should say
 whether that mechanism grows to carry *which* state, or is replaced.
 
-[[REQ-213]] asks for the AI-facing half of the same capability — driving a page
+[[REQ-216]] asks for the AI-facing half of the same capability — driving a page
 into a state before photographing it. The two want the same underlying handle on
 "which panel is open", and should be designed together even if they ship apart.
