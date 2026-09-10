@@ -6,15 +6,15 @@ title: 'Conformance obligations are unweakened inside a seam: mountInL1 runs the
   five dimensions'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T12:01:35.555541+00:00'
-updated_at: '2026-09-10T13:22:07.985673+00:00'
+updated_at: '2026-09-10T13:36:26.040825+00:00'
 completed_at: null
-last_field_updated: uat_coverage
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
