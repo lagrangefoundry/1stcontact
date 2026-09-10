@@ -6,7 +6,7 @@ title: Choosing an image updates the draft and the rendered page shows it, with 
   alt text landing in the same single diff
 created_by: xgd
 created_at: '2026-08-07T04:41:14.082548+00:00'
-updated_at: '2026-09-10T17:29:55.704889+00:00'
+updated_at: '2026-09-10T17:59:44.995401+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -19,12 +19,12 @@ fields:
 
 ## Criterion
 
-Submitting a new choice of image for a region updates the draft definition and
-re-renders the page as part of the same operation, so the rendered output on disk
-references the newly chosen image and no longer references the previous one, with
-no further manual step. The result reports which fields changed and where the
-re-rendered output was written; submitting the handle the region already holds
-succeeds and reports that nothing changed.
+Submitting a new choice of image for a region **from the command line** updates
+the draft definition and re-renders the page as part of the same operation, so
+the rendered output on disk references the newly chosen image and no longer
+references the previous one, with no further manual step. The result reports
+which fields changed and where the re-rendered output was written; submitting
+the handle the region already holds succeeds and reports that nothing changed.
 
 A new image and a new alt text chosen together are **one change, not two**: the
 single operation that applies them reports both as changed.
