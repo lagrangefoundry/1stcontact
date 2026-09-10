@@ -6,9 +6,9 @@ title: The conversation is stored through the store the site belongs to and repl
   after the host that served it is gone
 created_by: xgd
 created_at: '2026-08-10T08:35:57.540058+00:00'
-updated_at: '2026-08-31T10:37:17.197240+00:00'
+updated_at: '2026-09-10T21:47:06.409672+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
