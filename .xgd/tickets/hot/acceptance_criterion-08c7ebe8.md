@@ -7,9 +7,9 @@ title: 'No edit through this surface can produce raw HTML or CSS: every control 
   or a reference into the site''s own palette'
 created_by: xgd
 created_at: '2026-08-07T02:02:54.192416+00:00'
-updated_at: '2026-09-10T17:45:46.136739+00:00'
+updated_at: '2026-09-10T19:18:20.331576+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
