@@ -6,9 +6,9 @@ title: 'Clean page URLs: the link an author writes resolves the same in local pr
   and on the deployed site'
 created_by: xgd
 created_at: '2026-08-06T19:02:03.988902+00:00'
-updated_at: '2026-08-16T07:24:14.378104+00:00'
+updated_at: '2026-09-10T16:05:05.324785+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-e0143ffa
@@ -45,9 +45,8 @@ In scope:
 
 - **The mapping.** When a request resolves to nothing and its last path segment
   carries no extension, the page named by that path plus `.html` is served
-  instead. This holds in the local preview server and on the deployed site, for
-  both the preview (snapshot-addressed) and published addressing forms, and for
-  full and header-only requests alike.
+  instead. This holds in the local preview server and on the deployed site's
+  published addressing form, and for full and header-only requests alike.
 - **Exact matches always win.** The mapping is a last resort, consulted only
   after everything that resolves today has failed to. Nothing that resolves
   before the mapping exists starts resolving somewhere else because of it.
@@ -62,7 +61,7 @@ In scope:
   document-relatively, so the request URL's directory is what every one of those
   references resolves against. Serving a page at `…/whitepapers/` would resolve
   them all one level too low and hand the visitor an unstyled page — the same
-  failure the snapshot root's redirect exists to prevent.
+  failure the published site root's redirect exists to prevent.
 - **No existing guard is loosened.** In the local preview server, confinement to
   the served site's directory is unchanged and the mapping is applied to the
   already-confined path, so it cannot reach a page outside it. On the deployed
@@ -78,10 +77,19 @@ out of existing site content.
 
 ## Technical Context
 
-- Depends on the serving story (STORY-95) for the addressing forms and guards the
+- Depends on the serving story (STORY-95) for the addressing form and guards the
   deployed half of this mapping sits inside, and on the relocatable-output rule
   documented against STORY-83 — the trailing-slash exclusion exists precisely
   because asset references are emitted document-relative.
+- **A second addressing form was retired, recorded rather than absorbed.** When
+  this story landed, the deployed site carried two addressing forms and the
+  mapping was stated to hold on both: a sha-addressed shareable draft snapshot
+  channel alongside the published one. REQ-149 D7 dropped that channel — not
+  ported — together with the `1c deploy` command that was its only producer (D6)
+  and the per-site manifest that was its index (D5). What survives is one
+  addressing form, the published one, and this story's claims are stated against
+  it alone. The mapping itself did not change: REQ-149 removed a channel, not the
+  extensionless → `.html` rule.
 - **Corrected intent, recorded rather than absorbed.** The source intent
   (REQ-113) rested on a premise later found to be false: that the deployment
   target auto-served `.html` at the clean URL, making the preview server the only
@@ -113,7 +121,7 @@ out of existing site content.
 ## Dependencies
 
 - Plan item 4 (STORY-95, deployed-site serving) — hard: half of this story's
-  behaviour is observable only through that story's addressing forms and sits
+  behaviour is observable only through that story's addressing form and sits
   behind its guards.
 
 ## Story Points
