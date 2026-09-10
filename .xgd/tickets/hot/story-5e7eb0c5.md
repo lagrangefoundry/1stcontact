@@ -6,7 +6,7 @@ title: 'Colour census and repeatable palette retrofit: measure a site''s colours
   then migrate it onto a palette within a proven per-channel bound'
 created_by: xgd
 created_at: '2026-08-06T21:06:52.787637+00:00'
-updated_at: '2026-09-10T20:40:58.162712+00:00'
+updated_at: '2026-09-10T20:45:47.093418+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
@@ -15,7 +15,7 @@ fields:
   capability_uid: capability-b4ac88fc
   story_kind: upgrade
   story_points: 3
-  uat_coverage: stale
+  uat_coverage: pass
   updated_by: bundle-d9226698
 ---
 
@@ -142,11 +142,16 @@ a reason to trust it. This story is that trip.
   smaller than the distinct colour counts. Colour-slot counts are unchanged
   (210 and 91 slots, compared in document order), with worst per-channel
   movement Δ5 on `xgd` and Δ8 on `gigabytealchemy`.
-- **Intent/observation note — two of the four sites are vacuously retrofitted.**
-  The intent's AC6 asks for all four `storage/sites/*` retrofitted. `1stcontact`
-  and `harbor-cafe` census at zero colour literals, so there is nothing to
-  convert and no palette is written. Not a divergence — but a test author should
-  not read "every site carries a palette" into the retrofit.
+- **Intent/observation note — the colourless floor case no longer rests on a
+  stored site.** REQ-114's AC6 asked for all four `storage/sites/*` retrofitted.
+  Two of them — `1stcontact` and `harbor-cafe` — censused at zero colour
+  literals, so there was nothing to convert and no palette was written; both were
+  later deleted as dead examples by REQ-140 §7, and `storage/sites/` now holds
+  `gigabytealchemy` and `xgd` only. The durable property outlived them: a
+  colourless site retrofits to an *empty* palette rather than refusing, and it is
+  pinned by AC-932 against a synthesised colourless page. A test author should
+  neither read "every site carries a palette" into the retrofit nor go looking
+  for a stored site with no colours.
 - **`xgd`'s curated vocabulary is one command line.** Under the new palette shape
   it is reproduced with
   `--names slate=text,teal=primary,orange=accent,sand=surface,slate-2=surface-accent,teal-2=primary-bright`.
