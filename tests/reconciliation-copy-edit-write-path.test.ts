@@ -306,17 +306,27 @@ describe('story-37a3921b — the copy-edit write path', () => {
 
   it('test_UAT_AC982_saving_new_words_updates_the_draft_and_re_renders_the_page', async () => {
     // AC-982 — the loop closes inside one operation: the draft holds the new
-    // words and the rendered page shows them, with no further manual step.
+    // words and BOTH renderings show them, with no further manual step. An edit
+    // changes the page, not one rendering of it, so a save that refreshed only
+    // the editable channel would leave the plain draft serving a stale page
+    // with nothing to signal it.
     const saved = await cli(cwd, ...setArgs(A_SHORT, { text: 'A repainted band.' }))
     expect(saved.ok).toBe(true)
-    // It reports WHAT changed and WHERE the re-render landed.
+    // It reports WHAT changed and WHERE each of the two re-renders landed.
     expect(saved.data!.changed).toEqual(['text'])
     expect(typeof saved.data!.rendered).toBe('string')
+    expect(typeof saved.data!.renderedDraft).toBe('string')
 
     expect(draftText(cwd, [0, 0, 0])).toBe('A repainted band.')
     const html = readFileSync(path.join(String(saved.data!.rendered), 'index.html'), 'utf8')
     expect(html).toContain('A repainted band.')
     expect(html).not.toContain(SHORT_COPY)
+    const draftHtml = readFileSync(
+      path.join(String(saved.data!.renderedDraft), 'index.html'),
+      'utf8',
+    )
+    expect(draftHtml).toContain('A repainted band.')
+    expect(draftHtml).not.toContain(SHORT_COPY)
 
     // Re-submitting the value it already holds succeeds and says so explicitly,
     // rather than manufacturing a change.
