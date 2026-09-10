@@ -6,9 +6,9 @@ title: A published URL serves the site's live revision, derived as the highest i
   its log, complete with every asset it references
 created_by: xgd
 created_at: '2026-08-06T18:48:21.095289+00:00'
-updated_at: '2026-08-31T11:52:43.988986+00:00'
+updated_at: '2026-09-10T16:56:04.464688+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
