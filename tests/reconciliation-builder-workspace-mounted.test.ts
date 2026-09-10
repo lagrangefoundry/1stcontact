@@ -32,6 +32,7 @@ import {
   startBuilder,
   type BuilderHandle,
 } from '../tools/generate/src/cli'
+import { starterHomePage } from '../tools/generate/src/cli/scaffold'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -376,6 +377,124 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     expect(app.panel.frame.getAttribute('src')).toBe(previewUrl('gamma', 'draft'))
     // …and that address serves that site's real rendered page over this origin.
     expect(await (await get(app.panel.getSrc())).text()).toBe(onDisk('gamma', 'draft'))
+
+    app.destroy()
+  })
+
+  /**
+   * After AC-967 for the same reason AC-967 is after everything else: it adds a
+   * site to the store, and the tests above are written against the two
+   * `makeWorkspace` created.
+   */
+  it('test_UAT_AC966_the_ordinary_mode_displays_the_selected_sites_own_rendering', async () => {
+    // AC-966 — THE BINDING, and only the binding: whatever site is selected,
+    // the ordinary mode's pane is showing THAT site, from the real rendering
+    // path — not a placeholder, not the starter scaffold, not a stand-in for a
+    // site nobody chose.
+    //
+    // WHAT THIS DELIBERATELY DOES NOT DO IS COMPARE BYTES WITH A FILE ON DISK.
+    // That is AC-1032's claim, made over both draft-side channels and every
+    // artifact a channel contains; asserting it here would need a pre-rendered
+    // artifact, whose ABSENCE is the thing AC-1031 exists to guarantee. So this
+    // site is never rendered — `cmdNew` and a definition edit, nothing else —
+    // and the evidence is that the pane's own address answers with content
+    // drawn from that site's stored definition.
+    const SLUG = 'delta'
+    const MARKER = 'Copy that exists only in delta’s stored definition — 6f2c1b.'
+    cmdNew(SLUG, { cwd })
+    const homeJson = path.join(cwd, `storage/sites/${SLUG}/draft/pages/home.json`)
+    const home = JSON.parse(fs.readFileSync(homeJson, 'utf8')) as {
+      l1: { root: { children: Array<{ text?: string }> } }
+    }
+    home.l1.root.children[0].text = MARKER
+    fs.writeFileSync(homeJson, JSON.stringify(home, null, 2), 'utf8')
+
+    // HOW A PLACEHOLDER IS RECOGNISED. The scaffold's one text node carries the
+    // slug, so a stand-in showing the starter renders that slug AS BODY COPY —
+    // which the marker above replaced. Derived from the shipped scaffold rather
+    // than written out here, so this cannot quietly stop matching the
+    // placeholder it is about.
+    const placeholderText = (
+      starterHomePage(SLUG) as { l1: { root: { children: Array<{ text: string }> } } }
+    ).l1.root.children[0].text
+    expect(placeholderText, 'the scaffold placeholder is no longer distinguishable').not.toBe(
+      MARKER,
+    )
+    /** The scaffold placeholder AS RENDERED — element text, not the `<title>`. */
+    const rendersPlaceholder = (html: string, slug: string): boolean =>
+      new RegExp(`>\\s*${slug}\\s*<`).test(html)
+
+    // The half that needs no components: the ordinary channel address for this
+    // site answers, over this origin, with this site's OWN definition — and no
+    // longer with the starter it was created from.
+    const ordinary = previewUrl(SLUG, 'draft')
+    const direct = await get(ordinary)
+    expect(direct.status).toBe(200)
+    expect(direct.headers.get('content-type')).toContain('text/html')
+    const directHtml = await direct.text()
+    expect(directHtml).toContain(MARKER)
+    expect(
+      rendersPlaceholder(directHtml, placeholderText),
+      'the ordinary channel answered from the starter scaffold',
+    ).toBe(false)
+
+    // NON-VACUITY, both ways. `alpha` is an untouched scaffold: it must render
+    // the placeholder this detector looks for — otherwise the negative above
+    // proves nothing — and it must NOT carry delta's marker, or the positive
+    // proves nothing either.
+    const alphaHtml = await (await get(previewUrl('alpha', 'draft'))).text()
+    expect(
+      rendersPlaceholder(alphaHtml, 'alpha'),
+      'the placeholder detector no longer detects an untouched scaffold',
+    ).toBe(true)
+    expect(alphaHtml, 'the marker does not distinguish one site from another').not.toContain(MARKER)
+
+    if (!WEBUI_INSTALLED) {
+      unverified("the PANE's binding to the selected site (the chrome needs the components)")
+      return
+    }
+
+    // The claim itself. Mounted with this site selected — the listing comes off
+    // the origin so nothing about which sites exist is written by hand — and the
+    // ordinary mode active.
+    const listing = await fetchSites(originFetch)
+    const ordered = [
+      ...listing.filter((s) => s.slug === SLUG),
+      ...listing.filter((s) => s.slug !== SLUG),
+    ]
+    expect(ordered[0]?.slug, `${SLUG} is missing from the origin's listing`).toBe(SLUG)
+
+    const app = mountBuilder(root, { sites: ordered, storage: memoryStorage() })
+    expect(app.panel.getMode()).toBe('view')
+    expect(app.panel.getSite()).toBe(SLUG)
+
+    // The pane is pointed at THAT site's ordinary channel…
+    expect(app.panel.getSrc()).toBe(ordinary)
+    expect(app.panel.frame.getAttribute('src')).toBe(ordinary)
+    // …and the document that address serves is that site's own rendering. Read
+    // through the address the PANE is displaying, not through one composed here,
+    // so a pane wired to a stand-in cannot pass by pointing somewhere else.
+    const displayed = await get(app.panel.getSrc())
+    expect(displayed.status).toBe(200)
+    const displayedHtml = await displayed.text()
+    expect(displayedHtml, 'the pane is not showing the selected site').toContain(MARKER)
+    expect(
+      rendersPlaceholder(displayedHtml, placeholderText),
+      'the pane is showing the starter scaffold',
+    ).toBe(false)
+
+    // BOTH WAYS, because the criterion is a binding rather than a single
+    // correct opening state: selecting another site moves the pane to that
+    // site's ordinary rendering, and delta's copy is gone from it.
+    app.panel.setSite('alpha')
+    expect(app.panel.getMode()).toBe('view')
+    expect(app.panel.getSrc()).toBe(previewUrl('alpha', 'draft'))
+    const otherHtml = await (await get(app.panel.getSrc())).text()
+    expect(otherHtml, 'the pane kept the previous site’s rendering').not.toContain(MARKER)
+    expect(
+      rendersPlaceholder(otherHtml, 'alpha'),
+      'the pane is not showing alpha’s own document',
+    ).toBe(true)
 
     app.destroy()
   })

@@ -118,34 +118,22 @@ describe('story-e674c60a builder origin', () => {
 
   const get = (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init)
 
-  it('test_UAT_AC966_view_mode_serves_the_real_rendered_artifact_byte_identical', async () => {
-    // AC-966 — the pane shows the operator's ACTUAL rendered site: the bytes on
-    // the wire are the bytes on disk, not a placeholder, a re-generation, or a
-    // differently-serialised copy.
-    const res = await get('/preview/alpha/draft/')
-    expect(res.status).toBe(200)
-    expect(res.headers.get('content-type')).toContain('text/html')
-
-    const onDisk = fs.readFileSync(
-      path.join(cwd, 'storage/dist/sites/alpha/draft/index.html'),
-      'utf8',
-    )
-    expect(await res.text()).toBe(onDisk)
-
-    // The assets the page references resolve over the SAME origin, so the
-    // rendered document is whole rather than a shell with broken references.
-    const assets = fs
-      .readdirSync(path.join(cwd, 'storage/dist/sites/alpha/draft'))
-      .filter((f) => /\.(css|js)$/.test(f))
-    expect(assets.length).toBeGreaterThan(0)
-    for (const asset of assets) {
-      const assetRes = await get(`/preview/alpha/draft/${asset}`)
-      expect(assetRes.status, asset).toBe(200)
-      expect(await assetRes.text()).toBe(
-        fs.readFileSync(path.join(cwd, 'storage/dist/sites/alpha/draft', asset), 'utf8'),
-      )
-    }
-  })
+  /**
+   * AC-966 LIVES IN `reconciliation-builder-workspace-mounted.test.ts` NOW.
+   *
+   * It used to live here, and it asserted the wrong thing: it compared the
+   * origin's bytes with a rendered file on disk. That claim is AC-1032's — made
+   * there over both draft-side channels and every artifact a channel contains,
+   * including the per-site stylesheet — and AC-966's own body now forbids
+   * restating it, because it would need a pre-rendered artifact whose ABSENCE
+   * is what AC-1031 exists to guarantee.
+   *
+   * What AC-966 owns is the BINDING: whatever site is selected, the ordinary
+   * mode's pane is showing that site. Proving that means a mounted pane and a
+   * definition carrying copy no starter has — neither of which this file can
+   * do, since it has no DOM and its fixture sites are unmodified scaffolds. The
+   * mounted suite has both, over the same real origin.
+   */
 
   /**
    * AC-972 lives in `reconciliation-builder-workspace-mounted.test.ts`.
@@ -199,9 +187,15 @@ describe('story-e674c60a builder origin', () => {
     // request resolves to a path that does not exist INSIDE the tree and is
     // answered as not found. Pinning 403 would document an aspiration rather
     // than the shipped behaviour; what must hold is non-delivery, uniformly.
-    const trees: { tree: string; probes: string[]; secret: string }[] = [
+    //
+    // EVERY TREE CARRIES A LIVENESS PROBE. "No prefix lacks the confinement" is
+    // trivially true of a prefix that serves nothing at all, and a prefix that
+    // quietly stopped being served would then report as confined rather than as
+    // broken — so each entry names an address it DOES answer, asserted first.
+    const trees: { tree: string; alive: string; probes: string[]; secret: string }[] = [
       {
         tree: 'rendered channels',
+        alive: '/preview/alpha/draft/index.html',
         probes: [
           '/preview/alpha/draft/../../../../../../etc/passwd',
           '/preview/alpha/draft/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd',
@@ -211,10 +205,29 @@ describe('story-e674c60a builder origin', () => {
       },
       {
         tree: "the workspace's own browser source",
+        alive: '/builder/app.js',
         probes: [
           '/builder/../../../package.json',
           '/builder/%2e%2e/%2e%2e/%2e%2e/package.json',
           '/builder/..%2f..%2f..%2fpackage.json',
+        ],
+        secret: '"packageManager"',
+      },
+      {
+        // THE PREFIX THE CRITERION SINGLES OUT BY NAME. `/framework/*.js`
+        // carries the edit client, and it reaches the built-artifact tree
+        // through the same fall-through `/builder/*` and `/webui/*` do rather
+        // than off a root of its own — so it is exactly the prefix that would
+        // acquire an unconfined resolution path of its own without anything
+        // else in this suite noticing. Unconditional: unlike the components,
+        // the bridges are written by `1c assets` from this repository's own
+        // source and need no out-of-band install.
+        tree: 'the framework bridges and the shared edit client',
+        alive: '/framework/edit-client.js',
+        probes: [
+          '/framework/../../../package.json',
+          '/framework/%2e%2e/%2e%2e/%2e%2e/package.json',
+          '/framework/..%2f..%2f..%2fpackage.json',
         ],
         secret: '"packageManager"',
       },
@@ -223,6 +236,7 @@ describe('story-e674c60a builder origin', () => {
     if (WEBUI_INSTALLED) {
       trees.push({
         tree: 'the installed components',
+        alive: `/webui/webui-shell/${webuiExports('webui-shell')['.'].replace(/^\.\//, '')}`,
         probes: [
           '/webui/webui-shell/../../../../../../etc/passwd',
           '/webui/webui-shell/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd',
@@ -235,7 +249,13 @@ describe('story-e674c60a builder origin', () => {
     }
 
     const statuses = new Set<number>()
-    for (const { tree, probes, secret } of trees) {
+    for (const { tree, alive, probes, secret } of trees) {
+      // This prefix is genuinely served, so what follows is confinement rather
+      // than a tree that answers nothing.
+      const live = await get(alive)
+      expect(live.status, `${tree}: ${alive} is not served at all`).toBe(200)
+      expect((await live.text()).length, `${tree}: ${alive} is empty`).toBeGreaterThan(0)
+
       for (const probe of probes) {
         const res = await get(probe)
         // Never satisfied: not a success, and none of the targeted file's bytes.

@@ -306,6 +306,94 @@ describe('story-e674c60a request-time render', () => {
   )
 
   it(
+    'test_UAT_AC1033_two_workspaces_open_at_once_each_serve_their_own_site',
+    async () => {
+      // AC-1033, SECOND HALF — the BUG-37 reconciliation. Where a rendering is
+      // reused between requests, the reuse is held against THE STORE THE
+      // REQUEST READS THROUGH, never against the account that store belongs to.
+      //
+      // WHY THE ACCOUNT KEY IS THE FAILURE AND NOT MERELY A SLOWER ONE: every
+      // local workspace is the same notional account, so an account-keyed reuse
+      // makes the first workspace opened go on answering for all the others —
+      // a whole workspace showing another workspace's site, which on screen
+      // reads as a rendering that simply will not update.
+      //
+      // SO BOTH WORKSPACES MUST BE DRIVEN UNDER THE SAME ACCOUNT IDENTIFIER, or
+      // the probe passes either way. That is not arranged here, it is how the
+      // local front door already works: the env it hands the router carries a
+      // FIXED tenant id, identical for every workspace this file opens. Asserted
+      // off the shipped source, so the premise of the isolation claim below is
+      // established rather than assumed.
+      const transport = fs.readFileSync(
+        path.join(__dirname, '..', 'tools', 'generate', 'src', 'cli', 'builder.ts'),
+        'utf8',
+      )
+      expect(
+        /TENANT_ID:\s*'local'/.test(transport),
+        'the local transport no longer hands every workspace the same account id — ' +
+          'this UAT would then pass on two accounts rather than on one',
+      ).toBe(true)
+
+      // Two stores, two origins, both up at the same time. Same slug on purpose:
+      // a reuse keyed on the account (or on the account and the slug) collides
+      // here, and one keyed on the store does not.
+      const first = await openWorkspace()
+      const second = await openWorkspace()
+      expect(first.cwd, 'the two workspaces share a store').not.toBe(second.cwd)
+      expect(first.builder.url).not.toBe(second.builder.url)
+
+      const FIRST_COPY = 'The first workspace, and only the first.'
+      const SECOND_COPY = 'The second workspace, and only the second.'
+      setHomeCopy(first.cwd, FIRST_COPY)
+      setHomeCopy(second.cwd, SECOND_COPY)
+
+      // Prime the first, so whatever reuse exists is populated BEFORE the second
+      // is ever asked — the ordering the account-keyed bug needed to show.
+      for (const channel of DRAFT_SIDE) {
+        const primed = await first.get(`/preview/${SLUG}/${channel}/`)
+        expect(primed.status, channel).toBe(200)
+        expect(await primed.text(), `${channel} primed with the wrong copy`).toContain(FIRST_COPY)
+      }
+
+      // The second is answered out of its OWN store, not out of the first's
+      // reuse — and the first is unchanged by having been asked second.
+      for (const channel of DRAFT_SIDE) {
+        const other = await second.get(`/preview/${SLUG}/${channel}/`)
+        expect(other.status, channel).toBe(200)
+        const otherHtml = await other.text()
+        expect(otherHtml, `${channel}: the second workspace served its own site`).toContain(
+          SECOND_COPY,
+        )
+        expect(
+          otherHtml,
+          `${channel}: the second workspace was answered out of the first's reuse`,
+        ).not.toContain(FIRST_COPY)
+
+        const again = await first.get(`/preview/${SLUG}/${channel}/`)
+        expect(again.status, channel).toBe(200)
+        const againHtml = await again.text()
+        expect(againHtml, `${channel}: the first workspace kept its own site`).toContain(FIRST_COPY)
+        expect(
+          againHtml,
+          `${channel}: the first workspace picked up the second's rendering`,
+        ).not.toContain(SECOND_COPY)
+      }
+
+      // …and the isolation survives a change on one side: the store is still the
+      // key after the reuse has been invalidated once, rather than only until
+      // the first write.
+      const MOVED = 'The first workspace, moved on.'
+      setHomeCopy(first.cwd, MOVED)
+      const movedHtml = await (await first.get(`/preview/${SLUG}/draft/`)).text()
+      expect(movedHtml).toContain(MOVED)
+      const untouchedHtml = await (await second.get(`/preview/${SLUG}/draft/`)).text()
+      expect(untouchedHtml, 'a change in one workspace reached the other').not.toContain(MOVED)
+      expect(untouchedHtml).toContain(SECOND_COPY)
+    },
+    180000,
+  )
+
+  it(
     'test_UAT_AC1034_an_invalid_draft_is_reported_as_a_page_naming_the_field',
     async () => {
       // AC-1034 — a draft that stops describing a valid site is reported IN THE
@@ -435,22 +523,14 @@ describe('story-e674c60a request-time render', () => {
       }
 
       // Never outside its own channel, and never answered from a neighbour.
+      //
+      // ADDRESSES THAT STAY INSIDE THE TREE, ONLY. An address that walks *out*
+      // of a served tree is AC-978's claim, asserted there once — plain and
+      // percent-encoded, across the rendered channels and every prefix of the
+      // built-artifact tree, with the outcome asserted identical on each.
+      // Restating it here would be the same claim in the same shape at the same
+      // layer, and a second copy is what lets the two drift.
       const probes: { url: string; secret: string; what: string }[] = [
-        {
-          what: 'traversal out of the site assets',
-          url: `/preview/${SLUG}/draft/assets/../../../../../../etc/passwd`,
-          secret: 'root:',
-        },
-        {
-          what: 'the same traversal, percent-encoded',
-          url: `/preview/${SLUG}/draft/assets/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd`,
-          secret: 'root:',
-        },
-        {
-          what: 'the same traversal, encoded separators',
-          url: `/preview/${SLUG}/draft/assets/..%2f..%2f..%2f..%2f..%2f..%2fetc/passwd`,
-          secret: 'root:',
-        },
         {
           what: 'a page the channel does not contain',
           url: `/preview/${SLUG}/draft/no-such-page.html`,
