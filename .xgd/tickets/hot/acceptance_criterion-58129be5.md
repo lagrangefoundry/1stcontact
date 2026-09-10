@@ -6,14 +6,15 @@ title: The build generates the uncommitted derived artifacts before it typecheck
   so a fresh checkout builds
 created_by: xgd
 created_at: '2026-08-31T12:12:34.129356+00:00'
-updated_at: '2026-08-31T12:24:33.276553+00:00'
+updated_at: '2026-09-10T05:44:39.727894+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
