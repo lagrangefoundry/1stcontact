@@ -6,14 +6,15 @@ title: A baseline older than the retained window is answered truncated, with wha
   records remain
 created_by: xgd
 created_at: '2026-08-20T02:27:11.701631+00:00'
-updated_at: '2026-08-20T02:46:16.754850+00:00'
+updated_at: '2026-09-10T09:14:31.006722+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
