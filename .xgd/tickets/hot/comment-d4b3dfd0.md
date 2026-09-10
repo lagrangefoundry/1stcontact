@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-213
 created_by: xgd
 created_at: '2026-09-10T00:27:16.623825+00:00'
-updated_at: '2026-09-10T00:31:54.185611+00:00'
+updated_at: '2026-09-10T00:37:38.053981+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -44,5 +44,11 @@ Scoped as **REQ-213 — "Library: the client can correct what a material is for"
 3. **Fetched material.** Read-only field, and the route refuses even when called directly. Confirming you want that gate held rather than a warn-and-allow.
 
 Say go (or amend) and I'll cut the branch and build it.
+
+<!-- xgd-turn id="d99638a5-e6be-4110-bd5f-4c235bc51064-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:37:37.883171+00:00" -->
+#### You
+ok - please proceed
 
 <!-- xgd-chat-end -->
