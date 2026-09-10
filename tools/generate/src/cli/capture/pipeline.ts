@@ -31,6 +31,7 @@ function required<T>(value: T | undefined, seam: string): T {
   }
   return value
 }
+import { classifyUrl, isPrivateHost } from './egress-guard'
 import { buildSections } from './sections'
 import { buildTheme, primaryFamily } from './theme'
 import {
@@ -234,20 +235,136 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
   }
 }
 
+/**
+ * Whether a navigation failed because the *hostname* did not resolve (BUG-67).
+ *
+ * The distinction this draws is between a fact about the address and a fact
+ * about the site. Every other browser failure — a timeout, a reset, a TLS
+ * error — says something answered, or would have; DNS says the name has nothing
+ * behind it, and asking again in the same second cannot change that. So this is
+ * the one class that must not consume the retry budget, and the one class where
+ * trying a different spelling of the host is a correction rather than a guess.
+ *
+ * Matched on the message because that is all a driver seam promises: Chromium
+ * reports `net::ERR_NAME_NOT_RESOLVED`, Node's resolver `ENOTFOUND` /
+ * `EAI_AGAIN` from `getaddrinfo`. A driver that words it differently simply
+ * keeps today's behaviour — it retries and reports — rather than being
+ * mis-handled.
+ */
+export function isHostResolutionFailure(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return /ERR_NAME_NOT_RESOLVED|ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(message)
+}
+
+/**
+ * The other form of a host: `www.example.com` ⇄ `example.com` (BUG-67 B2, B3).
+ *
+ * Exactly one alternate, because the pair is what is actually ambiguous — a
+ * caller who knows a site exists and types the name they remember gets the
+ * `www.`/apex coin-flip wrong about half the time, and a capture that answers
+ * "your site is down" to a coin-flip is worse than useless: it is wrong about
+ * the caller's own property, which is the failure BUG-67 was filed for.
+ *
+ * `null` where the pair is meaningless rather than merely absent. An IP literal
+ * has no `www.`; `localhost` and any single-label host have no apex to fall back
+ * to — `www.localhost` is not a correction, it is a new and worse guess. The
+ * private-host rule is reused rather than restated so that the two agree.
+ */
+export function alternateHostUrl(raw: string): string | null {
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return null
+  }
+  const host = url.hostname.toLowerCase()
+  // An IP literal, loopback or link-local name has no www/apex relationship.
+  if (isPrivateHost(host) || host.includes(':') || host.startsWith('[')) return null
+  if (/^\d+(\.\d+)*$/.test(host)) return null
+  const stripped = host.startsWith('www.') ? host.slice(4) : null
+  // A single-label host (`intranet`) is not an apex — prefixing it invents a
+  // hostname rather than correcting one.
+  const prefixed = !stripped && host.includes('.') ? `www.${host}` : null
+  const next = stripped ?? prefixed
+  if (!next || next === host) return null
+  const alternate = new URL(url.toString())
+  alternate.hostname = next
+  return alternate.toString()
+}
+
+/**
+ * The hosts to try, in order: what the caller typed, then its other form
+ * (BUG-67 B2, B4).
+ *
+ * The alternate is a URL *this tool chose*, not one the caller typed, so it
+ * passes the same egress classification before it is ever fetched. Without that
+ * the fallback would be a route to exactly the hosts the guard exists to refuse.
+ */
+function hostCandidates(url: string): string[] {
+  const alternate = alternateHostUrl(url)
+  if (!alternate || classifyUrl(alternate)) return [url]
+  return [url, alternate]
+}
+
+/**
+ * Capture `url`, retrying transient browser failure and correcting a hostname
+ * that does not resolve (BUG-67).
+ *
+ * The two loops are different on purpose. The inner one is the retry that has
+ * always been here — a browser that timed out or reset gets asked again, and
+ * there is still **no** static fallback (DOC-13 §3). The outer one is not a
+ * retry at all: it is the same question put to a differently-spelled host, and
+ * it runs only when the first spelling had nothing behind it.
+ *
+ * A resolution failure therefore costs one navigation per host form rather than
+ * `attempts` per form, which is the difference between a wrong hostname
+ * answering in seconds and answering in a minute and a half.
+ */
 export async function runCapturePipeline(url: string, opts: CapturePipelineOptions = {}): Promise<CaptureResult> {
   const factory = required(opts.driverFactory, 'runCapturePipeline driverFactory')
   const attempts = Math.max(1, (opts.retries ?? 2) + 1)
+  const candidates = hostCandidates(url)
+  const unresolved: string[] = []
   let lastErr: unknown
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await captureOnce(url, factory)
-    } catch (err) {
-      lastErr = err // retry — never fall back to a blind static path (DOC-13 §3)
+  let lastUrl = url
+  for (const candidate of candidates) {
+    lastUrl = candidate
+    let unresolvedHere = false
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await captureOnce(candidate, factory)
+      } catch (err) {
+        lastErr = err // retry — never fall back to a blind static path (DOC-13 §3)
+        // A name that does not resolve will not resolve on the next attempt.
+        // Stop spending the budget on it and go ask the other spelling.
+        if (isHostResolutionFailure(err)) {
+          unresolvedHere = true
+          unresolved.push(candidate)
+          break
+        }
+      }
     }
+    // ONLY A RESOLUTION FAILURE EARNS THE OTHER SPELLING. A host that timed out
+    // or reset resolved — something is there — so the next thing to try is that
+    // same host again, which the inner loop just did to the end of its budget.
+    // Moving on would be inventing a hostname to explain a failure that already
+    // has an explanation.
+    if (!unresolvedHere) break
   }
-  throw new Error(
-    `Capture failed for ${url} after ${attempts} attempt(s): ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
-  )
+  const detail = lastErr instanceof Error ? lastErr.message : String(lastErr)
+  // WHAT THE CALLER IS TOLD IS THE WHOLE POINT OF BUG-67. Passing the raw
+  // Chromium code through is what led an assistant to report an operator's own
+  // site as "down" on the evidence of a hostname it had guessed. When the
+  // failure is resolution, say so — and say which spellings were tried, so the
+  // next thing the caller reaches for is the address rather than the site.
+  if (unresolved.length === candidates.length) {
+    throw new Error(
+      `Capture failed for ${url}: no such host. Tried ${unresolved.join(' and ')}. ` +
+        `The hostname did not resolve, which is a fact about the address and not ` +
+        `about the site — check the spelling, or try a different host form.`,
+    )
+  }
+  throw new Error(`Capture failed for ${lastUrl} after ${attempts} attempt(s): ${detail}`)
 }
 
 // ── REQ-48 (items 1, 5, 6) — multi-state capture orchestration ────────────────
