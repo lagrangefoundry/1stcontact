@@ -6,7 +6,7 @@ title: The toolbar renders exactly the controls the active mode declares, and re
   them whenever the displayed mode or site changes
 created_by: xgd
 created_at: '2026-08-07T01:44:36.665871+00:00'
-updated_at: '2026-08-16T10:03:02.117306+00:00'
+updated_at: '2026-09-10T11:07:15.886838+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
