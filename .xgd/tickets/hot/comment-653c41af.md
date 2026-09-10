@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T00:07:50.560467+00:00'
+updated_at: '2026-09-10T00:08:16.573406+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -77,5 +77,27 @@ OPENAI_API_KEY in
 ~/Documents/secrets/1c.dev.env
 
 That is included in the server start up
+
+<!-- xgd-turn id="f75194c1-e61b-4681-b327-8fc85e0a9f33-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:08:16.409151+00:00" -->
+#### Claude
+Yes — that's the key I probed with. It's loaded into the running server via `wrangler dev --env-file $HOME/Documents/secrets/1c.dev.env`, and it's valid: `GET /v1/models/gpt-image-1` returns 200.
+
+The transcript proves it independently. In `ImagegenToolbox.create_image`, `this.backend()` runs *before* `negotiate(...)` — and constructing `OpenAIImageBackend` throws when there's no key. Your first call got past construction and failed on the aspect ratio, so the credential resolved fine. The surface was composed, which only happens when `resolvePlugins` can answer `OPENAI_API_KEY`.
+
+The key is not the problem. The 429 is:
+
+```
+{"code":"credit_balance_exhausted",
+ "message":"You have no credits remaining. Add credits to continue using the
+  API at https://platform.openai.com/settings/organization/billing/."}
+```
+
+Top up the account at that URL and generation works again — no restart needed, nothing to change in the repo.
+
+The thing worth fixing is that you had to ask me. `generator_unavailable` is declared `host_detail: false`, so OpenAI's one-sentence explanation was dropped before the model saw it and never logged server-side either. That's BUG-68, and the fix is upstream in `lagrange-framework`.
+
+(The production worker is a separate matter — `wrangler secret list --env production` shows only `ANTHROPIC_API_KEY` and `RESEND_API_KEY`, so deployed sessions have no image tool at all. Deliberate per `bin/deploy.d/secrets/30-openai-api-key`, which deploys without it and says so, but flagging it in case you expected otherwise.)
 
 <!-- xgd-chat-end -->
