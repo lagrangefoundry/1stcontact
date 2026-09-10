@@ -6,9 +6,9 @@ title: Asking a region what it exposes declares that an image field's options ar
   images, without changing which of them may be chosen
 created_by: xgd
 created_at: '2026-08-12T16:04:12.775992+00:00'
-updated_at: '2026-09-10T17:45:41.475992+00:00'
+updated_at: '2026-09-10T19:18:40.015895+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
