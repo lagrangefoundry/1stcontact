@@ -6,7 +6,7 @@ title: The site selector lists exactly the sites the store holds, and choosing o
   changes the displayed site
 created_by: xgd
 created_at: '2026-08-07T01:44:23.282193+00:00'
-updated_at: '2026-08-16T10:02:56.499925+00:00'
+updated_at: '2026-09-10T11:07:12.549881+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
