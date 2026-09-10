@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:47:38.231254+00:00'
+updated_at: '2026-09-10T21:53:10.547269+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,43 @@ Answer those and I'll title EPIC-1, write its body as the umbrella — the princ
 2 - discard it we can't do anything with it and the user has a copy by definition
 3 - whatever is conventional
 4 - drop it for now - lets keep things simple for v1
+
+<!-- xgd-turn id="d513713d-70a4-48a4-8149-15dfc1559904-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:53:09.995112+00:00" -->
+#### Claude
+Decisions locked. Writing the epic and cutting the children.
+
+Done. EPIC-1 is titled, its body records the problem, the eight decisions and their rationale, and what was rejected and why; eight children are cut.
+
+**EPIC-1 — *A picture you made is one you can see, name, change, and publish at a sane size***
+
+In 1stcontact, in landing order (all six attached as `epic_children`):
+
+| | |
+|---|---|
+| **REQ-219** | An edit is a recipe: the operation vocabulary, one renderer, and `edit_image` |
+| **REQ-217** | Chat: an image a turn produced appears in the conversation |
+| **REQ-218** | The assistant can look at a stored image: a sixth `picture` kind |
+| **REQ-221** | HEIC converts at the door, so an iPhone photograph is an ordinary image |
+| **REQ-220** | The image modal: viewer, editable Library name, and the editing tools |
+| **REQ-222** | Publish builds the width ladder; the renderer emits `srcset` |
+
+In lagrange-framework (tickets only — no branch, no code there):
+
+| | |
+|---|---|
+| **REQ-149** | `create_image`'s surface promises the picture never enters the conversation |
+| **REQ-150** | imagegen: edit an existing image — the *colorize* half, deliberately not v1 |
+
+REQ-219 leads because it carries the renderer the other five ask for. REQ-217 and REQ-218 are independent of it against unedited images, so they can run in parallel.
+
+Two things I want to flag rather than leave buried in a ticket body:
+
+**The Images binding needs enabling on the Cloudflare account** — that's an operator task, not a coding one, and REQ-219, REQ-221 and REQ-222 all block on it. Worth doing early.
+
+**I asserted the transform op list from knowledge, not from the docs.** I'm confident about crop/resize/rotate/brightness/contrast/format-conversion and about HEIC input, less so about `saturation`. REQ-219 says the vocabulary maps "almost one-to-one" precisely because of that — whoever picks it up should confirm the exact option names against the current binding docs before fixing the vocabulary, since the whole design rests on one renderer being able to express every operation. If saturation turns out to be absent, it drops from v1 the same way `flip` did rather than earning a second renderer.
+
+No code was written and no branch cut — this was scoping.
 
 <!-- xgd-chat-end -->
