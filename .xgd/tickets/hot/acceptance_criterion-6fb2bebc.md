@@ -6,9 +6,9 @@ title: The display panel's ordinary mode displays the selected site's own render
   not a stand-in
 created_by: xgd
 created_at: '2026-08-07T01:44:18.770079+00:00'
-updated_at: '2026-09-10T09:49:32.257562+00:00'
+updated_at: '2026-09-10T11:07:11.408850+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
