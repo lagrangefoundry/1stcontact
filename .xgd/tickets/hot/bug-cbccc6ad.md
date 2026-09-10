@@ -6,16 +6,21 @@ title: 'Builder chat: pane keeps the previous business''s conversation when both
   share a slug'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T17:19:08.328076+00:00'
-updated_at: '2026-09-10T17:25:02.557088+00:00'
+updated_at: '2026-09-10T17:29:35.491783+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-cbc306f3
   severity: medium
+  commits:
+  - working_sha: 9898bc8af7920b753752fb44dc01b114fc9824cf
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.146
 ---
 
 ## Symptom
