@@ -6,9 +6,9 @@ title: Published responses carry a short lifetime, are never immutable, and neve
   ask a crawler to stay away
 created_by: xgd
 created_at: '2026-08-06T18:49:31.162888+00:00'
-updated_at: '2026-08-31T11:52:49.228337+00:00'
+updated_at: '2026-09-10T16:56:03.372026+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
