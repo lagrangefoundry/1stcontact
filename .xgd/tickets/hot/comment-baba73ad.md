@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T21:53:10.547269+00:00'
+updated_at: '2026-09-10T21:55:14.910528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -270,5 +270,11 @@ Two things I want to flag rather than leave buried in a ticket body:
 **I asserted the transform op list from knowledge, not from the docs.** I'm confident about crop/resize/rotate/brightness/contrast/format-conversion and about HEIC input, less so about `saturation`. REQ-219 says the vocabulary maps "almost one-to-one" precisely because of that — whoever picks it up should confirm the exact option names against the current binding docs before fixing the vocabulary, since the whole design rests on one renderer being able to express every operation. If saturation turns out to be absent, it drops from v1 the same way `flip` did rather than earning a second renderer.
 
 No code was written and no branch cut — this was scoping.
+
+<!-- xgd-turn id="84332c87-a165-4fd7-a661-29fd6d654dd6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:55:14.029266+00:00" -->
+#### You
+Did you populate dependency fields in the tickets? Do the Lagrange Framework changes need to be done first?
 
 <!-- xgd-chat-end -->
