@@ -31,7 +31,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { validateL1 } from '../packages/site-schema/src/index'
+import { validateL1, type L1Node } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import * as cli from '../tools/generate/src/cli/index'
@@ -47,6 +47,7 @@ import {
   type CapturedResponse,
   type MultiStateCapture,
   type RawRun,
+  type RawField,
   type RawSignals,
   type StateProjection,
   type StructuralHints,
@@ -100,6 +101,38 @@ function run(overrides: Partial<RawRun> & Pick<RawRun, 'text' | 'box'>): RawRun 
   }
 }
 
+/** Every leaf kind in a folded document, depth-first (containers/boxes with
+ *  children are structure, not leaves). */
+function leafKinds(node: L1Node): string[] {
+  const kids = 'children' in node ? (node.children ?? []) : []
+  if (kids.length === 0) return [node.kind]
+  return kids.flatMap(leafKinds)
+}
+
+/** A captured text-free element, in the raw shape the extractor emits. */
+function rawField(over: Partial<RawField> & Pick<RawField, 'accessibleName' | 'box'>): RawField {
+  return {
+    a11yRole: 'generic',
+    nameSource: null,
+    borderRadiusPx: 0,
+    boxShadow: null,
+    backdropFilter: null,
+    blendMode: null,
+    opacity: 1,
+    outline: null,
+    pseudo: null,
+    arrangement: null,
+    zIndex: 0,
+    filter: null,
+    textShadow: null,
+    maskEdge: null,
+    transformRotateDeg: 0,
+    transformScale: 1,
+    motion: null,
+    ...over,
+  }
+}
+
 function signalsFor(width: number): RawSignals {
   return {
     viewport: { width, height: 900 },
@@ -120,7 +153,28 @@ function signalsFor(width: number): RawSignals {
           run({ text: 'Fluid Headline', box: { x: 20, y: 120, width: width - 40, height: 60 } }),
         ],
         items: [],
-        fields: [],
+        // AC-689 — the page carries media and a painted panel alongside its runs,
+        // so the folded document can hold more than one leaf kind. Without these
+        // the "full L1 language" clause is unexercisable by this fixture: a
+        // text-only capture can only ever fold to text leaves.
+        fields: [
+          rawField({
+            accessibleName: 'Storefront',
+            box: { x: 0, y: 220, width, height: Math.round(width / 1.5) },
+            a11yRole: 'img',
+            objectFit: 'cover',
+            intrinsicAspect: 1.5,
+            src: '/img/storefront.jpg',
+            alt: 'Storefront',
+          }),
+          rawField({
+            accessibleName: '',
+            box: { x: 24, y: 700, width: 240, height: 120 },
+            a11yRole: 'generic',
+            surfaceFill: '#e5e7eb',
+            borderRadiusPx: 8,
+          }),
+        ],
       },
     ],
     colorUsage: [{ hex: '#111827', usage: 'text', freq: 1 }],
@@ -182,6 +236,42 @@ function elt(text: string, box: ValueElement['box'], fontSizePx = 18): ValueElem
   return { text, role: 'body', color: '#111111', fontFamily: 'Arial', fontSizePx, fontWeight: 400, box }
 }
 
+/** A text-free media element — folds to an L1 `image` leaf (AC-689's second kind). */
+function mediaElt(box: ValueElement['box'], src = '/img/storefront.jpg'): ValueElement {
+  return {
+    text: '',
+    role: 'img',
+    color: '#111111',
+    fontFamily: 'Arial',
+    fontSizePx: 16,
+    fontWeight: 400,
+    box,
+    textless: true,
+    a11yRole: 'img',
+    objectFit: 'cover',
+    intrinsicAspect: 1.5,
+    src,
+    alt: 'Storefront',
+  }
+}
+
+/** A text-free painted panel — folds to an L1 `box` leaf (AC-689's third kind). */
+function panelElt(box: ValueElement['box']): ValueElement {
+  return {
+    text: '',
+    role: 'generic',
+    color: '#111111',
+    fontFamily: 'Arial',
+    fontSizePx: 16,
+    fontWeight: 400,
+    box,
+    textless: true,
+    a11yRole: 'generic',
+    surfaceFill: '#e5e7eb',
+    borderRadiusPx: 8,
+  }
+}
+
 /** A resting projection at one width — the shape `foldToL1` consumes. */
 function proj(width: number, elements: ValueElement[]): StateProjection {
   return {
@@ -224,6 +314,16 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     expect(l1!.widths).toEqual(LADDER)
     expect(l1!.root.kind).toBe('box')
 
+    // The document is emitted in the FULL L1 language, not text alone: this
+    // capture carries runs, media AND a painted panel, so the folded document
+    // holds leaves of more than one kind. Asserted on the `l1.json` read back
+    // from the bundle — the `cmdCapturePage` path, not a direct `foldToL1` call.
+    const kinds = new Set(leafKinds(l1!.root))
+    expect(kinds.size).toBeGreaterThan(1)
+    expect(kinds).toContain('text')
+    expect(kinds).toContain('image')
+    expect(kinds).toContain('box')
+
     // If no resting sample can be folded, the fold fails explicitly rather than
     // emitting an empty/invalid document.
     const emptyLadder: MultiStateCapture = { url: 'http://fixture.test/', notes: [], projections: [] }
@@ -261,11 +361,39 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
       1280: { x: 60, y: 140, width: 1160, height: 56 },
     }
     const fontByWidth: Record<number, number> = { 320: 24, 768: 32, 1280: 44 }
+    // A SECOND run whose typography is identical at every sampled width — the
+    // constant-axis case AC-691 owns. (The varying run above is AC-1625's
+    // per-width track, proven in its own UAT; here it is only the geometry
+    // carrier.)
+    const taglineBoxes: Record<number, ValueElement['box']> = {
+      320: { x: 20, y: 200, width: 280, height: 24 },
+      768: { x: 40, y: 220, width: 688, height: 24 },
+      1280: { x: 60, y: 240, width: 1160, height: 24 },
+    }
+    // A media element and a painted panel — the two leaf kinds whose keyframes
+    // pin a height, against the text leaf's, which must not.
+    const mediaBoxes: Record<number, ValueElement['box']> = {
+      320: { x: 0, y: 300, width: 320, height: 213 },
+      768: { x: 0, y: 320, width: 768, height: 512 },
+      1280: { x: 0, y: 340, width: 1280, height: 853 },
+    }
+    const panelBoxes: Record<number, ValueElement['box']> = {
+      320: { x: 24, y: 560, width: 272, height: 120 },
+      768: { x: 48, y: 880, width: 300, height: 140 },
+      1280: { x: 80, y: 1220, width: 360, height: 160 },
+    }
     const widths = [320, 768, 1280]
     const multiState: MultiStateCapture = {
       url: 'http://fixture.test/',
       notes: [],
-      projections: widths.map((w) => proj(w, [elt('Headline', boxes[w]!, fontByWidth[w]!)])),
+      projections: widths.map((w) =>
+        proj(w, [
+          elt('Headline', boxes[w]!, fontByWidth[w]!),
+          elt('Standing Tagline', taglineBoxes[w]!, 18),
+          mediaElt(mediaBoxes[w]!),
+          panelElt(panelBoxes[w]!),
+        ]),
+      ),
     }
 
     const doc = foldToL1(multiState)
@@ -284,8 +412,60 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
         expect(kf.y).toBe(Math.round(box.y))
         expect(kf.width).toBe(Math.round(box.width))
       }
-      // Typography axes are taken from the widest present sample (1280 → 44px).
-      expect(node.axes.fontSizePx).toBe(44)
+      // A TEXT leaf's keyframes carry NO height: its extent is natural, from
+      // flow. Pinning it would freeze the run at the reference's line count, and
+      // the content-robustness probe (AC-707) — which grows text and expects the
+      // flow to absorb it — would be measuring a ceiling instead of a reflow.
+      expect(kfs.every((k) => k.height === undefined)).toBe(true)
+      for (const kf of kfs) expect(kf).not.toHaveProperty('height')
+    }
+
+    // ── The constant-typography run: axes from the widest sample, no track ─────
+    const tagline = leaves.find((n) => n.kind === 'text' && n.text === 'Standing Tagline')
+    expect(tagline?.kind).toBe('text')
+    if (tagline?.kind === 'text') {
+      // An axis identical at every sampled width is taken from the node's widest
+      // present sample and stays a plain scalar…
+      expect(tagline.axes.fontSizePx).toBe(18)
+      // …with NO responsive track emitted for it. (The varying `Headline` above
+      // is what a track is for; that is AC-1625's UAT, not this one.)
+      expect(tagline.responsive?.fontSizePx).toBeUndefined()
+      // Its geometry still carries a keyframe per sampled width, height-free.
+      expect(tagline.geometry!.keyframes.map((k) => k.at)).toEqual(widths)
+      expect(tagline.geometry!.keyframes.every((k) => k.height === undefined)).toBe(true)
+    }
+
+    // ── A box, image or backing-surface leaf additionally PINS its height ──────
+    const image = leaves.find((n) => n.kind === 'image')
+    expect(image?.kind).toBe('image')
+    if (image?.kind === 'image') {
+      const kfs = image.geometry!.keyframes
+      expect(kfs.map((k) => k.at)).toEqual(widths)
+      for (const w of widths) {
+        const kf = kfs.find((k) => k.at === w)!
+        const box = mediaBoxes[w]!
+        expect(kf.x).toBe(Math.round(box.x))
+        expect(kf.y).toBe(Math.round(box.y))
+        expect(kf.width).toBe(Math.round(box.width))
+        expect(kf.height).toBe(Math.round(box.height))
+      }
+    }
+
+    const panel = leaves.find(
+      (n) => n.kind === 'box' && n.geometry?.keyframes[0]?.y === Math.round(panelBoxes[320]!.y),
+    )
+    expect(panel?.kind).toBe('box')
+    if (panel?.kind === 'box') {
+      const kfs = panel.geometry!.keyframes
+      expect(kfs.map((k) => k.at)).toEqual(widths)
+      for (const w of widths) {
+        const kf = kfs.find((k) => k.at === w)!
+        const box = panelBoxes[w]!
+        expect(kf.x).toBe(Math.round(box.x))
+        expect(kf.y).toBe(Math.round(box.y))
+        expect(kf.width).toBe(Math.round(box.width))
+        expect(kf.height).toBe(Math.round(box.height))
+      }
     }
   })
 

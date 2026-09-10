@@ -13,6 +13,8 @@
  *   AC-735  geometry resolves against half-open breakpoint intervals
  *   AC-736  a painted backing surface is not a sibling overlap (but still clips)
  *   AC-737  gate report carries fold residuals as their own channel
+ *   AC-1630 a pinned box whose flow interior outgrows its keyframe height is the
+ *           evaluator's THIRD envelope violation
  *
  * Each UAT drives a real boundary — `evaluateLayout` / `foldToL1` /
  * `sampleFidelityProbe` on the `tools/generate/src` surface, `cmdL1Gate` on the
@@ -25,8 +27,10 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
+  contentRobustnessProbe,
   evaluateLayout,
   foldToL1,
+  offSampleProbe,
   sampleFidelityProbe,
   type LayoutFinding,
 } from '../tools/generate/src'
@@ -475,6 +479,139 @@ describe('story-24098299 — painted backing surfaces', () => {
     expect(withFidelity.residuals).toEqual([])
     expect(withFidelity.unmatched).toEqual([])
     expect(withFidelity).toEqual(withoutFidelity)
+  })
+})
+
+// ── AC-1630 — pinned-box content overflow, the third envelope violation ───────
+
+/**
+ * A pinned card 300px wide (so it never crosses even the 320px viewport edge —
+ * the horizontal clip must not fire and mask the violation under test) holding
+ * `children` as its flow interior. `heightPx: undefined` pins no height at all.
+ */
+function pinnedCard(heightPx: number | undefined, children: L1Node[]): L1Document {
+  const base: L1Geometry['keyframes'][number] = { at: 320, x: 0, y: 0, width: 300 }
+  return mkDoc({
+    kind: 'box',
+    children: [
+      {
+        kind: 'box',
+        id: 'box-card',
+        axes: { surfaceFill: '#e5e7eb' },
+        geometry: { keyframes: [heightPx === undefined ? base : { ...base, height: heightPx }] },
+        children,
+      },
+    ],
+  })
+}
+
+/** The card's own index path under {@link pinnedCard}'s root. */
+const CARD_PATH = '0.0'
+
+/** Three short 16px runs — one 22px line box each, so the interior is 66px tall. */
+const CARD_LINES = [
+  flowText('Shipping and returns', 16),
+  flowText('Warranty coverage', 16),
+  flowText('Contact the support team', 16),
+]
+
+/** The `clip` findings at `width`, and only those. */
+function clipsAt(doc: L1Document, width: number, contentScale = 1): LayoutFinding[] {
+  return evaluateLayout(doc, width, { contentScale }).findings.filter((f) => f.kind === 'clip')
+}
+
+describe('story-24098299 — pinned-box content overflow', () => {
+  it('test_UAT_AC1630_pinned_box_content_overflow_is_reported', () => {
+    // ── The violation itself ──────────────────────────────────────────────────
+    // A 40px-tall pinned card whose three stacked runs need 66px: the box the
+    // reference measured cannot hold what the reproduction puts inside it.
+    const overflowing = pinnedCard(40, CARD_LINES)
+    const result = evaluateLayout(overflowing, 1024)
+
+    // EXACTLY one finding, and it is the overflow — not the horizontal viewport
+    // clip, which fires in the same documents and would otherwise satisfy a
+    // looser assertion. `toHaveLength(1)` is what discriminates the two.
+    expect(result.findings).toHaveLength(1)
+    const clip = result.findings[0]
+    expect(clip.kind).toBe('clip')
+    // The detail names BOTH magnitudes — measured content height against the
+    // pinned box height — not merely "some number of px".
+    expect(clip.detail).toMatch(/content height \d+px exceeds pinned box height \d+px/)
+    expect(clip.detail).toBe('content height 66px exceeds pinned box height 40px')
+    expect(clip.detail).not.toMatch(/exceeds viewport/)
+    // …and the paths carry the offending node's index path — the card, not one
+    // of the runs inside it.
+    expect(clip.paths).toEqual([CARD_PATH])
+
+    // ── Raise the ceiling above the content: the finding is gone ──────────────
+    expect(evaluateLayout(pinnedCard(200, CARD_LINES), 1024).findings).toEqual([])
+
+    // ── A node that pins no height cannot raise it by construction ────────────
+    // Same interior, same card, no `height` on the keyframe — its extent follows
+    // its content, so there is no ceiling to outgrow.
+    const heightless = pinnedCard(undefined, CARD_LINES)
+    expect(evaluateLayout(heightless, 1024).findings).toEqual([])
+    // The interior really is taller than the 40px that failed above — the pass
+    // is the absent ceiling, not a shrunken interior.
+    const heightlessText = evaluateLayout(heightless, 1024).leaves.filter((l) => l.kind === 'text')
+    expect(heightlessText).toHaveLength(3)
+    expect(heightlessText[2].box.y + heightlessText[2].box.height).toBe(66)
+
+    // ── The excess is measured against the evaluator's own epsilon ────────────
+    // 66px of content in a 65px box is a 1px overrun, under the default 2px
+    // epsilon: not a violation. One pixel lower and it is.
+    expect(clipsAt(pinnedCard(65, CARD_LINES), 1024)).toEqual([])
+    expect(clipsAt(pinnedCard(64, CARD_LINES), 1024)).toEqual([])
+    expect(clipsAt(pinnedCard(63, CARD_LINES), 1024)).toHaveLength(1)
+
+    // ── Raised by the off-sample probe, at an unsampled width ─────────────────
+    // The interstitial run is visible only in [450, 700) — a band no ladder rung
+    // touches. The document therefore fits at every captured width and overflows
+    // only at a width the capture never sampled, which is precisely the case
+    // this probe exists to catch.
+    const offSampleDoc = pinnedCard(100, [
+      flowText('Shipping and returns', 16),
+      flowText('Warranty coverage', 16),
+      {
+        ...flowText('Interlude', 60),
+        visibility: { fromPx: 450, untilPx: 700 },
+      },
+    ])
+    for (const w of LADDER) {
+      expect(evaluateLayout(offSampleDoc, w).findings, `captured width ${w}`).toEqual([])
+    }
+    const offSample = offSampleProbe(offSampleDoc)
+    expect(offSample.pass).toBe(false)
+    const at500 = offSample.byWidth.find((w) => w.width === 500)!
+    expect(at500.findings).toHaveLength(1)
+    expect(at500.findings[0].kind).toBe('clip')
+    expect(at500.findings[0].detail).toMatch(/content height \d+px exceeds pinned box height 100px/)
+    expect(at500.findings[0].paths).toEqual([CARD_PATH])
+    // …and only there: 900px is outside the visibility band, so the envelope holds.
+    expect(offSample.byWidth.find((w) => w.width === 900)!.findings).toEqual([])
+
+    // ── Raised by the content-robustness probe, at every captured width ───────
+    // A card that just fits unperturbed: 100 chars wrap to 3 lines (66px) inside
+    // the 100px ceiling. Growing the run is exactly the perturbation that drives
+    // a flow interior past a pinned ceiling.
+    const snugDoc = pinnedCard(100, [flowText('x'.repeat(100), 16)])
+    const unperturbed = contentRobustnessProbe(snugDoc, { scale: 1 })
+    expect(unperturbed.pass).toBe(true)
+    for (const w of unperturbed.byWidth) expect(w.findings).toEqual([])
+
+    const grown = contentRobustnessProbe(snugDoc, { scale: 2.5 })
+    expect(grown.pass).toBe(false)
+    expect(grown.byWidth.map((w) => w.width)).toEqual(LADDER)
+    // The same violation at EVERY captured width, on the same terms — one
+    // finding each, naming both magnitudes and the card's path.
+    for (const w of grown.byWidth) {
+      expect(w.findings, `robustness at ${w.width}px`).toHaveLength(1)
+      expect(w.findings[0].kind).toBe('clip')
+      expect(w.findings[0].detail).toMatch(
+        /content height \d+px exceeds pinned box height 100px/,
+      )
+      expect(w.findings[0].paths).toEqual([CARD_PATH])
+    }
   })
 })
 

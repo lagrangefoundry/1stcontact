@@ -660,14 +660,62 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     for (const p of overlap.paths) expect(p).toMatch(/^\d+(\.\d+)*$/)
 
     // A clip finding carries kind, a detail with the offending magnitude (px),
-    // and the offending leaf's index path.
+    // and the offending leaf's index path. `clip` covers TWO shapes, and the
+    // diagnostic contract has to hold for both of them.
+    //
+    // (i) a leaf crossing the viewport edge — the detail names the distance past
+    //     that edge.
     const narrow = foldToL1(narrowOracle())
     const clip = evaluateLayout(narrow, 500).findings.find((f) => f.kind === 'clip')!
     expect(clip).toBeDefined()
     expect(clip.kind).toBe('clip')
-    expect(clip.detail).toMatch(/\d+px/)
+    expect(clip.detail).toMatch(/\d+px exceeds viewport \d+px/)
     expect(clip.paths.length).toBeGreaterThanOrEqual(1)
     for (const p of clip.paths) expect(p).toMatch(/^\d+(\.\d+)*$/)
+
+    // (ii) a pinned box whose flow interior outgrows its keyframe height — the
+    //      detail names the measured content height against the pinned height.
+    //      A 40px card holding three 22px line boxes; 300px wide so the viewport
+    //      clip above cannot fire here and stand in for this one.
+    const run = (t: string): L1Node => ({
+      kind: 'text',
+      text: t,
+      axes: { color: '#111827', fontFamily: 'Arial', fontSizePx: 16, fontWeight: 400 },
+    })
+    const overflowDoc = {
+      widths: LADDER,
+      background: '#ffffff',
+      root: {
+        kind: 'box' as const,
+        children: [
+          {
+            kind: 'box' as const,
+            id: 'box-card',
+            axes: { surfaceFill: '#e5e7eb' },
+            geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 300, height: 40 }] },
+            children: [run('Shipping and returns'), run('Warranty coverage'), run('Contact us')],
+          },
+        ],
+      },
+    }
+    expect(validateL1(overflowDoc).ok).toBe(true)
+    const overflowFindings = evaluateLayout(overflowDoc, 1024).findings
+    // Only the overflow — no viewport clip, no overlap, so the assertions below
+    // cannot be satisfied by a different violation.
+    expect(overflowFindings).toHaveLength(1)
+    const overflowClip = overflowFindings[0]
+    expect(overflowClip.kind).toBe('clip')
+    expect(overflowClip.detail).toMatch(/content height \d+px exceeds pinned box height \d+px/)
+    // The offending node's own path — the card, not the runs inside it, and not
+    // the two paths an overlap would carry.
+    expect(overflowClip.paths).toHaveLength(1)
+    expect(overflowClip.paths).toEqual(['0.0'])
+    for (const p of overflowClip.paths) expect(p).toMatch(/^\d+(\.\d+)*$/)
+
+    // All three violation shapes were genuinely forced, and each detail is
+    // distinguishable from the others.
+    expect([overlap.kind, clip.kind, overflowClip.kind]).toEqual(['overlap', 'clip', 'clip'])
+    expect(clip.detail).not.toEqual(overflowClip.detail)
   })
 
   it('test_UAT_AC724_value_render_deterministic_and_per_occurrence_faithful', () => {

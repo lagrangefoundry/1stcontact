@@ -21,6 +21,9 @@
  *   AC-733  nothing is silently dropped: every unexpressed element becomes a typed
  *           residual, a form control with geometry binds to its module instead,
  *           and the channel is opt-in
+ *   AC-1629 a band's translucent scrim folds onto the SAME section-background box
+ *           that carries the band's image, as a second axis of that one box, each
+ *           axis read from the widest sampled width that carries it
  *
  * Every probe drives the real `foldToL1` / `validateL1` / `renderL1Document` entry
  * points over synthetic multi-viewport captures — real components, no mocks.
@@ -29,7 +32,12 @@ import { describe, expect, it } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/src'
-import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
+import type {
+  MultiStateCapture,
+  SectionValues,
+  StateProjection,
+  ValueElement,
+} from '../tools/generate/src/cli/capture'
 
 /** The fixed sampled width ladder `1c capture page` walks. */
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -595,5 +603,152 @@ describe('AC-733 no captured element is silently dropped: an unexpressed element
     const b = foldToL1(unexpressible())
     expect(withCollector.length).toBe(5)
     expect(JSON.stringify(b)).toEqual(JSON.stringify(a))
+  })
+})
+
+// ── AC-1629: a band's translucent scrim folds onto the section-background box ──
+
+/** A resting `MultiStateCapture` over the ladder from a per-width SECTION list. */
+function multiFromSections(sectionsAt: (width: number) => SectionValues[]): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 1200 },
+    state: 'rest',
+    manifest: {
+      source: `fold@${width}`,
+      elements: [] as ValueElement[],
+      sections: sectionsAt(width),
+      viewport: { width, height: 1200 },
+    },
+  }))
+  return { url: 'http://fixture.test/', notes: [], projections }
+}
+
+const HERO_URL = 'https://cdn.example.com/hero.jpg'
+/** A hero veil — a colour carrying its OWN alpha (`bg-slate-950/30`). */
+const VEIL = { color: '#020618', opacity: 0.3 }
+/** A second, distinguishable veil — used to prove which sample an axis was read from. */
+const WIDE_VEIL = { color: '#1e293b', opacity: 0.55 }
+
+/** The section-background boxes a folded document carries. */
+function sectionBgs(doc: ReturnType<typeof foldToL1>) {
+  return leavesOf(doc).filter((n) => typeof n.id === 'string' && n.id.startsWith('section-bg-'))
+}
+
+describe('AC-1629 a band scrim folds onto the section-background box as a second axis', () => {
+  it('test_UAT_AC1629_band_scrim_folds_onto_the_section_background_box', () => {
+    // ── Both axes on ONE box, never a node of the scrim's own ─────────────────
+    const both = foldToL1(
+      multiFromSections((width) => [
+        {
+          index: 0,
+          overlay: { ...VEIL },
+          contentAnchorRatio: null,
+          backgroundImageUrl: HERO_URL,
+          box: { x: 0, y: 0, width, height: 600 },
+        },
+      ]),
+    )
+    expect(validateL1(both).ok).toBe(true)
+    const bgs = sectionBgs(both)
+    // EXACTLY one box carries the band — the scrim did not fold a second node
+    // beside the photograph, and nothing else in the document paints it.
+    expect(bgs).toHaveLength(1)
+    expect(leavesOf(both)).toHaveLength(1)
+    const bg = bgs[0]
+    expect(bg.kind).toBe('box')
+    // …carrying BOTH axes: the photograph and the veil over it.
+    expect(bg.axes?.backgroundImageUrl).toBe(HERO_URL)
+    // The veil's colour AND its alpha, as captured — not flattened to an opaque
+    // fill, and not composited away.
+    expect(bg.axes?.overlay).toEqual(VEIL)
+    // The scrim's alpha is NOT element opacity: it lives inside the overlay axis,
+    // and the box gains no `opacity` axis of its own from it.
+    expect(bg.axes?.opacity).toBeUndefined()
+    // …nor a plain surface fill standing in for the veil.
+    expect(bg.axes?.surfaceFill).toBeUndefined()
+
+    // The renderer layers it ABOVE the image within that one box — a translucent
+    // veil, not a replacement (background layers paint first-on-top).
+    const { css } = renderL1Document(both)
+    expect(css).toContain('#0206184d') // 0.3 alpha → 0x4d, kept as 8-digit hex
+    expect(
+      css.match(/background-image:\s*linear-gradient\(#0206184d, #0206184d\), url\("[^"]*hero\.jpg"\)/),
+      `scrim layered above the image in:\n${css.slice(0, 2000)}`,
+    ).not.toBeNull()
+
+    // ── A section folds when it paints an image OR a scrim ────────────────────
+    // A veil over a SOLID band round-trips just as a veil over a photograph does.
+    const scrimOnly = foldToL1(
+      multiFromSections((width) => [
+        { index: 0, overlay: { ...VEIL }, contentAnchorRatio: null, box: { x: 0, y: 0, width, height: 600 } },
+      ]),
+    )
+    const scrimOnlyBg = sectionBgs(scrimOnly)
+    expect(scrimOnlyBg).toHaveLength(1)
+    expect(scrimOnlyBg[0].axes?.overlay).toEqual(VEIL)
+    expect(scrimOnlyBg[0].axes?.backgroundImageUrl).toBeUndefined()
+
+    // ── …and a band that paints NEITHER folds no box at all ───────────────────
+    // The widened predicate must not start painting empty rectangles over every
+    // plain band, and a plain band never gains a scrim it did not have.
+    const plain = foldToL1(
+      multiFromSections((width) => [
+        { index: 0, overlay: null, contentAnchorRatio: null, box: { x: 0, y: 0, width, height: 600 } },
+      ]),
+    )
+    expect(sectionBgs(plain)).toEqual([])
+    expect(leavesOf(plain)).toEqual([])
+
+    // ── Each axis is read from the widest sampled width that CARRIES IT ───────
+    // A band may paint an image at some rungs and only a scrim at others. Reading
+    // both off one entry (the widest overall) would drop whichever that sample
+    // happens to lack — here, the photograph.
+    const imageNarrowOnly = foldToL1(
+      multiFromSections((width) => [
+        width <= 768
+          ? {
+              index: 0,
+              overlay: { ...VEIL },
+              contentAnchorRatio: null,
+              backgroundImageUrl: HERO_URL,
+              box: { x: 0, y: 0, width, height: 600 },
+            }
+          : {
+              index: 0,
+              overlay: { ...WIDE_VEIL },
+              contentAnchorRatio: null,
+              box: { x: 0, y: 0, width, height: 600 },
+            },
+      ]),
+    )
+    const mixed = sectionBgs(imageNarrowOnly)
+    expect(mixed).toHaveLength(1)
+    // The image survives, read from 768 — the widest rung that paints one…
+    expect(mixed[0].axes?.backgroundImageUrl).toBe(HERO_URL)
+    // …while the scrim comes from 1440, the widest rung that paints one, so the
+    // two axes are genuinely read independently rather than off a single entry.
+    expect(mixed[0].axes?.overlay).toEqual(WIDE_VEIL)
+
+    // The mirror image: the photograph only at the WIDE rungs, the veil only at
+    // the narrow ones. Both still land on the one box.
+    const imageWideOnly = foldToL1(
+      multiFromSections((width) => [
+        width <= 768
+          ? { index: 0, overlay: { ...VEIL }, contentAnchorRatio: null, box: { x: 0, y: 0, width, height: 600 } }
+          : {
+              index: 0,
+              overlay: null,
+              contentAnchorRatio: null,
+              backgroundImageUrl: HERO_URL,
+              box: { x: 0, y: 0, width, height: 600 },
+            },
+      ]),
+    )
+    const mirrored = sectionBgs(imageWideOnly)
+    expect(mirrored).toHaveLength(1)
+    expect(mirrored[0].axes?.backgroundImageUrl).toBe(HERO_URL)
+    expect(mirrored[0].axes?.overlay).toEqual(VEIL)
+    expect(validateL1(imageWideOnly).ok).toBe(true)
   })
 })
