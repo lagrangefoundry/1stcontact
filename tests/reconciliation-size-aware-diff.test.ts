@@ -5,6 +5,7 @@ import path from 'node:path'
 import {
   cmdCapturePage,
   cmdDiff,
+  cmdNew,
   cmdValuesDiff,
   ladderScreenshotPath,
   RESPONSIVE_VIEWPORTS,
@@ -367,4 +368,126 @@ describe('story-16f2793c — capture persists per-width reference screenshots', 
     const shotBytes = readFileSync(ladderScreenshotPath(bundleDir, RESPONSIVE_VIEWPORTS[0].width))
     expect(new TextDecoder().decode(shotBytes)).toContain('IMGBYTES')
   })
+})
+
+// ── The ACTUAL side of both size-aware commands: rendered AT the size ─────────
+//
+// AC-639 and AC-643 each state TWO clauses: the reference is read at the selected
+// width, AND the reproduction is rendered/shot at that same viewport. The legs
+// above cover only the reference clause, because they inject a pre-made actual
+// side (`actualManifestPath` / `actualImagePath`) — which takes the branch that
+// forwards `--size` into the reproduction entirely out of play. The two legs
+// below drive each command WITHOUT an injected actual, so the command renders,
+// serves and drives a browser seam itself, and assert the seam was sized to the
+// selected viewport. Delete the forwarding of `--size` into the reproduction in
+// either command and exactly these two legs go red.
+
+/**
+ * A fake driver that records the viewport it was given on each seam — `navigate`
+ * for the values-diff extract path, `screenshot` for the pixel-diff shot path —
+ * and answers with a real PNG so the pixel pipeline can decode it for real.
+ */
+class SizeRecordingDriver implements BrowserDriver {
+  navigatedViewport?: Viewport
+  shotViewport?: Viewport
+  constructor(private readonly png: Uint8Array = new Uint8Array()) {}
+  async navigate(_url: string, viewport?: Viewport): Promise<void> {
+    this.navigatedViewport = viewport
+  }
+  async screenshot(viewport?: Viewport): Promise<Uint8Array> {
+    this.shotViewport = viewport
+    return this.png
+  }
+  async query<T>(): Promise<T> {
+    return FAKE_SIGNALS as T
+  }
+  responses(): CapturedResponse[] {
+    return []
+  }
+  diagnostics() {
+    return { consoleErrors: [], pageErrors: [], failedRequests: [], requestedUrls: [] }
+  }
+  async content(): Promise<string> {
+    return '<html><body>Fake Hero</body></html>'
+  }
+  async close(): Promise<void> {}
+}
+
+describe('story-16f2793c — values-diff --size renders the reproduction at that viewport', () => {
+  it('test_UAT_AC639_values_diff_size_renders_reproduction_at_selected_viewport', async () => {
+    // No `actualManifestPath`: the command must render the draft, serve it, and
+    // size the page to the selected preset before reading its values. A ladder
+    // reference exists at both mobile and desktop so the width the command picks
+    // is observable on the reference side too.
+    const dir = ladderBundle([
+      { viewport: VIEWPORTS.mobile, wordmarkWidth: 75 },
+      { viewport: VIEWPORTS.desktop, wordmarkWidth: 256 },
+    ])
+    const cwd = tmp('ac639-live-')
+    cmdNew('acme', { cwd })
+
+    let driver!: SizeRecordingDriver
+    const report = await cmdValuesDiff({
+      cwd,
+      slug: 'acme',
+      refBundleDir: dir,
+      size: 'mobile',
+      driverFactory: async () => {
+        driver = new SizeRecordingDriver()
+        return driver
+      },
+    })
+
+    // The reproduction was rendered at the SELECTED viewport, not the driver's
+    // default — this is the clause the injected-manifest leg above cannot see.
+    expect(driver.navigatedViewport).toEqual(VIEWPORTS.mobile)
+    // …and the actual side genuinely came from the live draft render, so the
+    // assertion above is about the command's own browser seam.
+    expect(report.actualSource).toBe('draft:acme')
+    // The reference side still came from the ladder at that same width.
+    expect(report.expectedSource).toBe(`ref@chromium:${VIEWPORTS.mobile.width}:rest`)
+  }, 120_000)
+})
+
+describe('story-16f2793c — pixel diff --size shoots the reproduction at that viewport', () => {
+  it('test_UAT_AC643_pixel_diff_size_shoots_reproduction_at_selected_viewport', async () => {
+    // The bundle carries a tablet per-width reference (grey 10) and the legacy
+    // desktop full-page shot (grey 200), exactly as the leg above. This time no
+    // `actualImagePath` is supplied, so `cmdDiff` must render → serve → shoot the
+    // reproduction itself, at the tablet viewport.
+    const bundle = tmp('ac643-live-ref-')
+    await writeRasterPng(solid(64, 64, 10), ladderScreenshotPath(bundle, VIEWPORTS.tablet.width))
+    await writeRasterPng(solid(64, 64, 200), path.join(bundle, 'screenshot.full.png'))
+
+    // Real PNG bytes for the fake shot, so the diff pipeline decodes for real.
+    const work = tmp('ac643-live-work-')
+    const shotSource = path.join(work, 'shot-source.png')
+    await writeRasterPng(solid(64, 64, 10), shotSource)
+    const pngBytes = new Uint8Array(readFileSync(shotSource))
+
+    const cwd = tmp('ac643-live-cwd-')
+    cmdNew('acme', { cwd })
+
+    let driver!: SizeRecordingDriver
+    const report = await cmdDiff({
+      cwd,
+      slug: 'acme',
+      ref: bundle,
+      size: 'tablet',
+      out: path.join(work, 'out'),
+      driverFactory: async () => {
+        driver = new SizeRecordingDriver(pngBytes)
+        return driver
+      },
+    })
+
+    // The reproduction was SHOT at the selected viewport — the sole forwarding of
+    // `--size` into the reproduction shot, unexercised whenever `--actual` is given.
+    expect(driver.shotViewport).toEqual(VIEWPORTS.tablet)
+    // …and it was paired against the same-width reference, not screenshot.full.png.
+    expect(report.ref).toBe(ladderScreenshotPath(bundle, VIEWPORTS.tablet.width))
+    // grey-10 shot ⇄ grey-10 tablet ref → clean; a desktop reference (grey 200)
+    // or a desktop-sized shot would not be.
+    expect(report.meanDiff).toBeCloseTo(0, 5)
+  }, 120_000)
 })

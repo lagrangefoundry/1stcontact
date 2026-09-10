@@ -55,6 +55,26 @@
       .veiled .scrim { position: absolute; inset: 0; background-color: rgba(3, 7, 23, 0.3); }
       .veiled p { position: relative; padding: 40px; color: #ffffff; font-size: 20px; }
 
+      /* ── An overflow-clipped carousel ──────────────────────────────────────
+         The clamp's other direction. The track is 3000px wide and STARTS inside
+         the page, so its border box straddles the right edge: `onScreenBox`
+         accepts it (the off-canvas block below is rejected by a different test,
+         `b.x >= docW`) and the subtree union grows the band to 3000px. Because
+         the carousel clips with `overflow: hidden`, the off-stage slides never
+         extend the document — scrollWidth stays at the viewport — so the band
+         must be cut back to the document canvas. Unclamped, this page yields a
+         band ~2.3x wider than itself. */
+      .carousel { position: relative; overflow: hidden; height: 220px; background-color: #1d3a5c; }
+      .carousel .track { position: absolute; top: 0; left: 0; width: 3000px; height: 220px; }
+      .carousel .slide { float: left; width: 1000px; height: 220px; padding: 90px 40px; color: #ffffff; font-size: 20px; }
+
+      /* ── A conventional band ───────────────────────────────────────────────
+         Nothing absolutely positioned, nothing clipped, every child already
+         inside its own border box. The subtree union must leave its box exactly
+         as its own border box — the fix must not perturb the ordinary case. */
+      .plain { height: 200px; background-color: #45607a; }
+      .plain p { padding: 80px 40px; color: #ffffff; font-size: 20px; }
+
       /* ── A hidden off-screen block ─────────────────────────────────────────
          The SEO-spam trick. It paints nothing on the page, so it must neither
          become a band nor stretch one 33 million pixels wide. */
@@ -85,6 +105,18 @@
       <section class="veiled">
         <div class="scrim"></div>
         <p>Quote over a veiled panel.</p>
+      </section>
+
+      <section class="carousel">
+        <div class="track">
+          <div class="slide">Carousel slide one, on stage.</div>
+          <div class="slide">Carousel slide two, off stage.</div>
+          <div class="slide">Carousel slide three, off stage.</div>
+        </div>
+      </section>
+
+      <section class="plain">
+        <p>A conventional band, laid out in flow.</p>
       </section>
     </div>
 

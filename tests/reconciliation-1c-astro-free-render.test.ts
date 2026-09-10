@@ -29,7 +29,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -47,6 +47,17 @@ import { expectNoAstroContainerToConstruct } from './support/astro-absent'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const HEADLINE = 'Front door heading'
+
+/** Every source file under `dir`, skipping build output and dependencies. */
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue
+    const full = path.join(dir, entry)
+    if (statSync(full).isDirectory()) sourceFiles(full, out)
+    else out.push(full)
+  }
+  return out
+}
 
 /** A single-run oracle folded to an L1 document — pure L1, no modules anywhere. */
 function l1Oracle(): MultiStateCapture {
@@ -146,7 +157,29 @@ describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
 
 describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', () => {
   it('test_UAT_AC739_astro_container_never_created_for_any_page', async () => {
-    // ── (a) A site whose pages are all L1 reproductions ──────────────────────
+    // ── (a) The scan clause: no source on the render graph names Astro ───────
+    // AC-739's Verification opens with a static scan, and it is the half the
+    // render observations below cannot make: they prove no container was built
+    // for the pages they happened to render, whereas the AC claims it of EVERY
+    // render path. A bundler resolves a static specifier whether or not its
+    // branch runs, so a dynamic `import('astro/container')` behind an untaken
+    // branch would break a Worker build just as hard as a taken one.
+    const astroFiles = sourceFiles(repoRoot).filter((f) => f.endsWith('.astro'))
+    expect(astroFiles.map((f) => path.relative(repoRoot, f))).toEqual([])
+
+    const renderGraph = [
+      path.join(repoRoot, 'packages/framework/src'),
+      path.join(repoRoot, 'tools/generate/src/render'),
+      path.join(repoRoot, 'apps/control-app/src'),
+    ].flatMap((dir) => sourceFiles(dir))
+    // Guard against a silently-empty scan passing vacuously.
+    expect(renderGraph.length).toBeGreaterThan(0)
+    const namesAstro = renderGraph.filter((file) =>
+      /from\s+['"]astro[/'"]|import\(['"]astro[/']/.test(readFileSync(file, 'utf8')),
+    )
+    expect(namesAstro.map((f) => path.relative(repoRoot, f))).toEqual([])
+
+    // ── (b) A site whose pages are all L1 reproductions ──────────────────────
     // Fold a capture to L1 and import it as a raw-L1 home page, then render it
     // through the ordinary render entry point with container creation observed.
     const ref = path.join(cwd, 'bundle')
@@ -160,7 +193,7 @@ describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', ()
     expect(l1Html).not.toContain('data-fc-type') // … carrying no module hooks …
     expectNoAstroContainerToConstruct() // … with no container constructed.
 
-    // ── (b) The empty starter — no pages carry modules either ────────────────
+    // ── (c) The empty starter — no pages carry modules either ────────────────
     cmdNew('starter', { cwd })
 
     const starterOut = (await cmdRender('starter', { cwd })).outDir
@@ -170,7 +203,7 @@ describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', ()
     expect(starterHtml).not.toContain('data-fc-type') // … with no module hooks …
     expectNoAstroContainerToConstruct() // … and no container constructed.
 
-    // ── (c) A site with at least one behavior-module page ────────────────────
+    // ── (d) A site with at least one behavior-module page ────────────────────
     cmdNew('acme', { cwd })
     seedModules(cwd, 'acme')
 

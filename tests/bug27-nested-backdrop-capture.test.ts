@@ -57,6 +57,17 @@ const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 
 // ── Part A — the capture sees the backdrops and the collapsed header ──────────
 
+/**
+ * Whether a real Chromium can be launched, resolved once at module load so the
+ * gated tests below report SKIPPED rather than passing with zero assertions. The
+ * distinction is the whole point: a silent `return` inside a test body is
+ * indistinguishable in the run report from a test that ran and proved something,
+ * so an environment that never had a browser would have shown AC-815 green
+ * forever. `it.runIf` is the repo's idiom for this (see
+ * `tests/req58-wrapper-treatments.test.ts`).
+ */
+const browserOk = await chromiumAvailable()
+
 describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole subtrees (real Chromium)', () => {
   let server: { origin: string; close: () => Promise<void> }
   let capture: Capture | undefined
@@ -64,7 +75,7 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
 
   beforeAll(async () => {
     server = await serveDir(FIXTURES)
-    if (await chromiumAvailable()) {
+    if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'bug27-cap-'))
       tmpDirs.push(cwd)
       const res = await cmdCapturePage(`${server.origin}/bug27-nested-backdrop.html`, { cwd })
@@ -78,9 +89,11 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
   })
 
   const itA = (name: string, fn: (fields: Field[], capture: Capture) => void) =>
-    it(name, () => {
-      if (!capture) return // Chromium unavailable — skip silently
-      fn(capture.sections.flatMap((s) => s.fields ?? []), capture)
+    it.runIf(browserOk)(name, () => {
+      // Reached only when a browser was available, so a missing capture here is a
+      // real failure (the capture threw) rather than an absent environment.
+      expect(capture, 'capture produced by cmdCapturePage').toBeDefined()
+      fn(capture!.sections.flatMap((s) => s.fields ?? []), capture!)
     })
 
   itA('test_UAT_AC816_nested_background_image_is_captured', (fields) => {
@@ -132,6 +145,42 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
     const logo = cap.sections.flatMap((s) => s.fields ?? []).find((f) => f.alt === 'Chef logo')
     expect(logo, 'logo inside the collapsed header is captured').toBeDefined()
     expect(logo?.src).toMatch(/logo\.png$/)
+  })
+
+  itA('test_UAT_AC815_overflow_clipped_carousel_band_is_clamped_to_the_document', (_fields, cap) => {
+    // The clamp's OTHER direction, and the one the off-canvas block cannot stand
+    // in for: that one is rejected by `onScreenBox` (`b.x >= docW`) before the
+    // clamp is reached, whereas the carousel's 3000px track STARTS inside the page
+    // and so is unioned into the band. Because the carousel clips with
+    // `overflow: hidden`, the off-stage slides never grow the document, so the
+    // band must be cut back to the document's painted canvas.
+
+    // The wide track really is part of the subtree the band walk unions over —
+    // otherwise the clamp would be untested for want of anything to clamp.
+    const texts = flattenCapture(cap).elements.map((e) => e.text)
+    expect(texts.some((t) => t.includes('Carousel slide one')), 'carousel subtree captured').toBe(true)
+
+    // Yet no band grew past the document. The document has no horizontal overflow
+    // (the carousel clips), so its canvas is the viewport width.
+    const widest = Math.max(...cap.sections.map((s) => s.box.width))
+    expect(widest).toBeLessThanOrEqual(cap.viewport.width + 1)
+    // Stated against the unclamped value, so the assertion cannot pass vacuously:
+    // dropping the `Math.min(docW, …)` clamp yields a band as wide as the track.
+    expect(widest).toBeLessThan(3000)
+  })
+
+  itA('test_UAT_AC815_conventional_band_box_is_unchanged_from_its_border_box', (_fields, cap) => {
+    // The fix must not perturb the ordinary case: a band whose children are all
+    // already inside its own border box is boxed at exactly that border box.
+    const plain = cap.sections.find((s) =>
+      s.content.some((r) => r.text.includes('A conventional band')),
+    )
+    expect(plain, 'the conventional band is captured').toBeDefined()
+    // Its own border box: full-bleed at x=0, and the 200px height the fixture sets.
+    expect(plain!.box.x).toBeLessThanOrEqual(1)
+    expect(plain!.box.width).toBeGreaterThanOrEqual(cap.viewport.width - 1)
+    expect(plain!.box.width).toBeLessThanOrEqual(cap.viewport.width + 1)
+    expect(Math.round(plain!.box.height)).toBe(200)
   })
 
   itA('test_UAT_AC815_offscreen_block_does_not_become_or_inflate_a_band', (_fields, cap) => {
