@@ -96,6 +96,16 @@
  * table already takes (REQ-189) - so a control and the data it filters are one
  * size.
  *
+ * AND THE OTHER SHAPE, FOUND BY THE AUDIT IN [[BUG-70]]: a control with NO
+ * `font` RULE AT ALL. That one is worse and easier to miss, because it does not
+ * merely take the wrong SIZE — it takes the user agent's own button font, so it
+ * is not IBM Plex at 16px, it is not IBM Plex. This sheet carries exactly one
+ * `button` selector, so any button whose class no rule names lands there
+ * silently. Fourteen controls were left at 16px by the first shape and four
+ * toolbar buttons at the UA's font by the second; both are fixed by declaring
+ * the shorthand and the token together, which is the only form that is safe to
+ * copy.
+ *
  * `.shell-actions button` IS AN OVERRIDE OF A COMPONENT RULE, deliberately. The
  * shell lives in the shared out-of-repo component store and is not ours to edit;
  * `chrome.ts` emits the component stylesheets and then this one, so a
@@ -167,11 +177,36 @@ body {
   background: var(--shell-surface, #fff);
   color: var(--shell-text, #18181b);
   font: inherit;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-toolbar__modes {
   display: inline-flex;
   gap: 2px;
+}
+
+/*
+ * THE TOOLBAR'S OWN BUTTONS ([[BUG-70]]). Not a size defect like the controls
+ * below — a TYPEFACE one, and a worse thing to leave. `builder.css` carries
+ * exactly one `button` selector (`.shell-actions button`, the override for the
+ * shared shell) and none of these carry a class it reaches, so the mode toggles,
+ * Colors, Publish and Mark Points all fell through to the user agent's own
+ * button font: a system typeface at the UA's size. They were not IBM Plex at the
+ * wrong size. They were not IBM Plex.
+ *
+ * It read worst here of anywhere, because the bar's one non-button — the "Open
+ * in new tab" link — is an `<a>`, which DOES inherit, so it took the document
+ * default 16px and sat beside system-font buttons at the UA's size. Three
+ * typographies in one bar. Sizing the bar itself (above) fixes the link; this
+ * fixes the rest, and the `font-size` follows the shorthand for the reason the
+ * header gives at length.
+ */
+.builder-toolbar__modes button,
+.builder-toolbar__colors,
+.builder-toolbar__publish,
+.builder-toolbar__points {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-toolbar__open {
@@ -215,6 +250,37 @@ body {
 .builder-panel__host {
   height: 100%;
   overflow: auto;
+}
+
+/* --- the blank pane ([[BUG-70]]) ----------------------------------------------
+ *
+ * WHAT NOTHING IS SUPPOSED TO LOOK LIKE. `mountListDetail` takes an
+ * `emptyDetail` ELEMENT and hands it to `replaceChildren`; the Library and the
+ * Contacts tab both passed a STRING, so what landed in the detail body was a
+ * bare text node — no box around it, therefore no padding, no muted colour and
+ * no size, and not even the component's own `.list-detail-empty` fallback,
+ * which the string displaced. It read as text that had fallen out of a
+ * component rather than as a state anybody designed.
+ *
+ * ONE RULE FOR BOTH PANES. The two say different words, but "nothing is
+ * selected" is one state and it should look like one thing wherever the reader
+ * meets it — and a shared rule is what stops the next list-detail surface from
+ * inventing a third.
+ */
+.builder-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 2rem;
+  text-align: center;
+  text-wrap: balance;
+  font-size: var(--builder-control-font-size);
+  line-height: 1.5;
+  /* Muted, because it is telling the reader what to do next rather than
+     competing with the list that is offering it. */
+  color: var(--shell-muted, #71717a);
 }
 
 /* --- the edit modal (REQ-117) -------------------------------------------------
@@ -766,6 +832,7 @@ body {
   background: var(--shell-bg);
   color: var(--shell-fg);
   font: inherit;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-palette__hex-text {
@@ -994,6 +1061,7 @@ body {
   flex: 1 1 8ch;
   min-width: 8ch;
   font: inherit;
+  font-size: var(--builder-control-font-size);
   color: var(--shell-fg);
   background: var(--shell-surface);
   border: 1px solid var(--shell-border);
@@ -1004,6 +1072,7 @@ body {
 .builder-library__role,
 .builder-library__kind {
   font: inherit;
+  font-size: var(--builder-control-font-size);
   color: var(--shell-fg);
   background: var(--shell-surface);
   border: 1px solid var(--shell-border);
@@ -1879,6 +1948,7 @@ body {
   background: var(--shell-bg);
   color: var(--shell-fg);
   font: inherit;
+  font-size: var(--builder-control-font-size);
 }
 
 .builder-people__invite-hint,
@@ -2084,6 +2154,7 @@ body {
   width: 15rem;
   padding: 24px 16px;
   font: inherit;
+  font-size: var(--builder-control-font-size);
   text-align: center;
   color: var(--shell-fg);
   background: var(--shell-surface);
@@ -2131,6 +2202,7 @@ body {
 
 .builder-upload__cancel {
   font: inherit;
+  font-size: var(--builder-control-font-size);
   color: #fff;
   background: none;
   border: none;
@@ -2249,6 +2321,7 @@ body {
 .builder-signed-out-action {
   padding: 0.35rem 0.9rem;
   font: inherit;
+  font-size: var(--builder-control-font-size);
   color: inherit;
   cursor: pointer;
   background: transparent;
@@ -2287,6 +2360,7 @@ body {
   background: var(--shell-bg, #fff);
   color: var(--shell-fg, #18181b);
   font: inherit;
+  font-size: var(--builder-control-font-size);
 }
 
 /*
