@@ -6,14 +6,15 @@ title: Executable hooks run in sorted order before the upload with the deploy co
   in their environment; non-executable files are ignored
 created_by: xgd
 created_at: '2026-08-20T05:31:07.446032+00:00'
-updated_at: '2026-08-20T05:57:20.573386+00:00'
+updated_at: '2026-09-10T05:44:27.011192+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
