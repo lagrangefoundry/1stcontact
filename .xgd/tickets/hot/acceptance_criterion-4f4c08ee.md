@@ -6,14 +6,15 @@ title: An accepted write answers with a higher change count; a refused write ans
   with none, advances nothing and records nothing
 created_by: xgd
 created_at: '2026-08-20T02:26:42.462422+00:00'
-updated_at: '2026-08-20T02:46:19.165953+00:00'
+updated_at: '2026-09-10T09:14:22.046950+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
