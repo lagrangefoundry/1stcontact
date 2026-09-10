@@ -6,14 +6,15 @@ title: Every palette entry is shown as a swatch with its name, its colour and it
   usage count, including an entry used nowhere
 created_by: xgd
 created_at: '2026-08-20T01:58:44.448622+00:00'
-updated_at: '2026-08-20T02:21:00.913279+00:00'
+updated_at: '2026-09-10T02:54:39.547354+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
