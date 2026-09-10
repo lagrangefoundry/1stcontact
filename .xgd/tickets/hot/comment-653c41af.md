@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T17:12:40.975394+00:00'
+updated_at: '2026-09-10T17:15:03.806180+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,43 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="e68e8494-2e1d-4239-9d7a-3d1174ec5a85-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T17:15:02.634490+00:00" -->
+#### Claude
+I've scoped it. One blocking question before I cut a branch, plus two things you should know.
+
+## The blocking question: which repo, which ticket?
+
+There is **no honest 1stcontact-side fix**. I checked the seams:
+
+- The audit sink is ours (`ai.ts` → R2), but it receives `outcome.error` already flattened to the rendered string. The exception never reaches us.
+- `ToolboxSurface.invoke` is overridable, so I *could* wrap the plugin-built instance in `imagegen.ts` and log the raw error before the runtime renders it. That is precisely the "local workaround" that file forbids in its own header — and it would fix one surface while `store_unavailable` and every other `host_detail: false` error stayed blind.
+
+The real fix is ~6 files in `lagrange-framework`, and it's a direct sequel to that repo's **BUG-39** ("Declared error codes discard the host's own diagnosis") — the ticket that *introduced* `host_detail`. BUG-39 fixed the model's view and left the audit reading from the rendered string, so the flag silently kept redacting for the operator too.
+
+But `lagrange-framework` has its own ticket store (297 tickets, its own BUG-39/REQ-141/BUG-48). A `test_UAT_FC_BUG-68_*` landing there has no matrix entry and gets eliminated as drift. The established pattern is paired tickets — 1stcontact REQ-208 ↔ framework REQ-141 for this very component.
+
+**So: may I create a framework ticket for the code, keeping BUG-68 as the 1stcontact-side diagnosis?** I won't create one without you saying so. If you'd rather I land it under some existing framework ticket, name it and I'll use that.
+
+## Two things to know
+
+**This is a cross-language contract change, not a five-line patch.** The audit record is pinned byte-for-byte in `components/ai/conformance/fixtures.json`:
+
+```
+{"duration_ms":0.25,…,"outcome":{"error":"Error: WidgetUpdate is read-only here.","ok":false,…}}
+```
+
+Adding an unredacted field to `OutcomeRecord` means JS `audit.js`/`runtime.js`, the Python twins `audit.py`/`runtime.py`, the corpus fixtures, and UATs in both languages. Well-bounded, but it's a real change.
+
+**I can't make the fix reach 1stcontact.** `src/generated/ai-workers.js` re-exports from `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/` — a *copy*, not a link, and that path is outside my sandbox's write set. You'll need to run the install yourself afterwards for the dev server to pick it up.
+
+## What I'd implement, if you say go
+
+1. **`_record` carries the unredacted detail** — `outcome.error` keeps the rendered string exactly as today; a sibling field carries `describeFailure(error).detail` unconditionally. The audit is tenant-scoped in R2 and never customer-visible, so that's where the provider's own sentence belongs. `host_detail` goes back to meaning only what it was designed to mean: what the *model* is told.
+2. **Split `generator_unavailable`** in `ai_imagegen` — quota/billing exhaustion gets its own declared code. Today a 429 rate limit tells the model "nothing to retry", which is the opposite of true.
+
+I'd **defer** projecting the accepted aspect ratios into the parameter description — it needs capability→declaration projection at composition time and touches the generated manual. Worth doing, but it's a separate shape from this bug. Say if you want it folded in.
 
 <!-- xgd-chat-end -->
