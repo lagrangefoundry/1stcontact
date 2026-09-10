@@ -6,9 +6,9 @@ title: Ask my site what assets it has, and get the truth rather than what it hap
   to have declared
 created_by: xgd
 created_at: '2026-08-07T04:29:09.386086+00:00'
-updated_at: '2026-08-16T06:14:19.376648+00:00'
+updated_at: '2026-09-10T19:43:54.114193+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: request-66e4c630
@@ -40,15 +40,15 @@ would have meant two ideas of what a site's assets are.
 
 - **The union of two sources that genuinely disagree.** A site names its assets
   in two places. The site definition carries a declared registry with descriptive
-  metadata (an identity, alt text) but no bytes; the site's draft asset directory
-  carries the bytes but no metadata. In practice these disagree badly: every real
+  metadata (an identity, alt text) but no bytes; the site's asset store carries
+  the bytes but no metadata. In practice these disagree badly: every real
   site in the project's storage has an empty registry sitting beside a full
-  directory, so a registry-only answer names nothing on the sites actually being
+  store, so a registry-only answer names nothing on the sites actually being
   built. The listing reports **both**, merged by handle.
 - **Provenance, not a flattened guess.** Each entry says which of the two sources
-  vouched for it — whether a file for it is present, and whether the definition
-  declares it. An undeclared file is visible as an undeclared file; a declared
-  asset with no file is visible as a missing one. Reporting the disagreement is
+  vouched for it — whether the store holds bytes for it, and whether the
+  definition declares it. An undeclared file is visible as an undeclared file; a
+  declared asset with no file is visible as a missing one. Reporting the disagreement is
   the honest answer, and it is what lets a future browser of the store show which
   files are undeclared.
 - **One handle vocabulary.** Every entry is identified by the same site-local
@@ -95,12 +95,14 @@ would have meant two ideas of what a site's assets are.
   alone — which, given the state of every real site, was reliably empty. The
   union supersedes it in place; there is no legacy registry-only listing left
   behind and none should be reintroduced.
-- **Known upstream limitation, deliberately not worked around.** The field
-  component used by the builder renders an option's text as its value verbatim,
-  so a chooser drawn from this listing shows the handle rather than a friendly
-  name or a thumbnail. Per the project's rule that a component gap is closed
-  upstream and never wrapped locally, no label or thumbnail is asserted anywhere
-  in this story, and none should be added here.
+- **The listing carries no label and no thumbnail, by boundary.** An entry is an
+  identity, a source reference, alt text, a usage kind and its two provenance
+  flags — nothing that exists for human eyes. That is not a gap waiting to be
+  filled here: how a set of choices is *presented* — a friendly name, a
+  thumbnail, an ordering — belongs to the editor-gesture capability, which
+  derives what it shows from the handle it was given. This capability supplies
+  the data and stops. No label or thumbnail is asserted anywhere in this story,
+  and none should be added here.
 - **Intent/implementation agreement.** The implementation matches the operator's
   stated intent for this item with no divergence found: the listing is exported
   free of any UI, the builder route exists precisely so the store is reachable
