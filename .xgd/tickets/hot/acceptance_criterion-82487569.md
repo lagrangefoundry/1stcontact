@@ -6,14 +6,15 @@ title: The toolbar's colour control opens the palette surface for the displayed 
   in both viewing and editing channels
 created_by: xgd
 created_at: '2026-08-20T01:58:38.846426+00:00'
-updated_at: '2026-08-20T02:21:01.268280+00:00'
+updated_at: '2026-09-10T02:54:38.382462+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
