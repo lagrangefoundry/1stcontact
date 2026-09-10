@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T17:48:32.058002+00:00'
+updated_at: '2026-09-10T17:50:30.431036+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -723,5 +723,11 @@ This is also the shape Anthropic recommends for multi-agent work generally: a co
 That ordering matters: you now have per-request usage recording, so you can *measure* the strategy/construction split rather than assume it. I'd rather size the delegation work against real numbers than my estimate from an audit ledger.
 
 Want me to spec either? The effort one is small; delegation is a real design ticket and would want a DOC amendment like REQ-144 had.
+
+<!-- xgd-turn id="03d46269-6978-4816-a547-fd20413ffb81-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T17:50:30.387483+00:00" -->
+#### You
+What does the interface to the delegation tool look like? Does the orchestrator give open prompts to the builder?\
 
 <!-- xgd-chat-end -->
