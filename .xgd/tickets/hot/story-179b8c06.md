@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-09-10T11:18:27.420192+00:00'
+updated_at: '2026-09-10T11:19:00.086516+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -15,9 +15,8 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: fail
-  updated_by: bundle-b3b7c399
+  updated_by: request-f26cbe32
 ---
-
 
 ## Story
 **As a** site author (and the AI acting on my behalf), **I want** interactive
