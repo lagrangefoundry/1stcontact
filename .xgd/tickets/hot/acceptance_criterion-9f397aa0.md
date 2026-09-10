@@ -6,14 +6,15 @@ title: An automation caller presents the service-token pair, never the assertion
   the gateway forwards
 created_by: xgd
 created_at: '2026-08-31T17:03:05.823184+00:00'
-updated_at: '2026-08-31T17:13:35.705576+00:00'
+updated_at: '2026-09-10T04:34:18.970209+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
