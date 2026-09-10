@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T00:27:30.611189+00:00'
+updated_at: '2026-09-10T18:38:39.431196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -184,5 +184,11 @@ Two notes on Sonnet 5 itself, since you're investigating it:
 - **Task budgets become available on Sonnet 5** and weren't on 4.6. That's the thing that would let the model pace itself against a ceiling rather than be guillotined by one — advisory, token-denominated, and the model can see it. Not in either ticket. Given BUG-49 is about surviving truncation, a task budget is the complementary move: avoiding it. Worth its own ticket if you want it.
 
 BUG-67 now records all of this and is down to Defect B — the capture host-candidate fix — as the only part that's this repo's to code. Want me to start on that?
+
+<!-- xgd-turn id="85ce74ef-44b8-4097-81f6-26b297e2c02c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:38:38.497306+00:00" -->
+#### You
+yes
 
 <!-- xgd-chat-end -->
