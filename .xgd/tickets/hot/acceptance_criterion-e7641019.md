@@ -5,15 +5,15 @@ type: acceptance_criterion
 title: A run's rendered extent is measured off the node that owns its glyphs
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:47:47.209908+00:00'
-updated_at: '2026-09-09T23:47:47.209908+00:00'
+updated_at: '2026-09-10T00:47:08.467744+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
