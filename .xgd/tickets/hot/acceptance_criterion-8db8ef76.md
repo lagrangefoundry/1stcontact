@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A slot leaf renders as an inert placeholder naming its behavior module
 created_by: xgd
 created_at: '2026-07-24T22:54:24.547238+00:00'
-updated_at: '2026-09-10T12:12:15.783059+00:00'
+updated_at: '2026-09-10T12:12:47.268341+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -41,6 +41,5 @@ name and module id carry injection payloads. Observe: each is an empty element; 
 first emits both `data-l1-slot` and `data-l1-behavior` with the declared values; the
 second emits `data-l1-slot` with no `data-l1-behavior` attribute present at all; the
 third emits both values escaped, with no live element or attribute breakout. Confirm
-no `data-l1-capability` appears in any output. Confirm the same attribute assertions
-hold when a fragment *is* mounted — the escaping and omission rules are unchanged by
-mounting — leaving the fragment's own emission to AC-1622.
+no `data-l1-capability` appears in any output. The mounted state is AC-1622's to
+verify.
