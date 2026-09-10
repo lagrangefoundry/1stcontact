@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T18:38:39.431196+00:00'
+updated_at: '2026-09-10T18:48:03.796792+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -190,5 +190,35 @@ BUG-67 now records all of this and is down to Defect B — the capture host-cand
 <!-- xgd-chat role="user" ts="2026-09-10T18:38:38.497306+00:00" -->
 #### You
 yes
+
+<!-- xgd-turn id="85ce74ef-44b8-4097-81f6-26b297e2c02c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T18:48:03.538768+00:00" -->
+#### Claude
+Now let me write the implementation.
+
+Now the UAT tests:
+
+Defect B is done and landed on `xgd-working`.
+
+**BUG-67 — status `free_coded`, version 0.2.148**, commits `52e8082f` (the fix) and `3aa2238b` (the version bump). Worktree merged fast-forward, branch cleaned.
+
+**What changed** — `tools/generate/src/cli/capture/`:
+
+- `isHostResolutionFailure()` in `pipeline.ts` — names the one failure class that can't change its mind on a second ask (`ERR_NAME_NOT_RESOLVED`, `ENOTFOUND`, `EAI_AGAIN`). It breaks out of the retry budget after one navigation instead of three. Everything else — timeouts, resets — retries exactly as before.
+- `alternateHostUrl()` — one alternate, `www.` stripped or added, tried only after a resolution failure. A timeout doesn't earn it: a host that timed out resolved, so moving on would be inventing a hostname to explain a failure that already has an explanation. Returns `null` where the pair is meaningless (IP literal, `localhost`, single-label name), and the alternate passes `classifyUrl` before it's fetched — the fallback can't become a route to a host the egress guard exists to refuse.
+- `cmdCapturePage` now threads the resolved URL through the other three navigation passes. Only the first ran inside the pipeline; leaving the ladder, screenshots and hints on the typed URL would have left them asking for the dead name.
+- The failure message names every form tried and attributes the failure to the hostname — "a fact about the address and not about the site". That sentence is the one that stops the next assistant reporting a live site as dead.
+
+**Tests** — `tests/test_UAT_FC_BUG-67_capture_host_candidates.test.ts`, 8 UATs, one per acceptance criterion in the ticket, using a host-aware fake driver that records every navigation so they can assert on *counts* per host form, not just outcomes. The first one is the exact failure from the transcript: `www.gigabytealchemy.ai` navigated once, apex reached, capture succeeds.
+
+**Verification** — 8/8 new tests pass. All 27 capture-touching suites re-run green (208 tests, node + workers). Typecheck clean for the changed files; the 8 remaining `tsc` errors are all pre-existing `apps/control-app/src/builder/*.js` declaration-file misses, unrelated.
+
+Two things worth flagging:
+
+- I found one real bug in my own first draft: after a *timeout* exhausted the retry budget, the outer loop fell through and tried the alternate host anyway. AC3 caught it. Fixed by only advancing candidates on a resolution failure.
+- The initial worktree run failed two workers suites on `Cannot find module './generated/ai-workers.js'` — that's the known worktree location artifact, not the change. Copying `src/generated/` from the main checkout cleared it and both passed.
+
+What's left on BUG-67 is Defect A, which is now entirely framework-side: REQ-146 (landed) and BUG-49 (filed, not started). And the shared `node_modules` store still hasn't picked up REQ-146, so a builder session started now still runs the old `4096` ceiling.
 
 <!-- xgd-chat-end -->
