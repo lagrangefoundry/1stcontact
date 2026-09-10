@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-09-10T14:22:11.027216+00:00'
+updated_at: '2026-09-10T14:41:52.614822+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -74,8 +74,19 @@ The fold emits the **full language**, not text alone:
   the page-base inference — on a page whose panels are all nested, the measured
   backdrops are the only direct evidence of what the page is mostly painted in;
 - **reconstructed run surfaces**: the capture composites a card/panel/section fill
-  *onto* each run rather than emitting a standalone box, so the fold recovers it —
-  the solid fill the most runs sit on becomes the document background band. A run
+  *onto* each run rather than emitting a standalone box, so the fold recovers it.
+  The document background band is the fill covering the greatest total band height
+  across the reconstructed full-bleed bands *and* the captured backdrops together —
+  the page base is chosen by painted extent, from measured evidence, not by counting
+  runs. The fill the most runs sit on is only the fallback for a page that
+  reconstructs no full-bleed band at all, and the captured canvas fill only the last
+  resort beneath that: where bands do not quite meet, the dominant band reads truer
+  than the canvas hiding behind them. A **full-bleed bar** — a footer or nav strip
+  whose same-fill runs share a row spanning the content width but are individually
+  narrow and horizontally *distributed*, hugging the left and right edges with a
+  large empty stretch between — seeds a band rather than one tiny card per run,
+  which would expose the page background across the bar; an evenly-tiled card grid
+  on one fill, with small even gaps, stays cards. A run
   whose **own** border box already spans the surface it paints is **self-painting**:
   it folds that surface onto its own text leaf and contributes no backing box,
   because there is nothing left behind it to paint. Two families qualify — a pill
@@ -191,7 +202,8 @@ backdrops in the background layer, reconstructed surfaces, page band, behaviour
 seams with rebased control leaves, font table), the framing and colour-adjustment
 axes a captured picture or surface carries, the per-side padding fold, per-width
 responsive tracks for the type and padding axes that vary, the self-painting-run
-discrimination and captured-surface-rect card geometry, the viewport-height
+discrimination, the full-bleed-bar band rule and captured-surface-rect card
+geometry, the extent-measured page-base inference, the viewport-height
 response derived from height probes, the derived nowrap threshold a run carries,
 oracle retention, the offline re-fold, the materialization of a bundle as a
 servable L1 site with its assets localized (`1c repro`),
