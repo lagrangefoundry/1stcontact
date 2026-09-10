@@ -39,6 +39,41 @@ const MODULES_DIR = 'packages/framework/src/modules'
 /** Where the generated file lands, relative to the repo root. */
 const GENERATED = 'packages/framework/src/modules/module-assets.ts'
 
+/**
+ * One behavior's `client.js`, scoped so it cannot collide with another's (BUG-75).
+ *
+ * WHAT WENT WRONG WITHOUT IT. The parts were spliced together with `join`, into
+ * one module scope. `contact-form`, `account-portal` and `account-chrome` each
+ * declared a top-level `const ERROR_SELECTOR` — three private names that happened
+ * to agree — and two `const`s of one name in one scope is a *parse* error. The
+ * browser discarded the whole bundle before running a line, so every behavior
+ * died, including the ones whose names never collided. It failed that way for
+ * five days: each `client.js` is unit-tested on its own by importing the source,
+ * and the REQ-145 UAT compares the generated file to its inputs, so nothing
+ * anywhere parsed the composed result.
+ *
+ * WHY A BLOCK RATHER THAN A RENAME. Renaming `ERROR_SELECTOR` fixes this
+ * collision and waits for the next one. These identifiers are private to their
+ * file, nothing about authoring a behavior says the namespace is shared, and a
+ * convention that must be remembered by every future module is not a fix. A
+ * block gives each behavior its own lexical scope, so two of them may declare the
+ * same top-level name and the bundle still parses. `const`, `let`, `class` and —
+ * in a module, which is always strict — `function` are all block-scoped, and no
+ * `client.js` uses `var`, which is the one form that would still escape.
+ *
+ * WHY STRIPPING `export` IS FREE. `export` is not legal inside a block, so the
+ * wrap requires dropping it, and the bundle loses nothing: it is self-wiring —
+ * every behavior ends with its own DOM-ready auto-init — and nothing imports it.
+ * The exports exist for the unit tests, which import each `client.js` directly
+ * and never see this transform. Only a statement-leading `export` at column 0 is
+ * touched; every export in every `client.js` is a top-level `export function` or
+ * `export async function`, and none is indented, re-exported or defaulted.
+ */
+export function scopeBehaviorJs(id: string, js: string): string {
+  const body = js.replace(/^export\s+/gm, '')
+  return `/* behavior: ${id} */\n{\n${body}\n}`
+}
+
 export interface ModuleAssetBuild {
   /** The generated file's path, relative to the repo root. */
   file: string
@@ -84,7 +119,7 @@ export function composeModuleAssets(repoRoot: string): {
     if (fs.existsSync(clientFile)) {
       const js = fs.readFileSync(clientFile, 'utf8').trim()
       if (js) {
-        jsParts.push(`/* behavior: ${meta.id} */\n${js}`)
+        jsParts.push(scopeBehaviorJs(meta.id, js))
         clientJsIds.push(meta.id)
       }
     }
