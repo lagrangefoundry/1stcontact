@@ -6,9 +6,9 @@ title: A region carrying an image, an overlay and a fill together keeps both con
   live and both writes land — a sibling parameter is not occlusion
 created_by: xgd
 created_at: '2026-08-20T02:57:48.820898+00:00'
-updated_at: '2026-08-20T03:25:22.648216+00:00'
+updated_at: '2026-09-10T17:59:50.474119+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -18,7 +18,7 @@ fields:
 
 ## Criterion
 
-A region is marked unavailable on the test **"is the write observable and
+A **field** is marked unavailable on the test **"is the write observable and
 complete?"** — never on the mere presence of another parameter beside the one the
 control writes.
 
