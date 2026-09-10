@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T21:50:01.296857+00:00'
+updated_at: '2026-09-10T21:54:04.048952+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -58,5 +58,17 @@ My recommendation: **B**, because the beta form is the one thing our own shop wi
 <!-- xgd-chat role="user" ts="2026-09-10T21:50:00.455991+00:00" -->
 #### You
 I think B but I don't understand C?
+
+<!-- xgd-turn id="9662df59-a4e2-44f4-954c-7937ca7a870b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T21:54:03.347630+00:00" -->
+#### Claude
+Fair question — let me answer that first, then get moving on B.
+
+**C** was the same endpoint but deliberately crippled to one site: it would only accept submissions for the apex (our own `1stcontact` site, named by `APEX_SITE_KEY`), and any form on a customer's published site would still get nothing. The appeal is that it's less code — no deciding *which* tenant a submission belongs to, because there's only ever one. The cost is that it's the literalism trap: an endpoint shaped around our own homepage that has to be rebuilt properly the first time a customer wants a working contact form. Since `public-site` already resolves a site key from the URL for every request it serves, B barely costs more than C. So C isn't worth having, and you picked the right one.
+
+Let me read the design record before I write anything.
+
+Two things worth knowing before I write code:
 
 <!-- xgd-chat-end -->
