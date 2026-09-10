@@ -6,14 +6,15 @@ title: 'A site''s live revision is recorded in exactly one place: derived from t
   log, never stored beside the bytes'
 created_by: xgd
 created_at: '2026-08-31T11:53:15.172539+00:00'
-updated_at: '2026-08-31T12:07:25.835371+00:00'
+updated_at: '2026-09-10T16:55:54.878617+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
