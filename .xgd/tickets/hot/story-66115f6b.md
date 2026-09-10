@@ -6,9 +6,9 @@ title: 'Clean page URLs: the link an author writes resolves the same in local pr
   and on the deployed site'
 created_by: xgd
 created_at: '2026-08-06T19:02:03.988902+00:00'
-updated_at: '2026-09-10T16:05:05.324785+00:00'
+updated_at: '2026-09-10T16:56:19.907765+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-e0143ffa
