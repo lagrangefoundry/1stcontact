@@ -109,6 +109,10 @@ export {
   renderL1Fragment,
   L1_REVEAL_SCRIPT,
   L1_POINTER_SCRIPT,
+  // REQ-212 — the modal's vetted client half and the invariant stylesheet that
+  // gates it, so a consumer can hash the script under a CSP rather than find it.
+  L1_DIALOG_SCRIPT,
+  L1_DIALOG_CSS,
   // REQ-116 — the edit channel's vocabulary: the two stamped attributes, the
   // document-level marker, and the channel's own stylesheet.
   L1_EDIT_PATH_ATTR,
