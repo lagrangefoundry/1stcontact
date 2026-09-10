@@ -613,6 +613,75 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
     expect(answer).toContain('<<</untrusted>>>')
     expect(answer).toContain('Words a person typed.')
   })
+
+  it('test_UAT_AC1621_the_manual_carries_the_rule_the_sequence_and_the_undo_note', async () => {
+    // Being TOLD the site moved is not the same as knowing what to do about it,
+    // and the answer is the same for every operation — so it is carried once as
+    // GUIDANCE rather than repeated per-operation. This case proves it arrives
+    // through the projection, in all three places it was asked to live.
+    const box = await createL1Toolbox(SLUG, { cwd }, { config: { l1: { groups: ['ReadSite'] } } })
+    const manual = box.manual() as string
+    const offered = box.toolNames()
+
+    // ── 1. the cross-cutting rule, in the overview ──────────────────────────
+    // Taken out of the DECLARATION by its wording, then required to be in the
+    // manual verbatim — so the rule cannot be coming from a preamble written
+    // beside the manual while the declaration's own overview says something
+    // else. (Same shape as CAP-92's addressing-paragraph check.)
+    const rule = (L1_DECLARATION.overview as string)
+      .split('\n\n')
+      .filter((para) => /change the site themselves/i.test(para))
+    expect(rule).toHaveLength(1)
+    expect(rule[0]).toMatch(/at the start of a turn/i)
+    expect(rule[0]).toMatch(/look at what changed before you act/i)
+    expect(rule[0]).toMatch(/page they are looking at/i)
+    expect(manual).toContain(rule[0])
+
+    // ── 2. a named sequence, signal → read the changes → act ────────────────
+    interface Seq {
+      name: string
+      steps: string[]
+      note: string
+    }
+    const declared = (L1_DECLARATION.operations as Array<{ tool: string }>).map((o) => o.tool)
+    const pickUp = (L1_DECLARATION.sequences as Seq[]).filter((s) =>
+      s.steps.includes('list_changes'),
+    )
+    expect(pickUp).toHaveLength(1)
+    const seq = pickUp[0]
+
+    // The change read comes FIRST — the whole point is that the response starts
+    // from the log rather than from a defensive re-read of the page — and the
+    // page reads are what follow it.
+    expect(seq.steps[0]).toBe('list_changes')
+    expect(seq.steps.length).toBeGreaterThanOrEqual(2)
+    expect(seq.steps.slice(1)).toContain('describe_page')
+    expect(seq.note).toMatch(/not with a re-read/i)
+    expect(seq.note).toMatch(/never write over a change you have not read/i)
+
+    // Every step it names is a declared operation, and this grant holds all of
+    // them — which is why the sequence is projected rather than filtered out.
+    for (const step of seq.steps) {
+      expect(declared, `${seq.name} → ${step}`).toContain(step)
+      expect(offered, `${seq.name} → ${step}`).toContain(step)
+    }
+    expect(manual).toContain(seq.name)
+    expect(manual).toContain(seq.note)
+
+    // ── 3. the undo absence cites the log, and still says there is no undo ───
+    const undo = (L1_DECLARATION.absences as Array<{ name: string; note: string }>).find((a) =>
+      /undo/i.test(a.name),
+    )!
+    expect(undo).toBeDefined()
+    expect(undo.note).toContain('list_changes')
+    expect(undo.note).toMatch(/before and after/i)
+    expect(undo.note).toMatch(/you do not have to narrate the old value/i)
+    expect(undo.note).toMatch(/there is no undo/i)
+    // No undo operation was added to pay for the note being softened.
+    expect(declared.filter((tool) => /undo|revert|rollback/i.test(tool))).toEqual([])
+    expect(manual).toContain(undo.name)
+    expect(manual).toContain(undo.note)
+  })
 })
 
 // ── the push signal, through a real session ──────────────────────────────────
