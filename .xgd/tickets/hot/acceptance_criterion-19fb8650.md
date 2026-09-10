@@ -6,7 +6,7 @@ title: Every row of the country derivation table is itself valid site configurat
   and resolves back to itself
 created_by: xgd
 created_at: '2026-08-31T12:28:44.010502+00:00'
-updated_at: '2026-09-10T04:00:56.081416+00:00'
+updated_at: '2026-09-10T04:09:36.588052+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
