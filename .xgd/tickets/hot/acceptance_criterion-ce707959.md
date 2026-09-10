@@ -6,7 +6,7 @@ title: A captured picture's framing folds to the typed pair, with the browser's 
   centre and an unreadable form folding to nothing rather than a guess
 created_by: xgd
 created_at: '2026-08-12T21:48:18.533293+00:00'
-updated_at: '2026-08-16T08:03:25.026269+00:00'
+updated_at: '2026-09-10T15:36:49.223148+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
