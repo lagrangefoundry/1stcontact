@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-71
 created_by: xgd
 created_at: '2026-09-10T17:54:51.607573+00:00'
-updated_at: '2026-09-10T18:30:04.563222+00:00'
+updated_at: '2026-09-10T18:49:14.845760+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -201,5 +201,63 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="a8a0df7b-7dab-4a06-9180-e15a234884fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T18:49:14.573486+00:00" -->
+#### Claude
+Protocol read. Now the project's own conventions.
+
+Now scoping the ticket.
+
+Now the implementation.
+
+Now let me run the real build and see whether it fixes the bug.
+
+The regex matched inside a comment. TypeScript ships a scanner — better to use it than to harden a regex.
+
+The build is correct. Now the UATs.
+
+Now proving these fail against the unfixed build.
+
+All pre-existing — identical 11 files / 13 tests with and without my change. Now bringing the ticket body in line with what actually landed.
+
+Version raced with BUG-67 landing concurrently. Re-bumping.
+
+Now rebuilding the assets in your actual checkout, so the running builder has something correct to serve.
+
+Done — BUG-71 is at `free_coded`, merged into `xgd-working`.
+
+**Restart the builder.** The assets are rebuilt in your checkout, but the manifest is read at `wrangler dev` startup, so the running process is still serving the old tree.
+
+## What changed
+
+`tools/generate/src/cli/assets.ts` — the framework emit now follows the import graph instead of a list.
+
+`FRAMEWORK_SOURCES` keeps its six names, but they're now *entry points* rather than the inventory. From each one the build follows the imports that survive transpilation, emits every dependency under its repo-relative source path, and rewrites the specifier to the URL it landed at. So `l1/text.ts` is emitted, and `./text` becomes `/framework/packages/site-schema/src/l1/text.js` — a browser can't resolve `./text` even when the file exists, which was the second half of the bug.
+
+Following the *transpiled* output rather than the source is what keeps type-only modules out: `import type` is already erased by then, so what's followed is exactly what the browser will fetch.
+
+The build also refuses to ship a tree that can't load. Before the staged tree is swapped in, it walks from `/builder/main.js`, resolves every specifier and stylesheet, and fails naming *all* dangling edges with their importers. Refusing before the swap means your working `dist-assets` survives the refusal.
+
+`1c assets` now prints `graph 71 modules, 6 stylesheets — every import resolves`.
+
+## Two things worth knowing
+
+**The first cut used a regex and it was wrong.** It matched an import quoted inside a doc comment, rewrote the comment, followed the specifier out of it, emitted `palette.js` — which imports `zod`, which can't be served — and failed the build over a line of prose. Specifiers are now read with the TypeScript compiler's own scanner, which is already loaded to do the type-stripping. Telling code from comments is what a scanner is for.
+
+**`preProcessFile` reports the specifier span off by one** — `pos` is the opening quote, `end` is `pos + text.length`, so slicing verbatim eats the quote and keeps the last character. The code derives the span from the text and asserts the slice matches, so a future TypeScript changing this fails loudly instead of silently emitting mangled imports.
+
+## Verification
+
+Six UATs in `tests/test_UAT_FC_BUG-71_framework_import_graph.test.ts`, driving `1c assets` once and asserting against the bytes on disk. The graph walk in the test is independently written, so it's evidence about the tree rather than the checker agreeing with itself.
+
+I confirmed they go red against the unfixed build — the regression test fails with exactly `/framework/text <- /framework/site-schema-edit.js`, the original symptom.
+
+Full `node` suite: 11 files / 13 tests fail, and I verified the identical set fails on the same tree with my change reverted. All pre-existing, none related.
+
+## Still outstanding, deliberately
+
+Neither is part of this bug, and I left both alone rather than widening the ticket: `1c builder` still doesn't build assets before starting `wrangler dev` (the ~1.3s papercut from earlier), and the CLI usage text at `index.ts:508` still lists the `serve` command REQ-177 deleted. Say the word on either.
 
 <!-- xgd-chat-end -->
