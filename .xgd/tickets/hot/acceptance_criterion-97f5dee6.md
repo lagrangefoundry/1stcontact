@@ -7,9 +7,9 @@ title: A change map naming a field the region does not have, a value of the wron
   palette, or a change to a field it offered unavailable, is refused rather than ignored
 created_by: xgd
 created_at: '2026-08-07T02:02:40.679901+00:00'
-updated_at: '2026-08-20T02:55:07.419699+00:00'
+updated_at: '2026-09-10T19:18:16.734769+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
