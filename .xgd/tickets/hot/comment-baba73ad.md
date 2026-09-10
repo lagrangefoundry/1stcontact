@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T22:24:18.732231+00:00'
+updated_at: '2026-09-10T22:31:28.801780+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -317,5 +317,49 @@ Review every ticket in this epic's epic_children for unanswered questions: read 
 <!-- xgd-chat role="user" ts="2026-09-10T22:24:18.661388+00:00" -->
 #### You
 Review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid> --stdin` amending the ticket body  — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="b4b5084e-b245-41a3-ad72-d4050e66d2a9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T22:31:28.244368+00:00" -->
+#### Claude
+The children have live sessions with real findings. Reading each transcript.
+
+All six children have live sessions that have already investigated and reported. Every one raised questions. Writing answers back.
+
+All six children had already investigated and reported. Every one raised questions; I've answered what the design conversation settles and written it into each body. Nothing's status changed.
+
+## Answered in the tickets
+
+**REQ-217** — `write_image` only for now, `create_image` waits for REQ-149. Bake the business-scoped absolute URL into the transcript: the relative alternative is *actively unsafe*, since an unscoped `/preview/…` falls back to the first admissible business — the exact cross-business leak `scope.ts` exists to prevent. Also corrected a wrong paragraph I wrote: `fileUrl(uid)` serves material, but a drawing is a **site asset**, so this ticket needs its own local display-URL seam.
+
+**REQ-218** — Both namespaces. Restricting to site assets would exclude the originating complaint (a generated image is material); restricting to material would exclude the assistant's drawings. Raster lands after REQ-219; **SVG takes the browser path and isn't blocked**, following `measure-core.ts` — which is right for a wordmark because the page is the font context. CLI omits the kind.
+
+**REQ-219** — Settled the big one: **the recipe is applied at promotion, not publish.** The material records the asset name it was promoted to; a recipe change re-promotes. REQ-222's session reached this independently and argued it's correct by construction, which is what decided it. It also makes REQ-222 need nothing from REQ-219 but the binding.
+
+**REQ-220** — Focal point dropped: `focalPoint` has no consumer (BUG-44 records it losing its last one), and the live axis is per-placement. Name gets its own block, not the rights block. Captures and SVGs don't open the editor. The click needs a keyboard affordance.
+
+**REQ-221** — WebP output (AVIF would land undescribed); `ingestFetch` converts too; pre-check the 20 MB ceiling with its own refusal.
+
+**REQ-222** — Revision-independent cache copied into the revision prefix; cap rungs at source width so local and remote agree; `l1ImageSchema` not `assetRefSchema`; take the computed-`sizes` win.
+
+## Five things I've corrected in the epic — I had facts wrong
+
+- **Content addressing was withdrawn upstream (REQ-108)**, not established. Renditions would be *introducing* it.
+- **`flip` is supported by the platform.** My stated reason for excluding it was wrong. Your "keep v1 simple" decision stands — but it's a one-line addition if you'd rather have it now.
+- **`assetRefSchema` is the wrong schema**, twice. The sink reads `l1ImageSchema.src`.
+- **Publish applies sizing, not the recipe.**
+- **`focalPoint` is dead**, so my "both stay" argument was about a field nothing reads.
+
+## Four questions I can't answer — they're yours
+
+1. **Is the account Enterprise for Cloudflare Images?** HEIC input is listed as Enterprise-only. **This gates REQ-221 entirely** — if we're not, the fallback is an honest refusal pointing at *Settings → Camera → Formats → Most Compatible*, still far better than today's false "That file is no longer in storage." It also removes the HEIC argument from why we chose the Images binding (the other reasons hold).
+
+2. **Description staleness after a crop.** `description_status`'s values are all reasons a description couldn't be *produced*; none means *produced but no longer true*. Adding one widens every predicate over the field, and that text is what the KB indexes. Leave it for v1, or make it a query?
+
+3. **Background images.** The only real photograph in the repo is referenced as `axes.backgroundImageUrl`, which `srcset` cannot reach — so REQ-222 as scoped saves zero bytes on it. Widen to per-width `background-image` rules, or file separately?
+
+4. **Format negotiation and publish latency.** Serving WebP/AVIF from a static publish means `<picture>` with typed sources — that changes the sink's *shape*, so it's cheaper to decide now than retrofit. And a first publish of a photo-heavy site is N images × M widths inside a synchronous route behind a toolbar button.
+
+Separately: REQ-221's session confirmed a real defect unrelated to this epic — **a Library-route upload failure is completely silent**, because `receiveFiles` surfaces the error only when `source === 'chat'`. Drop a file that 400s and nothing happens at all. Want me to file it?
 
 <!-- xgd-chat-end -->
