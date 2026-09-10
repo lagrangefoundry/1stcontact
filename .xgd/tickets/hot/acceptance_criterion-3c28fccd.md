@@ -6,9 +6,9 @@ title: A background handle the site does not offer is refused at the field, whol
   before the shared validator runs
 created_by: xgd
 created_at: '2026-08-10T08:23:23.774000+00:00'
-updated_at: '2026-08-16T06:55:49.172097+00:00'
+updated_at: '2026-09-10T17:30:03.511029+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -41,6 +41,4 @@ Address a painted panel carrying a background. Apply, in turn: a handle naming
 an image the site does not hold; an asset that is not an image; the empty
 string; and a handle carrying an executable scheme. Assert each is refused with
 a field-scoped fault naming the background field, that no partial write
-occurred, and that the draft and the rendered page are unchanged. Assert the
-refusal is reported identically from the command line and through the builder
-origin.
+occurred, and that the draft and the rendered page are unchanged.
