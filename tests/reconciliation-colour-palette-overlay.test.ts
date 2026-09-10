@@ -12,8 +12,10 @@
  *           every colour axis accepts either a hex literal or a reference.
  *   AC-929  a reference that does not resolve is a validation failure, and
  *           resolution never substitutes a default.
- *   AC-930  translucency rides on the reference, so one colour used at several
- *           opacities is one entry.
+ *   AC-930  translucency and lightness ride on the reference, so one colour used
+ *           at several opacities or shades is one entry. The *conversion* of an
+ *           existing site's literals into that shape is AC-942's (the census +
+ *           retrofit capability); this file authors the shape directly.
  *   AC-931  references resolve once at the load boundary, so the authoring form
  *           is invisible downstream.
  *   AC-932  a retrofitted site's palette is materially smaller than its distinct
@@ -36,7 +38,7 @@ import type {
   L1Palette,
   ValidationError,
 } from '../packages/site-schema/src/index'
-import { resolveL1Color, validateSite } from '../packages/site-schema/src/index'
+import { resolveL1Color, shadeHex, validateSite } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { cmdColors, cmdColorsAssign, collectColorLiterals } from '../tools/generate/src/cli/colors'
@@ -282,69 +284,88 @@ describe('AC-929 a dangling reference fails validation, and resolution never sub
 
 // ── AC-930 ───────────────────────────────────────────────────────────────────
 
-describe('AC-930 translucency is an axis of the reference, so one colour at several opacities is one entry', () => {
-  it('test_UAT_AC930_one_rgb_at_several_alphas_collapses_to_one_entry_exactly', () => {
+describe('AC-930 translucency and lightness are axes of the reference, so one colour used at several opacities or shades is one entry', () => {
+  it('test_UAT_AC930_one_entry_serves_every_opacity_and_shade_of_one_colour', () => {
     // The measured case (DOC-23 §5.3): the `xgd` brand colour painted at
     // #2e86a3, #2e86a3a6 and #2e86a355 — one conceptual colour at three
-    // opacities. Retrofit a site carrying exactly those three literals and
-    // confirm the conversion makes them ONE entry referenced at three alphas.
+    // opacities — authored the way the model says it must be expressible: ONE
+    // entry, and three references differing only in the alpha each use carries.
+    //
+    // Scope note. The *conversion* that produces this shape from a site full of
+    // literals (`1c colors` → `1c colors --assign`) belongs to the census and
+    // retrofit capability and is pinned by AC-942; driving it here would restate
+    // that evidence. What this criterion owns is the value model underneath it:
+    // the axes live on the reference, the entry stays opaque *by the envelope*,
+    // resolution is exact across the whole alpha byte range, and the two
+    // reference axes are independent.
     const cwd = freshCwd()
+    const palette: L1Palette = { 'brand-teal': { value: '#2e86a3' } }
     const doc = {
       widths: WIDTHS,
-      background: '#2e86a3',
+      background: { ref: 'brand-teal' },
       root: {
         kind: 'box',
         axes: {
-          surfaceFill: '#2e86a3a6',
-          border: { widthPx: 1, color: '#2e86a355' },
+          surfaceFill: { ref: 'brand-teal', alpha: 0xa6 / 255 },
+          border: { widthPx: 1, color: { ref: 'brand-teal', alpha: 0x55 / 255 } },
         },
-        children: [{ kind: 'text', text: 'alpha', axes: { color: '#2e86a3', fontSizePx: 16 } }],
+        children: [
+          { kind: 'text', text: 'alpha', axes: { color: { ref: 'brand-teal' }, fontSizePx: 16 } },
+        ],
       },
     }
-    writeSite(cwd, 'alphas', siteWith(doc))
+    // Four uses at three opacities, and the palette they share has exactly one
+    // entry — the entry is the unit of colour change, not the (colour, opacity)
+    // pair.
+    expect(errorsOf(siteWith(doc, { palette }))).toEqual([])
+    expect(Object.keys(palette)).toEqual(['brand-teal'])
 
-    const census = cmdColors('alphas', { cwd })
-    expect(census.colors.map((c) => c.literal).sort()).toEqual([
-      '#2e86a3',
-      '#2e86a355',
-      '#2e86a3a6',
-    ])
-    expect(census.distinctRgb).toBe(1)
-    expect(census.alphaFamilies).toEqual([{ rgb: '#2e86a3', alphas: [255, 0xa6, 0x55] }])
+    // The entry stays opaque BY THE ENVELOPE rather than by convention: a
+    // palette entry that carries the alpha itself is rejected. That rejection is
+    // what forces one conceptual colour into one entry instead of one per
+    // opacity — without it the model would be a preference, not a guarantee.
+    const alphaEntry = errorsOf(siteWith(doc, { palette: { 'brand-teal': { value: '#2e86a3a6' } } }))
+    expect(alphaEntry.length).toBeGreaterThan(0)
+    expect(alphaEntry.some((e) => e.path.includes('palette')), JSON.stringify(alphaEntry)).toBe(true)
 
-    const assigned = cmdColorsAssign('alphas', { cwd })
-    // Three literals, one entry — the entry stays the unit of colour change.
-    expect(assigned.before).toBe(3)
-    expect(assigned.after).toBe(1)
-    const [entry] = Object.values(assigned.palette)
-    // The entry itself is opaque; the opacity lives on the reference.
-    expect(entry.value).toBe('#2e86a3')
-    expect(Object.keys(entry)).toEqual(['value'])
-
-    // The three references written to disk name that one entry at three alphas,
-    // and each resolves back to the literal it replaced, byte for byte.
-    const [name] = Object.keys(assigned.palette)
-    const page = JSON.parse(
-      readFileSync(path.join(cwd, 'storage', 'sites', 'alphas', 'draft', 'pages', 'p0.json'), 'utf8'),
-    ) as { l1: Record<string, unknown> }
-    const refs = JSON.stringify(page.l1)
-    expect(refs).toContain(`"ref":"${name}"`)
-    expect(resolveL1Color({ ref: name }, assigned.palette)).toBe('#2e86a3')
-    expect(resolveL1Color({ ref: name, alpha: 0xa6 / 255 }, assigned.palette)).toBe('#2e86a3a6')
-    expect(resolveL1Color({ ref: name, alpha: 0x55 / 255 }, assigned.palette)).toBe('#2e86a355')
+    // At the load boundary every use comes back as the literal it stands for,
+    // byte for byte, and no reference survives into what a consumer receives.
+    writeSite(cwd, 'alphas', siteWith(doc, { palette }))
+    const loaded = loadSite({ cwd, root: 'sites' }, 'alphas')
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    const resolved = loaded.value.site.pages[0].l1 as L1Document & { background?: string }
+    const painted = JSON.stringify(resolved)
+    expect(painted).not.toContain('"ref"')
+    expect(resolved.background).toBe('#2e86a3')
+    expect(painted).toContain('#2e86a3a6')
+    expect(painted).toContain('#2e86a355')
+    // Three distinct literals reached the document from a single-entry palette.
+    expect(new Set(painted.match(/#2e86a3(?:[0-9a-f]{2})?/g)).size).toBe(3)
 
     // Exactness holds across the WHOLE alpha byte range, not only the three
     // sampled values: every byte expressible in an 8-digit hex round-trips to
     // the identical byte, so replacing such a literal is reproduction, not
     // approximation.
     for (let byte = 0; byte < 255; byte++) {
-      const hex = resolveL1Color({ ref: name, alpha: byte / 255 }, assigned.palette)
+      const hex = resolveL1Color({ ref: 'brand-teal', alpha: byte / 255 }, palette)
       expect(hex.slice(0, 7)).toBe('#2e86a3')
       expect(parseInt(hex.slice(7), 16), `alpha byte ${byte} did not round-trip`).toBe(byte)
     }
     // A fully-opaque reference emits the bare `#rrggbb`, so a literal that never
-    // carried an alpha byte does not grow one on conversion.
-    expect(resolveL1Color({ ref: name, alpha: 1 }, assigned.palette)).toBe('#2e86a3')
+    // carried an alpha byte does not grow one when it becomes a reference.
+    expect(resolveL1Color({ ref: 'brand-teal', alpha: 1 }, palette)).toBe('#2e86a3')
+
+    // ── Neither reference axis displaces the other ──────────────────────────
+    // The criterion's generalisation: `shade` is on the reference for exactly
+    // the reason `alpha` is, so the same entry carries both independently and
+    // still occupies one entry.
+    const shaded = shadeHex('#2e86a3', -0.3)
+    expect(shaded).not.toBe('#2e86a3')
+    expect(resolveL1Color({ ref: 'brand-teal', alpha: 0xa6 / 255 }, palette)).toBe('#2e86a3a6')
+    expect(resolveL1Color({ ref: 'brand-teal', shade: -0.3 }, palette)).toBe(shaded)
+    expect(resolveL1Color({ ref: 'brand-teal', shade: -0.3, alpha: 0xa6 / 255 }, palette)).toBe(`${shaded}a6`)
+    expect(Object.keys(palette)).toEqual(['brand-teal'])
   })
 })
 
