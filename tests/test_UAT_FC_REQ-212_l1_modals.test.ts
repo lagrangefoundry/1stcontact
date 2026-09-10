@@ -372,16 +372,26 @@ describe('REQ-212 — what the renderer emits', () => {
   })
 
   it('test_UAT_FC_REQ-212_the_edit_render_ships_no_script_and_no_acting_attribute', () => {
-    const { html, js } = renderL1Document(doc(signInPage()), { edit: true })
+    const { html, css, js } = renderL1Document(doc(signInPage()), { edit: true })
     expect(js).toBeUndefined()
     // The element, the class and the box are kept; only what would ACT is gone —
     // exactly as a link keeps its `<a>` and loses its `href`.
     expect(html).toContain('<button')
     expect(html).not.toContain('data-l1-opens')
     expect(html).not.toContain('data-l1-closes')
-    // The panel renders in flow, settled and editable — no shell, no role.
-    expect(html).not.toContain('data-l1-dialog=')
-    expect(html).not.toContain('role="dialog"')
+    // [[REQ-215]] SUPERSEDES §5.7's "no shell, no role". The shell, the id and
+    // the role are emitted in every channel, because without them the edit
+    // render holds nothing a channel switch could tell "you are open" — and
+    // emitting them costs this channel nothing, since every overlay rule is
+    // gated on a marker only a script (or the builder carrying state in) sets.
+    // What still makes the render inert is what is asserted above: no script,
+    // and no attribute that would act.
+    expect(html).toContain('data-l1-dialog="signin-panel"')
+    expect(html).toContain('role="dialog"')
+    // …and with nobody having said otherwise, it still lays out in flow: the
+    // shell contributes no box until the ready marker is set.
+    expect(css).toContain('.l1-dlg { display: contents }')
+    expect(css).toContain('html[data-l1-dialog-ready] .l1-dlg { display: none }')
   })
 
   it('test_UAT_FC_REQ-212_a_panels_scroll_entrance_is_not_emitted', () => {

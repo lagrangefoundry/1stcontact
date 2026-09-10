@@ -140,6 +140,27 @@ export type {
 export { resolveEditTarget, mountL1EditBridge } from './l1/edit-client'
 export type { L1EditHit, L1EditBridge } from './l1/edit-client'
 
+// [[REQ-215]] — what the page is showing, read off a render and put back onto
+// one. Beside the bridge for the same reason: it reads the markup this package
+// emits, and the two channels' difference in how a state is reproduced belongs
+// with the renderer that creates the difference.
+export {
+  readL1PageState,
+  applyL1PageState,
+  listL1Dialogs,
+  L1_INITIAL_PAGE_STATE,
+} from './l1/page-state'
+export type { L1PageState, L1DialogEntry } from './l1/page-state'
+export {
+  L1_DIALOG_ATTR,
+  L1_DIALOG_CLASS,
+  L1_DIALOG_CLOSES_ATTR,
+  L1_DIALOG_LOCK_ATTR,
+  L1_DIALOG_OPEN_ATTR,
+  L1_DIALOG_OPENS_ATTR,
+  L1_DIALOG_READY_ATTR,
+} from './l1/dialog'
+
 // REQ-210 — what a pointed-at pixel resolves to. Beside the bridge because it
 // reads the same stamp, and exported here for the same reason the bridge is.
 export {

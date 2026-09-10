@@ -267,8 +267,12 @@ describe('REQ-119 request-time draft and edit renders', () => {
     expect(api).toContain('`/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`')
 
     const app = fs.readFileSync(path.join(REPO, 'apps/control-app/src/builder/app.js'), 'utf8')
-    expect(app).toContain("previewUrl(site, 'draft')")
-    expect(app).toContain("previewUrl(site, 'edit')")
+    // [[REQ-215]] — still exactly two channel URLs, built the same way from the
+    // same helper. What each one now carries is WHICH PAGE within the channel,
+    // so a channel switch keeps the reader where they were; the runtime move
+    // this AC protects is as invisible to the client as it ever was.
+    expect(app).toContain("previewUrl(site, 'draft', carry.pathFor(site))")
+    expect(app).toContain("previewUrl(site, 'edit', carry.pathFor(site))")
   })
 
   it('test_UAT_FC_REQ-119_a_preview_url_cannot_reach_outside_the_channel', async () => {

@@ -80,6 +80,12 @@ const FRAMEWORK_SOURCES: Record<string, string> = {
   'edit-client': 'packages/framework/src/l1/edit-client.ts',
   'site-schema-edit': 'packages/site-schema/src/l1/edit.ts',
   'site-schema-shade': 'packages/site-schema/src/l1/shade.ts',
+  // [[REQ-215]] — what the page is showing. The builder carries it across a
+  // channel switch, and it must be the SAME implementation the renderer's own
+  // markers were designed against: a browser copy would be a second opinion
+  // about what "open" means, in the one place where the two channels have to
+  // agree exactly.
+  'page-state': 'packages/framework/src/l1/page-state.ts',
   // REQ-210 — Marked Points. `marked-points.ts` inverts the transform chain a
   // pointed-at pixel sits under and writes what the assistant will read;
   // `anchors.ts` says which named lines are near it. Both are the ONE
