@@ -1,7 +1,7 @@
 /**
  * Reconciliation UATs for story-5e7eb0c5 — "Colour census and repeatable palette
- * retrofit: measure a site's colours, then migrate it onto a palette without
- * moving a pixel".
+ * retrofit: measure a site's colours, then migrate it onto a palette within a
+ * proven per-channel bound".
  *
  * The palette *model* (STORY-80) makes a reference an admissible form for any
  * colour axis. This story is the trip an already-authored site takes to reach
@@ -29,7 +29,7 @@
  *            mis-classifying fits are refused.
  *   AC-944   nothing moves outside 8/255; unshaded references are byte-exact;
  *            the accepted drift is reported, worst first.
- *   AC-945   a retrofit that cannot be proved lossless writes nothing.
+ *   AC-945   a retrofit that cannot be proved within the bound writes nothing.
  *   AC-946   derived names describe the colour and rename to role vocabulary
  *            from the command line.
  *   AC-947   assignment is a separate pass, and a second run is a byte-identical
@@ -756,7 +756,7 @@ describe('AC-944 a completed retrofit moves no colour outside 8/255 and reports 
   }, 180_000)
 })
 
-// ── AC-945 — a retrofit that cannot be proved lossless writes nothing ────────
+// ── AC-945 — a retrofit that cannot be proved within the bound writes nothing ─
 
 describe('AC-945 an unprovable retrofit fails and leaves every file untouched', () => {
   it('test_UAT_AC945_unprovable_retrofit_exits_nonzero_diagnoses_and_writes_nothing', () => {

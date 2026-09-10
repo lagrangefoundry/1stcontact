@@ -18,19 +18,21 @@
  *           retrofit capability); this file authors the shape directly.
  *   AC-931  references resolve once at the load boundary, so the authoring form
  *           is invisible downstream.
- *   AC-932  a retrofitted site's palette is materially smaller than its distinct
- *           colour count, with no colour lost.
+ *
+ * The *retrofit* — converting an already-authored site's literals into this shape
+ * — belongs to STORY-97 (the site-materials capability), not here: its palette
+ * shrink is AC-941's and its colour-movement bound is AC-944's, both covered by
+ * `reconciliation-colour-retrofit-shade-model.test.ts`. This file authors the
+ * shape directly and never runs the conversion.
  *
  * Every test drives a real entry point — `validateSite` (the one validator every
- * consumer goes through), `loadSite` (the load boundary itself), the
- * `renderL1Document` emitter, and the `1c colors` / `1c colors --assign` command
- * handlers over real on-disk site trees in a temp workspace. Nothing touches the
- * repo's own `storage/` tree.
+ * consumer goes through), `loadSite` (the load boundary itself) and the
+ * `renderL1Document` emitter — over real on-disk site trees in a temp workspace.
+ * Nothing touches the repo's own `storage/` tree.
  */
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import type {
   L1Document,
@@ -41,10 +43,7 @@ import type {
 import { resolveL1Color, shadeHex, validateSite } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
-import { cmdColors, cmdColorsAssign, collectColorLiterals } from '../tools/generate/src/cli/colors'
 import { loadSite } from '../tools/generate/src/store'
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const tmpDirs: string[] = []
 function freshCwd(): string {
@@ -471,106 +470,5 @@ describe('AC-931 references resolve once at the load boundary, so the authoring 
     const direct = renderL1Document(stored.l1, { palette: PALETTE })
     expect(direct.css).toBe(a.css)
     expect(direct.html).toBe(a.html)
-  })
-})
-
-// ── AC-932 ───────────────────────────────────────────────────────────────────
-
-describe('AC-932 a retrofitted site yields a palette, not a colour list, and loses no colour', () => {
-  /** Copy a real stored site into an isolated workspace. */
-  function stage(cwd: string, slug: string): void {
-    mkdirSync(path.join(cwd, 'storage', 'sites'), { recursive: true })
-    cpSync(path.join(REPO_ROOT, 'storage', 'sites', slug), path.join(cwd, 'storage', 'sites', slug), {
-      recursive: true,
-    })
-  }
-
-  /** The multiset of colours a site's pages actually paint, sorted. */
-  function paintedColors(cwd: string, slug: string): string[] {
-    const load = loadSite({ cwd, root: 'sites' }, slug)
-    if (!load.ok) throw new Error(`'${slug}' does not load: ${JSON.stringify(load.errors)}`)
-    // The loaded site has every reference already resolved, so this is what the
-    // renderer will paint regardless of which form was authored.
-    return load.value.site.pages.flatMap((page) => collectColorLiterals(page)).sort()
-  }
-
-  it('test_UAT_AC932_retrofit_shrinks_the_palette_materially_and_paints_the_same_colours', () => {
-    // The two stored sites carrying L1 pages. The retrofit is re-runnable — an
-    // already-assigned site censuses back to its literals — so running it here
-    // measures the same conversion that produced the sites on disk.
-    // REQ-137 moved both entry counts: a colour a tint/shade mix cannot reach is
-    // no longer filed under a family it is not part of, so it becomes its own
-    // entry. `xgd` went 6→7, `gigabytealchemy` 8→15, because most of what
-    // REQ-114's hue grouping called a family there was never a ramp — four of
-    // its "blues" are unrelated colours, and the palette now says so.
-    for (const [slug, expected] of [
-      ['xgd', { distinctRgb: 16, entries: 7 }],
-      ['gigabytealchemy', { distinctRgb: 30, entries: 15 }],
-    ] as const) {
-      const cwd = freshCwd()
-      stage(cwd, slug)
-
-      const before = paintedColors(cwd, slug)
-      // Guard the comparison below against being vacuously true.
-      expect(before.length, `${slug} paints no colours at all`).toBeGreaterThan(0)
-      const census = cmdColors(slug, { cwd })
-      expect(census.distinctRgb, `${slug} distinct RGB`).toBe(expected.distinctRgb)
-
-      const assigned = cmdColorsAssign(slug, { cwd })
-      const entries = Object.keys(assigned.palette).length
-      expect(entries, `${slug} palette entries`).toBe(expected.entries)
-
-      // A palette, not a colour list: fewer entries than the site has distinct
-      // colours, because colours sharing an RGB at different opacities collapse
-      // to one entry and colours on a ramp become shades of one. The exact
-      // counts above are the real guard — this is the shape of the claim.
-      expect(entries).toBeLessThan(census.distinctRgb)
-      expect(assigned.before).toBeGreaterThan(entries)
-
-      // Colour-lossless: every colour the site painted before is still painted
-      // after, and no new colour appeared. Compared as a multiset, from the load
-      // boundary both times, so a reference that resolved differently would show.
-      expect(paintedColors(cwd, slug), `${slug} lost or gained a colour`).toEqual(before)
-
-      // Every entry the retrofit wrote is one opaque colour — the alpha rode on
-      // the refs, and REQ-137 left the entry nothing else to carry.
-      for (const entry of Object.values(assigned.palette)) {
-        expect(entry.value).toMatch(/^#[0-9a-f]{6}$/)
-        expect(Object.keys(entry)).toEqual(['value'])
-      }
-    }
-
-    // A site with no L1 colour axes carries no palette at all and remains valid
-    // — the "palette is optional" guarantee in action, not a special case.
-    //
-    // SYNTHESISED, not stored (REQ-140). This claim used to be made against the
-    // `1stcontact` and `harbor-cafe` example sites, which were deleted as dead —
-    // they were built on the semantic layout modules the framework pivot
-    // removed, so nothing but this assertion still read them. A stored site kept
-    // alive only so a test can open it is a fixture wearing a site's clothes,
-    // and it made deleting dead examples look like a test failure. What the
-    // claim is actually about is a document with no colour axes anywhere, which
-    // is three lines to state exactly.
-    {
-      const cwd = freshCwd()
-      const colourless = {
-        widths: WIDTHS,
-        root: {
-          kind: 'container',
-          layout: 'stack',
-          children: [
-            { kind: 'text', text: 'No colour is declared anywhere in this document.' },
-            { kind: 'box', axes: { borderRadiusPx: 8 } },
-          ],
-        },
-      }
-      writeSite(cwd, 'colourless', siteWith(colourless))
-      const load = loadSite({ cwd, root: 'sites' }, 'colourless')
-      expect(load.ok, `the colourless site does not load: ${JSON.stringify(load)}`).toBe(true)
-      if (load.ok) {
-        expect(load.value.site.palette, 'a colourless site declares a palette').toBeUndefined()
-      }
-      expect(cmdColors('colourless', { cwd }).colors).toEqual([])
-    }
   })
 })

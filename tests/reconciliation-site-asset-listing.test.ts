@@ -5,9 +5,9 @@
  *
  * The claim under test is that there is exactly ONE listing, reachable two ways,
  * and that it is the UNION of two sources that genuinely disagree — the site
- * definition's declared registry (metadata, no bytes) and the draft asset
- * directory (bytes, no metadata). Every real site in `storage/` has an empty
- * registry beside a full directory, so a registry-only answer names nothing at
+ * definition's declared registry (metadata, no bytes) and the site's asset
+ * store (bytes, no metadata). Every real site in `storage/` has an empty
+ * registry beside a full store, so a registry-only answer names nothing at
  * all on the sites actually being built; the tests are shaped to fail if the
  * listing ever regresses to one source, invents a second handle vocabulary, or
  * flattens the disagreement between the two sources into a guess.
@@ -217,7 +217,7 @@ describe('story-c46abfa6 — the site asset store', () => {
 
   it('test_UAT_AC1018_a_file_present_in_the_site_assets_is_listed_even_when_undeclared', async () => {
     // AC-1018 — the state EVERY real site in `storage/` is in: a full asset
-    // directory beside an empty declared registry. A registry-only listing would
+    // store beside an empty declared registry. A registry-only listing would
     // name nothing here, which is why the union exists.
     cmdNew('undeclared', { cwd })
     seedSite(cwd, 'undeclared', { registry: [] })
@@ -244,7 +244,7 @@ describe('story-c46abfa6 — the site asset store', () => {
   })
 
   it('test_UAT_AC1019_a_declared_asset_contributes_its_identity_and_is_listed_with_no_file', async () => {
-    // AC-1019 — the definition's metadata is what the directory cannot supply,
+    // AC-1019 — the definition's metadata is what the store cannot supply,
     // and the two sources merge into ONE entry per handle rather than two.
     const assets = entriesOf(await askForAssets(cwd, 'acme'))
 
