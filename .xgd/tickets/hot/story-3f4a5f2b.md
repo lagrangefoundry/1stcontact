@@ -6,9 +6,9 @@ title: 'Site Storage Port: One Async Store Behind Every Edit, Provable In The Wo
   Runtime'
 created_by: xgd
 created_at: '2026-08-20T05:08:58.535662+00:00'
-updated_at: '2026-09-10T06:33:24.664377+00:00'
+updated_at: '2026-09-10T07:16:17.887368+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -16,6 +16,7 @@ fields:
   story_kind: feature
   story_points: 3
   updated_by: bundle-b3b7c399
+  uat_coverage: pass
 ---
 
 ## Story
