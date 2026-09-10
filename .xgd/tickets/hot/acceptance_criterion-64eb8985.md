@@ -6,14 +6,15 @@ title: An unsupported or malformed locale field is a validation error at a machi
   path, never a silent fallback
 created_by: xgd
 created_at: '2026-08-31T12:28:42.074577+00:00'
-updated_at: '2026-09-10T03:38:00.831908+00:00'
+updated_at: '2026-09-10T04:00:53.957746+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
