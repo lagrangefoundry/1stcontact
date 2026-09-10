@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T20:06:40.085641+00:00'
+updated_at: '2026-09-10T21:10:08.093663+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,23 @@ My lean: markdown image, host-emitted. Cheapest, robust, and clicking is a deleg
 | lagrange-framework | Amend the `create_image` surface prose — it currently tells the model the picture never enters the conversation |
 
 Tell me your calls on 1, 4 and 5 and I'll write EPIC-1's body as the umbrella and cut the children. Also: EPIC-1 is currently untitled — want me to title it something like *"Making a picture is a thing you can see"*, or do you have a name for it?
+
+<!-- xgd-turn id="755601a2-db29-4b9d-be59-35273d480218-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T21:10:07.526333+00:00" -->
+#### You
+1. Lets do the markdown image - it should be written by the tool, I think...
+   
+   2. Agreed any image can appear this way.
+   3. only when it asks
+   4. Lets discuss the edit modality.(a) its important that we have an "UNDO" capability so at least while using the editor I can go back to previous states (b) I should always retain the original, if I create a crop for example, and later decide it needs to be a little wider I don't want the image outside of the crop to be lost.
+   
+   At some level this relates to five. I suggest that we stick with tools that are browser canvas, I think this implies that any edits can be captured purely in terms of operations. So if we have the original image and the list of operations we can always go back to any intermediate state.
+   
+   I think this needs to be an AI tool as well as a user-tool.
+   
+   Once you have responded to this, I think there is a secondary discussion about image size that we should have. For images displayed on the site, how many versions of the image should we keep? Images taken with a modern iPhone are huge we don't necessarily want to serve those on a website at that scale it would be very wasteful of bandwidth. I'm bringing her up in this contacts partly to ask the question should image resizing be one of the tools capabilities? And then orthogonally should we have automatic capabilities for image sizing.
+   
+   Note that our tickets can have multiple attachments, so it might be natural to maintain versions and sizes in the same ticket.
 
 <!-- xgd-chat-end -->
