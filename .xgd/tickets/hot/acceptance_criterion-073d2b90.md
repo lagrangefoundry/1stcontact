@@ -6,14 +6,15 @@ title: A region carrying an image, an overlay and a fill together keeps both con
   live and both writes land — a sibling parameter is not occlusion
 created_by: xgd
 created_at: '2026-08-20T02:57:48.820898+00:00'
-updated_at: '2026-09-10T17:59:50.474119+00:00'
+updated_at: '2026-09-10T19:19:14.678309+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
