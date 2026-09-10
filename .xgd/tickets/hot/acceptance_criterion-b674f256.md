@@ -6,14 +6,15 @@ title: Granted identities, both controls and how to verify them are recorded in 
   repository, with no credential
 created_by: xgd
 created_at: '2026-08-31T09:32:31.520341+00:00'
-updated_at: '2026-08-31T09:41:07.343916+00:00'
+updated_at: '2026-09-10T04:34:17.901522+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-182e8cb9
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
