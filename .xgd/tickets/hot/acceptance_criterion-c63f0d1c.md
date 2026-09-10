@@ -6,14 +6,15 @@ title: Against a correctly serving origin every applicable smoke check passes, a
   any skip is named rather than forbidden
 created_by: xgd
 created_at: '2026-08-20T05:31:20.823028+00:00'
-updated_at: '2026-08-31T12:11:38.678350+00:00'
+updated_at: '2026-09-10T05:44:30.144140+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
