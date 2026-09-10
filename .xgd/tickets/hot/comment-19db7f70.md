@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-71
 created_by: xgd
 created_at: '2026-09-10T17:54:51.607573+00:00'
-updated_at: '2026-09-10T17:57:13.534996+00:00'
+updated_at: '2026-09-10T18:15:18.587602+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -50,5 +50,15 @@ Two things I'd like you to confirm before I cut the branch:
 2. Same treatment for `1c serve`/anything else that fronts the assets, or just `builder`?
 
 I've held off writing the ticket body until you've settled 1 — say go and I'll populate BUG-71 with the above, title it `1c builder: starts wrangler dev without building assets`, and implement.
+
+<!-- xgd-turn id="4c3026de-03d2-4ae7-92be-9228f79c37f3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:15:18.457887+00:00" -->
+#### You
+I believe 1c serve is deprecated - is that correct? We shoudl just delete it so it is not confusing.
+
+I don't understand your explanation so I can't say if the fix is right.
+
+Why is this happening?
 
 <!-- xgd-chat-end -->
