@@ -6,14 +6,15 @@ title: A pinned box whose flow interior outgrows its keyframe height is reported
   a content-overflow violation
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T14:40:25.771776+00:00'
-updated_at: '2026-09-10T14:40:25.771776+00:00'
+updated_at: '2026-09-10T15:36:56.579139+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-24098299
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
