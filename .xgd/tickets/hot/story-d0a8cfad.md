@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-16T08:45:05.974147+00:00'
+updated_at: '2026-09-10T11:18:23.991099+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -17,6 +17,7 @@ fields:
   uat_coverage: fail
   updated_by: request-8a132869
 ---
+
 
 ## Story
 **As a** site owner, **I want** my site's layout defined as validated structured
@@ -385,9 +386,34 @@ what forms a colour axis admits, the site palette's shape, reference resolution
 and dangling-reference rejection (REQ-114, STORY-80), of which this story carries
 only the page-level document fields and the absence of any second colour system;
 and the census/retrofit tooling that converts an existing site's literals to
-palette references (REQ-114's `1c colors`, a separate story). In L1, a `slot` renders as an
-inert labelled placeholder — a `div` carrying its slot name and, when declared,
-its target behavior-module id, with no module code and no behaviour attached.
+palette references (REQ-114's `1c colors`, a separate story).
+
+### What a `slot` emits: placeholder, or a mounted fragment
+In L1, a `slot` emits a `div` carrying its slot name and, when declared, its
+target behavior-module id. **With no mount supplied it is the inert labelled
+placeholder** — no module code, no behaviour attached — which is what this story
+owns and what the round-trip gate sees.
+
+**REQ-93 gave the sole emitter a `mounts` map.** When a caller supplies the bound
+module's already-rendered fragment for a seam, that fragment becomes the slot's
+content. This is the one place the emitter inserts markup **verbatim, unescaped**,
+and the carve-out is deliberate rather than an omission — it rests on two
+conditions that hold before the emitter is ever reached:
+
+1. **The content is framework-rendered markup, not instance data.** Every
+   instance value inside the fragment already passed the behavior module's own
+   escaping and URL sinks on the way in; re-escaping framework markup would
+   destroy it, and the values it wraps are already neutralised.
+2. **The binding was proved before render.** The page validator has already
+   established that the seam resolves — one module, one existing, unambiguous
+   slot name — so the emitter is never resolving or trusting a name at emit time.
+
+Everything else in this substrate remains true without qualification: no value
+originating in instance data reaches the browser except through a typed sink.
+The mount is a framework→framework seam, and it is stated here so the reasoning
+for the carve-out is on the record rather than implied by an absolute the emitter
+does not actually hold. The module *contract* that defines a valid binding, and
+the page-level rule that enforces it, belong to STORY-85.
 
 ## Technical Context
 - L1 is the substrate on which the platform's structured-only security boundary
@@ -703,8 +729,11 @@ None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on 
 3
 
 ## Merged from STORY-81 (overlap cluster 2 resolution)
-The reconciliation `upgrade` story STORY-81 ("Responsive dials …", CAP-68, now
-archived) recorded that the former **per-breakpoint module length dials**
+The reconciliation `upgrade` story STORY-81 ("Responsive dials …") **is live on
+this capability** — REQ-104 gave it distinct behaviour of its own (the per-width
+layout track and the wrapping row), and it is not archived. What was archived is
+its *pre-REQ-104* state under CAP-68, and that is the state this note describes:
+in that state STORY-81 recorded that the former **per-breakpoint module length dials**
 (`{ base, sm?, md?, lg?, xl? }`) and the header `navCollapse` dial were deleted by
 the REQ-79 pivot. Their responsive-across-widths intent is re-homed here: per-viewport
 variation is carried by this substrate's geometry keyframes (interpolate|snap).
