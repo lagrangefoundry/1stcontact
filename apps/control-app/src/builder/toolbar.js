@@ -254,3 +254,49 @@ export function publishAction(publish) {
     },
   }
 }
+
+/**
+ * Mark Points — the toggle that reassigns edit mode's primary gesture
+ * ([[REQ-210]], DOC-52 §4.3).
+ *
+ * A TOGGLE AND NOT A MODIFIER-CLICK. Alt-click would avoid a mode, but it is a
+ * power-user idiom, it is undiscoverable, and it does not exist on touch. The
+ * cost is that a click no longer opens the segment's modal while it is on —
+ * which is precisely why the state has to be *visible*, and why this is a
+ * pressed button in the strip rather than a preference somewhere.
+ *
+ * THE CONTROLLER IS NOT OWNED HERE. The strip throws its controls away on every
+ * mode and site change, so state kept in this closure would be lost the first
+ * time the reader switched channel — with the marks still on the page. The
+ * button reads and drives a controller that outlives it, and re-reads on
+ * creation so a rebuilt strip shows the state that is actually in force.
+ */
+export function markPointsAction(controller) {
+  return {
+    id: 'mark-points',
+    create() {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__points'
+      btn.textContent = 'Mark Points'
+      const sync = () => {
+        const on = controller.isActive()
+        btn.setAttribute('aria-pressed', String(on))
+        btn.title = on
+          ? 'Mark Points is on — a click places a point instead of opening its editor.'
+          : 'Mark Points — point at the page instead of describing where you mean.'
+      }
+      // DERIVED ON THE TWO OCCASIONS IT CAN CHANGE, and subscribed to nothing.
+      // The mode moves only when this button is pressed or when the strip is
+      // rebuilt (which re-runs `create`), so a subscription would buy nothing
+      // and would be exactly the detached-updater leak `actionCleanups` exists
+      // to prevent.
+      sync()
+      btn.addEventListener('click', () => {
+        controller.toggle()
+        sync()
+      })
+      return btn
+    },
+  }
+}

@@ -354,3 +354,107 @@ export function recordedRelations(svg: string): Relation[] {
   }
   return out
 }
+
+// ── which named lines are near a point ───────────────────────────────────────
+
+/**
+ * One measured node, as {@link nearestAnchors} needs to see it.
+ *
+ * The geometry plus the two things a *name* needs: what to call the node, and
+ * what it says. `#one` is an address; `"1"` is what the person pointing at it
+ * was looking at, and a line reported as `cap-top of "1"` is legible to someone
+ * who has never read the drawing's source.
+ */
+export interface LabelledNode extends NodeGeometry {
+  /** `#id` when the node has one, else its path from the root (`0.3`). */
+  ref: string
+  /** The text it holds, for a text node. */
+  text?: string | null
+}
+
+/** A named line, and how far the point is from it. */
+export interface NearLine {
+  /** `#one`, or `0.3`. */
+  ref: string
+  /** The anchor's name, from the closed set. */
+  anchor: string
+  axis: AnchorAxis
+  /** Where the line lies, in root user space. */
+  value: number
+  /** `value − point`, so the sign says which side of the point the line is on. */
+  delta: number
+  /** `cap-top of "1"` — the sentence a reader gets. */
+  label: string
+}
+
+/** How many lines are reported per axis. */
+const NEAR_PER_AXIS = 2
+
+/** `cap-top of "1"`, or `cap-top of #one` when the node paints no words. */
+function lineLabel(node: LabelledNode, anchor: string): string {
+  const text = (node.text ?? '').trim()
+  return `${anchor} of ${text === '' ? node.ref : JSON.stringify(text)}`
+}
+
+/**
+ * The named lines nearest a point, in root user space (REQ-210, DOC-52 §4.6).
+ *
+ * WHY THIS IS THE ARITHMETIC AND NOT A UI CONCERN. Someone pointing at "the top
+ * of the t" is naming a *feature*, approximately. The pixel they hit is their
+ * estimate of it; the line is the thing they meant. Reporting the line — with
+ * the distance, so the estimate is never overwritten — is what lets the answer
+ * be placed exactly rather than at the estimate. That is the same job
+ * {@link anchorValue} does, asked from the other end, so it lives beside it
+ * rather than in whatever surface happens to be pointing this time.
+ *
+ * THE POINT IS NEVER SNAPPED. A snap is a guess made at the wrong end: it
+ * discards the estimate before anyone has decided whether the estimate or the
+ * line was meant, and it fights someone who genuinely meant *just below*. So
+ * both are reported and neither is chosen here.
+ *
+ * PER AXIS, because the two questions are different. A y-line and an x-line are
+ * not competing to be "the nearest thing"; one says which horizontal the point
+ * is by, the other which vertical, and a purely-nearest list would report two
+ * horizontals for a point that sits squarely on a corner.
+ *
+ * `limit` bounds the distance in user units — beyond it a "nearby" line is not
+ * nearby, and reporting it would furnish a number nobody should act on. Absent,
+ * nothing is filtered.
+ */
+export function nearestAnchors(
+  nodes: readonly LabelledNode[],
+  fonts: Readonly<Record<string, FontMetrics>>,
+  point: { x: number; y: number },
+  limit?: { x?: number; y?: number },
+): NearLine[] {
+  const found: NearLine[] = []
+  for (const node of nodes) {
+    const font = node.font ? (fonts[node.font] ?? null) : null
+    for (const anchor of ANCHOR_NAMES) {
+      let value: number
+      try {
+        value = anchorValue({ node, font }, anchor)
+      } catch {
+        // An anchor this node cannot answer is not a failure — an ink anchor on
+        // a rectangle is a question with no subject. Skip it and keep going.
+        continue
+      }
+      if (!Number.isFinite(value)) continue
+      const axis = ANCHORS[anchor].axis
+      const delta = value - (axis === 'x' ? point.x : point.y)
+      const bound = axis === 'x' ? limit?.x : limit?.y
+      if (bound !== undefined && Math.abs(delta) > bound) continue
+      found.push({ ref: node.ref, anchor, axis, value, delta, label: lineLabel(node, anchor) })
+    }
+  }
+  const out: NearLine[] = []
+  for (const axis of ['y', 'x'] as const) {
+    out.push(
+      ...found
+        .filter((line) => line.axis === axis)
+        .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))
+        .slice(0, NEAR_PER_AXIS),
+    )
+  }
+  return out
+}

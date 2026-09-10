@@ -102,12 +102,27 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  *   is what keeps every existing caller working unchanged.
  * @param {(meta: {at?: number, changes?: number}) => void} [options.onSiteChanged]
  *   Called each time the turn reports a write — see {@link watchForWrites}.
+ * @param {(markdown: string) => string} [options.expandPrompt]
+ *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
+ *
+ *   IT IS A SEAM AND NOT A FEATURE OF THIS PANE. Marked Points is the caller
+ *   today, expanding each pill into the spatial description that is the
+ *   assistant's ONLY channel for it — the marks live in the reader's browser
+ *   overlay and are in no render the assistant sees. This pane knows none of
+ *   that; it knows that a draft is transformed on the way out, which is the one
+ *   thing it has to know for the transformation to be possible at all.
+ *
+ *   IT RUNS HERE RATHER THAN IN THE COMPOSER, so the bubble the reader watches
+ *   appear keeps the short form they typed while the turn carries the long one.
+ *   A reloaded transcript replays what the session recorded — the expansion —
+ *   which is the honest archive: it is what the assistant was actually told.
  */
 export function createChatPanel(options = {}) {
   const {
     storage,
     transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
     onSiteChanged = () => {},
+    expandPrompt = (markdown) => markdown,
   } = options
 
   const element = document.createElement('div')
@@ -157,7 +172,8 @@ export function createChatPanel(options = {}) {
       emptyText: EMPTY_TEXT,
       toolPane: true,
       ...(storage ? { storage } : {}),
-      sendPrompt: (text) => watchForWrites(transport.streamPrompt(id, text), onSiteChanged),
+      sendPrompt: (text) =>
+        watchForWrites(transport.streamPrompt(id, expandPrompt(text)), onSiteChanged),
     })
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`

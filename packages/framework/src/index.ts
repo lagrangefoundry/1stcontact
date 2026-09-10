@@ -136,6 +136,30 @@ export type {
 export { resolveEditTarget, mountL1EditBridge } from './l1/edit-client'
 export type { L1EditHit, L1EditBridge } from './l1/edit-client'
 
+// REQ-210 — what a pointed-at pixel resolves to. Beside the bridge because it
+// reads the same stamp, and exported here for the same reason the bridge is.
+export {
+  POINT_LABELS,
+  nextPointLabel,
+  pointToken,
+  referencedPointLabels,
+  flattenPointTokens,
+  parseViewBox,
+  readDrawingIntrinsics,
+  concreteObjectBox,
+  toUserSpace,
+  describeTarget,
+  formatMarkedPoint,
+  expandMarkedPoints,
+} from './l1/marked-points'
+export type {
+  MarkedPoint,
+  MarkedPointNear,
+  MarkedPointDrawing,
+  DrawingIntrinsics,
+  ReplacedBox,
+} from './l1/marked-points'
+
 // L2 — the optional library of vetted L1 designs (REQ-96): a default look a site
 // can drop into a behavior's slot when it has no capture to transcribe.
 export { contactFormPreset } from './l2/contact-form'

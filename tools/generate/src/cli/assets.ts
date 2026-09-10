@@ -69,6 +69,20 @@ const FRAMEWORK_SOURCES: Record<string, string> = {
   'edit-client': 'packages/framework/src/l1/edit-client.ts',
   'site-schema-edit': 'packages/site-schema/src/l1/edit.ts',
   'site-schema-shade': 'packages/site-schema/src/l1/shade.ts',
+  // REQ-210 — Marked Points. `marked-points.ts` inverts the transform chain a
+  // pointed-at pixel sits under and writes what the assistant will read;
+  // `anchors.ts` says which named lines are near it. Both are the ONE
+  // implementation of their arithmetic — `anchors.ts` is what `relate` and
+  // `solve` answer from (REQ-209), so a browser copy would be a second opinion
+  // about what `cap-top` means.
+  'marked-points': 'packages/framework/src/l1/marked-points.ts',
+  'site-schema-anchors': 'packages/site-schema/src/anchors.ts',
+  // The measuring script itself, so `near:` measures the drawing the SAME way
+  // `measure_drawing` does rather than a second way that agrees until it does
+  // not. It is a CLI file only in where it happens to live: it imports nothing,
+  // renders nothing, and returns a string of browser JS — which is what both
+  // callers evaluate, one through a driver and one in the page.
+  'measure-svg': 'tools/generate/src/cli/capture/measure-svg.ts',
 }
 
 /** What the build wrote, so the command can report it and a UAT can assert it. */
