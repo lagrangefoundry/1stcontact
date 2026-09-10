@@ -7,9 +7,9 @@ title: A picture's colour is adjusted through bounded whole-number controls over
   exactly as it found it, container and all
 created_by: xgd
 created_at: '2026-08-12T21:29:03.861779+00:00'
-updated_at: '2026-09-10T18:29:48.416329+00:00'
+updated_at: '2026-09-10T19:18:56.717668+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
