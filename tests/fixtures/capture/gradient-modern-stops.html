@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Modern-colour-space gradient stops fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      /* An opaque band the panels float on, so surfaceFillOf has a solid to
+         composite to and the gradient is unambiguously the panel's own. */
+      .band { background: #e8dfd3; padding: 48px; }
+      .panel { border-radius: 12px; padding: 40px; margin-bottom: 32px; }
+      .panel p { margin: 0; color: #334155; font-size: 20px; }
+
+      /* ── the case AC-1612 exists for ─────────────────────────────────────────
+         Tailwind v4 authors every palette colour in oklch(), so a real target
+         site's COMPUTED background-image carries oklch() stop tokens. The
+         tool-side stop regex reads only `#rrggbb` / `rgb()`, so an unresolved
+         stop list comes back EMPTY and the gradient captures as direction-only:
+         both sides then record no stops and diff clean while the gradients
+         visibly differ. These are Tailwind v4's blue-500 and orange-500. */
+      .panel-oklch {
+        background-image: linear-gradient(135deg, oklch(0.623 0.214 259.815) 0%, oklch(0.705 0.213 47.604) 100%);
+      }
+      /* The syntax-independence control. `color-mix(in srgb, X 100%, Y 0%)` is X
+         exactly — pure sRGB arithmetic, no gamut mapping and no lossy colour
+         space — so this panel paints byte-for-byte what `.panel-hex` paints
+         while being unreadable to the same tool-side regex. The two captures
+         must therefore agree stop for stop, exactly. */
+      .panel-mix {
+        background-image: linear-gradient(135deg, color-mix(in srgb, #3b82f6 100%, #ffffff 0%) 0%, color-mix(in srgb, #f97316 100%, #000000 0%) 100%);
+      }
+      /* The legacy-syntax twin: what the tool-side parser could always read. */
+      .panel-hex {
+        background-image: linear-gradient(135deg, #3b82f6 0%, #f97316 100%);
+      }
+
+      /* The other gradient kind: a text-FILL gradient (background-clip: text).
+         It is captured as the run's own `gradient`, never as a surface, and it
+         goes through the same in-page resolution. */
+      .wordmark {
+        margin: 0 48px 32px;
+        font-size: 48px;
+        font-weight: 700;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .wordmark-oklch {
+        background-image: linear-gradient(90deg, oklch(0.623 0.214 259.815) 0%, oklch(0.705 0.213 47.604) 100%);
+      }
+      .wordmark-mix {
+        background-image: linear-gradient(90deg, color-mix(in srgb, #3b82f6 100%, #ffffff 0%) 0%, color-mix(in srgb, #f97316 100%, #000000 0%) 100%);
+      }
+      .wordmark-hex {
+        background-image: linear-gradient(90deg, #3b82f6 0%, #f97316 100%);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="band">
+      <div class="panel panel-oklch"><p>Oklch Surface</p></div>
+      <div class="panel panel-mix"><p>Mix Surface</p></div>
+      <div class="panel panel-hex"><p>Hex Surface</p></div>
+    </section>
+    <h1 class="wordmark wordmark-oklch">Oklch Wordmark</h1>
+    <h1 class="wordmark wordmark-mix">Mix Wordmark</h1>
+    <h1 class="wordmark wordmark-hex">Hex Wordmark</h1>
+  </body>
+</html>

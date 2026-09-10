@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Modern-colour-space gradient stops fixture — drifted reproduction</title>
+    <style>
+      /* Byte-for-byte `gradient-modern-stops.html` EXCEPT the second stop of the
+         two oklch gradients, which turns green (Tailwind v4 green-500) instead of
+         orange. Same texts, same direction, same stop offsets, same stop count —
+         so the ONLY thing a values-diff between the two captures can report is a
+         stop colour, and only on the modern-syntax pair. The hex and color-mix
+         panels/wordmarks are unchanged and stand as the no-false-delta control.
+
+         This is the case AC-1612 names: while the stop list captured EMPTY, this
+         page diffed clean against its reference on both gradient axes. */
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      .band { background: #e8dfd3; padding: 48px; }
+      .panel { border-radius: 12px; padding: 40px; margin-bottom: 32px; }
+      .panel p { margin: 0; color: #334155; font-size: 20px; }
+
+      .panel-oklch {
+        background-image: linear-gradient(135deg, oklch(0.623 0.214 259.815) 0%, oklch(0.723 0.219 149.579) 100%);
+      }
+      .panel-mix {
+        background-image: linear-gradient(135deg, color-mix(in srgb, #3b82f6 100%, #ffffff 0%) 0%, color-mix(in srgb, #f97316 100%, #000000 0%) 100%);
+      }
+      .panel-hex {
+        background-image: linear-gradient(135deg, #3b82f6 0%, #f97316 100%);
+      }
+
+      .wordmark {
+        margin: 0 48px 32px;
+        font-size: 48px;
+        font-weight: 700;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .wordmark-oklch {
+        background-image: linear-gradient(90deg, oklch(0.623 0.214 259.815) 0%, oklch(0.723 0.219 149.579) 100%);
+      }
+      .wordmark-mix {
+        background-image: linear-gradient(90deg, color-mix(in srgb, #3b82f6 100%, #ffffff 0%) 0%, color-mix(in srgb, #f97316 100%, #000000 0%) 100%);
+      }
+      .wordmark-hex {
+        background-image: linear-gradient(90deg, #3b82f6 0%, #f97316 100%);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="band">
+      <div class="panel panel-oklch"><p>Oklch Surface</p></div>
+      <div class="panel panel-mix"><p>Mix Surface</p></div>
+      <div class="panel panel-hex"><p>Hex Surface</p></div>
+    </section>
+    <h1 class="wordmark wordmark-oklch">Oklch Wordmark</h1>
+    <h1 class="wordmark wordmark-mix">Mix Wordmark</h1>
+    <h1 class="wordmark wordmark-hex">Hex Wordmark</h1>
+  </body>
+</html>
