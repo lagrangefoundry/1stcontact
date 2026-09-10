@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T18:55:05.771856+00:00'
+updated_at: '2026-09-10T18:59:06.268952+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -208,5 +208,11 @@ Now the imagegen quota classification, in both languages.
 Now the Python peers for imagegen.
 
 Now the sur
+
+<!-- xgd-turn id="46951273-d15e-4e26-8a83-b0ee72b8e6ce-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:59:05.007037+00:00" -->
+#### You
+It sounds like you were implementing something? I askled you to create a ticket - you do not implement content in a different project, you create tickets there
 
 <!-- xgd-chat-end -->
