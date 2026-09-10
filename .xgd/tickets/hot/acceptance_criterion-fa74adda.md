@@ -6,14 +6,15 @@ title: Transcripts and the assistant's record live outside the storage region si
   files are addressed within, so no request address can name them
 created_by: xgd
 created_at: '2026-08-31T10:38:49.147303+00:00'
-updated_at: '2026-08-31T10:59:27.009699+00:00'
+updated_at: '2026-09-10T21:47:18.977663+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
