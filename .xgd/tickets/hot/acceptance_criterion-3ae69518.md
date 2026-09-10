@@ -6,9 +6,9 @@ title: A document is in the knowledge base only when it explicitly opts in, and 
   as a genuine boolean
 created_by: xgd
 created_at: '2026-08-20T04:16:45.054659+00:00'
-updated_at: '2026-08-20T04:37:27.187559+00:00'
+updated_at: '2026-09-10T07:46:43.776016+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c4f329d3
@@ -30,4 +30,6 @@ A value that merely looks like true is a document whose frontmatter did not pars
 
 ## Verification
 
-Assert the membership decision directly across all six shapes, and assert the integration half against the real document store: the set of documents the export produced is exactly the set the rule selects, no document silently added and none silently dropped, and no excluded document has a file in the corpus.
+Assert the membership decision directly across all six shapes. Then assert the integration half against a store holding a known mixture of opted-in and opted-out documents — one document per near-miss shape — and check that the export produced exactly the opted-in one, named every other as skipped, and left no excluded document with a file in the corpus.
+
+The mixture is seeded rather than taken from the real document store, so the verdict cannot turn on data no branch controls: with nothing opted in, a real-store assertion either fails for a reason that is not a defect or passes over an empty set. The real store is still exported and asserted for **agreement** — the set the export produced is exactly the set the rule selects, nothing silently added and nothing silently dropped — a property that holds at any corpus size, zero included.
