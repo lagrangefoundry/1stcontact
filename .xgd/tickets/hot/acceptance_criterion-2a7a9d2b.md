@@ -6,14 +6,15 @@ title: Building the knowledge base runs the whole pipeline in order and reports 
   it produced
 created_by: xgd
 created_at: '2026-08-20T04:16:32.869738+00:00'
-updated_at: '2026-08-20T04:37:28.641952+00:00'
+updated_at: '2026-09-10T08:04:15.868146+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
