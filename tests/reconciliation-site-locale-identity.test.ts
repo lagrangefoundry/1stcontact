@@ -463,4 +463,91 @@ describe('story-17ba490e — site locale identity', () => {
       expect(errorsFor(slug), `${slug} was refused`).toEqual([])
     }
   })
+
+  it(
+    'test_UAT_AC1618_the_reservation_consults_the_whole_iso_639_1_registry',
+    () => {
+      // AC-1618. Every slug the other criteria exercise — `de`, `fr`, `en`,
+      // `ga`, `pt`, `es` — is among the twenty most spoken languages, so an
+      // implementation carrying only the common ones would pass all of them
+      // green. What that would cost is the exact irreversibility this
+      // capability exists to foreclose: a page published at `/ki` or `/nv`,
+      // frozen into a revision that a later language prefix can break but not
+      // move. So the claim under test is MEMBERSHIP, not shape.
+      //
+      // ISO_639_1_LANGUAGES is transcribed here from the standard rather than
+      // imported from the module: a test that read the module's own list would
+      // agree with a curated subset just as happily. Pinning it is safe where
+      // pinning the country table's breadth would not be — ISO 639-1 is closed
+      // and frozen, while a country is added by a one-row data edit.
+      const ISO_639_1 = [
+        'aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az',
+        'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs',
+        'ca', 'ce', 'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy',
+        'da', 'de', 'dv', 'dz',
+        'ee', 'el', 'en', 'eo', 'es', 'et', 'eu',
+        'fa', 'ff', 'fi', 'fj', 'fo', 'fr', 'fy',
+        'ga', 'gd', 'gl', 'gn', 'gu', 'gv',
+        'ha', 'he', 'hi', 'ho', 'hr', 'ht', 'hu', 'hy', 'hz',
+        'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is', 'it', 'iu',
+        'ja', 'jv',
+        'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn', 'ko', 'kr', 'ks', 'ku',
+        'kv', 'kw', 'ky',
+        'la', 'lb', 'lg', 'li', 'ln', 'lo', 'lt', 'lu', 'lv',
+        'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms', 'mt', 'my',
+        'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr', 'nv', 'ny',
+        'oc', 'oj', 'om', 'or', 'os',
+        'pa', 'pi', 'pl', 'ps', 'pt',
+        'qu',
+        'rm', 'rn', 'ro', 'ru', 'rw',
+        'sa', 'sc', 'sd', 'se', 'sg', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sq',
+        'sr', 'ss', 'st', 'su', 'sv', 'sw',
+        'ta', 'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt',
+        'tw', 'ty',
+        'ug', 'uk', 'ur', 'uz',
+        've', 'vi', 'vo',
+        'wa', 'wo',
+        'xh',
+        'yi', 'yo',
+        'za', 'zh', 'zu',
+      ]
+      // The registry is closed: 184 living codes. `sh`, `in`, `iw` and `ji` are
+      // withdrawn and are correctly absent.
+      expect(new Set(ISO_639_1).size, 'the transcribed registry has duplicates').toBe(184)
+
+      // Sweep the whole two-letter space through the real validator and let the
+      // refusals fall out. Equality in BOTH directions is the point: a missing
+      // real code is an unguarded collision, and a reserved non-code is a tax
+      // on ordinary page names with no collision behind it.
+      const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('')
+      const reserved: string[] = []
+      for (const first of alphabet) {
+        for (const second of alphabet) {
+          const slug = `${first}${second}`
+          if (errorsFor(slug).length > 0) reserved.push(slug)
+        }
+      }
+      expect(reserved.sort()).toEqual([...ISO_639_1].sort())
+
+      // The rare end of the registry, held to the SAME refusal as `de`: same
+      // path, same reason, same two alternatives. None of these five appears in
+      // any other criterion, and each is paired against a same-shaped non-code
+      // so the assertion attributes the refusal to membership and not to shape.
+      const rare = ['ki', 'nv', 'io', 'cu', 'za']
+      const nonCodes = ['kx', 'nq', 'iq', 'cq', 'zq']
+      for (const slug of rare) {
+        const issue = errorsFor(slug).find((e) => e.path === '/pages/0/slug')
+        expect(issue, `${slug} is a real ISO 639-1 code but was not reserved`).toBeDefined()
+        const message = issue!.message
+        expect(message).toContain(slug)
+        expect(message).toMatch(/locale/i)
+        expect(message).toContain(`${slug}-services`)
+        expect(message).toContain(`about-${slug}`)
+      }
+      for (const slug of nonCodes) {
+        expect(errorsFor(slug), `${slug} is not a language and must be an ordinary slug`).toEqual([])
+      }
+    },
+    30_000,
+  )
 })
