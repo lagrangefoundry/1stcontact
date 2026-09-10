@@ -6,14 +6,15 @@ title: The change log is not a revision, is never published, and does not pertur
   the draft's byte-identity
 created_by: xgd
 created_at: '2026-08-20T02:27:30.946912+00:00'
-updated_at: '2026-09-10T08:52:00.818716+00:00'
+updated_at: '2026-09-10T09:14:35.707998+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
