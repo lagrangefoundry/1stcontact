@@ -5,12 +5,13 @@ type: capability
 title: 'Draft Change Journal: What Changed On The Draft, And Who Changed It'
 created_by: xgd
 created_at: '2026-08-20T02:24:45.657288+00:00'
-updated_at: '2026-08-20T02:24:45.657288+00:00'
+updated_at: '2026-09-10T09:14:49.423321+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: draft-change-journal
+  uat_coverage: pass
 ---
 
 # Draft Change Journal: What Changed On The Draft, And Who Changed It
