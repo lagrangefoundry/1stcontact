@@ -6,14 +6,15 @@ title: The operator's builder command is a transport over the one route table, d
   to the local simulated store
 created_by: xgd
 created_at: '2026-08-31T10:12:54.410560+00:00'
-updated_at: '2026-08-31T10:30:56.787614+00:00'
+updated_at: '2026-09-10T11:06:59.639099+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
