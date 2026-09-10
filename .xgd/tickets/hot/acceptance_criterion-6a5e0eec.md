@@ -6,15 +6,15 @@ title: Run-composited surfaces are reconstructed as a page background band plus 
   box leaves
 created_by: xgd
 created_at: '2026-07-29T04:05:20.467187+00:00'
-updated_at: '2026-09-10T14:41:03.535412+00:00'
+updated_at: '2026-09-10T15:37:17.361508+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 ## Criterion
