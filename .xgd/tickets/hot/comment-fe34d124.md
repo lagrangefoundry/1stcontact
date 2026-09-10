@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T18:48:03.796792+00:00'
+updated_at: '2026-09-10T18:58:13.323903+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,5 +220,11 @@ Two things worth flagging:
 - The initial worktree run failed two workers suites on `Cannot find module './generated/ai-workers.js'` — that's the known worktree location artifact, not the change. Copying `src/generated/` from the main checkout cleared it and both passed.
 
 What's left on BUG-67 is Defect A, which is now entirely framework-side: REQ-146 (landed) and BUG-49 (filed, not started). And the shared `node_modules` store still hasn't picked up REQ-146, so a builder session started now still runs the old `4096` ceiling.
+
+<!-- xgd-turn id="9e5c3760-1c39-402c-8694-e225def416d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:58:11.858889+00:00" -->
+#### You
+Just to round this up, can you confirm that the model and the context size are now confugrable from 1c?
 
 <!-- xgd-chat-end -->
