@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-09-10T11:18:56.893678+00:00'
+updated_at: '2026-09-10T13:22:12.658806+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-31e474b9
