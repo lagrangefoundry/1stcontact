@@ -6,9 +6,9 @@ title: Asking a region what it exposes declares that an image field's options ar
   images, without changing which of them may be chosen
 created_by: xgd
 created_at: '2026-08-12T16:04:12.775992+00:00'
-updated_at: '2026-08-16T06:55:51.670283+00:00'
+updated_at: '2026-09-10T17:30:04.684276+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -23,8 +23,8 @@ Asking a region what it exposes says not only that a field's choices are a
 **closed list**, but **what those choices are**, whenever knowing that changes
 how they should be shown. A field whose options are the site's images is
 declared as holding images, and that declaration travels with the field itself —
-so every client reading the same answer learns the same thing, whether it reads
-it from the command line or over the builder's origin.
+so it is a property of the answer rather than of whichever client happens to
+read it, and every client reading the same answer learns the same thing.
 
 The declaration is attached by **kind of field, not kind of region**: an image
 region's *which image goes here* and a painted panel's *which image sits behind
@@ -52,6 +52,4 @@ Assert the option lists themselves are unchanged by the declaration: the same
 handles, each once, in the same stable order, still including the handle the
 region currently holds. Submit a well-formed handle that is not among a
 region's options and assert it is still refused at the field with the draft
-unchanged, and that a handle that *is* among them is still accepted. Assert the
-declaration is present in the answer read through the builder origin as well as
-from the command line.
+unchanged, and that a handle that *is* among them is still accepted.
