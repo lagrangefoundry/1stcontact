@@ -13,6 +13,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6bc952d2
 ---
 
 # The AI must be able to drive the page before it photographs it
