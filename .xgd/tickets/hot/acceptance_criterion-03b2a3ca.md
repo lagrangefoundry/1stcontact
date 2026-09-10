@@ -6,14 +6,15 @@ title: The structured editing surface completes inside the Workers runtime again
   real bindings, with no filesystem on its path
 created_by: xgd
 created_at: '2026-08-31T09:48:04.235806+00:00'
-updated_at: '2026-08-31T10:04:12.969052+00:00'
+updated_at: '2026-09-10T07:16:15.796726+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
