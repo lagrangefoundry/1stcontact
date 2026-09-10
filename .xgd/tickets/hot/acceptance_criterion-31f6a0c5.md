@@ -6,14 +6,15 @@ title: The whole editing surface completes against a store with no filesystem be
   it
 created_by: xgd
 created_at: '2026-08-20T05:10:27.639589+00:00'
-updated_at: '2026-08-20T05:24:46.637990+00:00'
+updated_at: '2026-09-10T07:15:43.181953+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
