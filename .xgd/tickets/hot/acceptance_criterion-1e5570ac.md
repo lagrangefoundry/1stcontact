@@ -6,14 +6,15 @@ title: A captured element's per-side padding folds onto its leaf and insets cont
   inside the pinned border box
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T14:09:32.991780+00:00'
-updated_at: '2026-09-10T14:09:32.991780+00:00'
+updated_at: '2026-09-10T15:36:52.348649+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
