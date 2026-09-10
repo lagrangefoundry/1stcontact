@@ -6,9 +6,9 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-16T08:03:50.702281+00:00'
+updated_at: '2026-09-10T14:08:21.680631+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -24,8 +24,9 @@ fields:
 sample ladder into one renderable L1 reproduction document in the *full* L1
 language — text, media, painted surfaces, backdrops, the page band and the
 behaviour seams with their controls — plus advisory structural hints, while
-keeping the raw ladder as an acceptance oracle, letting me re-fold offline
-against it, and signalling anything it still cannot express, **so that**
+keeping the raw ladder as an acceptance oracle, letting me materialize that
+document as a servable site and re-fold it offline against the ladder, and
+signalling anything it still cannot express, **so that**
 reproducing a captured site becomes near-mechanical — capture, fold, render,
 gate — and whatever the folder still lacks is named rather than lost.
 
@@ -39,17 +40,17 @@ flags, and a visibility rule derived from the widths it is present at. The raw
 ladder is retained unchanged as the acceptance oracle the fold is gated against.
 
 The fold emits the **full language**, not text alone:
-- a **text** leaf for a styled run, carrying the typography axes plus the text
-  pixel-mover families the language expresses (gradient fill, decoration,
-  small-caps, list marker, text shadow);
+- a **text** leaf for a styled run, carrying the typography axes and the run's own
+  per-side padding, plus the text pixel-mover families the language expresses
+  (gradient fill, decoration, small-caps, list marker, text shadow);
 - an **image** leaf for a text-free media element, carrying its resolved source
   and alternative text (captured onto the media field and carried through the
-  manifest), a height-bearing geometry track and its image axes — including how
-  the picture is *seen*: which part of itself its box shows, and the colour
-  adjustment painted over it;
+  manifest), a height-bearing geometry track, its per-side padding and its image
+  axes — including how the picture is *seen*: which part of itself its box shows,
+  and the colour adjustment painted over it;
 - a **box** leaf for a text-free element that paints a standalone surface,
-  carrying the surface's own colour adjustment alongside the fill, border,
-  shadow and backdrop blur it already folded;
+  carrying its per-side padding and the surface's own colour adjustment alongside
+  the fill, border, shadow and backdrop blur it already folded;
 - a **backdrop** box leaf for a captured element that paints *behind* content — a
   background photograph at any depth, or a full-bleed opaque panel fill. A
   backdrop is placed in the document's **background layer**, behind the runs of
@@ -60,35 +61,56 @@ The fold emits the **full language**, not text alone:
   backdrops are the only direct evidence of what the page is mostly painted in;
 - **reconstructed run surfaces**: the capture composites a card/panel/section fill
   *onto* each run rather than emitting a standalone box, so the fold recovers it —
-  the solid fill the most runs sit on becomes the document background band, and
-  every run whose surface differs from the band (or carries a gradient the body
-  cannot paint) gets a backing box emitted before the content so each leaf paints
-  over its own surface;
+  the solid fill the most runs sit on becomes the document background band. A run
+  whose **own** border box already spans the surface it paints is **self-painting**:
+  it folds that surface onto its own text leaf and contributes no backing box,
+  because there is nothing left behind it to paint. Two families qualify — a pill
+  badge, whose corner radius reaches at least half its painted height, and a padded
+  control (a button, a submit link), whose authored vertical inset means the box the
+  capture measured already covers the fill. Every *other* run whose surface differs
+  from the band (or carries a gradient the body cannot paint) still gets a backing
+  box emitted before the content so each leaf paints over its own surface — and that
+  box's edges, radius and grouping come from the **captured surface rect**: the
+  capture already resolves which ancestor paints the run and records that element's
+  own box, so a card's geometry is a measured fact. Only a run whose surface the
+  capture did not resolve falls back to the runs' own union, and then reaches no
+  further than that box. Nothing is inferred from where the text happens to sit;
 - a **font resource table** binding each painted family handle to its served
   substance, populated only with the families a folded text leaf actually paints.
 
-**How a measured value becomes a typed axis.** Folding is not transcription: a
-computed CSS string is admitted only on terms that keep the folded definition
-honest and small. **The browser's own default is not worth carrying** — a value
-the browser would paint anyway (a picture centred in its own box, no colour
-adjustment at all, an adjustment function sitting at the value that changes
-nothing) folds to nothing rather than being recorded, because a definition that
-wrote it in would grow on every page with declarations that cost a composite
-layer and move no pixel. **The value that changes nothing differs per adjustment**
-— full desaturation and no desaturation are opposite ends of two differently
-oriented scales, so the skip rule is per-function rather than one constant; a
-single rule would silently fold a fully desaturated photograph to no adjustment
-at all and reproduce it in full colour. **The same value spelled two ways folds
-the same** — a ratio written as a percentage and as a decimal are one filter, and
-which spelling a browser reports is not something the reproduction should depend
-on. **An unreadable form is a gap, never a guess** — a form the fold cannot parse
-(a keyword or length pair where it expects percentages) writes no axis, so the
-definition never states a framing the page did not, and the difference stays
-visible to the comparison that gates a reproduction instead of being closed with
-an invented number. **A value past the envelope is carried at the nearest
-expressible one**, because a real treatment the target paints reproduces better
-near-missed than absent — while a value that is not a treatment at all (a
-negative amount) is skipped.
+**An axis the page makes responsive folds to a track, not to one desktop value.**
+The width ladder does not only fix geometry. A numeric axis whose value differs
+across the sampled widths is emitted as a per-width keyframe track on the same
+terms as geometry — the numeric type axes (size, line height, letter spacing) and
+each padding side independently — while an axis holding a single value everywhere
+stays a plain scalar. Reading every axis from the node's widest present sample (the
+desktop rendering) is correct only for an axis the page holds constant: for one the
+page varies it painted the desktop value at every width, which rendered text
+oversized at mobile and replayed a desktop pad at 320. A track earns its place only
+by varying, so a static axis is never bloated into one.
+
+**Padding folds inward, never outward.** A captured box is a *border* box — it
+already includes the element's own padding — so folding the per-side pad insets the
+leaf's content inside geometry the fold has already pinned, rather than inflating
+it. That is what gives a badge or a control its shape and its click target while
+its measured box stays exactly where the capture found it.
+
+**A second sampling axis: viewport height.** The width ladder alone cannot see a
+viewport-relative extent. A `100vh` hero measuring 1024 at 768x1024 and 768 at
+1024x768 is indistinguishable from an element that simply shrinks with width, so the
+axis is not merely unmodelled but *unfittable*, and the rule reproduces as a pinned
+pixel height that stops short of the fold in any window of another size. The fold
+therefore also consumes **height probes** — one ladder width re-shot at a second
+viewport height — and derives from each pair a per-node `{yFactor, heightFactor}`
+response carried on the node's geometry. The response is a **measured finite
+difference**, never an inference from a correlation: with no probe the fold emits no
+response at all rather than guessing. A probe is *evidence about the height axis and
+never a keyframe of its own* — the ladder alone defines keyframes, screenshots and
+diff cells, so the first projection at a width defines the ladder and any later one
+at that width is read as evidence. Each response is applied against its own
+keyframe's captured height, so a keyframe still evaluates to exactly its captured
+pixels at capture size; a reconstructed card inherits the response of the
+representative row it was built from.
 
 **Behaviour seams and their controls.** A captured form control belongs to a
 behavior module, so the fold never synthesizes a raw `<input>`. Each cluster of
@@ -113,6 +135,20 @@ produced and leaving the oracle, screenshots, mirrored assets and hints untouche
 so a fold change can be picked up without re-hitting the captured origin (which
 would re-roll the reference in the same step).
 
+**Materializing a folded bundle as a servable site.** A folded document is only a
+file until something can serve it, so the capability also owns the operator verb
+that imports a bundle as **a site whose home page *is* its folded L1 document**,
+mirroring the bundle's assets into the draft so the existing render / serve / shot
+/ diff / values-diff loop works on the reproduction unchanged. It is **idempotent**
+— re-running wipes and rebuilds — and on the reproduction values it adds and
+subtracts nothing: a verbatim copy of what the fold produced. Every media handle is
+rebound from the captured origin to that mirror *before* the document is written,
+and a handle with no mirrored asset **fails the import outright** rather than
+yielding a reproduction that hotlinks the origin — which would render only while
+that host is up and would blind the perceptual gate to image regressions. Mirrored
+assets the folded document references nowhere are reported as a fold gap to close
+rather than ignored.
+
 A separate **advisory structural-hint** pass emits a sidecar describing the CSS
 *relationships* the painted-geometry fold deliberately omits — parent computed
 layout, authored sizing units, position mode, ancestry, sibling repetition, and
@@ -124,7 +160,11 @@ renders as a complete reproduction on its own.
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 backdrops in the background layer, reconstructed surfaces, page band, behaviour
 seams with rebased control leaves, font table), the framing and colour-adjustment
-axes a captured picture or surface carries, oracle retention, the offline re-fold,
+axes a captured picture or surface carries, the per-side padding fold, per-width
+responsive tracks for the type and padding axes that vary, the self-painting-run
+discrimination and captured-surface-rect card geometry, the viewport-height
+response derived from height probes, oracle retention, the offline re-fold, the
+materialization of a bundle as a servable L1 site with its assets localized,
 geometry keyframes + interpolate/snap classification + visibility rules, the typed
 residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
@@ -133,13 +173,13 @@ supersession of the pre-L1 `adopt-values` reproduction command.
 axis vocabulary these folded values land in, the `control` node kind and its
 emitter, and the resource-table form (owned by the L1 Layout Substrate capability);
 what a behavior module declares and how it wires a bound control (owned by the
-behavior-module contract); the capture-side rules that decide a band's extent and
-index the backdrops, and the values-diff axis coverage (owned by the values-diff
-fidelity capability); the editor surface that writes the same framing parameters by
-hand (owned by the structured copy-editing capability); the end-to-end reproduction
-acceptance gate, its fidelity pairing of non-text leaves, and structure recovery
-(owned by the 3-Probe Reproduction Gate story); how the gate presents the residual
-channel.
+behavior-module contract); the capture-side rules that decide a band's extent,
+index the backdrops, shoot the height probe and record a run's surface shape, and
+the values-diff axis coverage (owned by the values-diff fidelity capability); the
+editor surface that writes the same framing parameters by hand (owned by the
+structured copy-editing capability); the end-to-end reproduction acceptance gate,
+its fidelity pairing of non-text leaves, and structure recovery (owned by the
+3-Probe Reproduction Gate story); how the gate presents the residual channel.
 
 ## Technical Context
 - Builds on the L1 Layout Substrate (CAP-70, plan item 1): the fold emits a typed
@@ -151,10 +191,37 @@ channel.
 - Box and image leaves pin all four sides (height included) because their extent is
   not derivable from content; a text leaf's height stays natural from flow, so its
   keyframes omit height.
+- A responsive track is emitted only when at least two sampled widths carry the axis
+  AND its values differ there; the widest keyframe reads its value exactly as the
+  scalar would have, so the two forms agree at the desktop end. Segments are omitted
+  so the default is `interpolate`, mirroring geometry's fluid default.
+- Padding sides that are zero, absent or out of range are dropped, and an all-zero
+  padding emits no axis at all — the pad is folded because the renderer's box model
+  is border-box, so an inset content area and a pinned outer box are consistent.
+- The self-painting discriminators are read from the element's OWN computed style,
+  unlike `surfaceFill` / `surfaceGradient` / the left-accent border, which the
+  capture resolves by walking ancestors. A radius reaching half the painted height
+  is pill saturation — what a badge is and what a card never is; an authored
+  *vertical* inset marks a padded control, since normal block flow gives a text
+  element none. Horizontal padding alone is deliberately not enough (a `pl`-indented
+  run inside a card is a common shape and its fill belongs to the card), and a
+  gradient or a left-accent rule keeps the treatment on the backing box, where a
+  run's own axes cannot carry it.
+- The captured surface rect doubles as an exact grouping identity — two runs painted
+  by the same element share it, two runs on different cards never do — so sibling
+  tiles can neither merge nor drift. A surface as wide as the viewport is the band,
+  not a card. The earlier inferred card padding/outset estimates are deleted rather
+  than corrected: fixing them per edge only reversed the error's direction, and a
+  run is square while the panel element carries its own radius.
 - A backdrop is recognised from the folded geometry rather than from a capture-side
   flag: a painted background image always is one, and a solid fill is one when it
   spans the viewport. Backdrops are ordered after the section-background boxes they
   are a peer of, because a nested backdrop sits inside the section it overlays.
+- The height probe deliberately re-shoots an *existing* ladder width rather than
+  adding a new one: the ladder defines keyframes, screenshots and diff cells, and a
+  duplicate width would perturb all three. A band takes its response from its
+  section edges rather than from its runs — a hero's copy sits in the top half and
+  never moves while the band's bottom travels a full viewport height.
 - Rebasing a control to its seam changes only the ORIGIN of its geometry, never the
   measured box: the seam's own rect is the union of the cluster (widened to hold a
   claimed submit button), and each control's keyframe is its captured box minus the
@@ -179,7 +246,8 @@ channel.
   value is read; keyword and length forms are left unfolded.
 - The clamp ceilings the fold applies are the envelope's own (the adjustment
   amount, the rotation range for a hue shift, the effect-length range for a blur),
-  so a clamped fold always validates.
+  so a clamped fold always validates. A pill's authored radius is often a saturating
+  sentinel and is clamped the same way, which renders identically.
 - A shadow written as an adjustment function is deliberately NOT read: the
   substrate already carries a typed shadow, and folding it here would give it two
   ways to say one thing — the legacy-mode state the project forbids. It stays
@@ -192,6 +260,11 @@ channel.
 - The re-fold is a *derivation* refresh: a bundle with no retained ladder has no
   oracle to re-fold and is rejected with a re-capture instruction rather than
   silently producing a document from nothing.
+- The site config the materialization writes is disposable — the durable output is
+  the framework growth each residual forces. The import also fails loudly when a
+  bundle's L1 seams and its behaviour bindings disagree: both are written by one
+  fold, so a mismatch means the bundle is part-stale, and importing it anyway would
+  render the behaviours as inert placeholders.
 - The hint pass runs as a separate capture read from the values extraction, so the
   values pipeline is untouched; hints are advisory-only by construction.
 - Supersedes the pre-L1 `adopt-values` command (REQ-66), a vestige of the
