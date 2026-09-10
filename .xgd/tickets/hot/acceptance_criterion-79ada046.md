@@ -6,14 +6,15 @@ title: A site's write version is readable and advances on every write, independe
   of the change count
 created_by: xgd
 created_at: '2026-08-31T09:47:29.968841+00:00'
-updated_at: '2026-08-31T10:04:14.085216+00:00'
+updated_at: '2026-09-10T07:16:07.552519+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
