@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T00:08:16.573406+00:00'
+updated_at: '2026-09-10T00:09:23.835640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,11 @@ Top up the account at that URL and generation works again — no restart needed,
 The thing worth fixing is that you had to ask me. `generator_unavailable` is declared `host_detail: false`, so OpenAI's one-sentence explanation was dropped before the model saw it and never logged server-side either. That's BUG-68, and the fix is upstream in `lagrange-framework`.
 
 (The production worker is a separate matter — `wrangler secret list --env production` shows only `ANTHROPIC_API_KEY` and `RESEND_API_KEY`, so deployed sessions have no image tool at all. Deliberate per `bin/deploy.d/secrets/30-openai-api-key`, which deploys without it and says so, but flagging it in case you expected otherwise.)
+
+<!-- xgd-turn id="3e8af836-9220-458c-9a05-d4d18a01822b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:09:23.751094+00:00" -->
+#### You
+This is not really an error that we want a customer to see but it is important that its exposed does our image tool return the issue?
 
 <!-- xgd-chat-end -->
