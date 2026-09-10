@@ -6,7 +6,7 @@ title: An assistant that cannot run right now is explained in the pane, with the
   history still shown
 created_by: xgd
 created_at: '2026-08-10T08:47:25.559727+00:00'
-updated_at: '2026-08-16T04:42:09.896962+00:00'
+updated_at: '2026-09-10T22:44:54.380648+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
