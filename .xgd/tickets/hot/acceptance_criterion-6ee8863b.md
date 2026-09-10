@@ -6,9 +6,9 @@ title: A painted panel carrying no background image exposes its fill and no imag
   picker — a background can be changed, never added
 created_by: xgd
 created_at: '2026-08-10T08:23:28.764117+00:00'
-updated_at: '2026-08-20T02:54:01.583367+00:00'
+updated_at: '2026-09-10T19:18:38.791686+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
