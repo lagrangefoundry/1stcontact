@@ -6,14 +6,15 @@ title: Command arguments, output and refusal envelopes are unchanged by where st
   lives
 created_by: xgd
 created_at: '2026-08-20T05:10:37.112199+00:00'
-updated_at: '2026-08-20T05:24:46.027667+00:00'
+updated_at: '2026-09-10T07:15:45.365774+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
