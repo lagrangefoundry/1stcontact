@@ -192,6 +192,17 @@ const NAME_FIELDS = [
 
 const EMPTY_DETAIL = 'Select a person.'
 
+/**
+ * The blank pane's copy, and the ELEMENT it has to be wrapped in ([[BUG-70]]).
+ *
+ * `emptyDetail` is documented `HTMLElement` and is handed straight to
+ * `replaceChildren`, so a bare string arrives as a bare TEXT NODE: unboxed,
+ * therefore unstyled, and displacing the component's own `.list-detail-empty`
+ * fallback on the way in. `emptyPane()` is called per mount rather than held as
+ * a module constant because a node can only be in one document at a time.
+ */
+const emptyPane = () => el('p', 'builder-empty', EMPTY_DETAIL)
+
 function el(tag, className, text) {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -1518,7 +1529,7 @@ export function createPeoplePanel(options = {}) {
     renderRow: (person) => renderRow(person, bounced, selection),
     mode: 'no-tab',
     openDetail,
-    emptyDetail: EMPTY_DETAIL,
+    emptyDetail: emptyPane(),
   })
 
   /** Re-read this business's people and redraw. */

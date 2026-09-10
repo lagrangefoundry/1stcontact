@@ -88,6 +88,17 @@ import { mountReader, readerKind } from './reader.js'
 /** Shown in the detail pane before a row is chosen. */
 const EMPTY_DETAIL = 'Pick something on the left, or drop a file here to add one.'
 
+/**
+ * The blank pane's copy, and the ELEMENT it has to be wrapped in ([[BUG-70]]).
+ *
+ * `emptyDetail` is documented `HTMLElement` and is handed straight to
+ * `replaceChildren`, so a bare string arrives as a bare TEXT NODE: unboxed,
+ * therefore unstyled, and displacing the component's own `.list-detail-empty`
+ * fallback on the way in. `emptyPane()` is called per mount rather than held as
+ * a module constant because a node can only be in one document at a time.
+ */
+const emptyPane = () => el('p', 'builder-empty', EMPTY_DETAIL)
+
 /** Shown in place of a description nothing has written yet. */
 const NO_DESCRIPTION =
   "Nothing has read this yet, so I can't find it by what's in it. Tell me what it is."
@@ -787,7 +798,7 @@ export function createLibraryPanel(options = {}) {
     // close button on it.
     mode: 'no-tab',
     openDetail,
-    emptyDetail: EMPTY_DETAIL,
+    emptyDetail: emptyPane(),
   })
 
   /**
