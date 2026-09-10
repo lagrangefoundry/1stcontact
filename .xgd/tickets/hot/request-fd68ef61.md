@@ -5,9 +5,9 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-10T21:49:47.223456+00:00'
+updated_at: '2026-09-10T21:56:36.376828+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -22,6 +22,34 @@ An image the assistant makes falls out of the conversation that made it. The
 turn says a picture exists and names a ticket; the client goes to the Library to
 find out what it looks like. The conversation that produced the image is the one
 place it is not.
+
+## Half of this is blocked on lagrange-framework REQ-149
+
+**The `write_image` half is not blocked.** That tool is this repository's own
+(`tools/generate/src/cli/ai/toolbox-core.ts`), so it can author its own markdown
+line and its surface prose is ours to write. A drawing the assistant composes can
+appear in the conversation with no upstream change at all.
+
+**The `create_image` half is.** That surface belongs to lagrange-framework's
+imagegen plugin, and two things there stand in the way:
+
+1. **There is no seam for the host to contribute a display handle.** The plugin
+   composes the `generated_image` result; the host wires the plugin and supplies
+   the store. Nowhere in that arrangement can 1stcontact add *"show this to your
+   user"* with the material URL only it knows how to form.
+2. **The surface prose forbids the attempt.** Its overview tells the model *"the
+   picture itself never enters this conversation."* Even if a handle could be
+   smuggled into the result, the instruction to paste it would contradict the
+   overview the model read first, and a model resolving that conflict against us
+   would be reading its manual correctly.
+
+**And a local workaround is out of bounds by our own rule.** `imagegen.ts` states
+it: *"NOTHING HERE IS A TOOL SURFACE… If any of that ever needs more than wiring,
+the finding belongs upstream rather than in a local workaround."* Wrapping the
+plugin's result to inject a line is precisely the workaround that header forbids.
+
+So this ticket can be started and half-landed against `write_image`, and its
+generated-image half waits on lagrange-framework REQ-149.
 
 ## What changes
 
