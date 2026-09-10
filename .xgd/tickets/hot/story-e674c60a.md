@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-31T17:00:43.703407+00:00'
+updated_at: '2026-09-10T09:30:54.418671+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -251,10 +251,23 @@ the surface where an operator *sees* the site instead.
   file a page pulls would be wasteful, so a production is reused until the
   definition moves — reuse keyed on the definition itself, never on elapsed time.
   The reuse is now held against the **store handle** rather than against the
-  account identifier: the deployed origin has one store per account, so the two
-  are equivalent there, but the local front door opens a store per workspace and
-  every local workspace shares one notional account — so an identifier-keyed
-  cache handed the first workspace's renderer to every workspace opened after it.
+  account identifier, and that key was chosen for *isolation*, not for cost: the
+  local front door opens a store per workspace and every local workspace shares
+  one notional account, so an identifier-keyed cache handed the first
+  workspace's renderer to every workspace opened after it.
+
+  **Where that reuse actually happens follows from who holds the handle, and it
+  is not both front doors.** The local front door holds one store for a
+  workspace's life, so a workspace does reuse its renderings across requests.
+  The deployed origin builds a fresh handle on every request — deliberately,
+  because a handle held across requests carries an account check made before the
+  request, and refusing a deactivated account is worth more than the saving — so
+  the handle-keyed reuse is never hit there and no rendering is reused at the
+  deployed origin at all (BUG-37, measured). The cost reuse was meant to avoid is
+  avoided there a layer lower instead: the store adapter memoises the *assembled*
+  definition against the site's write version, which is ~95% of a request's work,
+  and that is a criterion of the store port (AC-1447, AC-1448) rather than of
+  this workspace.
 - **Build artifacts, and the ordering that keeps them private.** Three things the
   workspace serves were previously read from places the edge runtime cannot reach
   — the browser source off a checkout, the components out of an out-of-repo
@@ -427,6 +440,15 @@ the surface where an operator *sees* the site instead.
   and says "on every mode and site change". No behaviour differs, and
   reconciliation changes no runtime code — recorded so the stale comment is on
   the record rather than mistaken for a second opinion about the trigger.
+- **Divergence noted, in commentary only.** The comment above the render cache in
+  the route table still reads "The Worker has one store per tenant per isolate,
+  so the two are equivalent there", while the store opener documents the decision
+  the code actually makes — constructed per request rather than memoised per
+  isolate, so the tenant check cannot predate the request. The opener is what
+  runs; the consequence is that the cache is never hit at the deployed origin.
+  No behaviour differs from what the criteria assert, and reconciliation changes
+  no runtime code — recorded so the stale comment is on the record rather than
+  read as a second opinion about how long a store handle lives.
 
 ## Reconciliation Decisions
 
@@ -478,7 +500,7 @@ the surface where an operator *sees* the site instead.
   build-time criteria beside the request-time ones would state one guarantee
   twice.
 
-*Recorded 2026-08-31, reconciling BUNDLE-21 (bundle-78f4e2fe), item 2.*
+*Recorded 2026-08-31, reconciling BUNDLE-21 (bundle-78f4e2fe), item 1 (BUG-36).*
 
 - **A criterion of this story asserted the behaviour the fix deliberately
   reversed, and it is narrowed rather than left standing.** The
@@ -519,6 +541,33 @@ the surface where an operator *sees* the site instead.
   existed. It is a one-off patch of production state, is no longer load-bearing,
   and asserting it would document an operator action rather than a behaviour of
   the system.
+
+*Recorded 2026-09-10, reconciling BUNDLE-21 (bundle-78f4e2fe), item 2 (BUG-37).*
+
+- **The render cache being dead at the deployed origin is recorded as an accepted
+  trade, and the claim that contradicted it is withdrawn.** This story said the
+  handle key and the account key "are equivalent there" because the deployed
+  origin has one store per account. BUG-37 measured the opposite: five
+  consecutive draft requests at ~77 ms with no amortisation, because the cache is
+  keyed on the store object and the origin builds a fresh store per request. It
+  declined to re-key it, and that refusal is the guarantee, not an omission — a
+  renderer held across requests holds the handle it was built with, so its reads
+  would run under an account check made before the request, which is exactly what
+  the opener refuses to do. Trading a deactivation guarantee for the ~1–4 ms the
+  render costs is not a trade worth making. So the equivalence claim is removed
+  and the reuse is described where it is real: across requests behind the local
+  front door, and not at all at the deployed origin.
+  *Rationale:* the matrix must not carry a performance property the deployed
+  product does not have. An accepted trade is recorded as a trade; asserting the
+  behaviour it declined would pin a fiction.
+- **The cost BUG-37 did close is not restated as a criterion here.** The memo of
+  the *assembled* definition — keyed by account and site, replaced whenever the
+  site's write version moves, with currency still proven by a live version read
+  on every read — lives in the store adapter, not in this origin, and is asserted
+  where it lives (AC-1447, AC-1448). It is what makes a deployed request cheap
+  after the render cache stopped being the answer; stating it again as a
+  workspace criterion would state one guarantee twice, in a capability that does
+  not own it.
 
 ## Dependencies
 
