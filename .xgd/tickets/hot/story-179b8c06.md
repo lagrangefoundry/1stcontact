@@ -5,7 +5,7 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-09-10T11:25:48.976109+00:00'
+updated_at: '2026-09-10T11:33:58.998406+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -129,8 +129,10 @@ machine-readable path, not a silent no-op:
 Both empty is legal — that is the empty starter page. So is an **orphan seam**: a
 `slot` in the tree that no module binds is *not* rejected. It stays the inert
 labelled placeholder — the mount is simply absent — and STORY-83 owns what it
-emits in that state. The rule is one-directional: every module must name a live,
-unique seam; a seam need not attract a module.
+emits in that state. The rule is one-directional **on an L1 page**: every module
+mounted there must name a live, unique seam; a seam need not attract a module. A
+module on a page carrying no L1 document names no seam at all — that is the
+standalone shape `mountInL1` contrasts with.
 
 Because the binding is proved here, the L1 renderer can insert the bound module's
 already-rendered fragment into the seam verbatim; STORY-83 records that emitter
