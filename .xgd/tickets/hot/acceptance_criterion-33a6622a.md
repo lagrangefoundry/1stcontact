@@ -6,9 +6,9 @@ title: Publishing always renders from the current draft definition, so previousl
   rendered output can never be published
 created_by: xgd
 created_at: '2026-08-06T18:39:26.493395+00:00'
-updated_at: '2026-08-31T11:33:17.683360+00:00'
+updated_at: '2026-09-10T16:55:52.733922+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
