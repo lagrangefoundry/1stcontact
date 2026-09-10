@@ -6,9 +6,9 @@ title: A channel address resolves the same addresses it always did, and never an
   outside its own channel
 created_by: xgd
 created_at: '2026-08-10T07:29:27.687900+00:00'
-updated_at: '2026-09-10T10:01:47.652047+00:00'
+updated_at: '2026-09-10T11:06:55.387923+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
