@@ -7,7 +7,7 @@ title: Asking a copy region what it exposes returns how the run is set beside it
   from the document's declared faces
 created_by: xgd
 created_at: '2026-08-12T18:08:03.837269+00:00'
-updated_at: '2026-09-10T17:29:53.123635+00:00'
+updated_at: '2026-09-10T18:14:12.440984+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -39,9 +39,12 @@ These follow the run's colour, which sits between the words and the first of
 them; what that field reports and what it writes are not this criterion's
 business.
 
-The values reported are the run's own as they stand in the draft, and for size
-that is the run's **representative (widest)** value rather than any one
-viewport's keyframe.
+The values reported are the run's own as they stand in the draft — for size the
+run's **representative (widest)** value rather than any one viewport's keyframe,
+and for weight the run's own where it declares one, **seeded from the lowest
+declared face** where it does not. That seed is the one reported value not read
+from the node: a chooser has to show something selected, where a size control is
+withheld instead, and it is why echoing the seed straight back is not a change.
 
 What the weight list holds, and whether italic can be changed at all, are decided
 by the **faces the document declares** — the served glyphs the page actually
