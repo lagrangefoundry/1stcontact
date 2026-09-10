@@ -24,7 +24,8 @@
  *   that can produce anything but a plain string or a pick from a closed list.
  */
 import type { L1Color, L1Palette, L1PaletteRef } from './palette'
-import type { L1FontFace, L1Node, L1ScalarTrack } from './types'
+import { l1TextRuns } from './text'
+import type { L1FontFace, L1Node, L1ScalarTrack, L1Text } from './types'
 
 // ── the stamp ────────────────────────────────────────────────────────────────
 
@@ -909,6 +910,60 @@ function backgroundHandleOf(node: L1Node): string | undefined {
 }
 
 /**
+ * REQ-211 — the field name of run `i` (0-based) of a multi-variate text node.
+ *
+ * ONE FIELD PER RUN, each a plain string, which is what keeps multi-variate copy
+ * inside DOC-28 §3's exposure rule: the user still types words into a text box
+ * and still cannot reach an axis. The alternative — a single field holding some
+ * markup that encodes the runs — would hand the user a syntax to get wrong, and
+ * a syntax is precisely what "a plain string or a pick from a closed list"
+ * refuses.
+ *
+ * 1-based in the NAME as well as the label, because the two are read together in
+ * a refusal message ("Field 'text2' must be a string" beside a control labelled
+ * "Text 2") and an off-by-one between them is a bug report nobody can act on.
+ */
+function runFieldName(i: number): string {
+  return `text${i + 1}`
+}
+
+/** Which run a field name addresses, or `null` when it addresses no run. */
+function runFieldIndex(name: string): number | null {
+  const m = /^text([1-9]\d*)$/.exec(name)
+  return m ? Number(m[1]) - 1 : null
+}
+
+/**
+ * The words a text node exposes: one field for a plain string, one per run for a
+ * multi-variate node.
+ *
+ * The single-run case keeps the name `text` it has always had rather than
+ * becoming `text1`. Not for compatibility — the derivation is the contract and
+ * both sides read it — but because the overwhelmingly common node has exactly
+ * one field of words, and naming it after a position it is the only occupant of
+ * says something untrue about the node.
+ */
+function copyFields(content: L1Text['text']): {
+  fields: L1FieldDescriptor[]
+  values: Record<string, L1FieldValue>
+} {
+  if (typeof content === 'string') {
+    return {
+      fields: [{ name: 'text', label: 'Text', type: 'string', ...widgetFor(content) }],
+      values: { text: content },
+    }
+  }
+  const fields: L1FieldDescriptor[] = []
+  const values: Record<string, L1FieldValue> = {}
+  l1TextRuns(content).forEach((run, i) => {
+    const name = runFieldName(i)
+    fields.push({ name, label: `Text ${i + 1}`, type: 'string', ...widgetFor(run.text) })
+    values[name] = run.text
+  })
+  return { fields, values }
+}
+
+/**
  * The exposed fields of a segment, or `null` when it has none — which is what
  * makes "clicking a segment with no editable fields opens nothing" a property of
  * the derivation rather than a check the client has to remember.
@@ -961,7 +1016,7 @@ export function copyFieldsOf(
   opts: L1SegmentFieldOptions = {},
 ): L1SegmentFields | null {
   if (node.kind === 'text') {
-    const text = node.text
+    const copy = copyFields(node.text)
     const axes = (node.axes ?? {}) as L1TextAxesView
     const type = typographyFields(axes, opts.fonts ?? [])
     // REQ-139 — the colour row is derived either way; the gradient decides
@@ -976,12 +1031,8 @@ export function copyFieldsOf(
       // "the only field" — clicking words has to put the cursor in the words,
       // and it did that by counting fields until this list stopped being one
       // long.
-      fields: [
-        { name: 'text', label: 'Text', type: 'string', ...widgetFor(text) },
-        ...colour.fields,
-        ...type.fields,
-      ],
-      values: { text, ...colour.values, ...type.values },
+      fields: [...copy.fields, ...colour.fields, ...type.fields],
+      values: { ...copy.values, ...colour.values, ...type.values },
     }
   }
   if (node.kind === 'image') {
@@ -1337,6 +1388,28 @@ function writeTypography(
   return true
 }
 
+/**
+ * Write one run's words, reporting whether anything changed (REQ-211).
+ *
+ * Returns false for a name that addresses no run, for a run index past the end,
+ * and for a node whose copy is a plain string — so the caller's chain treats
+ * "not a run field" and "a run field that changed nothing" identically, which is
+ * what every other branch of that chain already does.
+ *
+ * An index past the end cannot arrive from a client that read the derivation,
+ * and `applyCopyFields` has already refused any name the derivation did not
+ * emit. It is checked anyway because this function is the last thing standing
+ * between an untrusted index and a write.
+ */
+function writeRun(node: L1Text, name: string, next: string): boolean {
+  const i = runFieldIndex(name)
+  if (i === null || typeof node.text === 'string') return false
+  const run = node.text[i]
+  if (!run || run.text === next) return false
+  run.text = next
+  return true
+}
+
 /** The field names {@link writeImageFraming} owns on an `image` node (REQ-136). */
 const IMAGE_FRAMING_FIELDS: ReadonlySet<string> = new Set([
   'objectFit',
@@ -1582,6 +1655,11 @@ export function applyCopyFields(
       if (writeTypography(node, name, value, derived.values[name])) changed.push(name)
     } else if (node.kind === 'text' && name === 'text' && node.text !== next) {
       node.text = next
+      changed.push(name)
+    } else if (node.kind === 'text' && writeRun(node, name, next)) {
+      // REQ-211 — one run's words. Assignment into the EXISTING run object, for
+      // the reason every other write in this file states: the run's axes are none
+      // of this control's business, and replacing it would drop them.
       changed.push(name)
     } else if (node.kind === 'image' && IMAGE_FRAMING_FIELDS.has(name)) {
       if (writeImageFraming(node, name, value, derived.values[name])) changed.push(name)

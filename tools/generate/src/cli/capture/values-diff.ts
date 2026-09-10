@@ -91,6 +91,24 @@ export interface ValueElement {
    * fallback mislabels as black-on-white would otherwise diff forever).
    */
   colorInferred?: boolean
+  // ── REQ-211 the inline flow this run belongs to ────────────────────────────
+  //
+  // A sentence with an emphasised word is several text nodes and has always been
+  // captured as several runs. These say which runs are pieces of one flow, so
+  // the fold can rejoin them into one node instead of pinning each fragment at
+  // its own absolute box — which comes apart the moment the copy reflows.
+  // Optional so pre-REQ-211 bundles still parse; a single-run flow carries none
+  // of them, so nothing is recorded about the overwhelmingly common case.
+  /** Identifies the inline flow: its root element, and which `<br>`-delimited line of it. */
+  inlineGroup?: string
+  /** This run's position in that flow, in document order. */
+  inlineIndex?: number
+  /** The flow root's own rect — the box the rejoined runs lay out inside. */
+  inlineBox?: Box | null
+  /** This run's text with its OWN separating spaces kept (`text` is trimmed). */
+  textFlow?: string
+  /** Computed `vertical-align` when the run is lifted off the baseline, else null. */
+  verticalAlign?: string | null
   /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
   fontLoaded?: boolean
   // ── REQ-63 typography treatment axes (null / absent when the no-op default) ──
@@ -811,6 +829,15 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.surfaceGradient !== undefined) el.surfaceGradient = run.surfaceGradient
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
+  // REQ-211 — the inline flow, carried onto the element so `inlineFlows` can
+  // group them. Both projections carry it, because the fold reads the raw path
+  // and the responsive table reads the persisted one, and a flow visible on only
+  // one of them is a fold that rejoins what the oracle still counts separately.
+  if (run.inlineGroup !== undefined) el.inlineGroup = run.inlineGroup
+  if (run.inlineIndex !== undefined) el.inlineIndex = run.inlineIndex
+  if (run.inlineBox) el.inlineBox = run.inlineBox
+  if (run.textFlow !== undefined) el.textFlow = run.textFlow
+  if (run.verticalAlign !== undefined) el.verticalAlign = run.verticalAlign
   copyTypography(el, run)
   copyGeometry(el, run)
   return el
@@ -881,6 +908,15 @@ export function rawRunToElement(run: RawRun): ValueElement {
   if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
+  // REQ-211 — the inline flow, carried onto the element so `inlineFlows` can
+  // group them. Both projections carry it, because the fold reads the raw path
+  // and the responsive table reads the persisted one, and a flow visible on only
+  // one of them is a fold that rejoins what the oracle still counts separately.
+  if (run.inlineGroup !== undefined) el.inlineGroup = run.inlineGroup
+  if (run.inlineIndex !== undefined) el.inlineIndex = run.inlineIndex
+  if (run.inlineBox) el.inlineBox = run.inlineBox
+  if (run.textFlow !== undefined) el.textFlow = run.textFlow
+  if (run.verticalAlign !== undefined) el.verticalAlign = run.verticalAlign
   copyTypography(el, run)
   copyGeometry(el, run)
   return el

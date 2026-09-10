@@ -56,6 +56,7 @@ import type {
   L1Shadow,
   L1Sizing,
   L1SurfaceAxes,
+  L1Text,
   L1Transform,
   L1ViewportResponse,
 } from '@1stcontact/site-schema'
@@ -2129,6 +2130,51 @@ function segmentKind(node: L1Node, state: RenderState): L1SegmentKind | null {
   }
 }
 
+/**
+ * REQ-211 — the inner markup of a text leaf: its words, or a span per run.
+ *
+ * ONE SPAN PER VARYING RUN, and none for a run that varies in nothing. A run
+ * list is how the substrate expresses "this word is different", so a run that is
+ * not different has nothing to express and gets no element — the markup a
+ * multi-variate node emits is then exactly the markup the same copy would have
+ * emitted as a plain string, plus the spans that carry a difference. That is
+ * what makes the string form canonical in the OUTPUT as well as in the schema:
+ * nothing about the rendered page says which spelling the author used, except
+ * where the author asked for a difference.
+ *
+ * The run classes hang off the node's own class name rather than consuming the
+ * render counter (`state.n`). A run is not a node — it has no address, no
+ * segment, no reveal and no accent — and letting it take a number would shift
+ * every later node's class for a document that merely emphasised a word,
+ * which is a diff across the whole stylesheet for a one-word change.
+ *
+ * Both sizes are `em`, so a run rides the node's per-width `responsive.fontSizePx`
+ * track (BUG-18) for free. An absolute size on the run would win at every width
+ * the track covers, which is the bug this whole capability exists to avoid.
+ */
+function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderState): string {
+  if (typeof content === 'string') return escapeHtml(content)
+  return content
+    .map((run, i) => {
+      const a = run.axes ?? {}
+      const decls: string[] = []
+      const c = cssColor(a.color)
+      if (c) decls.push(`color: ${c}`)
+      if (a.sizeScale !== undefined) decls.push(`font-size: ${a.sizeScale}em`)
+      if (a.fontWeight !== undefined) decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
+      if (a.fontStyle) decls.push(`font-style: ${a.fontStyle}`)
+      if (a.baselineShiftEm !== undefined) {
+        decls.push(`vertical-align: ${a.baselineShiftEm}em`)
+      }
+      const words = escapeHtml(run.text)
+      if (decls.length === 0) return words
+      const runClass = `${nodeClass}-r${i}`
+      state.rules.push({ selector: `.${runClass}`, decls })
+      return `<span class="${runClass}">${words}</span>`
+    })
+    .join('')
+}
+
 function emitNode(
   node: L1Node,
   state: RenderState,
@@ -2351,7 +2397,8 @@ function emitNode(
       // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
       // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
       if (href) base.unshift('display: block', 'text-decoration: none', 'color: inherit')
-      html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
+      const words = textRunsHtml(node.text, name, state)
+      html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}>${words}</${tag('p')}>`
       break
     }
     case 'control': {

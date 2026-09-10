@@ -4,6 +4,8 @@
  */
 export * from './schema'
 export * from './types'
+// REQ-211 — the two projections of a node's copy: the words, and the runs.
+export { l1PlainText, l1TextRuns } from './text'
 // REQ-114 — the palette colour model (DOC-23 §5): literal base, palette overlay.
 export {
   l1ColorSchema,
