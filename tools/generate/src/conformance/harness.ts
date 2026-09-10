@@ -59,7 +59,7 @@ import type {
 /** Fast-tier default viewport widths: one desktop, one mobile (DOC-20). */
 const DEFAULT_WIDTHS = [1280, 375]
 /** Responsive-dimension default sweep: the full viewport ladder (REQ-41). */
-const RESPONSIVE_WIDTHS = [320, 375, 768, 1024, 1280, 1440]
+export const RESPONSIVE_WIDTHS = [320, 375, 768, 1024, 1280, 1440]
 /** Cross-browser default widths — desktop + mobile; the engine axis is what matters. */
 const X_BROWSER_WIDTHS = [1280, 375]
 /** Cross-browser engine set: Edge == Blink, so three engines, not four (DOC-20 AC-M3). */
@@ -110,8 +110,13 @@ function l1HostDocument(widths: number[]): unknown {
   }
 }
 
-/** Build a validated single-module page JSON from a fixture. */
-function oneModulePage(
+/**
+ * Build a validated single-module page JSON from a fixture. Exported as
+ * test-infrastructure alongside {@link serveOneModulePage} so the harness
+ * self-tests can inspect the page the run *would* mount without needing a
+ * loopback server or a browser.
+ */
+export function oneModulePage(
   slug: string,
   fixture: ConformanceFixture,
   version: number,

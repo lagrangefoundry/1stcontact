@@ -26,6 +26,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import type { BehaviorDefinition } from '@1stcontact/framework'
 import { defaultTokens, latestModuleVersion, renderL1Document } from '../packages/framework/src/index'
 import { validateSite, type L1Document } from '../packages/site-schema/src/index'
 import { clusterControls, foldToL1, foldedFormFor } from '../tools/generate/src/l1'
@@ -33,8 +34,33 @@ import type { ControlRow, FoldedForm, FoldResidual } from '../tools/generate/src
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { cmdRender } from '../tools/generate/src/cli/commands'
 import { writeForms, writeL1 } from '../tools/generate/src/cli/capture/bundle'
-import { serveOneModulePage } from '../tools/generate/src/conformance'
+import {
+  assertModuleConforms,
+  ConformanceError,
+  CONFORMANCE_DIMENSIONS,
+  oneModulePage,
+  RESPONSIVE_PROBE,
+  RESPONSIVE_WIDTHS,
+  SAFETY_PROBE,
+  SECURITY_PROBE,
+  serveOneModulePage,
+  X_BROWSER_BOX_PROBE,
+  type ConformanceDimension,
+  type ConformanceEngine,
+  type ConformanceFixture,
+  type ConformanceOptions,
+  type XBrowserBox,
+} from '../tools/generate/src/conformance'
+import {
+  chromiumAvailable,
+  createPlaywrightDriver,
+  type BrowserDriver,
+  type CapturedResponse,
+  type ModuleResolver,
+} from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
+import { mobileOverflow as MobileOverflow } from './fixtures/conformance/mobile-overflow'
+import { throwsOnRender as ThrowsOnRender } from './fixtures/conformance/throws-on-render'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const GIGABYTE = path.join(process.cwd(), 'storage', 'references', 'gigabytealchemy.ai', 'index', 'multistate.json')
@@ -122,6 +148,26 @@ function docWithSlot(name = 'form-0'): L1Document {
   } as L1Document
 }
 
+/** The `form-0` seam's opening tag, verbatim — class + every data attribute. */
+function seamTagOf(html: string): string {
+  const m = /<div class="[^"]*"[^>]*data-l1-slot="form-0"[^>]*>/.exec(html)
+  return m ? m[0] : ''
+}
+
+/** Every emitted CSS rule naming the `form-0` seam's own class, in order. */
+function seamRuleOf(res: { html: string; css: string }): string {
+  const cls = /<div class="([^"]+)"[^>]*data-l1-slot="form-0"/.exec(res.html)?.[1]
+  if (!cls) return ''
+  const own = new RegExp(`\\.${cls.split(/\s+/).filter(Boolean).join('\\.')}\\b`)
+  // Rule-ish granularity: splitting on `}` also splits `@media` wrappers, but it
+  // does so identically for both renders, so the comparison stays sound.
+  return res.css
+    .split('}')
+    .filter((chunk) => own.test(chunk))
+    .map((chunk) => `${chunk.trim()}}`)
+    .join('\n')
+}
+
 const contactInstance = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: 'form-0',
   type: 'contact-form',
@@ -130,6 +176,139 @@ const contactInstance = (over: Record<string, unknown> = {}): Record<string, unk
   config: { action: '', fields: [{ name: 'email', label: 'Your email', type: 'email', required: false }] },
   ...over,
 })
+
+// ── conformance-harness scaffolding (§5) ─────────────────────────────────────
+
+const HAVE_CHROMIUM = await chromiumAvailable()
+
+/** The survivor behavior module run through the harness in both positions. */
+const mountedContactFixture: ConformanceFixture = {
+  label: 'mounted-contact-form',
+  props: {
+    version: latestModuleVersion('contact-form'),
+    config: { action: '/leads', fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
+  },
+}
+
+const fixtureMeta = (id: string): BehaviorDefinition['meta'] => ({
+  id,
+  version: 1,
+  kind: 'behavior',
+  config: {},
+  slots: {},
+  conformance: { obligations: ['isolation', 'responsive', 'safety', 'security', 'x-browser'] },
+})
+/** A test-only catalog whose core throws during SSR — the `isolation` defect. */
+const resolveThrows: ModuleResolver = (type) => {
+  if (type === 'fc-throws') return { meta: fixtureMeta('fc-throws'), Component: ThrowsOnRender }
+  throw new Error(`Unknown isolation fixture: ${type}`)
+}
+/** A test-only catalog that overflows only below 480px — the REQ-41 fixture. */
+const resolveMobileOverflow: ModuleResolver = (type) => {
+  if (type === 'fc-mobile-overflow') {
+    return { meta: fixtureMeta('fc-mobile-overflow'), Component: MobileOverflow }
+  }
+  throw new Error(`Unknown responsive fixture: ${type}`)
+}
+
+/** Chromium's boxes, and another engine's with a 40px shift — well past `posPx`. */
+const REF_BOXES: XBrowserBox[] = [
+  { i: 0, tag: 'section', label: 'section', dx: 0, dy: 0, w: 1280, h: 400 },
+]
+const SHIFTED_BOXES: XBrowserBox[] = [{ ...REF_BOXES[0], dy: 40 }]
+
+/**
+ * A fake driver reporting one deliberate defect per probe. The arm it serves
+ * compares the *mounted* verdict against the standalone one, and a clean run
+ * could not tell "same verdict" from "no check ran at all" — so every browser
+ * dimension is given something it must flag.
+ */
+class DefectiveDriver implements BrowserDriver {
+  constructor(private readonly boxes: XBrowserBox[]) {}
+  async navigate(): Promise<void> {}
+  async screenshot(): Promise<Uint8Array> {
+    return new Uint8Array()
+  }
+  async query<T>(script: string): Promise<T> {
+    if (script === SAFETY_PROBE) {
+      return { overflow: { scrollWidth: 4000, innerWidth: 1280 }, collapsed: [], clipped: [] } as T
+    }
+    if (script === SECURITY_PROBE) {
+      return {
+        unsafeUrls: ['href=javascript:steal() on a'],
+        eventHandlers: [],
+        styleBreakouts: [],
+        xssFired: false,
+      } as T
+    }
+    if (script === RESPONSIVE_PROBE) {
+      return { smallTapTargets: ['input [email] (20x20px)'], smallFonts: [] } as T
+    }
+    if (script === X_BROWSER_BOX_PROBE) return { boxes: this.boxes } as T
+    return {} as T
+  }
+  responses(): CapturedResponse[] {
+    return []
+  }
+  diagnostics() {
+    return { consoleErrors: [], pageErrors: [], failedRequests: [], requestedUrls: [] }
+  }
+  async content(): Promise<string> {
+    return '<!doctype html><html><body></body></html>'
+  }
+  async close(): Promise<void> {}
+}
+
+/**
+ * How to make each universal dimension actually produce a violation using only
+ * injected drivers/catalogs — no browser binaries, no engine provisioning, so
+ * the comparison runs everywhere.
+ */
+function runFor(dimension: ConformanceDimension): {
+  slug: string
+  fixture: ConformanceFixture
+  opts: ConformanceOptions
+} {
+  if (dimension === 'isolation') {
+    return {
+      slug: 'fc-throws',
+      fixture: { label: 'throws', props: { config: {}, slots: {} } },
+      opts: { resolveModule: resolveThrows },
+    }
+  }
+  if (dimension === 'x-browser') {
+    return {
+      slug: 'contact-form',
+      fixture: mountedContactFixture,
+      opts: {
+        engines: ['chromium', 'webkit'],
+        xBrowserBackstop: false,
+        driverFactoryFor: (engine: ConformanceEngine) => async () =>
+          new DefectiveDriver(engine === 'chromium' ? REF_BOXES : SHIFTED_BOXES),
+      },
+    }
+  }
+  return {
+    slug: 'contact-form',
+    fixture: mountedContactFixture,
+    opts: { driverFactory: async () => new DefectiveDriver(REF_BOXES) },
+  }
+}
+
+/** The distinct AC ids one harness run reported, sorted; empty if it passed. */
+async function reportedAcs(dimension: ConformanceDimension, mountInL1: boolean): Promise<string[]> {
+  const { slug, fixture, opts } = runFor(dimension)
+  const err = await assertModuleConforms(slug, [fixture], {
+    ...opts,
+    dimension,
+    mountInL1,
+    keepSandboxOnFailure: false,
+  }).then(
+    () => null,
+    (e: unknown) => e as ConformanceError,
+  )
+  return err ? [...new Set(err.violations.map((v) => v.ac))].sort() : []
+}
 
 let cwd: string
 beforeEach(() => {
@@ -142,16 +321,31 @@ afterEach(() => {
 // ── 1. schema ────────────────────────────────────────────────────────────────
 
 describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
-  it('test_UAT_FC_REQ-93_slot_bound_module_accompanies_an_l1_page', () => {
+  it('test_UAT_AC1623_slot_bound_module_accompanies_an_l1_page', () => {
     // The headline change: `l1` + a module is now legal, *because* the module
     // names a slot that exists in the tree. The L1 document is still the single
     // page body; the behaviour mounts into it.
     const page = { id: 'home', slug: 'home', title: 'Home', l1: docWithSlot(), modules: [contactInstance()] }
     const result = validateSite({ ...baseSite, pages: [page] })
     expect(result.ok).toBe(true)
+
+    // The rule is ONE-DIRECTIONAL — every module must name a live, unique seam,
+    // but a seam need not attract a module. Both legal states must validate.
+    //
+    // (i) Both empty: the starter page, no modules and no L1 document.
+    const starter = { id: 'home', slug: 'home', title: 'Home' }
+    expect(validateSite({ ...baseSite, pages: [starter] }).ok).toBe(true)
+
+    // (ii) An ORPHAN seam: a `slot` in the tree that no module binds. It is not an
+    // error — it renders as the inert placeholder STORY-83 emits. This case is
+    // what makes the rule one-directional rather than a mutual requirement:
+    // without it a future change could start rejecting orphan seams with every
+    // rejection case below still green.
+    const orphan = { id: 'home', slug: 'home', title: 'Home', l1: docWithSlot('unbound'), modules: [] }
+    expect(validateSite({ ...baseSite, pages: [orphan] }).ok).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-93_unresolvable_bindings_fail_with_a_machine_readable_path', () => {
+  it('test_UAT_AC1623_unresolvable_bindings_fail_with_a_machine_readable_path', () => {
     // Every way a binding can fail to resolve is an error with a path an AI caller
     // can self-correct from — never a silent no-op (REQ-88's `anchor`-without-
     // `column` principle).
@@ -346,7 +540,7 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
 
   // ── 4. render ──────────────────────────────────────────────────────────────
 
-  it('test_UAT_FC_REQ-93_mounted_fragment_replaces_the_inert_placeholder', () => {
+  it('test_UAT_AC1622_mounted_fragment_replaces_the_inert_placeholder', () => {
     // With no mount the slot stays the labelled Phase-D placeholder…
     const bare = renderL1Document(docWithSlot())
     expect(bare.html).toContain('data-l1-slot="form-0"')
@@ -360,6 +554,22 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     // An unbound slot name mounts nothing (no cross-talk between seams).
     const other = renderL1Document(docWithSlot(), { mounts: { elsewhere: '<b>x</b>' } })
     expect(other.html).not.toContain('<b>x</b>')
+
+    // The fragment lands INSIDE the seam's own element rather than replacing it,
+    // so the seam's geometry and sizing still apply to whatever mounted.
+    expect(mounted.html).toMatch(
+      /<div class="[^"]*"[^>]*data-l1-slot="form-0"[^>]*>\s*<form data-contact-form><\/form>\s*<\/div>/,
+    )
+
+    // The seam is emitted identically in both states: same opening tag (class,
+    // `data-l1-slot`, `data-l1-behavior`) and the same emitted rule. Mounting is
+    // therefore invisible to the seam's measure — the guarantee AC-804 rests on.
+    expect(seamTagOf(mounted.html)).toBe(seamTagOf(bare.html))
+    const seamRule = seamRuleOf(bare)
+    expect(seamRule, 'the seam emits no rule — the comparison below would be vacuous').not.toBe('')
+    expect(seamRuleOf(mounted)).toBe(seamRule)
+    // …and mounting contributes no stylesheet of its own anywhere in the document.
+    expect(mounted.css).toBe(bare.css)
   })
 
   it('test_UAT_FC_REQ-93_reproduction_renders_real_a11y_labelled_controls', async () => {
@@ -412,20 +622,15 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
 
   // ── 5. conformance ─────────────────────────────────────────────────────────
 
-  it('test_UAT_FC_REQ-93_mounted_behavior_carries_its_conformance_obligations', async () => {
+  it('test_UAT_AC1624_mounted_behavior_carries_its_conformance_obligations', async () => {
     // A mounted behaviour is a shipping shape, so the universal ACs must be
     // checkable against it exactly as against a standalone one. Prove the harness
     // actually mounts (rather than silently ignoring the flag) by inspecting what
     // it served: the page it renders is the slot-bound composition, and the
     // behaviour's markup is inside the seam.
-    const fixture = {
-      label: 'mounted-contact-form',
-      props: {
-        version: latestModuleVersion('contact-form'),
-        config: { action: '/leads', fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
-      },
-    }
-    const served = await serveOneModulePage('contact-form', fixture, { mountInL1: true })
+    const served = await serveOneModulePage('contact-form', mountedContactFixture, {
+      mountInL1: true,
+    })
     try {
       const page = JSON.parse(
         readFileSync(path.join(served.root, 'storage', 'sites', 'contact-form', 'draft', 'pages', 'home.json'), 'utf8'),
@@ -442,4 +647,117 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
       await served.dispose()
     }
   })
+
+  it('test_UAT_AC1624_mounted_host_pins_the_seam_at_every_probed_width', () => {
+    // The host is deliberately non-interfering, and this is what that means
+    // concretely — pure page data, so it is checkable with no server and no
+    // browser. Anything else would leave "a failure the mode reports is always
+    // the module's" resting on a comment.
+    const version = latestModuleVersion('contact-form')
+    const mounted = oneModulePage('contact-form', mountedContactFixture, version, {
+      mountInL1: true,
+    }) as {
+      l1: { widths: number[]; root: { children: Array<Record<string, never>> } }
+      modules: Array<Record<string, unknown>>
+    }
+    const seam = mounted.l1.root.children[0] as unknown as {
+      kind: string
+      name: string
+      geometry: { keyframes: Array<{ at: number; x: number; width: number }> }
+    }
+    expect(seam.kind).toBe('slot')
+    // A keyframe at EVERY width the responsive dimension probes…
+    expect(mounted.l1.widths).toEqual([...RESPONSIVE_WIDTHS])
+    expect(seam.geometry.keyframes.map((k) => k.at)).toEqual([...RESPONSIVE_WIDTHS])
+    // …each pinning the seam to exactly the viewport, so the wrapper can never
+    // itself be the thing that overflows.
+    for (const k of seam.geometry.keyframes) {
+      expect(k.x).toBe(0)
+      expect(k.width).toBe(k.at)
+    }
+    expect(mounted.modules[0].slot).toBe(seam.name)
+
+    // And mounting only ADDS a position: the instance the dimensions inspect is
+    // otherwise the same object the standalone run builds.
+    const standalone = oneModulePage('contact-form', mountedContactFixture, version, {}) as {
+      l1?: unknown
+      modules: Array<Record<string, unknown>>
+    }
+    expect(standalone.l1).toBeUndefined()
+    expect(standalone.modules[0].slot).toBeUndefined()
+    expect({ ...mounted.modules[0], slot: undefined }).toEqual({
+      ...standalone.modules[0],
+      slot: undefined,
+    })
+  })
+
+  it('test_UAT_AC1624_mounting_weakens_no_dimension', async () => {
+    // The headline claim: the mounted position runs *the same* five dimensions,
+    // not a reduced set. Iterate the harness's own enumeration rather than
+    // restating it, so a sixth dimension cannot be added past this UAT.
+    expect([...CONFORMANCE_DIMENSIONS].sort()).toEqual([
+      'isolation',
+      'responsive',
+      'safety',
+      'security',
+      'x-browser',
+    ])
+    // Each run is deliberately defective, and the checks each dimension owes are
+    // named — a dimension that silently did nothing in the mounted position, or
+    // that ran a *reduced* set of its own checks there, both fail here. A
+    // clean-fixture comparison could tell neither from "same verdict".
+    const OWED: Record<ConformanceDimension, string[]> = {
+      safety: ['safety.overflow'],
+      security: ['security.url-scheme'],
+      responsive: ['responsive.tap-target', 'safety.overflow'],
+      'x-browser': ['x-browser.layout-shift'],
+      isolation: ['isolation.render-throws'],
+    }
+    for (const dimension of CONFORMANCE_DIMENSIONS) {
+      const standalone = await reportedAcs(dimension, false)
+      const mounted = await reportedAcs(dimension, true)
+      expect(standalone, `${dimension} standalone`).toEqual(OWED[dimension])
+      expect(mounted, `${dimension} reports a different verdict once mounted`).toEqual(standalone)
+    }
+  }, 180000)
+
+  it.runIf(HAVE_CHROMIUM)(
+    'test_UAT_AC1624_mounted_run_flags_a_container_overflow_on_the_responsive_dimension',
+    async () => {
+      // The reason the mode exists. A fixture that is clean under a desktop sweep
+      // but overflows its container in the mobile band is still a violation once
+      // pinned inside the seam — flagged there exactly as it would be standalone.
+      const opts = {
+        dimension: 'responsive' as const,
+        driverFactory: createPlaywrightDriver,
+        resolveModule: resolveMobileOverflow,
+        mountInL1: true,
+        keepSandboxOnFailure: false,
+      }
+      const err = await assertModuleConforms(
+        'fc-mobile-overflow',
+        [{ label: 'mounted-mobile-overflow', props: {} }],
+        opts,
+      ).then(
+        () => null,
+        (e: unknown) => e as ConformanceError,
+      )
+      expect(err).toBeInstanceOf(ConformanceError)
+      expect(
+        err?.violations.some(
+          (v) => v.ac === 'safety.overflow' && (v.viewport === '320' || v.viewport === '375'),
+        ),
+      ).toBe(true)
+
+      // …and the same mounted fixture swept only at desktop widths is clean, so
+      // the flag above is the module's own defect and never the seam's.
+      await expect(
+        assertModuleConforms('fc-mobile-overflow', [{ label: 'mounted-desktop', props: {} }], {
+          ...opts,
+          viewports: [768, 1024, 1280, 1440],
+        }),
+      ).resolves.toBeUndefined()
+    },
+    180000,
+  )
 })

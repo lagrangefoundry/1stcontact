@@ -24,16 +24,24 @@ export interface ConformanceFixture {
   props: Record<string, unknown>
 }
 
-export type ConformanceDimension =
-  | 'safety'
-  | 'security'
-  | 'x-browser'
-  | 'responsive'
-  // REQ-85 — a behavior given schema-valid but degenerate config/slots must
-  // degrade inertly (render without throwing, page structurally intact), so a
-  // misbehaving behavior can never break page-level robustness. Render-level,
-  // needs no browser.
-  | 'isolation'
+/**
+ * The universal dimensions every module is held to ([[DOC-20]]) — the single
+ * runtime enumeration {@link ConformanceDimension} is derived from, so "the same
+ * five dimensions" is a fact a test can iterate rather than a list it restates.
+ * `isolation` (REQ-85) is the render-level one: a behavior given schema-valid but
+ * degenerate config/slots must degrade inertly (render without throwing, page
+ * structurally intact), so a misbehaving behavior can never break page-level
+ * robustness. It needs no browser.
+ */
+export const CONFORMANCE_DIMENSIONS = [
+  'safety',
+  'security',
+  'x-browser',
+  'responsive',
+  'isolation',
+] as const
+
+export type ConformanceDimension = (typeof CONFORMANCE_DIMENSIONS)[number]
 export type ConformanceTier = 'fast' | 'full'
 export type ConformanceEngine = 'chromium' | 'webkit' | 'firefox'
 

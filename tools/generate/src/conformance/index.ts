@@ -3,7 +3,13 @@
  * `assertModuleConforms` (the one call every thin leaf makes) plus the types and
  * the below-the-line `serveOneModulePage` helper the harness self-tests use.
  */
-export { assertModuleConforms, serveOneModulePage, ConformanceError } from './harness'
+export {
+  assertModuleConforms,
+  serveOneModulePage,
+  oneModulePage,
+  RESPONSIVE_WIDTHS,
+  ConformanceError,
+} from './harness'
 export type { OneModuleServe } from './harness'
 export { evaluateSafety, SAFETY_PROBE } from './checks'
 export type { SafetyProbe } from './checks'
@@ -30,6 +36,7 @@ export {
   buildBenignContent,
   buildSecurityFixtures,
 } from './payloads'
+export { CONFORMANCE_DIMENSIONS } from './types'
 export type {
   ConformanceFixture,
   ConformanceOptions,
