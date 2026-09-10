@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T00:10:54.177997+00:00'
+updated_at: '2026-09-10T17:12:40.975394+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -138,5 +138,15 @@ Then the customer keeps a vague, non-alarming sentence, the model keeps one it c
 I've updated BUG-68 with the audit evidence and this sharpened recommendation. Both changes land in `lagrange-framework` (`components/ai/js/src/toolbox/`) — still nothing to code here.
 
 One caveat on scope: I only traced the `CreateImage` path. `host_detail: false` is also on `store_unavailable`, and any other surface using it has the same blind spot — worth a sweep when the framework fix goes in.
+
+<!-- xgd-turn id="e68e8494-2e1d-4239-9d7a-3d1174ec5a85-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T17:12:38.005719+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
