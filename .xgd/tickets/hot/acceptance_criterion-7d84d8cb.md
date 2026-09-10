@@ -6,14 +6,15 @@ title: Every write hands its change count back, including the ones whose answer 
   an asset
 created_by: xgd
 created_at: '2026-08-20T02:26:52.380598+00:00'
-updated_at: '2026-08-20T02:46:18.419948+00:00'
+updated_at: '2026-09-10T09:14:24.531913+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-6cd17452
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
