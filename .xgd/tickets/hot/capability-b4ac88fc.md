@@ -5,9 +5,9 @@ type: capability
 title: 'Site Materials & Starting Point: Scaffold, Assets, Provenance & Palette'
 created_by: xgd
 created_at: '2026-08-07T15:26:37.596731+00:00'
-updated_at: '2026-08-16T06:14:23.459033+00:00'
+updated_at: '2026-09-10T19:44:36.207863+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   name: site-materials-and-start-point
@@ -43,7 +43,7 @@ One answer to *"what can this site reference"*, shared by every caller that need
 it — the operator at the command line, the builder origin, and any editing surface
 that must offer a closed choice of assets. The listing is the union of the two
 sources that disagree in practice: the declared registry inside the site definition
-(metadata, no bytes) and the site's draft asset directory (bytes, no metadata),
+(metadata, no bytes) and the site's asset store (bytes, no metadata),
 merged by handle and reported with provenance, so an undeclared file is visible as
 an undeclared file and a declared asset with no file is visible as a missing one.
 Every entry speaks one handle vocabulary — the same site-local reference form a
@@ -67,12 +67,13 @@ malformed record is a hard error rather than a vacuous pass.
 
 ### Site colour census & palette retrofit
 Measuring an existing site definition's colours and migrating it onto the palette
-colour model without moving a pixel: the census (distinct literals with use counts,
-distinct RGB ignoring alpha, alpha families) in human- and machine-readable form;
-palette derivation by exact alpha collapse then hue-family ramp grouping, with
-role-vocabulary renaming from the command line; and the lossless-or-refuse write
-that proves every derived reference reproduces the literal it replaces and that the
-converted definition still validates, or writes nothing. An already-retrofitted
+colour model within a proven per-channel bound: the census (distinct literals with
+use counts, distinct RGB ignoring alpha, alpha families) in human- and
+machine-readable form; palette derivation by exact alpha collapse then hue-family
+ramp grouping, with role-vocabulary renaming from the command line; and the
+bounded-reported-or-nothing write that proves every derived reference resolves back
+to within a stated per-channel bound of the literal it replaces, reports the drift
+it accepted, and that the converted definition still validates, or writes nothing. An already-retrofitted
 site censuses and re-assigns as it did the first time, so adding a page or renaming
 a family is one command rather than a manual un-assignment.
 
