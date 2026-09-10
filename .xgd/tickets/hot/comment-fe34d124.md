@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:23:11.741843+00:00'
+updated_at: '2026-09-10T19:24:38.154429+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -317,5 +317,11 @@ Two things to flag:
 - **I did not add an env-var override**, and recorded that as a deliberate non-goal in the ticket: it'd be a second source of truth only the Node host could read — the exact split the static import prevents. If you want the model changeable without a commit, that's a real ask but a different shape, and worth its own ticket.
 
 Ticket is `free_coded` with all three commits recorded as proper objects. The scope language for this half went into the body *before* I cut the branch, so every UAT traces to it.
+
+<!-- xgd-turn id="60d13e3e-07c2-480a-8b30-69bc570066bf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:24:37.391335+00:00" -->
+#### You
+Can you move the model to Opus 5 please
 
 <!-- xgd-chat-end -->
