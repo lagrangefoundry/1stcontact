@@ -6,16 +6,16 @@ title: 'Colour census and repeatable palette retrofit: measure a site''s colours
   then migrate it onto a palette within a proven per-channel bound'
 created_by: xgd
 created_at: '2026-08-06T21:06:52.787637+00:00'
-updated_at: '2026-09-10T19:43:59.006696+00:00'
+updated_at: '2026-09-10T20:40:58.162712+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-0385746c
   capability_uid: capability-b4ac88fc
   story_kind: upgrade
   story_points: 3
-  uat_coverage: pass
+  uat_coverage: stale
   updated_by: bundle-d9226698
 ---
 
