@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A behavior module is handed the site's resolved locale identity at render time
 created_by: xgd
 created_at: '2026-08-31T12:28:43.025020+00:00'
-updated_at: '2026-08-31T12:33:34.750034+00:00'
+updated_at: '2026-09-10T04:00:55.000965+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-17ba490e
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
