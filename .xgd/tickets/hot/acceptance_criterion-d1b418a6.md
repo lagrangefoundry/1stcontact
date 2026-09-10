@@ -6,14 +6,15 @@ title: The configured account is registered on demand, and an account already re
   keeps the status it has
 created_by: xgd
 created_at: '2026-09-01T23:57:44.477751+00:00'
-updated_at: '2026-09-02T00:13:30.376584+00:00'
+updated_at: '2026-09-10T02:22:07.665440+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-ab1ecd62
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
