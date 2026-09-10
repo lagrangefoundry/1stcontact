@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   utimesSync,
@@ -56,6 +57,15 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
  * Everything else is the real thing — the real `DocDirStore`, the real index and
  * chunk builds, the real cosine search and ranker, the real clustering, the real
  * access-point validation, and `buildKb` itself as the entry point.
+ *
+ * THIS FILE IS THE EVIDENCE FOR AC-1291 … AC-1306, all of it. It absorbed
+ * `test_UAT_FC_REQ-123_system_kb.test.ts`, which verified fourteen of the same
+ * scenarios in the same shape — same runner, same stub model, same real
+ * `DocDirStore` — and was retired rather than kept: two files asserting one
+ * property is not unit-versus-integration diversity, it is the same assertion
+ * twice, and the second copy is where an upstream API change goes unnoticed
+ * because nobody is sure which file is authoritative. If a scenario belongs to
+ * one of these ACs, it belongs here.
  *
  * Controlling the store is what makes the harder ACs assertable rather than
  * vacuous: the real store has every document opted in, so exclusions, removals
@@ -136,6 +146,29 @@ async function withRoot<T>(fn: (root: string) => Promise<T> | T): Promise<T> {
     return await fn(root)
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+}
+
+/**
+ * Run `fn`, which drives a command that WRITES into the repository's own KB
+ * tree, and put whatever was built there back afterwards.
+ *
+ * `kb export` resolves its own root — a release artefact belongs to the
+ * repository and not to whatever directory a process was started in — so a test
+ * that drives the command rather than the function beneath it cannot point it at
+ * a scratch tree. Moving the built corpus aside and back is what keeps asserting
+ * the command's output from costing a developer the corpus they had built.
+ */
+async function withRepoCorpus<T>(fn: () => Promise<T> | T): Promise<T> {
+  const live = corpusDir(kbRoot())
+  const aside = `${live}.saved-by-test`
+  const had = existsSync(live)
+  if (had) renameSync(live, aside)
+  try {
+    return await fn()
+  } finally {
+    rmSync(live, { recursive: true, force: true })
+    if (had) renameSync(aside, live)
   }
 }
 
@@ -492,7 +525,36 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       expect(existsSync(path.join(corpusDir(root), 'chunks'))).toBe(false)
       expect(existsSync(path.join(corpusDir(root), 'awareness.md'))).toBe(false)
     })
-  })
+
+    // The AC is about the COMMAND FORM an operator types, and the block above
+    // mirrors its body rather than invoking it — faithful today, and silently
+    // wrong the day the command grows a step. So the form itself is driven too,
+    // stripped of every credential, and asserted to produce the same coherent
+    // tree without reaching a model.
+    await withRepoCorpus(async () => {
+      const result = await withoutEnv(
+        [
+          'LAGRANGE_KM_EMBEDDER',
+          'LAGRANGE_KM_DESCRIBER',
+          'CLOUDFLARE_ACCOUNT_ID',
+          'CLOUDFLARE_API_TOKEN',
+          'ANTHROPIC_API_KEY',
+        ],
+        () => withStore(store, () => cli(['kb', 'export'])),
+      )
+
+      expect(result.code).toBeUndefined()
+      expect(result.out).toContain(`corpus: ${CORPUS.length} document(s)`)
+      expect(result.err).toBe('')
+
+      const live = kbRoot()
+      expect(corpusFiles(live)).toEqual(CORPUS.map((t) => `${t.id}.md`).sort())
+      expect(existsSync(configPath(live))).toBe(true)
+      expect(existsSync(path.join(corpusDir(live), 'index'))).toBe(false)
+      expect(existsSync(path.join(corpusDir(live), 'chunks'))).toBe(false)
+      expect(existsSync(path.join(corpusDir(live), 'awareness.md'))).toBe(false)
+    })
+  }, 120_000)
 
   it('test_UAT_AC1296_every_excluded_document_is_named_individually', async () => {
     // A bare count tells an operator something is missing without telling them
@@ -523,7 +585,32 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       const clean = await withStore(CORPUS, () => exportCorpus(root))
       expect(clean.skipped).toEqual([])
     })
-  })
+
+    // …and the same two halves through the COMMAND, because that is where the
+    // AC's other claim lives: the export returns a bare array of ids, and it is
+    // the command layer that says WHY those documents are out. Asserting the
+    // array alone would leave the reason — and the line's conditional emission —
+    // unproven, which is the half an operator actually reads.
+    await withRepoCorpus(async () => {
+      const excluded = await withStore(mixed, () => cli(['kb', 'export']))
+
+      expect(excluded.code).toBeUndefined()
+      expect(excluded.out).toContain('not in the KB (no fields.system_kb):')
+      // Named individually, every one of them — not summarised, not truncated.
+      for (const id of ['DOC-OUT1', 'DOC-OUT2', 'DOC-OUT3']) {
+        expect(excluded.out).toContain(id)
+      }
+      // A bare count is the failure mode this AC exists to rule out.
+      expect(excluded.out).not.toMatch(/\b3 skipped\b/)
+
+      // Nothing left out: the line is absent ENTIRELY. Not printed empty, not
+      // printed as a zero — an operator should have nothing to go looking for.
+      const none = await withStore(CORPUS, () => cli(['kb', 'export']))
+      expect(none.code).toBeUndefined()
+      expect(none.out).toContain(`corpus: ${CORPUS.length} document(s)`)
+      expect(none.out).not.toContain('not in the KB')
+    })
+  }, 120_000)
 
   it('test_UAT_AC1298_a_document_that_leaves_the_knowledge_base_is_deleted_from_the_corpus', async () => {
     // Withdrawal has to be a DELETION rather than a stop-refreshing: a stale
