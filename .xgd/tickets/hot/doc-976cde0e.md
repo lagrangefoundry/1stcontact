@@ -5,13 +5,14 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-08-31T19:43:15.554754+00:00'
+updated_at: '2026-09-10T21:46:17.583916+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
 ---
+
 
 # The Page Editor — direct manipulation on the live preview
 
@@ -169,6 +170,40 @@ so every slide is visible at once.
 Preserving animation in edit mode is rejected for phase 1: untriggered reveals hide
 segments, motion competes with the outline/highlight signal that edit mode depends
 on, and a segment mid-transition has no stable box to outline.
+
+### 5.4 The settled state is the FALLBACK; state is carried ([[REQ-215]])
+
+§5.3 answers "what should the edit render show when nobody has said what state
+the page was in". That is still the right answer, and it is the only answer a
+surface with no name for its states can give: *show everything*. The carousel's
+own rule says as much out loud — the channel must not need to know what a
+carousel is.
+
+But inside the builder something has always said. The two channels are two
+renders of one page and the operator experiences them as one page with a toggle,
+so the pane **carries** what the outgoing document held — which page, how far
+down it, and which panels were open — and puts the arriving document into it.
+Three consequences:
+
+- **The edit render emits the modal apparatus in full**: the covering shell, the
+  panel's `role`, its `id` and both halves of the overlay stylesheet. It used to
+  drop them along with the script, which left nothing in the document that could
+  be told anything. Emitting them costs the channel nothing, because every
+  overlay rule is gated on a marker only a script — or the builder carrying
+  state in — sets. What is still withheld is the script and the attribute that
+  would act, which are the two things that would give a click a second meaning.
+- **Each channel is put back into the state its own way.** Draft has the live
+  script, so a panel is opened by activating the control that opens it, the way
+  a reader opens it. Edit has no script and must not gain one, so the markers are
+  set directly — which is what the script itself does, so the panel lands where
+  it lands in View.
+- **A module's own panel is out of scope** and keeps its settled state. The
+  handle is the L1 dialog role's `id`; a behaviour module has no id in that
+  namespace, and giving every module a uniform one is a change to the behaviour
+  contract rather than to this channel.
+
+Opened on its own — an edit URL in its own tab, outside the builder — nothing has
+said anything, and §5.3's settled render is exactly what appears.
 
 ---
 
