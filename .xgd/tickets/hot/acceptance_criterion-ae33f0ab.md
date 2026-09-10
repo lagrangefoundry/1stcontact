@@ -6,9 +6,9 @@ title: A definition changed outside the workspace is shown on the next request, 
   no render step and no restart — and two workspaces never share a rendering
 created_by: xgd
 created_at: '2026-08-10T07:29:13.015523+00:00'
-updated_at: '2026-09-10T09:31:10.437292+00:00'
+updated_at: '2026-09-10T11:06:52.034015+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
