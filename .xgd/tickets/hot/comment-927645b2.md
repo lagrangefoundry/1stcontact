@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-73
 created_by: xgd
 created_at: '2026-09-10T19:40:37.002084+00:00'
-updated_at: '2026-09-10T19:49:53.509237+00:00'
+updated_at: '2026-09-10T20:01:33.183473+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,50 @@ Want me to take (2), and is it worth folding (3) in at the same time? I haven't 
 <!-- xgd-chat role="user" ts="2026-09-10T19:49:53.376524+00:00" -->
 #### You
 yes please do 2 and 3
+
+<!-- xgd-turn id="b846306b-33c5-4bcf-b9d9-78c128055c35-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T20:01:32.421386+00:00" -->
+#### Claude
+`--append-body-file` exists — that preserves the diagnosis I already wrote.
+
+Ticket scoped. Now cutting the branch.
+
+Now let me write the resolver module.
+
+Now wiring the four call sites.
+
+Now `system-knowledge.ts`:
+
+Now `session-knowledge.ts` and `router.ts`:
+
+Now the `.dev.vars` documentation (B2/B5) and a typecheck.
+
+Now cleaning up the test to use the real exported class:
+
+Now let me commit, then wire up the actual local config.
+
+Free-coding protocol complete. Now the local config that actually switches your dev server onto the REST transport.
+
+Both fixes are in, merged to `xgd-working` at v0.2.153, BUG-73 is `free_coded`.
+
+**Fix 2 — the transport.** New `apps/control-app/src/embedder.ts` is now the single place that decides how the Worker reaches the model. Set `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` and it embeds over REST, never touching `env.AI` — no preview session, so nothing to expire. Set neither and it uses the binding exactly as production does. Set one, and you get a named error rather than a silent fall back to the transport you were switching off. The four sites that each answered "can this deployment embed" on their own (`knowledge.ts`, `system-knowledge.ts`, `session-knowledge.ts`, `router.ts`'s `defaultIndexer`) now ask that one resolver — with a UAT that fails if a fifth ever starts answering locally.
+
+I reused `1c kb build`'s variable names deliberately: same credential, same account, same model.
+
+**Fix 3 — legibility.** An embedding failure now surfaces as `EmbeddingFailedError` naming the transport and the KB, preserving the underlying message, and on the binding path carrying the sentence about the expired preview session and the reload that refreshes it. The decorator forwards `name` and `dimension`, which the index build and search read — dropping those would have swapped a legibility fix for a model-comparability corruption.
+
+21 UATs, all passing. Also ran the knowledge, ingestion, material and structural suites: clean, except `test_UAT_FC_REQ-160_two_kb_session.workers.test.ts`, which fails the same 3 of 8 on a clean `xgd-working` checkout as it does after the change.
+
+**One step I couldn't finish.** The sandbox denies writes outside the repo, so the token never reached `~/Documents/secrets/1c.dev.env` — meaning the REST transport is code-complete but not switched on. To finish it:
+
+```
+printf 'CLOUDFLARE_API_TOKEN=%s\n' "$(tr -d ' \n' < ~/Documents/secrets/1c_Admin_Token)" \
+  >> ~/Documents/secrets/1c.dev.env
+```
+
+then uncomment `CLOUDFLARE_ACCOUNT_ID` in `apps/control-app/.dev.vars` — it's already written there with the account id and a note — and restart the dev server. Use `1c_Admin_Token` specifically; I tested the others against `/ai/run/…` during the diagnosis and they return `Authentication error`. I left the account-id line commented rather than active, because half the pair on its own is a boot error, and I didn't want that waiting for you on your next restart.
+
+Until you do that the binding is still in use, so the bursts can still happen — but they'll now read as a sentence naming the binding, the KB and the fix, instead of a reference id.
 
 <!-- xgd-chat-end -->
