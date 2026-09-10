@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-10T00:33:47.492132+00:00'
+updated_at: '2026-09-10T00:34:07.587288+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -661,5 +661,21 @@ Worth considering separately: **should** the model be a 1c setting? The backend 
 <!-- xgd-chat role="user" ts="2026-09-10T00:33:47.412931+00:00" -->
 #### You
 oh that must change let me get that fixed
+
+<!-- xgd-turn id="ee29eabc-9915-4494-bf4f-f889b9225b64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T00:34:07.534151+00:00" -->
+#### Claude
+Understood — I'll leave it with you.
+
+Once I can write `/Users/martin/lagrangefoundry/node_modules`, the sequence is:
+
+```
+./bin/install --lang js --component ai
+```
+
+then I'll verify the shared store reads `claude-sonnet-5` / `32000` and confirm nothing else in the store shifted. Ping me when it's ready and I'll run it.
+
+If you actually meant the other thing — making the model a 1c-level setting rather than a framework default — that's a different fix and I'd need a ticket for it. Say which and I'll pick it up.
 
 <!-- xgd-chat-end -->
