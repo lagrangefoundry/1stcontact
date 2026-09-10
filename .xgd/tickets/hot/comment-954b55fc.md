@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-47
 created_by: xgd
 created_at: '2026-09-09T02:35:36.626538+00:00'
-updated_at: '2026-09-09T23:39:36.193686+00:00'
+updated_at: '2026-09-10T00:04:13.346920+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -541,5 +541,11 @@ The second is the worse one: raising `max_tokens` makes it rarer, but any payloa
 Two caveats on reading it: this session was short on history compared to yesterday's, and 12 of the 48 round trips were wasted regenerating a payload that got thrown away — so the *useful* work cost even less than $1.67, and a session that actually progresses will spend more.
 
 Want me to file the truncated-tool-call bug against lagrange-framework? I'd write it as one bug with both halves — the `max_tokens` ceiling and the missing `stop_reason` guard — since fixing only the first leaves the silent-failure mode intact.
+
+<!-- xgd-turn id="6f6e1b3a-8ce0-489d-9205-1a765b80dd92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T00:04:13.169109+00:00" -->
+#### You
+You said Sonnet 5 is the same cost - can you upgrade us please?
 
 <!-- xgd-chat-end -->
