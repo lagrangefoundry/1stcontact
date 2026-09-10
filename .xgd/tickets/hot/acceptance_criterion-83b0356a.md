@@ -6,14 +6,15 @@ title: An interaction state the capture path cannot actuate is skipped and repor
   never emitted as an unactuated frame
 created_by: xgd
 created_at: '2026-08-31T22:53:33.688529+00:00'
-updated_at: '2026-08-31T23:04:42.408443+00:00'
+updated_at: '2026-09-10T01:55:17.160550+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-080c6036
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
