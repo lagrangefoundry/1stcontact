@@ -6,15 +6,15 @@ title: --collapse deduplicates cell rows to one row per defect; the per-cell vie
   stays the default
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:47.357080+00:00'
-updated_at: '2026-09-09T23:53:47.357080+00:00'
+updated_at: '2026-09-10T00:40:16.231640+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-16f2793c
   kind: behavior
   regression_only: false
-  uat_coverage: missing
+  uat_coverage: pass
 ---
 
 ## Criterion
