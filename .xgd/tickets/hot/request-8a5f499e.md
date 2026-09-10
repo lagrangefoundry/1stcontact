@@ -5,9 +5,9 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T21:33:41.217764+00:00'
+updated_at: '2026-09-10T21:50:17.973514+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -15,6 +15,7 @@ fields:
   needs_review: false
   chat_comment: comment-17655906
 ---
+
 
 # Switching channel must preserve what the page is showing
 
@@ -218,7 +219,14 @@ is the builder's, not the document's, so it is re-applied on every load — whic
 is what makes *editing the copy inside an open modal* work at all, rather than
 closing the panel on the first save.
 
-Switching site resets it: another site's page is not this page in another state.
+**But only for the same page.** The carry answers "the same page in the same
+state" and nothing wider, so a reader who follows a link out of an open panel
+arrives at the next page with no panel over them and at the top of it. A channel
+switch and a post-save reload both keep the path, which is exactly when the state
+should survive — and a navigation does not, which is exactly when it should not.
+
+Switching site resets it for the same reason: another site's page is not this
+page in another state.
 
 ## What is built
 
@@ -270,5 +278,7 @@ Switching site resets it: another site's page is not this page in another state.
    document shows without reloading it.
 10. A re-render of the page — the reload after a save — re-applies the carried
     state rather than resetting it.
-11. Switching site discards the carried state.
+11. Switching site discards the carried state, and so does following a link to
+    another page: the reader arrives with no panel over them and at the top.
+    A channel switch and a post-save reload keep the path, and keep the state.
 12. A behaviour module's own panel is unaffected and keeps its settled state.
