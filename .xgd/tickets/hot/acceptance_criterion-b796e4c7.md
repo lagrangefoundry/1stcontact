@@ -6,15 +6,15 @@ title: A mounted slot emits its behavior fragment verbatim; an unmounted one sta
   the inert placeholder
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T12:01:26.347310+00:00'
-updated_at: '2026-09-10T13:22:05.765100+00:00'
+updated_at: '2026-09-10T13:36:19.723018+00:00'
 completed_at: null
-last_field_updated: uat_coverage
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
