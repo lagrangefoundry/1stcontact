@@ -48,8 +48,10 @@ import type { SiteFixture, SiteSeedOptions } from './site-factory'
  *
  * WHAT IS NOT HERE, AND WHY. The two preview cases (`PreviewRenderer` renders
  * the draft; a preview asset comes back as bytes) live in the node suite alone.
- * Not because of D1 — the store serves them fine — but because rendering runs
- * through Astro's container API, which workerd has no transform for. Relocating
+ * Not because of D1 — the store serves them fine — but because rendering reaches
+ * the filesystem, which workerd does not have. (It used to run through Astro's
+ * container API; REQ-148/REQ-150 removed that, so the reason is the filesystem
+ * now, not a missing build transform. The placement is unchanged.) Relocating
  * the render is DOC-12 §7's next step and REQ-145's scope; asserting it here
  * would mean asserting it nowhere, since the file would fail to load.
  */
@@ -349,7 +351,7 @@ export function describeSiteStoreContract(
     // adapters; the filesystem-free store's revision verbs were asserted by
     // nothing at all until this body carried them.
 
-    it('UAT_FC_REQ-149 AC-1619 a site that has never published answers the revision verbs emptily', async () => {
+    it('test_UAT_AC1619_revision_verbs_answer_emptily_before_any_publish', async () => {
       const { slug, opts } = await fixture()
 
       expect(await opts.store.revisions(slug)).toEqual([])
@@ -363,7 +365,7 @@ export function describeSiteStoreContract(
       expect(await opts.store.readRevision('no-such-site', 1)).toBeNull()
     })
 
-    it('UAT_FC_REQ-149 AC-1619 a frozen revision lists, reads back and re-parents the draft', async () => {
+    it('test_UAT_AC1619_a_frozen_revision_lists_reads_back_and_reparents_the_draft', async () => {
       const { slug, opts } = await fixture()
 
       const siteJson = await opts.store.readSiteJson(slug)

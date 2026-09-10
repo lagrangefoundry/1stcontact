@@ -102,8 +102,10 @@ describe('REQ-142 — the SiteStore port', () => {
   }
 
   // The two cases the contract deliberately leaves here: they render, and the
-  // render runs through Astro's container API, which workerd has no transform
-  // for. Relocating it is DOC-12 §7's next step (REQ-145), not this one's.
+  // render reaches the filesystem, which workerd does not have. (Before
+  // REQ-148/REQ-150 the reason was Astro's container API and its build
+  // transform; both are gone, the placement is not.) Relocating it is
+  // DOC-12 §7's next step (REQ-145), not this one's.
   describe.each([
     { name: 'filesystem', make: makeFsSite },
     { name: 'memory', make: makeMemorySite },
