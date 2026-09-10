@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-73
 created_by: xgd
 created_at: '2026-09-10T19:40:37.002084+00:00'
-updated_at: '2026-09-10T19:46:10.813117+00:00'
+updated_at: '2026-09-10T19:49:53.509237+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,11 @@ Two things I have *not* established, and won't claim: I didn't reproduce it, and
 Production is unaffected either way — a deployed Worker reaches Workers AI in-datacentre with no preview session involved.
 
 Want me to take (2), and is it worth folding (3) in at the same time? I haven't cut a branch or written code yet.
+
+<!-- xgd-turn id="b846306b-33c5-4bcf-b9d9-78c128055c35-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:49:53.376524+00:00" -->
+#### You
+yes please do 2 and 3
 
 <!-- xgd-chat-end -->
