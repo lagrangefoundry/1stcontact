@@ -5,9 +5,9 @@ type: request
 title: Switching channel must preserve what the page is showing
 created_by: REQ-212
 created_at: '2026-09-10T20:23:39.801557+00:00'
-updated_at: '2026-09-10T21:52:24.634896+00:00'
+updated_at: '2026-09-10T22:10:38.067878+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -24,6 +24,7 @@ fields:
     main_sha: null
   version: 0.2.156
 ---
+
 
 # Switching channel must preserve what the page is showing
 
@@ -163,6 +164,12 @@ The two channels reproduce state differently, and the difference is the point:
   so the panel opens the way a visitor opens it: focus moves in, the scroll lock
   goes on, `aria-expanded` tells the truth. Setting the attribute by hand would
   produce a panel that looked right and behaved like nothing had happened.
+  Closing is the same act in reverse and for the same reason: a panel the state
+  says is shut is shut by **activating what shuts it** — its own Close, or, for
+  a panel that does not contain one, the scrim, which is the gesture of clicking
+  beside it and which a panel that has opted out of scrim dismissal declines
+  exactly as it declines a reader's. Removing the marker instead would leave the
+  focus, the lock and the opener's `aria-expanded` all still saying it was open.
 
 That asymmetry is the same distinction [[REQ-216]] draws for the AI's half —
 drive the draft page, reproduce the edit one — and both are served by one shared
@@ -213,6 +220,15 @@ declares plus "No panel". It reads the document (the shells and their ids), so
 it needs nothing from the definition and nothing new from the renderer. Picking
 one re-applies the state to the document already loaded — no reload, because
 applying is two attributes.
+
+**A panel is named by what is written in it**, not by its id: its accessible
+name if the role gave it one, else its first heading, else its opening words. An
+id is an author's slug, and a list of slugs is a list nobody can read; the slug
+is the last resort, for a panel with nothing in it to read.
+
+**A page that declares no panel shows no control at all** — not an empty one.
+Most pages have no modal, and a permanently inert select in the strip is chrome
+that teaches the operator to stop looking at the strip.
 
 It is the escape hatch and the entrance in one: it is also how you edit the copy
 inside a modal you never opened in View. Single-select — a page may have several
@@ -278,12 +294,16 @@ page in another state.
    closes every other, as overlays, laid out by the same rules the draft render
    lays them out by.
 7. Applying a state to a draft document opens the named panels by activating
-   the control that opens them, so the page's own script does the opening.
+   the control that opens them, and closes every other by activating what shuts
+   it — its Close, or the scrim where it has none — so the page's own script
+   does both, and the focus, the lock and `aria-expanded` are true afterwards.
 8. Reading a state and applying it to the other channel round-trips: the same
    panels are open on both sides.
 9. Edit mode offers a panel selector naming the panels the page declares plus
-   "no panel"; View does not offer it. Picking one changes what the loaded
-   document shows without reloading it.
+   "no panel"; View does not offer it. Each panel is named by what is written
+   inside it rather than by its id, a page that declares none shows no control
+   at all, and picking one changes what the loaded document shows without
+   reloading it.
 10. A re-render of the page — the reload after a save — re-applies the carried
     state rather than resetting it.
 11. Switching site discards the carried state, and so does following a link to
