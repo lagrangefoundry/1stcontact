@@ -6,14 +6,15 @@ title: No credential the host holds appears in a log, an error envelope or a cli
   response, including inside a failing turn's stream
 created_by: xgd
 created_at: '2026-08-31T10:38:37.376752+00:00'
-updated_at: '2026-08-31T10:59:27.139159+00:00'
+updated_at: '2026-09-10T21:47:17.883061+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
