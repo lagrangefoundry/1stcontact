@@ -6,7 +6,7 @@ title: A right-to-left locale renders direction rtl, decided by script subtag wh
   present
 created_by: xgd
 created_at: '2026-08-31T12:28:34.549036+00:00'
-updated_at: '2026-09-10T04:00:52.917845+00:00'
+updated_at: '2026-09-10T04:09:33.455169+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
