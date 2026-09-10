@@ -5,9 +5,9 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-09-10T00:03:16.944225+00:00'
+updated_at: '2026-09-10T00:16:39.314269+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -205,3 +205,119 @@ want something is communicating, not designing.**
 - A pill survives cut and paste within the composer.
 - Points clear on send; the Xs remain visible and greyed until the next render.
 - Multiple points marked in one turn expand to distinct labelled entries.
+
+
+---
+
+## Implementation — what was built, and the decisions taken along the way
+
+*Added at the end of the free-coding session; the sections above are the intent and
+stand unchanged.*
+
+### Where each half lives
+
+- **`packages/framework/src/l1/marked-points.ts`** — what a pointed-at pixel resolves
+  to. Beside `edit-client.ts` for the same reason the bridge is beside the renderer:
+  it reads the same stamp, and a copy in another package is free to drift from the
+  markup it depends on. It holds the label namespace, the pill's text grammar, the
+  transform-chain inversion, and the expansion.
+- **`apps/control-app/src/builder/points.js`** — the overlay: the toggle's state, the
+  Xs, the labels, the drag, the two label controls, and the send. It is here because
+  this is where the chrome and the composer are.
+- **`packages/site-schema/src/anchors.ts`** gains `nearestAnchors` — *which named
+  lines are near this point*, which is [[REQ-209]]'s arithmetic asked from the other
+  end. It belongs beside `anchorValue` rather than in whichever surface happens to be
+  pointing, and it is what makes `near:` name features from the closed set rather than
+  invent words for lines.
+
+### Three modules are now served to the browser
+
+`marked-points.ts`, `anchors.ts` and `measure-svg.ts` join `edit-client.ts` in
+`FRAMEWORK_SOURCES`, so the browser runs the **one** implementation of each rather
+than a hand-written copy. `anchors.ts` is what `relate` and `solve` answer from, and
+`measureScript` is what the capture driver evaluates — a second copy of either would
+be a second opinion about what `cap-top` means or where the ink is.
+
+### `near:` is measured in the browser, by evaluating REQ-209's own script
+
+`measureScript` is a string of browser JS **by design** — that is what the capture
+driver evaluates in a page — so evaluating the same string in the builder is exact
+reuse rather than a reimplementation. It cannot be done server-side in the deployed
+product: `measure_drawing` needs a browser the Worker does not have.
+
+It runs in the **builder's own document**, not the preview's, and that is not a
+shortcut. A drawing referenced by `<img>` renders as an isolated document, so the
+page's `@font-face` rules cannot reach inside it; measuring against the page would
+measure a drawing the visitor never sees. The script hosts the drawing in a shadow
+root under `all: initial`, which is the same isolation from whichever document calls
+it.
+
+**`near:` degrades to nothing rather than to a guess.** A measurement that could not
+be taken costs that one line; every other frame is already exact.
+
+### The inversion has two stages, and both are real
+
+`object-fit` decides the box the drawing is painted into; the drawing's own
+`preserveAspectRatio` then decides how its viewBox maps into *that*. They agree — and
+collapsing them looks harmless — right up until an `object-fit: fill` on a box of a
+different ratio, where a single stage puts every point in the wrong place.
+
+### The mode
+
+- The toggle is named by the **edit mode only**, so the strip does not render it in
+  View. That is not sufficient on its own: a toggle that is merely unreachable is
+  still on, so leaving edit mode also turns it off, and the strip's omission becomes
+  true rather than decorative.
+- The overlay listens in the **capture phase** and stops the event, so the bridge is
+  neither modified nor consulted. Turning the mode off removes the listener and the
+  bridge is exactly what it was.
+- The overlay's own controls are excluded from that interception — otherwise the mode
+  would consume its own `+` and `×` and place a second point on top of the first every
+  time someone tried to delete one.
+- Its chrome is **injected into the preview** rather than emitted by the renderer: a
+  published or standalone edit render has no business carrying a builder feature's
+  stylesheet, and injecting it means the mode needs no re-render to appear.
+- The marks live **inside the preview document**, positioned in document coordinates
+  against the initial containing block, so scrolling is the browser's problem rather
+  than a third number to carry.
+
+### Deleting a point takes its pills with it
+
+Not merely tidy. Letters are reused the moment they are free, so a `[Point A]` left
+behind in the draft would quietly bind to a **different** point the next time A is
+handed out — a message that says one thing and means another, with nothing on screen
+to show it.
+
+### Only referenced points are sent
+
+A point whose pill was deleted and never restored is one the reader chose not to
+mention; sending it anyway would make the `+` control pointless and the message wrong.
+
+### The bubble keeps the pill; the turn carries the expansion
+
+Expansion happens in `createChatPanel`'s new `expandPrompt` seam — the last thing that
+happens to a draft before it becomes a turn — rather than in the composer. So the
+bubble the reader watches appear keeps the short form they typed, while the assistant
+is told the whole thing. A reloaded transcript replays what the session recorded, the
+expansion, which is the honest archive: it is what the assistant was actually told.
+
+### Staleness is an ordinal, not a clock
+
+The pill reports `page home, render 3`. It has to be *comparable*, not meaningful: a
+later message quoting a lower ordinal is a stale reference, and that is decidable
+without anyone knowing what time it is. A new preview document is a new render, so the
+ordinal advances and the marks — including the greyed ones a send left behind — go
+with the document they were taken against.
+
+### Known limits, stated rather than discovered later
+
+- **A pill is inserted at the end of the draft, not at the caret.** The shared
+  composer exposes `getInputMarkdown`/`setInputMarkdown` and no caret API; the pill
+  goes where the reader was almost certainly about to type anyway.
+- **A pill is a literal in the draft's own markdown**, which is what makes cut, copy,
+  paste and lenient re-typing work for free, and what makes it not an atomic chip: a
+  backspace takes one character. `+` is the recovery the ticket already specifies, and
+  it is what the reader reaches for when a pill has been damaged rather than deleted.
+- **`near:` is drawing-only.** Page anchors are `measure_page`'s (DOC-52 §3.6, §5.6),
+  which is deliberately unscheduled; a point on an L1 node reports every other frame
+  and carries the width-ambiguity note instead.
