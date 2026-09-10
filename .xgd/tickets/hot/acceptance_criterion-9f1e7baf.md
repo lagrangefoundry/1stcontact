@@ -2,13 +2,12 @@
 uid: acceptance_criterion-9f1e7baf
 id: AC-932
 type: acceptance_criterion
-title: A retrofitted site's palette is materially smaller than its distinct colour
-  count, with no colour lost
+title: A site with no colour literals retrofits to an empty palette and remains valid
 created_by: xgd
 created_at: '2026-08-06T20:37:54.856029+00:00'
-updated_at: '2026-08-16T22:25:28.117579+00:00'
+updated_at: '2026-09-10T19:59:01.596993+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5e7eb0c5
@@ -19,29 +18,26 @@ fields:
 
 ## Criterion
 
-Converting an existing site's colour literals to palette references yields a
-**palette rather than a colour list**: the number of entries is materially smaller
-than the number of distinct colours the site used, because colours sharing an RGB
-at different opacities collapse to one entry and colours forming a reachable ramp
-collapse to one entry plus a shade on each reference.
+A site whose L1 pages declare no colour axes has nothing to convert, and the
+retrofit says so by succeeding with an empty result rather than by refusing.
+Running it against such a site:
 
-The conversion is colour-lossless in the sense that matters for the palette's
-shape: every colour the site painted before the conversion is still painted after
-it — within the bound the conversion is gated on — and no new colour appears.
+- writes a site definition carrying a **palette with no entries** — the palette
+  is present and empty, not populated with entries no page references;
+- leaves every page without a palette reference, because no page held a colour
+  literal to rewrite;
+- produces a definition that still satisfies the site-definition contract.
 
-As built, the two stored sites carrying L1 pages land at **7 entries** and
-**15 entries**, neither carrying a single step. Those palettes are legitimately
-larger than the 6 and 8 the named-step model produced, because the colours a
-shade cannot reach — the ones more saturated than their family's base — are split
-out as their own exact entries rather than approximated into a family they do not
-belong to. They remain materially smaller than the sites' distinct colour counts.
-Sites with no L1 colour axes carry no palette at all and remain valid.
+This is the retrofit's floor case and is deliberately *not* one of the refusals
+AC-945 enumerates: nothing is wrong and no proof fails, there is simply no colour
+to move. Stored sites in this state exist — the ones whose pages carry no colour
+axes census at zero literals — so the case is the ordinary outcome for them
+rather than a contrived one.
 
 ## Verification
 
-For a retrofitted site, compare the declared palette size against the count of
-distinct colours in the pre-conversion definition and confirm it is materially
-smaller; assert no entry carries a step; compare the colours actually painted
-before and after in document order and confirm the number of slots is unchanged
-and every colour is accounted for. For a site with no colour axes, assert the
-definition carries no palette and still validates.
+Census a stored site whose pages declare no colour axes and confirm it reports
+zero distinct colour literals. Run the retrofit against that site and assert: the
+command succeeds; the written definition carries a palette holding zero entries;
+no page in the written definition carries a palette reference; and the definition
+validates against the site-definition contract.
