@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-10T17:22:31.227344+00:00'
+updated_at: '2026-09-10T19:02:05.802994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -40,5 +40,11 @@ Done — the xgd site is now in the XGD business.
 That's the BUG-51 failure shape again (an import writing over the wrong thing, quietly), so I did this by hand instead: built the payload from the draft and POSTed it to `/b/<id>/api/import` with a minted access-sim token. Worth a ticket — `1c push --business <id>`, or just have push preserve `--origin`'s path. Say the word and I'll file it.
 
 Minor, related: the access-sim on :8799 is a **stale build without the BUG-59 forwarder** — it mints fine but 404s everything it should be proxying, so `1c push` through it can't work at all right now. Restarting it from current `bin/access-sim` would fix that.
+
+<!-- xgd-turn id="f6e75a32-74d9-4d84-9031-0e9783515063-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T19:02:03.858870+00:00" -->
+#### You
+I do not see the xgd site in the xgd business?
 
 <!-- xgd-chat-end -->
