@@ -5,15 +5,23 @@ type: request
 title: 'Library: the client can correct what a material is for'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T00:26:16.895405+00:00'
-updated_at: '2026-09-10T00:43:27.962930+00:00'
+updated_at: '2026-09-10T00:59:21.110059+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d4b3dfd0
+  commits:
+  - working_sha: 33c88bf8e85ff604fcbdfeb55ab1656c1b2d3720
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b61d5df602bfca5668a7c52a657a04d3c9d58891
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.144
 ---
 
 ## What the client asked for
