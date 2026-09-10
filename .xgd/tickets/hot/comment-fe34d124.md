@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-67
 created_by: xgd
 created_at: '2026-09-09T23:34:41.190236+00:00'
-updated_at: '2026-09-10T19:50:41.016169+00:00'
+updated_at: '2026-09-10T19:53:34.509057+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -397,5 +397,49 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="60598631-3960-4b0f-91ef-6fb065037d74-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-10T19:53:33.910591+00:00" -->
+#### Claude
+Let me check the documented promotion procedure rather than improvising a merge.
+
+`--version` is optional now — the gate allocates it under its own lock (BUG-1340/1362), which avoids the duplicate-version trap. Checking the target worktree is clean before locking:
+
+Clean merge, no conflicts. Now verifying on the merged tip — foreground, as noted:
+
+Merge combined my work with changes that landed on `xgd-working` since I branched, so let me check the neighbouring host suites on the merged result:
+
+Let me confirm those 4 are not an interaction with the newly-merged work — temporarily disabling my one call on the merged tree:
+
+Identical 4 failures with my call disabled — confirmed pre-existing. Restoring:
+
+Restored clean — no diff against the merge. Now the gate:
+
+Needs all four — including the two from the earlier session:
+
+Gate allocated `0.2.152` and recorded its own bump commit. Final step — tear down the branch:
+
+Verifying the landed state:
+
+Free-coding complete. All five protocol steps ran in order:
+
+| Step | Result |
+|---|---|
+| Lock | `xgd branch lock BUG-67` acquired |
+| Merge | `git merge free-BUG-67` → clean, no conflicts, 5 files / 313 insertions |
+| Verify | 15 UATs pass on the merged tip |
+| Gate | `move-to-free-coded` accepted; status `free_coded`, version `0.2.152` |
+| Clean | Worktree removed, branch deleted, lock released |
+
+Both commits are ancestors of `xgd-working`, and `backends.json` on the branch tip reads `claude-opus-5` / `64000`. So the answer to your last question has changed: the code is now in your checkout, and a restart will pick it up.
+
+Two things worth recording:
+
+**I omitted `--version` deliberately.** The gate allocates it itself under its own lock (BUG-1340/1362), bumping `xgd-working`'s live tip rather than a number computed outside the lock. That's why the ticket now carries a fifth commit, `84672fbd19` — the gate's own bump. Computing the version myself was the older procedure and is the route to the duplicate-version refusal; `xgd-working` had already moved 0.2.149 → 0.2.151 under me while I worked, which is exactly the race that design closes.
+
+**The gate rejected my first attempt**, and correctly: I passed only this session's two SHAs, but it requires a superset of the ticket's existing commits, so the two from the earlier session had to come too. Worth knowing that `move-to-free-coded` takes the ticket's *whole* commit history, not the current cycle's increment.
+
+On the 4 failing priming suites (`REQ-182`, `BUG-63`): still failing, still not mine. I didn't take that on faith after the merge — since merging combined my work with changes that landed on `xgd-working` while I was branched, a new interaction was possible. I disabled my single `configureProjectBackends(lib)` call on the merged tree and got the identical 4 failures, then restored the file and confirmed no diff against the merge. They're pre-existing reminder-assembly failures (the count was 5 on my branch base; someone fixed one in the meantime), and they have no path to the backend configuration.
 
 <!-- xgd-chat-end -->

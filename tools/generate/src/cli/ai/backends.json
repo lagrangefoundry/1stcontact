@@ -1,0 +1,48 @@
+{
+  "about": [
+    "1stcontact's backend settings (BUG-67). The project half of the seam",
+    "lagrange-framework BUG-49 opened: which model the builder's consultant runs",
+    "on, and how much room one reply gets, are decisions this repository makes.",
+    "",
+    "WHY THE FILE EXISTS AT ALL. These were framework constants. When REQ-146",
+    "moved the model to claude-sonnet-5 and the ceiling from 4096 to 32000, this",
+    "project's route to those values was a framework release — it constructed the",
+    "backend naming neither, so the framework's opinion was the only thing on the",
+    "wire. BUG-49 made them configuration; this file is 1c exercising that, so",
+    "changing either is an edit here and nothing else.",
+    "",
+    "The keys are the framework's schema, not ours: a backend it does not declare,",
+    "or a key that backend does not have, is rejected at start-up by",
+    "`configureBackends` naming the offending key. Settings merge per key over the",
+    "shipped defaults, so naming one value changes one thing.",
+    "",
+    "max_tokens is 64000 because the builder's smallest legitimate page write is a",
+    "whole page. It is an ENFORCED ceiling the model cannot see — it does not",
+    "produce a shorter reply, it cuts the stream wherever it happens to be, and in",
+    "a tool call that yields broken JSON arguments rather than a smaller edit.",
+    "That is the failure BUG-67 was filed for: twelve consecutive `set_l1` calls",
+    "arriving with an empty input object at the 4096 cap. Anthropic's documented",
+    "default for STREAMING requests is ~64000 — the reason to go lower (~16000) is",
+    "HTTP timeouts on non-streaming requests, and the adapter passes stream: true,",
+    "so that reason does not apply here. Billing is per token actually generated,",
+    "so a high cap costs nothing until it is used; per-session spend is the right",
+    "cost control and this is not it.",
+    "",
+    "claude-opus-5 has a 1M context window and a 128K output ceiling, so 64000 is",
+    "about half of what one reply may be and ~6% of the room the turn has — it does",
+    "not meaningfully compete with input. On Opus 5 thinking is ON by default and",
+    "max_tokens bounds thinking and response text TOGETHER, so this is a shared",
+    "budget rather than 64000 of reply — an argument for the ceiling being roomy,",
+    "which it is.",
+    "",
+    "The adapter sends model, max_tokens, system, messages, tools and stream only.",
+    "That matters for this model: Opus 5 removes budget_tokens, temperature, top_p",
+    "and top_k, and refuses an assistant prefill, so a request carrying any of them",
+    "would 400. There is nothing here for it to refuse."
+  ],
+
+  "claude": {
+    "model": "claude-opus-5",
+    "max_tokens": 64000
+  }
+}
