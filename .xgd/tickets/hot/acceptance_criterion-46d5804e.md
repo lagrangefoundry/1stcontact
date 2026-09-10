@@ -6,9 +6,9 @@ title: The workspace and everything it displays are reachable from one origin by
   admitted caller, with nothing reinterpreted in between
 created_by: xgd
 created_at: '2026-08-07T01:44:09.731162+00:00'
-updated_at: '2026-08-31T10:11:25.062164+00:00'
+updated_at: '2026-09-10T10:01:44.007752+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -34,6 +34,16 @@ arrives instead, and it carries none of the bytes the route would have produced
 artifacts are the case worth stating, because they are the ones that could have
 been answered by the asset layer before the origin ever saw the request.
 
+Stating it is as far as this criterion goes. The property *itself* — that the
+artifacts are reached by falling through the route table so they sit behind the
+gate rather than ahead of it, that the fall-through stays last, and that an
+artifact request still succeeds against a store holding no account — is
+AC-1400's in full, along with the ordering that makes it true. Here the artifact
+is exercised only as one member of the route-class sweep, to establish that the
+admitted/unadmitted split holds across every class of thing this host serves
+rather than on the operations alone. This criterion asserts nothing about
+ordering.
+
 This is stated about *one host and what an operator observes*, not about the
 arrangement behind it, which is why it survived that arrangement changing: the
 host is now the origin itself, with no forwarding front between them.
@@ -49,9 +59,11 @@ document URL and the host's origin match, so no request is cross-origin.
 
 Then repeat at least one route of each class as an **unadmitted** caller and
 assert it is refused, and that the refusal body does not contain what the
-admitted response contained. Include the build artifact explicitly: an artifact
-served ahead of the gate would be served to anyone, so it is the assertion that
-distinguishes "the origin runs first" from "the asset layer answers first".
+admitted response contained. Include the build artifact explicitly: it is the
+member of the sweep whose refusal would otherwise go unprobed, and an artifact
+that came back to an unadmitted caller would be an artifact served to anyone.
+Why that outcome holds — the fall-through ordering behind it — is AC-1400's and
+is not asserted here.
 
 There is no forwarding front to compare against any more, so the former
 side-by-side comparison of host and origin responses no longer applies and must
