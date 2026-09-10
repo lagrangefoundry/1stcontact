@@ -6,14 +6,15 @@ title: A band's translucent scrim folds onto the section-background box alongsid
   its background image
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T14:22:29.795530+00:00'
-updated_at: '2026-09-10T14:22:29.795530+00:00'
+updated_at: '2026-09-10T15:36:55.497996+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
