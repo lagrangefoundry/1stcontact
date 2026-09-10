@@ -5,7 +5,7 @@ type: request
 title: 'Text can vary within a run: multi-variate L1 text'
 created_by: CHAT-49
 created_at: '2026-09-09T21:25:01.708637+00:00'
-updated_at: '2026-09-10T00:51:20.029555+00:00'
+updated_at: '2026-09-10T17:18:50.764105+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -154,6 +154,13 @@ nothing but a hope that the browser re-wraps them identically. This also means a
 rejoined node always carries at least one run with axes, so the canonical-form rule
 above is satisfied by construction.
 
+The node's own axes — its family, its measure, its alignment, its per-width size track —
+come from the flow's **longest** run, not its first. Those axes belong to whichever run is
+the paragraph rather than the ornament, and length is what tells them apart: an ordinal is
+two characters and a headline is forty. Taking the first would hand a sentence that opens
+with an emphasised word its emphasis's type as the paragraph's own. Ties go to the earlier
+run, so the choice is stable across widths.
+
 A rejoined node lays out in the **flow root's** rect, not in the tight box of whichever
 fragment carries it, and it does **not** take a `nowrapFromPx` pin: that threshold
 states a fact about one fragment's glyph extent inside a box the fold pinned to it, and
@@ -183,6 +190,12 @@ writes only that run's words and leaves its axes — and every other run — unt
 Per-run *axes* are deliberately not exposed. The words are content; the axes are the
 AI's, like every other axis on the node.
 
+A name that addresses no run — `text9` on a three-run node, or `text` on a multi-run one —
+is refused naming the field, not guessed at. That is the rule the modal's write path
+already applies to every field it did not derive, and a run field is not an exception to
+it: a name outside the derivation means the client resolved against a different node than
+the one it is writing to, and writing part of that map would land a partial edit.
+
 ## Behaviour to verify
 
 - An L1 document whose text node is a plain string validates and renders exactly as
@@ -204,6 +217,8 @@ AI's, like every other axis on the node.
   declined to rejoin exactly as many times as the fold emits nodes for it.
 - The editor opens a multi-run text node as one field per run, each a plain string;
   editing one run leaves the other runs and every run's axes untouched.
+- A copy field naming no run is refused, naming the field.
+- A rejoined node takes its own axes from the flow's longest run.
 - Text-height estimation over a multi-run node produces a height consistent with the
   same copy as a single run, and a run set at a smaller scale consumes less of the
   line.
