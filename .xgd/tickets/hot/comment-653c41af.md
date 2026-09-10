@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-68
 created_by: xgd
 created_at: '2026-09-09T23:55:11.183338+00:00'
-updated_at: '2026-09-10T17:15:03.806180+00:00'
+updated_at: '2026-09-10T18:39:28.693471+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -186,5 +186,11 @@ Adding an unredacted field to `OutcomeRecord` means JS `audit.js`/`runtime.js`, 
 2. **Split `generator_unavailable`** in `ai_imagegen` — quota/billing exhaustion gets its own declared code. Today a 429 rate limit tells the model "nothing to retry", which is the opposite of true.
 
 I'd **defer** projecting the accepted aspect ratios into the parameter description — it needs capability→declaration projection at composition time and touches the generated manual. Worth doing, but it's a separate shape from this bug. Say if you want it folded in.
+
+<!-- xgd-turn id="a7708df1-3932-499a-a70e-cf74bad7f236-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-10T18:39:27.272721+00:00" -->
+#### You
+Oh you didn't say that - please create a ticket in lf for the fix
 
 <!-- xgd-chat-end -->
