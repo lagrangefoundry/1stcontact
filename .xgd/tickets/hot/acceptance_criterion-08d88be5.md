@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: The apex address returns a holding response and never serves any site's content
 created_by: xgd
 created_at: '2026-08-06T18:50:01.754987+00:00'
-updated_at: '2026-08-31T11:54:39.185889+00:00'
+updated_at: '2026-09-10T16:55:56.952524+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
