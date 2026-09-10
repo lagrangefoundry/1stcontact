@@ -6,7 +6,7 @@ title: A painted panel's current background handle is always among its options, 
   when the site's asset store holds no file for it
 created_by: xgd
 created_at: '2026-08-10T08:23:18.608971+00:00'
-updated_at: '2026-08-16T06:55:47.956671+00:00'
+updated_at: '2026-09-10T19:18:36.383220+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
