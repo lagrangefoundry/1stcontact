@@ -6,7 +6,7 @@ title: What the assistant did during a turn is shown in the pane alongside what 
   said
 created_by: xgd
 created_at: '2026-08-10T08:46:59.874701+00:00'
-updated_at: '2026-08-16T04:42:07.708099+00:00'
+updated_at: '2026-09-10T22:44:52.235533+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
