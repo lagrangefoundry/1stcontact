@@ -301,8 +301,19 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the detail reuses the editors we 
     // question; a `republishable` they could set by hand would be that question
     // with a checkbox on it. The component marks an editable row `is-editable`,
     // so its absence is the mechanical form of the claim.
+    //
+    // `role` IS EXCLUDED BY [[REQ-213]], AND THE EXCLUSION IS THE CLAIM NARROWING
+    // RATHER THAN WEAKENING. What §10.1 infers is the RIGHTS, and every field it
+    // infers is still locked below. `role` is the one row of this block that was
+    // never inferred at all: for an upload it is which of two drop areas a human
+    // chose (above), so a client correcting a mis-drop is restating their own
+    // answer rather than being asked a new question. Its own suite —
+    // `test_UAT_FC_REQ-213_library_role_field` — holds what may edit it and what
+    // may not; this loop keeps holding the part REQ-213 did not touch.
     for (const row of rights.querySelectorAll('.fields-row')) {
-      expect(row.classList.contains('is-editable'), row.getAttribute('data-field') ?? '').toBe(false)
+      const name = row.getAttribute('data-field') ?? ''
+      if (name === 'role') continue
+      expect(row.classList.contains('is-editable'), name).toBe(false)
     }
   })
 

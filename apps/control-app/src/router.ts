@@ -97,6 +97,7 @@ import {
 } from './sessions'
 import { TemplateRefusedError } from './templates'
 import {
+  AlreadyOnSiteError,
   ingestFetch,
   ingestUpload,
   listMaterial,
@@ -108,6 +109,8 @@ import {
   promoteToSiteAsset,
   readMaterial,
   reviseDescription,
+  reviseRole,
+  RoleNotChosenError,
   watchMaterial,
   type IndexMaterial,
   type MaterialChange,
@@ -1055,19 +1058,28 @@ function materialEnvelope(ingested: {
  * shape that looks like it escapes REQ-146's guarantee — the envelope leaves the
  * Worker whatever the status code on it says, so the scrubber has to travel with
  * it rather than being applied only where an error status is set.
+ *
+ * IT TAKES THE THREE FACTS IT READS, NOT AN `Ingested` ([[REQ-213]]). There are
+ * two callers now — the upload, and a client correcting what a file is for — and
+ * the second has no ingestion to hand it: nothing was ingested, a ticket that has
+ * been sitting in the Library for a week simply changed its mind. Narrowing the
+ * parameter to `uid`/`role`/`filename` is what lets the two share this rather
+ * than the second growing its own copy of the gate, the soft failure and the
+ * scrub. `role`/`filename` are `unknown` because both callers read them off a
+ * ticket's untyped `fields`, and the comparison is against the literal either way.
  */
 async function placeOnSite(
-  ingested: { ticket: { uid: string; fields: Record<string, unknown> } },
+  material: { uid: string; role: unknown; filename: unknown },
   slug: string | undefined,
   openTickets: () => Promise<TicketStore>,
   openStore: () => Promise<TenantSiteStore>,
   scrub: (message: string) => string,
 ): Promise<Record<string, unknown>> {
-  if (ingested.ticket.fields.role !== 'site' || !slug) return { site_asset: null }
-  const name = String(ingested.ticket.fields.filename ?? '')
+  if (material.role !== 'site' || !slug) return { site_asset: null }
+  const name = String(material.filename ?? '')
   try {
     const placed = await promoteToSiteAsset(await openTickets(), await openStore(), {
-      uid: ingested.ticket.uid,
+      uid: material.uid,
       slug,
       name,
     })
@@ -1077,6 +1089,43 @@ async function placeOnSite(
       site_asset: null,
       site_asset_error: scrub(err instanceof Error ? err.message : String(err)),
     }
+  }
+}
+
+/**
+ * The site a correction's bytes should go on, when there is exactly one ([[REQ-213]]).
+ *
+ * ASKED OF THE STORE RATHER THAN OF THE CLIENT, and that is the whole point.
+ * The upload route takes its slug off the form because the OVERLAY knows which
+ * site is open — it is mounted in the builder, over an editor, with a site in
+ * front of it. The Library is not: [[REQ-181]] removed the site as a dimension
+ * of that tab deliberately, because a business holds one site in v1 and so *"on
+ * this site"* and *"on the site"* are the same sentence. Threading a slug back
+ * through the panel to reach this would restore the dimension that ticket
+ * deleted, in the one module whose suite asserts it cannot ask.
+ *
+ * SO THE ANSWER COMES FROM THE TENANT HANDLE, which is already scoped to this
+ * business and cannot address another's. One site is the v1 case and the only
+ * one with an unambiguous answer.
+ *
+ * ANYTHING ELSE IS `undefined`, WHICH MEANS "DO NOT PLACE" RATHER THAN "FAIL".
+ * A business with no site yet has nowhere to put a picture and has not done
+ * anything wrong; a business with several (v2) has a question nobody asked it,
+ * and guessing would put a client's logo on a site they were not looking at.
+ * Both land on `placeOnSite`'s existing soft path, so the correction stands and
+ * the row honestly reports that the bytes are not on a site — which is exactly
+ * what [[REQ-181]]'s warning badge is for.
+ *
+ * A STORE THAT WILL NOT OPEN IS THE SAME ANSWER. This runs on a path whose whole
+ * failure model is soft, and a deployment with no site store must not turn a
+ * role correction that did land into a 500.
+ */
+async function theOneSite(openStore: () => Promise<TenantSiteStore>): Promise<string | undefined> {
+  try {
+    const slugs = await (await openStore()).slugs()
+    return slugs.length === 1 ? slugs[0] : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -2152,6 +2201,63 @@ async function routeUncached(
     }
 
     /**
+     * The client corrects what their material is FOR ([[REQ-213]]).
+     *
+     * THE SIBLING OF THE ROUTE ABOVE, and the pair is worth reading together:
+     * one corrects what we SAID a file is, the other what the client said it is
+     * for. Both are the Library's rights block admitting that one of its rows was
+     * never inferred — see `reviseRole` for why exactly one of them was not, and
+     * why every other field on that block stays read-only.
+     *
+     * VALIDATED AND NOT COERCED, in the same words the upload route uses, because
+     * it is the same value and the two silent alternatives are wrong in the same
+     * two ways: falling back to `site` publishes something the client marked
+     * private, and falling back to `reference` withholds a photograph they meant
+     * to put on their site. Unlike the upload, ABSENT IS NOT ALLOWED — there is no
+     * pipeline entry point here that could predate the question, only a person who
+     * picked one of two options, so a missing role is a malformed request.
+     *
+     * THE REFUSALS ARE THE DOMAIN'S AND ARE MAPPED AT THE BOTTOM, which is where
+     * every other named material refusal is mapped. Building an `error:` value
+     * here would be doing it outside the one place that scrubs them ([[REQ-146]]
+     * AC4), and the next such route would inherit the omission.
+     *
+     * IT PLACES, AND THE PLACEMENT IS SOFT. Widening to `Site asset` is only half
+     * a promise until the bytes are in the site's asset library — the same half
+     * the upload completes, by the same call, for the same reason: without it the
+     * row flips straight to [[REQ-181]]'s *"Not on the site"* warning, which would
+     * be true and useless. And it is soft for the reason `placeOnSite` argues: the
+     * role change has already landed by the time it runs, so a site store that
+     * refuses the write must not be reported as the correction not happening.
+     *
+     * THE ROW IS RE-READ AFTER A PLACEMENT AND NOT BEFORE. `promoteToSiteAsset`
+     * writes `placed_on` when the copy lands, so the row `reviseRole` returned is
+     * one write out of date in exactly the case the client is looking at — and it
+     * is the field the warning badge reads. Only when something was placed, since
+     * that is the only branch that wrote.
+     */
+    if (p === '/api/material/role' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.uid !== 'string' || body.uid === '') {
+        return json(400, { error: 'uid is required' })
+      }
+      if (body.role !== 'site' && body.role !== 'reference') {
+        return json(400, { error: "role must be 'site' or 'reference'" })
+      }
+      const tickets = await openTickets()
+      const revised = await reviseRole(tickets, { uid: body.uid, role: body.role })
+      const placement = await placeOnSite(
+        { uid: revised.uid, role: revised.role, filename: revised.filename },
+        await theOneSite(openStore),
+        openTickets,
+        openStore,
+        scrub,
+      )
+      const row = placement.site_asset ? await readMaterial(tickets, revised.uid) : revised
+      return json(200, { ...row, ...placement })
+    }
+
+    /**
      * The two ingestion entry points ([[REQ-163]], [[DOC-38]] §10).
      *
      * THEY BELONG HERE AND NOT TO [[REQ-161]], and the line is worth stating
@@ -2226,7 +2332,11 @@ async function routeUncached(
       return json(200, {
         ...materialEnvelope(ingested),
         ...(await placeOnSite(
-          ingested,
+          {
+            uid: ingested.ticket.uid,
+            role: ingested.ticket.fields.role,
+            filename: ingested.ticket.fields.filename,
+          },
           siteSlug,
           openTickets,
           openStore,
@@ -2650,6 +2760,21 @@ async function routeUncached(
     }
     if (err instanceof NotRepublishableError) {
       return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // AND 403 FOR THE SAME REASON ([[REQ-213]]). Correcting the role of material
+    // whose role was never chosen is the well-formed request the paragraph above
+    // is about — it is refused as a matter of rights, not of syntax, and it is
+    // refused by the same §5 gate one step earlier.
+    if (err instanceof RoleNotChosenError) {
+      return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // 409 AND NOT 403, AND THE DIFFERENCE IS WHETHER IT COULD EVER SUCCEED
+    // ([[REQ-213]]). Everything above is forbidden and stays forbidden however
+    // the deployment changes. This is a conflict with the material's CURRENT
+    // state: the same client may make the same change the moment the file is off
+    // their site, so answering it as a permission would tell them to stop trying.
+    if (err instanceof AlreadyOnSiteError) {
+      return json(409, { error: scrub(err.message), uid: err.uid, placed_on: err.placedOn })
     }
     // 404 AND NOT 403 ([[REQ-161]]). The uid names nothing this surface reaches:
     // either it does not exist or it is a ticket of another kind. The two are

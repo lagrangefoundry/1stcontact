@@ -1136,3 +1136,114 @@ export async function reviseDescription(
 
 /** `description_model` for a description the client wrote themselves. */
 export const CLIENT_DESCRIBER = 'client'
+
+/**
+ * Raised when the role is not the client's to change ([[REQ-213]]).
+ *
+ * ITS OWN CLASS, AND A RIGHTS REFUSAL RATHER THAN A BAD REQUEST, for the same
+ * reason {@link NotRepublishableError} is: the request is perfectly well formed
+ * and it is forbidden. What separates the two is WHICH gate fired —
+ * `NotRepublishableError` refuses a promotion, this refuses the edit that would
+ * have made one possible.
+ */
+export class RoleNotChosenError extends Error {
+  readonly name = 'RoleNotChosenError'
+  constructor(readonly uid: string) {
+    super(
+      'What this is for was worked out from where it came from, not chosen — so ' +
+        'it is not something to correct. Only files you uploaded yourself can be ' +
+        'moved between "on your site" and "just for me to read".',
+    )
+  }
+}
+
+/**
+ * Raised when narrowing a material whose bytes are already on a site ([[REQ-213]]).
+ *
+ * A CONFLICT WITH THE CURRENT STATE, not a permission the caller could be
+ * granted, which is why it is not a second flavour of {@link RoleNotChosenError}:
+ * the same client may make the same change the moment the file is off the site.
+ * There is no path that takes it off one, which is exactly what the message has
+ * to say rather than imply.
+ */
+export class AlreadyOnSiteError extends Error {
+  readonly name = 'AlreadyOnSiteError'
+  constructor(
+    readonly uid: string,
+    readonly placedOn: string[],
+  ) {
+    super(
+      'This is already on your site, so it cannot go back to being just for me ' +
+        'to read: the file is live where your visitors can see it. Take it off ' +
+        'your site first.',
+    )
+  }
+}
+
+/**
+ * The client corrects what a piece of material is FOR ([[REQ-213]]).
+ *
+ * WHY THIS IS ALLOWED WHEN THE REST OF THE RIGHTS RECORD IS NOT. [[DOC-38]]
+ * §10.1 is explicit that rights are INFERRED FROM PROVENANCE rather than
+ * asserted by anyone, and the Library's rights block is read-only because of it —
+ * a client who could set `republishable` by hand would be answering the legal
+ * question that section refuses to ask. The role is the one field in that block
+ * that does not work that way: for an upload it is not inferred at all, it is
+ * WHICH OF TWO DROP AREAS A HUMAN CHOSE ([[REQ-161]]). Correcting a mis-drop
+ * therefore asserts nothing that was not already asserted, and §10.1 stands
+ * untouched — an upload's rights are `owned` before and after.
+ *
+ * SO THE GATE IS `origin`, AND IT IS `uploaded` AND NOTHING ELSE. The other two
+ * origins each fail it for their own reason and neither is a near miss:
+ *
+ *   - `fetched` — nobody was asked. `classify` writes `reference` /
+ *     `third_party` / `republishable: false` from the provenance alone, because
+ *     something we pulled on the client's behalf is by construction background to
+ *     read rather than something they handed us to publish. Letting this edit it
+ *     would not be a correction; it would be [[DOC-38]] §5's gate opening from
+ *     the outside.
+ *   - `captured` — the role came from the captured HOST (`captureRights`), and a
+ *     capture of the client's own old site is even `owned` and republishable. It
+ *     still fails, and for a structural reason as much as a rights one: a capture
+ *     is 11–99 attachment records under one ticket and `promoteToSiteAsset` takes
+ *     `attachments[0]`, so "put it on the site" has no single file to mean. A
+ *     capture also carries no `filename` at all — the pane drops that row for
+ *     exactly this reason — so the promotion would ask for bytes at the empty
+ *     name.
+ *
+ * `republishable` IS DERIVED HERE AND NEVER ACCEPTED FROM A CALLER. It is the
+ * bit `promoteToSiteAsset` gates on, so a caller-supplied value would be the gate
+ * handing over its own key — and the derivation is `classify`'s, verbatim, so the
+ * two cannot drift into disagreeing about what a role means.
+ *
+ * NARROWING IS REFUSED ONCE THE BYTES HAVE LANDED. `placed_on` says the file is
+ * on a site ([[BUG-47]]) and there is no path that takes one off; allowing it
+ * would leave a row saying *just for me to read* about a picture the client's
+ * visitors are looking at. That is a worse lie than the refusal, and the refusal
+ * has something the client can actually do in it.
+ *
+ * IT DOES NOT PLACE ANYTHING. Widening to `site` is what MAKES placement legal,
+ * and placement is the router's `placeOnSite` — the same call the upload makes,
+ * fail-soft in the same way, so a site store that refuses the write does not turn
+ * a correction that did land into a failure. Doing it here would also mean this
+ * function needed a site store, which is the dependency that would stop it being
+ * about the material.
+ */
+export async function reviseRole(
+  store: TicketStore,
+  args: { uid: string; role: MaterialRole },
+): Promise<MaterialRow & { body: string; members: string[] }> {
+  const ticket = await materialTicket(store, args.uid)
+  if (String(ticket.fields.origin ?? 'uploaded') !== 'uploaded') {
+    throw new RoleNotChosenError(args.uid)
+  }
+  const placed = placedOn(ticket.fields)
+  if (args.role === 'reference' && placed.length > 0) {
+    throw new AlreadyOnSiteError(args.uid, placed)
+  }
+  await store.update({
+    uid: args.uid,
+    patch: { fields: { role: args.role, republishable: args.role !== 'reference' } },
+  })
+  return readMaterial(store, args.uid)
+}
