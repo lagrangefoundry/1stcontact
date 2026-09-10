@@ -6,14 +6,15 @@ title: A build with nothing opted in is refused naming the opt-in mechanism, and
   no model
 created_by: xgd
 created_at: '2026-08-20T04:16:56.986889+00:00'
-updated_at: '2026-08-20T04:37:25.102044+00:00'
+updated_at: '2026-09-10T08:04:30.783334+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
