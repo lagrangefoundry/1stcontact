@@ -6,9 +6,9 @@ title: 'System knowledge base: build the assistant''s domain knowledge from our 
   documents, with each document deciding whether it is in'
 created_by: xgd
 created_at: '2026-08-20T04:15:05.992521+00:00'
-updated_at: '2026-08-20T04:37:21.756133+00:00'
+updated_at: '2026-09-10T07:45:42.846520+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -44,7 +44,7 @@ A build that produced only the document index would leave the knowledge base tec
 - **Withdrawal is deletion.** A document whose ticket is gone, or which has opted back out, is *removed* from the corpus rather than merely left unrefreshed. A stale file would stay searchable, and confidently wrong, forever.
 - **Rebuilds are incremental and honest about it.** An unchanged document is not rewritten; an unchanged corpus is not re-embedded. This is load-bearing rather than tidy: the index keys incremental work on the file's own stamp, so rewriting every byte-identical file each build would re-embed the entire corpus, at cost, while telling the ranker every document had just changed.
 - **The map is generated, always.** Clustered from the same vectors the reader searches, described in the corpus's own vocabulary, and validated by *the reader's own search* — a map whose doors were checked by a different query path would promise routes that do not exist for the agent that follows them. A territory with no validated way in is named rather than passed over. The map is kept out of the corpus it describes, or every rebuild would cluster the previous build's map and the knowledge base would slowly fill with descriptions of its own descriptions.
-- **The declaration is the thing in force.** Prompt, weight and the membership predicate all come from the declaration. Editing it changes what the build produces; a build never overwrites it.
+- **The declaration is the thing in force.** Description, weight and the membership predicate all come from the declaration. Editing it changes what the build produces; a build never overwrites it.
 - **One embedding model on both sides.** The vectors the index is built from and the vectors a query is compared against come from the same model, so comparability holds by construction rather than by argument — the failure mode of two models is not an error but plausible-looking nonsense.
 
 **Out of scope**
