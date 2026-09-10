@@ -6,7 +6,7 @@ title: 'Image generation: an out-of-credits OpenAI account is reported to the cl
   as a deployment fault'
 created_by: martin-github@westhead.me
 created_at: '2026-09-09T23:53:50.877405+00:00'
-updated_at: '2026-09-10T19:01:26.687978+00:00'
+updated_at: '2026-09-10T19:09:25.098652+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -226,3 +226,58 @@ Separately: `wrangler secret list --env production` shows only `ANTHROPIC_API_KE
 and `RESEND_API_KEY`, so deployed sessions have no image tool at all. That is
 deliberate per `bin/deploy.d/secrets/30-openai-api-key`, which deploys without it
 and says so — noted here only because it means this reproduces in local dev only.
+
+
+---
+
+## Outcome (2026-09-10)
+
+**Fixed upstream, as scoped above. No code lands in this repository.**
+
+`lagrange-framework` **BUG-50** — *"The audit trail inherits the model's
+redaction, so a suppressed diagnosis is lost to the operator too"* — is at
+`free_coded` on that repo's `xgd-working`, version 0.0.227, three commits:
+
+- `246cc1e5` the audit half and the imagegen half
+- `fc8d1afc` regenerated `PUBLIC-API.md` snapshots
+- `b4575bbe` the version claim
+
+It implements items 1 and 2 of *What to do*, in both languages with both
+conformance corpora updated:
+
+- `outcome.detail` on every audit record carries the host's own account of a
+  failure, unredacted, whatever `host_detail` says. `outcome.error` is unchanged,
+  so the R2 audit this product writes keeps its current meaning and gains a
+  second field. The debug stream carries both halves, byte-identical across the
+  two implementations.
+- `generator_exhausted` is declared for a provider refusing on billing grounds,
+  so an empty account stops claiming to be an outage; `generator_unavailable`
+  keeps the rest and no longer asserts that a retry is pointless.
+
+Item 3 — projecting the accepted aspect ratios into the parameter description —
+is deferred there, for the reason given above.
+
+### What this repository has to do
+
+**Nothing, in code.** Two operational steps, both outside the sandbox:
+
+1. **Add credits to the OpenAI account.** This is still the whole reason image
+   generation is failing, and no framework change makes an empty account
+   generate a picture.
+2. **Install the new framework into the shared store.** `src/generated/*.js`
+   re-export from `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/`,
+   which is a *copy* rather than a link and is outside this sandbox's write set,
+   so the running dev server keeps the old code until that install runs.
+
+Once both are done, the same failure would put `credit_balance_exhausted` in
+`audit/<tenant>/<session>/*.json` and tell the model to stop rather than to
+apologise for an outage that is not happening.
+
+### Still open here, and worth a decision
+
+`imageSurface` currently passes no audit sink of its own — the sink is
+`ai.ts`'s `bufferedAuditSink`, shared by every surface, and it flushes to R2 on
+turn end. That is the right place and it now carries the detail. But **nothing in
+this product reads it**: `outcome.detail` will sit in R2 with no operator-facing
+view over it. Making a failed tool call visible somewhere a person actually looks
+is a separate piece of work and is not part of this bug.
