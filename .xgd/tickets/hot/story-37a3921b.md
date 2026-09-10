@@ -7,7 +7,7 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-09-10T17:08:18.549838+00:00'
+updated_at: '2026-09-10T17:10:04.354611+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -430,7 +430,8 @@ consequence for what this surface writes.
   the italic yes/no differs from the parameter it writes. Keeping the conversion
   in one place is what stops a second one appearing somewhere else with a
   different rounding rule.
-- **Every one of these controls has a value at which it says nothing, and it is
+- **Every one of these framing and adjustment controls has a value at which it
+  says nothing, and it is
   not the same value for all of them.** A fill mode has the browser's own initial
   fitting, a position has dead centre, a turn and a blur have zero, a scale and a
   saturation have "unchanged", and a colour reference has the shade and the
