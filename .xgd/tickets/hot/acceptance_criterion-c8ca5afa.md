@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An unchanged document is not rewritten and an unchanged corpus is not re-embedded
 created_by: xgd
 created_at: '2026-08-20T04:16:55.837485+00:00'
-updated_at: '2026-08-20T04:37:25.519209+00:00'
+updated_at: '2026-09-10T08:04:29.702698+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
