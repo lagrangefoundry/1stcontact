@@ -7,6 +7,7 @@ import { shadeHex } from '/framework/site-schema-shade.js'
 import * as markedPoints from '/framework/marked-points.js'
 import * as anchors from '/framework/site-schema-anchors.js'
 import { measureScript } from '/framework/measure-svg.js'
+import * as pageState from '/framework/page-state.js'
 
 /**
  * Browser entry point. Kept separate from `app.js` so the composition can be
@@ -80,5 +81,12 @@ if (loaded) {
       measureScript,
     },
     shadeHex,
+    /**
+     * [[REQ-215]] — what the page is showing, carried across a channel switch.
+     * The renderer's OWN module, for the same reason the bridge is: "open" has
+     * to mean to the builder exactly what it means to the emitter that wrote the
+     * marker, or the two channels agree until they do not.
+     */
+    pageState,
   })
 }

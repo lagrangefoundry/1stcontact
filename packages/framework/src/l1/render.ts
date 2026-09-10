@@ -26,6 +26,17 @@ import {
   type L1SegmentKind,
   type SiteLocaleInput,
 } from '@1stcontact/site-schema'
+import {
+  L1_DIALOG_ATTR as DIALOG_ATTR,
+  L1_DIALOG_CLASS as DIALOG_CLASS,
+  L1_DIALOG_CLOSES_ATTR as DIALOG_CLOSES_ATTR,
+  L1_DIALOG_LOCK_ATTR as DIALOG_LOCK_ATTR,
+  L1_DIALOG_NOESC_ATTR as DIALOG_NOESC_ATTR,
+  L1_DIALOG_NOSCRIM_ATTR as DIALOG_NOSCRIM_ATTR,
+  L1_DIALOG_OPEN_ATTR as DIALOG_OPEN_ATTR,
+  L1_DIALOG_OPENS_ATTR as DIALOG_OPENS_ATTR,
+  L1_DIALOG_READY_ATTR as DIALOG_READY_ATTR,
+} from './dialog'
 import type {
   L1Action,
   L1AxisSizing,
@@ -1797,6 +1808,20 @@ export {
   type L1SegmentKind,
 } from '@1stcontact/site-schema'
 
+// [[REQ-215]] — the modal vocabulary, on the same terms and for the same
+// reason: it is the contract between what this file emits and what reads it.
+export {
+  L1_DIALOG_ATTR,
+  L1_DIALOG_CLASS,
+  L1_DIALOG_CLOSES_ATTR,
+  L1_DIALOG_LOCK_ATTR,
+  L1_DIALOG_NOESC_ATTR,
+  L1_DIALOG_NOSCRIM_ATTR,
+  L1_DIALOG_OPEN_ATTR,
+  L1_DIALOG_OPENS_ATTR,
+  L1_DIALOG_READY_ATTR,
+} from './dialog'
+
 /**
  * The edit channel's own stylesheet — one faint outline per segment, drawn by
  * the renderer because the renderer is what knows which boxes are segments.
@@ -1828,9 +1853,12 @@ export const L1_EDIT_CSS = [
 // FIVE THINGS MAKE IT SAFE TO PUT A MODAL IN THE SUBSTRATE AT ALL:
 //
 //   1. **It fails VISIBLE.** The overlay rules are every one of them gated on a
-//      `data-l1-dialog-ready` marker that only the script sets. No script, a
+//      `data-l1-dialog-ready` marker the SERVER never writes. No script, a
 //      throw, a blocked bundle — and the panel is an ordinary in-flow part of the
-//      page, open, and usable. The server never renders it closed, so script only
+//      page, open, and usable. (The script is not its only writer any more:
+//      [[REQ-215]] has the builder set it to reproduce a carried state in the
+//      edit channel, which has no script and must not gain one. What matters
+//      here is unchanged — the markup as served is the settled page.) The server never renders it closed, so script only
 //      ever *subtracts*. Hiding in CSS and revealing in JS would invert that,
 //      which is how a modal library turns a broken script into content nobody can
 //      reach. This is `account-chrome`'s discipline, generalised.
@@ -1857,24 +1885,10 @@ export const L1_EDIT_CSS = [
 //      opens onto nothing. The axes are not composable, so the emitter declines
 //      the one that cannot work rather than shipping the trap.
 
-/** The shell class every overlay panel is wrapped in. */
-const DIALOG_CLASS = 'l1-dlg'
-/** On the shell: the `id` of the panel it holds — the script's handle on the pair. */
-const DIALOG_ATTR = 'data-l1-dialog'
-/** On the shell, by the script only: this panel is open. */
-const DIALOG_OPEN_ATTR = 'data-l1-open'
-/** On `<html>`, by the script only: the overlay rules are in force (see §1). */
-const DIALOG_READY_ATTR = 'data-l1-dialog-ready'
-/** On `<html>`, by the script only, while any panel is open: the scroll lock. */
-const DIALOG_LOCK_ATTR = 'data-l1-dialog-lock'
-/** On the shell: Escape does NOT close this one (the opt-out — see §4). */
-const DIALOG_NOESC_ATTR = 'data-l1-dialog-noesc'
-/** On the shell: a scrim click does NOT close this one (the opt-out — see §4). */
-const DIALOG_NOSCRIM_ATTR = 'data-l1-dialog-noscrim'
-/** On an action node: which panel activating it opens. */
-const DIALOG_OPENS_ATTR = 'data-l1-opens'
-/** On an action node: which panel activating it closes. */
-const DIALOG_CLOSES_ATTR = 'data-l1-closes'
+// The names themselves are in `./dialog`, so the emitter that writes them and
+// `page-state`'s reader that drives a page by them cannot spell them
+// differently ([[REQ-215]]). They are re-exported below, because this is where
+// consumers already look for the vocabulary the renderer emits.
 
 /**
  * The layer an open panel sits on.
@@ -2288,7 +2302,18 @@ function emitNode(
   // confines itself to; `tabindex="-1"` gives focus somewhere to land in a panel
   // holding nothing focusable, which is the case the trap would otherwise spin on.
   const nodeDialog: L1Dialog | undefined = (node as { dialog?: L1Dialog }).dialog
-  const isDialog = nodeDialog !== undefined && !state.edit
+  //
+  // [[REQ-215]] — AND IT IS EMITTED IN EVERY CHANNEL. It used to be dropped for
+  // the edit render along with the script, which left that channel with no
+  // shell, no id and none of the overlay stylesheet — so there was nothing in
+  // the document a channel switch could tell "you are open". Emitting it costs
+  // that channel nothing: every overlay rule is gated on the ready marker only
+  // a script (or the builder carrying state into it) sets, so an edit render
+  // nobody has told anything still lays the panel out in flow, open and
+  // settled, which is what REQ-116 asks of it. What is still withheld is the
+  // script and the acting attribute above — the two things that would make a
+  // click mean something other than "edit this".
+  const isDialog = nodeDialog !== undefined
   const dialogAttrs = !isDialog
     ? ''
     : ' role="dialog" aria-modal="true" tabindex="-1"' +
@@ -2787,8 +2812,10 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   if (state.hasReveal) scripts.push(L1_REVEAL_SCRIPT)
   if (state.hasPointerAccent) scripts.push(L1_POINTER_SCRIPT)
   // REQ-212 — same terms: a page with no modal ships no modal script at all, and
-  // the edit render ships none regardless (its panels stay in flow and settled).
-  if (state.hasDialog) scripts.push(L1_DIALOG_SCRIPT)
+  // the edit render ships none regardless. [[REQ-215]] moved the shell and the
+  // stylesheet into every channel; THIS is the line that keeps the edit render
+  // inert, and it is now the only one that has to.
+  if (state.hasDialog && !state.edit) scripts.push(L1_DIALOG_SCRIPT)
   if (!scripts.length) return { html: body, css }
   const js = scripts.join('\n')
   return { html: `<script>${js}</script>\n${body}`, css, js }

@@ -106,9 +106,30 @@ async function send(fetchImpl, url, init) {
  * The business prefix is inherited by the page's own relative sub-resources,
  * which is precisely why `scope.ts` chose a path over a query string — a
  * relative asset reference drops a query string and would arrive unscoped.
+ *
+ * `rel` is the path WITHIN the channel — what the reader navigated to, carried
+ * across a channel switch ([[REQ-215]]). It arrives already percent-encoded,
+ * because it comes out of a location the browser wrote; encoding it again would
+ * turn one `%20` into two.
  */
-export function previewUrl(slug, channel) {
-  return scoped(`/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`)
+export function previewUrl(slug, channel, rel = '') {
+  const root = `/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`
+  return scoped(rel === '' ? root : `${root}${rel.replace(/^\/+/, '')}`)
+}
+
+/**
+ * The inverse: which page within the channel a preview pathname names, or `null`
+ * for a pathname that is not a preview at all.
+ *
+ * It is HERE, beside the builder, because the shape of the URL is one fact and
+ * two readers of it that each know it separately are one rename away from
+ * disagreeing. The scope prefix and the slug are skipped rather than matched:
+ * this has to answer for whichever business and site the pane happens to be
+ * showing, and neither is what it is being asked about.
+ */
+export function previewRelPath(pathname) {
+  const m = /\/preview\/[^/]+\/[^/]+\/(.*)$/.exec(pathname ?? '')
+  return m ? m[1] : null
 }
 
 /**
