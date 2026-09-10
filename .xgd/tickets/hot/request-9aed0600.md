@@ -5,10 +5,10 @@ type: request
 title: 'The user can point: Marked Points on the edit preview'
 created_by: CHAT-49
 created_at: '2026-09-09T21:24:58.462451+00:00'
-updated_at: '2026-09-10T00:17:20.635316+00:00'
+updated_at: '2026-09-10T00:22:20.051759+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
