@@ -6,14 +6,15 @@ title: The assistant library is bundled at build time, and a build that cannot f
   it fails loudly rather than shipping a host with no conversation
 created_by: xgd
 created_at: '2026-08-31T10:38:22.588556+00:00'
-updated_at: '2026-08-31T10:59:27.265387+00:00'
+updated_at: '2026-09-10T21:47:16.799067+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
