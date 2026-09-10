@@ -6,14 +6,15 @@ title: A site with no colours opens on an invitation to add the first one, not o
   an error or a blank surface
 created_by: xgd
 created_at: '2026-08-20T01:58:52.618739+00:00'
-updated_at: '2026-08-20T02:21:00.523740+00:00'
+updated_at: '2026-09-10T02:54:40.675008+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
