@@ -5,12 +5,13 @@ type: capability
 title: 'Money & Time Presentation: One Formatting Seam'
 created_by: xgd
 created_at: '2026-08-31T12:37:33.263187+00:00'
-updated_at: '2026-08-31T12:37:33.263187+00:00'
+updated_at: '2026-09-10T03:25:08.541492+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: money_time_presentation
+  uat_coverage: pass
 ---
 
 # Capability: Money & Time Presentation — One Formatting Seam
