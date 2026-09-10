@@ -6,9 +6,9 @@ title: Content-robustness probe asserts the envelope holds under perturbed (grow
   content
 created_by: xgd
 created_at: '2026-07-22T20:07:13.870340+00:00'
-updated_at: '2026-08-16T08:03:29.656239+00:00'
+updated_at: '2026-09-10T14:42:20.122499+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -21,7 +21,9 @@ fields:
 The content-robustness probe grows every text run's effective length and every pinned
 box/image height by a scale factor (default 2.5×), evaluates the document at each
 captured width, and reports pass = true with empty findings exactly when the perturbed
-layout produces no sibling overlap and no clip.
+layout keeps the envelope — no sibling overlap, no clip beyond the viewport, and no
+pinned box whose flow interior outgrows its keyframe height (AC-1630, which owns that
+third violation and for which this probe's perturbation is the usual trigger).
 
 - A purely-pinned region whose grown content overruns a fixed-position sibling produces
   an overlap finding and pass = false.
