@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-228
 created_by: xgd
 created_at: '2026-09-11T22:31:26.099704+00:00'
-updated_at: '2026-09-11T22:37:03.135532+00:00'
+updated_at: '2026-09-11T22:37:29.029787+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,45 @@ Tell me on Half A and I'll cut the branch and build.
 <!-- xgd-chat role="user" ts="2026-09-11T22:37:03.031206+00:00" -->
 #### You
 I have no idea what 1 or 2 mean
+
+<!-- xgd-turn id="3ae48ac4-59db-4a4c-9419-31abb8a3bda5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:37:28.668754+00:00" -->
+#### Claude
+Sorry — that was written in the repo's vocabulary rather than in plain terms. Let me restate all three in terms of what actually changes for the person using this.
+
+**Background in one line:** the assistant has tools it can call. Today it has no tool that reaches the Library — the place a client's uploaded logo, brand PDF or a generated illustration lives. That's the bug.
+
+---
+
+**Decision 1 — three new tools, and the "put it on the site" one is kept separate.**
+
+I'd give the assistant three new tools:
+
+- *see what's in the Library* — the same list a person sees on the Library tab
+- *read one item's details* — its description, what it's for, whether it's already on the site
+- *put one on the site* — copies it into the site's images so a page can use it
+
+The first two only look. The third one **copies a file out of the client's private storage into the site**, which is a meaningfully bigger deal — so I'd keep it in a separate bucket from the other two. Practically that means: if you ever want an assistant that can browse the client's files but not publish any of them, that's a config change, not a rewrite. In this deployment I'd switch all three on.
+
+The safety gate for the third one already exists and already works: material we fetched from someone else's website is marked not-republishable, and the existing code refuses to place it. The assistant can't get around that.
+
+**Decision 2 — the Library holds pictures, documents and fonts. Should the assistant's new list show all three, or only pictures?**
+
+The ticket is titled "one picture catalogue", so pictures are clearly in. My call is to show all three, with a way to ask for just one kind — because a client who uploads their brand font uploaded it so it can go on the site, and a list that silently omits it is the same class of bug we're fixing. Nothing is forced on the assistant; it just isn't hidden from it.
+
+---
+
+**And the question I still need you to answer.**
+
+Separately from those two, the ticket proposes also giving the assistant a general "read any ticket in this client's project" ability.
+
+The thing to know is what else lives in that same store: **every other conversation this client has had with the assistant is in there, in full**, along with the engagement notes from each. So that grant isn't "read the picture catalogue" — it's "read everything, including past conversations."
+
+Your own codebase already argues against the equivalent for writing, in `ledger-core.ts`: granting the generic ticket tools "would also hand a client-facing assistant the ability to write *any* ticket in the project, to be clawed back by a scope predicate that has to stay correct forever." Reading is a smaller version of the same thing.
+
+And the acceptance test you wrote into the ticket — the assistant looks at the three illustrations it generated, forms a view, places the one it picked — is fully satisfied by the three tools above. The general ticket access adds nothing to it.
+
+**So: yes or no on the general "read any ticket" grant?** My recommendation is no, not in this ticket. Say "skip it" and I'll cut the branch and build the three tools.
 
 <!-- xgd-chat-end -->
