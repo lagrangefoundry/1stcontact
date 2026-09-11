@@ -6,10 +6,10 @@ title: Several files are handed over and reported one by one, and the Library is
   afterwards
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:32:55.287583+00:00'
-updated_at: '2026-09-11T05:32:55.287583+00:00'
+updated_at: '2026-09-11T05:42:21.154863+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
