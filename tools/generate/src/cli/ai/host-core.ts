@@ -267,6 +267,23 @@ const managers = new Map<string, Promise<Untyped>>()
 const REMINDER_PROVIDER = 'caretaker.reminder'
 
 /**
+ * The names this role's priming and reminder entries are declared under.
+ *
+ * Constants, not literals, for the reason every other name in this file is one:
+ * the entry that DECLARES a provider and the registration that BINDS it are
+ * sixty lines apart, and upstream's registry answers a typo with "no provider
+ * registered" rather than a quietly empty tier.
+ *
+ * The two provider-backed entries are named AFTER their provider — one name, not
+ * a pair to keep in step — and all three are namespaced under the role, because
+ * the registry belongs to the manager and already carries upstream's shipped
+ * `session.*` providers beside these.
+ */
+const SYSTEM_ENTRY = 'caretaker.system'
+const DOCS_PROVIDER = 'caretaker.docs'
+const REMINDER_PROVIDER = 'caretaker.reminder'
+
+/**
  * The draft change count as it stood at the end of each site's last turn.
  *
  * THE BASELINE IS A NUMBER THE HOST MAY HOLD ACROSS TURNS, which an L1 address
