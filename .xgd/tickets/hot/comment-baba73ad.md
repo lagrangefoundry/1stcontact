@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:15:23.460134+00:00'
+updated_at: '2026-09-11T22:18:07.539543+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -606,5 +606,56 @@ No code changed, no ticket statuses touched.
 The cloudflare UI is impentrable. I am paying for Cloudflare, I do not know if that makes the account "Enterprise" I have been unable to figure out how to determine that or what the cost of upgrade might be. The API key that you have does allow access to the account object so maybe you can figure it out faster than me?
 
 o REQ-217's `create_image` blocker may have cleared. <-- please look at the code and tell me - I have no idea?
+
+<!-- xgd-turn id="1dd05693-530e-4117-aa18-6745ec81a2fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:18:07.130916+00:00" -->
+#### Claude
+Both are checkable. Let me start.
+
+Account type is **`standard`**, not enterprise. Let me confirm via subscriptions and check the Images plan directly.
+
+The seam is present. Let me read it properly.
+
+Seam confirmed installed. Two final checks — whether this repo fills it, and a second angle on the plan.
+
+Both answered definitively. Recording them.
+
+Both answered from evidence.
+
+## The Cloudflare plan: you are not Enterprise
+
+Your token could read the account object:
+
+```
+"type": "standard"
+"legacy_flags": { "enterprise_zone_quota": { "maximum": 0, "current": 0 } }
+```
+
+An Enterprise account reports `"type": "enterprise"`. Standard, with zero enterprise zones, is the answer. **So Images HEIC input is not available to you**, and REQ-221's conversion branch will never run in production — the honest refusal is what your clients actually meet.
+
+Two caveats on how solid that is: your token is scoped narrowly (both `/subscriptions` and every Images endpoint return `10000 Authentication error`), so this is the account's own `type` rather than a direct read of the Images entitlement. It's strong evidence, not a receipt for that specific feature.
+
+**On the upgrade cost — there isn't a number, and that's the real answer.** Enterprise is sales-negotiated at Cloudflare; there's no self-serve tier that adds HEIC input, and no dashboard page will quote you one. The reason the UI is impenetrable here is that the price genuinely isn't in it. So this isn't a purchase decision you're failing to find — it's a sales conversation, and not one worth opening for HEIC decode alone.
+
+Which leaves you in a good position anyway: REQ-221 built the refusal to carry exactly this outcome. A client gets told their photo can't be read and that *Settings → Camera → Formats → Most Compatible* fixes it in under a minute — which helps them everywhere else too. If HEIC volume ever justifies it, the wasm decoder (libheif) needs no plan change.
+
+## REQ-217: the blocker has genuinely cleared
+
+I checked the shared store you actually bundle rather than taking the upstream ticket's word — `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-imagegen/`, resolved via `src/generated/ai-imagegen.js`. Both halves are in:
+
+**The prohibition is gone.** The overview no longer says *"the picture itself never enters this conversation"* — the sentence that would have contradicted a pasted image line. What's left describes the tool result only: *"a generated image is not returned to you as a picture… you are told the id."* That forbids nothing about display.
+
+**And the seam exists**, as the host-composed sentence the epic asked for — `shapes.host_display.display`:
+
+> *"How to put this picture in front of the person you are talking to, in the host's own words about its own surface. Absent where there is no way to show this one."*
+
+**Nothing fills it yet.** `imagegen.ts` has no `host_display` wiring. And filling it is precisely that file's stated job — its header says it exists to hand the plugin *"the one thing a framework component cannot know: this product's own vocabulary."* A display sentence for your own chat pane is another instance of that, so it's wiring, not the local workaround the file forbids.
+
+**Practical upshot: REQ-217 no longer needs to half-land.** Both halves can go together — `write_image` emits the markdown line itself, `create_image` supplies the display sentence from `imagegen.ts`. I've superseded the epic's staging note.
+
+One caveat I'd keep in view: `@lagrangefoundry/*` isn't pinned in your lockfile, so that store can move without a commit here. Worth re-checking the field name before building against it.
+
+Recorded on REQ-217, REQ-221, and the epic. Still outstanding from the last review: **the promotion-join hole** — a client's crop not reaching their published site — which spans three tickets and has no ticket of its own.
 
 <!-- xgd-chat-end -->
