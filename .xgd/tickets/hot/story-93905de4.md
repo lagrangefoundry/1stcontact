@@ -6,7 +6,7 @@ title: See everything an assistant can do to my site declared in one place, gran
   narrowly, checked before it runs, and written down call by call
 created_by: xgd
 created_at: '2026-08-10T09:04:59.829319+00:00'
-updated_at: '2026-08-31T10:41:13.415389+00:00'
+updated_at: '2026-09-11T01:07:15.687892+00:00'
 completed_at: null
 last_field_updated: updated_by
 status: updated
@@ -18,6 +18,7 @@ fields:
   uat_coverage: pass
   updated_by:
   - bundle-b3b7c399
+  - bundle-77b28def
 ---
 
 ## Story
@@ -127,15 +128,30 @@ Out of scope:
     "an operation is declared and not granted" and name asset management and
     publishing as today's instances, rather than fixing the granted set.
   - The intent names sixteen operations; the surface in the tree carries more,
-    because later work in this same bundle extended the same declaration. The
-    criteria here are about the declaration's discipline and are deliberately
-    independent of the count.
+    because a succession of later intents kept extending the same declaration.
+    Within BUNDLE-17: REQ-129 retired `get_copy`/`set_copy` in favour of
+    `get_l1`/`set_l1` and renamed the `WriteCopy` group to `AuthorPages`, and
+    REQ-130 added five operations and declared `DrawImages` as its own group,
+    separate from `ManageAssets` so it can be withheld — which is where that
+    bundle closed. Afterwards **BUNDLE-19** (`bundle-77b28def`) extended the same
+    declaration again: REQ-133 declared `get_palette` into `ReadSite` and a new
+    `ManagePalette` group of four writes, granted to the builder's assistant with
+    the read grantable separately from the writes; and REQ-131 declared
+    `list_changes` into `ReadSite`, returning an untrusted slice, with its own
+    sequence entry and overview paragraph. The criteria here are about the
+    declaration's discipline and are deliberately independent of the count.
   - Worked examples ride inside operation descriptions and the declared sequences,
     because the upstream declaration format has no field for them. Recorded in the
     intent as a residual raised upstream, not worked around with a parallel format.
 - **Known upstream gaps the intent files and this story does not claim closed:** a
   refusal rendered by the upstream toolbox reports the declared class meaning and
   drops the host's own pointer into the offending value.
+- **The declaration outgrows the capability that owns it.** REQ-131 and REQ-133
+  both landed operations in this surface while their stories were filed under the
+  capabilities that own the *reach* — the change journal and the palette. Anything
+  that extends the declaration extends this story's subject whether or not it is
+  filed here, so a later intent adding an operation belongs in `updated_by` even
+  when none of the criteria below move.
 
 ## Reconciliation Decisions
 
@@ -167,9 +183,16 @@ part of REQ-149 that moved an operation between the two halves).
 
 ## Dependencies
 
-None. (Consumed by the assistant session host, CAP-90; the authoring stories build
-on this contract. The storage the audit is written through is
-capability-c4c7a854.)
+- **CAP-86** (`story-37a3921b`, structured editing) — the single validated,
+  all-or-nothing, re-rendering write path this surface is a third caller of. Not
+  outstanding: it is already built, and this story depends on it rather than
+  redefining it (see Technical Context).
+- **capability-c4c7a854** (site store) — the storage the audit record is written
+  through. Likewise already built; what is claimed here is that the record
+  survives, not how the store makes it survive.
+
+Consumed by the assistant session host (CAP-90); the authoring stories build on
+this contract.
 
 ## Story Points
 
