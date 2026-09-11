@@ -6,9 +6,9 @@ title: A whole settings group is written in one call as a structured value, and 
   siblings at every depth survive it
 created_by: xgd
 created_at: '2026-08-10T09:33:47.564708+00:00'
-updated_at: '2026-08-16T01:56:52.385624+00:00'
+updated_at: '2026-09-11T03:09:12.543008+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-b3de4571
@@ -21,4 +21,4 @@ fields:
 Writing a site's settings takes a group name and an object of settings to write in that group. Two objects merge at every depth; a list or a scalar replaces whole. Naming one setting inside a group leaves every other setting in that group — and every nested setting under those — exactly as it was.
 
 ## Verification
-Write a complete colour palette (several families, each with steps) in one call and read the settings back: every family and step is present. Then write a single family again with one changed step: that step changes, the other steps in that family are still there, and every other family is untouched. Write a list-valued setting (a navigation list with entries) and read it back: the list is exactly what was sent, not a merge of the old and new entries.
+Write a complete colour palette (several named entries, each one colour) in one call and read the settings back: every entry is present. Then write a single entry again with a changed colour: that entry changes and every other entry is still exactly as it was. Show that the merge goes deeper than the first level on a group that is deeper than a palette entry — name one field inside the theme's typography and read the group back: that field changes and the rest of the group is untouched. Write a list-valued setting (a navigation list with entries) and read it back: the list is exactly what was sent, not a merge of the old and new entries.
