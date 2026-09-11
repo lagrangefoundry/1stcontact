@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:23:31.376015+00:00'
+updated_at: '2026-09-11T22:25:17.851506+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -180,5 +180,13 @@ The acceptance test in the ticket is the session that started this: the same run
 <!-- xgd-chat role="user" ts="2026-09-11T22:23:30.079120+00:00" -->
 #### You
 Note that REQ-15o in lf is adding xgd ticket fetch to retrieve attachments via the ticket API so that closes one last potential gap, right?
+
+<!-- xgd-turn id="3bc4c50e-d4c2-4947-b083-bd84c912517a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:25:17.663949+00:00" -->
+#### You
+Note that REQ-15o in lf is adding xgd ticket fetch to retrieve attachments via the ticket API so that closes one last potential gap, right?
+
+`write_image` (a drawing the AI makes) and `add_asset` both put bytes in the site store and mint no ticket, so the site holds pictures the catalogue has never heard of. <-- I'm not sure that this is correct all the images I have created have tickets...if its true then it is a major bug with write_image and add_asset which MUST add tickets when they add blobs
 
 <!-- xgd-chat-end -->
