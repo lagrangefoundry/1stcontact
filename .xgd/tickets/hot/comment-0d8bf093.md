@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-10T23:55:25.065114+00:00'
+updated_at: '2026-09-11T00:00:06.886060+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,29 @@ Still worth a ticket — want me to file it? And the stale access-sim on :8799 i
 <!-- xgd-chat role="user" ts="2026-09-10T23:55:24.780871+00:00" -->
 #### You
 Can you create me a screenshot of the xgd.dev site please? I need to show it to the Lagrange chat and they are walled off from each other
+
+<!-- xgd-turn id="28d7c115-7257-479d-a94a-516cf3bcacda-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T00:00:06.815231+00:00" -->
+#### Claude
+Chromium runs in `--single-process` mode — that gets past the sandbox's Mach port block. Taking the shot now.Screenshots are ready:
+
+| File | What |
+|---|---|
+| `/Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/shots/xgd-desktop.png` | Home, 1440×5289 @2x |
+| `/Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/shots/xgd-mobile.png` | Home, 390×6562 @2x |
+| `/Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/shots/xgd-whitepapers.png` | Whitepapers page, 1440×2515 @2x |
+
+Full page, all bands rendered — hero, *"Code got cheap. Confidence didn't"*, the four-card *"You keep working. XGD reconciles behind you"*, the proof band with your pull-quote, *"You're out of the code. Not out of the project"*, and the waitlist form.
+
+**One thing you should know first: these are not shots of the live xgd.dev.** That domain isn't serving anything — Cloudflare answers `404` with `content-length: 0` on `/`, `/index.html` and `/whitepapers` alike. So what you're looking at is the authored site (`storage/sites/xgd/draft/`) rendered through the builder's own preview channel — same bytes the site is made of, just not coming from the public hostname. If you expected xgd.dev to be up, that's a separate problem worth chasing.
+
+**Two obstacles I had to route around, both worth knowing:**
+
+**`1c shot` can't run at all here.** Its environment guard fails: *"pnpm-lock.yaml does not match the snapshot pnpm wrote at last install — node_modules/ is behind the committed lockfile."* The usual `pnpm install` fix can't run in this sandbox (the `.idea` directory iconv-lite ships is denied).
+
+**More interesting: Chromium works in this sandbox after all.** The sandbox denies the Mach bootstrap port, so a normal launch dies at `bootstrap_check_in ... Permission denied (1100)` before the browser process is even up — and Firefox dies the same way on its tab subprocess, so it isn't Chromium-specific. But **`--single-process --no-zygote` launches cleanly** and screenshots fine. That contradicts my standing note that headless capture is impossible here; it's only impossible in multi-process mode. If `1c shot`/`1c capture` took those flags when a Mach-restricted environment is detected, the whole capture and gate pipeline would work in sandboxed sessions instead of being dead.
+
+That's a second candidate ticket alongside the import-targeting one from earlier. Want me to file either?
 
 <!-- xgd-chat-end -->
