@@ -6,10 +6,10 @@ title: The shipped and scaffolded declarations restrict nothing, and a markdown 
   in the corpus is resolved whatever its frontmatter
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:17:31.298628+00:00'
-updated_at: '2026-09-11T02:17:31.298628+00:00'
+updated_at: '2026-09-11T02:30:28.601950+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
