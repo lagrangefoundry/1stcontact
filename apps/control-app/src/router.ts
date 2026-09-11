@@ -98,6 +98,7 @@ import {
   type SessionCookieEnv,
   type SessionEnv,
 } from './sessions'
+import { type ConvertHeic, imagesHeicConverter, type ImagesLike } from './heic'
 import { TemplateRefusedError } from './templates'
 import {
   AlreadyOnSiteError,
@@ -504,6 +505,23 @@ export interface RouterEnv
    */
   AI?: { run(model: string, input: unknown): Promise<unknown> }
   /**
+   * Cloudflare Images ([[REQ-219]]), which this route needs for one thing:
+   * reading the HEIC an iPhone produces ([[REQ-221]]).
+   *
+   * THE STRONGEST SINGLE REASON THAT DEPENDENCY IS WORTH TAKING. Neither the
+   * client's canvas nor Browser Rendering can decode HEIC — a headless Chrome is
+   * still a Chrome — so without this binding the upload path needs a wasm
+   * decoder shipped inside the Worker bundle.
+   *
+   * OPTIONAL, and absent stays an ordinary state rather than a boot failure, for
+   * the reason {@link RouterEnv.BROWSER} is optional: a deployment without it
+   * still stores, describes, lists and publishes every other format. What it
+   * does NOT do is silently accept a photograph it cannot show — `ingestUpload`
+   * refuses the file and names the format, which is the loud failure this
+   * repository chooses over a Library row with no picture in it.
+   */
+  IMAGES?: ImagesLike
+  /**
    * The image-generation credential ([[REQ-208]]) — **the first credential in
    * this product for a vendor that is not Anthropic**.
    *
@@ -582,6 +600,24 @@ export interface RouterDeps {
   describeImage?: DescribeImage
   /** The digest seam, so a document is described without a network (REQ-173). */
   describeText?: DescribeText
+  /**
+   * The HEIC converter ([[REQ-221]]), so the door is provable without an image
+   * service.
+   *
+   * THE SEAM IS THE ONLY WAY TO PROVE THE INTERESTING HALF. The Images binding's
+   * local implementation supports a subset of transforms and does not decode
+   * HEIC, so a suite that reached for the real binding could prove the happy
+   * path nowhere and the refusals nowhere either. What the claims here are
+   * actually about is what the PIPELINE does with a conversion, with its
+   * absence, and with its failure — and a double makes all three reachable while
+   * the real binding makes none of them.
+   *
+   * `null` IS A MEANINGFUL VALUE and not merely a default, which is why the
+   * wiring below uses `??` on the whole expression rather than `||`: a UAT
+   * passing `null` is asserting the unconfigured deployment, and a falsy test
+   * would silently hand it the real binding instead.
+   */
+  convertHeic?: ConvertHeic | null
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
   /**
@@ -1462,6 +1498,11 @@ async function routeUncached(
       : await defaultIndexer(env, requireScope()),
     describeImage: deps.describeImage ?? defaultDescriber(env),
     describeText: deps.describeText ?? defaultTextDescriber(env),
+    // `undefined` MEANS "NOT INJECTED" AND `null` MEANS "NO BINDING", and both
+    // reach `ingestUpload` as themselves ([[REQ-221]]). `imagesHeicConverter`
+    // returns `null` for an unconfigured deployment, so the two ways of having
+    // no converter converge on the value the refusal is keyed on.
+    convertHeic: deps.convertHeic !== undefined ? deps.convertHeic : imagesHeicConverter(env),
   })
 
   try {

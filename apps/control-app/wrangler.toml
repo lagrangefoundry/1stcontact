@@ -301,6 +301,39 @@ bucket_name = "1stcontact-material"
 [browser]
 binding = "BROWSER"
 
+# Cloudflare Images (REQ-219) — and the reason REQ-221 needs it by name.
+#
+# ONE THING THIS DEPLOYMENT CANNOT DO WITHOUT IT: read the HEIC an iPhone
+# produces by default. Chrome decodes none of it, so neither the client's canvas
+# nor Browser Rendering can — a headless Chrome is still a Chrome — and without
+# this binding the upload path needs a wasm decoder shipped inside the Worker
+# bundle. `heic.ts` converts at the door so that what lands in the Library is an
+# ordinary JPEG, and every later step works on it without knowing what it
+# arrived as.
+#
+# ABSENT IS A REFUSAL, NOT A DEGRADATION, and that is deliberate. Every other
+# format still stores, describes, lists and publishes; a HEIC is refused with a
+# sentence naming the format and the setting that fixes it. Storing the HEIC
+# instead would put a row in the Library whose preview cannot render and whose
+# description says the format cannot be looked at — the broken row REQ-221
+# exists to prevent.
+#
+# HEIC INPUT IS AN ENTERPRISE-PLAN FORMAT on Cloudflare's own list, and the
+# refusal above is what makes that survivable rather than a silent regression: a
+# deployment whose plan does not admit HEIC refuses the file and says so,
+# instead of accepting bytes it cannot decode. The binding is declared here
+# regardless, because REQ-219's recipe renderer uses it for every other image
+# operation.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule every other binding in this file records.
+# Forgetting the repeat is not a silent degradation: the deployed Worker sees no
+# binding, `imagesHeicConverter` returns null, and every iPhone photograph is
+# refused in production while local dev converts them happily. A UAT pins the
+# two sides together.
+[images]
+binding = "IMAGES"
+
 # Workers AI — the embedding model behind the project knowledge base (REQ-159).
 #
 # ONE MODEL ON BOTH SIDES, which is a correctness property rather than a
@@ -383,6 +416,10 @@ bucket_name = "1stcontact-material"
 # See the top-level block: restated rather than inherited, on purpose (REQ-154).
 [env.production.browser]
 binding = "BROWSER"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-219).
+[env.production.images]
+binding = "IMAGES"
 
 # See the top-level block: restated rather than inherited, on purpose (REQ-159).
 [env.production.ai]

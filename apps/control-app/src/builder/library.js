@@ -367,6 +367,32 @@ export function createLibraryPanel(options = {}) {
 
   const element = el('div', 'builder-library')
 
+  /**
+   * Where a refused upload says why ([[REQ-221]]).
+   *
+   * IT EXISTS BECAUSE A LIBRARY-ROUTE DROP FAILED IN SILENCE. One overlay serves
+   * two entry points: a drop into the conversation reports the reason as a
+   * message, and a drop onto the Library reported nothing at all — the row
+   * simply never appeared, and the client was left to conclude the product had
+   * ignored them. A refusal the client cannot see is not a refusal, and this
+   * whole change turns an unreadable photograph into a sentence they can act on,
+   * so the sentence has to reach them from BOTH drop areas.
+   *
+   * NOT A `role="alert"`, DELIBERATELY. `status` is polite: it is announced at
+   * the next graceful opportunity rather than interrupting whatever the client
+   * is reading. The failure is theirs to act on when they are ready and nothing
+   * about it is urgent — the file was not stored, and it will still not be
+   * stored in ten seconds.
+   *
+   * EMPTY RATHER THAN ABSENT, and hidden by the stylesheet's `:empty`, so the
+   * element the message lands in already exists and announcing into it does not
+   * depend on having just inserted it into the tree.
+   */
+  const refusal = el('p', 'builder-library__refusal')
+  refusal.setAttribute('role', 'status')
+  refusal.textContent = ''
+  element.append(refusal)
+
   /** Everything the business has. The filter narrows this; it never re-fetches. */
   let all = []
   const filter = { text: '', role: '', kind: '' }
@@ -947,6 +973,23 @@ export function createLibraryPanel(options = {}) {
     listDetail,
     refresh,
     clear,
+    /**
+     * Say that an upload was refused, and why ([[REQ-221]]).
+     *
+     * THE HOST CALLS IT, NOT THE PANEL, because the panel does not do the
+     * uploading — `app.js` owns the overlay, drives both drop areas and is the
+     * only thing that sees the refusal. What the panel owns is the SURFACE, and
+     * the two belong apart for the reason every other seam here does: a suite
+     * proving the message appears should not have to fail a real upload to make
+     * it happen.
+     *
+     * AN EMPTY MESSAGE CLEARS IT, which is what the next successful drop does.
+     * A refusal left standing above a list that has since accepted the file
+     * would be a worse lie than the silence it replaced.
+     */
+    refused(message) {
+      refusal.textContent = message ?? ''
+    },
     /** Everything currently shown, for a host that wants to report a count. */
     getRows: () => visible(),
     destroy() {
