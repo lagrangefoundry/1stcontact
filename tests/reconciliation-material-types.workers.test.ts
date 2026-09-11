@@ -8,6 +8,7 @@ import {
   type TicketStore,
   type TicketStoreEnv,
 } from '../apps/control-app/src/tickets'
+import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -43,6 +44,16 @@ const ORIGINS = ['uploaded', 'captured', 'fetched', 'site']
 const FILE_SORTS = ['document', 'image', 'font', 'capture']
 /** The two kinds that carry the rights and provenance statement. */
 const CARRIERS = ['material', 'reference']
+/** The two answers to *what the client said it is for*. */
+const ROLES = ['site', 'reference']
+/**
+ * The closed set of outcomes a description attempt can have.
+ *
+ * The successful case and every way it can fall short. What each degraded member
+ * *means* belongs to the describing story; what this story claims is only that
+ * the set is closed and named, which is what makes selecting on it possible.
+ */
+const DESCRIBE_OUTCOMES = ['ok', 'no_describer', 'no_text', 'unsupported', 'too_large', 'failed']
 
 /** The Worker's own bindings, scoped to one account. */
 function ticketEnv(account: string): TicketStoreEnv {
@@ -56,6 +67,113 @@ function ticketEnv(account: string): TicketStoreEnv {
 /** An account-scoped store, through the single wiring point the Worker uses. */
 function storeFor(account: string): Promise<TicketStore> {
   return ticketStoreFor(ticketEnv(account))
+}
+
+/**
+ * The Worker's full bindings, for the three criteria whose subject is what the
+ * INGESTION boundary writes and what the LISTING answer carries.
+ *
+ * The other nine criteria are about the vocabulary itself and are proved through
+ * the store alone. These three are not: "material created from a file carries
+ * the name it arrived under" and "asking the account for its material returns
+ * both values on every row" are claims about a pipeline and an answer, and
+ * asserting them against a hand-made ticket would prove the schema accepts a
+ * field rather than that anything writes or reads it.
+ */
+function routerEnv(account: string): RouterEnv {
+  return {
+    DB: env.DB as D1Database,
+    SITES: env.SITES as R2Bucket,
+    BLOBS: env.BLOBS as R2Bucket,
+    TENANT_ID: account,
+    ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
+  }
+}
+
+/**
+ * Router deps with the two model seams doubled and nothing else.
+ *
+ * `describeImage` is a stand-in because miniflare has no local Workers AI and no
+ * criterion here is about the quality of a description — only about the fact
+ * that its OUTCOME and its AUTHOR are recorded. Where a claim is about material
+ * nothing has described, the seam is left absent rather than stubbed, because
+ * absent is the state the claim is about.
+ */
+function deps(over: Partial<RouterDeps> = {}): RouterDeps {
+  return {
+    index: async () => async () => {},
+    describeImage: async () => ({ text: 'A mark\n\nA wordmark on a pale ground.', model: 'stub/vision-1' }),
+    ...over,
+  }
+}
+
+/** Whatever the caller says, as bytes. */
+function bytesOf(text: string): Uint8Array {
+  return new TextEncoder().encode(text)
+}
+
+/** An upload through the Worker's own entry point, exactly as a drop arrives. */
+async function upload(
+  account: string,
+  file: { bytes: Uint8Array; name: string; type: string; role?: string },
+  d: RouterDeps = deps(),
+): Promise<Response> {
+  const form = new FormData()
+  form.append('file', new File([file.bytes as unknown as BlobPart], file.name, { type: file.type }))
+  if (file.role !== undefined) form.append('role', file.role)
+  return route(
+    new Request('https://app.test/api/material', { method: 'POST', body: form }),
+    routerEnv(account),
+    d,
+  )
+}
+
+/** The one answer that lists an account's material — rows, in a single request. */
+async function listing(account: string): Promise<Array<Record<string, unknown>>> {
+  const response = await route(
+    new Request('https://app.test/api/material', { method: 'GET' }),
+    routerEnv(account),
+    deps(),
+  )
+  expect(response.status, 'the account can be asked for its material').toBe(200)
+  const body = (await response.json()) as { material: Array<Record<string, unknown>> }
+  return body.material
+}
+
+/**
+ * The JSON answer, with the status named first.
+ *
+ * The status check is not decoration. When an ingestion route is absent the
+ * request falls through to the SPA asset fallback and comes back as HTML, and
+ * `response.json()` then fails with a parse error that says nothing about what
+ * actually went wrong. Naming the status makes an absent route legible as an
+ * absent route.
+ */
+async function envelope(response: Response, expected = 200): Promise<Record<string, unknown>> {
+  const text = await response.text()
+  // NAMED BEFORE PARSED. A route table that does not carry this path answers
+  // 200 from the SPA asset fallback, so a bare `.json()` reports a parse error
+  // about the letter 'a' — which is a true statement about the bytes and says
+  // nothing about the route being absent.
+  expect(
+    response.headers.get('content-type') ?? '',
+    `the ingestion route answered JSON, not ${JSON.stringify(text.slice(0, 40))}`,
+  ).toContain('application/json')
+  expect(response.status, `the route answered ${text.slice(0, 120)}`).toBe(expected)
+  return JSON.parse(text) as Record<string, unknown>
+}
+
+/** Every stored blob key for an account, so "no bytes came into existence" is enumerated. */
+async function blobKeys(account: string): Promise<string[]> {
+  const out: string[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page = await (env.BLOBS as R2Bucket).list({ prefix: `t/${account}/`, cursor })
+    for (const object of page.objects) out.push(object.key)
+    if (!page.truncated) break
+    cursor = page.cursor
+  }
+  return out.sort()
 }
 
 /**
@@ -206,6 +324,38 @@ describe('story-e07c589b — rights and provenance, stated rather than inferred'
         })
         expect((await store.get({ uid: ticket.uid })).ticket.fields.origin).toBe(origin)
       }
+    }
+
+    // ── the ONE thing the client may state, carried by the same block ────────
+    // The six parts above are read off provenance and never asked. What the
+    // client said the file is FOR travels alongside them, on both kinds, with
+    // the same two permitted values on each — what it DOES is AC-1736's subject,
+    // and all that is claimed here is that the block carries it identically.
+    for (const carrier of CARRIERS) {
+      for (const role of ROLES) {
+        const { ticket } = await store.create({
+          type: carrier,
+          title: `A ${carrier} the client said is for the ${role}`,
+          fields: statement({ role }),
+        })
+        expect(
+          (await store.get({ uid: ticket.uid })).ticket.fields.role,
+          `'${role}' is accepted on a ${carrier} and returned as supplied`,
+        ).toBe(role)
+      }
+
+      // And it is OPTIONAL: where nobody was asked, the record carries no
+      // answer — absent, not blank — and the provenance reading is untouched.
+      const { ticket: unasked } = await store.create({
+        type: carrier,
+        title: `A ${carrier} nobody was asked about`,
+        fields: statement(),
+      })
+      const { ticket: read } = await store.get({ uid: unasked.uid })
+      expect(read.uid, `a ${carrier} supplying no answer is accepted`).toBeTruthy()
+      expect(read.fields.role, 'the record carries no answer').toBeUndefined()
+      expect('role' in read.fields, 'absent rather than blank').toBe(false)
+      expect(read.fields, 'the reading taken from provenance stands').toMatchObject(statement())
     }
   })
 
@@ -541,5 +691,299 @@ describe('story-e07c589b — one store holds both halves of the memory', () => {
     // a maintained summary, and adding the transcript did not fill it in.
     const { ticket: read } = await store.get({ uid: ticket.uid })
     expect(read.body, 'the body is the summary home, not the transcript one').toBe('')
+  })
+})
+
+describe('story-e07c589b — the one thing the client may say about a file', () => {
+  it('test_UAT_AC1736_what_the_client_said_a_file_is_for_narrows_the_inferred_rights_and_a_malformed_answer_is_refused', async () => {
+    const account = 'story-e07c589b-ac1736'
+
+    // ── IT NARROWS ──────────────────────────────────────────────────────────
+    // IDENTICAL BYTES, IDENTICAL NAME, IDENTICAL TYPE — the photograph and the
+    // competitor's screenshot of the story's own argument, distinguishable by
+    // nothing except what the client said they were for. Sent twice through the
+    // Worker's own ingestion entry point, so the comparison is between two
+    // records the pipeline actually wrote.
+    const bytes = bytesOf('the same picture, twice')
+    const forSite = await envelope(
+      await upload(account, { bytes, name: 'shopfront.jpg', type: 'image/jpeg', role: 'site' }),
+    )
+    const forReading = await envelope(
+      await upload(account, { bytes, name: 'shopfront.jpg', type: 'image/jpeg', role: 'reference' }),
+    )
+
+    // Read back through a SECOND, independently constructed handle: an envelope
+    // that echoed its own input would satisfy a weaker test while proving
+    // nothing about what was stored.
+    const store = await storeFor(account)
+    const site = (await store.get({ uid: String(forSite.uid) })).ticket
+    const reading = (await store.get({ uid: String(forReading.uid) })).ticket
+
+    // The two records differ in EXACTLY TWO PLACES, computed rather than
+    // enumerated — a third difference appearing later is the failure this shape
+    // exists to catch, and a hand-listed comparison would not see it.
+    const differing = [...new Set([...Object.keys(site.fields), ...Object.keys(reading.fields)])]
+      .filter((key) => JSON.stringify(site.fields[key]) !== JSON.stringify(reading.fields[key]))
+      .sort()
+    expect(differing, 'the answer, and whether it may be republished — nothing else').toEqual([
+      'republishable',
+      'role',
+    ])
+    expect(site.fields.role).toBe('site')
+    expect(reading.fields.role).toBe('reference')
+    // It NARROWS: the one marked for the site may be republished; the one marked
+    // for the client to read may not.
+    expect(site.fields.republishable, 'for the site — republishable').toBe(true)
+    expect(reading.fields.republishable, 'for them to read — not republishable').toBe(false)
+    // And everything the PROVENANCE reading produced is identical across the
+    // two: both the client's own, neither exportable. No ownership question was
+    // put to anyone, and supplying the answer added none.
+    for (const ticket of [site, reading]) {
+      expect(ticket.fields.rights, 'recorded as the client’s own, unasked').toBe('owned')
+      expect(ticket.fields.exportable, 'neither may be exported').toBe(false)
+      expect(ticket.fields.origin).toBe('uploaded')
+    }
+
+    // ── ITS ABSENCE CHANGES NOTHING ─────────────────────────────────────────
+    // A caller that predates the question sends no answer at all. The material
+    // is accepted and the provenance reading is exactly what it was before the
+    // question existed — an uploaded file remains republishable and not
+    // exportable. This is what keeps the role a narrowing rather than a new gate.
+    const unasked = (await store.get({
+      uid: String(
+        (await envelope(await upload(account, { bytes, name: 'shopfront.jpg', type: 'image/jpeg' })))
+          .uid,
+      ),
+    })).ticket
+    expect(unasked.fields.rights, 'unchanged').toBe('owned')
+    expect(unasked.fields.republishable, 'unchanged').toBe(true)
+    expect(unasked.fields.exportable, 'unchanged').toBe(false)
+    // And the record itself carries no answer where nobody was asked — the
+    // vocabulary's own rule, observed where this story owns it: through the
+    // store, which is what "defines only what a valid record looks like" means.
+    const { ticket: handMade } = await store.create({
+      type: 'material',
+      title: 'Created before anyone was asked',
+      fields: statement(),
+    })
+    const readHandMade = (await store.get({ uid: handMade.uid })).ticket
+    expect(readHandMade.fields.role, 'no answer, rather than a guessed one').toBeUndefined()
+    expect('role' in readHandMade.fields).toBe(false)
+
+    // ── A MALFORMED ANSWER IS REFUSED, NEVER COERCED ────────────────────────
+    // Both silent readings are wrong in a way nobody would notice: one publishes
+    // material the client marked private, the other withholds a photograph they
+    // meant to publish. Capitalisation alone is enough to make an answer
+    // malformed — 'Site' is not 'site'.
+    const before = { rows: (await listing(account)).length, blobs: await blobKeys(account) }
+    for (const malformed of ['Site', 'SITE', 'Reference', 'sight', 'both', '']) {
+      const response = await upload(account, {
+        bytes,
+        name: 'shopfront.jpg',
+        type: 'image/jpeg',
+        role: malformed,
+      })
+      const error = String((await envelope(response, 400)).error)
+      // The refusal NAMES the permitted answers, so the caller can correct it.
+      expect(error, 'the message names what the two permitted answers are').toContain('site')
+      expect(error).toContain('reference')
+    }
+    // No material record and no stored bytes came into existence as a result.
+    const after = { rows: (await listing(account)).length, blobs: await blobKeys(account) }
+    expect(after.rows, 'a refused request creates no material').toBe(before.rows)
+    expect(after.blobs, 'a refused request stores no bytes').toEqual(before.blobs)
+
+    // ── NOBODY IS ASKED ABOUT MATERIAL WE FETCHED ───────────────────────────
+    // Something pulled on the client's behalf is background to read rather than
+    // something they handed over to publish — so it is recorded as being for the
+    // client to read whatever the caller supplied.
+    const fetched = await route(
+      new Request('https://app.test/api/material/fetch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: 'https://competitor.example/positioning', role: 'site' }),
+      }),
+      routerEnv(account),
+      deps({
+        fetch: (async () =>
+          new Response('<html><body><p>Their positioning, at length.</p></body></html>', {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          })) as unknown as typeof fetch,
+      }),
+    )
+    const pulled = (await store.get({ uid: String((await envelope(fetched)).uid) })).ticket
+    expect(pulled.fields.role, 'fetched material is for the client to read').toBe('reference')
+    expect(pulled.fields.republishable, 'and is never republishable').toBe(false)
+  })
+})
+
+describe('story-e07c589b — how a description came to be is part of the record', () => {
+  it('test_UAT_AC1737_the_outcome_of_describing_a_material_and_what_produced_it_are_declared_and_selectable', async () => {
+    const pack = productTypePack()
+
+    // ── DECLARED, on both kinds, and neither required ───────────────────────
+    // The engine tolerates an undeclared field, so the pair would WORK
+    // undeclared. Declaring it is the criterion: a later re-describe pass is a
+    // query over a stated field rather than a predicate over a convention.
+    for (const carrier of CARRIERS) {
+      const fields = pack.schema(carrier).fields as Record<string, Record<string, unknown>>
+      expect(Object.keys(fields), `${carrier} names the outcome`).toContain('description_status')
+      expect(Object.keys(fields), `${carrier} names what produced it`).toContain(
+        'description_model',
+      )
+      // The OUTCOME is the closed set, because being able to select on it is its
+      // entire purpose.
+      expect(fields.description_status.type, 'the outcome is a closed named set').toBe('enum')
+      expect(
+        fields.description_status.enum,
+        'the successful case and every way describing can fall short',
+      ).toEqual(DESCRIBE_OUTCOMES)
+      // What PRODUCED it is free text, because it carries a model identifier as
+      // the provider returned it — a closed set would need widening for every
+      // model release.
+      expect(fields.description_model.type, 'a model id as the provider returned it').toBe('string')
+      expect(fields.description_model.enum, 'not a closed set').toBeUndefined()
+      // Neither is required: a reference created by a capture carries neither
+      // when its bundle lands. The same rule as the body's.
+      expect(fields.description_status.required, 'the outcome is optional').toBeFalsy()
+      expect(fields.description_model.required, 'the describer is optional').toBeFalsy()
+    }
+
+    // A record supplying neither is accepted, not refused.
+    const account = 'story-e07c589b-ac1737'
+    const store = await storeFor(account)
+    for (const carrier of CARRIERS) {
+      const { ticket } = await store.create({
+        type: carrier,
+        title: `A ${carrier} nothing has described`,
+        fields: statement(),
+      })
+      expect((await store.get({ uid: ticket.uid })).ticket.uid).toBeTruthy()
+    }
+
+    // ── EVERY MATERIAL THE PLATFORM CREATES CARRIES THE OUTCOME ─────────────
+    // One file a describer read, and one it could not — the seam is left ABSENT
+    // for the second, because "nothing described it" is the state that claim is
+    // about rather than something a stub can imitate.
+    const described = await envelope(
+      await upload(account, {
+        bytes: bytesOf('The kitchen opens at six and the bread is baked overnight.'),
+        name: 'kitchen-notes.txt',
+        type: 'text/plain',
+      }),
+    )
+    const undescribed = await envelope(
+      await upload(
+        account,
+        { bytes: bytesOf('jpeg-ish bytes'), name: 'shopfront.jpg', type: 'image/jpeg' },
+        deps({ describeImage: undefined }),
+      ),
+    )
+
+    // ── THE LISTING CARRIES BOTH VALUES ON EVERY ROW ────────────────────────
+    // One request, and the answer is enough to tell which material needs
+    // describing again. That is what makes the later pass a query.
+    const rows = await listing(account)
+    const rowFor = (uid: unknown): Record<string, unknown> => {
+      const row = rows.find((r) => r.uid === uid)
+      expect(row, `the listing carries ${String(uid)}`).toBeDefined()
+      return row!
+    }
+    for (const row of rows) {
+      expect(Object.keys(row), 'every row states the outcome').toContain('description_status')
+      expect(Object.keys(row), 'every row states what produced it').toContain('description_model')
+    }
+    const okRow = rowFor(described.uid)
+    expect(okRow.description_status, 'a description was produced').toBe('ok')
+    // It states what produced it — an extractor's own name where code did.
+    expect(typeof okRow.description_model).toBe('string')
+    expect(String(okRow.description_model)).not.toBe('')
+
+    const shortRow = rowFor(undescribed.uid)
+    expect(shortRow.description_status, 'and every way it can fall short').toBe('no_describer')
+    // …or states EXPLICITLY that nothing produced it, so a reader never has to
+    // treat absence as a third answer.
+    expect(shortRow.description_model, 'nothing produced it, said explicitly').toBeNull()
+
+    // ── AND SELECTING ON THE OUTCOME RETURNS EXACTLY THE SHORTFALL ──────────
+    // A stated field, so the re-describe pass is a predicate and not a migration.
+    const { tickets: needsDescribing } = await store.query({
+      predicate: 'type=material AND fields.description_status=no_describer',
+      limit: 'all',
+    })
+    expect(needsDescribing.map((t) => t.uid)).toEqual([String(undescribed.uid)])
+    expect(needsDescribing.map((t) => t.uid)).not.toContain(String(described.uid))
+  })
+})
+
+describe('story-e07c589b — the name a file arrived under', () => {
+  it('test_UAT_AC1738_the_filename_is_carried_on_the_material_record_and_on_every_listed_row', async () => {
+    const pack = productTypePack()
+
+    // ── DECLARED on both kinds, required on neither ─────────────────────────
+    for (const carrier of CARRIERS) {
+      const fields = pack.schema(carrier).fields as Record<string, Record<string, unknown>>
+      expect(Object.keys(fields), `${carrier} names the filename`).toContain('filename')
+      expect(fields.filename.type).toBe('string')
+      expect(fields.filename.required, 'the same rule as the other later fields').toBeFalsy()
+    }
+
+    const account = 'story-e07c589b-ac1738'
+    const store = await storeFor(account)
+
+    // A record created without one is accepted.
+    const { ticket: nameless } = await store.create({
+      type: 'reference',
+      title: 'A bundle that arrived under no single name',
+      fields: statement({ origin: 'captured', kind: 'capture', source_url: 'https://example.com/' }),
+    })
+    expect((await store.get({ uid: nameless.uid })).ticket.fields.filename).toBeUndefined()
+
+    // ── MATERIAL CREATED FROM A FILE CARRIES THE NAME IT ARRIVED UNDER ──────
+    // Through the Worker's own entry point, read back through a second handle —
+    // and unchanged, not normalised: the client recognises their own file by the
+    // name they gave it, which is the whole reason the field is here.
+    const names = ['Brand Guide (2026) v3.pdf', 'DSC_4821.jpg', 'kitchen-notes.txt']
+    const created: Array<{ uid: string; name: string }> = []
+    for (const name of names) {
+      const sent = await envelope(
+        await upload(account, { bytes: bytesOf(`bytes of ${name}`), name, type: 'text/plain' }),
+      )
+      const { ticket } = await store.get({ uid: String(sent.uid) })
+      expect(ticket.fields.filename, 'the name is returned as supplied').toBe(name)
+      created.push({ uid: String(sent.uid), name })
+    }
+
+    // ── ONE ANSWER CARRIES EVERY NAME ───────────────────────────────────────
+    // A SINGLE listing request, and every name is in it. No second request per
+    // row is needed to learn what a file was called.
+    const rows = await listing(account)
+    for (const { uid, name } of created) {
+      expect(rows.find((r) => r.uid === uid)?.filename, `${name} is named in the listing`).toBe(name)
+    }
+
+    // WHY THAT IS A CLAIM ABOUT THE RECORD AND NOT ABOUT AN ATTACHMENT LOOKUP.
+    // This record has a filename and NO attachment at all. A listing that
+    // learned names by reading each row's attachments could not name it — so
+    // the name appearing here is the material's own field being read, which is
+    // exactly the per-row cost the duplication exists to remove.
+    const { ticket: unattached } = await store.create({
+      type: 'material',
+      title: 'A record with no bytes behind it',
+      fields: statement({ filename: 'orphaned-brief.pdf' }),
+    })
+    const unattachedRow = (await listing(account)).find((r) => r.uid === unattached.uid)
+    expect(unattachedRow?.filename, 'read off the record, not off an attachment').toBe(
+      'orphaned-brief.pdf',
+    )
+
+    // ── AND A RECORD WITH NO NAME OF ITS OWN STILL LISTS UNDER ONE ──────────
+    // Rather than a blank: the capture bundle created above carries no filename,
+    // and a column of empty cells is not a list a client can read.
+    const namelessRow = (await listing(account)).find((r) => r.uid === nameless.uid)
+    expect(namelessRow, 'the nameless record is listed').toBeDefined()
+    expect(String(namelessRow!.filename), 'a name rather than a blank').not.toBe('')
+    expect(namelessRow!.filename).toBe(nameless.title)
   })
 })
