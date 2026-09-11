@@ -43,6 +43,15 @@ function str(value: unknown, fallback: string): string {
  * should do when its capability is absent, and because a page authored with the
  * control on a site that has no accounts must show a dead end to nobody.
  *
+ * THE OVERLAY HOLDS THREE PARTS AND SHOWS ONE ([[BUG-76]] Defect 4a/4c). The
+ * form, the confirmation and the network error are each a wrapper around an
+ * authored L1 subtree, and `client.js` swaps between them — so the panel BECOMES
+ * the confirmation rather than growing a line beneath a greyed-out form, and the
+ * confirmation is a card the designer drew rather than a module-painted `<p>`
+ * centred on the scrim beside the card. The wrappers exist only so there is
+ * something to hide: they contribute no layout, and every visible property of
+ * all three is its slot's.
+ *
  * THERE IS NO BRANCH ANYWHERE BELOW ON WHICH SITE OR WHICH BUSINESS THIS IS.
  * Every difference between one site's chrome and another's is its config, its
  * slots, and the session the Worker resolved — never a name this file knows.
@@ -66,12 +75,17 @@ export function accountChrome({
   const dialogId = `${instanceId}-dialog`
   const emailId = `${instanceId}-email`
   const emailLabel = str(config.emailLabel, 'Email address')
+  // Anything other than the one alternative reads as the default, which is the
+  // isolation rule the rest of this file follows: a config value the module
+  // cannot use costs its own field and not the render.
+  const labelMode = config.labelMode === 'placeholder' ? 'placeholder' : 'visible'
 
   const controls = accountChromeControls({
     signInLabel: str(config.signInLabel, 'Sign in'),
     portalLabel: str(config.portalLabel, 'Your account'),
     businessesLabel: str(config.businessesLabel, 'My businesses'),
     emailLabel,
+    labelMode,
     submitLabel: str(config.submitLabel, 'Send me a link'),
     dismissLabel: str(config.dismissLabel, 'Close'),
     portalHref,
@@ -80,8 +94,8 @@ export function accountChrome({
     emailId,
   })
 
-  // Four slots, four fragments, four class namespaces — so two chromes on one
-  // page (a header and a footer, which is the placement freedom this module is a
+  // Six slots, six fragments, six class namespaces — so two chromes on one page
+  // (a header and a footer, which is the placement freedom this module is a
   // module for) cannot collide.
   const render = (name: string) =>
     renderL1Fragment(subtree(slots[name]), `${instanceId}-${name}`, controls, { edit })
@@ -89,6 +103,8 @@ export function accountChrome({
   const signedIn = render('signedIn')
   const businesses = render('businesses')
   const dialog = render('dialog')
+  const sent = render('sent')
+  const error = render('error')
 
   // Omitted in the edit render, where there is no session to post to and a live
   // endpoint on the page the author is editing would be a submit waiting to
@@ -96,7 +112,7 @@ export function accountChrome({
   // braces — the same treatment `account-portal` gives its endpoint.
   const action = edit ? '' : ` action="${escapeHtml(signInAction)}"`
 
-  const css = [signedOut.css, signedIn.css, businesses.css, dialog.css]
+  const css = [signedOut.css, signedIn.css, businesses.css, dialog.css, sent.css, error.css]
     .filter(Boolean)
     .map((rules) => `<style>${rules}</style>`)
     .join('')
@@ -112,16 +128,18 @@ export function accountChrome({
     ${businesses.htmls[0] ?? ''}
   </div>
   <form class="account-chrome__dialog" id="${escapeHtml(dialogId)}" method="post"${action} data-account-chrome-dialog data-l1-slot="dialog">
-    <label class="account-chrome__label" data-fc-invariant for="${escapeHtml(emailId)}">${escapeHtml(
-      emailLabel,
-    )}</label>
-    ${dialog.htmls[0] ?? ''}
-    <p class="account-chrome__sent" data-fc-invariant data-account-chrome-sent hidden>${escapeHtml(
-      str(config.sentMessage, 'Check your email for a sign-in link.'),
-    )}</p>
-    <p class="account-chrome__error" data-fc-invariant data-account-chrome-error hidden>${escapeHtml(
-      'Could not reach the server. Please try again.',
-    )}</p>
+    <div class="account-chrome__part" data-account-chrome-form>
+      <label class="account-chrome__label" data-fc-invariant for="${escapeHtml(
+        emailId,
+      )}">${escapeHtml(emailLabel)}</label>
+      ${dialog.htmls[0] ?? ''}
+    </div>
+    <div class="account-chrome__part" data-account-chrome-sent data-l1-slot="sent" hidden>
+      ${sent.htmls[0] ?? ''}
+    </div>
+    <div class="account-chrome__part" data-account-chrome-error data-l1-slot="error" hidden>
+      ${error.htmls[0] ?? ''}
+    </div>
   </form>
   ${css}
 </section>`

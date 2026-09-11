@@ -107,6 +107,20 @@ export interface BehaviorControlSpec {
    * on our side and would otherwise slide the control pairing.
    */
   invariant?: boolean
+  /**
+   * [[BUG-76]] Defect 1 — for an `invariant` element, WHAT the pinned
+   * presentation is, in one sentence, stated beside the declaration.
+   *
+   * Every reference surface projects this string instead of inventing its own
+   * words. The defect it exists to close: `account-chrome`'s `emailLabel` was
+   * documented as "visible unless L1 hides it" while the stylesheet three files
+   * away clipped it to 1×1px unconditionally, so an AI reading the reference
+   * concluded the component was broken, filed a false defect against it, and
+   * wrote a duplicate of the line into the page. A hand-written doc comment per
+   * surface is what let those surfaces disagree; one string, projected, is the
+   * smallest shape that cannot.
+   */
+  invariantPresentation?: string
 }
 
 /** A universal-AC obligation (DOC-20) plus behavior `isolation`. */
@@ -295,12 +309,39 @@ function validateConfigField(
   }
 }
 
+/**
+ * [[BUG-76]] Defect 2 — the keys of `supplied` the contract has never heard of.
+ *
+ * The loop that validates a declaration is a loop over the DECLARED names, so a
+ * key nobody declared cannot produce an error by construction: it is stored,
+ * echoed back in `changed`, and does nothing. An AI passed `account:` (which
+ * belongs to `account-portal`) to `account-chrome` and was told it had been
+ * applied. That is the one failure mode the L1 side is strict about everywhere
+ * and the behavior side was not, so the fix is the same shape in both places:
+ * name the key, and name the set it should have come from.
+ */
+function undeclaredKeys(
+  kind: 'config' | 'slots',
+  declared: Record<string, unknown>,
+  supplied: Record<string, unknown> | undefined,
+): BehaviorValidationError[] {
+  const names = Object.keys(declared)
+  return Object.keys(supplied ?? {})
+    .filter((name) => !(name in declared))
+    .map((name) => ({
+      field: `${kind}.${name}`,
+      message:
+        `${kind === 'config' ? 'config key' : 'slot'} '${name}' is not declared ` +
+        `(declared: ${names.join(', ') || 'none'})`,
+    }))
+}
+
 /** Validate a behavior instance's `config` against `meta.config`. */
 export function validateBehaviorConfig(
   meta: BehaviorMeta,
   config: Record<string, unknown> | undefined,
 ): BehaviorValidationError[] {
-  const errors: BehaviorValidationError[] = []
+  const errors: BehaviorValidationError[] = undeclaredKeys('config', meta.config, config)
   const c = config ?? {}
   for (const [name, spec] of Object.entries(meta.config)) {
     validateConfigField(`config.${name}`, spec, c[name], errors)
@@ -324,7 +365,12 @@ export function validateBehaviorSlots(
   meta: BehaviorMeta,
   slots: Record<string, BehaviorSlotValue> | undefined,
 ): BehaviorValidationError[] {
-  const errors: BehaviorValidationError[] = []
+  // [[BUG-76]] Defect 2, second half. An undeclared SLOT name is the identical
+  // failure to an undeclared config key — the same loop over declared names, the
+  // same silent drop — and a subtree the author believed they had placed simply
+  // never renders. Refusing one and accepting the other would leave the defect
+  // half-fixed.
+  const errors: BehaviorValidationError[] = undeclaredKeys('slots', meta.slots, slots)
   const s = slots ?? {}
   for (const [name, spec] of Object.entries(meta.slots)) {
     const path = `slots.${name}`

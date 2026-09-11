@@ -71,10 +71,12 @@ describe('story-179b8c06 — behavioural config validation', () => {
   it('test_UAT_AC697_config_validated_against_typed_contract', () => {
     // A fully valid config for each survivor produces zero violations.
     expect(validateBehaviorConfig(carouselMeta, {})).toEqual([])
+    // `view` and `controls` are NOT in this list: REQ-96 deleted them from the
+    // contract, and since [[BUG-76]] a key the contract does not declare is a
+    // violation rather than a silent store. Carrying them here asserted the
+    // opposite of what this case is for.
     expect(
       validateBehaviorConfig(carouselMeta, {
-        view: 'multi',
-        controls: 'dots',
         autoplay: true,
         loop: false,
       }),

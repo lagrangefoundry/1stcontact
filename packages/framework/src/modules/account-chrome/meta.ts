@@ -38,7 +38,7 @@ import type { BehaviorMeta } from '../behavior'
  */
 export const accountChromeMeta = {
   id: 'account-chrome',
-  version: 1,
+  version: 2,
   kind: 'behavior',
   config: {
     /**
@@ -49,6 +49,14 @@ export const accountChromeMeta = {
      * the origin that mints its sessions, and because a customer site on its own
      * domain has its own session and its own endpoint. Reading it as config is
      * what makes that a different site definition rather than a different module.
+     *
+     * FOR A 1C-HOSTED SITE THE ANSWER ALREADY EXISTS: `POST /sign-in` on the
+     * control app ([[REQ-202]], `apps/control-app/src/sign-in.ts`), one of the
+     * routes deliberately matched ahead of the Access gate. Named here because
+     * this comment reasoned at length about WHY the field is a URL and never
+     * once about what to put in it, so an author with no such endpoint in mind
+     * invented one ([[BUG-76]] Defect 4b) and was told these were placeholders
+     * their engineers would have to point somewhere.
      */
     signIn: { type: 'url', required: true },
     /** Where the signed-in control goes: this site's account portal. */
@@ -67,26 +75,43 @@ export const accountChromeMeta = {
     portalLabel: { type: 'string', required: false, default: 'Your account' },
     /** The builder link's words. */
     businessesLabel: { type: 'string', required: false, default: 'My businesses' },
-    /** The dialog's field label — programmatic, and visible unless L1 hides it. */
+    /**
+     * The address field's label text.
+     *
+     * IT IS NEVER PAINTED BY THE `<label>` ITSELF. That element is invariant and
+     * clipped ({@link accountChromeMeta.controls.emailLabel}); this string is
+     * what it says to assistive technology, and — when {@link labelMode} is
+     * `placeholder` — what the field says inside the box. The previous wording
+     * here ("visible unless L1 hides it") was false in both directions: L1
+     * cannot hide it, because it is already hidden, and L1 cannot unhide it
+     * either ([[BUG-76]] Defect 1).
+     */
     emailLabel: { type: 'string', required: false, default: 'Email address' },
+    /**
+     * WHERE THE VISITOR READS {@link emailLabel} — the same two answers, with the
+     * same meanings, `contact-form` already gives the name ([[REQ-93]]).
+     *
+     * `placeholder` puts the words INSIDE the address box, as the control's
+     * `placeholder` attribute. `visible` leaves them to be authored as an L1 text
+     * run beside the control, which is presentation and therefore L1's.
+     *
+     * Not an aesthetic dial: it selects which element carries the accessible
+     * name's visible echo, which is a fact about the control rather than a look.
+     * Without it ([[BUG-76]] Defect 1b) a panel authored purely from config
+     * shipped a bare field with no visible prompt of any kind, and the only
+     * remedy an author could find was to write the words into the dialog slot
+     * and assume the component would one day paint them too.
+     */
+    labelMode: {
+      type: 'enum',
+      required: false,
+      values: ['visible', 'placeholder'],
+      default: 'visible',
+    },
     /** The dialog's submit affordance. */
     submitLabel: { type: 'string', required: false, default: 'Send me a link' },
     /** The dialog's close affordance. */
     dismissLabel: { type: 'string', required: false, default: 'Close' },
-    /**
-     * What the dialog says once the address has been sent.
-     *
-     * ONE MESSAGE, SHOWN WHATEVER THE SERVER ANSWERS. The response must not
-     * reveal who is on the list ([[REQ-134]]), so `client.js` never reads it:
-     * the message appears when the request COMPLETES, at any status. A known
-     * address and an unknown one are therefore indistinguishable here by
-     * construction rather than by the endpoint remembering to be careful.
-     */
-    sentMessage: {
-      type: 'string',
-      required: false,
-      default: 'Check your email for a sign-in link.',
-    },
   },
   slots: {
     /**
@@ -107,6 +132,36 @@ export const accountChromeMeta = {
     businesses: { required: true },
     /** The sign-in dialog: the address field, the submit, the close. */
     dialog: { required: true },
+    /**
+     * WHAT THE PANEL BECOMES once the address has been sent — a subtree of its
+     * own, not a line added beneath the one it replaces.
+     *
+     * ONE MESSAGE, SHOWN WHATEVER THE SERVER ANSWERS. The response must not
+     * reveal who is on the list ([[REQ-134]]), so `client.js` never reads it:
+     * this subtree appears when the request COMPLETES, at any status. A known
+     * address and an unknown one are indistinguishable here by construction
+     * rather than by the endpoint remembering to be careful. Moving the words
+     * from `config.sentMessage` into a slot changes where they are authored and
+     * nothing about when they appear.
+     *
+     * A SLOT RATHER THAN A STRING because a confirmation is a thing the visitor
+     * looks at. As config it was painted by the module into an invariant `<p>`
+     * that sat OUTSIDE the authored card — a flex item on the 50%-black scrim,
+     * with no fill and no colour of its own, rendering the page's dark ink on a
+     * dark background, and unreachable from L1 because it was invariant
+     * ([[BUG-76]] Defect 4c). Authored, it is a card the designer drew.
+     */
+    sent: { required: true },
+    /**
+     * WHAT THE PANEL SHOWS when the request never reached the server at all.
+     *
+     * Same reasoning as {@link sent}, and a separate slot for the same reason
+     * `businesses` is separate from `signedIn`: it is a different state and not a
+     * decoration of one. The form stays standing behind it, because a network
+     * failure is the one case where trying again is the right next move — which
+     * is also why this is the only outcome the client distinguishes at all.
+     */
+    error: { required: true },
   },
   controls: {
     /** Opens the sign-in dialog. */
@@ -127,8 +182,19 @@ export const accountChromeMeta = {
      * assistive technology, and never bound to an L1 node — a chrome whose
      * designer could unlabel the one field on it is a chrome that can ship
      * inaccessible.
+     *
+     * `element` says `label` because a `<label>` is what the component emits.
+     * It said `span` while emitting `<label>`, which is a declaration describing
+     * a component it does not match ([[BUG-76]] Defect 1).
      */
-    emailLabel: { element: 'span', required: false, invariant: true },
+    emailLabel: {
+      element: 'label',
+      required: false,
+      invariant: true,
+      invariantPresentation:
+        'visually hidden — clipped to 1×1px so it neither paints nor displaces ' +
+        'the L1 around it; the words reach a visitor through `config.labelMode`',
+    },
   },
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],

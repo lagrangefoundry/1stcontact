@@ -25,6 +25,13 @@ export function accountChromeControls(labels: {
   portalLabel: string
   businessesLabel: string
   emailLabel: string
+  /**
+   * [[BUG-76]] Defect 1b — where the visitor reads `emailLabel`. `placeholder`
+   * puts the words inside the box; `visible` leaves them to an L1 text run the
+   * page authors beside the control. The `<label>` is emitted either way: the
+   * accessible name is an obligation, not a mode.
+   */
+  labelMode: 'visible' | 'placeholder'
   submitLabel: string
   dismissLabel: string
   portalHref: string
@@ -61,6 +68,10 @@ export function accountChromeControls(labels: {
         id: labels.emailId,
         required: true,
         autocomplete: 'email',
+        // Undefined when the label is authored beside the field, and the emitter
+        // drops an undefined attribute — so `visible` leaves no inert attribute
+        // behind implying a capability the control is not using.
+        placeholder: labels.labelMode === 'placeholder' ? labels.emailLabel : undefined,
         'data-account-chrome-email': true,
       },
     },

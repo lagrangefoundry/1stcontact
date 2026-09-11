@@ -270,11 +270,13 @@ const SEAM_CASES: SeamCase[] = [
     addresses: ['0.0', '0.1'],
   },
   {
-    // [[REQ-200]] — the account chrome. Four seams; the signed-out one is where a
-    // site's own words around the Sign In control live, so it is the one whose
-    // addressability a copy edit depends on.
+    // [[REQ-200]] — the account chrome. Six seams since [[BUG-76]] made the
+    // confirmation and the network error authored subtrees rather than
+    // module-painted paragraphs; the signed-out one is where a site's own words
+    // around the Sign In control live, so it is the one whose addressability a
+    // copy edit depends on.
     type: 'account-chrome',
-    version: 1,
+    version: 2,
     instance: 'chrome',
     slot: 'signedOut',
     config: {

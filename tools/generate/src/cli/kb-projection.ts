@@ -382,12 +382,28 @@ function slotEntry(name: string, spec: BehaviorSlotSpec): string {
   return parts.join('; ')
 }
 
+/**
+ * One control, as a caller needs to read it.
+ *
+ * [[BUG-76]] Defect 1 — an INVARIANT control said only "painted by the component
+ * itself, never by the page", which says who paints it and nothing about what
+ * that paint IS. `account-chrome`'s `emailLabel` is clipped to 1×1px, and an AI
+ * that read this line, saw no text on the page and went looking for a bug found
+ * one that was not there: it filed a false defect against a working component
+ * and wrote a duplicate of the label into the page. Two sentences fix it —
+ * `invariantPresentation`, stated once beside the declaration, and the fact that
+ * the catalogue offers no way to bind one, which `editBehaviorList` has always
+ * enforced by omitting them and this surface never said.
+ */
 function controlEntry(name: string, spec: BehaviorControlSpec): string {
   const parts: string[] = [`\`${name}\` — an HTML \`${spec.element}\` element`]
   if (spec.perItemOf) parts.push(`one per item of \`${spec.perItemOf}\``)
   if (spec.perSubtreeOf) parts.push(`one per item of \`${spec.perSubtreeOf}\``)
-  if (spec.invariant) parts.push('painted by the component itself, never by the page')
-  else parts.push(spec.required ? 'the page must supply its appearance' : 'optional')
+  if (spec.invariant) {
+    parts.push('painted by the component itself, never by the page')
+    parts.push('cannot be bound from L1, and is absent from the catalogue for that reason')
+    if (spec.invariantPresentation) parts.push(spec.invariantPresentation)
+  } else parts.push(spec.required ? 'the page must supply its appearance' : 'optional')
   return parts.join('; ')
 }
 

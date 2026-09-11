@@ -5,7 +5,10 @@
  * behind the Sign In control, and it upgrades the form's native POST to a
  * `fetch` so the visitor stays on the page. The server renders the form OPEN and
  * posting natively, so every failure of this file — no script, a throw, a blocked
- * bundle — leaves a page on which the address can still be sent.
+ * bundle — leaves a page on which the address can still be sent. The confirmation
+ * swap is part of the second job and inherits the same baseline: with no script
+ * there is no fetch to complete, so there is nothing to swap to and the native
+ * POST navigates as it always did.
  *
  * IT NEVER READS THE RESPONSE, AND THAT IS A REQUIREMENT RATHER THAN AN ECONOMY.
  * The issue endpoint must not reveal whether an address is known ([[REQ-134]]),
@@ -26,6 +29,7 @@
 
 const CHROME_SELECTOR = '[data-account-chrome]'
 const DIALOG_SELECTOR = '[data-account-chrome-dialog]'
+const FORM_PART_SELECTOR = '[data-account-chrome-form]'
 const SENT_SELECTOR = '[data-account-chrome-sent]'
 const ERROR_SELECTOR = '[data-account-chrome-error]'
 const OPEN_SELECTOR = '[data-account-chrome-open]'
@@ -51,12 +55,20 @@ export function setDialog(section, open) {
 }
 
 /**
- * Send the address and report the one message.
+ * Send the address and show the one message.
+ *
+ * THE PANEL BECOMES THE CONFIRMATION ([[BUG-76]] Defect 4a). The form, the sent
+ * subtree and the error subtree are three parts of one overlay and exactly one
+ * is shown; on completion the form part is hidden, so the address field, the
+ * submit, the close and the label are no longer presented. It used to un-hide a
+ * paragraph and disable two controls, which left the panel reading as a
+ * greyed-out form with a line under it rather than as a confirmation.
  *
  * Exported and given its `fetch` so the "identical for a known and an unknown
  * address" property is provable without a browser.
  */
 export async function submitAddress(section, form, fetchImpl) {
+  const formPart = section.querySelector(FORM_PART_SELECTOR)
   const sent = section.querySelector(SENT_SELECTOR)
   const error = section.querySelector(ERROR_SELECTOR)
   if (error) error.hidden = true
@@ -77,7 +89,9 @@ export async function submitAddress(section, form, fetchImpl) {
     })
   } catch (_e) {
     // The request never reached the server. That is a fact about the network and
-    // says nothing about the address, so it is the one case that reports itself.
+    // says nothing about the address, so it is the one case that reports itself
+    // — and the one case that LEAVES THE FORM STANDING, because trying again is
+    // the right next move and a swapped-away form cannot be tried again.
     if (error) error.hidden = false
     return
   }
@@ -85,10 +99,8 @@ export async function submitAddress(section, form, fetchImpl) {
   // Completed — at ANY status, and without looking at what came back. See the
   // module note: the response must not distinguish a known address from an
   // unknown one, and the surest way to honour that is never to consult it.
+  if (formPart) formPart.hidden = true
   if (sent) sent.hidden = false
-  for (const node of [email, form.querySelector('button[type="submit"]')]) {
-    if (node) node.disabled = true
-  }
 }
 
 /** Attach both behaviours to one chrome `<section>`. */

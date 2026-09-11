@@ -1426,8 +1426,15 @@ window.addEventListener('blur',fade);
  * copy the target of, and which announces itself to assistive technology as the
  * wrong thing. The `href` is the module's attribute like any other, and the
  * module asserts it through the same URL allowlist every rendered URL passes.
+ *
+ * `'label'` is here because two modules emit one and both used to declare
+ * `'span'` ([[BUG-76]] Defect 1). A declaration that names the wrong tag is a
+ * reference surface lying about the component it describes, which is the whole
+ * shape that ticket is about; the tag is the component's and the declaration
+ * repeats it. Both such controls are `invariant`, so nothing in L1 can reach
+ * them — the correction buys honesty in the reference, not a new binding.
  */
-export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span' | 'a'
+export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span' | 'a' | 'label'
 
 /**
  * A module-declared leaf element, as handed to the emitter. The module owns the

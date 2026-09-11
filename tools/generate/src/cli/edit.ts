@@ -295,9 +295,28 @@ async function validateOrThrow(
   const result = validateSite({ ...base, pages })
   if (!result.ok) {
     const first = result.errors[0]
+    /*
+     * EVERY ERROR, NOT THE FIRST ([[BUG-76]] Defect 3c). A payload with two
+     * invented field names used to take two round trips to discover both, and an
+     * AI author self-corrects from what it is told — so a refusal that withholds
+     * half of what it knows buys itself a second refusal. `path` still names the
+     * first, because a `CommandError` has one place to point.
+     *
+     * Capped, because a single bad node can produce a long tail of consequent
+     * issues and a message nobody reads is no better than a message that says
+     * one thing. The count is stated when the list is cut, so a caller never
+     * mistakes a truncated report for a complete one — the same reason
+     * `assertBehaviorInstance` joins its violations rather than picking one.
+     */
+    const MAX_REPORTED = 10
+    const shown = result.errors.slice(0, MAX_REPORTED)
+    const more = result.errors.length - shown.length
+    const listed = shown.map((e) => `${e.path}: ${e.message}`).join('; ')
     throw new CommandError({
       code: 'SCHEMA_INVALID',
-      message: first ? `${first.path}: ${first.message}` : 'Definition failed schema validation.',
+      message: first
+        ? `${listed}${more > 0 ? `; …and ${more} more` : ''}`
+        : 'Definition failed schema validation.',
       path: first?.path,
       hint: 'Adjust the value to satisfy the site schema, or omit it if optional.',
     })

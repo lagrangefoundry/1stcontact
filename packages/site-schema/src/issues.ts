@@ -23,9 +23,22 @@
  * node inside a container's `children`) is localised the same way, so the path
  * reaches all the way down to `/root/children/0/reveal`.
  *
+ * A union can also discriminate on SHAPE rather than on a literal, and one in
+ * the schema does: a behavior slot's value is `z.union([node, node[]])`. No
+ * literal excludes anything there, so the rule above finds no tag — and every
+ * schema error anywhere inside a behavior slot used to collapse to the slot's
+ * own path with Zod's default message, while the identical error in the page's
+ * own `l1` tree named the offending key ([[BUG-76]] Defect 3). A branch that
+ * failed at the union's own position was never the shape being written; a branch
+ * that failed deeper is the right shape with bad content. One survivor by that
+ * test is the branch the author meant.
+ *
  * When no branch is distinguishable — the tag itself is missing or names no
- * member — nothing is guessed: the union's own issue is kept, because "this node
- * is not a node" *is* the accurate report in that case.
+ * member — nothing is guessed about WHERE the fault is: the union's own issue is
+ * kept, because "this node is not a node" *is* the accurate report in that case.
+ * What is added is WHAT would have been accepted: if every branch was excluded
+ * by the same key, the message names that key and its closed set instead of
+ * saying "Invalid input" ([[BUG-76]] Defect 3b).
  */
 
 /** The subset of a Zod issue this projection reads. */
@@ -35,6 +48,8 @@ interface Issue {
   readonly message: string
   /** Present on `invalid_union`: the issues each branch produced, in order. */
   readonly errors?: readonly (readonly Issue[])[]
+  /** Present on `invalid_value`: the literals the branch would have accepted. */
+  readonly values?: readonly unknown[]
 }
 
 /** A single structural validation failure (mirrors `ValidationError`). */
@@ -56,6 +71,11 @@ function mismatchesTag(branch: readonly Issue[], key: string): boolean {
       issue.path.length === 1 &&
       String(issue.path[0]) === key,
   )
+}
+
+/** Did this branch fail at the union's own position — i.e. on SHAPE, not content? */
+function mismatchesAtRoot(branch: readonly Issue[]): boolean {
+  return branch.some((issue) => issue.code === 'invalid_type' && issue.path.length === 0)
 }
 
 /**
@@ -91,7 +111,99 @@ function chooseBranch(branches: readonly (readonly Issue[])[]): readonly Issue[]
       bestExcluded = excluded
     }
   }
-  return chosen
+  if (chosen) return chosen
+
+  /*
+   * NO TAG, BUT STILL ONE SURVIVOR — the union discriminates on SHAPE rather
+   * than on a literal ([[BUG-76]] Defect 3).
+   *
+   * A branch that failed with a type mismatch at the union's own position was
+   * never the shape the author was writing; a branch that failed DEEPER is the
+   * right shape with bad content inside it. When exactly one branch failed only
+   * deeper, that is the branch they meant, and its issues carry the real paths.
+   *
+   * The case this exists for is a behavior slot, whose position wraps the node
+   * union in a second union — `z.union([l1NodeSchema, z.array(l1NodeSchema)])`.
+   * The array branch fails `invalid_type` at the root and the node branch fails
+   * somewhere inside, so no literal excludes anything, `chooseBranch` used to
+   * return null, and every schema error anywhere in a behavior slot's subtree
+   * collapsed to "Invalid input" at the slot's own path — while the identical
+   * error in the page's own `l1` tree named the offending key. Behavior slots
+   * are exactly where modal and dialog authoring happens.
+   *
+   * Stated on shape rather than on slots, so any shape-discriminated union in
+   * the schema localises the same way.
+   */
+  const deep = branches.filter((branch) => !mismatchesAtRoot(branch))
+  if (deep.length === 1 && deep.length < branches.length) return deep[0]
+
+  /*
+   * Both branches survived that test, so neither was refused outright — which is
+   * what a REPEATED slot looks like. The value is an array, so the array branch
+   * parses at the root and fails somewhere inside it; the node branch fails on a
+   * nested union rather than on a plain type, so it too reports at the root and
+   * not before it. The tie-break is how far each branch gets once localised: a
+   * branch that reaches a key three levels down was reading the author's shape,
+   * and one that stops at the root was not. Unique deepest wins, and a tie is
+   * left ambiguous rather than guessed.
+   */
+  const depths = deep.map(localisedDepth)
+  const deepest = Math.max(...depths, 0)
+  if (deepest === 0) return null
+  const winners = deep.filter((_, i) => depths[i] === deepest)
+  return winners.length === 1 ? winners[0] : null
+}
+
+/**
+ * How far a branch's issues reach once localised, in path segments.
+ *
+ * Localised rather than raw, because a branch whose own issue sits at the root
+ * may still be a union that resolves to a key several levels down — which is
+ * exactly the node branch of a slot's union.
+ */
+function localisedDepth(branch: readonly Issue[]): number {
+  let deepest = 0
+  for (const error of projectIssues(branch)) {
+    deepest = Math.max(deepest, error.path === '/' ? 0 : error.path.split('/').length - 1)
+  }
+  return deepest
+}
+
+/**
+ * The valid values of the tag every branch rejected, when there is one
+ * ([[BUG-76]] Defect 3b).
+ *
+ * When no branch survives, nothing is guessed about WHERE the fault is — the
+ * union's own issue is the accurate report. But its message is Zod's default,
+ * and `kind: "picture"` (the real name is `image`) reported "Invalid input" at a
+ * correct and useless path. If every branch was excluded by the same key, that
+ * key is the tag and the branches between them hold the closed set it admits;
+ * naming both costs nothing and is the most self-correctable sentence the
+ * envelope can emit.
+ */
+function tagVocabulary(
+  branches: readonly (readonly Issue[])[],
+): { key: string; values: string[] } | null {
+  const byKey = new Map<string, Set<string>>()
+  for (const branch of branches) {
+    for (const issue of branch) {
+      if (issue.code !== 'invalid_value' && issue.code !== 'invalid_literal') continue
+      if (issue.path.length !== 1) continue
+      const key = String(issue.path[0])
+      const seen = byKey.get(key) ?? new Set<string>()
+      for (const value of issue.values ?? []) seen.add(String(value))
+      byKey.set(key, seen)
+    }
+  }
+  for (const [key, values] of byKey) {
+    // Every branch rejected on this key, so it is the tag rather than a field
+    // that merely happened to be an enum in one member.
+    const excluded = branches.filter((branch) => mismatchesTag(branch, key)).length
+    if (excluded === branches.length && values.size > 0) {
+      return { key, values: [...values] }
+    }
+  }
+  return null
 }
 
 /**
@@ -103,12 +215,17 @@ export function projectIssues(issues: readonly Issue[], base: readonly PropertyK
   const out: ProjectedError[] = []
   for (const issue of issues) {
     const at = [...base, ...issue.path]
-    const branch = issue.code === 'invalid_union' && issue.errors ? chooseBranch(issue.errors) : null
+    const union = issue.code === 'invalid_union' && issue.errors ? issue.errors : null
+    const branch = union ? chooseBranch(union) : null
     if (branch) {
       out.push(...projectIssues(branch, at))
       continue
     }
-    out.push({ path: pointer(at), message: issue.message })
+    const tag = union ? tagVocabulary(union) : null
+    out.push({
+      path: pointer(at),
+      message: tag ? `${tag.key} is not one of: ${tag.values.join(', ')}` : issue.message,
+    })
   }
   return out
 }
