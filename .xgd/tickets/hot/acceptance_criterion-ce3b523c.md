@@ -6,10 +6,10 @@ title: A retrieved body past the per-file ceiling is refused even when the remot
   server understated or omitted its size
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:42:42.259777+00:00'
-updated_at: '2026-09-11T04:42:42.259777+00:00'
+updated_at: '2026-09-11T04:58:07.251277+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
