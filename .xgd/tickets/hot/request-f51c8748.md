@@ -5,10 +5,10 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T19:40:21.268579+00:00'
+updated_at: '2026-09-11T19:51:33.887607+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-34760bf1
@@ -17,6 +17,26 @@ fields:
   depends_on:
   - REQ-219
   chat_comment: comment-f3ebfc8a
+  commits:
+  - working_sha: c2d79f8ca1f16c1b2c8a71f75f83fb0e4f752327
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9110d75b515a4c89f1627421aa717b6625a0c5f6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b58546d4dc00b73519ad58975d4d22bfc3eef6cf
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 12fabc0ed0dd312ee5ba28b6b112735bf65496e1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c58ad7396bfa89a28092e6fdbbcce5df3f47bd82
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3fb77e4aa254348d37d0db20de49b89e7f580963
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.165
 ---
 
 ## The gap
