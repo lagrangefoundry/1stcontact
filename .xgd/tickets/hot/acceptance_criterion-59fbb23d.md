@@ -6,10 +6,10 @@ title: The client's own knowledge base is declared, and its corpus is exactly th
   four kinds of client material
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:30:20.680161+00:00'
-updated_at: '2026-09-11T03:30:20.680161+00:00'
+updated_at: '2026-09-11T03:43:40.801250+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5281f009
   kind: behavior
