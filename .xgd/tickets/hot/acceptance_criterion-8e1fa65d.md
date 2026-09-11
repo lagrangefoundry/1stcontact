@@ -6,10 +6,10 @@ title: A generated reference names its source in its body and states that it is 
   on every build
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:36:35.054922+00:00'
-updated_at: '2026-09-11T02:36:35.054922+00:00'
+updated_at: '2026-09-11T02:51:26.125552+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5836022a
   kind: behavior
