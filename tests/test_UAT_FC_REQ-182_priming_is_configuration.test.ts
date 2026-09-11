@@ -37,22 +37,11 @@ import primingDocument from '../tools/generate/src/cli/ai/priming.json'
 import {
   says,
   scriptedClient,
+  systemText,
+  turnTailText,
   type ModelRequest,
   type ScriptedClient,
 } from './support/scripted-model-client'
-
-/**
- * The system prompt as one string, whichever shape it arrived in.
- *
- * The blocks are consecutive slices of one assembled string, cut at the cache
- * breakpoints, so joining them with no separator reproduces it exactly — which
- * is what lets an assertion on ORDER read offsets in it.
- */
-function systemText(req: ModelRequest): string {
-  return typeof req.system === 'string'
-    ? req.system
-    : req.system.map((block) => block.text ?? '').join('')
-}
 
 /**
  * REQ-182 — **the priming and the reminder are configuration, and the boundary
@@ -204,24 +193,25 @@ function cachedPrefix(req: ModelRequest): string {
 }
 
 /**
- * The reminder: everything the request carried past the priming.
+ * The per-turn reminder: everything appended past the words that were sent.
  *
- * IT RIDES THE TAIL OF THE LAST MESSAGE (the library's REQ-144), appended past
- * the history so no cache breakpoint lands on a block guaranteed to differ next
- * turn — so it is read from there, together with any uncached system tail in
- * case the placement moves back. Only the LAST message, because earlier turns'
- * reminders are history and would let a stale signal pass for a current one.
+ * IT IS NOT IN THE SYSTEM PROMPT ANY MORE ([[BUG-83]]). It used to be, and this
+ * read it as the slice of the system text past the cached prefix. Upstream moved
+ * it to the tail of the last user MESSAGE, precisely so that no cache marker
+ * could land on a block guaranteed to differ next turn — which is the property
+ * the neighbouring boundary test asserts, now held by construction rather than
+ * by arithmetic. The words and their order are unchanged, and they are what this
+ * suite is about.
+ *
+ * `said` is what the turn sent, which is how the reminder is told apart from the
+ * message it was appended to — so the residue assertions below are about the
+ * reminder and not about the sentence in front of it.
  */
-function reminderOf(req: ModelRequest): string {
-  const systemTail = systemText(req).slice(cachedPrefix(req).length)
-  const last = req.messages[req.messages.length - 1]?.content
-  const tail =
-    typeof last === 'string'
-      ? last
-      : Array.isArray(last)
-        ? last.map((b) => (b && typeof b === 'object' && 'text' in b ? String(b.text ?? '') : '')).join('\n')
-        : ''
-  return [systemTail, tail].filter((part) => part.trim() !== '').join('\n\n')
+function reminderOf(req: ModelRequest, said: string): string {
+  const tail = turnTailText(req)
+  const at = tail.indexOf(said)
+  expect(at, 'the turn carried no tail holding the message that was sent').toBeGreaterThanOrEqual(0)
+  return tail.slice(at + said.length).replace(/^\n+/, '')
 }
 
 beforeAll(async () => {
@@ -311,7 +301,11 @@ describe('REQ-182 — the cache boundary is declared, and it is last', () => {
     expect(prefix).toContain('KnowledgeSearch')
 
     // The reminder is NOT in it: it is rebuilt every turn, and a cached prefix
-    // that included it would be invalidated by its own contents.
+    // that included it would be invalidated by its own contents. Asserted against
+    // the WHOLE system block rather than the marked prefix alone, because the
+    // reminder no longer travels in this field at all ([[BUG-83]]) and an
+    // assertion narrowed to the prefix would hold for the wrong reason.
+    expect(systemText(client.seen[0])).not.toContain('Every tool you have acts on that site')
     expect(prefix).not.toContain('Every tool you have acts on that site')
   })
 
@@ -338,7 +332,7 @@ describe('REQ-182 — the cache boundary is declared, and it is last', () => {
 describe('REQ-182 — a signal that has nothing to say says nothing', () => {
   it('test_UAT_FC_REQ-182_a_quiet_turn_carries_neither_signal_and_no_residue', async () => {
     const client = await turns(await deps({ delta: null }), ['Hello'])
-    const reminder = reminderOf(client.seen[0])
+    const reminder = reminderOf(client.seen[0], 'Hello')
 
     // The standing reminder is there…
     expect(reminder).toContain('Every tool you have acts on that site and no other')
@@ -365,7 +359,7 @@ describe('REQ-182 — a signal that has nothing to say says nothing', () => {
     await hostDeps.store.appendChange(SLUG, { kind: 'edit' } as never)
     for await (const _e of streamPrompt(opened.sessionId, 'Two', { cwd }, hostDeps)) void _e
 
-    const reminder = reminderOf(client.seen[1])
+    const reminder = reminderOf(client.seen[1], 'Two')
     expect(reminder).toMatch(/changed this site since your last turn/)
     expect(reminder).toContain('list_changes with since:')
     expect(reminder).toContain(DELTA)

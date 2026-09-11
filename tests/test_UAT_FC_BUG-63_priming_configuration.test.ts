@@ -26,7 +26,8 @@ import { CONSULTANT_ROLE, primingText, PURPOSE_ENTRY } from '../tools/generate/s
 import {
   says,
   scriptedClient,
-  modelSaw,
+  sentText,
+  systemText,
   type ScriptedClient,
 } from './support/scripted-model-client'
 
@@ -160,17 +161,27 @@ async function deps(opts: { withKnowledge: boolean; delta?: string | null }): Pr
   return { ...base, ...(await knowledgeDeps(knowledge)) }
 }
 
-/** Take one turn and hand back what the model was sent. */
+/**
+ * Take one turn and hand back what the model was sent.
+ *
+ * TWO READINGS, BECAUSE THEY ANSWER DIFFERENT QUESTIONS ([[BUG-83]]). `system`
+ * is the assembled priming; `sent` is that plus the per-turn tail, which is
+ * where upstream now appends the reminder — it used to ride the system field and
+ * moved so that no cache marker could land on a block guaranteed to differ next
+ * turn. An assertion about the PRIMING reads `system`; one about what the
+ * session was TOLD reads `sent`, and is then indifferent to a channel that has
+ * already moved once.
+ */
 async function turn(
   hostDeps: HostDeps,
   text = 'Hello',
-): Promise<{ client: ScriptedClient; system: string }> {
+): Promise<{ client: ScriptedClient; system: string; sent: string }> {
   const client = scriptedClient([says('Noted.')])
   setModelClient(client)
   const opened = await openSession(SLUG, { cwd }, hostDeps)
   expect(opened.ready).toBe(true)
   for await (const _event of streamPrompt(opened.sessionId, text, { cwd }, hostDeps)) void _event
-  return { client, system: modelSaw(client.seen[0]) }
+  return { client, system: systemText(client.seen[0]), sent: sentText(client.seen[0]) }
 }
 
 beforeAll(async () => {
@@ -264,14 +275,12 @@ describe('BUG-63 — the per-turn reminder is a provider, not a mutated role', (
     for await (const _e of streamPrompt(opened.sessionId, 'First', { cwd }, hostDeps)) void _e
     for await (const _e of streamPrompt(opened.sessionId, 'Second', { cwd }, hostDeps)) void _e
 
-    // BOTH turns carry it. The reminder is re-sent every turn — on the tail of
-    // the last message now (the library's REQ-144), which is why this reads the
-    // whole request through `modelSaw` — precisely so the habits cannot decay
-    // over a long conversation, and the host mutating a frozen role would have
-    // thrown on the first one.
+    // BOTH turns carry it. The reminder is re-applied every turn precisely so the
+    // habits cannot decay over a long conversation, and the host mutating a
+    // frozen role would have thrown on the first one.
     for (const req of client.seen) {
-      expect(modelSaw(req)).toContain(`You are working on the site "${SLUG}"`)
-      expect(modelSaw(req)).toContain('Prefer making the change over describing')
+      expect(sentText(req)).toContain(`You are working on the site "${SLUG}"`)
+      expect(sentText(req)).toContain('Prefer making the change over describing')
     }
     expect(client.seen.length).toBeGreaterThanOrEqual(2)
   })
@@ -281,12 +290,17 @@ describe('BUG-63 — the per-turn reminder is a provider, not a mutated role', (
     // Nothing arrived and nothing moved, so neither line is there. A reminder
     // that says "nothing happened" every turn is one that gets skimmed on the
     // turn something did.
-    expect(quiet.system).not.toMatch(/Call list_changes/)
-    expect(quiet.system).not.toContain('Two new documents')
+    //
+    // READ OFF EVERYTHING SENT, NOT OFF THE PRIMING. A negative assertion is only
+    // evidence if it is looking where the line would actually be: read off the
+    // priming alone these two would go on passing after the reminder left that
+    // field entirely, which is exactly what happened ([[BUG-83]]).
+    expect(quiet.sent).not.toMatch(/Call list_changes/)
+    expect(quiet.sent).not.toContain('Two new documents')
 
     resetAiHost()
     const loud = await turn(await deps({ withKnowledge: false, delta: 'Two new documents arrived.' }))
-    expect(loud.system).toContain('Two new documents arrived.')
+    expect(loud.sent).toContain('Two new documents arrived.')
   })
 
   it('test_UAT_FC_BUG-63_the_host_mutates_no_role', async () => {

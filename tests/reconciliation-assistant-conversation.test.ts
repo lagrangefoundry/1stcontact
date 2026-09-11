@@ -21,7 +21,7 @@ import {
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, modelSaw, says, scriptedClient, stalls } from './support/scripted-model-client'
+import { calls, modelSaw, says, scriptedClient, sentText, stalls } from './support/scripted-model-client'
 import { FIDELITY_DECLARATION } from '../tools/generate/src/cli/ai/fidelity-core'
 
 /**
@@ -769,7 +769,14 @@ describe('what the assistant is offered', () => {
     // Its priming names the site under work, describes what it can do — from the
     // generated manual, so it cannot fall behind the operations it describes —
     // and states what deliberately has no operation.
-    expect(system).toContain(`the site "${SLUG}"`)
+    //
+    // The site line is read out of everything the turn SENT rather than out of
+    // the priming alone: it is the per-turn reminder's, and upstream moved the
+    // reminder from the system field to the tail of the user message ([[BUG-83]])
+    // so that no cache marker could land on a block guaranteed to differ next
+    // turn. The claim is that the session is bound to this site, not which field
+    // carried the sentence.
+    expect(sentText(client.seen[0])).toContain(`the site "${SLUG}"`)
     expect(system).toContain('## What you can do')
     expect(system).toContain('describe_page')
     expect(system).toContain('## Not available')

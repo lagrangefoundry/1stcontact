@@ -56,12 +56,40 @@ describe('REQ-223 — the internal seam', () => {
     // — an import here fails ~60 files at load, for a class none of them uses.
     expect(index).not.toMatch(/cloudflare:workers/)
 
-    // AC-14 — and nothing routes to it. The router is the only thing in
-    // `control-app` that maps a path to behaviour; a mention of the lead
-    // capability there would be a path that reaches this write.
+    // AC-14 — and nothing routes to it UNAUTHENTICATED, which is the claim.
+    //
+    // THE GUARD USED TO READ "NO MENTION AT ALL" AND IT NO LONGER CAN ([[BUG-83]],
+    // [[BUG-78]]). A rendered form's `action` is root-relative, so in the preview
+    // it resolves against THIS Worker — which had no such route, making the one
+    // surface an operator can press the button on the one surface where the
+    // button could not work. BUG-78 gave it one. Forbidding the mention would now
+    // forbid a later intent's deliberate work, so what is asserted is the
+    // property the flat ban was standing in for.
     const router = read('apps/control-app/src/router.ts')
-    expect(router).not.toMatch(/captureLead|LeadIntake/)
-    expect(router).not.toMatch(/\/api\/lead|\/internal\//)
+    // The router never reaches the ENTRYPOINT. Calling it from here would mean a
+    // service binding to ourselves — an internal HTTP path by another name, and
+    // the shape the whole seam exists to refuse. What the preview does instead is
+    // call the write directly in-process, which is why it needs no binding at
+    // all: `LEAD_INTAKE` appears once here as a locally CONSTRUCTED stand-in for
+    // `public-site`'s binding, never as one read off `env`.
+    expect(router).not.toMatch(/env\.LEAD_INTAKE/)
+    // No private doorway, under any spelling.
+    expect(router).not.toMatch(/\/internal\//)
+    // EXACTLY ONE lead path, and it is the preview's. A second — or the same one
+    // moved out from under the preview branch — fails here.
+    expect([...router.matchAll(/'\/api\/lead'/g)]).toHaveLength(1)
+    expect(router).toMatch(/preview\[3\] \?\? '\/'\) === '\/api\/lead'/)
+    // And it is GATED exactly as every other builder route is: the site key comes
+    // from the slug through the operator's own store, never from the body, so a
+    // submission cannot name a tenant; and only the draft channel answers, so the
+    // published one still goes to `public-site` where the real endpoint lives.
+    // (What the route DOES is `test_UAT_FC_BUG-78_preview_submits_for_real`'s
+    // subject, against real bindings; this is the routing claim alone.)
+    const leadRoute = /=== '\/api\/lead'\) \{([\s\S]*?)\n      \}/.exec(router)?.[1] ?? ''
+    expect(leadRoute, 'the preview lead route was not found to check its gate').not.toBe('')
+    expect(leadRoute).toMatch(/if \(channel !== 'draft'\) return text\(404/)
+    expect(leadRoute).toMatch(/await store\.siteKey\(slug\)/)
+    expect(leadRoute).toMatch(/await openStore\(\)/)
     // AC-14 — and the `fetch` handler, which is the only thing in this Worker a
     // URL can reach at all, never mentions it. The doorway is the binding; there
     // is no second one behind a path.

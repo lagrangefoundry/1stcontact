@@ -44,6 +44,7 @@ import {
 } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { rulesOf } from './support/css-rules'
 
 /** Handles, in the form an L1 node holds them. */
 const HERO = '/assets/hero.png'
@@ -102,22 +103,6 @@ if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 picker suite: ${WEBUI_SKIP_RE
 const REPO = path.resolve(__dirname, '..')
 const BUILDER_CSS = path.join(REPO, 'apps/control-app/src/builder/builder.css')
 
-/**
- * Every declaration block whose selector satisfies `keep`.
- *
- * Comments are stripped FIRST. A selector is everything since the last `}`, so a
- * rule preceded by a comment — which is most of the modal's — would otherwise
- * arrive with that comment glued to its front and match nothing, silently
- * narrowing the assertion to the rules that happen to have no comment above them.
- */
-function rulesOf(css: string, keep: (selector: string) => boolean): string[] {
-  const blocks: string[] = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m: RegExpExecArray | null
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '')
-  while ((m = re.exec(bare))) if (keep(m[1].trim())) blocks.push(m[2])
-  return blocks
-}
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]): string =>
   path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)

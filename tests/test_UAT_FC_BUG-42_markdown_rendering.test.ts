@@ -28,9 +28,7 @@
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
-// The component scope is declared once (AC-960); a specifier is composed from it.
-import { WEBUI_SCOPE } from '../tools/generate/src/cli/webui'
+import { importWebui, WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 let createLibraryPanel: (opts?: Record<string, unknown>) => never
@@ -138,8 +136,8 @@ beforeAll(async () => {
   if (WEBUI_INSTALLED) {
     ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
     ;({ createLibraryPanel } = await import('../apps/control-app/src/builder/library.js'))
-    ;({ setSanitizer } = await import(`${WEBUI_SCOPE}/webui-chat`))
-    ;({ setParser } = await import(`${WEBUI_SCOPE}/webui-markdown`))
+    ;({ setSanitizer } = (await importWebui('webui-chat')) as never)
+    ;({ setParser } = (await importWebui('webui-markdown')) as never)
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -177,7 +175,7 @@ afterEach(() => {
 
 /** Install the engines: a real markdown parser and a pass-through scrubber. */
 async function installEngines() {
-  const { renderBlock } = await import(`${WEBUI_SCOPE}/webui-markdown`)
+  const { renderBlock } = (await importWebui('webui-markdown')) as never
   // `marked` itself is the CDN import that cannot run here, so the parser seam
   // takes a minimal stand-in covering exactly what the fixture markdown uses.
   // This is the ENGINE, not the policy — the policy under test is ours.
