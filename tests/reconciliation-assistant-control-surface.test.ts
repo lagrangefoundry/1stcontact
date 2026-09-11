@@ -211,16 +211,26 @@ describe('the assistant control surface — declared once, granted narrowly, che
       .sort()
     //
     // COMPOSED FROM BOTH HALVES since REQ-146: `l1Operations` is the
-    // runtime-agnostic core and `nodeOperations` supplies the two that need a
-    // disk (`add_asset` reads a file the operator names, `publish` snapshots a
-    // tree). Node's surface is their union, and the union is what the
-    // declaration describes — checking the core alone asserts a declared
-    // operation is unimplemented, which is the opposite of the invariant.
+    // runtime-agnostic core and `nodeOperations` supplies the one that needs a
+    // disk — `add_asset`, which reads a file the operator names. `publish` was
+    // the second until REQ-149 moved revisions onto the storage port and
+    // graduated it into the portable core. Node's surface is their union, and
+    // the union is what the declaration describes — checking the core alone
+    // asserts a declared operation is unimplemented, which is the opposite of
+    // the invariant.
     const acOpts = fsOpts(cwd)
-    const callable = Object.keys({
-      ...l1Operations(SLUG, acOpts),
-      ...nodeOperations(SLUG, acOpts),
-    }).sort()
+    const core = Object.keys(l1Operations(SLUG, acOpts))
+    const host = Object.keys(nodeOperations(SLUG, acOpts))
+
+    // THE TWO HALVES ARE DISJOINT, asserted before they are composed. Composing
+    // them with a spread collapses any overlap silently, so the union is the
+    // same whether an operation is implemented once or twice — and twice is not
+    // harmless: `createL1Toolbox` passes `nodeOperations` as `extraOps`, so a
+    // host copy would shadow the core's at runtime with nothing here noticing.
+    // This is the assertion that makes "counted once, implemented once" real.
+    expect(core.filter((op) => host.includes(op))).toEqual([])
+
+    const callable = [...core, ...host].sort()
     expect(callable).toEqual(declared)
 
     // Every operation that can change the site belongs to exactly one capability

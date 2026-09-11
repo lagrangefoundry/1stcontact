@@ -168,9 +168,10 @@ describe('REQ-126 — the surface is declared as data', () => {
     // drift is caught even where the shared store is absent.
     //
     // COMPOSED FROM BOTH HALVES since REQ-146. `l1Operations` is the
-    // runtime-agnostic core and `nodeOperations` supplies the two that need a
-    // disk (`add_asset` reads a file the operator names, `publish` snapshots a
-    // tree). Node's surface is their union, and it is the union the declaration
+    // runtime-agnostic core and `nodeOperations` supplies the one that needs a
+    // disk — `add_asset`, which reads a file the operator names. `publish` was
+    // the second until REQ-149 graduated it into the portable core.
+    // Node's surface is their union, and it is the union the declaration
     // describes — checking the core alone would assert that a declared
     // operation is unimplemented, which is the opposite of the invariant.
     const declared = (L1_DECLARATION.operations as { op: string }[]).map((o) => o.op).sort()

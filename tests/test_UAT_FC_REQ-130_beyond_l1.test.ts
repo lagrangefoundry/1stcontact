@@ -597,8 +597,9 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     // A method with no declaration is a capability nothing documents, validates
     // or audits; a declaration with no method is a startup failure on an
     // operator's machine with a turn in flight.
-    // Both halves — the agnostic core and the two operations that need a disk
-    // (REQ-146). Node's surface is their union.
+    // Both halves — the agnostic core and the one operation that needs a disk,
+    // `add_asset` (REQ-146; `publish` graduated to the core in REQ-149). Node's
+    // surface is their union.
     const opsUnion = {
       ...l1Operations(SLUG, fsOpts(cwd)),
       ...nodeOperations(SLUG, fsOpts(cwd)),
