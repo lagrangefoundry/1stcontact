@@ -6,10 +6,10 @@ title: 'Guarded Retrieval: Material Fetched On The Client''s Behalf, And What It
   Recorded As'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:40:46.962006+00:00'
-updated_at: '2026-09-11T04:43:47.060558+00:00'
+updated_at: '2026-09-11T04:58:06.292213+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
