@@ -1,6 +1,5 @@
 import { KB } from './generated/kb.js'
 import {
-  KnowledgeDocs,
   KnowledgeRuntime,
   KnowledgeToolbox,
   knowledgeInstanceConfig,
@@ -8,6 +7,8 @@ import {
 import {
   WorkersAiEmbedder,
   knowledgeBasesFromMapping,
+  landscapeText,
+  mechanismText,
   memoryIndexSource,
 } from './generated/knowledge'
 import { DocDirStore, bundleDocReader } from './generated/ticketing'
@@ -144,8 +145,11 @@ export async function systemKnowledge(
   return KnowledgeRuntime.open({
     store,
     kbs: new Map([[SYSTEM_KB, kb]]),
-    source: memoryIndexSource(bundle.index),
-    chunkSource: memoryIndexSource(bundle.chunks),
+    // Keyed by SOURCE NAME, matching the `sources` map below and the KB's own
+    // declared `source`. Documents and passages are separate artifacts and so
+    // separate maps — the component reads each through `kb.source`.
+    indexes: { [SHIPPED_SOURCE]: memoryIndexSource(bundle.index) },
+    chunkIndexes: { [SHIPPED_SOURCE]: memoryIndexSource(bundle.chunks) },
     embedder,
     // The KB declares `source: shipped`, so the library resolves its corpus
     // against the store named here rather than against a project store that has
@@ -190,6 +194,26 @@ export function knowledgePriming(
   runtime: Untyped,
   rolePurpose: string,
 ): (box: Untyped) => Promise<Untyped> {
-  return (box: Untyped) =>
-    KnowledgeDocs.open(runtime, { rolePurpose, mechanism: box.manual() })
+  return async (box: Untyped) => {
+    // `KnowledgeDocs.open()` is gone upstream: the class existed only to serve a
+    // synchronous `ContextSource` from an assembled-once snapshot, and that seam
+    // was removed in favour of per-call provider bodies. The two texts it used
+    // to compose are still exported, so the ORDER — landscape, then role
+    // purpose, then mechanism — is restated here rather than lost. It is
+    // load-bearing: the last thing the agent reads is the first thing it does,
+    // so the manual goes last.
+    const landscape = await landscapeText(runtime.store, runtime.kbs, {
+      kb: SYSTEM_KB,
+      sources: runtime.sources,
+    })
+    const mechanism = await mechanismText(runtime.kbs, { mechanism: box.manual() })
+    // A section that came back empty is dropped rather than joined as a blank:
+    // an empty landscape means there is nothing to route to, and a heading with
+    // nothing under it reads as a corpus that failed rather than one that is
+    // absent.
+    const documents = [landscape, rolePurpose, mechanism].filter(
+      (text): text is string => typeof text === 'string' && text.trim() !== '',
+    )
+    return { documents: () => documents }
+  }
 }

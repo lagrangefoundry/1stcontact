@@ -630,7 +630,18 @@ export class NotMaterialError extends Error {
 }
 
 async function materialTicket(store: TicketStore, uid: string): Promise<Ticket> {
-  const { ticket } = await store.get({ uid })
+  let ticket: Ticket
+  try {
+    ;({ ticket } = await store.get({ uid }))
+  } catch (err) {
+    // A uid that names NOTHING arrives as the store's own `not_found`, which
+    // would otherwise escape this surface as a 500. It gets the same answer as a
+    // uid naming a ticket of another kind, deliberately: any difference between
+    // "no such ticket" and "not material" is an oracle for which uids exist in
+    // the tenant, which is the distinction the 404 below exists to withhold.
+    if ((err as { code?: string })?.code === 'not_found') throw new NotMaterialError(uid)
+    throw err
+  }
   // CHECKED RATHER THAN ASSUMED. Every route below takes a uid off the wire, and
   // without this a caller could read a `chat` body or rewrite an awareness map
   // through a surface that is supposed to reach material and nothing else. The

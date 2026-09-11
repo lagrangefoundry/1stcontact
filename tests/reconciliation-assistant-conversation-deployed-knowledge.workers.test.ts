@@ -441,7 +441,18 @@ describe('the deployed session is primed with the map and granted the read set',
     const events = await frames(await post('/api/ai/prompt', { sessionId, text: 'Hello.' }, deps))
     expect(events.at(-1)?.kind).toBe('done')
 
-    const system = client.seen[0].system
+    // The backend receives a STRUCTURED system prompt — a list of content blocks
+    // — where it once received one string. Every claim below is about the text
+    // the model actually reads, so the blocks are joined back into it here
+    // rather than each assertion being taught the carrier's shape. Joining
+    // (rather than asserting on one block) also keeps the negative below honest:
+    // the planted document must be absent from ALL of it, not just from the
+    // block that happens to hold the map.
+    const seen = client.seen[0].system
+    const system =
+      typeof seen === 'string'
+        ? seen
+        : (seen as { text?: string }[]).map((block) => block.text ?? '').join('\n\n')
     // THE MAP IS THERE, and it routes: a territory heading, and the identifier of
     // the document that territory says to start at.
     expect(system).toContain('Retention and disposal')

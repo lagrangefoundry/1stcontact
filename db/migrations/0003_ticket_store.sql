@@ -91,3 +91,52 @@ CREATE TABLE IF NOT EXISTS counters (
   value     INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (tenant_id, type)
 );
+
+
+-- The change log (REQ-136 / DOC-24 §6). One row per ticket write, inserted in
+-- the **same batch** as the write itself — which is what makes the log the
+-- storage layer's own product rather than something a caller has to remember to
+-- keep in step (DOC-24 §2, principle 2).
+--
+-- `seq` is the global monotonic cursor DOC-8 Appendix G pre-authorises,
+-- alongside the per-ticket `version` that stays CAS-only. AUTOINCREMENT rather
+-- than a bare rowid because pruning deletes rows, and a reused id would hand two
+-- different writes the same cursor position.
+--
+-- `changed` carries the PRIOR values of the fields that moved — the one thing
+-- that cannot be recovered after the fact. `after` carries the filterable
+-- surface, so `enter`/`exit` classification is a pure function of a single row.
+-- Bodies are in neither: a log carrying bodies would be larger than the store
+-- (DOC-24 §6.2).
+CREATE TABLE IF NOT EXISTS ticket_changes (
+  seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT    NOT NULL,
+  uid       TEXT    NOT NULL,
+  human_id  TEXT,
+  type      TEXT    NOT NULL,
+  version   INTEGER NOT NULL,
+  at        TEXT    NOT NULL,
+  cause     TEXT    NOT NULL,
+  changed   TEXT    NOT NULL DEFAULT '{}',
+  after     TEXT
+);
+
+-- The tail read: `seq > cursor` within one tenant's scope.
+CREATE INDEX IF NOT EXISTS idx_ticket_changes_tenant_seq
+  ON ticket_changes (tenant_id, seq);
+
+-- Exactly one record per write, enforced by the schema. A write produces exactly
+-- one new `version` for its ticket, so `(tenant_id, uid, version)` identifies it
+-- uniquely. The writer inserts `OR IGNORE` against this index, which is what
+-- makes a lost compare-and-set race unable to log a second record for a version
+-- another writer already logged.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ticket_changes_write
+  ON ticket_changes (tenant_id, uid, version);
+
+-- The retention floor (DOC-24 §6.4). Pruning deletes rows; this remembers how
+-- far it got, so a consumer whose cursor predates the window is told `reset`
+-- rather than served a partial history it cannot tell from a complete one.
+CREATE TABLE IF NOT EXISTS ticket_change_floor (
+  tenant_id      TEXT PRIMARY KEY,
+  pruned_through INTEGER NOT NULL DEFAULT 0
+);

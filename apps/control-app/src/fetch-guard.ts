@@ -123,7 +123,21 @@ export function isPrivateHost(hostname: string): boolean {
     // fc00::/7 unique-local, fe80::/10 link-local, and the IPv4-mapped forms,
     // which would otherwise smuggle 127.0.0.1 past the check above.
     if (/^f[cd]/.test(host) || /^fe[89ab]/.test(host)) return true
-    if (host.startsWith('::ffff:')) return isPrivateHost(host.slice('::ffff:'.length))
+    if (host.startsWith('::ffff:')) {
+      const mapped = host.slice('::ffff:'.length)
+      // A dotted quad survives as written, but the URL parser CANONICALISES the
+      // mapped form: `[::ffff:127.0.0.1]` reaches us as `::ffff:7f00:1`, the same
+      // 32 bits spelled as two hex groups. Recursing on the text alone would miss
+      // that spelling entirely — which is the smuggling route this branch exists
+      // to close, so it has to reconstitute the quad before asking again.
+      if (mapped.includes('.')) return isPrivateHost(mapped)
+      const groups = mapped.split(':')
+      if (groups.length === 2 && groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) {
+        const [hi, lo] = groups.map((g) => parseInt(g, 16))
+        return isPrivateHost(`${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`)
+      }
+      return false
+    }
     return false
   }
   return false
@@ -175,7 +189,19 @@ export async function guardedFetch(
       }
       // Resolved against the hop it came from, because a `Location` may be
       // relative — and then re-validated from scratch, which is the point.
-      url = assertFetchable(new URL(location, url).toString())
+      //
+      // The refusal is re-addressed to `raw` before it leaves: `assertFetchable`
+      // can only name the address it was handed, and that is the HOP here. The
+      // caller never saw the hop — a redirect is the remote server's business —
+      // so reporting it back at them names an address they did not type and
+      // cannot act on. The message still names the refused host, which is the
+      // part that explains the refusal.
+      try {
+        url = assertFetchable(new URL(location, url).toString())
+      } catch (err) {
+        if (err instanceof FetchRefusedError) throw new FetchRefusedError(err.message, raw)
+        throw err
+      }
       continue
     }
     if (!response.ok) {

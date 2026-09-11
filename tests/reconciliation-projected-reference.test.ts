@@ -459,9 +459,22 @@ describe('story-5836022a — the reference reaches the shipped corpus', () => {
         return cli(['kb', 'status'])
       }),
     )
+    // The two producers are named separately, and the REQ-164 ticket-count
+    // reconciliation follows them on the same line. Anchoring to end-of-line
+    // would assert that suffix away; what the corpus line owes the reader is
+    // both — the split AND the count it reconciles against. Pinning the
+    // agreeing form also proves the projections were not counted against the
+    // ticket store, which is the stale-by-exactly-the-projections bug the
+    // exported/total distinction exists to prevent.
     expect(out).toMatch(
-      new RegExp(`^corpus: ${EXPORTED.length} exported \\+ ${REFERENCES.length} projected$`, 'm'),
+      new RegExp(
+        `^corpus: ${EXPORTED.length} exported \\+ ${REFERENCES.length} projected` +
+          ` \\(of ${EXPORTED.length} ticket\\(s\\) carrying `,
+        'm',
+      ),
     )
+    // Never the stale branch: a corpus this current must not be reported stale.
+    expect(out).not.toMatch(/the corpus is stale/)
   }, 120_000)
 })
 

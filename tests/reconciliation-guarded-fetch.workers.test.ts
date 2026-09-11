@@ -369,13 +369,22 @@ describe('story-77f8fc9e — guarded retrieval, and what the retrieved material 
     const declaredOversize = responder(
       () =>
         new Response(
-          new ReadableStream<Uint8Array>({
-            pull(controller) {
-              pulled = true
-              controller.enqueue(new Uint8Array(1024))
-              controller.close()
+          new ReadableStream<Uint8Array>(
+            {
+              pull(controller) {
+                pulled = true
+                controller.enqueue(new Uint8Array(1024))
+                controller.close()
+              },
             },
-          }),
+            // highWaterMark 0 is what makes `pulled` mean anything. Under the
+            // default strategy the runtime pulls once EAGERLY to fill the queue,
+            // the moment the stream is constructed — so the flag would be true
+            // before the guard had even seen the response, and the assertion
+            // below would be unfalsifiable. At zero, `pull` fires only when
+            // something actually reads, which is the claim being made.
+            { highWaterMark: 0 },
+          ),
           {
             status: 200,
             headers: {

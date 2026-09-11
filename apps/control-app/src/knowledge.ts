@@ -334,7 +334,11 @@ export class ProjectKnowledge {
    */
   async search(query: string, { topK = 5 }: { topK?: number } = {}): Promise<KnowledgeHit[]> {
     return (await kmSearch(query, {
-      source: this.index,
+      // Keyed by the SOURCE NAME the declaration gives this KB, not by the KB's
+      // own name and not as a bare artifact: the component resolves which index
+      // to read through `kb.source`, so a map keyed any other way leaves it with
+      // no index for this source and it refuses by name.
+      indexes: { [this.kb.source ?? PROJECT_KB]: this.index },
       store: this.store,
       kbs: this.kbs,
       kb: PROJECT_KB,

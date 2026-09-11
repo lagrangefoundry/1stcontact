@@ -169,19 +169,29 @@ afterEach(() => {
  */
 it('test_UAT_AC1375_a_granted_identity_is_not_refused_by_the_gate', async () => {
   publishKeys()
-  const { env } = gateEnv()
+  const { env, touched } = gateEnv()
   const token = await mint({ email: 'martin-github@westhead.me' })
 
   const response = await worker.fetch(GET('/', { 'cf-access-jwt-assertion': token }), env)
   const body = await response.text()
 
   expect(response.status, 'a granted identity was turned away as unauthenticated').not.toBe(401)
-  expect(response.status, 'a granted identity met the unconfigured-gate refusal').not.toBe(503)
   // Not the gate's own rejection text — the plain-text shape it produces when it
   // turns a caller away. Whatever answered, it was not this gate refusing.
+  //
+  // The refusal is identified by that text rather than by a bare 503, because
+  // 503 stopped belonging to this gate alone: the admission decision behind it
+  // runs against tripwire bindings and surfaces through the router's own
+  // configuration-failure 503. Excluding the status would fail this test for
+  // the very thing it is trying to prove — that control got past the gate.
   expect(body, 'the body carries this gate’s own refusal').not.toMatch(
     /Cloudflare Access (rejected|is not configured)/,
   )
+  // The positive half, and the one that actually discriminates: the admission
+  // check BEHIND the gate opened a store handle. Only an admitted identity
+  // reaches it, so this separates "the gate let this identity through" from
+  // "something else answered" in a way no status code can.
+  expect(touched, 'the request never reached the admission check behind the gate').toContain('DB')
 })
 
 /**
