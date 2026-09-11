@@ -6,7 +6,7 @@ title: The operator's click-to-edit form exposes no fields on an assistant-compo
   element of a kind it does not edit
 created_by: xgd
 created_at: '2026-08-10T09:20:31.954258+00:00'
-updated_at: '2026-08-16T02:37:44.043277+00:00'
+updated_at: '2026-09-11T02:59:07.758226+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
