@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-228
 created_by: xgd
 created_at: '2026-09-11T22:31:26.099704+00:00'
-updated_at: '2026-09-11T22:37:29.029787+00:00'
+updated_at: '2026-09-11T22:47:40.609582+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,13 @@ Your own codebase already argues against the equivalent for writing, in `ledger-
 And the acceptance test you wrote into the ticket — the assistant looks at the three illustrations it generated, forms a view, places the one it picked — is fully satisfied by the three tools above. The general ticket access adds nothing to it.
 
 **So: yes or no on the general "read any ticket" grant?** My recommendation is no, not in this ticket. Say "skip it" and I'll cut the branch and build the three tools.
+
+<!-- xgd-turn id="c16da8b8-b818-4905-805d-b8e79ae95fd6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:47:40.078866+00:00" -->
+#### You
+The thing to know is what else lives in that same store: **every other conversation this client has had with the assistant is in there, in full**, along with the engagement notes from each. So that grant isn't "read the picture catalogue" — it's "read everything, including past conversations." <-- this is EXACTLY THE INTENTION how can the assistant be helpful without context
+
+**So: yes or no on the general "read any ticket" grant? YES YES PLEASE YES critical part of the product intent**
 
 <!-- xgd-chat-end -->
