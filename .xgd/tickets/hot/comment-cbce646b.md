@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-219
 created_by: xgd
 created_at: '2026-09-10T22:08:15.852975+00:00'
-updated_at: '2026-09-11T02:39:20.931613+00:00'
+updated_at: '2026-09-11T18:05:06.343283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,14 @@ Two real findings from the validator — groups must be effect-homogeneous. Spli
 All 13 pass against the real binding. Now checking for regressions across the suite.
 
 The output was truncated — re-running with full capture so I can see every failure.
+
+<!-- xgd-turn id="6a5be2ce-69ed-49eb-bfe6-86a5333db503-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T18:05:04.918728+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
