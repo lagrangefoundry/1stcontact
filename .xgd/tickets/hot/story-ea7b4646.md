@@ -6,10 +6,10 @@ title: 'Two Clocks For The Client''s Knowledge: Indexed As It Arrives, Described
   The Conversation, And Listed In Full While It Is Small'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:46:17.623468+00:00'
-updated_at: '2026-09-11T03:46:17.623468+00:00'
+updated_at: '2026-09-11T04:01:55.641515+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-6cc3e339
