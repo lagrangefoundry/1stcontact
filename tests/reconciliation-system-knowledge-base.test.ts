@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   chmodSync,
   existsSync,
@@ -26,7 +26,6 @@ import {
   kbRoot,
   kbStatus,
   KB_USAGE,
-  optedIn,
   readDocTickets,
   resolveDescriber,
   SHIPPED_SOURCE,
@@ -38,7 +37,7 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 /**
  * Reconciliation UATs for story-c4f329d3 — **the system knowledge base**: the
  * pipeline that turns our own `doc` tickets into something an assistant can
- * search (AC-1291 … AC-1306).
+ * search (AC-1291 … AC-1306, AC-1632, AC-1633).
  *
  * WHAT IS STOOD IN FOR, AND WHY ONLY THAT. The build has exactly three external
  * boundaries and each is doubled at its own seam, through the mechanism
@@ -49,10 +48,10 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
  *     embedder so ranking assertions are checkable at all);
  *   • the describing model — `LAGRANGE_KM_DESCRIBER`, the same shape;
  *   • the ticket store — the `xgd` CLI `readDocTickets` shells out to, replaced
- *     on `PATH` by a shim that prints a controlled ticket list. This is a
- *     separate product invoked as a subprocess, not one of our modules: the
- *     export's own JSON parsing, opt-in filtering, rendering, incremental write
- *     and sweep all still run for real.
+ *     on `PATH` by a shim that prints a controlled envelope. This is a separate
+ *     product invoked as a subprocess, not one of our modules: the export's own
+ *     argv, JSON parsing, envelope check, membership filter, rendering,
+ *     incremental write and sweep all still run for real.
  *
  * Everything else is the real thing — the real `DocDirStore`, the real index and
  * chunk builds, the real cosine search and ranker, the real clustering, the real
@@ -68,13 +67,24 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
  * one of these ACs, it belongs here.
  *
  * Controlling the store is what makes the harder ACs assertable rather than
- * vacuous: the real store has every document opted in, so exclusions, removals
- * and the nothing-opted-in refusal have nothing to demonstrate against it. Where
- * an AC asks specifically for the real store (AC-1295's integration half,
- * AC-1297's read-back) it gets the real store, in one shared export.
+ * vacuous: exclusions, removals, truncation and the nothing-carries-the-kind
+ * refusal have nothing to demonstrate against a store we do not author. Where an
+ * AC asks specifically for the real store (AC-1295's integration half, AC-1297's
+ * read-back) it gets the real store, in one shared export.
+ *
+ * MEMBERSHIP IS A KIND, NOT A FLAG. Every fixture ticket below carries
+ * `doc_kind: system_kb` (DOC-39 §3.3) unless it is deliberately a non-member.
+ * The retired `system_kb: true` boolean is superseded rather than deprecated —
+ * it appears here only as a NON-member, because honouring a marker nobody
+ * maintains any more is how a document reaches a client-facing assistant that
+ * nobody meant to put there.
  */
 
 const STUB = path.resolve('tests/fixtures/kb-stub-model.mjs')
+
+/** The field and value that decide membership — the rule the ACs are written against. */
+const KIND_FIELD = 'doc_kind'
+const MEMBER_KIND = 'system_kb'
 
 // ── the controlled ticket store ──────────────────────────────────────────────
 
@@ -89,8 +99,13 @@ interface StoreTicket {
   fields: Record<string, unknown> | null
 }
 
-/** A ticket that has opted into the KB, unless `fields` says otherwise. */
-function ticket(id: string, title: string, body: string, fields: Record<string, unknown> | null = { system_kb: true }): StoreTicket {
+/** A ticket that belongs to the KB, unless `fields` says otherwise. */
+function ticket(
+  id: string,
+  title: string,
+  body: string,
+  fields: Record<string, unknown> | null = { [KIND_FIELD]: MEMBER_KIND },
+): StoreTicket {
   return {
     uid: `doc-${id.toLowerCase()}`,
     id,
@@ -102,21 +117,34 @@ function ticket(id: string, title: string, body: string, fields: Record<string, 
   }
 }
 
+/** Membership, stated by the test rather than borrowed from the implementation. */
+function isMember(t: { fields?: Record<string, unknown> | null }): boolean {
+  return (t.fields ?? {})[KIND_FIELD] === MEMBER_KIND
+}
+
+const shims: string[] = []
+let lastShim: string | null = null
+
 /**
- * Put an `xgd` that answers with `tickets` at the front of `PATH`.
+ * Put an `xgd` on `PATH` whose stdout is produced by `body`, given its argv.
  *
- * The export reads the store through the ticketing CLI as a subprocess, so the
- * subprocess is where it is stood in for — the export's own code path is
- * untouched, down to the JSON it has to parse.
+ * The shim is handed the ARGV rather than a fixed payload, which is the whole
+ * point for the exhaustive-listing AC: whether `readDocTickets` actually asks
+ * for every page is only observable from the flags it passes, and a shim that
+ * ignored them would let a truncating export pass. It records its argv beside
+ * itself so a test can assert the request as well as the answer.
  */
-function installStubStore(tickets: StoreTicket[]): () => void {
+function installStore(body: string): () => void {
   const dir = mkdtempSync(path.join(tmpdir(), 'kb-store-'))
-  const payload = path.join(dir, 'tickets.json')
-  writeFileSync(payload, JSON.stringify({ items: tickets }), 'utf8')
+  shims.push(dir)
+  lastShim = dir
+  const argvFile = path.join(dir, 'argv.json')
   const shim = path.join(dir, 'xgd')
   writeFileSync(
     shim,
-    `#!/usr/bin/env node\nprocess.stdout.write(require('node:fs').readFileSync(${JSON.stringify(payload)}, 'utf8'))\n`,
+    `#!/usr/bin/env node\nconst argv = process.argv.slice(2)\n` +
+      `require('node:fs').writeFileSync(${JSON.stringify(argvFile)}, JSON.stringify(argv))\n` +
+      `${body}\n`,
     'utf8',
   )
   chmodSync(shim, 0o755)
@@ -125,13 +153,35 @@ function installStubStore(tickets: StoreTicket[]): () => void {
   return () => {
     if (previous === undefined) delete process.env.PATH
     else process.env.PATH = previous
-    rmSync(dir, { recursive: true, force: true })
   }
 }
 
-/** Run `fn` against a store holding exactly `tickets`. */
-async function withStore<T>(tickets: StoreTicket[], fn: () => Promise<T> | T): Promise<T> {
-  const restore = installStubStore(tickets)
+/** The argv the most recently installed store shim was last invoked with. */
+function recordedArgv(): string[] {
+  return JSON.parse(readFileSync(path.join(lastShim!, 'argv.json'), 'utf8')) as string[]
+}
+
+/** A store that answers with `tickets`, paging at `pageSize` unless told not to. */
+function paging(tickets: StoreTicket[], pageSize = 50): () => () => void {
+  return () =>
+    installStore(
+      `const all = ${JSON.stringify(tickets)}\n` +
+        `if (argv.includes('--no-limit')) {\n` +
+        `  process.stdout.write(JSON.stringify({ items: all, next_cursor: null, truncated: false }))\n` +
+        `} else {\n` +
+        `  const page = all.slice(0, ${pageSize})\n` +
+        `  process.stdout.write(JSON.stringify({\n` +
+        `    items: page,\n` +
+        `    next_cursor: all.length > page.length ? 'page-2' : null,\n` +
+        `    truncated: all.length > page.length,\n` +
+        `  }))\n` +
+        `}`,
+    )
+}
+
+/** Run `fn` against a store installed by `install`. */
+async function withStore<T>(install: () => () => void, fn: () => Promise<T> | T): Promise<T> {
+  const restore = install()
   try {
     return await fn()
   } finally {
@@ -186,6 +236,28 @@ async function withoutEnv<T>(names: string[], fn: () => Promise<T> | T): Promise
   }
 }
 
+/**
+ * Run `fn` with the repository's own corpus directory moved out of the way, and
+ * put it back afterwards — including when `fn` throws.
+ *
+ * Only for the ACs that assert what the COMMAND prints, since `1c kb export`
+ * and `1c kb status` take no root argument and are therefore the real tree or
+ * nothing. Every other AC drives the functions directly against a scratch tree.
+ */
+async function withRealCorpusAside<T>(fn: () => Promise<T>): Promise<T> {
+  const real = corpusDir()
+  const aside = existsSync(real) ? `${real}.aside-${process.pid}` : null
+  if (aside !== null) renameSync(real, aside)
+  try {
+    return await fn()
+  } finally {
+    if (aside !== null) {
+      rmSync(real, { recursive: true, force: true })
+      renameSync(aside, real)
+    }
+  }
+}
+
 /** The `1c` command line, with its two output streams captured separately. */
 async function cli(
   argv: string[],
@@ -216,6 +288,11 @@ function corpusFiles(root: string): string[] {
     .filter((name) => name.endsWith('.md') && name !== 'awareness.md')
     .sort()
 }
+
+afterEach(() => {
+  while (shims.length) rmSync(shims.pop()!, { recursive: true, force: true })
+  lastShim = null
+})
 
 // ── the corpus the build is driven over ──────────────────────────────────────
 
@@ -307,14 +384,25 @@ A failing probe raises an internal event rather than paging anybody directly.`,
 describe('story-c4f329d3 — the whole pipeline, built once and read back', () => {
   let root: string
   let built: Awaited<ReturnType<typeof buildKb>>
-  let map: string
+  let map = ''
+  /**
+   * The build's own failure, carried into the tests rather than thrown out of
+   * `beforeAll`. A hook that throws reports its tests as SKIPPED, which reads as
+   * "not run" when what actually happened is "the pipeline is broken" — the one
+   * distinction a reconciliation run has to get right.
+   */
+  let buildFailure: unknown = null
 
   beforeAll(async () => {
     process.env.LAGRANGE_KM_EMBEDDER = STUB
     process.env.LAGRANGE_KM_DESCRIBER = STUB
     root = mkdtempSync(path.join(tmpdir(), 'kb-built-'))
-    built = await withStore(CORPUS, () => buildKb(root))
-    map = readFileSync(path.join(corpusDir(root), 'awareness.md'), 'utf8')
+    try {
+      built = await withStore(paging(CORPUS), () => buildKb(root))
+      map = readFileSync(path.join(corpusDir(root), 'awareness.md'), 'utf8')
+    } catch (error) {
+      buildFailure = error
+    }
   }, 120_000)
 
   afterAll(() => {
@@ -324,6 +412,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
   })
 
   it('test_UAT_AC1291_build_runs_the_whole_pipeline_and_reports_what_it_produced', () => {
+    if (buildFailure) throw buildFailure
     // Corpus, document index, passage index, map — in that order, from one
     // command. A build that produced only the document index would leave the KB
     // technically present and practically useless, so every figure the report
@@ -353,6 +442,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
   })
 
   it('test_UAT_AC1301_a_document_is_found_by_describing_what_it_is_about', async () => {
+    if (buildFailure) throw buildFailure
     // The property the whole capability exists for: a reader that knows neither
     // the id, the filename nor the title reaches the document by describing, in
     // ordinary words, what it wants. None of "rotate", "automatically" or
@@ -382,6 +472,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
   })
 
   it('test_UAT_AC1302_a_passage_search_returns_a_section_and_names_its_document', async () => {
+    if (buildFailure) throw buildFailure
     // A whole design document is far too coarse a unit to hand back as an
     // answer. A passage hit must be a SECTION, and must carry the document it
     // came from so a citation resolves back to a source.
@@ -411,6 +502,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
   })
 
   it('test_UAT_AC1303_the_map_is_generated_from_the_corpus_and_names_a_territory_with_no_way_in', async () => {
+    if (buildFailure) throw buildFailure
     // GENERATED, never assembled from fixed text. The evidence is that the
     // paragraphs carry this corpus's own vocabulary — a map built from constants
     // would satisfy a mere existence check and fail this one.
@@ -439,7 +531,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
     ]
 
     const doorless = await withRoot(async (scratch) => {
-      const result = await withStore(unreachable, () => buildKb(scratch))
+      const result = await withStore(paging(unreachable), () => buildKb(scratch))
       const body = readFileSync(path.join(corpusDir(scratch), 'awareness.md'), 'utf8')
       // The section of the map whose entry point is DOC-Z — its label is what
       // the build must have reported as having no way in.
@@ -455,6 +547,7 @@ describe('story-c4f329d3 — the whole pipeline, built once and read back', () =
   }, 120_000)
 
   it('test_UAT_AC1304_the_map_is_out_of_the_corpus_and_found_as_the_awareness_report', async () => {
+    if (buildFailure) throw buildFailure
     // Out of the corpus it describes, or every rebuild would cluster the
     // previous build's map and the KB would fill with descriptions of its own
     // descriptions.
@@ -504,7 +597,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
           'ANTHROPIC_API_KEY',
         ],
         () =>
-          withStore(store, () => {
+          withStore(paging(store), () => {
             // Exactly what `1c kb export` runs: the declaration too, so the tree
             // is coherent, then the corpus.
             ensureConfig(root)
@@ -516,7 +609,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       expect(result.dir).toBe(corpusDir(root))
       expect(result.skipped).toEqual(['DOC-OUT'])
 
-      // One file per opted-in document, and the declaration beside them.
+      // One file per member document, and the declaration beside them.
       expect(corpusFiles(root)).toEqual(CORPUS.map((t) => `${t.id}.md`).sort())
       expect(existsSync(configPath(root))).toBe(true)
 
@@ -559,17 +652,19 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
   it('test_UAT_AC1296_every_excluded_document_is_named_individually', async () => {
     // A bare count tells an operator something is missing without telling them
     // what, which is the version of the message that generates a support
-    // question. So: named, never counted, never silent.
+    // question. So: named, never counted, never silent — and the line names the
+    // marker that would admit them, which turns a report of loss into an
+    // instruction.
     const mixed: StoreTicket[] = [
       ticket('DOC-IN1', 'In one', '# In one'),
       ticket('DOC-IN2', 'In two', '# In two'),
       ticket('DOC-OUT1', 'Out one', '# Out one', {}),
-      ticket('DOC-OUT2', 'Out two', '# Out two', { system_kb: false }),
+      ticket('DOC-OUT2', 'Out two', '# Out two', { [KIND_FIELD]: 'architecture' }),
       ticket('DOC-OUT3', 'Out three', '# Out three', null),
     ]
 
     await withRoot(async (root) => {
-      const result = await withStore(mixed, () => exportCorpus(root))
+      const result = await withStore(paging(mixed), () => exportCorpus(root))
 
       expect(result.skipped).toEqual(['DOC-OUT1', 'DOC-OUT2', 'DOC-OUT3'])
 
@@ -582,7 +677,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     // With nothing excluded there is no exclusion line at all — the CLI prints
     // one only when this set is non-empty.
     await withRoot(async (root) => {
-      const clean = await withStore(CORPUS, () => exportCorpus(root))
+      const clean = await withStore(paging(CORPUS), () => exportCorpus(root))
       expect(clean.skipped).toEqual([])
     })
 
@@ -619,7 +714,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     const pair = [ticket('DOC-P', 'Stays', '# Stays'), ticket('DOC-Q', 'Goes', '# Goes')]
 
     await withRoot(async (root) => {
-      await withStore(pair, () => exportCorpus(root))
+      await withStore(paging(pair), () => exportCorpus(root))
       expect(corpusFiles(root)).toEqual(['DOC-P.md', 'DOC-Q.md'])
 
       // The map is written by the index step, and an export must never sweep it.
@@ -630,15 +725,15 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       )
 
       // (1) The ticket no longer exists.
-      const gone = await withStore([pair[0]], () => exportCorpus(root))
+      const gone = await withStore(paging([pair[0]]), () => exportCorpus(root))
       expect(gone.removed).toContain('DOC-Q.md')
       expect(readdirSync(corpusDir(root))).not.toContain('DOC-Q.md')
       expect(gone.removed).not.toContain('awareness.md')
       expect(readdirSync(corpusDir(root))).toContain('awareness.md')
 
-      // (2) The ticket still exists but has opted back out.
+      // (2) The ticket still exists but has been reclassified out of the KB.
       const out = await withStore(
-        [ticket('DOC-P', 'Stays', '# Stays', { system_kb: false })],
+        paging([ticket('DOC-P', 'Stays', '# Stays', { [KIND_FIELD]: 'architecture' })]),
         () => exportCorpus(root),
       )
       expect(out.removed).toContain('DOC-P.md')
@@ -654,8 +749,11 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     // build — at cost, and while telling the ranker every document had just
     // changed. This is why it is a correctness property, not an optimisation.
     await withRoot(async (root) => {
-      const before = [ticket('DOC-S', 'Same', '# Same\n\nUnchanged body.'), ticket('DOC-T', 'Touched', '# Touched\n\nOriginal body.')]
-      await withStore(before, () => exportCorpus(root))
+      const before = [
+        ticket('DOC-S', 'Same', '# Same\n\nUnchanged body.'),
+        ticket('DOC-T', 'Touched', '# Touched\n\nOriginal body.'),
+      ]
+      await withStore(paging(before), () => exportCorpus(root))
 
       // Backdate both files, so "unchanged" is provable rather than a same-
       // millisecond coincidence.
@@ -667,7 +765,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       const stampBefore = statSync(stable).mtimeMs
 
       const after = [before[0], ticket('DOC-T', 'Touched', '# Touched\n\nRewritten body.')]
-      await withStore(after, () => exportCorpus(root))
+      await withStore(paging(after), () => exportCorpus(root))
 
       // The untouched document kept its stamp; the edited one did not.
       expect(statSync(stable).mtimeMs).toBe(stampBefore)
@@ -676,40 +774,47 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
 
     // And a rebuild over a corpus nothing changed embeds nothing at all.
     await withRoot(async (root) => {
-      const first = await withStore(CORPUS, () => buildKb(root))
+      const first = await withStore(paging(CORPUS), () => buildKb(root))
       expect(first.embedded).toBe(CORPUS.length)
 
-      const second = await withStore(CORPUS, () => buildKb(root))
+      const second = await withStore(paging(CORPUS), () => buildKb(root))
       expect(second.documents).toBe(first.documents)
       expect(second.embedded).toBe(0)
     })
   }, 120_000)
 
-  it('test_UAT_AC1300_a_build_with_nothing_opted_in_is_refused_and_reaches_no_model', async () => {
+  it('test_UAT_AC1300_a_build_with_nothing_carrying_the_kind_is_refused_and_reaches_no_model', async () => {
     // "No documents" would send an operator looking in the wrong place
-    // entirely; the cause is the opt-in flag, so the refusal names it. Run with
-    // no embedder configured at all, so reaching the model would raise the
-    // CREDENTIALS error instead — the opt-in message is therefore proof the
-    // refusal happened first.
+    // entirely; the cause is the membership KIND, so the refusal names it — the
+    // field, the value and the ticket type. Run with no embedder configured at
+    // all, so reaching the model would raise the CREDENTIALS error instead: the
+    // membership message is therefore proof the refusal happened first.
     const nobody = [
-      ticket('DOC-N1', 'Absent flag', '# Absent flag', {}),
-      ticket('DOC-N2', 'False flag', '# False flag', { system_kb: false }),
+      ticket('DOC-N1', 'No kind', '# No kind', {}),
+      ticket('DOC-N2', 'Another kind', '# Another kind', { [KIND_FIELD]: 'architecture' }),
     ]
 
     await withRoot(async (root) => {
-      await withoutEnv(
-        ['LAGRANGE_KM_EMBEDDER', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'], async () => {
-          await expect(withStore(nobody, () => buildKb(root))).rejects.toThrow(/system_kb/)
-        },
-      )
-
       const message = await withoutEnv(
         ['LAGRANGE_KM_EMBEDDER', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'],
-        () => withStore(nobody, () => buildKb(root)).then(() => '', (err: Error) => err.message),
+        () =>
+          withStore(paging(nobody), () => buildKb(root)).then(
+            () => '',
+            (err: Error) => err.message,
+          ),
       )
-      expect(message).toContain('opt-in')
-      expect(message).toContain('doc')
+
+      expect(message).not.toBe('')
+      expect(message).toContain(KIND_FIELD)
+      expect(message).toContain(MEMBER_KIND)
+      // The ticket type, so the operator knows which tickets to look at.
+      expect(message).toContain('doc ticket')
+      // A kind, not a flag — and never the retired boolean.
+      expect(message).toMatch(/kind, not a flag/i)
+      expect(message).not.toMatch(/fields\.system_kb/)
       expect(message).not.toMatch(/no documents/i)
+      // Where documents exist but carry another kind, the refusal says how many.
+      expect(message).toMatch(/2 carry another kind/)
 
       // Nothing was built and no model was reached.
       expect(existsSync(path.join(corpusDir(root), 'index'))).toBe(false)
@@ -730,7 +835,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
           knowledge_bases: {
             system: {
               description: 'Declared description, not a hard-coded one.',
-              corpus: { type: ['doc'], 'fields.system_kb': true },
+              corpus: { type: ['doc'], [`fields.${KIND_FIELD}`]: MEMBER_KIND },
               landscape: 'authored',
               source: 'shipped',
               weight: 2.5,
@@ -743,12 +848,12 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
       const binding = await bindKb(root)
       expect(binding.kb.description).toBe('Declared description, not a hard-coded one.')
       expect(binding.kb.weight).toBe(2.5)
-      expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')
+      expect([...binding.kb.corpus.terms.keys()]).toContain(`fields.${KIND_FIELD}`)
 
       // Authored data: a build never overwrites it, so a tuned description or an
       // adjusted weight survives every rebuild.
       const bytes = readFileSync(configPath(root))
-      await withStore(CORPUS, () => buildKb(root))
+      await withStore(paging(CORPUS), () => buildKb(root))
       expect(readFileSync(configPath(root)).equals(bytes)).toBe(true)
     })
 
@@ -783,7 +888,11 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     const message = await withRoot((root) =>
       withoutEnv(
         ['LAGRANGE_KM_EMBEDDER', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN'],
-        () => withStore(CORPUS, () => buildKb(root)).then(() => '', (err: Error) => err.message),
+        () =>
+          withStore(paging(CORPUS), () => buildKb(root)).then(
+            () => '',
+            (err: Error) => err.message,
+          ),
       ),
     )
     expect(message).toContain('CLOUDFLARE_ACCOUNT_ID')
@@ -800,7 +909,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     expect(describer.name).toBeTruthy()
 
     const built = await withRoot((root) =>
-      withoutEnv(['ANTHROPIC_API_KEY'], () => withStore(CORPUS, () => buildKb(root))),
+      withoutEnv(['ANTHROPIC_API_KEY'], () => withStore(paging(CORPUS), () => buildKb(root))),
     )
     expect(built.describer).toBeTruthy()
     expect(built.territories).toBeGreaterThanOrEqual(2)
@@ -816,20 +925,19 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
 // ── AC-1293 / 1294: the command surface ──────────────────────────────────────
 
 describe('story-c4f329d3 — the command answers before it acts', () => {
-  it('test_UAT_AC1293_status_reports_the_corpus_size_and_each_artefact', async () => {
+  it('test_UAT_AC1293_status_reports_the_corpus_against_the_ticket_count_and_each_artefact', async () => {
     // Four facts, over three trees: how many documents, and whether each of the
     // three artefacts is built or missing.
-    await withRoot((root) => {
-      // Nothing built at all — reports zeros rather than failing. `projected` is
-      // the corpus's second producer (REQ-165), reported beside the total
-      // because a corpus whose projections are missing has the same shape as one
-      // that is merely small.
-      expect(kbStatus(root)).toEqual({
-        corpus: 0,
-        projected: 0,
-        index: false,
-        chunks: false,
-        map: false,
+    await withRoot(async (root) => {
+      // Nothing built at all — reports zeros rather than failing.
+      await withStore(paging([]), () => {
+        expect(kbStatus(root)).toMatchObject({
+          corpus: 0,
+          tickets: 0,
+          index: false,
+          chunks: false,
+          map: false,
+        })
       })
     })
 
@@ -837,28 +945,29 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
       process.env.LAGRANGE_KM_EMBEDDER = STUB
       process.env.LAGRANGE_KM_DESCRIBER = STUB
       try {
-        await withStore(CORPUS, () => exportCorpus(root))
-        expect(kbStatus(root)).toEqual({
-          corpus: CORPUS.length,
-          // Nothing projected: this tree's corpus came from `exportCorpus`
-          // alone, and the two producers write into disjoint namespaces
-          // (REQ-165), so the export cannot have manufactured one.
-          projected: 0,
-          index: false,
-          chunks: false,
-          map: false,
+        await withStore(paging(CORPUS), () => {
+          exportCorpus(root)
+          expect(kbStatus(root)).toMatchObject({
+            corpus: CORPUS.length,
+            tickets: CORPUS.length,
+            index: false,
+            chunks: false,
+            map: false,
+          })
         })
 
-        await withStore(CORPUS, () => buildKb(root))
+        await withStore(paging(CORPUS), () => buildKb(root))
         // The generated map sits in the corpus directory but is not one of the
         // documents, so the count is unchanged by it.
         expect(readdirSync(corpusDir(root))).toContain('awareness.md')
-        expect(kbStatus(root)).toEqual({
-          corpus: CORPUS.length,
-          projected: 0,
-          index: true,
-          chunks: true,
-          map: true,
+        await withStore(paging(CORPUS), () => {
+          expect(kbStatus(root)).toMatchObject({
+            corpus: CORPUS.length,
+            tickets: CORPUS.length,
+            index: true,
+            chunks: true,
+            map: true,
+          })
         })
       } finally {
         delete process.env.LAGRANGE_KM_EMBEDDER
@@ -866,19 +975,60 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
       }
     })
 
+    // The corpus line takes one of three shapes, and all three are the point of
+    // the change: a bare file count cannot show truncation, because 37 documents
+    // looks exactly as healthy as 38 unless something says what the number was
+    // supposed to be.
+    //
+    // (1) AGREEMENT — an empty corpus against an empty store.
+    const agreeing = await withRealCorpusAside(() =>
+      withStore(paging([]), () => cli(['kb', 'status'])),
+    )
+    expect(agreeing.out).toMatch(
+      new RegExp(`of 0 ticket\\(s\\) carrying ${KIND_FIELD}: ${MEMBER_KIND}`),
+    )
+
+    // (2) DISAGREEMENT — nothing on disk against three in the store: a warning,
+    // the word stale, and the command that repairs it.
+    const stale = await withRealCorpusAside(() =>
+      withStore(
+        paging([
+          ticket('DOC-A', 'One', '# One'),
+          ticket('DOC-B', 'Two', '# Two'),
+          ticket('DOC-C', 'Three', '# Three'),
+        ]),
+        () => cli(['kb', 'status']),
+      ),
+    )
+    expect(stale.out).toMatch(new RegExp(`3 ticket\\(s\\) carry ${KIND_FIELD}: ${MEMBER_KIND}`))
+    expect(stale.out).toMatch(/stale/)
+    expect(stale.out).toContain('1c kb export')
+
+    // (3) UNKNOWN — a store that cannot be read at all. Never zero: zero is a
+    // real and alarming answer, and manufacturing it from an unrelated failure
+    // would send an operator to rebuild a corpus that was never broken.
+    const unreadable = await withStore(
+      () => installStore('process.exit(3)'),
+      () => cli(['kb', 'status']),
+    )
+    expect(unreadable.out).toContain('ticket store unreadable')
+    expect(unreadable.out).not.toMatch(/of 0 ticket/)
+    await withRoot(async (root) => {
+      const status = await withStore(() => installStore('process.exit(3)'), () => kbStatus(root))
+      expect((status as { tickets: number | null }).tickets).toBeNull()
+      expect(status.corpus).toBe(0)
+    })
+
     // Naming no form at all reports the same thing, so the bare command is safe:
     // it answers rather than acting.
-    const expected = kbStatus()
-    const bare = await cli(['kb'])
+    const bare = await withStore(paging([]), () => cli(['kb']))
+    const named = await withStore(paging([]), () => cli(['kb', 'status']))
     expect(bare.code).toBeUndefined()
-    // The corpus line names both producers separately (REQ-165), because the
-    // total on its own no longer says how much of the corpus was exported.
-    expect(bare.out).toContain(
-      `corpus: ${expected.corpus - expected.projected} exported + ${expected.projected} projected`,
-    )
-    expect(bare.out).toContain(`index:  ${expected.index ? 'built' : 'missing'}`)
-    expect(bare.out).toContain(`chunks: ${expected.chunks ? 'built' : 'missing'}`)
-    expect(bare.out).toContain(`map:    ${expected.map ? 'built' : 'missing'}`)
+    expect(bare.out).toBe(named.out)
+    expect(bare.out).toMatch(/^corpus: /m)
+    expect(bare.out).toMatch(/^index: {2}(built|missing)$/m)
+    expect(bare.out).toMatch(/^chunks: (built|missing)$/m)
+    expect(bare.out).toMatch(/^map: {4}(built|missing)$/m)
   }, 120_000)
 
   it('test_UAT_AC1294_an_unrecognised_form_is_refused_with_usage_and_builds_nothing', async () => {
@@ -900,7 +1050,173 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
   })
 })
 
-// ── AC-1295 / 1297: the real document store ──────────────────────────────────
+// ── AC-1295 / 1632 / 1633: membership, the declaration, and the listing ──────
+
+describe('story-c4f329d3 — what is in the knowledge base, and how it is read', () => {
+  it('test_UAT_AC1295_only_the_system_kb_doc_kind_puts_a_document_in', async () => {
+    // Membership is a KIND, not a flag (DOC-39 §3.3). `doc_kind` is
+    // single-valued, so "this architecture document is ALSO a system document"
+    // is unsayable — which is the category error the kind exists to prevent.
+    // The retired boolean is superseded rather than deprecated: a document still
+    // carrying `system_kb: true` and nothing else is NOT a member, because
+    // honouring a marker nobody maintains any more is how a document reaches a
+    // client-facing assistant that nobody meant to put there.
+    const shapes: StoreTicket[] = [
+      ticket('DOC-KIND', 'The kind', '# Kind'), //            in  — doc_kind: system_kb
+      ticket('DOC-ABSENT', 'No kind field', '# Absent', {}), // out — field absent
+      ticket('DOC-NOFIELDS', 'No fields at all', '# None', null), // out — no fields
+      ticket('DOC-OTHER', 'Another kind', '# Other', { [KIND_FIELD]: 'architecture' }), // out
+      ticket('DOC-NEARMISS', 'Near miss', '# Near', { [KIND_FIELD]: 'System_KB' }), // out
+      ticket('DOC-RETIRED', 'Retired boolean', '# Retired', { system_kb: true }), // out
+    ]
+
+    await withRoot(async (root) => {
+      const result = await withStore(paging(shapes), () => exportCorpus(root))
+
+      expect(result.docs.map((d) => d.id)).toEqual(['DOC-KIND'])
+      expect(result.skipped).toEqual([
+        'DOC-ABSENT',
+        'DOC-NEARMISS',
+        'DOC-NOFIELDS',
+        'DOC-OTHER',
+        'DOC-RETIRED',
+      ])
+      expect(corpusFiles(root)).toEqual(['DOC-KIND.md'])
+    })
+
+    // The integration half, against the REAL store, through the export command:
+    // what the corpus ends up holding is exactly what the rule selects — nothing
+    // silently added, nothing silently dropped, and no excluded document with a
+    // file in the corpus.
+    await withRoot((root) => {
+      const tickets = readDocTickets()
+      const exported = exportCorpus(root)
+
+      const shouldBeIn = tickets.filter(isMember).map((t) => t.id).sort()
+      const shouldBeOut = tickets.filter((t) => !isMember(t)).map((t) => t.id).sort()
+
+      expect(shouldBeIn.length).toBeGreaterThan(0)
+      expect(exported.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
+      expect(exported.skipped).toEqual(shouldBeOut)
+
+      const onDisk = corpusFiles(root)
+      for (const id of shouldBeOut) expect(onDisk).not.toContain(`${id}.md`)
+    })
+  }, 300_000)
+
+  it('test_UAT_AC1632_the_declarations_restrict_nothing_and_any_markdown_file_resolves', async () => {
+    // At runtime the distribution IS the corpus: a directory of markdown served
+    // through the ticket interface by a read-only store, whose every member
+    // matched by construction when the export wrote it. Re-applying the export's
+    // own selection as a query-time predicate can only ever SUBTRACT, and the
+    // only thing it can subtract is a file whose frontmatter does not look the
+    // way the predicate expects — which then disappears with no error at all.
+
+    // The declaration that actually SHIPS in the repository.
+    const shipped = JSON.parse(readFileSync(configPath(kbRoot()), 'utf8'))
+    expect(shipped.knowledge_bases[SYSTEM_KB].corpus).toEqual({})
+
+    // …and the one a fresh tree is scaffolded with. Both, because a declaration
+    // is never written over an existing one: the two can drift apart with no
+    // error, and a scaffold that restricted what the shipped file does not would
+    // give a fresh checkout a quietly different knowledge base.
+    await withRoot((root) => {
+      ensureConfig(root)
+      const scaffolded = JSON.parse(readFileSync(configPath(root), 'utf8'))
+      expect(scaffolded.knowledge_bases[SYSTEM_KB].corpus).toEqual({})
+      expect(scaffolded.knowledge_bases[SYSTEM_KB].source).toBe('shipped')
+    })
+
+    // The behavioural half, and the one that matters: three files a
+    // `type=doc AND fields.<kind>=system_kb` predicate would each have dropped
+    // for a different reason all resolve as documents of this knowledge base.
+    await withRoot(async (root) => {
+      const dir = corpusDir(root)
+      mkdirSync(dir, { recursive: true })
+      ensureConfig(root)
+
+      writeFileSync(
+        path.join(dir, 'DOC-FULL.md'),
+        `---\nid: DOC-FULL\ntype: doc\ntitle: Full frontmatter\nfields:\n` +
+          `  ${KIND_FIELD}: ${MEMBER_KIND}\n---\n# Full\n\nBody.\n`,
+        'utf8',
+      )
+      // No `fields` block at all — the shape the old predicate silently dropped.
+      writeFileSync(
+        path.join(dir, 'DOC-THIN.md'),
+        '---\nid: DOC-THIN\ntype: doc\ntitle: No fields\n---\n# Thin\n\nBody.\n',
+        'utf8',
+      )
+      // No frontmatter whatsoever: bare markdown, hand-dropped into the corpus.
+      writeFileSync(path.join(dir, 'DOC-BARE.md'), '# Bare\n\nJust prose.\n', 'utf8')
+
+      const lib = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
+      const binding = await bindKb(root)
+      const resolved = await lib.resolveCorpus(binding.store, binding.kb)
+
+      expect(resolved.map((t: { uid: string }) => t.uid).sort()).toEqual([
+        'DOC-BARE',
+        'DOC-FULL',
+        'DOC-THIN',
+      ])
+      // The predicate the corpus resolves through excludes nothing the directory
+      // holds — structurally, not merely in this instance.
+      expect([...binding.kb.corpus.terms.keys()]).toEqual([])
+      expect([...binding.kb.corpus.types]).toEqual([])
+    })
+  }, 120_000)
+
+  it('test_UAT_AC1633_the_listing_is_exhaustive_and_a_truncated_envelope_is_refused', async () => {
+    // `xgd ticket list` pages by default and reports the rest in the envelope. A
+    // reader that takes `items` and stops takes page one and calls it the
+    // corpus, with no error and no warning. 60 > the 50-item default page on
+    // purpose: a fixture smaller than one page passes vacuously, which is
+    // exactly how this class of failure survives.
+    const many = Array.from({ length: 60 }, (_, i) =>
+      ticket(`DOC-${String(i + 1).padStart(3, '0')}`, `Doc ${i + 1}`, `# Doc ${i + 1}\n\nBody.`),
+    )
+
+    const read = await withStore(paging(many), () => readDocTickets())
+    expect(read.length).toBe(60)
+    expect(read.map((t) => t.id)).toContain('DOC-060')
+    // The REQUEST asks for the whole store rather than for a page.
+    expect(recordedArgv()).toContain('--no-limit')
+
+    // …and every document past the page boundary reaches the corpus.
+    await withRoot(async (root) => {
+      const result = await withStore(paging(many), () => exportCorpus(root))
+      expect(result.docs.length).toBe(60)
+      expect(existsSync(path.join(corpusDir(root), 'DOC-060.md'))).toBe(true)
+    })
+
+    // Asking is not enough on its own. If a truncated envelope arrives anyway —
+    // an older toolchain on PATH, an affordance that stops meaning what it means
+    // — that is a loud failure naming the affordance and the count received, not
+    // a quietly shorter corpus.
+    const stubborn = () =>
+      installStore(
+        `const all = ${JSON.stringify(many)}\n` +
+          `process.stdout.write(JSON.stringify({ items: all.slice(0, 50), next_cursor: 'page-2', truncated: true }))`,
+      )
+    await expect(withStore(stubborn, () => readDocTickets())).rejects.toThrow(/truncated/i)
+    await expect(withStore(stubborn, () => readDocTickets())).rejects.toThrow(/--no-limit/)
+    await expect(withStore(stubborn, () => readDocTickets())).rejects.toThrow(/50/)
+
+    // …and no short corpus is written.
+    await withRoot(async (root) => {
+      await expect(withStore(stubborn, () => exportCorpus(root))).rejects.toThrow(/truncated/i)
+      expect(existsSync(corpusDir(root)) ? corpusFiles(root) : []).toEqual([])
+    })
+
+    // An envelope carrying no continuation is accepted as complete, whether it
+    // holds one page or many — the guard must not fire on the ordinary case.
+    const few = [ticket('DOC-A', 'A', '# A'), ticket('DOC-B', 'B', '# B')]
+    const whole = await withStore(paging(few), () => readDocTickets())
+    expect(whole.map((t) => t.id)).toEqual(['DOC-A', 'DOC-B'])
+  }, 120_000)
+})
+
+// ── AC-1297: the real document store, exported and read back ─────────────────
 
 /**
  * One export of the REAL ticket store, asserted from two angles.
@@ -920,12 +1236,10 @@ describe('story-c4f329d3 — the command answers before it acts', () => {
 describe('story-c4f329d3 — the real document store, exported and read back', () => {
   let root: string
   let exported: ReturnType<typeof exportCorpus>
-  let tickets: ReturnType<typeof readDocTickets>
 
   beforeAll(() => {
     root = mkdtempSync(path.join(tmpdir(), 'kb-real-'))
     exported = exportCorpus(root)
-    tickets = readDocTickets()
   }, 300_000)
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
@@ -1017,6 +1331,7 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
     const store = new DocDirStore(nodeDocReader(corpusDir(root)), { type: 'doc' })
     const { tickets: readBack } = await store.query({ type: 'doc' })
 
+    expect(readBack.length).toBeGreaterThan(0)
     expect(readBack.length).toBe(exported.docs.length)
     for (const doc of readBack) {
       expect(doc.uid).toMatch(/^[A-Z]+-\d+$/)
@@ -1027,9 +1342,11 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
 
     // A retitle leaves the document at the same address.
     await withRoot(async (scratch) => {
-      await withStore([ticket('DOC-R', 'First title', '# Body')], () => exportCorpus(scratch))
+      await withStore(paging([ticket('DOC-R', 'First title', '# Body')]), () =>
+        exportCorpus(scratch),
+      )
       const renamed = await withStore(
-        [ticket('DOC-R', 'A completely different title', '# Body')],
+        paging([ticket('DOC-R', 'A completely different title', '# Body')]),
         () => exportCorpus(scratch),
       )
       expect(corpusFiles(scratch)).toEqual(['DOC-R.md'])
@@ -1047,9 +1364,9 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
       body: '# Has structure',
       created_at: null,
       updated_at: null,
-      fields: { doc_kind: 'architecture', references: { a: 1 }, tags: ['x'] },
+      fields: { [KIND_FIELD]: MEMBER_KIND, references: { a: 1 }, tags: ['x'] },
     })
-    expect(rendered).toContain('doc_kind: architecture')
+    expect(rendered).toContain(`${KIND_FIELD}: ${MEMBER_KIND}`)
     expect(rendered).not.toContain('[object Object]')
     expect(rendered).not.toContain('references:')
     expect(rendered).not.toContain('tags:')
