@@ -336,6 +336,19 @@ function writeKnowledgeShim(generatedDir: string): string {
  * the type the component writes its map into, and the component reads those three
  * back when it looks the map up again. They are upstream's intrinsics, not a
  * matter of local taste.
+ *
+ * A FOURTH GROUP IS PRIMING (`landscapeText`, `mechanismText`), upstream's
+ * `./priming.js`, and it belongs to the SYSTEM side rather than the project one.
+ * `system-knowledge.ts` renders the landscape and mechanism prose into the
+ * assistant's opening context; the two clocks above never touch it, which is why
+ * it reads as a group of its own rather than an addition to one of theirs.
+ *
+ * THE LIST IS A SUPERSET CLAIM, NOT AN INVENTORY, and both directions are
+ * pinned by test: that every name here exists upstream (an upstream rename must
+ * fail), and that every name `apps/control-app/src/**` imports from
+ * `./generated/knowledge` appears here (a missing name must fail a test rather
+ * than a build). The second direction was added after two names imported by
+ * `system-knowledge.ts` were absent here and only `tsc` noticed.
  */
 export const KNOWLEDGE_EXPORTS = [
   'AWARENESS_REPORT_KIND',
@@ -349,7 +362,11 @@ export const KNOWLEDGE_EXPORTS = [
   'documentsFromTickets',
   'findAwarenessReport',
   'knowledgeBasesFromMapping',
+  // Session priming, upstream's `./priming.js` (REQ-158) — the landscape and
+  // mechanism prose `system-knowledge.ts` opens the assistant's context with.
+  'landscapeText',
   'loadIndex',
+  'mechanismText',
   // The bundled index's residency (REQ-158) — the `IndexSource` over a map of
   // files rather than over R2 or a directory. It is on the package root, not
   // behind `./node`, precisely because it is the one a Worker uses.

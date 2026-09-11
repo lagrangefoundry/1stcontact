@@ -360,12 +360,23 @@ describe('story-aacb7060 — only material the client may publish reaches their 
     expect(reason).toContain('ac1712-no-such-site')
 
     // THE FILE IS NOT LOST: retrievable afterwards, and findable by search.
+    //
+    // THE SEARCH IS WIDENED PAST THE DEFAULT CUT, AND THAT IS THE CLAIM. What
+    // AC-1712 asks is that a material whose placement failed is still *in the
+    // index* — not that it outranks its neighbours. `search` defaults to the top
+    // five, and the stub embedder is a 64-bucket bag of words, so several of this
+    // tenant's materials tie on a short query and the tie is broken by the
+    // randomly-generated uid. That made this assertion a coin flip on ranking
+    // (observed failing about half of runs) while the property under test held
+    // every time. Widening the window removes the ranking assumption and keeps
+    // the property: a material missing from the index still fails here.
+    const FINDABLE = { topK: 50 }
     const item = await readBack(absentUid)
     expect(item.status).toBe(200)
     expect((await envelopeOf(item)).uid).toBe(absentUid)
-    expect((await knowledge.search('what colour is the awning')).map((hit) => hit.uid)).toContain(
-      absentUid,
-    )
+    expect(
+      (await knowledge.search('what colour is the awning', FINDABLE)).map((hit) => hit.uid),
+    ).toContain(absentUid)
 
     // SECOND: THE ASSET STORE REFUSES THE WRITE, with a failure carrying the
     // deployment's own credential — the one shape that looks like it escapes the
@@ -404,9 +415,9 @@ describe('story-aacb7060 — only material the client may publish reaches their 
     const kept = await readBack(refusedUid)
     expect(kept.status).toBe(200)
     expect((await envelopeOf(kept)).uid).toBe(refusedUid)
-    expect((await knowledge.search('when do the doors open')).map((hit) => hit.uid)).toContain(
-      refusedUid,
-    )
+    expect(
+      (await knowledge.search('when do the doors open', FINDABLE)).map((hit) => hit.uid),
+    ).toContain(refusedUid)
     // And nothing landed on the site it could not be placed on.
     expect(await real.listAssets(site.slug)).not.toContain('hours.png')
   })

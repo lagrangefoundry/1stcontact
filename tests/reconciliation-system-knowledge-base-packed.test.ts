@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -99,6 +107,51 @@ async function kbExports(): Promise<Exports> {
 
 async function assetExports(): Promise<Exports> {
   return (await import('../tools/generate/src/cli/assets')) as unknown as Exports
+}
+
+// ── what the deployable actually imports out of the generated shim ───────────
+
+/** The deployable's own source, which is the only authority on what it reaches for. */
+const CONTROL_APP_SRC = path.resolve('apps/control-app/src')
+
+/** The generated directory is the shim's output, not a consumer of it. */
+const GENERATED_DIR = 'generated'
+
+/**
+ * Every `import { … } from '…/generated/knowledge'` name in a tree of TypeScript.
+ *
+ * READ FROM SOURCE RATHER THAN LISTED, which is the whole point. A second
+ * hand-maintained roster beside `KNOWLEDGE_EXPORTS` would drift from it in
+ * exactly the way the first one drifted from the importers — the failure this
+ * guards against is a list going stale, so the guard cannot itself be a list.
+ *
+ * `X as Y` yields `X`: the alias is the local name, and the shim must declare
+ * the name upstream exports (`search`, not `kmSearch`).
+ */
+function knowledgeImports(dir: string): Set<string> {
+  const found = new Set<string>()
+  const block = /import\s*\{([^}]*)\}\s*from\s*'(?:\.\.?\/)+generated\/knowledge(?:\.js)?'/g
+
+  const walk = (at: string): void => {
+    for (const entry of readdirSync(at, { withFileTypes: true })) {
+      const full = path.join(at, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name !== GENERATED_DIR) walk(full)
+        continue
+      }
+      if (!entry.name.endsWith('.ts')) continue
+      const source = readFileSync(full, 'utf8')
+      for (const match of source.matchAll(block)) {
+        for (const clause of match[1].split(',')) {
+          const name = clause.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
+          if (name) found.add(name)
+        }
+      }
+    }
+  }
+
+  walk(dir)
+  return found
 }
 
 // ── the fixture knowledge base ───────────────────────────────────────────────
@@ -342,5 +395,34 @@ describe('story-c4f329d3 — the packed module is written on every application b
     } finally {
       rmSync(empty, { recursive: true, force: true })
     }
+
+    // THE SAME DECLARATION CONCERN, ONE SHIM OVER — and the direction that was
+    // missing. `knowledge.d.ts` is emitted from a hand-maintained list
+    // (`KNOWLEDGE_EXPORTS`), and the existing assertion on it runs the *other*
+    // way: every listed name must exist upstream, so a rename fails a test.
+    // Nothing asserted the converse, that every name the deployable imports is
+    // listed — so two names `system-knowledge.ts` imports were absent from the
+    // list, the runtime `export *` resolved them happily, every suite stayed
+    // green, and only `tsc --noEmit` on a config no gate ran objected. A
+    // shortfall here must fail a test rather than a build nobody runs.
+    const listed = (await assetExports()).KNOWLEDGE_EXPORTS
+    expect(Array.isArray(listed)).toBe(true)
+    const declared = new Set(listed as readonly string[])
+
+    const reached = knowledgeImports(CONTROL_APP_SRC)
+    // Guard the guard: a regex that matched nothing would assert nothing while
+    // reporting green, which is the failure mode this whole file is written
+    // against. The deployable demonstrably imports from the shim.
+    expect(reached.size).toBeGreaterThan(0)
+
+    const undeclared = [...reached].filter((name) => !declared.has(name)).sort()
+    expect(
+      undeclared,
+      `apps/control-app/src imports ${undeclared.length} name(s) from ` +
+        `'./generated/knowledge' that KNOWLEDGE_EXPORTS does not declare: ` +
+        `${undeclared.join(', ')}. The generated .d.ts is emitted from that list, ` +
+        `so the deployable will not typecheck until each is added to ` +
+        `tools/generate/src/cli/assets.ts.`,
+    ).toEqual([])
   }, 120_000)
 })
