@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Indexing a conversation leaves the client's map exactly as it was
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:47:36.366963+00:00'
-updated_at: '2026-09-11T03:47:36.366963+00:00'
+updated_at: '2026-09-11T04:01:57.425640+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ea7b4646
   kind: behavior
