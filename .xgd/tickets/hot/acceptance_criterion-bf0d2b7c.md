@@ -6,10 +6,10 @@ title: The description is the one editable thing, undescribed material says so, 
   a committed correction is stored as the material's description
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:54.222934+00:00'
-updated_at: '2026-09-11T05:18:54.222934+00:00'
+updated_at: '2026-09-11T05:28:53.467458+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
