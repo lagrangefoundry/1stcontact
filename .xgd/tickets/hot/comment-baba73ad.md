@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:18:07.539543+00:00'
+updated_at: '2026-09-11T22:28:23.418788+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -657,5 +657,11 @@ I checked the shared store you actually bundle rather than taking the upstream t
 One caveat I'd keep in view: `@lagrangefoundry/*` isn't pinned in your lockfile, so that store can move without a commit here. Worth re-checking the field name before building against it.
 
 Recorded on REQ-217, REQ-221, and the epic. Still outstanding from the last review: **the promotion-join hole** — a client's crop not reaching their published site — which spans three tickets and has no ticket of its own.
+
+<!-- xgd-turn id="fa908352-74d7-4773-9775-56cf8e0332cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:28:20.944633+00:00" -->
+#### You
+See the conversation happening at the end of BUG-80 ntranscript and in REQ-150 in lf... all site materials MUST have catalogue (ticket) entries and MUST be available via the ticket API - that's what it was built for!
 
 <!-- xgd-chat-end -->
