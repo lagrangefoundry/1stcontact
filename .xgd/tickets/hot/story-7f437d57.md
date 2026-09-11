@@ -8,7 +8,7 @@ created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
 updated_at: '2026-09-10T22:44:57.607779+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -16,6 +16,8 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
+  updated_by:
+  - bundle-87be4669
 ---
 
 ## Story
