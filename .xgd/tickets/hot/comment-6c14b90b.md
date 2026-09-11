@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T19:24:18.716660+00:00'
+updated_at: '2026-09-11T21:21:12.667875+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -470,5 +470,15 @@ REQ-223's UATs don't catch it because they construct `/site/<key>/api/lead` them
 The correct value is `/site/<key>/api/lead`. I should correct something I said last turn: I offered document-relative `api/lead` as working for both, and that's only true while page slugs are flat. On a page at `/site/<key>/blog/post/` it would resolve to `…/blog/post/api/lead`, which parses as an asset path and misses the endpoint. Today's slugs are flat so it happens to work, but it's fragile and I'd use the explicit form.
 
 I've left XGD alone — different site's content, and it's not what BUG-78 is about. Say the word and I'll fix it, or file it.
+
+<!-- xgd-turn id="d078958f-2678-4d75-a161-0239cdf3957e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:21:10.952157+00:00" -->
+#### You
+The site is not intended to be functional in Edit mode.
+
+The issue is really the UX. I think we want 2 - and yes I want to see the test rows in the CRM absolutely.
+
+(There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.) <-- I only want one. If we delete the other one does this problem go away?
 
 <!-- xgd-chat-end -->
