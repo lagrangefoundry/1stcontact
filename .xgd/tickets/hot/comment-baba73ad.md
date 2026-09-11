@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:45:09.699299+00:00'
+updated_at: '2026-09-11T22:47:20.515850+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -786,5 +786,35 @@ All recorded on the epic. On REQ-150 — taking your word it's in flight; I've s
 4. Re-promotion updates the draft; a published revision is frozen. So crop-and-don't-republish means the live site keeps the old picture. <-- confused...draft and published differ that is the intended semantics, what is the problem here? Changes ONLY propagate to the site when they are published.
 
 5. That's fine
+
+<!-- xgd-turn id="3ac21e04-c912-408d-b10a-cd7f8ee33730-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:47:20.210361+00:00" -->
+#### Claude
+Item 4 — you're right, that's just publish semantics and my flag was noise. Dropping it. Let me create the ticket for 1.
+
+REQ-229 created. Recording the rest.
+
+Linkage confirmed both ways. Now the epic record.
+
+**REQ-229** (`request-4b5c10e9`) — draft, high, child of EPIC-1. Bidirectional linkage confirmed.
+
+It carries explicit replacement as you called it, plus the two unbuilt halves it depends on (promotion recording the name; `reviseRecipe` re-promoting). Your reasoning is the ticket's: delete-then-add leaves a window where the site references an asset that doesn't exist, and a publish inside that window renders a snapshot with a hole in it.
+
+The mechanism that makes it safe turned out to be the recorded name doing double duty — **no recorded name = new placement, takes a free name; has one = re-placement, overwrites it.** That leaves `freeAssetName` untouched. Its "only ever adds" promise is correct for every door except this one, and the record tells them apart mechanically rather than with a flag someone has to remember.
+
+## On the others
+
+**2 — withdrawn.** You're right, one site per tenant means it's unreachable. I've noted where it would surface if that ever changes, as a note for whoever lifts the assumption rather than work for anyone now.
+
+**3 — your model is better than mine, and it dissolves the objection.** A ticket catalogues multiple assets, so the ladder for picture X hangs off ticket X — `fields.image_ladder[]` as pointers to the sized copies. The Library shows one item per picture and the renditions are what they actually are: sized copies, not pictures in their own right. It also brings them inside the attachment record, which is what blob GC reads, so a rendition stops being a bucket object nothing names.
+
+I should also correct my framing: on re-reading, the collision was narrower than I stated. REQ-222 writes renditions into the *revision's* `out/assets/d/` and the draft gets no ladder at all — so they never land in the draft asset namespace BUG-84's rule is about. It wants writing down as a definition, not resolving as a conflict.
+
+One thing your model doesn't settle on its own, worth catching when it's built: the ticket holds *the current* ladder, but a published revision needs *its* ladder frozen — REQ-222 copies into the revision prefix so a snapshot stays relocatable under any path prefix. Different lifetimes rather than competing homes; `image_ladder[]` is the catalogue's view of what exists now, the revision's copy is the frozen artifact. Let them coexist rather than making one serve both.
+
+**4 — withdrawn, no problem there.** **5 — punt re-affirmed and recorded as a decision rather than an inheritance.**
+
+All on the epic. No code.
 
 <!-- xgd-chat-end -->
