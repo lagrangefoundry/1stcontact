@@ -6,10 +6,10 @@ title: A proven address with no person behind it is refused, and the refusal cre
   nothing
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:28:49.519820+00:00'
-updated_at: '2026-09-11T06:28:49.519820+00:00'
+updated_at: '2026-09-11T06:37:29.289244+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
