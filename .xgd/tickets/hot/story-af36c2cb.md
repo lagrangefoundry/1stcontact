@@ -6,9 +6,9 @@ title: 'The edit render: a third channel that deliberately does not work, showin
   all content at once with every editable region outlined and addressable'
 created_by: xgd
 created_at: '2026-08-06T21:25:04.945391+00:00'
-updated_at: '2026-09-10T22:59:01.956393+00:00'
+updated_at: '2026-09-11T00:51:17.225484+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-0385746c
