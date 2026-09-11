@@ -6,14 +6,15 @@ title: An unlocked control carries no explanation and is not marked unavailable,
   there is nothing to explain
 created_by: xgd
 created_at: '2026-08-20T03:39:04.402129+00:00'
-updated_at: '2026-08-20T03:39:56.201881+00:00'
+updated_at: '2026-09-11T00:51:11.162016+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
