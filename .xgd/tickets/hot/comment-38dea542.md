@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T02:32:20.349871+00:00'
+updated_at: '2026-09-11T21:42:05.476670+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,21 @@ BUG-80 is populated with the diagnosis and a proposed fix, at severity `high`, s
 Explicitly out of scope and recorded as such: actually making large pictures photographable (needs the `OriginResolver` seam instead of a `data:` URL, touching both drivers), and a general tool-result size cap (that renderer is `lagrange-framework`'s `runtime.js` — a different repo).
 
 Confirm the scope and I'll cut the branch and code it. Say the word if you also want tickets filed for the Library-discoverability and asset-registration gaps — I haven't created any.
+
+<!-- xgd-turn id="7a68aeb2-f102-4f9d-b630-17c626adba18-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:42:04.068807+00:00" -->
+#### You
+This is confusing lets go a step at a time, I want you to fix all the problems.
+
+**A failure here can end a conversation permanently.** The oversized message is now in session history, so every subsequent turn 400s. The *image* path is already capped (`MAX_IMAGE_EDGE`, and `withoutImageData` redacts image bytes from the transcript); error *text* has no equivalent bound. <-- ok so your picture size limit solves this going forward, but I still want  start a new session with the chat context.
+
+**Any stored non-PNG picture over ~1.1 MB cannot be photographed at all.** `net::ERR_ABORTED` is Chromium refusing a URL longer than `url::kMaxURLChars` (2 MiB) — not a decode failure. Working the double encoding back gives a ceiling of ~1,179,000 bytes on the picture itself, so an ordinary camera JPEG is over the limit rather than an edge case (this one was ~12 MB). PNG never hits it — `storedPicture()` passes PNG straight through, which is why the renaissance-study PNG screenshot in the same turn succeeded. <-- is this fixed with your limit, as you thought?
+
+**The AI spent three rounds of image regeneration asking "how do the mold shapes look?" while never looking at them**, then discovered mid-session that `screenshot` does accept a Library handle. There's no operation that enumerates the Library — `list_assets` shows site assets only — so it had concluded the generated images were unreachable. Its own words: *"there are two separate picture stores, and I only checked one." <-- I saw that but didn't understand, what does it mean there are two stores? Is this a data organization issue or a documentation issue?*
+
+**It still cannot move a generated or client-uploaded image into the site's assets**, so it repeatedly asked the operator to re-drop the file into the chat. That's the same `ManageAssets`/`add_asset` grant gap already written up on `comment-c9afb02b` on 2026-09-01 (the gold A logo) — same failure, ten days later. <-- ok this is a gap can you create a ticket for this the ai needs the ability to make changes like this
+
+Explicitly out of scope and recorded as such: actually making large pictures photographable (needs the `OriginResolver` seam instead of a `data:` URL, touching both drivers), and a general tool-result size cap (that renderer is `lagrange-framework`'s `runtime.js` — a different repo). <-- I don't understand this - we have the ability to resize pictures right? Does the AI have access to a tool for that (it needs to)? Can't the AI just make a smaller version if the image and look at that?
 
 <!-- xgd-chat-end -->
