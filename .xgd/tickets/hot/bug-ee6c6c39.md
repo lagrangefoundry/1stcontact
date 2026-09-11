@@ -5,9 +5,9 @@ type: bug
 title: Sixteen tests fail on a clean tree, and the suite's red masks new breakage
 created_by: REQ-220
 created_at: '2026-09-11T21:46:08.377325+00:00'
-updated_at: '2026-09-11T22:38:50.680640+00:00'
+updated_at: '2026-09-11T22:39:24.780792+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -125,3 +125,95 @@ The order that pays off first is cause 2 (three probes), then 3 and 4, which are
 small and certain. Cause 1 is eleven of the sixteen and is the one worth real
 investigation; it is also the one where a wrong diagnosis costs the most, so it
 should not be started until its two candidates have been told apart.
+
+
+---
+
+## Investigation (this session)
+
+A clean baseline on a fresh worktree gives **17** failures across **13** files —
+the sixteen above plus one that landed after this ticket was written, which is
+cause 6 below and is the masking effect caught happening a second time.
+
+### Cause 1 is one root cause, not two, and neither candidate was right
+
+All eleven failures are **the reminder tier never reaching the `system` field**.
+They look like three different missing sentences because the reminder tier has
+three provider entries — `site.line`, `site.changes`, `corpus.delta` — and each
+failing assertion happens to name a different one. REQ-160's three document
+titles are `corpus.delta`'s output, not a knowledge-base read, so the offline
+sandbox does not explain them either.
+
+The reminder still reaches the model. Upstream `@lagrangefoundry/ai` moved it:
+`ClaudeAPIBackend.promptStream` used to fold `reminder` into the `system` field
+and now passes it through `turnTail`, which appends it to the **last user
+message** instead (the package's own REQ-144, for cache-prefix stability — a
+marker on the reminder would put a block guaranteed to differ next turn inside
+the prefix the next request has to match). Those packages are not in this repo's
+lockfile, so the change landed here with no commit, exactly as the ticket
+anticipated.
+
+So nothing in this repository is broken and no production behaviour changes. The
+defect is in the evidence: `tests/support/scripted-model-client.ts` documents
+`system` as *"the assembled priming, reminder included"*, and eleven assertions
+read it through `systemText`. That statement is now false.
+
+**The fix is at the one shared double, which is what it exists for.** Two
+readers are added beside `systemText` — one for the per-turn tail the reminder
+now travels in, one for everything the model was sent this turn — and the
+assertions move to whichever of the three they are actually about. The
+distinction is load-bearing for REQ-182, whose subject is *where* the reminder
+sits relative to the cache boundary, not merely that it was sent.
+
+### Cause 5 is drift, and the fix is in `points.js`
+
+AC-1006's subject is the logic that turns a clicked element into an address, and
+a stylesheet is not that. But the overlay restating the renderer's markup
+contract in its own CSS is a real second reader of it: rename the attribute
+upstream and the dimmed-hover rule silently stops matching, with nothing to say
+so. The rule does not need the attribute — `.l1-edit-hot` is the renderer's own
+hot-segment marker and already selects exactly the set — so the selector drops
+it and takes `!important` to keep winning over the renderer's own hot treatment,
+which it previously won by specificity. The guard is left alone.
+
+### Cause 6 — the lead write is routed after all, and the guard says it is not
+
+`test_UAT_FC_REQ-223_internal_seam`'s
+`test_UAT_FC_REQ-223_the_write_is_an_entrypoint_and_not_a_route` forbids
+`captureLead`, `LeadIntake` and `/api/lead` from appearing in `router.ts`. BUG-78
+added `POST /preview/<slug>/draft/api/lead` so that the one surface an operator
+can actually press the button on is not the one surface where the button cannot
+work, and wired it to `public-site`'s own `handleLead` over an in-process
+`captureLead`. Three of the four assertions in that block are now false.
+
+The claim the AC is making is that no **unauthenticated** URL reaches the
+tenant-wide contact write. That still holds: the preview route runs under the
+same `openStore()` scope every other builder route does, takes the site key from
+the slug through that store rather than from the body, stamps the channel itself
+and refuses any channel but `draft`. BUG-78's behaviour has its own workers
+suite, which passes. So the static guard narrows to what it means — no
+`/internal/` path, no service binding to this Worker's own default handler, and
+the single lead path is the preview's, gated and channel-bound — rather than
+forbidding a mention that a later intent deliberately introduced.
+
+## What this session changes
+
+1. **`tests/support/scripted-model-client.ts`** — `turnTailText` and `sentText`
+   beside `systemText`, and the header corrected to say where the reminder
+   travels now. The seven suites in cause 1 read the right channel.
+2. **`tests/reconciliation-builder-workspace-origin.test.ts`** — three probes,
+   for `/api/material/changes` (in its rejection shape, since the success shape
+   is an SSE stream that never ends), `/api/material/name` and
+   `/api/material/recipe`.
+3. **`tests/support/css-rules.ts`** — one `rulesOf`, hoisted out of the three
+   copies that had it, handing `keep` a selector whose layout has been
+   normalised away. Whitespace inside a selector list is not behaviour.
+4. **The scope literal** — the two prose restatements are rephrased to name the
+   package without writing the scope, and the markdown suite reaches its two
+   components the way every other suite does, through `webuiPackageDir`.
+5. **`apps/control-app/src/builder/points.js`** — the dimmed-hover rule stops
+   restating the renderer's attribute.
+6. **`tests/test_UAT_FC_REQ-223_internal_seam.test.ts`** — the routing guard
+   narrowed to the claim it is making.
+
+`npm test` is green on a clean tree afterwards, with nothing retired.
