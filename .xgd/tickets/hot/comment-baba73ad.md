@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:47:20.515850+00:00'
+updated_at: '2026-09-11T23:55:50.079617+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -816,5 +816,11 @@ One thing your model doesn't settle on its own, worth catching when it's built: 
 **4 — withdrawn, no problem there.** **5 — punt re-affirmed and recorded as a decision rather than an inheritance.**
 
 All on the epic. No code.
+
+<!-- xgd-turn id="fda02e81-2fc3-492e-9e0a-df72c63ec73a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T23:55:48.959805+00:00" -->
+#### You
+Do we need a ticket for 3?
 
 <!-- xgd-chat-end -->
