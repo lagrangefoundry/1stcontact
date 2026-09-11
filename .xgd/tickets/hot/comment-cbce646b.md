@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-219
 created_by: xgd
 created_at: '2026-09-10T22:08:15.852975+00:00'
-updated_at: '2026-09-11T19:21:45.966978+00:00'
+updated_at: '2026-09-11T19:49:41.214627+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,47 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="25ea6376-16ba-4be7-a6ea-458456fe2b14-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:49:40.190702+00:00" -->
+#### Claude
+All tests pass — 47 new UATs, and the 16 failures across both suites reproduce identically on the base checkout (KB/priming suites, pre-existing). Now closing the protocol gap: several UATs assert behaviour that is a technical consequence rather than something the body states. Adding that language before committing.
+
+Now the merge back under the lock.
+
+Now the router's duplicate `IMAGES` declaration.
+
+Now the runtime narrowing in `image-edit.ts`.
+
+Now a full sweep on the rebased tree.
+
+Merged. Now updating the ticket body for the REQ-221 overlap that the rebase surfaced, then moving to `free_coded`.
+
+Now releasing the branch and cleaning up.
+
+REQ-219 is free-coded and landed on `xgd-working`.
+
+## What shipped
+
+| File | What it is |
+|---|---|
+| `tools/generate/src/cli/image-recipe.ts` | The closed vocabulary (`crop`, `rotate`, `resize`, `adjust`), its refusals, and `compileRecipe()` — a pure function from a recipe + real dimensions to a transform chain. One step per operation in the author's order, with dimensions tracked through. |
+| `apps/control-app/src/image-edit.ts` | The Cloudflare Images binding behind the `ImageRenderer` port; content-addressed renditions under `rendition/<tenant>/`; the material record as recipe store. |
+| `tools/generate/src/cli/ai/image-surface.json` + `image-core.ts` | The `image` surface — `list_image_edits` / `edit_image`, two groups, grant travelling with it. Names pictures in REQ-218's vocabulary. |
+| `router.ts` | `/api/material/file` serves the current state by default, `?original=1` the stored bytes, `?width=` a delivery size that never touches the recipe. |
+| `tickets.ts`, `material.ts`, `ai.ts`, `host-core.ts`, `wrangler.toml`, `vitest.workers.config.mts` | `fields.edits` declared; the library's `original` seam becomes a real branch; surface composition and binding wiring. |
+
+**Tests: 47 new UATs, all passing** (33 node, 14 workers). Full sweep shows 16 failures across both suites — I ran the identical set on the base checkout and they reproduce exactly, so all pre-existing (the KB and priming suites; two more are parallel-load flakes that pass in isolation).
+
+## Two things worth knowing
+
+**REQ-221 landed the `[images]` binding first, and the rebase surfaced a collision.** Their upload path already declared the binding plus `IMAGES?: ImagesLike` — a two-call slice so their UAT can hand it a double. I had independently added both. Resolved by keeping one binding and one declaration, merging my rationale into theirs, and having `imageRendererFor` ask at runtime whether the object can actually transform — `null` where it cannot, which is the same "no renderer" state a missing binding already meant. Recorded in the ticket body.
+
+**I cleared a stale merge lock held by REQ-222.** Its holder process (pid 40837) was verifiably dead, `xgd-working` was clean with no merge in progress, and the lock was blocking every session. The tool's own error message prescribes exactly this remedy. Flagging it because it's another session's resource — REQ-222 will need to re-acquire and finish its merge.
+
+The version gate also cost four attempts: `xgd_version_bump --check` tests whether a commit *contains* a version rather than *introduced* it, so every ticket auto-commit landing after my bump blocked the claim. Landed it by doing bump → ff → claim as one atomic step; saved as a memory.
+
+The ticket body already carried a thorough spec, so I appended only what the code settled beyond it — format preservation, the `adjust` ceiling, the resize aspect-ratio rule, `?width=`, and the two-group split — so every UAT is motivated by ticket language rather than left for reconciliation to infer.
 
 <!-- xgd-chat-end -->
