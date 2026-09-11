@@ -7,7 +7,7 @@ title: Have the assistant compose a page — see where everything sits, read an 
   or scripts
 created_by: xgd
 created_at: '2026-08-10T09:18:31.384971+00:00'
-updated_at: '2026-09-11T02:03:51.498643+00:00'
+updated_at: '2026-09-11T02:18:44.930225+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -18,6 +18,7 @@ fields:
   story_points: 3
   uat_coverage: pass
 ---
+
 
 ## Story
 
@@ -113,9 +114,9 @@ Out of scope:
   fix has since landed: a declared refusal now appends the host's own account of the
   failure, that behaviour is opt-*out* and this surface's schema-invalid code does not opt
   out, so a refused replacement now names the offending pointer **as well as** the
-  strategy. Recorded rather than deleted because the acceptance criterion below is still
-  written to the weaker promise — strengthening it to assert the field name is an
-  outstanding matrix edit, not a missing behaviour.
+  strategy. Recorded rather than deleted as the history of why the declared meaning is
+  worded the way it is; the acceptance criterion below now asserts both halves, the field
+  and the strategy, so nothing here is outstanding.
 - The site's settings still carry a vestigial navigation key that nothing renders.
   Navigation is expressed in the element tree; that a caller is shown a setting with no
   effect is a separate defect and is not addressed here.
