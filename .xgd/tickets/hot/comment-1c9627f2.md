@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-217
 created_by: xgd
 created_at: '2026-09-10T22:08:15.541627+00:00'
-updated_at: '2026-09-10T22:14:57.659901+00:00'
+updated_at: '2026-09-11T22:30:00.838972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,15 @@ The Worker's wiring is trivial and correct: `chatHost` is already keyed on `scop
 5. No click handler — REQ-220.
 
 Two things I'd like your call on before I touch anything: whether the display line should be **only** for `write_image` now (leaving `create_image` genuinely untouched until REQ-149 lands), and whether baking a business-scoped absolute URL into the **archived transcript** is acceptable to you — it's durable text that names `/b/<id>`, and the alternative (a site-relative handle rewritten at render time) would require the chat pane to learn what site it is showing, which `chat.js:7-12` deliberately refuses to know.
+
+<!-- xgd-turn id="77002d07-79c8-47ea-9160-8a14b477a280-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:30:00.310547+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
