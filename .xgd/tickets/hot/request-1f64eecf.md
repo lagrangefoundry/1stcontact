@@ -5,7 +5,7 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-11T01:59:03.919873+00:00'
+updated_at: '2026-09-11T02:02:19.085189+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -217,3 +217,46 @@ report on as though it had seen something.
 has existed while the table that names their type had no entry for either, so
 both were labelled as raw bytes. Nothing needed that answer until something
 needed every image type rather than only the ones a page renders.
+
+
+## Corrections to "The design, settled", after reading EPIC-1's answers
+
+Those two sections were written before the epic's answers were on this ticket.
+Where they disagree, the epic wins on the first and this implementation departs
+from it on the other two, deliberately and for reasons recorded here.
+
+**Retracted: "The assistant can see what is there."** There is **no**
+`list_images` operation. A Library listing is a different capability, it is
+deliberately out of scope, and the reason it does not need to exist is the one
+the epic gives: a picture's handle arrives in the result of whatever made it,
+which is exactly the case this ticket exists to fix. Everything else the
+assistant can reach is already in `list_assets`. What survives is the naming
+rule, which is what "however it is referenced" actually asks for: the handle it
+was given, the Library title, the filename, the `/assets/…` handle, or the bare
+drawing name.
+
+**Departed from: "raster waits for the renderer."** Every stored picture — raster
+as well as drawn — is normalised here and now, because the argument for waiting
+does not survive carrying the bytes. The epic assumed the browser could only be
+reached through a URL, and a Library picture has no URL an unauthenticated
+browser may fetch. It does not need one: the picture travels to the browser
+inside the document it is photographed in. So the downscale, the reported size
+and `compare` all work today for a photograph, which is the ticket's own headline
+claim about `compare` made true rather than deferred. When the renderer lands it
+replaces this at one seam and nothing else moves.
+
+**Departed from: "the CLI omits the kind."** The local builder answers for the
+site's own assets and says it holds no Library. Omitting the kind outright is
+right where a deployment cannot do the thing at all; this one can — a drawing it
+has just written is on its own disk, and that is the very loop `measure_drawing`
+was built for. What the epic's rule is protecting against is a model apologising
+for a capability it does not have, and a kind that works for everything this host
+holds does not produce that.
+
+**And the cost of that departure, stated.** A drawing is photographed in a bare
+document rather than inside the site's own page, so the `@font-face` rules the
+site serves are out of scope and its text renders in the browser's default face.
+The epic is right that the site's page is the better font context. The picture
+says plainly that it is not that, and points at `measure_drawing`, which reads a
+drawing's real geometry inside the draft. Moving the drawn path onto the draft
+preview is a refinement this design leaves open at the same seam.
