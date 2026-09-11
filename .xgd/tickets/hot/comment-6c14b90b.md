@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T19:21:13.597060+00:00'
+updated_at: '2026-09-11T19:24:18.716660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -407,5 +407,68 @@ I think I understand 1 - you are saying that when I am looking at the site in pr
 Please give me more context on 1 and 2.
 
 I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:24:18.553776+00:00" -->
+#### Claude
+Let me go read the preview path rather than describe it from memory.
+
+I've traced both. Here's what's actually going on.
+
+## 1 — Preview isn't a different page. It's the same page at a different address.
+
+You're right that it's the site running in a frame, and it genuinely is — same renderer, same module code, byte-for-byte the same `<form>`. Nothing about the form is rewritten for preview.
+
+**And it isn't a cross-site posting question. It's the exact opposite: the form posts *same-origin*, and in preview "same origin" is the builder rather than the site server.**
+
+The action is `/api/lead` — root-relative. A root-relative URL resolves against whatever host served the document, and the two channels are served by two different Workers on two different hosts:
+
+| | Document URL | `/api/lead` resolves to | Who answers |
+|---|---|---|---|
+| **Preview** (iframe) | `app.1stcontact.io/preview/1stcontact/draft/` | `app.1stcontact.io/api/lead` | control-app — **no such route** |
+| **Published** | `1stcontact.io/` | `1stcontact.io/api/lead` | public-site — `leadTarget()` → apex site |
+
+I grepped control-app for any lead route: there is none, by REQ-223 §3.2's deliberate design — the intake is a `LeadIntake` service-binding entrypoint, not a path, specifically so it can't be reached by naming it in a URL. So an unmatched POST falls through `router.ts` to `env.ASSETS.fetch(request)` and comes back 404, and `client.js` prints `Something went wrong (404). Please try again.` A different message from the one you originally hit, same dead end.
+
+**Two more differences worth knowing, both in the same direction:**
+
+- **Edit mode strips the form entirely.** `component.ts:110` — in the `edit` channel the form gets no `action` and no `method`, and the channel ships no client script at all (REQ-116: a click inside edit mode must edit, never submit). So only View mode has a live form; Edit mode's can't post anywhere by construction.
+- **Turnstile only exists on the published channel.** The sitekey is deployment config, not site content, so `public-site/index.ts:312` stamps it onto the HTML at serve time. control-app's preview never does — the mount div is there and empty. Even if preview could reach the endpoint, it would have no token to send.
+
+**The design tension this exposes.** Whoever wrote the original `https://app.1stcontact.io/beta-apply` was, I suspect, solving exactly this: an absolute URL posts to the same place from both channels. The reason REQ-223 chose relative is that absolute reintroduces cross-origin — CORS preflight plus the Access gate, which is what was breaking it in the first place. So the choice is real, not an oversight, and its cost is precisely that a preview submission has nowhere to go.
+
+Three ways out, and I'd want your call rather than to pick one:
+
+1. **Preview declines to submit and says so** — the form shows "submissions work on the published site" rather than an error. Honest, cheap, and consistent with edit mode already refusing.
+2. **control-app proxies `/api/lead` to the same `LeadIntake` binding.** Preview then works end-to-end — but it writes *real contacts into the real tenant*, so every time you test the form you put a row in the CRM.
+3. **Absolute action pointing at the published apex.** Preview posts cross-origin to public-site. Needs CORS on the endpoint, and breaks in local dev where there is no published apex.
+
+## 2 — The XGD forms will post into the wrong tenant
+
+Verified directly against the live D1 rather than the repo copy:
+
+```
+1stcontact  home.json        "action": "/api/lead"     ← apex, correct
+xgd         home.json        "action":"/api/lead"      ← not apex
+xgd         whitepapers.json "action":"/api/lead"      ← not apex
+```
+
+(There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.)
+
+`leadTarget()` in `public-site/index.ts:181` reuses `parseRoute`, so the site key comes from the URL grammar and nothing else:
+
+```ts
+if (parsed.kind === 'apex'  && parsed.path === LEAD_PATH) return apexSiteKey || null
+if (parsed.kind === 'asset' && parsed.path === LEAD_PATH) return parsed.siteKey
+```
+
+XGD publishes to `1stcontact.io/site/site_9a3dcd09…/`. A bare `/api/lead` is not under `/site/`, so it parses as **apex** — and the whitepaper leads land in the 1stcontact tenant's contact list, not XGD's. Not a security hole (nobody can retarget a tenant they don't own — the URL is ours), but the wrong destination, silently.
+
+REQ-223's UATs don't catch it because they construct `/site/<key>/api/lead` themselves rather than following the action the renderer actually emits. That's the gap worth closing: **an assertion that a rendered form's action resolves to its own site.**
+
+The correct value is `/site/<key>/api/lead`. I should correct something I said last turn: I offered document-relative `api/lead` as working for both, and that's only true while page slugs are flat. On a page at `/site/<key>/blog/post/` it would resolve to `…/blog/post/api/lead`, which parses as an asset path and misses the endpoint. Today's slugs are flat so it happens to work, but it's fragile and I'd use the explicit form.
+
+I've left XGD alone — different site's content, and it's not what BUG-78 is about. Say the word and I'll fix it, or file it.
 
 <!-- xgd-chat-end -->
