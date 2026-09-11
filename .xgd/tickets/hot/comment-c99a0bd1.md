@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-07T20:50:18.739355+00:00'
+updated_at: '2026-09-11T18:53:39.096009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -246,5 +246,18 @@ BUG-59 is free-coded and merged into `xgd-working`.
 The KB-backed suites in that list fail because `1c kb build` hasn't run in this checkout; the builder-origin ones because the shared-store install is incomplete. Neither is this ticket's.
 
 **Still unproven, and I want to be plain about it:** the live composition — access-sim in front of `wrangler dev` with `bin/publish` — could not be re-run with the new token shape, because `wrangler dev` doesn't build in any checkout (`KnowledgeDocs` isn't re-exported from the installed `@lagrangefoundry/ai-knowledge` index). Both halves are covered by suites driving the real thing — a real signed `common_name` token through the Worker's own `fetch`, real gate, real D1; and a real `bin/access-sim` process in front of a stub origin — but the three-process composition is not.
+
+<!-- xgd-turn id="432230e1-1719-4ae4-951c-297434faa19d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T18:53:38.061157+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-59` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-59`
+- branch HEAD: `99b88111d9bc79dfebc30756181ba41408f01f99`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
