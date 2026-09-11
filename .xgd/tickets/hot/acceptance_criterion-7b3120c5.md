@@ -6,10 +6,10 @@ title: Above the floor with a describer, the landscape is a clustered map of des
   territories
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:47:56.958539+00:00'
-updated_at: '2026-09-11T03:47:56.958539+00:00'
+updated_at: '2026-09-11T04:01:56.023092+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ea7b4646
   kind: behavior
