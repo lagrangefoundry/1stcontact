@@ -62,7 +62,11 @@ In scope:
   as a change to the site is, rather than reaching the model by a second route.
   That grant is read-only, and it names the system knowledge base on both scope
   axes — what may be searched and what may be read — from one declaration, so the
-  two cannot come to mean different things.
+  two cannot come to mean different things. This holds **wherever the
+  conversation is served**: the built corpus travels with the application build
+  rather than being read off the operator's own disk, so a conversation on the
+  deployed runtime searches the same documents, is primed with the same map and
+  is confined by the same grant as one on the operator's machine.
 - **Continuity** — one conversation per site, stored **through the store the site
   belongs to** rather than beside a directory on one machine, replayed after the
   host that served it is gone, and never sacrificed to report an unrelated
@@ -88,11 +92,15 @@ In scope:
   that names no site this account holds refused outright before anything of the
   assistant's is streamed, and never dressed as the assistant having tried; a
   failure after streaming has begun delivered inside the stream so nothing is
-  left hanging. A knowledge base that was never built is not a failure at all — it is
-  an ordinary state, and the conversation runs on its site operations alone —
-  while one that *was* built and cannot be opened is reported rather than
-  silently dropped. Nothing the assistant says back, on any of those paths,
-  carries the credential the host holds.
+  left hanging. Having no knowledge base to open is not a failure at all — it is
+  an ordinary state, and the conversation runs on its site operations alone.
+  There are **two** ways to arrive in it: no knowledge base was ever built and
+  packed into the application, and no embedding model is available to search one
+  with. Both degrade to a conversation that still opens and still takes a turn,
+  never to a host that will not boot. A knowledge base that *was* built and
+  cannot be opened is a different situation and is reported rather than silently
+  dropped. Nothing the assistant says back, on any of those paths, carries the
+  credential the host holds.
 
 Out of scope:
 
@@ -112,16 +120,21 @@ Out of scope:
   (capability-c4c7a854); this story claims only that the conversation is written
   through the site's own store rather than beside it, and that no request address
   can name it.
-- **Building the knowledge base.** The corpus export, the document and chunk
-  indexes, the generated awareness map, the operator commands that produce them,
-  and the rule by which a document is a member of the corpus are their own
-  capability (STORY-117 / story-c4f329d3). This story claims only what a *built*
-  knowledge base does when it reaches a conversation, and what a conversation
-  does without one.
+- **Building the knowledge base, and packing it.** The corpus export, the document
+  and chunk indexes, the generated awareness map, the operator commands that
+  produce them, the rule by which a document is a member of the corpus, and the
+  packing of the built result into the application build so a runtime with no
+  filesystem can hold it, are their own capability (STORY-117 / story-c4f329d3).
+  This story claims only what a *built and packed* knowledge base does when it
+  reaches a conversation, and what a conversation does without one.
 - **Retrieval quality.** Ranking, chunking and clustering belong to the knowledge
   library. Nothing here claims a particular answer is the best available one —
   only that the corpus is reachable through declared operations and that priming
   is a map rather than the documents.
+- **The tenant's own knowledge base.** The client's conversations, uploads and
+  captures are a second corpus with its own residency, its own tenancy barrier
+  and its own refresh clock. Nothing here is tenant-scoped; the corpus this story
+  reaches is the shipped one, identical for every account.
 
 ## Technical Context
 
@@ -231,7 +244,11 @@ Out of scope:
   store, with the model client as the single double — one that speaks the
   streaming wire protocol the backend actually consumes, because a
   finished-message double would assert against a fiction. Nothing here is
-  asserted against a live model provider.
+  asserted against a live model provider. The knowledge half is evidenced the
+  same way and with one more stand-in: the deployed runtime proxies its embedding
+  model to a live account, so the embedder is stood in for too, and the corpus is
+  one the test planted rather than whichever documents happened to be exported
+  that week.
 
 ## Reconciliation Decisions
 
@@ -310,6 +327,59 @@ Decisions taken on **2026-08-31** while reconciling BUNDLE-21 (BUG-38).
   the assistant having tried and failed — holds in both, while the criterion was
   previously written as though only the first origin existed.
 
+Decisions taken on **2026-09-10** while reconciling BUNDLE-26 (REQ-158). The
+intent's stated acceptance is that the assistant, asked a question whose answer
+lives only in a design document, answers from it and names the document — "this
+is the acceptance criterion that matters; the rest are the mechanism." The
+decisions below are about what the matrix should therefore assert, and what it
+should stop asserting.
+
+- **The deployed runtime stops being an instance of the no-knowledge ordinary
+  state, and the Technical Context sentence saying otherwise is withdrawn.** That
+  sentence was true when it was written — the corpus was reachable only through
+  the operator's filesystem, so a conversation served anywhere else had nothing
+  to reach. The intent's whole subject is removing that limitation, so the
+  sentence is not a claim this story can keep. It is replaced rather than
+  deleted, because the distinction it drew (absent is ordinary, unopenable is
+  reported) is still exactly right and only its third example was wrong.
+- **AC-1320 keeps its shape and changes its two situations.** The criterion has
+  always been "the ordinary absence, stated against the exceptional failure". The
+  reconciliation's decision is to keep that structure and replace the pair of
+  ordinary situations it names — a workspace that never built one, and the
+  deployed host as such — with the pair the code now has: nothing built and
+  packed, and no embedding model to search with. The exceptional half (built,
+  and then unopenable, reported on the error output) is untouched.
+- **"Reaches the knowledge base in the deployed runtime" is claimed as the
+  assistant's answer, not as the wiring.** The intent says the behavioural test
+  is the one that matters, so the criterion is written at the conversation: a
+  question whose answer lives only in a design document is answered from that
+  document, the reply names it, and the document that answers outranks one that
+  does not. That last clause is this reconciliation's addition — without it, a
+  search that handed back the whole corpus in corpus order would satisfy the
+  first two exactly as well, and the criterion would be vacuous.
+- **The no-filesystem property is stated as the setting, not re-asserted as an
+  import-graph walk.** The intent asks that the Worker-safe opener exist and that
+  "the existing static-import-graph assertion still passes". That assertion is
+  AC-1406's and it is unchanged; restating it on the knowledge path would be a
+  second place for the same guard to drift. The new criterion instead runs inside
+  the deployed runtime, where there is no filesystem to fall back to, so reaching
+  the corpus there is itself the evidence that the path is a packed one.
+- **The absent model binding is formalised as a criterion, though the intent only
+  names it in passing.** The intent's acceptance says a missing corpus "degrades
+  to no knowledge tools, never to a boot failure" and says nothing about the
+  model binding. The code has two routes to the same state and the second is the
+  one that will actually happen in a misconfigured deployment. Formalised now, as
+  this reconciliation's decision, because an unstated degradation is the kind
+  that gets traded for a throw by someone who did not know it was load-bearing.
+- **Priming and the grant are claimed on the deployed host specifically, rather
+  than treated as covered by the existing host-neutral criteria.** AC-1319 and
+  AC-1318 state the properties; they were evidenced only where the corpus could
+  be reached, which was one host. The decision is to add criteria that pin them
+  in the deployed runtime rather than to widen the existing two, because the two
+  hosts construct the surface through different code and can fail independently —
+  and the grant's read-only half is asserted as an equality over the offered
+  operations, so an operation added upstream cannot enter the grant unnoticed.
+
 ## Dependencies
 
 The declared control surface the assistant acts through, and the browser pane
@@ -317,8 +387,9 @@ that renders the conversation, are related work that must not be re-derived here
 The store the transcript and audit are written through is the site-store
 capability (capability-c4c7a854), and the origin that hosts the routes is CAP-85
 (story-e674c60a). The knowledge half additionally depends on the system knowledge
-base having been built (STORY-117 / story-c4f329d3) — but only for its knowledge
-criteria; every other criterion holds with no knowledge base present at all.
+base having been built *and packed into the application build* (STORY-117 /
+story-c4f329d3) — but only for its knowledge criteria; every other criterion
+holds with no knowledge base present at all.
 
 ## Story Points
 
