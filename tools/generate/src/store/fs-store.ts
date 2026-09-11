@@ -169,6 +169,13 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       const out = distDir(ctx, slug, 'published')
       emptyDir(out)
       for (const [rel, text] of content.out) writeText(path.join(out, rel), text)
+      // [[REQ-222]] — the delivery renditions, beside the pages that name them.
+      // They land under `out/` only: a revision DIRECTORY is what a checkout
+      // reads back as a draft, and derived bytes are not part of the definition.
+      for (const [rel, bytes] of content.derived ?? []) {
+        ensureDir(path.dirname(path.join(out, rel)))
+        fs.writeFileSync(path.join(out, rel), bytes)
+      }
       for (const { name, bytes } of content.source.assets) {
         ensureDir(path.join(out, 'assets'))
         fs.writeFileSync(path.join(out, 'assets', name), bytes)
