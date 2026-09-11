@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T02:06:32.217802+00:00'
+updated_at: '2026-09-11T21:13:02.879038+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -410,5 +410,11 @@ REQ-222 widened for delivery and reachability. Delivery via per-width `backgroun
 **2. Is a slow first publish acceptable?** Publishing is synchronous behind a toolbar button. A photo-heavy site's first publish is every picture × every rung of transforms plus R2 writes. Republishes are near-free once the cache exists — the first one isn't, and nothing today batches or defers it. Accept it, or should REQ-222 carry progress feedback or deferral?
 
 And one thing I'd like a yes/no on: **the silent Library-drop failure**. It's now blocking, not cosmetic — REQ-221's honest refusal is delivered through exactly the path that swallows errors on Library drops. Shall I file it?
+
+<!-- xgd-turn id="37c705bd-f223-499e-9c1c-ef8b50e8a2f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:13:01.650410+00:00" -->
+#### You
+ok 1 - yes 2 - how slow is slow - minutes is acceptable (with user explanation, hours requires a different UX
 
 <!-- xgd-chat-end -->
