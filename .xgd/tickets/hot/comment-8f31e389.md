@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T02:11:25.264609+00:00'
+updated_at: '2026-09-11T02:41:28.081931+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,21 @@ Want me to fold these into the ticket body — as an "Open questions before impl
 <!-- xgd-chat role="user" ts="2026-09-11T02:11:24.690256+00:00" -->
 #### You
 Please reread the ticket your answers are there and proceed with the implementation
+
+<!-- xgd-turn id="4e20f6a8-52a9-4990-a04b-3a1861e90566-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:41:26.829858+00:00" -->
+#### Claude
+Rereading — you're right, the ticket answers them: it is the *surface*, the recipe model and renderer are REQ-219's, focal point is stated as a thing the modal sets, and "interaction is local; truth is rendered" is the preview contract. Proceeding.
+
+Ticket scoped. Now cutting the branch.
+
+Now the implementation. Starting with the operation vocabulary — the one list.
+
+Now the type pack fields and the routes.
+
+Now wiring the two entry points together in `app.js`.
+
+Now the UAT suites. Starting with the pure vocabulary/rendering contract.
 
 <!-- xgd-chat-end -->
