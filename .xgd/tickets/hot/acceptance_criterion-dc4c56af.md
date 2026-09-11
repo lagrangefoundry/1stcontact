@@ -6,10 +6,10 @@ title: An empty or whitespace-only description is refused with its reason, and t
   stored description is unchanged
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:19:06.201442+00:00'
-updated_at: '2026-09-11T05:19:06.201442+00:00'
+updated_at: '2026-09-11T05:28:53.022576+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
