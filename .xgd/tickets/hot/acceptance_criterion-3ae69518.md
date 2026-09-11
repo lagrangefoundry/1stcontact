@@ -2,8 +2,8 @@
 uid: acceptance_criterion-3ae69518
 id: AC-1295
 type: acceptance_criterion
-title: A document is in the knowledge base only when it explicitly opts in, and only
-  as a genuine boolean
+title: A document is in the knowledge base only when its kind says so, and the retired
+  boolean is not membership
 created_by: xgd
 created_at: '2026-08-20T04:16:45.054659+00:00'
 updated_at: '2026-09-10T08:04:25.755347+00:00'
@@ -19,15 +19,15 @@ fields:
 
 ## Criterion
 
-A document is in the knowledge base only when it explicitly opts in, and only when the opt-in is a genuine boolean true. Every other state is out:
+A document is in the knowledge base only when it declares the document kind that means *this document is the assistant's* — `doc_kind: system_kb`, a single-valued kind rather than a flag, so that "this architecture document is **also** a system document" cannot be said. Every other state is out:
 
-- the flag absent
+- the kind field absent
 - the document carrying no fields at all
-- the flag present and false
-- the flag present as the *text* "true"
-- the flag present as the number 1
+- the kind present but naming a different kind (`architecture`, `security_policy`, …)
+- the kind present as a near-miss spelling of the member kind
+- **the retired `system_kb: true` boolean, which is not membership** — a document still carrying it from before the rule changed is not in the knowledge base
 
-A value that merely looks like true is a document whose frontmatter did not parse the way its author assumed; admitting it would hide exactly the failure worth seeing, which is a document silently reaching a client-facing assistant.
+The retired boolean is superseded rather than deprecated: nothing honours both markers, so there is one membership rule rather than two. Honouring a marker nobody maintains any more would put a document in front of a client-facing assistant on the strength of it, which is the failure this rule exists to prevent.
 
 ## Verification
 
