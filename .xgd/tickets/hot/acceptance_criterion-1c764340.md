@@ -6,9 +6,9 @@ title: Everything callable is declared and everything declared is callable, meas
   over the composition of the portable core and the host's own operations
 created_by: xgd
 created_at: '2026-08-10T09:06:03.586412+00:00'
-updated_at: '2026-08-31T10:40:10.724825+00:00'
+updated_at: '2026-09-11T01:49:31.515266+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-93905de4
