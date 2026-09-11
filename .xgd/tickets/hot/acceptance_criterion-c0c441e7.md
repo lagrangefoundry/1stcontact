@@ -6,10 +6,10 @@ title: 'A describer that is reached and fails costs findability and nothing else
   the file is stored and the upload is never reported as failed'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:23:45.836910+00:00'
-updated_at: '2026-09-11T04:23:45.836910+00:00'
+updated_at: '2026-09-11T04:35:57.573073+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4cabde9a
   kind: behavior
