@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:35:58.884283+00:00'
+updated_at: '2026-09-11T22:45:09.699299+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -772,5 +772,19 @@ REQ-219 decided to leave it: a description describes the original. The reason to
 **Genuinely unspecified but small:** what sentence the host supplies for `create_image`'s `host_display.display`. The seam asks for "the host's own words about its own surface," and nobody has written those words.
 
 All recorded on the epic. On REQ-150 — taking your word it's in flight; I've stopped looking and treated attachment fetch as a settled upstream dependency.
+
+<!-- xgd-turn id="3ac21e04-c912-408d-b10a-cd7f8ee33730-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:45:09.523979+00:00" -->
+#### You
+1 - ok this will bite us. What's the right fix? Delete the image before publication? Or support an explicit replacement - I guess the second is going to lead to less glitches during publication. Can you create a ticket for this?
+
+2. Is this really an issue today - we only support one site per tenant so sharing images across sites is not a thing
+
+3. Each ticket can catalog multiple assests my intention (should have stated explicitly obviously) was that the ladder for an image X is catalogued under the ticket X. We could even create fields.image_ladder[] and have a list of pointers to different sized copies of the same image
+
+4. Re-promotion updates the draft; a published revision is frozen. So crop-and-don't-republish means the live site keeps the old picture. <-- confused...draft and published differ that is the intended semantics, what is the problem here? Changes ONLY propagate to the site when they are published.
+
+5. That's fine
 
 <!-- xgd-chat-end -->
