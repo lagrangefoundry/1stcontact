@@ -6,10 +6,10 @@ title: 'One overlay serves both entry points: the conversation and the Library r
   the same one'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:32:35.405430+00:00'
-updated_at: '2026-09-11T05:32:35.405430+00:00'
+updated_at: '2026-09-11T05:42:21.870257+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
