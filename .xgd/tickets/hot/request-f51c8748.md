@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-10T22:30:37.249789+00:00'
+updated_at: '2026-09-11T02:05:54.059619+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -165,3 +165,65 @@ and nothing today batches or defers it.
 
 Whoever picks this up: do not start on the background-image or `<picture>` work
 before those come back.
+
+
+---
+
+## Widened by the operator, 2026-09-10: background images are in scope
+
+The investigation's finding stands and decides the scope: the only raster site
+asset in the repo is referenced as `axes.backgroundImageUrl`, which `srcset`
+cannot reach. **A ticket that saved bandwidth on every picture except the one
+real photograph we have would be a ticket that reported success and changed
+nothing.** Background images are in scope, for delivery and for reachability
+both.
+
+### Delivery
+
+**A background image gets the same ladder as an `<img>`.** Same rungs, same
+content-addressed rendition names, same cap at the source width, same derived
+cache copied into the revision prefix. The ladder is a property of the picture,
+not of the tag that happens to place it.
+
+**Per-width `background-image` rules, not `image-set()`.** L1 already emits
+per-width rules, so the ladder rides machinery that exists rather than
+introducing a second mechanism with different browser support. The width the
+rule is chosen at is the same width the geometry keyframes already describe,
+which is what makes the choice principled rather than guessed — the same
+property that lets `sizes` be computed rather than hand-written on the `<img>`
+side.
+
+**So there are two sinks, not one, and the ticket's "single place" claim
+narrows.** `render.ts` remains the only place an `<img>` is emitted; the
+background rule is emitted elsewhere and needs finding. The underlying intent is
+unchanged and still holds: **no schema change** — a background image is an asset
+reference already, and which renditions exist is a property of the publish.
+
+### Reachability
+
+**A background image must be reachable by every capability in this epic, not
+just by the ladder.** It is an ordinary site asset, so most of this already
+follows and needs only to be verified rather than built:
+
+- **Looking at it** — [[REQ-218]]'s site-asset namespace covers it, and
+  `list_assets` already enumerates it, so the assistant can ask to see a
+  background exactly as it asks to see any other asset.
+- **Editing it** — it reaches the recipe by the same route as any placed picture:
+  material, promoted, re-promoted on a recipe change ([[REQ-219]]). Nothing about
+  a background makes that path different.
+- **Naming it** — [[REQ-220]]'s editable Library name is a property of the
+  material, so it holds for a background too.
+
+**The check that matters is that none of these quietly exclude it.** The risk is
+not that a background needs special handling; it is that a predicate written
+against `kind === 'image'` placed via an `<img>` will silently skip it and nobody
+will notice, because backgrounds are exactly the pictures nobody clicks on. Where
+a capability is asserted for pictures in this epic, it wants a case covering one
+placed as a background.
+
+### Consequence for sequencing
+
+This widens the ticket materially — a second sink, its own rendition wiring, and
+a reachability sweep across three siblings. It does not change what it depends
+on. Worth splitting only if the `<img>` half is ready to ship well before the
+background half; do not split it to make the first half look finished.
