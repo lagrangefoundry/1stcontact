@@ -5,9 +5,9 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-11T22:30:03.288318+00:00'
+updated_at: '2026-09-11T22:30:24.286799+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -335,3 +335,41 @@ drawings and captures is correct and should not change: a drawing is a site asse
 with no material record, no uid to recover and no recipe to edit, and [[REQ-219]]
 refuses SVG for transforms anyway. [[REQ-217]] has been told not to make its
 picture clickable for that reason.
+
+
+### Correction from EPIC-1, 2026-09-11: the drawing exclusion rests on a bug
+
+The epic endorsed `isEditablePicture` excluding drawings, partly on the grounds
+that a drawing has no material record, no uid to recover and no recipe to edit.
+**The first of those is a defect, not a property**, and endorsing it was wrong.
+
+The operator's constraint: *"all site materials MUST have catalogue (ticket)
+entries and MUST be available via the ticket API — that's what it was built for."*
+[[BUG-84]] records the gap with evidence — 14 SVG drawings live on sites, zero
+with catalogue entries — and `write_image` minting a ticket is the fix.
+
+**So the exclusion needs splitting into its two reasons, which have different
+lifetimes:**
+
+- **"No material record"** — temporary, and about to be false. Not a basis for a
+  permanent predicate.
+- **"An SVG cannot be cropped"** — permanent, and independent of records.
+  [[REQ-219]] refuses SVG because a normalised crop on a resolution-independent
+  drawing is not expressible and `info()` yields no dimensions for one.
+
+**The corrected behaviour: the modal should open for a drawing, and offer the name
+without the transform tools.** Naming is the half of this ticket that has nothing
+to do with pixels — *"one `mountFields` descriptor mounted in the pane and in the
+modal, committed through one call"* — and a drawing is exactly the kind of picture
+whose name matters, since `wordmark-option-a.svg` is a filename and not a name a
+client chose. Refusing to open at all denies the naming because the cropping is
+impossible.
+
+**This is not asking for work before [[BUG-84]] lands.** Until a drawing has a
+catalogue entry there is no uid and nothing to name, so today's behaviour is
+correct *as behaviour*. What is wrong is the **reasoning recorded for it**, which
+would have this predicate stay closed after the reason expired. When BUG-84 lands,
+a drawing should become nameable here without anyone having to rediscover why.
+
+**The `materialUidFromUrl` scope defect recorded above is unaffected** and remains
+this ticket's to fix.
