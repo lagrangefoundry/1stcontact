@@ -378,11 +378,16 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
     // the identical call or give up and tell the user the site is broken. So a
     // refusal has to carry the code AND what to do about it.
     //
-    // `validateOrThrow` reports the offending JSON pointer, and a `1c` user sees
-    // it — but `Toolbox._renderHostError` renders a DECLARED code as the code
-    // plus the surface's declared meaning and drops the host message, with no
-    // per-call detail channel. Recorded as an upstream finding; until it lands,
-    // the declared meaning has to carry the strategy rather than the specifics.
+    // The declared meaning carries that strategy, which is what AC-1090 asserts
+    // and all this test claims.
+    //
+    // It is no longer all the caller gets. The upstream gap once recorded here —
+    // a DECLARED code rendering as code + declared meaning, dropping the host's
+    // own message — has closed: `renderHostError` now appends the host detail for
+    // any code that does not set `host_detail: false`, so the `<pointer>: <reason>`
+    // thrown by `validateOrThrow` reaches the model and the refusal names
+    // `fontSizePx` too. Asserting the pointer is a strengthening of AC-1090 that
+    // has not been made yet; when it is, assert it here.
     const answer = await box.run('set_l1', {
       page: 'home',
       path: '0.0.0',

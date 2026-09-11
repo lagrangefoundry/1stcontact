@@ -797,15 +797,22 @@ export async function editL1Get(
  * a clone, the resulting site is validated whole, and on refusal the clone is
  * discarded and the draft is byte-unchanged.
  *
- * UPSTREAM FINDING, recorded where it bites. `validateOrThrow` reports the
- * offending JSON pointer — `/pages/0/l1/root/children/1/axes/fontSizePx` — which
- * is precisely what a caller needs to correct a rejected subtree within the
- * turn, and `1c` users get it. A Toolbox caller does not: `Toolbox._renderHostError`
- * renders a declared code as `code + the surface's declared meaning` and drops
- * the host error's own message, with no channel for a per-call detail. That was
- * invisible while the only write was a four-field copy edit, where the generic
- * meaning was enough. It is not enough for a subtree, and the declared
- * `SCHEMA_INVALID` meaning carries the fallback strategy because of it.
+ * UPSTREAM FINDING, CLOSED. `validateOrThrow` reports the offending JSON pointer
+ * — `/pages/0/l1/root/children/1/axes/fontSizePx` — which is precisely what a
+ * caller needs to correct a rejected subtree within the turn, and `1c` users
+ * always got it. A Toolbox caller used not to: `renderHostError` rendered a
+ * declared code as `code + the surface's declared meaning` and dropped the host
+ * error's own message, with no channel for a per-call detail. That was invisible
+ * while the only write was a four-field copy edit, where the generic meaning was
+ * enough; it was not enough for a subtree, and the declared `SCHEMA_INVALID`
+ * meaning was written to carry the fallback strategy because of it.
+ *
+ * Upstream has since added that channel. `renderHostError` appends ` The host
+ * reports: <detail>` for any code that does not set `host_detail: false`, and the
+ * flag is opt-*out* — our `SCHEMA_INVALID` declaration does not opt out, so the
+ * `<pointer>: <reason>` message thrown above now reaches the model intact. The
+ * declared meaning keeps the fallback strategy: the two are complementary, and a
+ * caller that gets both corrects faster than one that gets either.
  */
 export async function editL1Set(
   slug: string,
