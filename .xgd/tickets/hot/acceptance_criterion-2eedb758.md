@@ -2,8 +2,8 @@
 uid: acceptance_criterion-2eedb758
 id: AC-1488
 type: acceptance_criterion
-title: The same file is one stored object within an account and two separate objects
-  across two accounts
+title: 'Attached bytes are located by the record that names them within the account''s
+  namespace: one record one object, and two accounts two unreachable objects'
 created_by: xgd
 created_at: '2026-09-02T00:17:15.580046+00:00'
 updated_at: '2026-09-10T02:22:16.348384+00:00'
@@ -19,13 +19,15 @@ fields:
 
 ## Criterion
 
-Where attached bytes are stored is derived from the bytes themselves and from the account the store
-handle is scoped to, with both consequences observable:
+Where attached bytes are stored is derived from the attachment record that names them and from the
+account the store handle is scoped to, with both consequences observable:
 
-- **Dedup within an account.** Attaching identical bytes twice under one account yields the same
-  content address on both attachment records and resolves to one stored object, not two copies.
+- **One record, one stored object — no dedup within an account.** Attaching byte-for-byte identical
+  content twice under one account yields two attachment records carrying the *same* integrity digest
+  and two *distinct* stored locations, both holding an object. The digest describes the bytes; it is
+  not where they live, and identical bytes are not collapsed into a shared object.
 - **Isolation across accounts.** Two handles scoped to two different accounts, attaching byte-for-byte
-  identical content, yield records carrying the *same* content address and objects at two *different*
+  identical content, yield records carrying the *same* integrity digest and objects at two *different*
   absolute locations. Both objects exist independently; neither account's bytes are reached at the
   other's location, and removing or replacing one leaves the other untouched.
 
@@ -37,6 +39,6 @@ choosing the address.
 
 Inside the deployment's runtime against a real object store: obtain two handles scoped to two
 different accounts, attach the same byte sequence through each, and assert the two attachment records
-carry the same content address while the two absolute locations differ and both hold an object.
-Separately, attach the same bytes twice within one account and confirm the two records address one
-stored object.
+carry the same integrity digest while the two absolute locations differ and both hold an object.
+Separately, attach the same bytes twice within one account and confirm the two records carry one
+digest and address two distinct stored objects, both present.
