@@ -5,10 +5,10 @@ type: request
 title: Discontinue the raw-server hosting path (1c serve)
 created_by: xgd
 created_at: '2026-09-02T23:06:22.597809+00:00'
-updated_at: '2026-09-11T19:17:36.867981+00:00'
+updated_at: '2026-09-11T23:43:04.359545+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: medium
   story_points: 2
@@ -20,7 +20,6 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.48
-  bundled_in: bundle-17777c71
 ---
 
 # Discontinue the raw-server hosting path — and stop calling the test fixtures "servers"
