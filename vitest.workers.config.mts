@@ -20,6 +20,10 @@ import { defineConfig } from 'vitest/config'
  *   DB    — the D1 database the store port will use. No Worker declares it yet;
  *           this is where it gets declared first, which is the point of the
  *           ticket.
+ *   IMAGES — Cloudflare Images ([[REQ-222]]), what a publish builds a picture's
+ *           delivery width ladder with. Miniflare backs it locally with `sharp`,
+ *           so a UAT can publish a REAL photograph and assert the widths that
+ *           came out rather than the widths a fake was told to return.
  *
  * `compatibilityDate`/`compatibilityFlags` copy the apps' wrangler.toml so the
  * test runtime is the production runtime, not a newer one that would let a test
@@ -50,6 +54,11 @@ export default defineConfig({
         // image, which is worse than no suite at all. What these bindings do
         // prove is the half the local renderer really performs, against the real
         // binding API rather than a hand-written stand-in of it.
+        //
+        // REQ-222 uses the SAME binding for a publish's delivery width ladder,
+        // and that half the local renderer does perform faithfully — `width` is
+        // one of the three verbs it honours — so a UAT can publish a real
+        // photograph and assert the widths that actually came out.
         images: { binding: 'IMAGES' },
       },
     }),

@@ -6,6 +6,7 @@ import {
 } from '../../tools/generate/src/store/revision-model'
 import { memorySiteStore, type MemorySiteSeed } from '../../tools/generate/src/store/memory-store'
 import { publishSite } from '../../tools/generate/src/publish/publish'
+import type { ImageLadder } from '../../tools/generate/src/publish/ladder'
 import type { SiteDatabase } from '../../apps/public-site/src/site-store'
 
 /**
@@ -121,6 +122,12 @@ export function seedPublished(
   for (const [rel, text] of content.out) {
     fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(text, 'utf8'))
   }
+  // [[REQ-222]] — the delivery renditions, beside the pages that name them and
+  // under `out/` only. They are NOT copied into `source/` below: a checkout
+  // restores what the site is, and a rendition is not part of that.
+  for (const [rel, bytes] of content.derived ?? []) {
+    fixture.bucket.objects.set(`${out}/${rel}`, Buffer.from(bytes))
+  }
   for (const { name, bytes } of content.source.assets) {
     fixture.bucket.objects.set(`${out}/assets/${name}`, Buffer.from(bytes))
   }
@@ -170,6 +177,15 @@ export async function publishInto(
   fixture: PublishedFixture,
   slug: string,
   seed: MemorySiteSeed,
+  /**
+   * [[REQ-222]] — the delivery ladder this publish builds, if any.
+   *
+   * OPTIONAL, because the overwhelming majority of these suites are about the
+   * URL grammar and the header policy and want the publish they have always had.
+   * A caller that passes one is asserting something about renditions, and gets
+   * them at the keys the real publish chose rather than at keys it invented.
+   */
+  ladder?: ImageLadder,
 ): Promise<{ id: number; content: RevisionContent }> {
   let store = fixture.drafts.get(slug)
   if (!store) {
@@ -188,13 +204,17 @@ export async function publishInto(
       assets: Object.entries(seed.assets ?? {}).map(([name, bytes]) => ({ name, bytes })),
     })
   }
-  const result = await publishSite(store, slug)
+  const result = await publishSite(store, slug, { ladder })
   const source = await store.readRevision(slug, result.id)
   const out = store.renderedRevision(slug, result.id)
   if (source === null || out === null) {
     throw new Error(`publish produced no revision for '${slug}'`)
   }
-  const content: RevisionContent = { source, out }
+  const content: RevisionContent = {
+    source,
+    out,
+    derived: store.derivedRevision(slug, result.id) ?? undefined,
+  }
   seedPublished(fixture, slug, result.id, content)
   return { id: result.id, content }
 }

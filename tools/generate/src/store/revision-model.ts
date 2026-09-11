@@ -77,6 +77,26 @@ export interface RevisionContent {
   source: StoredSnapshot
   /** Rendered artifact, by path within the snapshot's `out/`. */
   out: Map<string, string>
+  /**
+   * [[REQ-222]] — derived BYTES, by path within the snapshot's `out/`.
+   *
+   * A SECOND CHANNEL RATHER THAN A WIDER `out`, because these are not text and
+   * `out` is. The rendered artifact is HTML and CSS — strings all the way down,
+   * written with a charset — and a delivery rendition is a JPEG. Widening `out`
+   * to `string | Uint8Array` would put a type test in both adapters' write loops
+   * and in every reader, to express something the two maps say by being two maps.
+   *
+   * THEY DO NOT TRAVEL TO `source/`. A revision's `source/` is the frozen
+   * DEFINITION — what a checkout restores — and a delivery rendition is not part
+   * of what the site is. Writing them there would mean checking out a revision
+   * grew the draft six extra copies of every photograph, each of which would then
+   * be diffed, published, and copied again.
+   *
+   * EMPTY IS THE ORDINARY CASE. A publish with no image ladder (no binding, or a
+   * site with no raster pictures) supplies an empty map, and the revision that
+   * lands is exactly the revision that landed before this existed.
+   */
+  derived?: Map<string, Uint8Array>
 }
 
 /**

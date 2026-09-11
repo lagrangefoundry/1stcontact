@@ -18,6 +18,8 @@ import {
 } from './portal'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
+import type { ImageLadder } from '../../../tools/generate/src/publish/ladder'
+import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import { publicSiteUrl } from './public-url'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
@@ -627,12 +629,22 @@ export interface RouterEnv
    * refuses the file and names the format, which is the loud failure this
    * repository chooses over a Library row with no picture in it.
    *
-   * TWO CONSUMERS NOW, AND ONE DECLARATION ([[REQ-219]]). The other is the
-   * renderer an edit recipe is applied by: `/api/material/file` serves the
-   * Library its picture as it currently stands, and `sessionPicturesFor` hands
-   * the assistant the surface that changes one. Declaring the binding once, here,
-   * is what stops the second of those being wired to something the first has not
+   * THREE CONSUMERS NOW, AND ONE DECLARATION ([[REQ-219]], [[REQ-222]]). The
+   * second is the renderer an edit recipe is applied by: `/api/material/file`
+   * serves the Library its picture as it currently stands, and
+   * `sessionPicturesFor` hands the assistant the surface that changes one. The
+   * third is the delivery width ladder a publish builds, which rides that same
+   * renderer rather than reaching the binding itself. Declaring the binding once,
+   * here, is what stops any of them being wired to something the others have not
    * got.
+   *
+   * ITS ABSENCE IS A LOUD FAILURE FOR THE FIRST TWO AND A QUIET ONE FOR THE
+   * THIRD, deliberately. No binding means an upload of a HEIC is refused by name
+   * and the editing tool is not composed; it also means a publish carries no
+   * `srcset`, which is this repository's publish exactly as it was before the
+   * ladder existed, and exactly what `1c publish` does against an operator's
+   * disk. Refusing to publish would take away something that works in exchange
+   * for an optimisation.
    *
    * THE TYPE STAYS THE NARROW ONE the HEIC path named, and the renderer narrows
    * further at runtime rather than widening it here. `ImagesLike` names two calls
@@ -690,6 +702,16 @@ export interface RouterEnv
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
+  /**
+   * The delivery width ladder `/api/publish` builds ([[REQ-222]]).
+   *
+   * INJECTABLE FOR THE REASON THE STORE IS: the real one reaches a metered
+   * platform transform, so a UAT that wanted to assert what a published page's
+   * `srcset` says would otherwise have to pay for renditions to find out. It
+   * returns null where the deployment has no Images binding, and a UAT returning
+   * null is asserting the no-binding publish rather than simulating it.
+   */
+  ladder?: (env: RouterEnv, scope: Scope) => ImageLadder | null
   /**
    * The ticket store the ingestion routes write material into ([[REQ-163]]).
    *
@@ -2241,8 +2263,14 @@ async function routeUncached(
         return json(400, { error: 'slug is required' })
       }
       const store = await openStore()
+      // [[REQ-222]] — the delivery ladder, built here in the Worker and nowhere
+      // else. `publishSite` sequences it like every other step; what this line
+      // decides is only whether this DEPLOYMENT can build one.
+      const scope = requireScope()
+      const ladder = (deps.ladder ?? ladderFor)(env, scope) ?? undefined
       const result = await publishSite(store, body.slug, {
         message: typeof body.message === 'string' ? body.message : undefined,
+        ladder,
       })
       // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
       // address; the slug is what this business calls the site and means nothing
