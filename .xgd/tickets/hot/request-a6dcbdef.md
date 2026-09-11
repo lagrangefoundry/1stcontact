@@ -5,7 +5,7 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-11T19:29:19.440245+00:00'
+updated_at: '2026-09-11T19:42:55.391404+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -440,3 +440,14 @@ changes anything"* a checkable claim rather than a sentence.
 *"put it back as it arrived"*; a call that omitted the parameter is a mistake, and
 treating the two alike would throw away a client's crop because an argument went
 missing.
+
+**One binding, one declaration, and the renderer narrows to it.** [[REQ-221]]
+landed the `[images]` binding first, for the one thing the upload path needs it
+for — reading the HEIC an iPhone produces — and typed it on the router's env as
+`ImagesLike`, a two-call slice of the platform binding so a UAT can hand that
+path a double without implementing an image service. This adds the second
+consumer rather than a second declaration: the wrangler block and the env field
+stay singular and the type stays narrow, and `imageRendererFor` asks at runtime
+whether the object it was given can actually transform. Where it cannot, the
+answer is `null` — which is not a new state but the one a missing binding already
+meant: no editing surface, and every picture its own original.
