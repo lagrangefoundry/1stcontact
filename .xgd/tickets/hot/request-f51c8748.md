@@ -5,9 +5,9 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T19:51:33.887607+00:00'
+updated_at: '2026-09-11T19:51:38.047031+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -37,6 +37,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.165
+  story_points: 8
 ---
 
 ## The gap
