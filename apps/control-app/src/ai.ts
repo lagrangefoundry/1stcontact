@@ -362,6 +362,26 @@ export function workerHost(
    * has not got.
    */
   images: { surface: Untyped } | null = null,
+  /**
+   * What the `image` surface needs ([[REQ-219]]), or `null` where this
+   * deployment has no renderer to apply a recipe with.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason `fidelity` above is
+   * one: it needs the Images binding, the material bucket the renditions are
+   * cached in, this business's ticket store and the merged picture library
+   * [[REQ-218]] already builds — all of which are the router's to assemble, and
+   * none of which belong in this file's import graph.
+   *
+   * A FACTORY OVER THE SLUG, passed straight through, because a picture is named
+   * across the site's files as well as the Library's records and which site that
+   * is falls out of the session.
+   *
+   * NULL IS ORDINARY, not an error — the same shape a missing browser and a
+   * missing image credential already have. A deployment with no `[images]`
+   * binding still opens the session, still replays the transcript, and simply
+   * cannot crop anything.
+   */
+  pictures: HostDeps['pictures'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -450,6 +470,12 @@ export function workerHost(
             turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
         : null,
       fidelity,
+      // The surface that CHANGES a picture rather than looks at one
+      // ([[REQ-219]]). Two seams and not one, because a deployment can have a
+      // browser and no renderer, or a renderer and no browser, and an
+      // assistant that could crop a picture it could not look at is a shape
+      // nobody asked for but neither is it a reason to couple them.
+      pictures,
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

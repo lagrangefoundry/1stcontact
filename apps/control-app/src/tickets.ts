@@ -221,6 +221,39 @@ const MATERIAL_FIELDS = {
    * Only captures have one, so it is not required.
    */
   bundle: { type: 'string' },
+
+  /**
+   * What has been done to this picture, as a recipe — [[REQ-219]].
+   *
+   * AN ORDERED LIST OF PARAMETERISED OPERATIONS, and the original is kept
+   * forever: any state of the picture is the stored bytes plus a prefix of this
+   * list. That is what delivers *"the crop needs to be a little wider"* — not an
+   * undo, but a change to the crop operation's own parameters, months later,
+   * with the original still underneath. The undo stack is editor session state
+   * and is deliberately NOT persisted beside it: two histories that could
+   * disagree about what the picture is would be worse than one.
+   *
+   * A FIELD ON THE RECORD THAT ALREADY ANSWERS THE QUESTION, not a table. This
+   * record is what says what a picture is — its description, its rights, where
+   * it has been placed — and the recipe is one more answer to that. A table
+   * would be a join on every Library row that draws a thumbnail.
+   *
+   * DECLARED HERE, EVEN THOUGH THE ENGINE TOLERATES AN UNDECLARED FIELD, for the
+   * reason `description_status` is: an undeclared field is a convention rather
+   * than a schema, and the list is read by the renderer, the tool and the
+   * builder alike.
+   *
+   * THE ENGINE CHECKS ONLY THAT IT IS A LIST. What is *in* it is the operation
+   * vocabulary, which is `image-recipe.ts`'s to validate and is validated
+   * against the picture's own pixels — a normalised inset cannot be checked by
+   * anything that does not know how big the picture is.
+   *
+   * NOT REQUIRED, and absence reads as the empty recipe. Every picture that
+   * predates this field is unedited, which is exactly what "no entry" means, so
+   * nothing needs migrating and no consumer has to treat "never edited" as a
+   * third state distinct from "edited to nothing".
+   */
+  edits: { type: 'list' },
 }
 
 /**
