@@ -5,7 +5,7 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-11T01:40:20.024056+00:00'
+updated_at: '2026-09-11T01:59:03.919873+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -190,3 +190,30 @@ non-`draft` kinds do.
 builder in the cloud has both namespaces; the local `1c` has the site's assets
 and no Library, because the Library is tickets and it has none. Each says which,
 the same way a deployment with no browser says it cannot take pictures.
+
+
+### What that normalisation means in detail
+
+**A picture that is already a screenshot is left alone.** Every other kind of
+picture is PNG because a browser made it, so a stored PNG is already the currency
+and re-photographing it would cost a browser and flatten its transparency for
+bytes no better than the ones we had. Only a picture that is something else goes
+in front of the browser.
+
+**The bytes travel to the browser; the browser is never sent to fetch them.** A
+Library picture is in the client's private store behind the door that guards it,
+and there is no address an unauthenticated browser could read it from — inventing
+one would be a way into the client's confidential material. So the picture is
+carried, which also means one path serves both namespaces instead of one each.
+
+**It is pictures only.** The site's asset list holds fonts as well, and "look at
+this" has no answer for a typeface — so a font is not in the picture list and
+cannot be named as one. A picture the browser will not decode is refused by name
+rather than returned as a blank rectangle, which is what a model would otherwise
+report on as though it had seen something.
+
+**The site's own type table gains the two image types it had been missing.**
+`.gif` and `.avif` have counted as images in the asset listing for as long as it
+has existed while the table that names their type had no entry for either, so
+both were labelled as raw bytes. Nothing needed that answer until something
+needed every image type rather than only the ones a page renders.
