@@ -5,7 +5,7 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-09-10T21:50:36.493430+00:00'
+updated_at: '2026-09-11T22:51:04.714665+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -360,3 +360,34 @@ To be decided once scope is settled. Sketch, per defect:
    sibling of it — asserted on rendered geometry, not only on `hidden`, since
    `hidden` is precisely what the existing UAT already proves and it was not
    enough.
+
+
+---
+
+## Addendum — checked 2026-09-11, before starting work
+
+**4b is a data repair, not a repo change.** The committed draft for this site
+(`storage/sites/1stcontact/draft/pages/home.json`) already names the real route:
+
+```json
+{ "type": "account-chrome",
+  "config": { "signIn": "https://app.1stcontact.io/sign-in", ... } }
+```
+
+One module, `modules/0`, and no `account:` key. The instance the session was
+editing is `modules/1` — a second chrome, authored during that session — and it
+lives in the live store (the R2-backed site bucket), not in this checkout. So:
+
+- the **repair** is a one-line config edit against whichever draft that session
+  wrote, and nothing in this repository carries the bad value;
+- the **durable** fix is that `meta.ts`'s `signIn` doc reasons at length about
+  *why* it is a URL and never says what a 1c-hosted site's answer actually looks
+  like. A doc that named `POST /sign-in` as the built-in answer would have cost
+  the AI nothing to find.
+
+`sentMessage` has a precedent worth naming in the same breath: **`contact-form`
+solves the same problem with config markdown in a `<template>` and
+`root.innerHTML = successHtml`** — component-painted, not slot-bound, and it
+destroys the author's L1 subtree on success. So "unstyleable confirmation" is
+the house pattern rather than an account-chrome oversight. Deciding 4a/4c means
+deciding whether that pattern is right, which is why it is not a mechanical fix.

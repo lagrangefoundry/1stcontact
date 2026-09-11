@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:31:28.881726+00:00'
+updated_at: '2026-09-11T22:37:43.961277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -269,5 +269,44 @@ The live instance is a dev fixture and harms nobody — the door is the bug.
 **One consequence worth naming.** With drawings excluded, `placed_on` will never be a complete account of every byte in a site's assets, so REQ-228 shouldn't claim it is. I've rewritten Half D to say the honest thing instead: the catalogue is the complete account of *the client's material*, `list_assets` is the complete account of *the site's contents*, and they're not the same list. That's why Half B already recommended a peer listing rather than folding one into the other — "what's on the site" and "what the client has given us" really are two questions, and the bug was only ever that the second one couldn't be asked.
 
 Still open from last turn: which repo and number the `xgd ticket fetch` work actually lives under — lf's REQ-150 is the imagegen edit ticket, and `xgd ticket` has no `fetch` subcommand yet.
+
+<!-- xgd-turn id="84cc987c-3ced-4813-abf0-32172979caaf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:35:18.428001+00:00" -->
+#### You
+ok lets add SVG to library and just drop list_assets (or make it call the ticket API)
+
+<!-- xgd-turn id="84cc987c-3ced-4813-abf0-32172979caaf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:37:43.796301+00:00" -->
+#### Claude
+That reverses the drawings decision and makes the catalogue the single list. Let me check one thing first — there's prior art in this exact spot:
+
+Done — REQ-228 now takes the strong form, and BUG-84 is rescoped under it.
+
+**One list.** Every asset is a catalogue item; `list_assets` becomes a query over the catalogue filtered by `placed_on`. Drawings go in. The "client doesn't need to see the assistant's sketches" concern becomes a **filter on `kind` in the Library view** rather than a reason to keep things out — which also answers fonts and mirrored stylesheets, since if the listing is a catalogue view they need items too or the union comes straight back.
+
+**There's a landmine directly under this, and it's worth knowing before anyone starts.** `list_assets` *used to* read a registry. BUG-45's account, written on `editAssetGet` in `edit.ts`:
+
+> `list_assets` reported the union of `site.json`'s `assets` array and the store, so a file with bytes and no entry was listed — and `get_asset` on that same name raised NOT_FOUND… An assistant that lists, probes, and reads a manual describing an `asset_id` as "the REGISTERED name" can only conclude that an unregistered asset may not be used. **It cost a client their uploaded logo, replaced by a drawing.**
+
+BUG-44 fixed it by deleting the registry so "the listing and the site can no longer disagree." Pointing `list_assets` at the catalogue reintroduces one.
+
+That's fine — it's the right destination — but only under one invariant, which I've written into Half B as a requirement rather than a note: **the catalogue must be complete by construction, not by convention.** Every write path mints its item in the same operation; there is never a moment where bytes exist and an item doesn't. BUG-44's lesson isn't "never have a registry", it's "never have two sources that can disagree" — one is fine, two cost the logo.
+
+Two things follow that I've made requirements:
+- **Order.** Close every door into the catalogue *first*, verify, cut `list_assets` over *last*. Cutting over while any door still writes bytes without an item reproduces the incident exactly.
+- **A completeness check** asserting store and catalogue agree, so "complete by construction" is verified rather than hoped.
+
+**On "drop it" vs "make it a view" — they're materially different**, because `listSiteAssets` has four callers besides the AI, and one of them matters more than the others:
+
+- `imageHandles` — the builder's image picker
+- `1c asset list` — the Node CLI, which has **no ticket store**
+- `router.ts`'s asset route
+- **`validateOrThrow`** — every write that touches a page checks its asset references against this listing. Making it ticket-backed makes **page validation depend on the ticket store.**
+
+I'd take "make it a view": one listing, one implementation swapped underneath, four callers unchanged. Dropping it means each caller needs its own answer. The caveat on either path is the Node CLI having no D1, so the view has to resolve through whatever store the host actually holds.
+
+**BUG-84** keeps its own ticket but is now one door among several, because it's the only one with an exposure attached: a subresource mirrored from a captured third-party site reached a client site with no rights record, going around the gate `promoteToSiteAsset` enforces. That's worth closing whether or not the catalogue is ever unified. `write_image` moved out of it into REQ-228 Half D — a drawing this system composed has no rights question, and mixing the two would blur what the bug is for.
 
 <!-- xgd-chat-end -->

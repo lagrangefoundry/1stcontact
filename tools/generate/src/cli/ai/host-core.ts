@@ -365,6 +365,29 @@ export interface HostDeps {
 
   /** Operations only the host's runtime can implement (`add_asset`, `publish`). */
   extraOps?: Partial<L1Operations>
+
+  /**
+   * Where this host serves one of a site's own assets to the person being talked
+   * to, or `null` where it has no surface that could show a picture ([[REQ-217]]).
+   *
+   * A FACTORY OVER THE SLUG, exactly like `fidelity`, `pictures` and `ledger`
+   * above and for the same reason: a site asset is named within one site, and
+   * which site that is falls out of the session rather than out of the call.
+   *
+   * NULL IS ORDINARY AND IS THE DEFAULT. The `1c` CLI's conversation is a
+   * terminal: there is nowhere to put a picture and no origin to address it
+   * from, so a drawing is written and described in words, exactly as it was
+   * before this existed. The Worker supplies one, scoped to the business whose
+   * conversation this is — an unscoped path would be resolved against whichever
+   * business happens to be admissible first, which is the crossing `scope.ts`
+   * exists to prevent.
+   *
+   * IT ANSWERS WITH AN ADDRESS AND NOT A LINE. What that address is worth saying
+   * in — markdown, in this product's case — is the surface's business, and the
+   * surface prose that tells the model to paste the line is written beside the
+   * code that composes it.
+   */
+  assetUrl?: ((slug: string, handle: string) => string) | null
 }
 
 
@@ -615,6 +638,10 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       // measuring operations stay declared and granted and refuse with a
       // sentence naming the reason, rather than vanishing per deployment.
       measurer: fidelity ? browserMeasurer(fidelity) : null,
+      // WHERE A DRAWING CAN BE SEEN ([[REQ-217]]), or absent where it cannot be.
+      // Bound to this session's site here, so no operation takes a slug and no
+      // line can address a site the conversation is not about.
+      assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
         // The fidelity surface, when this deployment has the browser and the

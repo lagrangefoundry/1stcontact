@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:30:50.062643+00:00'
+updated_at: '2026-09-11T22:47:20.515850+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -716,5 +716,105 @@ Nothing here is blocked on it. For pictures, the byte paths already exist (`mate
 And worth keeping from BUG-80: an attachment fetch that returns bytes into a tool result is the exact shape that killed that session. If it's being built now, the size discipline wants settling in the same pass.
 
 Recorded on the epic, REQ-217, and REQ-220. No code, no status changes.
+
+<!-- xgd-turn id="205611dc-ed27-4bcb-91cc-292a4166eec0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:33:57.940138+00:00" -->
+#### You
+g; `xgd ticket` has no `fetch` subcommand today <-- As I said it is being build as we speak in REQ-150
+
+Is there anything else design wise that is still open the
+
+<!-- xgd-turn id="205611dc-ed27-4bcb-91cc-292a4166eec0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:35:58.827236+00:00" -->
+#### Claude
+Let me check rather than repeat myself — it may have moved or be a different repo.
+
+lf REQ-150 has zero occurrences of "fetch" and no other repo has a matching ticket — I'll take your word that it's in flight and stop hunting for it.
+
+Let me verify two things before I answer the design question, because they decide the sharpest item.
+
+Both confirmed. Here's the survey.
+
+Yes — five, and the first two are sharp enough to be worth your attention now.
+
+## 1. Re-promotion will mint `logo-2.png`, and the client's page will keep serving the old one
+
+The decided fix says a recipe change re-promotes. Promotion runs through `freeAssetName` (`material.ts:812`), which on collision appends `-2`, `-3`, `-4`. So the first crop produces `logo-2.png`, the second `logo-3.png` — while every page referencing `logo.png` keeps serving the **unedited** original, and a fresh orphan lands in the bucket on every commit.
+
+The trap is that this is the function promotion is *supposed* to use. Its own comment says why: *"promoting a second `logo.png` would REPLACE the first — silently changing a picture that is live on the client's site, from a surface whose whole promise is that it only adds."* Re-promotion needs exactly the behaviour that comment forbids, because it's the one caller for which replacing is right.
+
+So the two doors have to be told apart explicitly: a **new** placement takes a free name; a **re**-placement of a material that already records its asset name overwrites that name and mints nothing. Which is a second reason the recorded name is load-bearing — it's what distinguishes them.
+
+## 2. A picture placed on two sites
+
+`placed_on` is a list, and collision resolution may have given the same logo a different name on each site. So the record can't be one string — it has to be per-site. Follows directly from (1) and is unspecified today.
+
+## 3. Your catalogue rule and the width ladder collide on a literal reading
+
+BUG-84 scopes the rule to *"a **picture** that lands in a site's assets"*, excluding fonts and stylesheets as build output. **A delivery rendition is a picture and is build output.** REQ-222 writes up to six per photograph, and `<picture>` doubles that. Read literally, the ladder fills the client's Library with hundreds of derived files nobody uploaded and nobody can name.
+
+The line that works isn't "picture" — it's provenance. **Catalogued = authored or received** (uploaded, generated, drawn, captured). **Not catalogued = derived at publish** from a catalogue item, already content-addressed and owned by the revision that built it. This epic has drawn that exact line once before, between editorial versions and delivery renditions; it's the same line. Worth stating in BUG-84 explicitly, or whoever implements the rule will either flood the Library or quietly special-case the ladder and leave no record of why.
+
+## 4. Nobody tells the client an edit isn't live until they republish
+
+Re-promotion updates the draft; a published revision is frozen. So crop-and-don't-republish means the live site keeps the old picture. That's correct and consistent with REQ-220's *"what the client is looking at after a commit is what **will be** published"* — but nothing says it. Given you've just decided a publish should explain itself, this is the same class of thing and probably wants a sentence in the same place.
+
+## 5. Description staleness — punted, and worth re-affirming rather than inheriting
+
+REQ-219 decided to leave it: a description describes the original. The reason to revisit is that **the description is what the KB indexes**, so a crop leaves the knowledge base answering from text about a picture that no longer exists. `description_status` exists precisely to make a re-describe a query rather than a migration. Still a defensible punt — but it should be one you take again knowingly, not one that carries by default.
+
+---
+
+**Decided but unbuilt and easy to lose:** REQ-218's font-context refinement, REQ-220's parser scope defect and its three AC977 probes, REQ-222's `<picture>` + concurrency + progress + budget guard, and the promotion hole itself — still without a ticket.
+
+**Genuinely unspecified but small:** what sentence the host supplies for `create_image`'s `host_display.display`. The seam asks for "the host's own words about its own surface," and nobody has written those words.
+
+All recorded on the epic. On REQ-150 — taking your word it's in flight; I've stopped looking and treated attachment fetch as a settled upstream dependency.
+
+<!-- xgd-turn id="3ac21e04-c912-408d-b10a-cd7f8ee33730-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:45:09.523979+00:00" -->
+#### You
+1 - ok this will bite us. What's the right fix? Delete the image before publication? Or support an explicit replacement - I guess the second is going to lead to less glitches during publication. Can you create a ticket for this?
+
+2. Is this really an issue today - we only support one site per tenant so sharing images across sites is not a thing
+
+3. Each ticket can catalog multiple assests my intention (should have stated explicitly obviously) was that the ladder for an image X is catalogued under the ticket X. We could even create fields.image_ladder[] and have a list of pointers to different sized copies of the same image
+
+4. Re-promotion updates the draft; a published revision is frozen. So crop-and-don't-republish means the live site keeps the old picture. <-- confused...draft and published differ that is the intended semantics, what is the problem here? Changes ONLY propagate to the site when they are published.
+
+5. That's fine
+
+<!-- xgd-turn id="3ac21e04-c912-408d-b10a-cd7f8ee33730-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:47:20.210361+00:00" -->
+#### Claude
+Item 4 — you're right, that's just publish semantics and my flag was noise. Dropping it. Let me create the ticket for 1.
+
+REQ-229 created. Recording the rest.
+
+Linkage confirmed both ways. Now the epic record.
+
+**REQ-229** (`request-4b5c10e9`) — draft, high, child of EPIC-1. Bidirectional linkage confirmed.
+
+It carries explicit replacement as you called it, plus the two unbuilt halves it depends on (promotion recording the name; `reviseRecipe` re-promoting). Your reasoning is the ticket's: delete-then-add leaves a window where the site references an asset that doesn't exist, and a publish inside that window renders a snapshot with a hole in it.
+
+The mechanism that makes it safe turned out to be the recorded name doing double duty — **no recorded name = new placement, takes a free name; has one = re-placement, overwrites it.** That leaves `freeAssetName` untouched. Its "only ever adds" promise is correct for every door except this one, and the record tells them apart mechanically rather than with a flag someone has to remember.
+
+## On the others
+
+**2 — withdrawn.** You're right, one site per tenant means it's unreachable. I've noted where it would surface if that ever changes, as a note for whoever lifts the assumption rather than work for anyone now.
+
+**3 — your model is better than mine, and it dissolves the objection.** A ticket catalogues multiple assets, so the ladder for picture X hangs off ticket X — `fields.image_ladder[]` as pointers to the sized copies. The Library shows one item per picture and the renditions are what they actually are: sized copies, not pictures in their own right. It also brings them inside the attachment record, which is what blob GC reads, so a rendition stops being a bucket object nothing names.
+
+I should also correct my framing: on re-reading, the collision was narrower than I stated. REQ-222 writes renditions into the *revision's* `out/assets/d/` and the draft gets no ladder at all — so they never land in the draft asset namespace BUG-84's rule is about. It wants writing down as a definition, not resolving as a conflict.
+
+One thing your model doesn't settle on its own, worth catching when it's built: the ticket holds *the current* ladder, but a published revision needs *its* ladder frozen — REQ-222 copies into the revision prefix so a snapshot stays relocatable under any path prefix. Different lifetimes rather than competing homes; `image_ladder[]` is the catalogue's view of what exists now, the revision's copy is the frozen artifact. Let them coexist rather than making one serve both.
+
+**4 — withdrawn, no problem there.** **5 — punt re-affirmed and recorded as a decision rather than an inheritance.**
+
+All on the epic. No code.
 
 <!-- xgd-chat-end -->

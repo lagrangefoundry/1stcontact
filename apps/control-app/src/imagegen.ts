@@ -43,6 +43,7 @@
  *      {@link generatedMaterialStore}, which is the substance of the ticket.
  */
 
+import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
 import * as imagegenLib from './generated/ai-imagegen'
 import * as aiLib from './generated/ai-workers.js'
 import type { IndexMaterial } from './material'
@@ -263,6 +264,41 @@ export function generatedMaterialStore(
   }
 }
 
+/**
+ * How this product says *"show this picture to the person you are talking to"*
+ * ([[REQ-217]]).
+ *
+ * THE SEAM IS THE PLUGIN'S AND THE SENTENCE IS OURS, which is this file's whole
+ * job restated. lagrange-framework REQ-149 opened `display` precisely because the
+ * plugin cannot know it: it composes the record, and whether there is anywhere to
+ * put the picture — and what a line that puts it there looks like — is a fact
+ * about the host's own surface. So supplying one is not the local workaround this
+ * module's header forbids; it is another instance of *"this product's own
+ * vocabulary"*, beside the material fields above.
+ *
+ * ONE COMPOSER FOR BOTH HALVES. The markdown is {@link displayLine}, the same
+ * function `write_image` uses, because a picture in the conversation is one
+ * contract with one reader: the chat pane recovers what a picture IS by reading
+ * the address back off the `<img>`, and two spellings of that address is how the
+ * two come apart.
+ *
+ * A SENTENCE RATHER THAN A BARE LINE, because that is what the seam takes — the
+ * plugin wraps it in no prose of its own, so the instruction has to be in it.
+ */
+function generatedDisplay(
+  materialUrl: (uid: string) => string,
+): (record: Record<string, unknown>) => string {
+  return (record) => {
+    const uid = String(record.ticket ?? '')
+    if (uid === '') return ''
+    const name = String(record.filename ?? 'image')
+    return (
+      'Show this picture to the person you are talking to by including this line ' +
+      `in your reply, exactly as written: ${displayLine(name, materialUrl(uid))}`
+    )
+  }
+}
+
 /** What a caller may substitute, so the capability is provable with no key. */
 export interface ImageSurfaceOptions {
   /**
@@ -275,6 +311,17 @@ export interface ImageSurfaceOptions {
    * live credential and no spend.
    */
   fetch?: typeof fetch
+
+  /**
+   * Where a piece of this business's material is served from ([[REQ-217]]).
+   *
+   * THE ROUTER'S TO SUPPLY, because it is the only place that holds both halves:
+   * the route (`/api/material/file`) and the business the request resolved to.
+   * Absent means this deployment has nowhere to show a generated picture, so the
+   * result carries no display line and the id is the whole of what the model can
+   * pass on — which is exactly what the plugin's own prose says absence means.
+   */
+  materialUrl?: (uid: string) => string
 }
 
 /** What this deployment needs to be able to generate an image. */
@@ -333,7 +380,16 @@ export function imageSurface(
       // rather than broken.
       secrets: { [IMAGE_SECRET]: env.OPENAI_API_KEY },
       options: {
-        create_image: { store, ...(opts.fetch ? { fetch: opts.fetch } : {}) },
+        create_image: {
+          store,
+          ...(opts.fetch ? { fetch: opts.fetch } : {}),
+          // SUPPLIED ONLY WHERE THERE IS SOMEWHERE TO SHOW IT. The plugin
+          // composes its declaration to match, so a deployment that can show a
+          // picture reads a manual that says so and one that cannot reads the
+          // manual it read before — which is why absence is passed through
+          // rather than papered over with a handle that answers nothing.
+          ...(opts.materialUrl ? { display: generatedDisplay(opts.materialUrl) } : {}),
+        },
       },
     },
   )

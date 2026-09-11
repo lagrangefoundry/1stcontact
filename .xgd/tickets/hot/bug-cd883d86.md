@@ -6,9 +6,9 @@ title: A capture-mirrored picture can reach a site's assets with no catalogue ti
   and no rights record
 created_by: BUG-80
 created_at: '2026-09-11T22:27:15.822174+00:00'
-updated_at: '2026-09-11T22:30:47.976604+00:00'
+updated_at: '2026-09-11T22:37:26.530820+00:00'
 completed_at: null
-last_field_updated: priority
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -17,24 +17,28 @@ fields:
   needs_review: false
 ---
 
+
+
 ## What is wrong
 
 A picture can land in a site's assets without ever becoming a catalogue item, so
 the catalogue is not a complete account of what is on a site.
 
-**Scope decision, 2026-09-11 (operator).** The assistant's own `write_image`
-drawings — wordmarks, marks, dividers, SVG the assistant composes — are
-**deliberately out of scope**. The client does not need to see the assistant's
-working sketches in their Library, and filling it with them would make the
-Library worse, not better. They stay site assets, reachable through `list_assets`
-where the assistant already finds them.
+**Scope, 2026-09-11 (operator, revised).** An earlier decision excluded the
+assistant's `write_image` drawings from the catalogue; it has been **withdrawn**.
+REQ-228 now takes the strong form — one list, every asset is a catalogue item,
+and what the client sees in their Library is a filter on `kind` rather than a
+second list. Drawings are in.
 
-That removes the largest source of un-catalogued pictures (14 SVG files) and
-leaves a smaller, sharper one.
+That makes this ticket one door among several rather than the whole gap. The
+others — `write_image` and `add_asset` — are named in REQ-228's Half D. **This
+one keeps its own ticket because it is the only one with an exposure attached**,
+and that exposure stands whatever happens to the catalogue.
 
-## What is actually left
+## The exposure
 
-Excluding SVG, the entire gap in the local store is **one file**:
+Setting drawings aside — they are a catalogue gap, not a rights one — the raster
+picture on a site with no record is **one file**:
 
 ```
 non-SVG pictures in site_assets : AlchemistLabWithTech.png (2.4 MB)
@@ -88,11 +92,16 @@ Three of four doors are right. This is about the fourth.
    stakes: the operator is asserting their own material, and the operation is not
    granted to the consultant.
 
-Not in scope by the decision above: `write_image`.
+`write_image` is a third door and is now in scope for the catalogue — but it is
+**REQ-228 Half D's**, not this ticket's. A drawing this system composed has no
+rights question: it is owned and republishable by construction. Keeping it here
+would mix a catalogue gap into a rights gap and blur what this ticket is for.
 
-Also not in scope, and correctly so: fonts (`satoshi-*.woff2`), stylesheets and
-other mirrored subresources (`blog.*.css`, `css2`, `index`). Those are build
-output and third-party subresources, not the client's material.
+Fonts (`satoshi-*.woff2`), stylesheets and other mirrored subresources
+(`blog.*.css`, `css2`, `index`) are likewise REQ-228's to decide. Note that they
+arrive through the *same* seed/push door as the picture above, so whatever answer
+that door gets has to cover them — which is part of why the door, rather than the
+file type, is the right thing to fix.
 
 ## What we want
 
@@ -107,15 +116,18 @@ must not reach a site's assets without passing the same gate promotion passes.**
 That is one rule, at one door, and it closes the exposure without touching the
 catalogue's shape.
 
-## Consequence for REQ-228
+## Relationship to REQ-228
 
-With drawings deliberately excluded, `placed_on` will never be a complete account
-of every byte in a site's assets, and REQ-228 should not claim it is. The design
-it proposes already survives this: its Half B recommends a **peer** listing
-rather than folding the catalogue into `list_assets`, precisely because "what is
-on the site" and "what the client has given us" are two real questions. Both stay
-askable. The catalogue is the client's material; `list_assets` is the site's
-contents; drawings live only in the second, by choice.
+REQ-228's Half B makes `list_assets` a view over the catalogue, and states the
+invariant that makes that safe: **the catalogue must be complete by
+construction** — every write path into a site's assets mints its item as part of
+the same operation, so there is never a moment where bytes exist and an item does
+not. BUG-45 is the evidence for why that is not optional.
+
+This door is one of the ones that breaks the invariant, so closing it is a
+precondition of the cut-over rather than an improvement alongside it. The
+difference from the other doors is that this one is *also* a rights hole, and
+would be worth closing even if the catalogue were never unified.
 
 ## Questions to settle when scoping
 
