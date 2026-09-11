@@ -6,9 +6,9 @@ title: A refused change tells the caller nothing was written, which field was wr
   and what to do instead of resending it
 created_by: xgd
 created_at: '2026-08-10T09:20:12.311805+00:00'
-updated_at: '2026-09-11T02:19:42.848132+00:00'
+updated_at: '2026-09-11T02:59:00.709292+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
