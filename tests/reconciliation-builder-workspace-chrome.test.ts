@@ -105,85 +105,155 @@ beforeEach(() => {
 // ── the tab chrome ───────────────────────────────────────────────────────────
 
 describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a workspace chrome', () => {
-  it('test_UAT_AC959_opens_exactly_one_tab_addressed_by_a_stable_id', () => {
+  it('test_UAT_AC959_renders_one_panel_per_declared_tab_and_opens_the_first', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
 
-    // AC-959 — the COUNT, not merely the presence of one: a second tab
-    // appearing is the failure this guards. The shell renders one panel per
-    // declared tab, so both counts must be exactly one.
-    expect(TABS).toHaveLength(1)
-    expect(root.querySelectorAll('.shell-panel')).toHaveLength(1)
+    // AC-959 — the COUNT, taken against the DECLARATION rather than against a
+    // literal. An UNDECLARED panel appearing is the failure this guards; a
+    // second *declared* tab is a legitimate change (REQ-161) and must not need
+    // this criterion rewritten. Asserting `1` conflated the two.
+    const panels = Array.from(root.querySelectorAll<HTMLElement>('.shell-panel'))
+    expect(TABS.length).toBeGreaterThan(0)
+    expect(panels).toHaveLength(TABS.length)
+    // …and they are exactly the declared ones, in both directions: no panel
+    // with no declaration behind it, and no declared tab left unmounted.
+    expect(panels.map((p) => p.dataset.tabId).sort()).toEqual(TABS.map((t) => t.id).sort())
 
     // Addressed by a stable identifier that never changes when the name does.
     expect(SITE_TAB.id).toBe('site')
-    expect(app.shell.getActiveTab()).toBe(SITE_TAB.id)
+
+    // The workspace opens on the FIRST declared tab — not merely on whichever
+    // tab happens to be present — and that is the one hosting the display panel.
+    const first = TABS[0]
+    expect(first.id).toBe(SITE_TAB.id)
+    expect(app.shell.getActiveTab()).toBe(first.id)
 
     // The display panel is hosted INSIDE that tab's content area, not beside or
-    // outside the tab chrome.
-    const panelHost = app.shell.getPanel(SITE_TAB.id)
+    // outside the tab chrome, and inside no other tab's.
+    const panelHost = app.shell.getPanel(first.id)
     expect(panelHost).toBeTruthy()
     expect(panelHost.contains(app.panel.element)).toBe(true)
-    expect(root.querySelector('.shell-panel')!.contains(app.panel.element)).toBe(true)
+    expect(panels.filter((p) => p.contains(app.panel.element))).toHaveLength(1)
+
+    // GENERALITY CHECK — against today's single declared tab the two counts
+    // above are satisfied by "one panel, and it is active", which is the very
+    // conflation the restatement exists to remove. `mountBuilder` hands `TABS`
+    // to the shell UNNARROWED (app.js), so driving that same mount with a
+    // longer declaration exercises the identical code path and is what makes
+    // "one panel per declared tab, opening the FIRST" observable rather than a
+    // coincidence of the builder having one tab today.
+    const many = document.createElement('div')
+    document.body.append(many)
+    const declaration = [
+      { id: 'first-declared', label: 'First' },
+      { id: 'second-declared', label: 'Second' },
+      { id: 'third-declared', label: 'Third' },
+    ]
+    const shell = mountShell(many, {
+      appId: `${APP_ID}-generality`,
+      tabs: declaration,
+      tabStyle: 'underline',
+      storage: memoryStorage(),
+    })
+    const mounted = Array.from(many.querySelectorAll<HTMLElement>('.shell-panel'))
+    expect(mounted).toHaveLength(declaration.length)
+    expect(mounted.map((p) => p.dataset.tabId)).toEqual(declaration.map((t) => t.id))
+    // The FIRST declared tab is the one it opens on — not the last, and not
+    // merely whichever one exists.
+    expect(shell.getActiveTab()).toBe(declaration[0].id)
+    expect(many.querySelectorAll('.shell-panel.is-active')).toHaveLength(1)
   })
 
-  it('test_UAT_AC976_every_option_declared_for_a_tab_reaches_the_chrome', () => {
+  it('test_UAT_AC976_every_option_of_every_declared_tab_reaches_the_chrome', () => {
     // AC-976 — a tab is declared ONCE, whole. `fill` was declared correctly and
     // still had no effect because the mount rebuilt each tab as `{id, label}`;
     // nothing threw and nothing warned, the option simply never arrived.
+    //
+    // The claim is stated over the DECLARATION, not over a single tab: a
+    // one-tab workspace cannot distinguish "every declared tab's options are
+    // delivered" from "the only tab's options are delivered".
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
 
     /**
-     * The observable consequence of each declared key. Keyed by option name so
-     * the loop below iterates over the DECLARATION rather than a fixed list: an
-     * option added to `SITE_TAB` later has no entry here and fails this test
-     * until someone states what it should do, which is exactly the silent drop
-     * the criterion is about.
+     * The observable consequence of each declared key, asserted against the tab
+     * it was DECLARED ON. Keyed by option name so the loop below iterates over
+     * each declaration's own keys rather than a fixed list: an option added to a
+     * tab later has no entry here and fails this test until someone states what
+     * it should do, which is exactly the silent drop the criterion is about.
      */
-    const delivered: Record<string, (value: unknown) => void> = {
-      id: (value) => {
-        expect(app.shell.getPanel(value as string)).toBeTruthy()
-        expect(app.shell.getActiveTab()).toBe(value)
+    const delivered: Record<
+      string,
+      (value: unknown, tab: { id: string }, index: number) => void
+    > = {
+      id: (value, _tab, index) => {
+        // EVERY declared identifier addresses a mounted panel…
+        const panel = app.shell.getPanel(value as string) as HTMLElement
+        expect(panel).toBeTruthy()
+        expect(panel.dataset.tabId).toBe(value)
+        // …but the identifier the workspace OPENS on is the FIRST declared
+        // tab's, not every tab's.
+        if (index === 0) expect(app.shell.getActiveTab()).toBe(value)
       },
-      label: (value) => {
+      label: (value, tab) => {
         expect(root.textContent).toContain(value as string)
+        expect(root.querySelector(`#tab-${tab.id}`)!.textContent).toContain(value as string)
       },
-      fill: (value) => {
+      fill: (value, tab) => {
         // The shell's viewport-height rules are all scoped to
         // `.shell-panel.is-fill`; without the class the chain below is
         // content-height and the frame collapses to its intrinsic 150px.
         expect(value).toBe(true)
-        const filled = root.querySelector('.shell-panel.is-fill.is-active')
-        expect(filled, 'the live site panel opts into the fill chain').toBeTruthy()
-        expect(filled!.contains(app.panel.element)).toBe(true)
+        const panel = app.shell.getPanel(tab.id) as HTMLElement
+        expect(panel.classList.contains('is-fill')).toBe(true)
       },
     }
 
-    for (const tab of TABS) {
+    for (const [index, tab] of TABS.entries()) {
       for (const key of Object.keys(tab)) {
         expect(
           delivered[key],
-          `tab option "${key}" is declared but nothing here proves it is delivered`,
+          `tab "${tab.id}" option "${key}" is declared but nothing here proves it is delivered`,
         ).toBeTypeOf('function')
-        delivered[key](tab[key])
+        delivered[key](tab[key], tab, index)
       }
     }
 
-    // MUTATION CHECK — the option is load-bearing, not decorative. A tab
-    // declared WITHOUT it must not produce the class the height rules key on,
-    // so the pane it hosts could not fill the viewport.
+    // EXACTLY the tabs that declared the viewport-filling option receive it —
+    // as many filling panels as there are declarations of it, so a tab that did
+    // not declare it cannot have been handed it…
+    const declaringFill = TABS.filter((tab) => tab.fill === true)
+    expect(declaringFill.length).toBeGreaterThan(0)
+    expect(root.querySelectorAll('.shell-panel.is-fill')).toHaveLength(declaringFill.length)
+    // …and the OPENED filling panel is the one holding the display panel.
+    const filled = root.querySelector('.shell-panel.is-fill.is-active')
+    expect(filled, 'the live site panel opts into the fill chain').toBeTruthy()
+    expect(filled!.contains(app.panel.element)).toBe(true)
+
+    // MUTATION CHECK — the option is load-bearing, not decorative, and it is
+    // delivered PER DECLARING TAB rather than to whatever panel happens to be
+    // there. The site tab is re-declared WITHOUT it, beside a second tab that
+    // declares it: the class the height rules key on must follow the
+    // declaration across, so the pane the site tab hosts could no longer fill
+    // the viewport while the other tab's could.
     const bare = document.createElement('div')
     document.body.append(bare)
     mountShell(bare, {
       appId: `${APP_ID}-mutation`,
-      tabs: [{ id: SITE_TAB.id, label: SITE_TAB.label }],
+      tabs: [
+        { id: SITE_TAB.id, label: SITE_TAB.label },
+        { id: 'filling', label: 'Filling', fill: true },
+      ],
       tabStyle: 'underline',
       storage: memoryStorage(),
     })
-    expect(bare.querySelector('.shell-panel')).toBeTruthy()
+    expect(bare.querySelectorAll('.shell-panel')).toHaveLength(2)
     expect(
-      bare.querySelector('.shell-panel.is-fill'),
+      bare.querySelector(`.shell-panel[data-tab-id="${SITE_TAB.id}"].is-fill`),
       'without `fill` the panel does not enter the viewport-height chain',
     ).toBeNull()
+    // …and exactly the one tab that did declare it received it.
+    const filling = Array.from(bare.querySelectorAll<HTMLElement>('.shell-panel.is-fill'))
+    expect(filling.map((p) => p.dataset.tabId)).toEqual(['filling'])
   })
 })
 
