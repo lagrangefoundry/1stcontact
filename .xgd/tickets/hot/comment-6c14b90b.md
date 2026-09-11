@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T02:10:33.378127+00:00'
+updated_at: '2026-09-11T02:17:36.647351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,71 @@ If you want me to **review** REQ-223's implementation rather than rebuild it —
 <!-- xgd-chat role="user" ts="2026-09-11T02:10:32.980271+00:00" -->
 #### You
 REQ-233 is already done - you said there was additional work on your ticket (BUG-78) that was dependent on 233 please can you do that work now?
+
+<!-- xgd-turn id="e8296109-ec09-49e2-990a-c155ba1d56ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:17:36.425838+00:00" -->
+#### Claude
+On it. Let me check how the site key and publishing work before I touch the data.
+
+Nothing has ever been published locally — `site_revisions` is empty in every local D1. That changes what "fixed" means, and I'll report it. First, the work you asked for.
+
+Now the work. First, checking nothing is holding the local database open:
+
+Now applying the two config changes, mirroring exactly what the store's own write path does (page row plus the version bump):
+
+Item 2 — the apex key. Let me first verify the Turnstile test keys rather than trust my memory of them:
+
+Both verified. Creating local dev config for public-site:
+
+One more check — the L2 default and how non-apex sites are meant to address the endpoint:
+
+Now updating the ticket to reflect what actually landed:
+
+Let me make sure the new `.dev.vars` doesn't perturb the existing suite — `unstable_dev` reads it by default:
+
+The apex key makes a local `wrangler dev` 500 rather than 404. Let me understand the local topology before deciding how to resolve it.
+
+That settles it — the two dev workers don't share D1 state, so public-site's local database is empty and unmigrated. The apex key can't help there and only breaks a test. Removing it:
+
+Done. Here's what actually happened.
+
+## Applied
+
+**The two module configs on the homepage draft** — the fix BUG-78 was waiting on REQ-223 for:
+
+| Module | Field | Was | Now |
+|---|---|---|---|
+| `beta-form` | `action` | `https://app.1stcontact.io/beta-apply` | `/api/lead` |
+| `signin` | `signIn` | `https://app.1stcontact.io/auth/request-link` | `https://app.1stcontact.io/sign-in` |
+
+Applied the way the store applies it (`d1r2-store.ts`): page row rewritten, `sites.version` bumped 58 → 59. The script refuses rather than guesses if either field doesn't hold the exact expected value. Backup at `.xgd/tmp/d1-backup-bug78.sqlite`.
+
+**No repo code changed, so there's no commit and no `[FREE-CODED]` branch.** The protocol exempts configuration, and once REQ-223 landed the endpoint, everything left here was data or operator-held keys. I didn't perform the ceremony on an empty diff.
+
+## What I got wrong mid-task
+
+I wrote an `apps/public-site/.dev.vars` with the apex key and Cloudflare's published Turnstile test keys, then removed it. Two reasons, and the second matters more than the first:
+
+- It broke `tests/public-site.test.ts` — `unstable_dev` reads `.dev.vars`, so the apex resolved and `live()` hit a local D1 with no `site_revisions` table: 404 became 500. That file is gitignored, so CI would never have caught it; it would have been a failure sitting on your machine alone.
+- It wouldn't have enabled anything regardless. `pnpm dev` runs the two Workers with **separate local state** — neither passes `--persist-to` — so public-site's local D1 is a different, empty, unmigrated database from the one holding your sites.
+
+Test suite is green and the tree is clean.
+
+## Two findings worth your attention
+
+**1. The form now returns a different error, not a working form.** `site_revisions` is empty in every local D1 and production has no sites — nothing has ever been published anywhere. The only thing rendering this page is control-app's draft preview, and control-app has no `/api/lead` route by REQ-223 §3.2's deliberate design. So a preview submission answers 404 instead of "could not reach the server."
+
+Whether preview submissions *should* work is a real design question I didn't settle: they'd write actual contacts into the actual tenant, so making the preview post for real puts test data in the CRM. The alternatives are a gated preview-only route, or a preview that declines to submit and says so.
+
+**2. A cross-tenant lead leak for non-apex sites.** `leadTarget` takes the site key from the URL: `/site/<key>/api/lead` resolves to that site, a bare `/api/lead` resolves to the **apex**. The XGD site's two forms are both configured `action: "/api/lead"` and XGD is not the apex — so once published, its leads land in the apex tenant's contact list. REQ-223's UATs don't catch it because they build `/site/<key>/api/lead` themselves rather than following the rendered action. Correct value is `/site/<key>/api/lead`, or document-relative `api/lead`, which works for both. I left it alone — different site's content, not this bug.
+
+## Still blocked on you
+
+- **A real Turnstile widget.** No secret means refuse, by design.
+- **Production `APEX_SITE_KEY`** — can't be set yet. Site ids are minted per environment and production's `sites` table is empty, so there's no key to write.
+- **The Access bypass policy.** Re-verified: `GET /sign-in` still 302s to the Access login. The `signIn` value is now correct and the dialog will still fail in production until that policy exists.
+
+**Bottom line: not fixed end to end.** The configuration is right and the endpoint is proven by REQ-223's own 27 UATs, but nothing renders this page outside the preview and the preview can't reach the endpoint. Closing it needs a decision on finding 1, or a publish plus the production config above. All of this is recorded in the ticket.
 
 <!-- xgd-chat-end -->
