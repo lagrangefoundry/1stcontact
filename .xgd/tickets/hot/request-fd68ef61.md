@@ -5,16 +5,21 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-11T22:43:16.593670+00:00'
+updated_at: '2026-09-11T22:46:41.478153+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-34760bf1
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1c9627f2
+  commits:
+  - working_sha: 215187d64cb0b6e4c0f9bbd4d922456a60158eae
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.169
 ---
 
 ## The gap
