@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-11T00:04:56.908537+00:00'
+updated_at: '2026-09-11T00:05:32.586268+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -102,5 +102,17 @@ That's a second candidate ticket alongside the import-targeting one from earlier
 <!-- xgd-chat role="user" ts="2026-09-11T00:04:56.328646+00:00" -->
 #### You
 Can you also do one for first contact  please - just a desktop view of the homepage is fine
+
+<!-- xgd-turn id="f41f2d9e-c741-40ae-9799-c36c6a6b195a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T00:05:31.953428+00:00" -->
+#### Claude
+Done.
+
+`/Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/shots/1stcontact-desktop.png` — 1440×900 @2x.
+
+That's the whole page, not a crop: the 1st Contact wordmark, *"Your intelligent front office"*, the strapline, the email field with **Apply to join the early beta**, the beta notice, and the `© 1st Contact` footer. It's a one-screen landing page, so full-page height came back as exactly the 900px viewport.
+
+Same caveat as the xgd shots — this is the builder's render of the site in the store (platform business, slug `1stcontact`, version 44), not the public hostname. While I was there I checked: **`https://1stcontact.io/` also returns 404** (9 bytes; `www.` doesn't resolve at all). So both your domains are dark, not just xgd.dev — which makes it look less like a one-site problem and more like nothing has been published to either. Worth a look when you have a moment.
 
 <!-- xgd-chat-end -->
