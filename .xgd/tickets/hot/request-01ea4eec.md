@@ -5,10 +5,10 @@ type: request
 title: 'Capture in workerd: a ReferenceStore port, with the filesystem behind it'
 created_by: xgd
 created_at: '2026-08-20T23:16:33.604977+00:00'
-updated_at: '2026-09-09T21:31:18.251120+00:00'
+updated_at: '2026-09-11T18:53:53.884112+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 13
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.32
+  bundled_in: bundle-8e1807f6
 ---
 
 # Capture in workerd: a ReferenceStore port, with the filesystem behind it
