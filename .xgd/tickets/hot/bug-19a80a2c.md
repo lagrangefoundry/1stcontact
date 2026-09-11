@@ -5,10 +5,10 @@ type: bug
 title: Untitled
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:37:28.681757+00:00'
-updated_at: '2026-09-10T21:37:28.681757+00:00'
+updated_at: '2026-09-11T23:13:20.261964+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   auto_merge_back: true
   needs_review: false
