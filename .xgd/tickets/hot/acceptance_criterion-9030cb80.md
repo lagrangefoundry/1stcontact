@@ -2,8 +2,8 @@
 uid: acceptance_criterion-9030cb80
 id: AC-1296
 type: acceptance_criterion
-title: Every document left out of the corpus is named individually, never counted
-  and never silent
+title: Every document left out of the corpus is named individually, alongside the
+  marker that would admit it
 created_by: xgd
 created_at: '2026-08-20T04:16:46.169184+00:00'
 updated_at: '2026-09-10T08:04:26.717188+00:00'
@@ -19,7 +19,9 @@ fields:
 
 ## Criterion
 
-Every document left out of the corpus is reported individually, by its human id, and the report says why they are out — that they carry no opt-in. It is never a bare count, and never silence.
+Every document left out of the corpus is reported individually, by its human id, and the report says why they are out — naming **the field and the value that would have admitted them** (`doc_kind: system_kb`). It is never a bare count, and never silence.
+
+Naming the marker as well as the documents is what turns the line from a report of loss into an instruction: an operator reading it is told both what is missing and what to write on it, without having to find the rule somewhere else. The line names the kind in force, never the retired boolean.
 
 When nothing was left out, no such line appears at all.
 
