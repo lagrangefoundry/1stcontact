@@ -44,6 +44,12 @@ const COLLAPSED = LONG_TEXT.replace(/\s+/g, ' ').trim()
  * track, a link role, an image with alt text and one without, and a mounting
  * seam. The reference and the track are exactly what a resolved or projected
  * read would quietly destroy, which is why they are here.
+ *
+ * The reference is seeded in its FULL production shape — `{ ref, shade, alpha }`
+ * since REQ-137 replaced named steps with a continuous shade carried on the use
+ * rather than the entry. A read that resolved the reference to a hex, or kept
+ * `ref` while dropping the variation keys beside it, is the same loss; a seed
+ * carrying only the bare `{ ref }` form could not tell the two apart.
  */
 const SEEDED_ROOT: L1Node = {
   kind: 'container',
@@ -53,12 +59,12 @@ const SEEDED_ROOT: L1Node = {
     {
       kind: 'container',
       layout: 'stack',
-      axes: { surfaceFill: { ref: 'ink' } },
+      axes: { surfaceFill: { ref: 'ink', shade: 0.2 } },
       children: [
         {
           kind: 'text',
           text: LONG_TEXT,
-          axes: { fontSizePx: 32, color: { ref: 'paper' } },
+          axes: { fontSizePx: 32, color: { ref: 'paper', shade: -0.35, alpha: 0.9 } },
           responsive: {
             fontSizePx: {
               keyframes: [
@@ -381,7 +387,16 @@ describe('one address reads and writes the element at it', () => {
     const seeded = (SEEDED_ROOT as { children: L1Node[] }).children[0]
     expect(read.node).toEqual(seeded)
     const text = (read.node as { children: { axes: unknown; responsive: unknown }[] }).children[0]
-    expect(text.axes).toEqual({ fontSizePx: 32, color: { ref: 'paper' } })
+    // The reference comes back WHOLE: not the hex it points at, and not `ref`
+    // alone with the REQ-137 variation keys resolved away or dropped. Both would
+    // read as "still a reference" against a bare-`{ ref }` seed.
+    expect(text.axes).toEqual({
+      fontSizePx: 32,
+      color: { ref: 'paper', shade: -0.35, alpha: 0.9 },
+    })
+    expect((read.node as { axes: unknown }).axes).toEqual({
+      surfaceFill: { ref: 'ink', shade: 0.2 },
+    })
     expect(text.responsive).toEqual({
       fontSizePx: { keyframes: [{ at: 375, value: 24 }, { at: 1280, value: 32 }] },
     })
@@ -428,6 +443,18 @@ describe('one address reads and writes the element at it', () => {
     // Compared as a structure rather than as bytes — a reply is serialised in
     // key-sorted order, so byte-identity would be measuring the serialiser.
     expect(readPage()).toEqual(before)
+
+    // Named explicitly, because it is the half of "what comes back is what may
+    // be written back" that a whole-page equality hides: the reference the read
+    // returned was accepted verbatim by the write, variation keys and all. A
+    // surface that resolved a reference on the way out would have sent a hex
+    // here, and the page would no longer track the palette entry.
+    const after = homeRoot() as { children: { axes: unknown; children: { axes: unknown }[] }[] }
+    expect(after.children[0].axes).toEqual({ surfaceFill: { ref: 'ink', shade: 0.2 } })
+    expect(after.children[0].children[0].axes).toEqual({
+      fontSizePx: 32,
+      color: { ref: 'paper', shade: -0.35, alpha: 0.9 },
+    })
   })
 
   it('test_UAT_AC1087_replacing_an_element_replaces_its_subtree_and_spares_its_siblings', async () => {
@@ -562,14 +589,19 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     expect(draftBytes()).toBe(before)
   })
 
-  it('test_UAT_AC1090_a_refusal_carries_the_code_and_a_recovery_strategy', async () => {
+  it('test_UAT_AC1090_a_refusal_carries_the_code_the_field_and_a_recovery_strategy', async () => {
     const box = await caretaker()
 
     // A refusal the caller cannot act on is a dead end — it retries the identical
-    // call or tells the user the site is broken. This caller does not receive the
-    // offending field (the write path reports it and a `1c` user sees it; the
-    // tool layer renders only the declared meaning), so the declared meaning
-    // carries the STRATEGY rather than promising specifics it cannot deliver.
+    // call or tells the user the site is broken. So a refusal carries BOTH halves,
+    // complementary rather than alternatives: the declared meaning of the code
+    // carries the STRATEGY, and the write path's own account of the failure is
+    // appended to it and names the OFFENDING FIELD. `renderHostError` appends the
+    // host detail for any code that does not set `host_detail: false`, and the
+    // `SCHEMA_INVALID` declaration does not opt out, so the `<pointer>: <reason>`
+    // thrown by `validateOrThrow` reaches this caller too. A caller given the
+    // strategy alone knows to re-read but not what to change; one given the field
+    // alone does not know the write was discarded whole.
     const answer = await box.run('set_l1', {
       page: 'home',
       path: '0.0.0',
@@ -579,6 +611,8 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     expect(answer).toMatch(/nothing was written/i)
     expect(answer).toMatch(/do not send it again unchanged/i)
     expect(answer).toMatch(/read the element back/i)
+    // The offending field, named as a pointer into the element the caller sent.
+    expect(answer).toMatch(/fontSizePx/)
   })
 
   it('test_UAT_AC1091_an_address_that_resolves_to_nothing_writes_nothing', async () => {
@@ -638,7 +672,12 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))
     expect(box.toolNames()).not.toContain('get_copy')
     expect(box.toolNames()).not.toContain('set_copy')
+    // BOTH halves of the retired pair, and in the manual as well as the tool
+    // list: a manual still describing the retired READ is a second way to reach
+    // a page's copy offered to the session in prose, which is the same failure
+    // the exclusivity rule forbids.
     expect(box.manual()).not.toContain('set_copy')
+    expect(box.manual()).not.toContain('get_copy')
     expect(
       await box.run('set_copy', { page: 'home', path: '0.0.0', values: { text: 'x' } }),
     ).toMatch(/unknown tool|not enabled/i)
@@ -700,17 +739,41 @@ describe("the click-to-edit gesture still works on what the assistant composed",
   it('test_UAT_AC1093_the_gesture_opens_and_saves_and_leaves_the_assistants_styling_alone', async () => {
     // An assistant-authored text run is indistinguishable to the derivation from
     // one written by hand, so the modal derives the same descriptors...
-    const read = (await (await copyGet('0.1.0')).json()) as {
-      kind: string
-      fields: { name: string }[]
-      values: Record<string, string>
+    const shape = {
+      kind: '',
+      fields: [] as { name: string }[],
+      values: {} as Record<string, unknown>,
     }
+    const read = (await (await copyGet('0.1.0')).json()) as typeof shape
     expect(read.kind).toBe('text')
-    // The copy field is first and is the words. REQ-135 derives the run's
-    // typography beside it — for an assistant-authored node exactly as for a
-    // hand-written one, which is the indistinguishability this asserts.
+    // The copy field is first and is the words.
     expect(read.fields[0].name).toBe('text')
     expect(read.values.text).toBe('Written by the assistant.')
+
+    // THE WHOLE DESCRIPTOR SET, not just the copy field: `copyFieldsOf` returns
+    // `text` plus the REQ-139 colour row and the REQ-135 typography fields, and
+    // an assistant-authored run that quietly lost any of them would still be a
+    // run the operator cannot fully edit — precisely the indistinguishability
+    // this AC exists to assert.
+    //
+    // DERIVED, not pinned: the expectation is the set the same origin derives for
+    // the HAND-WRITTEN twin seeded at `0.0.0`, a text run carrying the same axes
+    // this one does. Pinning a literal list would restate `copyFieldsOf` here and
+    // go stale the next time the exposed typography widens; comparing the two
+    // reads asserts the one thing the AC claims — that the derivation cannot tell
+    // who wrote the node.
+    const handWritten = (await (await copyGet('0.0.0')).json()) as typeof shape
+    expect(handWritten.kind).toBe('text')
+    expect(read.fields.map((f) => f.name)).toEqual(handWritten.fields.map((f) => f.name))
+    // ...and it is genuinely more than the words, so the equality above is not
+    // two identically impoverished forms agreeing with each other.
+    expect(read.fields.map((f) => f.name)).toEqual(
+      expect.arrayContaining(['text', 'color', 'fontSizePx', 'italic', 'textTransform']),
+    )
+
+    // Carrying THIS element's current values, not the twin's.
+    expect(read.values.fontSizePx).toBe(20)
+    expect(handWritten.values.fontSizePx).toBe(32)
 
     const before = homeRoot() as { children: { children: { axes: unknown }[] }[] }
     const axes = JSON.stringify(before.children[1].children[0].axes)
