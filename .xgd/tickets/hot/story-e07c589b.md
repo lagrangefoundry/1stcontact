@@ -13,7 +13,7 @@ status: completed
 fields:
   intent_uid: request-13a5e206
   capability_uid: capability-dfb0a4ff
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
   uat_coverage: pass
 ---
@@ -25,7 +25,8 @@ belongs to somebody else,
 **I want** every piece of that material recorded as one of a small, named set of kinds, each
 carrying an explicit statement of who owns it, where it came from, whether it may be published
 again and whether it may leave the platform — with a record that states none of those refused
-outright,
+outright, and with the one thing nobody can infer on my behalf, what I wanted the file *for*,
+recorded where I was asked and absent where I was not,
 **so that** the assistant building my site can tell at a glance what it is allowed to do with each
 piece, a competitor's brochure is never mistaken for my own brand guide, and nothing is quietly
 assumed on my behalf about material whose rights nobody ever wrote down.
@@ -62,26 +63,39 @@ means anything. They are true-or-false answers, so the text a web form would sub
 **Material that came from somewhere must say where.** Something captured or fetched has an address
 it came from; something a client uploaded does not, and is not asked for one.
 
-**A brief names its site and says something.** A site is not an account and an account may own
-several, so the site is named on the record. The body is the document itself and must be present —
-an empty brief is not a brief, and unlike a material there is no later extraction that fills it in.
+**One thing the client may say about a file, and it can only narrow.** The block also carries what
+the client said the file is *for* — for the site, or for the assistant to read. It is the only
+question this product asks about a file, and it is askable precisely because it is not a legal one:
+a client who cannot say whether they hold rights to a photograph can say instantly whether they
+meant to publish it. The case that makes it necessary is a photograph and a competitor's screenshot
+— identical bytes, identical sort of file, opposite intentions — which nothing about where the
+bytes came from separates. What the client said narrows what provenance already inferred and never
+widens it: where nobody was asked the record simply carries no answer and the provenance reading
+stands unchanged, and an answer that is neither of the two is refused rather than quietly read as
+one of them, because both silent readings publish or withhold something against the client's
+wishes without anyone noticing.
 
-**One store holds both halves of the platform's memory.** The same vocabulary also carries the
-assistant's conversations, so a session is a ticket like any other: found by its session
-identifier, with its transcript kept as a comment on it and its body left free for a maintained
-summary. The conversation shapes are taken from the component that reads them back rather than
-restated here, so they cannot drift from the code that depends on them; the attachment record is
-taken the same way, under the name that component gives it.
+**How a material came to be described is part of its record, and so is the name it arrived under.**
+A material's body is the readable shadow of what the file says; the record states the outcome of
+producing it — drawn from a named set covering the successful case and every way it can fall short
+— together with whatever produced it, a model or an extractor by name. Both are recorded so that
+material worth looking at again is *selectable* rather than guessable: asking which material has no
+description yet is a question about a stated field, not a pattern nobody declared. The filename
+joins them on the record itself, so listing a client's material costs nothing per row beyond the
+row, and a client still recognises their own file when its description came out thin.
 
 In scope: the set of kinds a client's material may be recorded as; the rights and provenance record
-carried by material and references and the refusals that enforce it; what a brief must state; and
-that conversations and attachments share the same vocabulary so one store serves both.
+carried by material and references and the refusals that enforce it; the client-supplied role that
+narrows those rights; the stated outcome of describing a material and what described it; the
+filename carried on the record; what a brief must state; and that conversations and attachments
+share the same vocabulary so one store serves both.
 
 Out of scope: creating any of these records — ingestion is not defined here and this story defines
-only what a valid record looks like; any surface that lists, searches or displays them (the
-Library); the knowledge base and corpus predicate built over these kinds; the assistant's
-conversation behaviour, which is owned elsewhere and is unchanged by this story; and moving existing
-conversations into this store.
+only what a valid record looks like; how a description is actually produced and what each degraded
+outcome means, which belongs to the describing pipeline; any surface that lists, searches or
+displays them (the Library); the knowledge base and corpus predicate built over these kinds; the
+assistant's conversation behaviour, which is owned elsewhere and is unchanged by this story; and
+moving existing conversations into this store.
 
 ## Technical Context
 
@@ -104,10 +118,29 @@ conversations into this store.
   specification names six fields and no lifecycle, and a status vocabulary invented here would be a
   lifecycle nothing implements and every later story would have to honour. The component already
   ships the one lifecycle these need, and it is not a status. Stated as part of AC-1491.
+- **The four later fields are all optional, and that is the same rule as the body's.** A reference
+  created by a capture has no description when its bundle lands and nobody was asked what it was
+  for, so a record carrying none of the four is an ordinary record rather than an incomplete one.
+  Requiring any of them would make the capture path invalid at the moment it is most correct.
+- **What the client said it is for is not derivable from whether it may be republished.** A capture
+  of the client's own previous site is republishable and yet plainly reference material, so the two
+  come apart the moment captures land — which is why the role is a field rather than a reading of
+  one already present.
+- **What described a material is a free string, not a closed set.** The value is a model identifier
+  as the provider returned it or an extractor's own name; a closed set would have to be widened for
+  every model release, turning "which describer wrote this" into a schema change. The *outcome* is
+  the closed set, because its whole purpose is to be selected on.
+- **The filename is carried twice on purpose.** The attachment record already names the file; the
+  material carries it too because listing a client's material would otherwise cost one attachment
+  lookup per row, and because it is the only handle a client recognises when the description came
+  out thin.
 - **No contradiction between intent and code in this item.** The intent's two open questions —
   whether a reference stays its own kind, and whether a brief is a kind or a well-known record of
   another kind — are settled in the intent body itself, both in favour of a kind of its own, and the
-  landed code matches. Nothing here needs a code fix.
+  landed code matches. The four added fields are likewise specified in the intents that add them
+  (REQ-163 names the description pair and the filename and calls all three optional; REQ-161 names
+  the role and states the narrowing, the absent case and the refusal of a malformed one). Nothing
+  here needs a code fix.
 
 ## Reconciliation Decisions
 
@@ -134,6 +167,33 @@ conversations into this store.
   is left for a summary. Formalized as AC-1499, because "merged into the pack" is a statement about a
   file and the reason the merge was wanted is that sessions can be stored; without the consequence
   asserted, the claim is unobservable.
+
+**2026-09-10 — reconciling the four fields the vocabulary gained (BUNDLE-26 / REQ-163, REQ-161).**
+
+- **The role is stated on the rights criterion rather than given a rights criterion of its own.**
+  Both intents are emphatic that inference from provenance remains the rule and that asking "do you
+  own this?" stays refused; a separate criterion asserting "the client sets the rights" would read as
+  a second rights model. So AC-1492 keeps the provenance rule and names the role as the one narrowing
+  input, and the narrowing itself — what it does, what its absence does, what a malformed one does —
+  is a criterion of its own because those three cases are the whole of the decision.
+- **The absent case is a criterion, not an implementation note.** It is what keeps this a narrowing
+  rather than a new gate: every caller that predates the question must behave exactly as it did.
+  Nothing about a record looks wrong when that stops being true — material simply starts arriving
+  withheld — so it is asserted rather than described.
+- **Declaring the description pair is the criterion, not merely recording it.** The validation
+  engine tolerates an undeclared field, so the pair would work undeclared; the intent's own reason
+  for declaring them is that a later re-describe pass should be a query over a stated field rather
+  than a predicate over a convention. The criterion is therefore written over the published
+  vocabulary and the values a listing returns, because that is where "selectable" is observable.
+- **The outcome vocabulary is named here and explained elsewhere.** This story states that the
+  outcome is drawn from a closed, named set and that every produced description records one; what
+  each degraded outcome means, and which pipeline produces it, belongs to the describing story.
+  Restating the six meanings here would put the same claim in two stories and let them drift.
+- **The filename's duplication is formalised rather than flagged** (decided at reconciliation,
+  2026-09-10): the intent gives the reason — a list of materials must not cost an attachment lookup
+  per row — but states it as a rationale. It is formalised as a criterion because the property that
+  matters is observable (a listing carries the name) and the failure when the field is dropped is a
+  performance regression nothing would fail on.
 
 ## Dependencies
 
