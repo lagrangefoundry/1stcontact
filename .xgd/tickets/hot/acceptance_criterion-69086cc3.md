@@ -6,10 +6,10 @@ title: Material with no file behind it is refused promotion rather than publishi
   an empty asset
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:03:03.322120+00:00'
-updated_at: '2026-09-11T05:03:03.322120+00:00'
+updated_at: '2026-09-11T05:13:44.798900+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
