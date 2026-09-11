@@ -6,10 +6,10 @@ title: One attachment record owns exactly one stored object, so removing one rec
   bytes cannot break a sibling record holding the same content
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:04:25.035350+00:00'
-updated_at: '2026-09-11T06:04:25.035350+00:00'
+updated_at: '2026-09-11T06:10:26.550863+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a7a12d81
   kind: behavior
