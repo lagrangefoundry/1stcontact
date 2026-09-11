@@ -6,7 +6,7 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:31:02.866218+00:00'
+updated_at: '2026-09-11T22:31:15.363228+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 
 
@@ -179,21 +180,18 @@ enforces.
 Fonts and other mirrored subresources are not catalogue material either; the rule
 is about pictures the client has a stake in.
 
-While that is true, "one catalogue with a mark" is not quite true: the catalogue
-is the client's uploads and the generator's output, and the site holds things the
-catalogue has never heard of. `ImageLibrary` papers over it for *naming* — which
-is why `screenshot` works on both — but any listing built on the catalogue alone
-will be missing pictures that are demonstrably on the site.
+The honest statement of the destination, with drawings excluded: **the catalogue
+is the complete account of the client's material, and `list_assets` is the
+complete account of the site's contents.** They are not the same list and should
+not become one. They overlap exactly where `placed_on` says they do; the
+assistant's drawings live in the second and not the first, by choice.
 
-The destination worth aiming at: **every picture that enters the system mints a
-catalogue item**, whatever door it came through, with `origin` recording which
-door. Then `placed_on` is the whole truth, `list_assets` becomes a view of the
-catalogue filtered by `placed_on ∋ slug`, and the second store stops being a
-store and becomes a rendering target.
-
-That is BUG-84's to close. What this ticket asks is that Halves A–C are built so
-they do not have to be unpicked to get there: the catalogue is the source of
-truth, and the site listing is a view of it.
+That is why Half B recommends a peer listing rather than folding the catalogue
+into `list_assets`. "What is on the site" and "what the client has given us" are
+two real questions, and the whole bug was that only the first was askable. What
+Halves A–C must not do is build the catalogue as a second-class view of the site
+store — the catalogue is the source of truth for the client's material, and
+BUG-84 is what stops a picture reaching the site without one.
 
 ## What good looks like
 
