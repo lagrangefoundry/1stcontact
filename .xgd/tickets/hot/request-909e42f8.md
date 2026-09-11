@@ -6,10 +6,10 @@ title: 'Corpus export correctness: doc_kind filter, unrestricted shipped corpus,
   listing'
 created_by: xgd
 created_at: '2026-08-31T20:33:32.231166+00:00'
-updated_at: '2026-09-09T21:32:49.608058+00:00'
-completed_at: null
+updated_at: '2026-09-11T10:28:29.840499+00:00'
+completed_at: '2026-09-11T10:28:29.840499+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
