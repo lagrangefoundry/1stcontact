@@ -5,9 +5,9 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-11T21:18:51.189920+00:00'
+updated_at: '2026-09-11T22:08:42.859616+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -272,3 +272,66 @@ where it is. The chat pane also carries the hook only when a host asks for it: a
 pane mounted without it behaves exactly as it did before this existed, because a
 transcript widget that had quietly acquired a click behaviour would be a change
 to every surface that mounts one.
+
+
+
+---
+
+## Answered from EPIC-1, 2026-09-11
+
+### The AC977 probes are this ticket's debt — yes, fix them here
+
+Yes. `/api/material/name` and `/api/material/recipe` are this ticket's routes and
+their missing probes are this ticket's omission, so they are fixed here rather
+than under [[BUG-83]]. Naming them as yours rather than letting them read as
+pre-existing was the right call, and the reasoning for fixing them here is the one
+you gave: the test was *already* red over `/api/material/changes`, so nothing went
+green→red and the omission never announced itself. A debt that can only be seen by
+the person who incurred it is one they should discharge.
+
+**This does not reopen the ticket's status.** Extending a `free_coded` ticket with
+a further commit is the ordinary path for work that belongs to one intent, and
+three probes belong to this one. BUG-83 keeps the other four causes, including the
+`/api/material/changes` probe that was red before this ticket existed.
+
+### A defect in what landed: the chat hook's URL parser cannot parse the builder's own URLs
+
+Found while answering [[REQ-217]]'s open questions, and it is worth fixing in the
+same pass as the probes.
+
+**`materialUidFromUrl` (`builder/api.js:693`) tests `url.pathname !==
+'/api/material/file'` and returns `null` on anything else. `materialFileUrl`
+(`api.js:575`) composes its URL through `scoped()`, which prefixes
+`/b/<businessId>` whenever a business is selected** — and `app.js:1017` selects
+one in the ordinary course of using the builder. So the pathname the parser is
+handed is `/b/<id>/api/material/file`, the exact-match test fails, and
+`openPictureFromChat` returns at its first line.
+
+**The round trip fails for the case the hook exists to serve.** A picture placed in
+the conversation through the builder's own `materialFileUrl` cannot be opened by
+the builder's own click handler, in any session with a business scope — which is
+every real one. Unscoped is the fallback state, so this works in exactly the
+configuration nobody runs.
+
+**Nothing caught it, and that is the part worth noting.** `materialUidFromUrl` has
+no test of its own — it is referenced in three places in the repo, two of which are
+its definition and its import. And [[REQ-217]] has not landed, so nothing actually
+puts a picture in a conversation yet: the hook is correct-looking code waiting for
+a caller that will arrive and not work. The disagreement was predicted by this
+ticket's own investigation — *"the markdown line REQ-217's tool authors has to use
+a URL shape REQ-220 can parse… or they will disagree"* — and then built in.
+
+**The fix is this ticket's, not [[REQ-217]]'s**, and the shape is the parser's
+rather than the composer's: the scoped URL is the correct thing to emit (see the
+reasoning recorded in [[REQ-217]] — an unscoped `/preview/…` resolves through
+`resolveScope`'s fallback to the first admissible business, which is the
+cross-business failure `scope.ts` exists to prevent). So **the parser should
+recognise the material file route with or without a `/b/<id>` prefix**, and should
+be given the test it never had — including one case with a scope set, since that is
+the configuration the bug lives in.
+
+**A drawing stays unopenable, deliberately.** `isEditablePicture` excluding
+drawings and captures is correct and should not change: a drawing is a site asset
+with no material record, no uid to recover and no recipe to edit, and [[REQ-219]]
+refuses SVG for transforms anyway. [[REQ-217]] has been told not to make its
+picture clickable for that reason.
