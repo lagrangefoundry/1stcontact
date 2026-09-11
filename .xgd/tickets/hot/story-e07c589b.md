@@ -16,6 +16,8 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
+  updated_by:
+  - bundle-87be4669
 ---
 
 ## Story
