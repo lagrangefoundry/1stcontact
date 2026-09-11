@@ -40,6 +40,17 @@ export default defineConfig({
         compatibilityFlags: ['nodejs_compat'],
         d1Databases: ['DB'],
         r2Buckets: ['SITES', 'BLOBS'],
+        // IMAGES — the renderer an edit recipe is applied by (REQ-219).
+        //
+        // Locally this is Miniflare's own implementation over `sharp`, and it is
+        // a THIRD of the real one: it honours `rotate`, `width` and `height` and
+        // silently drops trim, gravity and every colour adjustment. That is why
+        // `compileRecipe` is a pure function asserted directly — a suite that
+        // cropped and compared pixels here would pass against an uncropped
+        // image, which is worse than no suite at all. What these bindings do
+        // prove is the half the local renderer really performs, against the real
+        // binding API rather than a hand-written stand-in of it.
+        images: { binding: 'IMAGES' },
       },
     }),
   ],

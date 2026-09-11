@@ -63,6 +63,7 @@ import type { LedgerDeps } from './ledger-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { configureProjectBackends } from './backends'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
+import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
 import { browserMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
 
@@ -295,6 +296,25 @@ export interface HostDeps {
    * can name a site the session is not about.
    */
   fidelity?: ((slug: string) => FidelityDeps) | null
+
+  /**
+   * What the `image` surface needs, or null where this deployment cannot change
+   * a picture ([[REQ-219]]).
+   *
+   * A FACTORY OVER THE SLUG, exactly like `fidelity` above and for the same
+   * reason: a picture is named across two namespaces and one of them is the
+   * site's own files, so which pictures exist falls out of which site the
+   * session is about. Binding it at construction is what means no operation
+   * declares a `slug` and no recipe can be written against a site the session is
+   * not about.
+   *
+   * NULL IS ORDINARY. A deployment with no renderer — a Worker with no
+   * `[images]` binding, a `1c` invocation with no binding at all — composes the
+   * surface not at all, so its manual never mentions editing and the model
+   * cannot propose, apologise for, or probe for an operation it has not got.
+   * That is the same shape a missing browser already has.
+   */
+  pictures?: ((slug: string) => ImageEditDeps) | null
 
   /**
    * This session's engagement record (REQ-171), or `null` where there is none.
@@ -600,6 +620,21 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
         ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
+        // The `image` surface, when this deployment has a renderer to apply a
+        // recipe with ([[REQ-219]]). Its grant TRAVELS WITH IT, like the
+        // ledger's below and unlike fidelity's, because what a session may do to
+        // a picture's recipe is a property of the surface rather than a per-role
+        // decision — and because `instances.json` is validated against the
+        // declarations the L1 suite hands the validator, so a key there would
+        // name a surface that validator was never given.
+        ...(deps.pictures
+          ? [
+              {
+                surface: await imageSurfaceFor(lib, deps.pictures(slug)),
+                granted: imageInstanceConfig(),
+              },
+            ]
+          : []),
         // The engagement record, where this deployment keeps one. Its grant
         // TRAVELS WITH IT — unlike fidelity's, which is an entry in
         // `instances.json` — because what a session may do to its own record is
