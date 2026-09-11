@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T21:29:51.024371+00:00'
+updated_at: '2026-09-11T22:05:07.698114+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -519,5 +519,11 @@ I'd push past the spinner to the bar for the reason your own budget implies: for
 `1c publish` is unaffected — progress is a property of the route, not the publish, same line the ticket already draws around the ladder itself.
 
 Both written up in REQ-222 and the epic. No code — ticket updates only.
+
+<!-- xgd-turn id="48c46718-144a-4d08-ac13-8c3caebbe5d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:05:07.337812+00:00" -->
+#### You
+Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
 
 <!-- xgd-chat-end -->
