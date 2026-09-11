@@ -6,15 +6,23 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:50:25.422674+00:00'
+updated_at: '2026-09-11T23:49:47.506143+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-37c2fe15
+  commits:
+  - working_sha: 2e55130728ae2c656a236701d6c5549933fc9329
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 10a0ac72852e02457b49eb1513e5fcf2bf1dbbdb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.173
 ---
 
 ## What this is
