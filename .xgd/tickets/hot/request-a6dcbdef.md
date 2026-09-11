@@ -5,9 +5,9 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-11T02:18:02.845171+00:00'
+updated_at: '2026-09-11T19:29:19.440245+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-cbce646b
 ---
+
 
 ## The gap
 
@@ -373,3 +374,69 @@ serves the bytes as promoted, recipe or no recipe. [[REQ-222]] needs that join k
 and this ticket does not invent one: which side carries it is a decision about
 publishing, and guessing here would leave that ticket with a column it has to
 work around.
+---
+
+## Technical consequences, settled in the code
+
+These are not new intent. Each falls out of something above, and each is pinned
+by a test — so they are written down rather than left for reconciliation to
+infer from an assertion.
+
+**A picture keeps the format it was stored as.** The renderer writes back the
+media type it read: a PNG stays a PNG and keeps its transparency, a JPEG stays a
+JPEG. Re-encoding a client's logo into a format nobody chose is the kind of quiet
+change that is noticed a month later on a printed brochure.
+
+**An animation is refused for the same reason a drawing is.** The refusal the
+body names for SVG — *"a picture that is not a raster this renderer can read"* —
+covers GIF too, and for a sharper reason: every operation here would flatten an
+animation to one frame without saying so. Both are refused where they are
+measured, which is before anything is written.
+
+**A crop that trims nothing is refused.** It is not in the body's list of
+refusals because it does not leave nothing — it leaves everything. It is still a
+refusal: an operation sitting in a recipe doing nothing leaves the client who
+added it wondering which of the others was the one that did not work.
+
+**A resize preserves the aspect ratio.** `width` and `height` are a box the
+picture is fitted within, never a shape it is stretched to and never a crop to
+fill. A resize that quietly threw away the edges would be a crop nobody wrote.
+
+**An `adjust` multiplier is bounded above as well as below.** It runs from `0` to
+`10`. Zero is allowed and is meaningful — `saturation: 0` is black and white — and
+the ceiling exists because a value in the hundreds is a client who meant a
+percentage, which is worth telling them rather than rendering.
+
+**`fields.edits` is declared on the material record.** The engine tolerates an
+undeclared field, but an undeclared field is a convention rather than a schema
+and this one is read by the renderer, the tool and the builder alike. The engine
+checks only that it is a list; what is *in* it is the vocabulary's to validate,
+against the picture's own pixels.
+
+**`/api/material/file` takes a delivery width.** `?width=` renders the picture
+smaller for whoever is showing it and never touches the recipe — the same split
+the surface prose draws for the assistant, made operative for the builder. It is
+ignored where it is wider than the picture, because nothing is ever enlarged. A
+member of a capture bundle is never rendered at all: those screenshots are not
+Library pictures and carry no recipe.
+
+**A deployment with no renderer serves every picture as its own original.** Not a
+degraded mode — it is the answer this product gave before recipes existed, and it
+is still correct, because a deployment that cannot apply a recipe also never had
+one written.
+
+**A render that throws serves the stored bytes.** The Library's pane exists to
+show the client their own file. A renderer that refused a picture it had already
+accepted a recipe for is a fault on our side, and blanking the pane over it would
+turn a degraded picture into a missing one.
+
+**The surface has two groups, not one.** `SeeImageEdits` over `list_image_edits`
+and `EditImages` over `edit_image`. A group is effect-homogeneous — the
+framework's validator refuses a `write` group holding a `read` operation, and it
+is right to: the manual's read-only projection is what makes *"nothing here
+changes anything"* a checkable claim rather than a sentence.
+
+**An absent list of edits is not an empty one.** `edits: []` is the deliberate
+*"put it back as it arrived"*; a call that omitted the parameter is a mistake, and
+treating the two alike would throw away a client's crop because an argument went
+missing.
