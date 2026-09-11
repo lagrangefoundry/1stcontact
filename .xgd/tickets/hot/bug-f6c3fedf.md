@@ -5,9 +5,9 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-11T21:41:41.990940+00:00'
+updated_at: '2026-09-11T21:52:13.172586+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -346,3 +346,72 @@ and still filterable later.
 
 The marker is provenance on the event, not a second class of contact: there is
 one contact table and one kind of lead.
+
+
+## What was built, 2026-09-11
+
+Commits `1bcc94e51f28d81dbb016662dc0a77df2b13331c` and
+`9a10d34f659fdf3fbb69cd9fd63dadf715964337`, version 0.2.167. Nine UATs in
+`tests/test_UAT_FC_BUG-78_preview_submits_for_real.workers.test.ts`, driving
+`control-app`'s own `route()` inside workerd against a real D1 database and a
+real R2 bucket, with the real `captureLead` on the write path. REQ-223's own 21
+still pass.
+
+### The route
+
+`apps/control-app/src/router.ts` answers `POST /preview/<slug>/draft/api/lead`,
+inside the existing `/preview/...` match so the business prefix is already
+stripped. It resolves the site key with `store.siteKey(slug)` — the same lookup
+the `published` redirect beside it uses — and calls `handleLead` imported from
+`apps/public-site/src/lead.ts`.
+
+**The import crosses an app boundary**, which is new: `control-app` had imported
+from `tools/` and `packages/` but not from `apps/public-site`. It is deliberate
+and is the point — the alternative is a second copy of the body limits, the
+field caps, the two submit shapes, the honeypot and the refusal envelope. If
+that shared surface should live in `packages/` instead, moving it is a
+refactor of one import and belongs before reconciliation rather than after.
+
+### The `identified` seam
+
+`handleLead` gained one optional context flag, `identified`, which skips the
+rate-limit block and the Turnstile block. `control-app` passes it; `public-site`
+never does.
+
+**IT IS SET IN CODE, AT ONE CALL SITE, AND NO REQUEST CAN CARRY IT.** It is not
+read from the body, the query string or a header — it is a claim the *server*
+makes about the gate its own route sits behind. A submission that posts
+`identified: true` to `public-site` is storing the string "true" under the name
+"identified" in its provenance, and is challenged exactly as before. A UAT
+asserts precisely that, because a flag that a caller could assert would have
+turned the public endpoint into an open one.
+
+### The channel on the record
+
+`LeadSubmission` gained `channel?: LeadChannel` (`'published' | 'draft'`),
+defaulting to `published` so every existing caller and every lead already
+recorded keeps meaning what it meant.
+
+`provenanceOfSubmission` records it **always, including for `published`**.
+Recording it only for previews would leave a reader unable to tell a live lead
+from one written before the field existed, which is the same ambiguity the
+marker exists to remove.
+
+### The definition lookup
+
+`formDefinitionOf` took a `channel` argument defaulting to `published`. On
+`draft` it reads `store.readPages(slug)`; on `published` it reads the live
+revision exactly as before, untouched.
+
+The function's own doc comment justified the published-only read as *"the
+visitor filled in a form that was served to them out of a frozen snapshot"*.
+That reasoning is kept and generalised rather than overturned: the rule is
+**read the definition from the snapshot the submitter was actually served**, and
+hardcoding `published` was the special case. For a preview the served snapshot
+is the draft.
+
+### Not changed
+
+`public-site`'s behaviour for any anonymous caller; the published channel's
+definition lookup; the `contact-form` renderer, which still emits one
+root-relative `action` and never learns which channel it is in.
