@@ -7,10 +7,10 @@ title: What the client said a file is for narrows the rights inferred from prove
   coerced
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:50:08.891348+00:00'
-updated_at: '2026-09-11T05:50:08.891348+00:00'
+updated_at: '2026-09-11T06:00:05.898576+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
