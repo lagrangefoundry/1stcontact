@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:46:27.966465+00:00'
+updated_at: '2026-09-11T21:47:58.310236+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -616,5 +616,38 @@ Wait still confused
 | --- | --- |
 
 `gigabytealchemy` (v1), `xgd` (v1) <-- this is a site capture and a screen shot that are in the library these are not additional sites what is the problem here? Those are not for deletion but should not be causing any confusion???
+
+<!-- xgd-turn id="647f12aa-8a18-4668-be3e-1faf5b05e514-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:47:57.328575+00:00" -->
+#### Claude
+Let me check what actually created those rows rather than assume.
+
+You're right, and my deletion call was wrong. Here's what those two rows actually are.
+
+**Both came from `storage/sites/` being imported into D1.** That directory holds exactly three sites — `1stcontact`, `gigabytealchemy`, `xgd` — which is why all three rows appeared in the platform tenant within four seconds of each other on 2026-09-06. That wasn't a seeding script inventing sites; it was `import-site.ts` loading what's on disk. I read the timing as evidence of strays when it was evidence of an import.
+
+- **`gigabytealchemy` is a reproduction**, exactly as you say. It has a capture bundle at `storage/references/gigabytealchemy.ai/` alongside `faelan.com` and `joyfulculinarycreations.com`, and it's the fidelity reference the perceptual-diff and gate work measures against — it's named throughout `capture/values-diff.ts`, `gate-core.ts`, and `colors.ts`. Its form action is `https://api.gigabytefoundry.ai/contact`, the *original* site's endpoint, preserved by the capture. That alone should have told me it wasn't an authored site.
+
+- **`xgd` in that tenant is the original local authoring copy** — `storage/sites/xgd/` with its Satoshi and JetBrains Mono fonts, its `xgd-grid-hero.svg` and friends, and an `import/` folder of generated source images. Created 2026-09-06, four days *before* the XGD business existed (2026-09-10). It's the earlier version of the same site, made on disk and imported.
+
+**So there is no additional xgd business.** There's one XGD business with one site. The second `xgd` is a *site* in the platform tenant, and it's your import. Nothing to delete there.
+
+## The one thing actually worth noting
+
+Why this confused me in the first place, and it isn't only my confusion: **the `sites` table has no column that distinguishes these.** The columns are `id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at`. A captured third-party reproduction, an imported working copy, and a customer's live site are the same kind of row, in the same table, under the same business. Nothing in the store says which is which — the only signals are external and circumstantial (a matching bundle under `storage/references/`, a directory under `storage/sites/`).
+
+Two consequences:
+
+1. Any per-business view counts all three as "sites of 1st Contact". So "3 businesses each with one site" isn't a state the store can currently express — the platform tenant will always also hold whatever's in `storage/sites/`, because that's where the reproductions live.
+2. More concretely: a reproduction carries the captured site's *real* form action. `gigabytealchemy`'s points at `api.gigabytefoundry.ai`. That's harmless while nothing is published, but it means a reproduction is one publish away from pointing live traffic at a third party's endpoint — which is a different shape of the same class of problem as BUG-78's finding 2.
+
+Whether reproductions and imports should be marked as such is a product question rather than cleanup. Worth a ticket if you want it; I haven't filed one.
+
+## Where that leaves the cleanup
+
+Revised, and much smaller: nothing to delete in the 1st Contact tenant. What's left is only the fixture businesses with no sites of their own — **Alice's Plumbing, Alice's Lettings, Alice's Old Salon, Felix Test** — and Felix Test carries 2 tickets that would go with it. `uat@westhead.me` I'd still leave alone; it's a live UAT fixture.
+
+Still haven't touched anything. BUG-78 stands as delivered — commits `1bcc94e51f` + `9a10d34f65`, 0.2.167, `free_coded`.
 
 <!-- xgd-chat-end -->
