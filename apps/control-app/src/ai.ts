@@ -55,6 +55,7 @@
  */
 
 import * as aiLib from './generated/ai-workers.js'
+import * as ticketBridge from './generated/ai-ticketing.js'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { TicketStore } from './tickets'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
@@ -289,6 +290,65 @@ export async function flushAudit(
   )
 }
 
+/**
+ * The client's own tickets, as a surface the assistant can read ([[REQ-228]]).
+ *
+ * THE ANSWER TO "WHY CAN THE ASSISTANT NOT SEE THIS". Everything in this product
+ * is a ticket — the client's uploaded material, what every past conversation
+ * decided, the transcripts themselves — and the assistant was the only actor in
+ * the system that could not read the project's own tickets. The surface was
+ * shipped and simply never granted. This is the grant.
+ *
+ * **THE REACH INTO PAST CONVERSATIONS IS THE POINT** (operator decision,
+ * 2026-09-11). This store holds every `chat` ticket for this client, each
+ * carrying a previous conversation in its `chat_transcript` comment, alongside
+ * every engagement ledger. That is not an over-grant to be trimmed back: an
+ * assistant that cannot read what it and this client already worked out has no
+ * context, and context is most of what makes a consultant worth talking to. A
+ * grant narrowed to the picture catalogue would have answered [[REQ-228]]'s
+ * acceptance test and left its actual intent unbuilt.
+ *
+ * `ReadTickets` AND NOT `WriteTickets`, which is a separate decision nobody has
+ * made. The engagement record already has its own narrow verb — `record_decision`
+ * on the ledger surface, which can reach this session's own record and nothing
+ * else — and `ledger-core.ts` sets out at length why that was built rather than
+ * the generic write groups being granted. Reading what was decided is the
+ * capability being added here; creating and patching arbitrary tickets in the
+ * client's project is not.
+ *
+ * LOCAL-ONLY FALLS OUT RATHER THAN BEING CONFIGURED. `instanceConfig` is given
+ * no projects, so the `project` and `project_write` axes stay unset — which their
+ * declarations read as an empty allow set. A local uid projects to no authority
+ * and a projection that yields nothing is unconstrained, so every ticket in this
+ * store is readable and any reference naming another project is refused, with no
+ * predicate anybody has to keep correct forever. The `ticket` axis is unset too,
+ * which reads as "this session's store, all of it".
+ *
+ * ONE BUSINESS, BY THE HANDLE AND NOT BY A PREDICATE. The store is already
+ * `forTenant`-bound, so there is no argument anywhere on this path that could
+ * name another client's tickets — the same rule `tickets.ts` states and
+ * `knowledge.ts` inherits.
+ *
+ * THE GRANT TRAVELS WITH THE SURFACE, like the knowledge surface's and the
+ * ledger's. `instances.json` is validated against the declarations THIS
+ * repository holds, and this declaration is upstream's, so a key there would be
+ * a grant the validator could never check. `ai.ts` already states that rule for
+ * the knowledge surface; it applies unchanged here.
+ */
+export function sessionTicketSurface(tickets: TicketStore): {
+  surface: Untyped
+  granted: Record<string, unknown>
+} {
+  const bridge = ticketBridge as unknown as Untyped
+  return {
+    surface: new bridge.TicketToolbox(tickets),
+    // READ FROM THE BRIDGE'S OWN VOCABULARY rather than spelled `'ReadTickets'`
+    // here. The group name is upstream's to change, and a literal would keep
+    // granting *something* the day it changed rather than failing to construct.
+    granted: bridge.instanceConfig({ groups: [bridge.READ_GROUP] }),
+  }
+}
+
 /** What the Worker needs to build a host: the store, the bindings, the secret. */
 export interface WorkerAiEnv {
   SITES: R2Bucket
@@ -407,6 +467,27 @@ export function workerHost(
    * line to paste, which is the state the `1c` CLI is permanently in.
    */
   assetUrl: HostDeps['assetUrl'] = null,
+  /**
+   * The client's catalogue ([[REQ-228]]), or `null` where this deployment has
+   * no site store to place anything onto.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
+   * one: it needs this business's ticket store AND the tenant site store, and
+   * the second of those is the router's to open. Assembling it there also keeps
+   * `material.ts` — and behind it the whole `edit.ts` asset-write path — out of
+   * this file's import graph, which is the same reason `@cloudflare/puppeteer`
+   * is not here.
+   *
+   * A FACTORY OVER THE SLUG, passed straight through, because *"is this on the
+   * site"* is a question about the site the session is about and the record
+   * answers for every site its bytes are on.
+   *
+   * NULL IS ORDINARY — the same shape a missing browser and a missing renderer
+   * already have. What its absence costs is the CATALOGUE; the ticket surface
+   * below is composed either way, because reading the client's tickets needs no
+   * site to read them against.
+   */
+  library: HostDeps['library'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -472,6 +553,12 @@ export function workerHost(
       extraSurfaces: [
         ...(knowing ? [sessionKnowledgeSurface(knowledge)] : []),
         ...(images ? [images] : []),
+        // THE CLIENT'S OWN TICKETS ([[REQ-228]]). UNCONDITIONAL, unlike both
+        // entries above it: those are absent where a credential or a binding is,
+        // and this host ALWAYS has a ticket store — it is where the transcript
+        // itself lives. A deployment of this Worker with no tickets is not a
+        // reduced mode of it, it is not a deployment.
+        sessionTicketSurface(tickets),
       ],
       // Passed straight through: `host-core.ts` composes the surface when this
       // is present and composes nothing when it is not, which is the one place
@@ -487,6 +574,10 @@ export function workerHost(
       // to the session's site and `toolbox-core.ts` decides what a line looks
       // like. This file only carries it.
       assetUrl,
+      // THE CLIENT'S CATALOGUE ([[REQ-228]]), passed straight through:
+      // `host-core.ts` composes the surface when this is present and composes
+      // nothing when it is not, which is the one place that decision belongs.
+      library,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth

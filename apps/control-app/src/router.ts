@@ -49,6 +49,7 @@ import {
 } from './ai'
 import { imageSurface } from './imagegen'
 import { canEmbed, type EmbedderEnv } from './embedder'
+import { chatLibrary } from './library'
 import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -546,6 +547,16 @@ function chatHost(
                 scope.businessId,
                 `/preview/${encodeURIComponent(slug)}/draft/${handle.replace(/^\/+/, '')}`,
               ),
+        // THE CLIENT'S CATALOGUE ([[REQ-228]]). Assembled here, like every wire
+        // above it, because what it needs is request-scoped and both halves are
+        // already open at this point: this business's ticket store, which is
+        // where the Library lives, and the tenant site store, which is where a
+        // placement puts the bytes.
+        //
+        // BOTH STORES ARE ALREADY TENANT-BOUND, so the surface cannot address
+        // another client's material and nothing below re-enforces a barrier it
+        // could not reach around anyway.
+        (slug: string) => chatLibrary(tickets, store, slug),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
