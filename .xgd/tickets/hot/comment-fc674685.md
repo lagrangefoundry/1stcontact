@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-10T21:50:54.163066+00:00'
+updated_at: '2026-09-11T22:48:47.213374+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,11 @@ That last one is Defect 1 again on two more elements. Three of this component's 
 **Why the tests missed it:** `test_UAT_FC_REQ_200_check_your_email_is_identical_either_way` asserts `sent.hidden === false` and identical text at 202/404/500. That's the REQ-134 non-disclosure property, and it genuinely holds. Nothing asks whether the panel then *reads* as a confirmation — form gone, message inside the card, legible against what's behind it. The test runs in JSDOM, where the overlay CSS doesn't apply and geometry doesn't exist.
 
 Scope question on the ticket now lists four fixes across three packages. Still no code written — say how you want it split (BUG-77 is open and untitled) and I'll cut a branch.
+
+<!-- xgd-turn id="3e3bf6aa-8520-4e0b-8e9f-74f675d2aac8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:48:46.919761+00:00" -->
+#### You
+Do you have everything you need to fix this?
 
 <!-- xgd-chat-end -->
