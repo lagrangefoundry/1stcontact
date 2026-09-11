@@ -6,10 +6,10 @@ title: A file handed over for a selected site is in that site's asset library wh
   the hand-over returns, as a copy on the public side, under the name reported back
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:45.507740+00:00'
-updated_at: '2026-09-11T05:02:45.507740+00:00'
+updated_at: '2026-09-11T05:13:45.313497+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
