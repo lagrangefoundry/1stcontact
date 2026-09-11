@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-228
 created_by: xgd
 created_at: '2026-09-11T22:31:26.099704+00:00'
-updated_at: '2026-09-11T23:17:43.098880+00:00'
+updated_at: '2026-09-11T23:47:50.048507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,14 @@ Let me check the remaining worktree-only failures against the same control.
 Every one fails with my code reverted. Now the same set with my changes restored:
 
 Identical: 13 failed / 92 passed with and without my change. Now confirming my own suites and the AI-surface neighbours all pass.
+
+<!-- xgd-turn id="fd3603c8-aa10-4e8a-a664-f7e0a44c529e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T23:47:48.954220+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
