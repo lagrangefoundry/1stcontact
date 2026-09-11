@@ -6,10 +6,10 @@ title: 'Ingestion: A File Handed To The Platform Becomes Stored, Classified, Fin
   Material'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:06:12.315229+00:00'
-updated_at: '2026-09-11T04:06:12.315229+00:00'
+updated_at: '2026-09-11T04:17:56.061463+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
