@@ -1088,6 +1088,18 @@ describe('story-c4f329d3 — what is in the knowledge base, and how it is read',
     // what the corpus ends up holding is exactly what the rule selects — nothing
     // silently added, nothing silently dropped, and no excluded document with a
     // file in the corpus.
+    //
+    // AGREEMENT IS THE CLAIM, AND MEMBER COUNT IS NOT PART OF IT. How many
+    // documents an operator has marked is curation state, not behaviour: today
+    // none carry the kind, because the value cannot be set until the `doc_kind`
+    // enum that xgd owns ships it (REQ-164; [[DOC-39]] §10), and the day it does
+    // the count becomes whatever that week's curation says. A criterion that
+    // demanded a non-empty member set would assert the corpus's *contents*
+    // rather than the membership *rule* — and it would contradict AC-1300 in the
+    // same story, which pins the empty-member-set store as a declared, tested
+    // state. So what is guarded against vacuity here is the thing the rule needs
+    // in order to have been exercised at all: real documents to decide about,
+    // and a real decision reached on every one of them.
     await withRoot((root) => {
       const tickets = readDocTickets()
       const exported = exportCorpus(root)
@@ -1095,11 +1107,22 @@ describe('story-c4f329d3 — what is in the knowledge base, and how it is read',
       const shouldBeIn = tickets.filter(isMember).map((t) => t.id).sort()
       const shouldBeOut = tickets.filter((t) => !isMember(t)).map((t) => t.id).sort()
 
-      expect(shouldBeIn.length).toBeGreaterThan(0)
+      // NOT VACUOUS: the store really does hold documents, the rule really was
+      // applied to each of them, and every one reached a decision — so the
+      // equalities below are agreement over a populated store rather than two
+      // empty lists matching each other.
+      expect(tickets.length).toBeGreaterThan(0)
+      expect(shouldBeIn.length + shouldBeOut.length).toBe(tickets.length)
+      expect(shouldBeOut.length).toBeGreaterThan(0)
+
       expect(exported.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
       expect(exported.skipped).toEqual(shouldBeOut)
 
+      // EXACTLY the members have a file — an equality over the whole corpus
+      // directory rather than an absence checked per excluded document, so a
+      // file the rule never selected cannot survive there unnoticed either.
       const onDisk = corpusFiles(root)
+      expect(onDisk).toEqual(shouldBeIn.map((id) => `${id}.md`))
       for (const id of shouldBeOut) expect(onDisk).not.toContain(`${id}.md`)
     })
   }, 300_000)

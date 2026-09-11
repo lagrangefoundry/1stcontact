@@ -78,14 +78,42 @@ const STAMP = '2026-08-31T00:00:00Z'
 const SYSTEM_KB = 'system'
 
 /**
- * The read set, in full.
+ * The read set, asserted as a PROPERTY of the grant rather than as a snapshot of
+ * the list it resolves to today.
  *
- * Asserted as an equality rather than as a handful of absences, because that is
- * what AC-1652 and AC-1318 both ask for in the same words: *an operation added
- * upstream cannot enter the grant unnoticed*. A list of `not.toContain` checks
- * passes for every operation nobody here thought to name.
+ * WHAT AC-1652 CLAIMS is that the grant is read-only and confined to the system
+ * knowledge base on both scope axes, and that *an operation added upstream cannot
+ * enter the grant unnoticed*. A literal three-element equality was one way to say
+ * that, and it was the wrong way: the operations are not this repository's to
+ * choose. They are read out of the shared component's own declaration, which
+ * widened its read group from three operations to five (`KnowledgeOutline` and
+ * `KnowledgeChanges`, both declared `effect: read`) with no commit here — so the
+ * literal failed while the property it stood for was still true.
+ *
+ * So the equality is kept, and both sides of it are now derived: what the model
+ * is offered must equal exactly what the grant names, resolved through the
+ * declaration, and every one of those operations must itself declare
+ * `effect: read`. That is strictly STRONGER than the literal — a write operation
+ * arriving inside an already-granted group fails it, which the literal caught
+ * only by accident of the list changing — and it is inert to a read-only
+ * addition, which is not a widening of what this session may do.
+ *
+ * A handful of `not.toContain` checks remains the wrong shape, for the reason the
+ * literal was written for: it passes for every operation nobody here thought to
+ * name.
  */
-const READ_SET = ['KnowledgeChunkSearch', 'KnowledgeGet', 'KnowledgeSearch']
+interface SurfaceDeclaration {
+  operations: { op: string; tool: string; effect: string }[]
+  groups: { group: string; effect: string; operations: string[] }[]
+  scope_axes: Record<string, unknown>
+}
+
+/** An instance configuration's entry for one surface. */
+interface SurfaceGrant {
+  groups?: string[]
+  operations?: string[]
+  scope: Record<string, string[]>
+}
 
 const CORPUS: Record<string, string> = {
   'DOC-Z.md': `---
@@ -465,15 +493,68 @@ describe('the deployed session is primed with the map and granted the read set',
     // BESIDE the site operations rather than instead of them: one surface, so a
     // knowledge call is gated, marked and audited by the machinery an edit is.
     expect(tools).toContain('set_l1')
-    // READ-ONLY BY ABSENCE, asserted as an equality so an operation added
-    // upstream cannot enter the grant unnoticed.
-    expect(tools.filter((name) => name.startsWith('Knowledge')).sort()).toEqual(READ_SET)
 
-    // And the grant the surface travels with names this knowledge base and no
-    // other — filled from the declaration rather than from a literal here, which
-    // is what will make a second knowledge base safe to add later.
-    const { granted } = knowledgeSurfaceFor(await fixtureRuntime())
-    expect(JSON.stringify(granted)).toContain(SYSTEM_KB)
+    // The surface and the grant the session actually travelled with.
+    const { surface, granted } = knowledgeSurfaceFor(await fixtureRuntime())
+    // THE DECLARATION READ OFF THAT SURFACE, not imported alongside it: it is the
+    // same object the surface renders its own tools from, so there is no second
+    // copy here for the assertion and the runtime to drift apart over.
+    const declaration = (surface as { constructor: { DECLARATION: SurfaceDeclaration } }).constructor
+      .DECLARATION
+    const grant = (granted as Record<string, SurfaceGrant>).knowledge
+
+    // WHAT THE GRANT NAMES, resolved through the declaration. A grant names
+    // either operations outright or a capability group, and a group is a list the
+    // declaration keeps — so this is the set of operations this session may reach
+    // for, derived rather than restated.
+    const grantedOps =
+      grant.operations ??
+      (grant.groups ?? []).flatMap(
+        (name) => declaration.groups.find((group) => group.group === name)?.operations ?? [],
+      )
+    const byOp = new Map(declaration.operations.map((operation) => [operation.op, operation]))
+    const grantedOperations = grantedOps.map((op) => byOp.get(op))
+
+    // Every granted op is one the declaration actually declares, and there is at
+    // least one — the two clauses that stop everything below from passing over a
+    // typo or over an empty grant.
+    expect(grantedOperations.filter((operation) => operation === undefined)).toEqual([])
+    expect(grantedOperations.length).toBeGreaterThan(0)
+
+    // READ-ONLY, AS THE PROPERTY: every operation this session was granted
+    // declares `effect: read`. Paired tool-by-tool so a failure names the
+    // operation that broke it rather than reporting two unequal lists.
+    expect(grantedOperations.map((operation) => `${operation!.tool}:${operation!.effect}`)).toEqual(
+      grantedOperations.map((operation) => `${operation!.tool}:read`),
+    )
+    // …and every GROUP named is itself a declared read group, so a write
+    // operation cannot arrive inside a group that is already granted.
+    for (const name of grant.groups ?? []) {
+      expect(declaration.groups.find((group) => group.group === name)?.effect, name).toBe('read')
+    }
+
+    // AND THE MODEL IS OFFERED EXACTLY THOSE OPERATIONS — the equality that keeps
+    // an operation from entering the grant unnoticed, stated against what was
+    // granted instead of against a literal list that only this repository
+    // maintains.
+    const declaredTools = new Set(declaration.operations.map((operation) => operation.tool))
+    expect(tools.filter((name) => declaredTools.has(name)).sort()).toEqual(
+      grantedOperations.map((operation) => operation!.tool).sort(),
+    )
+    // Nothing wearing the surface's naming reaches the model from outside its
+    // declaration either.
+    expect(tools.filter((name) => name.startsWith('Knowledge') && !declaredTools.has(name))).toEqual(
+      [],
+    )
+
+    // AND THE GRANT NAMES THIS KNOWLEDGE BASE AND NO OTHER, on EVERY axis the
+    // declaration defines rather than on the two that happen to exist today — so
+    // a session cannot read a document it was never allowed to search for, and an
+    // axis added upstream cannot arrive unconstrained.
+    const axes = Object.keys(declaration.scope_axes).sort()
+    expect(axes.length).toBeGreaterThan(0)
+    expect(Object.keys(grant.scope).sort()).toEqual(axes)
+    for (const axis of axes) expect(grant.scope[axis], axis).toEqual([SYSTEM_KB])
   })
 })
 
