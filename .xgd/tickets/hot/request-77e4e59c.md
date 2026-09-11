@@ -6,7 +6,7 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:27:27.103033+00:00'
+updated_at: '2026-09-11T22:31:02.866218+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 
 ## What this is
@@ -161,20 +162,22 @@ Half A–C make the Library readable and placeable. They do **not** yet make the
 catalogue complete, and this is the part that needs a decision rather than an
 implementation.
 
-A picture can be on the site without being in the Library. This is now filed as
-a defect with evidence — **BUG-84 (`bug-cd883d86`)** — and measured: 14 SVG
-drawings are live on sites and 0 of them have a material ticket.
+A picture can be on the site without being in the Library. Three of the four
+doors are correct — a client upload mints a ticket, `create_image` mints one
+through `generatedMaterialStore`, and promotion records `placed_on`.
 
-To be precise about which doors, because three of the four are correct: a client
-upload mints a ticket, `create_image` mints one through `generatedMaterialStore`,
-and promotion records `placed_on`. The two that do not are **`write_image`** —
-a drawing the assistant composes, which goes through `editAssetWrite` into the
-site store and stops — and **`add_asset`**, which takes a path on the operator's
-own disk and does the same. A site seeded or pushed from `storage/sites/` is a
-probable third.
+**The assistant's own `write_image` drawings are deliberately excluded**
+(operator decision, 2026-09-11): the client does not need the assistant's working
+sketches in their Library. They stay site assets, reachable through `list_assets`
+where the assistant already finds them.
 
-Fonts and subresources mirrored from a capture are deliberately not catalogue
-material; the rule is about pictures.
+What remains is the seed/push door, filed with evidence as **BUG-84
+(`bug-cd883d86`)** — a picture mirrored from a captured third-party site can
+reach a client's assets with no rights record, going around the gate promotion
+enforces.
+
+Fonts and other mirrored subresources are not catalogue material either; the rule
+is about pictures the client has a stake in.
 
 While that is true, "one catalogue with a mark" is not quite true: the catalogue
 is the client's uploads and the generator's output, and the site holds things the
