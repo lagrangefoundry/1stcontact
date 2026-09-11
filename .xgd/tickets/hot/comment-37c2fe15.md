@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-228
 created_by: xgd
 created_at: '2026-09-11T22:31:26.099704+00:00'
-updated_at: '2026-09-11T22:47:40.609582+00:00'
+updated_at: '2026-09-11T23:17:43.098880+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -113,5 +113,83 @@ And the acceptance test you wrote into the ticket — the assistant looks at the
 The thing to know is what else lives in that same store: **every other conversation this client has had with the assistant is in there, in full**, along with the engagement notes from each. So that grant isn't "read the picture catalogue" — it's "read everything, including past conversations." <-- this is EXACTLY THE INTENTION how can the assistant be helpful without context
 
 **So: yes or no on the general "read any ticket" grant? YES YES PLEASE YES critical part of the product intent**
+
+<!-- xgd-turn id="c16da8b8-b818-4905-805d-b8e79ae95fd6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T23:17:42.122534+00:00" -->
+#### Claude
+Understood — and that reframes it: the cross-session reach is the product intent, not a hazard to be narrowed. I'll build all three halves. Let me check the one wiring question that decision opens before I cut the branch.
+
+Confirmed the wiring works: upstream's policy treats an unset `when_unset: deny` axis as an empty allow set, and a local uid projects to nothing — so `ReadTickets` with no project scope reads **every ticket in this tenant's store** and refuses only cross-project references. That's exactly the reach you want.
+
+Let me scope the ticket first, per protocol.
+
+Ticket scoped. Now the branch.
+
+Now let me build. Starting with the shared naming projection in `material.ts`.
+
+Now the shared projection — one function both the image library and the catalogue name items through.
+
+Now the surface declaration — every word the model reads lives here, none in the code.
+
+Now the surface core — the port, the operations, and the one naming rule reused.
+
+Now the host side — the port implemented over the ticket store and the site store.
+
+Now wiring the surface into the host.
+
+Now Half A — the ticketing bridge. First the build shim, so the Worker can resolve the package.
+
+Now the ticket surface composition in `ai.ts`, and the two new params on `workerHost`.
+
+Now the `workerHost` signature — the library factory and the ticket surface composition.
+
+Now the router assembles it.
+
+Now generate the shim and typecheck.
+
+Now the UATs. Let me check how existing suites exercise a Toolbox grant.
+
+Now writing the first UAT — the surface's own behaviour.
+
+Two real findings from the framework's validator. Let me see all four failures.
+
+All four are fixture/declaration bugs, not surface bugs. Fixing the sequence first — the validator requires steps to name the surface's own operations.
+
+Declaration is clean now. The remaining two are my fixture's — it hand-built aliases instead of using the real projection. Let me fix that properly.
+
+24 passing. Now the workers suite — the real stores, and Half A's ticket grant.
+
+Now the workers suite — real stores, and the ticket grant.
+
+Good — real domain findings. `role: 'reference'` implies `republishable: false` by design, and the route only promotes when the form carries a slug. My fixtures picked the wrong lever.
+
+Now fix the four cases that used `role` as the placement lever.
+
+Both suites green. Now Half A's own UAT — the ticket grant and its reach.
+
+Two findings — the declaration's `tool` names differ from the `op` names, and `run` renders refusals as text rather than throwing.
+
+Now update the call sites to use tool names and the text-refusal contract.
+
+All three suites pass. Now the full regression run.
+
+The two lists are nearly disjoint, which points to load-dependent flakiness plus real regressions mixed together. Let me isolate the ones that plausibly touch my change.
+
+All seven share one symptom: the per-turn reminder isn't reaching the model. Let me check whether that reproduces on main.
+
+Real regression — main passes 50/50. Let me find it.
+
+Not a regression — running `1c assets` in the worktree regenerated `kb.js` as `null`, since the worktree has no built KB. Restoring the artefact:
+
+Let me determine decisively whether my changes cause it, by reverting the tracked files temporarily.
+
+Confirmed — these reproduce with my code fully reverted. A worktree-environment artifact, not a regression. Restoring my changes:
+
+Let me check the remaining worktree-only failures against the same control.
+
+Every one fails with my code reverted. Now the same set with my changes restored:
+
+Identical: 13 failed / 92 passed with and without my change. Now confirming my own suites and the AI-surface neighbours all pass.
 
 <!-- xgd-chat-end -->
