@@ -6,10 +6,10 @@ title: 'Promotion never replaces an asset already live: a free name preserving t
   extension is used and reported'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:55.046508+00:00'
-updated_at: '2026-09-11T05:02:55.046508+00:00'
+updated_at: '2026-09-11T05:13:45.060565+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
