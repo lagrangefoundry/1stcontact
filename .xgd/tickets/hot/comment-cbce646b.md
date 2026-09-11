@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-219
 created_by: xgd
 created_at: '2026-09-10T22:08:15.852975+00:00'
-updated_at: '2026-09-11T02:09:17.427164+00:00'
+updated_at: '2026-09-11T02:39:20.931613+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,41 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="169fe7d9-94dd-418b-acef-d571b4d87d80-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:39:20.133458+00:00" -->
+#### Claude
+Three decisions I'm taking rather than blocking on — say the word if any is wrong and I'll rework it:
+
+1. **The join** — recipe lives on the material record only, exactly as the ticket says; `edit_image` addresses materials. I am *not* touching `site_assets` or promotion. REQ-222 will need a join key that doesn't exist yet; I'll record that in the ticket rather than invent it here.
+2. **`flip`** — stays out of v1 as the ticket and epic both decided. I'll correct the *reason* in the body, since "the platform renderer cannot do it" is false and would mislead reconciliation.
+3. **Description staleness** — explicitly punted, stated in the body and in the surface prose, so the assistant knows a description describes the original.
+
+Let me verify the last few mechanics before I scope.
+
+The repo moved under me — REQ-218 landed minutes ago. Let me re-read what it built before I design against a stale picture.
+
+I have what I need. Let me read the protocol doc, then scope the ticket.
+
+Workers suites run here — good, I can verify end-to-end. Now scoping the ticket.
+
+Now the vocabulary and compiler.
+
+Now the surface core that binds those operations to a host.
+
+Now the field declaration, the library's recipe branch, and the wiring.
+
+Now the wrangler binding, the vitest config, and the router wiring.
+
+Now the router: build the renderer and the shared picture library once, feed both surfaces.
+
+Now the node-side UATs — the vocabulary, the compiler, and the declaration.
+
+Two real findings from the validator — groups must be effect-homogeneous. Splitting the read op into its own group.
+
+All 13 pass against the real binding. Now checking for regressions across the suite.
+
+The output was truncated — re-running with full capture so I can see every failure.
 
 <!-- xgd-chat-end -->
