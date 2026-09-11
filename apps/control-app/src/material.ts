@@ -1055,21 +1055,43 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
  * every picture in the Library is in that state today and none of them should
  * start paying for a renderer they do not use.
  */
+/**
+ * What one Library row is CALLED — the single projection, [[REQ-228]].
+ *
+ * EXTRACTED SO THERE IS ONE OF IT. It was inline in {@link materialImageLibrary}
+ * and had exactly one caller, which was fine while the Library was reachable
+ * only as pictures. [[REQ-228]] gives the assistant a catalogue over the SAME
+ * records covering every kind, and a second copy of these four lines would be
+ * the drift `image-library.ts` was written to prevent, one layer up: a picture
+ * named one way by the catalogue and another by `screenshot` is an assistant
+ * told it can look at something it cannot, under the name it was just given.
+ *
+ * IT IS DELIBERATELY KIND-BLIND. The caller decides what belongs in its
+ * namespace — `materialImageLibrary` filters to images because a font is not a
+ * picture, and the catalogue does not because a font is material. What a row is
+ * CALLED does not depend on that, and pushing the filter in here would make it.
+ *
+ * The uid is canonical because it is unambiguous and is what the generator hands
+ * the model. The title is an alias rather than the identity: two pictures may
+ * share one, and a client may correct it, which an identity may not do.
+ */
+export function storedImageOf(row: MaterialRow): StoredImage {
+  return {
+    name: row.uid,
+    where: 'library' as const,
+    mediaType: row.content_type,
+    title: row.title,
+    // The filename is what a client says out loud about their own upload, and it
+    // is what the row shows beside the title.
+    aliases: row.filename === row.title ? [] : [row.filename],
+  }
+}
+
 export function materialImageLibrary(store: TicketStore, renderer?: ImageRenderer): ImageLibrary {
   return {
     async list(): Promise<StoredImage[]> {
       const rows = await listMaterial(store)
-      return rows
-        .filter((row) => row.kind === 'image')
-        .map((row) => ({
-          name: row.uid,
-          where: 'library' as const,
-          mediaType: row.content_type,
-          title: row.title,
-          // The filename is what a client says out loud about their own upload,
-          // and it is what the row shows beside the title.
-          aliases: row.filename === row.title ? [] : [row.filename],
-        }))
+      return rows.filter((row) => row.kind === 'image').map(storedImageOf)
     },
     async read(image, opts): Promise<Uint8Array> {
       const file = await materialFile(store, image.name)

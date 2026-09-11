@@ -1,0 +1,194 @@
+{
+  "surface": "library",
+  "version": 1,
+  "surface_version": 1,
+  "title": "The client's Library — everything they have given you",
+  "call_type": "inproc",
+  "overview": "Your client has a Library, and this is it. Every file they have dropped on a conversation is here — their logo, their photographs, their brand guidelines, the font their signwriter used — along with every picture you have generated for them. It is the same list they see on their own Library tab, and it is the catalogue of what this engagement has to work with.\n\n**Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. Do not think of these as two stores; think of one catalogue with a mark on some of its entries.\n\n**This is not the same list as `list_assets`, and the difference is real.** `list_assets` answers *what can this site reference today* — every file the site holds, including drawings you made yourself. This answers *what has the client given us*. The two overlap exactly where `placed_on` says they do. When you want to put a picture on a page that is already on the site, `list_assets` is your list; when you want to know what the client actually has, this one is.\n\n**Look before you ask.** You can see every picture in here — `screenshot` takes the name this catalogue gives you, unchanged. A client who has given you three photographs and been asked which one is best, by someone who never looked at them, has been given nothing. Read the catalogue, look at the pictures, form a view, and say it.",
+  "param_types": {
+    "item_name": {
+      "base": "string",
+      "description": "What the item is called. Its catalogue name, the client's own filename, or the title the Library shows — whichever you are holding. A name that fits two items is refused rather than guessed at, and the refusal tells you both."
+    }
+  },
+  "shapes": {
+    "catalogue_page": {
+      "items": "the matching items, newest first",
+      "total": "how many matched altogether, before the limit",
+      "more": "true when the limit held some back — ask again with a narrower filter or a larger limit"
+    },
+    "catalogue_item": {
+      "item": "the item's catalogue name, which is also the name screenshot takes",
+      "title": "what the Library calls it — the description the describer wrote, or the name your client gave it",
+      "filename": "the client's own name for the file",
+      "kind": "image, font, document or capture",
+      "content_type": "what the bytes are",
+      "role": "what the client said it is FOR: 'site' means they want it on the site, 'reference' means it is background for you to read",
+      "rights": "owned, licensed or third_party",
+      "republishable": "whether it may be placed on the site at all",
+      "placed_on": "the sites this item's bytes are ON. Empty means it has not been placed",
+      "source_url": "where it was fetched from, for anything we pulled rather than the client handed over",
+      "edits": "what has been done to this picture — the recipe list_image_edits reads",
+      "described": "whether it has been described yet, and by what",
+      "updated_at": "when the record last changed"
+    },
+    "placement": {
+      "item": "the catalogue item that was placed",
+      "asset": "the name the bytes landed under on the site — renamed if that name was taken",
+      "src": "the handle to write into a picture element's src",
+      "size": "how many bytes were copied",
+      "description": "what this picture shows, as described. Write your own alt text FROM this onto the element that places it",
+      "placed_on": "every site this item is now on, including the one just placed"
+    }
+  },
+  "errors": {
+    "NOT_FOUND": {
+      "message": "there is no catalogue item by that name. The refusal names the ones there are — ask again with one of those."
+    },
+    "AMBIGUOUS": {
+      "message": "that name fits more than one item, and guessing which would be a wrong answer that looks like a right one. Ask again with one of the names the refusal lists."
+    },
+    "NOT_REPUBLISHABLE": {
+      "message": "that material cannot go on the site. It came from somewhere else and we do not hold the right to republish it. Use it as reference, or ask your client for something of their own in its place."
+    },
+    "NO_SITE": {
+      "message": "there is no site store behind this conversation, so there is nowhere to put a file."
+    },
+    "SCHEMA_INVALID": {
+      "message": "the call was not well-formed. Nothing was placed and the catalogue is exactly as it was."
+    }
+  },
+  "operations": [
+    {
+      "op": "list_library",
+      "tool": "list_library",
+      "effect": "read",
+      "summary": "See what the client has given you — their files and your generated pictures.",
+      "description": "The catalogue, newest first. Everything with no filter, or narrow it.\n\nThis is a **bounded** listing, because an engagement's Library can hold every file of the whole engagement and sending you all of it would spend the context you need for the work. It tells you how many matched and whether any were held back, so you always know whether you are looking at all of it.\n\nFilter by what you are actually after. `kind: 'image'` when you want pictures. `placed: false` when you want what the client has given you that is not yet on the site — which is usually the interesting question. `matching` searches what the describer wrote about each item as well as its name, so you can ask for 'the bakery photographs' rather than guessing filenames.",
+      "params": {
+        "kind": {
+          "type": "string",
+          "description": "Only items of this kind: image, font, document or capture."
+        },
+        "role": {
+          "type": "string",
+          "description": "Only items the client said were for this: 'site' or 'reference'."
+        },
+        "placed": {
+          "type": "boolean",
+          "description": "True for only what is already on this site; false for only what is not. Leave it out for both."
+        },
+        "matching": {
+          "type": "string",
+          "description": "Only items whose title, filename or description contains this text. Case does not matter."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "How many to return. Defaults to a sensible page; ask for more when you have narrowed and still need the rest."
+        }
+      },
+      "returns": {
+        "shape": "catalogue_page",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "get_library_item",
+      "tool": "get_library_item",
+      "effect": "read",
+      "summary": "Read one catalogue item in full, including what it was described as.",
+      "description": "Everything the listing carries, plus the **description** — what the describer wrote about this file when it arrived, which for a picture is what it shows and for a document is what it says.\n\nRead this before you place a picture. The description is what your alt text should be written from, and it is the only account of a document's contents you get without the client reading it to you.\n\nName it however you are holding it: the catalogue name, the client's filename, or the Library's title.",
+      "params": {
+        "item": {
+          "type": "item_name",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "catalogue_item",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "AMBIGUOUS",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "place_on_site",
+      "tool": "place_on_site",
+      "effect": "write",
+      "summary": "Put one of the client's files on the site, so a page can use it.",
+      "description": "Copies the item's bytes into the site's own files and marks the catalogue item as placed. What comes back includes the `src` handle — write that into a picture element and the picture is on the page.\n\n**Write alt text yourself, from the description.** The description lives on the catalogue item and says what the picture shows; what a picture means on a particular page is yours to say, and two pages using one image may need to describe it differently. Read the item, then write the alt onto the element that places it.\n\n**This does not publish anything.** The bytes go into the site your client is working on, not the site the public sees. Publishing stays their decision, exactly as it is for every other change you make.\n\n**Some material cannot be placed, and the refusal is the point.** Anything we fetched from somebody else's website is not ours to republish under your client's name, and asking again will not change the answer. Use it as reference and ask the client for something of their own.\n\nIf the name is already taken on the site it is renamed rather than overwritten, so placing something twice never replaces a picture that is live. What came back tells you the name it actually got.",
+      "params": {
+        "item": {
+          "type": "item_name",
+          "required": true
+        },
+        "as": {
+          "type": "string",
+          "description": "The filename to store it under on the site. Defaults to the client's own filename, which is usually what you want."
+        }
+      },
+      "returns": {
+        "shape": "placement"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "AMBIGUOUS",
+        "NOT_REPUBLISHABLE",
+        "NO_SITE",
+        "SCHEMA_INVALID"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group": "ReadLibrary",
+      "effect": "read",
+      "title": "Looking at the client's Library",
+      "description": "What the client has given you and what you have made for them, and what each item is. Nothing here changes anything — reading the catalogue does not put anything on the site.",
+      "operations": [
+        "list_library",
+        "get_library_item"
+      ]
+    },
+    {
+      "group": "PlaceOnSite",
+      "effect": "write",
+      "title": "Putting the client's files on the site",
+      "description": "Taking something out of the client's Library and putting it on their site. Its own capability, and deliberately separate from looking: the Library is the client's private material and the site is what they publish, so this is a copy across that line and a decision rather than a lookup.",
+      "operations": [
+        "place_on_site"
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "name": "Choosing a picture for a page",
+      "steps": [
+        "list_library",
+        "get_library_item",
+        "place_on_site"
+      ],
+      "note": "Look at the candidates before you choose — screenshot takes the catalogue name unchanged, so a name from the listing needs no translating. Read the one you chose for its description, place it, and write the src handle you get back into a picture element, with alt text you wrote yourself from that description."
+    }
+  ],
+  "absences": [
+    {
+      "name": "Changing what an item is",
+      "note": "There is no way to change an item's rights, what the client said it was for, or whether it may be published. Those were settled when the file arrived and they are the client's to change, on their own Library tab — not a gate for you to work around."
+    },
+    {
+      "name": "Removing anything",
+      "note": "There is no way to delete a catalogue item or take one back off the site. Removing a file the client gave you is theirs to decide, and a catalogue you could quietly prune would stop being an account of what they handed over."
+    },
+    {
+      "name": "Putting a picture in front of anybody",
+      "note": "Placing is not page editing. It puts the bytes on the site and hands you the handle; the picture appears to a visitor only once you write that handle into an element on a page."
+    }
+  ]
+}
