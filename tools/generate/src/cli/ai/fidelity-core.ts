@@ -41,7 +41,13 @@ import { decodePng, encodePng } from '../png'
 // reconciliation itself needs none of them, and this is the same reconciliation
 // the command runs.
 import { cmdL1Gate, referenceCoverage, reconcileGates } from '../gate-core'
-import { pictureSteps, pictureUrl, resolvePicture, PictureNotFoundError, PictureSourceError } from '../picture'
+import {
+  pictureSteps,
+  pictureUrl,
+  resolvePicture,
+  PictureNotFoundError,
+  PictureSourceError,
+} from '../picture'
 import { resolveViewport } from '../capture/screenshot'
 import { drivePage } from '../capture/interact'
 import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
@@ -309,8 +315,15 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
     const url = pictureUrl(source, deps)
     if (url === null) {
       throw new PictureSourceError(
-        `the value gates need a live page, and a picture of kind '${source.kind}' is a ` +
-          `recording. Name a draft, edit, revision or url picture.`,
+        `the value gates need a live page, and a picture of kind '${source.kind}' is ` +
+          (source.kind === 'image'
+            ? // REQ-218 — a stored picture has no colour, type or spacing to read
+              // off it: it is pixels, and `compare` is the operation that reads
+              // pixels. Saying so beats letting the reference's word stand in.
+              `a picture rather than a page — there is nothing behind it to measure. ` +
+                `Use compare for a stored picture.`
+            : `a recording.`) +
+          ` Name a draft, edit, revision or url picture.`,
       )
     }
     // REQ-216 — driven the same way the picture beside it is. A manifest read

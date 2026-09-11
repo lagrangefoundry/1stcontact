@@ -286,7 +286,18 @@ describe('REQ-157 AC2 — one picture source, and every operation takes it', () 
   it('test_UAT_FC_REQ_157_the_picture_type_declares_all_five_kinds', () => {
     const picture = (FIDELITY_DECLARATION.param_types as Record<string, { keys: Record<string, { enum?: string[] }> }>)
       .picture
-    expect(picture.keys.kind.enum).toEqual(['reference', 'draft', 'edit', 'revision', 'url'])
+    // SIX SINCE [[REQ-218]], which added `image` — a picture in the store rather
+    // than a page. The property under test is unchanged and is the reason the
+    // sixth cost nothing: there is ONE picture type and it declares every kind,
+    // so a new kind is an entry here and every operation gets it.
+    expect(picture.keys.kind.enum).toEqual([
+      'reference',
+      'draft',
+      'edit',
+      'revision',
+      'url',
+      'image',
+    ])
     expect(picture.keys.viewport.enum).toEqual(['mobile', 'tablet', 'desktop'])
   })
 

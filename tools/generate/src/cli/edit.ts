@@ -39,6 +39,8 @@ import {
 import type { JournalRecord } from '../store/journal-model'
 import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
+import { contentTypeOf } from '../store/content-type'
+import type { ImageLibrary, StoredImage } from './image-library'
 import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
@@ -2137,6 +2139,54 @@ export async function listSiteAssets(slug: string, opts: EditOptions): Promise<S
   return names
     .map((rel) => ({ id: rel, src: assetHandle(rel), kind: assetKind(rel), onDisk: true }))
     .sort((a, b) => a.src.localeCompare(b.src))
+}
+
+/**
+ * REQ-218 — the site's half of the assistant's image library.
+ *
+ * IT LIVES HERE BECAUSE THE NAMES DO. `assetHandle` and the drawing stem rule
+ * are this file's, and they are exactly the spellings a caller will be holding:
+ * a page node carries the handle, `write_image` returns the stem it was written
+ * under, and `list_assets` shows the filename. Declaring all three beside the
+ * functions that mint them is what stops a fourth idea of an asset's name being
+ * invented in the fidelity surface.
+ *
+ * FONTS ARE NOT PICTURES. The listing covers both and this is narrowed to
+ * images, because "look at this" has no answer for a typeface file.
+ *
+ * `original` IS IGNORED AND THAT IS CORRECT, NOT PENDING. An edit recipe lives
+ * on a Library record; a site asset is bytes and has nowhere to carry one, so
+ * its stored bytes ARE its original and always will be.
+ */
+export function siteImageLibrary(slug: string, store: SiteStore): ImageLibrary {
+  return {
+    async list(): Promise<StoredImage[]> {
+      const names = await store.listAssets(slug)
+      return names
+        .filter((name) => assetKind(name) === 'image')
+        .map((name) => ({
+          name,
+          where: 'site' as const,
+          mediaType: contentTypeOf(name),
+          // The handle a page holds, and the bare stem a drawing was written
+          // under. A stem that collides with another asset's makes both
+          // ambiguous under it, which the resolver refuses — correctly: two
+          // files called `hero` are two pictures.
+          aliases: [assetHandle(name), name.replace(/\.[^.]+$/, '')],
+        }))
+    },
+    async read(image): Promise<Uint8Array> {
+      const bytes = await store.readAsset(slug, image.name)
+      if (!bytes) {
+        throw new CommandError({
+          code: 'NOT_FOUND',
+          message: `Asset '${image.name}' not found in site '${slug}'.`,
+          path: image.name,
+        })
+      }
+      return bytes
+    },
+  }
 }
 
 /** The handles an image picker may offer — the listing, narrowed to images. */
