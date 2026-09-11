@@ -65,6 +65,17 @@ export type LeadEnv = IdentityEnv & TicketStoreEnv & MailEnv
  * published byte goes through — which is the whole of why a spammer cannot
  * retarget another tenant's contact list by editing a form's action.
  */
+/**
+ * Which rendering of the site the submitter was actually served ([[BUG-78]]).
+ *
+ * `published` is a visitor on the live site. `draft` is the OPERATOR, inside
+ * `control-app`'s own preview, pressing the button on the form they are
+ * building. Both write a real contact into the real tenant — a preview that
+ * declined to submit would be one more thing to disbelieve — and the difference
+ * between them is a fact about the lead rather than a mode of this function.
+ */
+export type LeadChannel = 'published' | 'draft'
+
 export interface LeadSubmission {
   siteKey: string
   /** Which form instance, from the module's own hidden handle. May be empty. */
@@ -73,6 +84,12 @@ export interface LeadSubmission {
   fields: Record<string, string>
   /** When the visitor pressed the button. Defaults to now. */
   submittedAt?: string
+  /**
+   * Which rendering they submitted from. Defaults to `published`, so every
+   * existing caller — and every lead already recorded — keeps meaning what it
+   * has always meant.
+   */
+  channel?: LeadChannel
 }
 
 /** Why a submission wrote nothing. Reaches a log; never a visitor. */
@@ -149,13 +166,23 @@ function text(config: Record<string, unknown>, key: string): string {
 }
 
 /**
- * Read one `contact-form` instance out of the site's LIVE PUBLISHED revision.
+ * Read one `contact-form` instance out of THE RENDERING THE SUBMITTER WAS SERVED.
  *
- * THE PUBLISHED REVISION AND NOT THE DRAFT, deliberately. The visitor filled in
- * a form that was served to them out of a frozen snapshot; the draft is whatever
- * the operator has been editing since, and reading the consent wording from it
- * would evidence a sentence that was never on the page. A site with nothing
- * published served nobody a form, so it resolves to nothing.
+ * THE RULE IS "READ THE DEFINITION FROM THE SNAPSHOT THEY ACTUALLY SAW", and
+ * `channel` is what selects which snapshot that is. For a visitor on the live
+ * site that is the frozen published revision: the draft is whatever the operator
+ * has been editing since, and reading the consent wording from it would evidence
+ * a sentence that was never on the page. A site with nothing published served
+ * nobody a form, so it resolves to nothing.
+ *
+ * FOR A PREVIEW SUBMISSION THE SAME RULE POINTS THE OTHER WAY ([[BUG-78]]). The
+ * operator pressed the button on the DRAFT — that is what `control-app` rendered
+ * into the frame — so the draft is the served snapshot and the published
+ * revision is the stale one. Usually it is a form they have just changed, and
+ * often one no revision has ever contained; resolving it against a live revision
+ * would fail to find the address on a form that plainly has one, and would do it
+ * silently. So this is not a relaxation for previews. It is the same rule, and
+ * hardcoding `published` was the special case.
  *
  * FIRST MATCH ACROSS PAGES. An instance id is unique within a page and nothing
  * enforces it across a site; two pages carrying one id is an authoring collision
@@ -167,6 +194,7 @@ export async function formDefinitionOf(
   businessId: string,
   slug: string,
   instanceId: string,
+  channel: LeadChannel = 'published',
 ): Promise<FormDefinition | null> {
   if (instanceId === '') return null
   let store
@@ -176,12 +204,18 @@ export async function formDefinitionOf(
     if (err instanceof UnknownTenantError) return null
     throw err
   }
-  const live = liveRevisionOf(await store.revisions(slug))
-  if (live === null) return null
-  const snapshot = await store.readRevision(slug, live)
-  if (!snapshot) return null
+  let pages
+  if (channel === 'draft') {
+    pages = await store.readPages(slug)
+  } else {
+    const live = liveRevisionOf(await store.revisions(slug))
+    if (live === null) return null
+    const snapshot = await store.readRevision(slug, live)
+    if (!snapshot) return null
+    pages = snapshot.pages
+  }
 
-  for (const stored of snapshot.pages) {
+  for (const stored of pages) {
     for (const instance of instancesOf(stored.page)) {
       if (instance.id !== instanceId) continue
       const config = (instance.config ?? {}) as Record<string, unknown>
@@ -276,6 +310,20 @@ export function provenanceOfSubmission(
 
   return {
     site: spec.siteKey,
+    /*
+     * WHICH RENDERING THEY SUBMITTED FROM ([[BUG-78]]). A lead captured from the
+     * operator's own preview is a real contact and is stored as one — there is
+     * one contact table and one kind of lead — but a row that reads as a public
+     * enquiry when nobody outside the business ever saw the page is a lie the
+     * CRM would carry permanently, and these accumulate every time anyone tests
+     * a form. It sits with the rest of the provenance because it is the same
+     * kind of fact as the page and the submit label: where this came from.
+     *
+     * ALWAYS PRESENT, including for `published`. Recording it only for previews
+     * would leave a reader unable to tell a live lead from one written before
+     * this field existed.
+     */
+    channel: spec.channel ?? 'published',
     ...(definition ? { page: definition.page, submitLabel: definition.submitLabel } : {}),
     form: spec.instanceId,
     fields: answers,
@@ -389,7 +437,13 @@ export async function captureLead(
   if (!site) return { accepted: false, reason: 'unknown_site' }
   const scope: Scope = { businessId: site.businessId }
 
-  const definition = await formDefinitionOf(env, site.businessId, site.slug, spec.instanceId)
+  const definition = await formDefinitionOf(
+    env,
+    site.businessId,
+    site.slug,
+    spec.instanceId,
+    spec.channel ?? 'published',
+  )
   const email = addressIn(spec.fields, definition)
   // A SUBMISSION WITH NO ADDRESS IN IT IS NOT A LEAD. There is nobody to add and
   // nothing to send to, and inventing a contact from a name alone would put a

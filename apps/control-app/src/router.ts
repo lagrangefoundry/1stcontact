@@ -22,6 +22,16 @@ import type { ImageLadder } from '../../../tools/generate/src/publish/ladder'
 import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import { publicSiteUrl } from './public-url'
+/*
+ * THE LEAD ENDPOINT IS IMPORTED, NOT REBUILT ([[BUG-78]]). `handleLead` is
+ * `public-site`'s, and it stays `public-site`'s: it owns what a hostile caller
+ * meets, and the preview needs exactly those refusals rather than a second set
+ * that agrees with them today. The WRITE it calls is already ours — `captureLead`
+ * below is the same function `worker.ts`'s `LeadIntake` entrypoint delegates to,
+ * which is why the preview needs no service binding to reach it.
+ */
+import { handleLead, type LeadEnv as LeadRequestEnv } from '../../public-site/src/lead'
+import { captureLead, type LeadEnv as LeadIntakeEnv, type LeadSubmission } from './lead'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { SiteStore } from '../../../tools/generate/src/store/site-store'
@@ -2951,6 +2961,61 @@ async function routeUncached(
     if (preview) {
       const slug = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2])
+
+      /**
+       * POST /preview/<slug>/draft/api/lead — the preview submits for real
+       * ([[BUG-78]]).
+       *
+       * WHY THIS EXISTS AT ALL. A rendered form's `action` is root-relative, so
+       * it resolves against whichever host served the document. Published, that
+       * host is `public-site` and the endpoint is there. In the preview it is
+       * THIS Worker, which had no such route — so the one surface an operator can
+       * actually press the button on was the one surface where the button could
+       * not work. The path is the preview channel's own root plus the same
+       * `api/lead` suffix `public-site` answers, so one `action` value is correct
+       * in both places and the renderer never learns which channel it is in.
+       *
+       * THE SAME `handleLead`, NEVER A SECOND ONE. Body limits, field caps, the
+       * two submit shapes, the honeypot, the frozen acknowledgement and the
+       * refusal envelope are all already decided in `public-site`'s endpoint, and
+       * a copy here would be two endpoints that agree until they do not.
+       *
+       * THE SITE KEY COMES FROM THE SLUG THROUGH THE STORE, never from the body.
+       * `siteKey(slug)` is the same lookup the `published` redirect below uses,
+       * against the store already scoped to this operator's business — so a
+       * submission cannot name a tenant, exactly as `public-site` gets from its
+       * route grammar.
+       *
+       * `draft` ONLY. The site is not intended to be functional in edit mode: the
+       * edit render emits no `action` and no `method` and ships no client script,
+       * so nothing can submit from it today — and refusing here keeps that true
+       * if the renderer ever changes. `published` falls through to the redirect
+       * below, which sends the whole channel to `public-site` where the real
+       * endpoint lives.
+       */
+      if (method === 'POST' && (preview[3] ?? '/') === '/api/lead') {
+        if (channel !== 'draft') return text(404, 'Not found')
+        const store = await openStore()
+        const siteKey = await store.siteKey(slug)
+        if (siteKey === null) return text(404, 'Not found')
+        return handleLead(request, {
+          siteKey,
+          // The in-process intake. `public-site` reaches `captureLead` over a
+          // service binding because it lives in another Worker; here it is the
+          // same Worker, so a binding to ourselves would be a hop for nothing.
+          // The CHANNEL is added here and not taken from the payload: it is a
+          // fact about which server received the request.
+          env: {
+            ...env,
+            LEAD_INTAKE: {
+              captureLead: (spec: LeadSubmission) =>
+                captureLead(env as LeadIntakeEnv, { ...spec, channel: 'draft' }),
+            },
+          } as unknown as LeadRequestEnv,
+          identified: true,
+        })
+      }
+
       if (channel === 'published') {
         // Resolved through the store, so the redirect names the site's KEY —
         // which is the public address ([[REQ-190]]) — and so a slug this

@@ -341,6 +341,23 @@ export async function handleLead(
     env: LeadEnv
     /** The verifier's transport, so a UAT need not reach Cloudflare. */
     fetchImpl?: typeof fetch
+    /**
+     * The caller has ALREADY ESTABLISHED WHO THIS IS ([[BUG-78]]).
+     *
+     * Turnstile asks whether a caller is a person; the rate limiter bounds what
+     * an anonymous caller may spend. Both exist to answer a question about an
+     * unknown submitter, and both are skipped when the caller can say the
+     * question is already answered — which today means `control-app` serving its
+     * draft preview behind Cloudflare Access, where every request carries a
+     * verified operator identity strictly stronger than either control.
+     *
+     * IT IS A CLAIM THE SERVER MAKES, NEVER THE REQUEST. Nothing a submission
+     * can carry reaches this flag; it is set in code, at one call site, by the
+     * Worker that knows what gate its own route sits behind. If that preview
+     * ever moves out from behind Access, both controls come back by deleting one
+     * argument.
+     */
+    identified?: boolean
   },
 ): Promise<Response> {
   const shape = shapeOf(request)
@@ -376,15 +393,19 @@ export async function handleLead(
    * nothing is sent; a caller who could tell the difference would have a probe
    * for how much they had already spent.
    */
-  if (!LEAD_RATE_LIMIT) {
-    return refuse(shape, 503, 'This site cannot take messages at the moment.')
-  }
   const ip = request.headers.get('cf-connecting-ip')
-  try {
-    const { success } = await LEAD_RATE_LIMIT.limit({ key: `${context.siteKey}:${ip ?? 'unknown'}` })
-    if (!success) return acknowledge(shape)
-  } catch {
-    return refuse(shape, 503, 'This site cannot take messages at the moment.')
+  if (!context.identified) {
+    if (!LEAD_RATE_LIMIT) {
+      return refuse(shape, 503, 'This site cannot take messages at the moment.')
+    }
+    try {
+      const { success } = await LEAD_RATE_LIMIT.limit({
+        key: `${context.siteKey}:${ip ?? 'unknown'}`,
+      })
+      if (!success) return acknowledge(shape)
+    } catch {
+      return refuse(shape, 503, 'This site cannot take messages at the moment.')
+    }
   }
 
   // THE HONEYPOT WRITES NOTHING AND SENDS NOTHING, and says so with the same
@@ -393,23 +414,30 @@ export async function handleLead(
   // an outbound request.
   if ((fields[HONEYPOT_FIELD] ?? '').trim() !== '') return acknowledge(shape)
 
-  if ((TURNSTILE_SECRET ?? '').trim() === '') {
-    // FAIL CLOSED. A deployment that forgot the secret is refused, not opened —
-    // and the refusal is loud, at the endpoint, rather than quiet, on the page.
-    return refuse(shape, 503, 'This site cannot take messages at the moment.')
-  }
-  const token = (fields[TURNSTILE_FIELD] ?? '').trim()
-  if (token === '') {
-    return refuse(shape, 400, 'Please complete the verification and try again.')
-  }
-  const verified = await verifyTurnstile(
-    (TURNSTILE_SECRET ?? '').trim(),
-    token,
-    ip,
-    context.fetchImpl,
-  )
-  if (!verified) {
-    return refuse(shape, 403, 'That verification could not be confirmed. Please try again.')
+  // AN IDENTIFIED CALLER IS NOT CHALLENGED. The preview renders no widget — the
+  // sitekey is stamped onto served HTML by this Worker and `control-app` does not
+  // stamp it — so there is no token to send, and demanding one would mean an
+  // operator solving a puzzle to test their own form. The identity that replaces
+  // it is the Access gate in front of that route, not the absence of a widget.
+  if (!context.identified) {
+    if ((TURNSTILE_SECRET ?? '').trim() === '') {
+      // FAIL CLOSED. A deployment that forgot the secret is refused, not opened —
+      // and the refusal is loud, at the endpoint, rather than quiet, on the page.
+      return refuse(shape, 503, 'This site cannot take messages at the moment.')
+    }
+    const token = (fields[TURNSTILE_FIELD] ?? '').trim()
+    if (token === '') {
+      return refuse(shape, 400, 'Please complete the verification and try again.')
+    }
+    const verified = await verifyTurnstile(
+      (TURNSTILE_SECRET ?? '').trim(),
+      token,
+      ip,
+      context.fetchImpl,
+    )
+    if (!verified) {
+      return refuse(shape, 403, 'That verification could not be confirmed. Please try again.')
+    }
   }
 
   // THE RESERVED NAMES DO NOT REACH THE RECORD. They are the wire's business —
