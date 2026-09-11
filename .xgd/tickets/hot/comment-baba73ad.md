@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:30:50.062643+00:00'
+updated_at: '2026-09-11T22:33:58.046245+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -716,5 +716,13 @@ Nothing here is blocked on it. For pictures, the byte paths already exist (`mate
 And worth keeping from BUG-80: an attachment fetch that returns bytes into a tool result is the exact shape that killed that session. If it's being built now, the size discipline wants settling in the same pass.
 
 Recorded on the epic, REQ-217, and REQ-220. No code, no status changes.
+
+<!-- xgd-turn id="205611dc-ed27-4bcb-91cc-292a4166eec0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:33:57.940138+00:00" -->
+#### You
+g; `xgd ticket` has no `fetch` subcommand today <-- As I said it is being build as we speak in REQ-150
+
+Is there anything else design wise that is still open the
 
 <!-- xgd-chat-end -->
