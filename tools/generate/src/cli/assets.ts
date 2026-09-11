@@ -431,7 +431,16 @@ const AI_KNOWLEDGE_EXPORTS = [
   'KnowledgeDocs',
   'KnowledgeRuntime',
   'KnowledgeToolbox',
+  // Session priming as a PAIR OF NAMED PROVIDERS (REQ-158). `system-knowledge.ts`
+  // names the two and registers their bodies; `host-core.ts` places them in the
+  // role's entry list. The names are constants rather than literals because the
+  // entry that DECLARES a provider and the registration that BINDS it sit in two
+  // different files, and upstream's registry answers a typo with "no provider
+  // registered" rather than a quietly empty tier.
+  'LANDSCAPE_PROVIDER',
+  'MECHANISM_PROVIDER',
   'knowledgeInstanceConfig',
+  'registerKmProviders',
 ] as const
 
 /**

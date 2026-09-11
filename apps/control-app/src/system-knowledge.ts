@@ -2,13 +2,14 @@ import { KB } from './generated/kb.js'
 import {
   KnowledgeRuntime,
   KnowledgeToolbox,
+  LANDSCAPE_PROVIDER,
+  MECHANISM_PROVIDER,
   knowledgeInstanceConfig,
+  registerKmProviders,
 } from './generated/ai-knowledge'
 import {
   WorkersAiEmbedder,
   knowledgeBasesFromMapping,
-  landscapeText,
-  mechanismText,
   memoryIndexSource,
 } from './generated/knowledge'
 import { DocDirStore, bundleDocReader } from './generated/ticketing'
@@ -180,40 +181,44 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
 /**
  * The role's priming source: the MAP, not the pile ([[DOC-10]] §5.1).
  *
- * A FACTORY over the constructed Toolbox, because the priming's last section is
- * the tool manual and the manual is a projection of THIS session's actual grant.
- * KM owns the internal order — landscape, then role purpose, then mechanism —
- * because the last thing the agent reads is the first thing it does.
+ * A PAIR OF NAMED PROVIDERS, NOT AN ASSEMBLED DOCUMENT — the Worker's half of the
+ * same seam `host.ts`'s `knowledgeDeps` draws for Node, and it must stay the same
+ * shape because ONE host builds the role from both. `KnowledgeDocs.open()` is gone
+ * upstream: it existed only to serve a synchronous `ContextSource` from a snapshot
+ * assembled once, which by construction cannot reflect a document published after
+ * the session opened.
+ *
+ * THE ORDER IS NO LONGER DECIDED HERE. KM used to own it; `host-core.ts` now states
+ * it in the entry list — the map, then what this caretaker is for, then the
+ * projected manual last, because the last thing the agent reads is the first thing
+ * it does. What is decided HERE is what the mechanism says, and it is this
+ * session's own projected manual rather than a sentence written by hand about what
+ * it might reach.
  *
  * SEARCH WITHOUT PRIMING IS THE SAME FAILURE AS NO SEARCH. A session handed the
  * knowledge tools and no landscape has no reason to believe there is anything to
  * find, so it never looks. The two are built from one runtime and are wired as a
  * pair or not at all.
  */
-export function knowledgePriming(
-  runtime: Untyped,
-  rolePurpose: string,
-): (box: Untyped) => Promise<Untyped> {
-  return async (box: Untyped) => {
-    // `KnowledgeDocs.open()` is gone upstream: the class existed only to serve a
-    // synchronous `ContextSource` from an assembled-once snapshot, and that seam
-    // was removed in favour of per-call provider bodies. The two texts it used
-    // to compose are still exported, so the ORDER — landscape, then role
-    // purpose, then mechanism — is restated here rather than lost. It is
-    // load-bearing: the last thing the agent reads is the first thing it does,
-    // so the manual goes last.
-    const landscape = await landscapeText(runtime.store, runtime.kbs, {
-      kb: SYSTEM_KB,
-      sources: runtime.sources,
-    })
-    const mechanism = await mechanismText(runtime.kbs, { mechanism: box.manual() })
-    // A section that came back empty is dropped rather than joined as a blank:
-    // an empty landscape means there is nothing to route to, and a heading with
-    // nothing under it reads as a corpus that failed rather than one that is
-    // absent.
-    const documents = [landscape, rolePurpose, mechanism].filter(
-      (text): text is string => typeof text === 'string' && text.trim() !== '',
-    )
-    return { documents: () => documents }
+export function knowledgePriming(runtime: Untyped): Untyped {
+  return {
+    landscape: LANDSCAPE_PROVIDER,
+    mechanism: MECHANISM_PROVIDER,
+    // The runtime is handed over as a CALLABLE because that is what the pair
+    // takes: both provider bodies re-read it on every assembly, which is what
+    // lets a document published after the conversation opened reach a recycled
+    // segment. An assembled-once snapshot could not.
+    //
+    // `kb` IS THE MAP AXIS OF THE SAME CONFINEMENT `knowledgeSurfaceFor` MAKES
+    // on the search axis ([[DOC-10]] §5.1). Left at its `null` default the map
+    // would describe every default-visible base, so a session told what exists
+    // would not match the corpus it is actually granted — the two axes have to
+    // name the same base or the landscape advertises documents the tools cannot
+    // open.
+    register: (providers: Untyped, box: Untyped) =>
+      registerKmProviders(providers, () => runtime, {
+        mechanismFor: () => box.manual(),
+        kb: SYSTEM_KB,
+      }),
   }
 }

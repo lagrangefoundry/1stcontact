@@ -33,7 +33,6 @@
 import * as aiLib from './generated/ai-workers.js'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
-import { CARETAKER_PURPOSE } from '../../../tools/generate/src/cli/ai/host-core'
 import {
   bufferedAuditSink,
   type AuditLine,
@@ -218,7 +217,10 @@ export function workerHost(
       // transcript, and says why it cannot take a turn.
       ...(env.ANTHROPIC_API_KEY ? { apiKey: env.ANTHROPIC_API_KEY } : {}),
       knowledgeSurface: knowing ? knowledgeSurfaceFor(knowledge) : null,
-      priming: knowing ? knowledgePriming(knowledge, CARETAKER_PURPOSE) : null,
+      // The role's purpose is no longer passed in: `host-core.ts` owns where it
+      // sits between the map and the manual, and states that order in the entry
+      // list it builds the role from.
+      priming: knowing ? knowledgePriming(knowledge) : null,
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),
