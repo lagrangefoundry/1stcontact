@@ -6,10 +6,10 @@ title: A file dropped outside both areas creates nothing, marks both answers and
   what is missing
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:32:27.684641+00:00'
-updated_at: '2026-09-11T05:32:27.684641+00:00'
+updated_at: '2026-09-11T05:42:22.186250+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
