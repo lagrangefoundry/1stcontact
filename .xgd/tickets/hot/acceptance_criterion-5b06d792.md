@@ -6,10 +6,10 @@ title: An address the guard refuses never becomes material, and the refusal is t
   caller's error rather than a server failure or a rights refusal
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:43:02.298550+00:00'
-updated_at: '2026-09-11T04:43:02.298550+00:00'
+updated_at: '2026-09-11T04:58:06.704036+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
