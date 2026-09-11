@@ -6,14 +6,15 @@ title: A run's dialog shows the panel behind the words read-only and routes to t
   panel's own dialog, saving first when there is anything staged
 created_by: xgd
 created_at: '2026-08-20T03:38:49.821182+00:00'
-updated_at: '2026-08-20T03:39:49.816538+00:00'
+updated_at: '2026-09-11T00:51:04.406725+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
