@@ -95,13 +95,22 @@ the surface where an operator *sees* the site instead.
   system renames the scope, this repository moves with it in one step and the
   previous name is removed outright: there is no second scope to fall back to and
   nothing detects which one is present.
-- **One tab, filling the window.** The workspace opens on a single tab hosting
-  the display panel. The displayed site tracks the browser window's height and
-  follows a live resize, and the workspace page itself never scrolls — a frame
-  that collapses to a few lines tall is the failure this exists to prevent, and
-  a page-level scrollbar is the visible sign that the height chain has leaked
-  again. Every name the workspace shows has exactly one definition site, so
-  renaming it is a one-line change and no second copy can drift.
+- **Tabs are declared, and the chrome renders exactly what is declared.** The
+  workspace mounts one panel per declared tab and no panel nothing declared, each
+  addressed by a stable identifier that survives its visible name changing, and
+  it opens on the **first** declared tab — which is the one hosting the display
+  panel. Declaring a tab is adding an entry to one list; every option that entry
+  carries, identity and label and the viewport-filling behaviour alike, reaches
+  the chrome intact, and no declared option is silently discarded. *What* a
+  second tab contains is its own capability's business; this story owns only that
+  the declaration is what the chrome obeys.
+
+  The displayed site tracks the browser window's height and follows a live
+  resize, and the workspace page itself never scrolls — a frame that collapses to
+  a few lines tall is the failure this exists to prevent, and a page-level
+  scrollbar is the visible sign that the height chain has leaked again. Every
+  name the workspace shows has exactly one definition site, so renaming it is a
+  one-line change and no second copy can drift.
 - **A display panel with modes, not a preview.** The pane is not "the preview";
   it is a pane that can show any of several registered ways of looking at the
   current site, of which the normal view is one and the editable render is
@@ -201,6 +210,10 @@ the surface where an operator *sees* the site instead.
 - What the assistant pane *does*. This story owns the split's geometry and what
   it remembers; the conversation the secondary pane hosts, and everything behind
   it, belongs to its own capability.
+- **What any tab beyond the first contains.** That a declared tab is rendered a
+  panel, and that it is not the one that opens unless it is declared first, is
+  asserted here. What is inside it — and any control it carries, including a
+  dropdown that narrows a list — is owned by whichever capability declared it.
 - Deciding what a rendering contains. The workspace produces the draft-side
   channels on request, but it decides no byte of them: the page a channel
   contains is the platform's own render, and this story adds nothing to it. The
