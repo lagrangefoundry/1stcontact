@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-11T19:03:59.873207+00:00'
+updated_at: '2026-09-11T19:08:50.332444+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -272,5 +272,11 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="def7e6ab-c344-4f07-92f3-7a7ba775bca8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:08:49.700589+00:00" -->
+#### You
+Is this chat connected?
 
 <!-- xgd-chat-end -->
