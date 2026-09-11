@@ -95,6 +95,8 @@ describe('REQ-198 — the type', () => {
     expect(Object.keys(fields).sort()).toEqual(
       [
         'address_id',
+        // [[REQ-223]] — the asset a message carried, and the at-most-once ledger.
+        'asset',
         'contact_id',
         'failure',
         'from',

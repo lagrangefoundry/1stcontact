@@ -12,6 +12,7 @@ import {
   AWARENESS_REPORT_TYPE,
   KB_FIELD,
 } from './generated/knowledge'
+import { MESSAGE_STATUSES, QUEUED } from './messages'
 import { UnscopedError, type Scope } from './scope'
 import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
 
@@ -361,17 +362,40 @@ export function productTypePack(): ProductTypePack {
         subject: { type: 'string', required: true },
         from: { type: 'string', required: true },
         to: { type: 'string', required: true },
+        /**
+         * The delivery lifecycle, READ FROM ITS ONE DEFINITION.
+         *
+         * NOT A SECOND LIST OF THE SAME VALUES. This enum used to spell them
+         * out, which made `messages.ts`'s `MESSAGE_STATUSES` and this schema two
+         * answers to *what statuses exist* — free to drift, and they did: adding
+         * `complained` to the first left every write of it refused by the second,
+         * at runtime, with a validation error naming a status the code believed
+         * in. Spreading the constant means the schema cannot fall behind the type.
+         */
         status: {
           type: 'enum',
-          enum: ['queued', 'sent', 'delivered', 'bounced', 'failed'],
+          enum: [...MESSAGE_STATUSES],
           required: true,
-          default: 'queued',
+          default: QUEUED,
         },
         provider_id: { type: 'string' },
         queued_at: { type: 'string', required: true },
         sent_at: { type: 'string' },
         /** Why a send failed, in the provider's own words. Absent unless it did. */
         failure: { type: 'string' },
+        /**
+         * The asset this message carried ([[REQ-223]] §5).
+         *
+         * A PLAIN STRING KEY, not a reference. The at-most-once rule asks *has
+         * this address already had this asset*, and the honest answer is the
+         * record of a send that happened — which must stay answerable after the
+         * form that named the asset has been edited or deleted. A resolving
+         * reference would refuse the record of a message that really did go out.
+         *
+         * Absent on every message that carries no asset, which is every invite,
+         * every sign-in link, and every message written before this ticket.
+         */
+        asset: { type: 'string' },
       },
       // NOT `non_empty`. An empty body is a template that rendered to nothing,
       // which is a bug worth recording as what was sent rather than one worth

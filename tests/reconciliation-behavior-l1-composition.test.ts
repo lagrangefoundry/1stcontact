@@ -376,8 +376,13 @@ describe('story-179b8c06 — behavior modules paint only their invariant element
       'contact-form__turnstile',
       'contact-form__error',
     ]) {
+      // THE CLASS LIST MAY CARRY MORE THAN THE MODULE'S OWN NAME. [[REQ-223]]
+      // added Cloudflare's `cf-turnstile` to the mount, because their script
+      // renders into that class implicitly. What this pins is the MARKER, which
+      // is what makes the element repro-only and un-bindable — not the exact
+      // spelling of an attribute a third party also has a claim on.
       expect(formHtml, `${cls} is marked repro-only chrome`).toMatch(
-        new RegExp(`class="${cls}"[^>]*data-fc-invariant`),
+        new RegExp(`class="${cls}[^"]*"[^>]*data-fc-invariant`),
       )
     }
     // …and naming one from an L1 control node is refused (see AC-808's direction
