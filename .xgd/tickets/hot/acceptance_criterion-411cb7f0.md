@@ -6,9 +6,9 @@ title: A settings value the site's schema does not accept is refused whole, leav
   the site unchanged
 created_by: xgd
 created_at: '2026-08-10T09:33:57.867738+00:00'
-updated_at: '2026-09-11T03:09:16.378770+00:00'
+updated_at: '2026-09-11T03:39:54.129380+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
