@@ -5,7 +5,7 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-09-11T22:51:04.714665+00:00'
+updated_at: '2026-09-11T23:16:37.881780+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -391,3 +391,165 @@ solves the same problem with config markdown in a `<template>` and
 destroys the author's L1 subtree on success. So "unstyleable confirmation" is
 the house pattern rather than an account-chrome oversight. Deciding 4a/4c means
 deciding whether that pattern is right, which is why it is not a mechanical fix.
+
+
+---
+
+## Decision — change the contract (operator, 2026-09-11)
+
+Option 2 of the two sketched above. `account-chrome` gains **authored message
+surfaces and a visible-label route**, and its contract version goes to **2**.
+All four defects stay on this ticket; nothing splits to [[BUG-77]].
+
+### D1 — `labelMode`, matching `contact-form`
+
+`account-chrome.config.labelMode: 'visible' | 'placeholder'`, default `visible`,
+with exactly the semantics `contact-form` already gives the name:
+
+- `placeholder` — the words go **inside the address box**, as the control's
+  `placeholder` attribute. A panel authored purely from config now shows a
+  visible prompt, which is what Defect 1b said it could not.
+- `visible` — the words are **authored as an L1 text run beside the control**.
+  This is what the session's AI did by hand, and it is the supported route
+  rather than a workaround; its parting warning that the line would one day
+  appear twice is wrong, and stays wrong, because the `<label>` never paints.
+
+The clipped `<label>` stays in the DOM under both, unchanged and invariant: the
+accessibility obligation is not a mode. What changes is that the surfaces stop
+lying about it —
+
+- `meta.ts`'s *"visible unless L1 hides it"* is **deleted**. It is not visible,
+  and L1 cannot make it so.
+- the declared `element` becomes `label`, which is what the component emits.
+  `'label'` joins `L1ControlTag`; `contact-form`'s own label control carries the
+  same correction, for the same reason.
+- `BehaviorControlSpec` gains **`invariantPresentation`** — one sentence, stated
+  beside the declaration, saying what the pinned presentation actually IS. Every
+  reference surface projects it instead of inventing its own words. This is the
+  ticket's unifying rule applied at the smallest scale that discharges it: one
+  source, many surfaces.
+- the projected REF-behaviors entry says an invariant control **cannot be bound
+  from L1**, which is what `editBehaviorList` has always done by omitting them.
+  The two surfaces agreed on the fact and disagreed on the telling.
+
+### D2 — `sent` and `error` become slots
+
+`sentMessage` config is **removed**, and with it the hardcoded error string.
+Both become required L1 slots, so the confirmation and the failure are authored,
+placed and styled exactly as the panel is:
+
+```
+slots: { signedOut, signedIn, businesses, dialog, sent, error }
+```
+
+All six render **inside the overlay form**, as siblings: the `dialog` subtree in
+a wrapper the client can hide, and the `sent` / `error` subtrees in wrappers that
+start hidden. So the confirmation is a card the author drew, centred on the
+scrim by the same rule that centres the panel — not a bare `<p>` flex item
+painting dark ink on a dark background (Defect 4c). The two invariant `<p>`
+elements and their stylesheet rules are deleted outright; there is no fallback
+copy of either message anywhere in the module.
+
+REQ-134's property survives the move intact and is not weakened: the `sent`
+subtree is revealed **when the request completes, at any status**, and
+`client.js` still never reads the response. One authored message, shown to a
+known address and an unknown one alike.
+
+The L2 preset supplies a default `sent` and `error` card so a site can still
+instantiate the chrome without authoring L1 — the same cost the preset already
+removes for the other four slots.
+
+### D3 — the swap (Defect 4a)
+
+On completion the client **hides the dialog wrapper and shows the sent wrapper**.
+The panel therefore *becomes* the confirmation instead of growing a line beneath
+a greyed-out form: the address field, the submit, the close and the clipped label
+all go with it. That is the operator's brief — *"replace that content in the
+modal with a message"* — read literally.
+
+A thrown `fetch` reveals the `error` subtree and **leaves the form standing**,
+because a network failure is the one case where trying again is the right next
+move. The pre-emptive `return` that skipped disabling the controls therefore
+stops mattering: nothing is disabled on that path by design.
+
+### D4 — undeclared keys are refused (Defect 2)
+
+`validateBehaviorConfig` reports a key the contract does not declare, naming the
+key and the declared set. **`validateBehaviorSlots` gets the same treatment in
+the same change** — it is the identical loop-over-declared-names shape, and an
+undeclared slot name is silently dropped exactly as `account: …` was. Refusing
+one and accepting the other would leave the defect half-fixed.
+
+The refusal lands at the **write** boundary (`configure_component` and every
+other edit verb, through `validateBehaviorInstance`), not in the render path: an
+instance already stored with a stray key must still paint, because isolation
+([[DOC-25]]) says a malformed instance costs its own corner of the page and not
+the page.
+
+### D5 — slot errors localise (Defect 3)
+
+`chooseBranch` gets one further rule, stated generally rather than special-cased
+to slots: **a branch that failed at the union's own root is the wrong shape
+entirely; a branch that failed deeper is the right shape with bad content.** When
+exactly one branch has no root-level type mismatch, that is the branch the author
+meant. `z.union([l1NodeSchema, z.array(l1NodeSchema)])` is precisely this case —
+the array branch fails at the root with `invalid_type`, the node branch fails
+deeper — so a bad axis key inside a behavior slot now reports the same path and
+the same key it would report in the page's own `l1` tree.
+
+For Defect 3b, when no branch survives but every branch mismatched the same tag,
+the retained message **names the tag and its valid values** rather than saying
+"Invalid input".
+
+For Defect 3c, `validateOrThrow` reports **every** error it was given, not
+`errors[0]`. `path` still points at the first, since a `CommandError` has one.
+
+### D6 — the endpoint (Defect 4b)
+
+Doc and data only, no behaviour change: `meta.ts`'s `signIn` field names
+`POST /sign-in` as what a 1c-hosted site's answer looks like, so the next author
+has somewhere to read it. It carries no UAT — a TSDoc comment has no runtime
+surface to assert on — and the bad value itself lives outside this repository
+(see the addendum above).
+
+### Version
+
+`account-chrome` goes to **version 2**. Removing `sentMessage` and requiring two
+new slots is breaking by the contract's own definition, and the committed
+`1stcontact` draft instance is migrated in the same change.
+
+## Test plan (settled)
+
+UATs are `test_UAT_FC_BUG-76_*`:
+
+1. **`account_chrome_contract`** — the configured `emailLabel` text renders,
+   carries `data-fc-invariant`, and is the clipped element the stylesheet pins;
+   `labelMode: 'placeholder'` puts those same words in the field's `placeholder`
+   and `visible` does not; the catalogue omits invariant controls while the
+   projected reference lists them as unbindable and states their pinned
+   presentation — the two surfaces telling one story.
+2. **`undeclared_keys`** — a config key the behavior does not declare is refused,
+   naming the key and the declared set; an undeclared slot name is refused the
+   same way; a stored instance carrying one still renders.
+3. **`slot_error_localisation`** — a bad axis key inside a behavior slot reports
+   the offending path and key, and reports *the same* path tail the identical
+   node reports in the page's own `l1` tree; an unknown `kind` names the valid
+   kinds; a payload with two bad field names reports both.
+4. **`sign_in_confirmation`** — after a completed submit the dialog wrapper is
+   hidden and the `sent` wrapper is shown, so the field, the submit and the close
+   are no longer presented; the outcome is identical at 202, 404 and 500; a
+   thrown `fetch` shows the `error` wrapper and leaves the form standing.
+
+   On 4c the assertion is **structural, not geometric**: the unit test is JSDOM,
+   where the overlay CSS does not apply and geometry does not exist — which is
+   exactly why the existing REQ-200 UAT passed while the panel was visibly wrong.
+   What is asserted instead is that the confirmation IS the `sent` slot's
+   authored subtree, carrying that subtree's own L1 CSS, and that no
+   component-painted `<p>` sibling of the card remains in the output. The failure
+   mode the old test missed was "unstyleable element outside the author's
+   region"; the assertion that it no longer exists is the honest form of it.
+
+`test_UAT_FC_REQ-200_account_chrome.test.ts` is updated rather than left: it
+asserts `sent.hidden === false` on a `<p>` this change deletes. Its REQ-134
+property — one message, identical at every status — is carried across to the new
+shape rather than dropped.
