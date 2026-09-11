@@ -32,6 +32,36 @@ export const CONTACT_INVITED = 'contact.invited'
 /** They signed up: accepted the terms, which is the access axis and is their own act. */
 export const MEMBER_SIGNED_UP = 'member.signed_up'
 
+/* ── Public forms ([[REQ-223]]) ──────────────────────────────────────────── */
+
+/**
+ * They filled in a form on a published site.
+ *
+ * THIS IS THE PROVENANCE ROW FOR A CAPTURED VISITOR, and it is written on EVERY
+ * submission — including the second one from an address already here, which
+ * writes no `contact.created` because nothing about the person changed. What
+ * changed is that they asked again, and that is a fact about the relationship
+ * rather than about the row.
+ *
+ * ITS `detail` CARRIES WHAT THE COLUMNS CANNOT ([[REQ-223]] §4): which site and
+ * page the submission came from, which form instance, what its submit button
+ * said, the other fields the visitor filled in, and the consent wording they
+ * were shown. That is unreconstructable later, and for an IE tenant it is what
+ * evidences consent.
+ */
+export const FORM_SUBMITTED = 'form.submitted'
+
+/**
+ * We sent them the asset a form promised.
+ *
+ * IT IS THE AT-MOST-ONCE LEDGER AS WELL AS A TIMELINE ENTRY ([[REQ-223]] §5).
+ * A second request for the same asset by the same address is acknowledged
+ * identically and sends nothing, and the question *has this address had this
+ * asset* is answered from these rows — which is why the asset's key is in the
+ * detail rather than only in the message record.
+ */
+export const ASSET_SENT = 'asset.sent'
+
 /* ── Mail ────────────────────────────────────────────────────────────────── */
 
 /**
@@ -50,6 +80,8 @@ const LABELS = {
   [CONTACT_CREATED]: 'Added as a contact',
   [CONTACT_INVITED]: 'Invited',
   [MEMBER_SIGNED_UP]: 'Signed up',
+  [FORM_SUBMITTED]: 'Submitted a form',
+  [ASSET_SENT]: 'Sent a download',
   [EMAIL_SENT]: 'Email sent',
   [EMAIL_DELIVERED]: 'Email delivered',
   [EMAIL_BOUNCED]: 'Email bounced',

@@ -49,9 +49,25 @@ export const QUEUED = 'queued'
 export const SENT = 'sent'
 export const DELIVERED = 'delivered'
 export const BOUNCED = 'bounced'
+/**
+ * The recipient reported the message as spam ([[REQ-223]] §5).
+ *
+ * A SEPARATE VALUE FROM `bounced` AND NOT A SYNONYM FOR IT. A bounce is the
+ * mailbox saying it could not take the message; a complaint is the PERSON saying
+ * they did not want it, and they are different facts about different things — an
+ * operator reading a history needs to be able to tell a full mailbox from
+ * somebody who pressed the spam button. What they share is the only thing the
+ * suppression rule asks: never write to this address again.
+ *
+ * IT IS THE ONE THAT DAMAGES DELIVERABILITY. Complaints degrade the sending
+ * domain, and the first casualty of a degraded domain is sign-in links not
+ * arriving — so abuse of a marketing form breaks the login, which is why this
+ * value has to exist before an endpoint that mails strangers does.
+ */
+export const COMPLAINED = 'complained'
 export const FAILED = 'failed'
 
-export const MESSAGE_STATUSES = [QUEUED, SENT, DELIVERED, BOUNCED, FAILED] as const
+export const MESSAGE_STATUSES = [QUEUED, SENT, DELIVERED, BOUNCED, COMPLAINED, FAILED] as const
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number]
 
 /** What the caller asks to send. Everything here is decided before the attempt. */
@@ -75,6 +91,18 @@ export interface OutgoingMessage {
   subject: string
   from: string
   to: string
+  /**
+   * The asset this message carries, when it carries one ([[REQ-223]] §5).
+   *
+   * IT IS ON THE MESSAGE BECAUSE THE MESSAGE IS THE EVIDENCE. *Has this address
+   * already had this asset* is the question the at-most-once rule turns on, and
+   * the honest place to answer it is the record of what was actually sent — not
+   * a counter somewhere that could say yes for a send that never left.
+   *
+   * Optional, because every message written before this ticket carried no asset
+   * and an invite still does not.
+   */
+  asset?: string
   /** The RENDERED body, as sent. */
   body: string
 }
@@ -89,6 +117,8 @@ export interface MessageRecord {
   subject: string
   from: string
   to: string
+  /** The asset this message carried, or null ([[REQ-223]]). */
+  asset: string | null
   status: MessageStatus
   providerId: string | null
   queuedAt: string
@@ -115,6 +145,7 @@ export function toMessageRecord(ticket: Ticket): MessageRecord {
     subject: str(f, 'subject') ?? '',
     from: str(f, 'from') ?? '',
     to: str(f, 'to') ?? '',
+    asset: str(f, 'asset'),
     status: (str(f, 'status') ?? QUEUED) as MessageStatus,
     providerId: str(f, 'provider_id'),
     queuedAt: str(f, 'queued_at') ?? ticket.created_at,
@@ -170,6 +201,7 @@ export async function sendRecordedEmail(
       subject: message.subject,
       from: message.from,
       to: message.to,
+      ...(message.asset ? { asset: message.asset } : {}),
       status: QUEUED,
       queued_at: queuedAt,
     },
@@ -249,7 +281,7 @@ export async function bouncedContactIds(store: TicketStore): Promise<string[]> {
 /** What a verified provider event says. */
 export interface DeliveryEvent {
   providerId: string
-  status: typeof DELIVERED | typeof BOUNCED
+  status: typeof DELIVERED | typeof BOUNCED | typeof COMPLAINED
   /** The provider's reason for a bounce, where it gives one. */
   reason?: string
 }
@@ -308,7 +340,9 @@ export async function applyDeliveryEvent(
     // THE REASON IS THE POINT OF A BOUNCE. Which address is bad is on the record
     // already; why it is bad is what tells the operator whether to correct a typo
     // or stop writing to a mailbox that is full.
-    if (event.status === BOUNCED && event.reason) patch.failure = event.reason
+    if ((event.status === BOUNCED || event.status === COMPLAINED) && event.reason) {
+      patch.failure = event.reason
+    }
     const updated = await store.update({ uid: found.uid, patch: { fields: patch } })
     return {
       matched: true,

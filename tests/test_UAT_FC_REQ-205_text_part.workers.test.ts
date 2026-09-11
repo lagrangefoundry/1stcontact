@@ -93,7 +93,15 @@ describe('REQ-205 — the derived text part', () => {
     // know why. Rendered through the shipped renderer so the URL under test is
     // the one a real send would carry.
     for (const key of TEMPLATE_KEYS) {
-      const rendered = renderTemplate(seedTicket(key), { cta_url: CTA })
+      // EVERY TOKEN THE TEMPLATE DECLARES, not just the link. [[REQ-223]]'s
+      // asset template declares a second one, and supplying only the first
+      // would test that the OTHER templates keep their links rather than that
+      // each template does.
+      const values: Record<string, string> = { cta_url: CTA }
+      for (const token of SEED_TEMPLATES[key].placeholders) {
+        values[token] ??= `a value for ${token}`
+      }
+      const rendered = renderTemplate(seedTicket(key), values)
       const text = textFrom(rendered.body)
       const hrefs = hrefsIn(rendered.body)
 

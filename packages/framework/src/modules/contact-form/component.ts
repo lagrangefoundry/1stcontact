@@ -4,6 +4,7 @@ import type { BehaviorProps } from '../behavior'
 import { attr, escapeHtml } from '../html'
 import { assertSafeUrl } from '../safety'
 import { contactFormControls, controlId, type ContactFormField } from './controls'
+import { FIELD_TYPES, FORM_INSTANCE_FIELD, HONEYPOT_FIELD } from './fields'
 
 /**
  * `contact-form` behavior (REQ-85; made layout-agnostic by construction in
@@ -47,7 +48,7 @@ export function contactForm({
           name: String(f.name ?? ''),
           label: String(f.label ?? ''),
           labelMode: f.labelMode === 'placeholder' ? 'placeholder' : 'visible',
-          type: (['text', 'email', 'tel', 'textarea'].includes(f.type as string)
+          type: ((FIELD_TYPES as readonly string[]).includes(f.type as string)
             ? (f.type as string)
             : 'text') as ContactFormField['type'],
           required: f.required === true,
@@ -70,8 +71,10 @@ export function contactForm({
   const form = renderL1Fragment(formNode, `${instanceId}-form`, controls, { edit })
 
   // Honeypot: hidden from humans, tempting to bots. The server rejects any
-  // submission where this is filled (wired in REQ-7).
-  const honeypotName = 'hp_company_url'
+  // submission where this is filled — the server half landed in [[REQ-223]],
+  // which is also where the name moved into `fields.ts` so that the renderer and
+  // the receiver cannot come to spell it differently.
+  const honeypotName = HONEYPOT_FIELD
 
   /*
    * Invariant — the programmatic label for every control, whatever the reference
@@ -111,8 +114,16 @@ export function contactForm({
    * The remaining invariant elements (DOC-25 §10.3), each marked
    * `data-fc-invariant` so the reproduction value gate skips it:
    *   • the honeypot — visually hidden, off the tab order, never autofilled;
-   *   • the Turnstile mount — where the widget expects it (script + token wired
-   *     in REQ-7);
+   *   • the Turnstile mount — where the widget expects it, carrying Cloudflare's
+   *     own `cf-turnstile` class so their script renders into it implicitly. The
+   *     SITEKEY is not here: it is deployment configuration rather than site
+   *     content, so the serving Worker stamps it on at request time the same way
+   *     it chooses `account-chrome`'s state ([[REQ-223]] §6). A mount with no
+   *     sitekey and no script is inert, which is what an unconfigured deployment
+   *     serves — and its submissions are refused rather than accepted;
+   *   • the form-instance handle — a hidden input naming THIS instance, so the
+   *     receiver can look the asset, the consent wording and the submit label up
+   *     in the site's own published definition instead of believing a payload;
    *   • the inline error surface — shown only by the client enhancement.
    * The success copy sits in a `<template>` the client swaps the form for.
    */
@@ -125,7 +136,8 @@ export function contactForm({
         <label for="cf-${honeypotName}">Leave this field empty</label>
         <input id="cf-${honeypotName}" name="${honeypotName}" type="text" tabindex="-1" autocomplete="off">
       </div>
-      <div class="contact-form__turnstile" data-fc-invariant data-turnstile-target></div>
+      <input type="hidden" name="${FORM_INSTANCE_FIELD}" value="${escapeHtml(instanceId)}">
+      <div class="contact-form__turnstile cf-turnstile" data-fc-invariant data-turnstile-target></div>
       <p class="contact-form__error" data-fc-invariant data-contact-error hidden></p>
     </form>
     <template data-contact-success>${escapeHtml(

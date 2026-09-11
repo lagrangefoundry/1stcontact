@@ -298,7 +298,18 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
     // The endpoint's scheme already determines the answer, so a dial for it
     // would be an escape hatch the behavioural config may not express.
     const configFields = Object.keys(contactFormMeta.config)
-    expect([...configFields].sort()).toEqual(['action', 'fields', 'submitLabel', 'successMessage'])
+    // [[REQ-223]] added the asset a public form promises — a key, a name and a
+    // URL. None of them says anything about WHICH forms are enhanced, which is
+    // the claim below and the reason this list is enumerated at all.
+    expect([...configFields].sort()).toEqual([
+      'action',
+      'asset',
+      'assetName',
+      'assetUrl',
+      'fields',
+      'submitLabel',
+      'successMessage',
+    ])
     for (const field of configFields) {
       expect(field, `config exposes no enhancement dial (${field})`).not.toMatch(
         /enhance|progressive|ajax|fetch|nojs|no_js|javascript/i,

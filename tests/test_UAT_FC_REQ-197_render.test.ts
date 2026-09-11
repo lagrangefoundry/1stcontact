@@ -151,8 +151,12 @@ describe('REQ-197 — rendering substitutes, or it refuses', () => {
 
 describe('REQ-197 — the three templates, and what the invite has to say', () => {
   it('UAT_FC_REQ-197 there are exactly three templates: invite, signin and lapsed', () => {
-    expect([...TEMPLATE_KEYS]).toEqual(['invite', 'signin', 'lapsed'])
-    expect(Object.keys(SEED_TEMPLATES).sort()).toEqual(['invite', 'lapsed', 'signin'])
+    // A FOURTH ARRIVED WITH [[REQ-223]] — `asset`, the download a public form
+    // promised. The claim this pins is unchanged and is not about the number:
+    // the key set is CLOSED, and every key in it is seeded complete enough to
+    // send the moment it exists.
+    expect([...TEMPLATE_KEYS]).toEqual(['invite', 'signin', 'lapsed', 'asset'])
+    expect(Object.keys(SEED_TEMPLATES).sort()).toEqual(['asset', 'invite', 'lapsed', 'signin'])
     // Each is complete enough to send the moment it is seeded: a subject, a
     // body, and a declaration that its own body satisfies.
     for (const key of TEMPLATE_KEYS) {

@@ -33,7 +33,13 @@
  * a dependency is not its installation but its maintenance.
  */
 
-import { applyDeliveryEvent, BOUNCED, DELIVERED, type DeliveryOutcome } from './messages'
+import {
+  applyDeliveryEvent,
+  BOUNCED,
+  COMPLAINED,
+  DELIVERED,
+  type DeliveryOutcome,
+} from './messages'
 import { ticketStoreBase, type TicketStoreEnv } from './tickets'
 
 /** Where the webhook lives. One constant; the router and the suites read it here. */
@@ -165,17 +171,24 @@ export async function verifyWebhook(
 }
 
 /**
- * The two event types this ticket handles, and everything else ignored.
+ * The event types this handles, and everything else ignored.
  *
  * OPENS AND CLICKS ARE DELIBERATELY NOT HANDLED ([[REQ-198]]). They are a privacy
  * cost with no beta value, so an event carrying one is acknowledged and dropped
  * rather than recorded. `email.sent` is likewise ignored: the send path already
  * wrote `sent` from the call that returned the id, and re-deriving it from a
  * webhook would let a slow event overwrite a `bounced` that arrived first.
+ *
+ * COMPLAINTS ARE HANDLED BECAUSE SOMETHING NOW DEPENDS ON THEM ([[REQ-223]] §5).
+ * A public endpoint that mails an address it has never seen must never mail an
+ * address that reported the last message as spam, and the only way to know is for
+ * the provider's complaint event to reach the record — so it is recorded as its
+ * own status rather than folded into `bounced`, which is a different fact.
  */
-function eventStatus(type: string): typeof DELIVERED | typeof BOUNCED | null {
+function eventStatus(type: string): typeof DELIVERED | typeof BOUNCED | typeof COMPLAINED | null {
   if (type === 'email.delivered') return DELIVERED
   if (type === 'email.bounced') return BOUNCED
+  if (type === 'email.complained') return COMPLAINED
   return null
 }
 

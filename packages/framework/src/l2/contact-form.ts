@@ -21,7 +21,7 @@ export interface ContactFormPresetField {
   name: string
   label: string
   labelMode?: 'visible' | 'placeholder'
-  type?: 'text' | 'email' | 'tel' | 'textarea'
+  type?: 'text' | 'email' | 'tel' | 'textarea' | 'checkbox'
 }
 
 /** Overrides for the preset's few design constants. */
@@ -72,6 +72,45 @@ export function contactFormPreset(
   const children: L1Node[] = []
 
   for (const field of fields) {
+    /*
+     * A CHECKBOX IS A ROW AND NOT A BOX ([[REQ-223]] §7). Every other field is a
+     * full-width surface with its words above it; a tick box is a small square
+     * with its words BESIDE it, and the words are the consent wording — the thing
+     * the visitor is agreeing to — so they are the part that must be readable at
+     * full width rather than truncated beside a 48px slab.
+     *
+     * It is still only a STARTING POINT, exactly as the rest of this preset is:
+     * ordinary L1 an author edits, replaces or ignores.
+     */
+    if (field.type === 'checkbox') {
+      children.push({
+        kind: 'container',
+        layout: 'row',
+        gapPx: 10,
+        align: 'start',
+        children: [
+          {
+            kind: 'control',
+            control: field.name,
+            axes: { color: o.color, borderRadiusPx: 4, border: { widthPx: 1, color: o.borderColor } },
+            interaction: {
+              transition: { durationMs: 120, easing: 'ease-out' },
+              focus: { ring: { widthPx: 2, color: o.submitFill, offsetPx: 2 } },
+            },
+            sizing: {
+              width: { mode: 'fixed', px: 18 },
+              height: { mode: 'fixed', px: 18 },
+            },
+          },
+          {
+            kind: 'text',
+            text: field.label,
+            axes: { color: o.color, fontSizePx: 14, fontWeight: 400 },
+          },
+        ],
+      })
+      continue
+    }
     const control: L1Node = {
       kind: 'control',
       control: field.name,

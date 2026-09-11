@@ -1,5 +1,11 @@
 name = "1stcontact-control-app"
-main = "src/index.ts"
+# `src/worker.ts` AND NOT `src/index.ts` ([[REQ-223]]). The default handler still
+# lives in `index.ts`; what `worker.ts` adds is the named `LeadIntake` RPC
+# entrypoint, which imports the workerd BUILT-IN `cloudflare:workers` and so can
+# only be loaded inside the runtime. Roughly sixty node-project suites import
+# `index.ts`; keeping that module resolvable outside workerd is why the split
+# exists. Anything else needing a workerd built-in belongs in `worker.ts` too.
+main = "src/worker.ts"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 

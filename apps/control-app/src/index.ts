@@ -12,6 +12,7 @@ import {
   type DenialReason,
   type IdentityEnv,
 } from './identity'
+import { type LeadEnv } from './lead'
 import { route, type RouterEnv } from './router'
 import { handleSignIn, type SignInEnv } from './sign-in'
 import { sessionIdentityFor } from './sessions'
@@ -68,7 +69,7 @@ import { guardTerms } from './terms'
  * and every API route, not merely un-navigated-to.
  */
 
-export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv, SignInEnv {
+export interface Env extends AccessEnv, RouterEnv, IdentityEnv, EmailWebhookEnv, SignInEnv, LeadEnv {
   /**
    * LOCAL DEVELOPMENT ONLY, and only when Access is unconfigured.
    *
