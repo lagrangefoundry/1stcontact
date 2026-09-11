@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Every redirect hop is re-validated, and a hop the rules refuse is never retrieved
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:42:32.746154+00:00'
-updated_at: '2026-09-11T04:42:32.746154+00:00'
+updated_at: '2026-09-11T04:58:07.527981+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
