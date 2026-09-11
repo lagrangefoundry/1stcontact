@@ -6,10 +6,10 @@ title: The component reference describes every component in the catalogue with i
   settings, value sets, page parts and obligations
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:35:57.561350+00:00'
-updated_at: '2026-09-11T02:35:57.561350+00:00'
+updated_at: '2026-09-11T02:51:26.933332+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5836022a
   kind: behavior
