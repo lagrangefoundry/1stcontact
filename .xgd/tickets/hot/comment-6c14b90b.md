@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:32:03.341438+00:00'
+updated_at: '2026-09-11T21:42:20.004580+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -532,5 +532,78 @@ ok I want to get the contents of my account cleaned up there should be 3 busines
 Oh wait - I think you are confusing a site with a PAGE - xgd has two pages home and whitepapers.
 
 Lets go with your recommendations
+
+<!-- xgd-turn id="85e8fc4b-3a94-4a4a-aa12-effd8b749569-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:42:18.971646+00:00" -->
+#### Claude
+Let me check that — I want to be precise about what's duplicated.
+
+Full picture. Let me correct one thing and scope the ticket.
+
+Branch cut. Now the implementation — first, how the store exposes a draft.
+
+Now the implementation. Starting with the intake:
+
+The shared endpoint needs one honest seam rather than a faked secret:
+
+Now the route itself:
+
+Both clean. Now the UATs — let me reuse the REQ-223 harness:
+
+Now the UAT file:
+
+All 9 pass. Now the regression check:
+
+BUG-78 is built and `free_coded`. Here's both halves.
+
+## On site vs page — both are true
+
+xgd-the-site does have exactly two pages, home and whitepapers, as you say. Separately, there are two *site records* — distinct `sites.id`, different businesses — and each has that same pair of pages. That's why the page list looked doubled:
+
+```
+1st Contact  site_9a3dcd09…  home.json, whitepapers.json
+XGD          site_bca807fc…  home.json, whitepapers.json
+```
+
+**The one that goes is `site_9a3dcd09…`, in the 1st Contact business** — version 1, `updated_at` identical to `created_at`, never touched since. It was created at `23:26:01` on 2026-09-06, four seconds after the `1stcontact` site and 1.5s after `gigabytealchemy`: a seeding script made all three inside the platform's own tenant. The one to keep is `site_bca807fc…` under the XGD business — version 4, counter 3, edited 2026-09-10.
+
+## Account inventory vs. what you want
+
+**First, which database.** This is the local miniflare store (`apps/control-app/.wrangler/state/v3/d1/`). Per BUG-78's own notes, production's `sites` table is empty — nothing has ever been published there. So this is the only place with content to clean, but tell me if you meant production.
+
+You want 3 businesses, one site each. There are **8 businesses and 7 sites**:
+
+| Business | Sites | Verdict |
+|---|---|---|
+| **1st Contact** | `1stcontact` (v59), `gigabytealchemy` (v1), `xgd` (v1) | keep business, **drop 2 seed sites** |
+| **Lagrange Foundry** | `unnamed` (v23) | keep — but the site slug is literally `unnamed` |
+| **XGD** | `xgd` (v4) | keep |
+| Alice's Plumbing / Lettings / Old Salon | none | demo fixtures, created in the same second |
+| Felix Test | `unnamed` (v1) | test |
+| uat@westhead.me | `alpha` (v9) | UAT fixture, written 2h ago |
+
+Two things worth knowing before I delete anything:
+
+- **Deleting a business cascades well beyond its sites.** Tickets are keyed to businesses: Lagrange Foundry 52, 1st Contact 39, XGD 18, Felix Test 2. Also accounts, users, memberships, entitlements, counters, contact_events. Dropping Felix Test takes 2 tickets with it; the Alices have 3 accounts and 3 users between them.
+- **`alpha` under uat@westhead.me is a live UAT fixture** — touched two hours ago. Deleting that business will break whatever seeds it on the next run. I'd leave it, or check what creates it first.
+
+So my proposed cleanup, for your yes/no: delete the 3 Alice businesses and Felix Test; delete the `gigabytealchemy` and `xgd` sites from inside 1st Contact; keep uat@westhead.me. That leaves your three businesses with one site each, plus the UAT fixture. And Lagrange Foundry's site probably wants renaming from `unnamed`. **I haven't touched anything** — say go and I'll take a backup first.
+
+## What I built
+
+Commits `1bcc94e51f` + `9a10d34f65`, version 0.2.167, 9 UATs passing, REQ-223's own 21 still green.
+
+`control-app` now answers `POST /preview/<slug>/draft/api/lead`, through **`public-site`'s own `handleLead`** rather than a copy — and calls `captureLead` in process, since that's the same function `LeadIntake` delegates to. The site key comes from the slug through the store, never the body.
+
+Three consequences, all as recommended:
+
+- **The definition now reads the previewed channel.** `formDefinitionOf` hardcoded the live revision. Its own doc comment justified that as "read the definition from the snapshot the submitter was served" — which is correct, and for a preview points at the draft. I kept the reasoning and made the channel select the snapshot; `published` behaves exactly as before. The sharpest UAT publishes one consent sentence, edits the draft to another, and asserts the preview records what the operator was actually shown.
+- **The lead records its channel** in `provenanceOfSubmission`, always — including `published`, so a reader can tell a live lead from one written before the field existed.
+- **Turnstile and the rate limiter skip behind an explicit `identified` flag** that the server sets at one call site and no request can carry. A UAT posts `identified: true` in the body to the public endpoint and still gets challenged.
+
+Edit mode refuses with a 404, per your point.
+
+One thing to flag: `handleLead` lives in `apps/public-site` and `control-app` now imports it across the app boundary. Both typecheck and both suites pass, but if this repo would rather that shared surface sat in `packages/`, that's a move worth making before reconciliation rather than after.
 
 <!-- xgd-chat-end -->
