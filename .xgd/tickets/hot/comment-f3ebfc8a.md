@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-11T02:41:34.872520+00:00'
+updated_at: '2026-09-11T19:23:09.225900+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,14 @@ Now the workerd UAT:
 All 9 pass, including the real-binding width decode and the sentinel cache proof. Now regression across the affected suites:
 
 No regressions — the branch's failure set matches main's, plus one KB suite that flakes only under parallel load (passes in isolation). Two things in my own diff to tighten:
+
+<!-- xgd-turn id="bb412fc9-8611-49a4-853a-9dd897540f6d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:23:09.016960+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
