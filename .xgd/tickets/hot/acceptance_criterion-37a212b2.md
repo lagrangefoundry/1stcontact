@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Describing a page reports the components already on it with their configuration
 created_by: xgd
 created_at: '2026-08-10T09:34:23.163166+00:00'
-updated_at: '2026-08-16T01:57:14.691291+00:00'
+updated_at: '2026-09-11T03:40:00.821901+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
