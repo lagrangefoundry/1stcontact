@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-11T18:53:39.096009+00:00'
+updated_at: '2026-09-11T19:03:59.873207+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -250,6 +250,19 @@ The KB-backed suites in that list fail because `1c kb build` hasn't run in this 
 <!-- xgd-turn id="432230e1-1719-4ae4-951c-297434faa19d-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-11T18:53:38.061157+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-59` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-59`
+- branch HEAD: `99b88111d9bc79dfebc30756181ba41408f01f99`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="10ba5a92-5e0c-4ce8-ab11-2fbdedff7fd2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:03:59.725784+00:00" -->
 #### You
 please complete the free-coding of this ticket
 
