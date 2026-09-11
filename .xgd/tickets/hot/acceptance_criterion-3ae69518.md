@@ -29,6 +29,8 @@ A document is in the knowledge base only when it declares the document kind that
 
 The retired boolean is superseded rather than deprecated: nothing honours both markers, so there is one membership rule rather than two. Honouring a marker nobody maintains any more would put a document in front of a client-facing assistant on the strength of it, which is the failure this rule exists to prevent.
 
+This criterion is about the membership **rule**, not about the corpus's **contents**. How many documents currently carry the kind is curation state that changes without any code changing — and today it is none, because `system_kb` is not yet a value the closed `doc_kind` enum accepts (the enum is defined in xgd source; see REQ-164 and [[DOC-39]] §10). An empty member set is therefore a legitimate state of this rule, not a failure of it, and AC-1300 in this same story pins that state as a declared and tested one.
+
 ## Verification
 
 Assert the membership decision directly across all six shapes. Then assert the integration half against a store holding a known mixture of opted-in and opted-out documents — one document per near-miss shape — and check that the export produced exactly the opted-in one, named every other as skipped, and left no excluded document with a file in the corpus.
