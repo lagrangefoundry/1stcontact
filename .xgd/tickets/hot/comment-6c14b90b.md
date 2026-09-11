@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:42:20.004580+00:00'
+updated_at: '2026-09-11T21:46:27.966465+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -605,5 +605,16 @@ Three consequences, all as recommended:
 Edit mode refuses with a 404, per your point.
 
 One thing to flag: `handleLead` lives in `apps/public-site` and `control-app` now imports it across the app boundary. Both typecheck and both suites pass, but if this repo would rather that shared surface sat in `packages/`, that's a move worth making before reconciliation rather than after.
+
+<!-- xgd-turn id="647f12aa-8a18-4668-be3e-1faf5b05e514-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:46:26.624384+00:00" -->
+#### You
+Wait still confused 
+
+| **1st Contact** | `1stcontact` (v59), `gigabytealchemy` (v1), `xgd` (v1) |
+| --- | --- |
+
+`gigabytealchemy` (v1), `xgd` (v1) <-- this is a site capture and a screen shot that are in the library these are not additional sites what is the problem here? Those are not for deletion but should not be causing any confusion???
 
 <!-- xgd-chat-end -->
