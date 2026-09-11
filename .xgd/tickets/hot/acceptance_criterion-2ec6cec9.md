@@ -6,14 +6,15 @@ title: A site with an empty palette still offers the colour row, and it opens th
   palette in its no-colours-yet state rather than an empty or broken control
 created_by: xgd
 created_at: '2026-08-20T03:38:54.574222+00:00'
-updated_at: '2026-08-20T03:39:50.807182+00:00'
+updated_at: '2026-09-11T00:51:09.028558+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
