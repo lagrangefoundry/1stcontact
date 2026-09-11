@@ -6,15 +6,21 @@ title: 'Picture stores: the AI cannot list the Library or move a picture onto th
   site'
 created_by: BUG-80
 created_at: '2026-09-11T21:55:52.134977+00:00'
-updated_at: '2026-09-11T21:55:52.134977+00:00'
+updated_at: '2026-09-11T22:16:10.921345+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
 ---
+
+> **Superseded by REQ-228 (`request-77e4e59c`)**, which carries the same two
+> gaps plus a proposal for the shape, and the finding that the ticket surface
+> (`@lagrangefoundry/ai-ticketing`) is shipped but never granted. Kept for the
+> incident record below; do not implement from this one.
+
 
 ## Symptom
 
