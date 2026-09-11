@@ -6,9 +6,9 @@ title: 'Public forms accept a submission: lead capture, asset delivery, and the 
   that keep it safe'
 created_by: BUG-78
 created_at: '2026-09-10T22:59:48.855411+00:00'
-updated_at: '2026-09-10T23:09:29.308451+00:00'
+updated_at: '2026-09-11T00:04:45.670595+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -205,6 +205,27 @@ The rule:
 - **Suppression on bounce or complaint.** REQ-198's delivery webhook already
   brings outcomes back and records them against the contact. An address that
   hard-bounced or complained is never mailed again by this endpoint.
+
+  **A complaint was not previously recordable, so this ticket makes it one.**
+  REQ-198's webhook handles `email.delivered` and `email.bounced` and ignores
+  everything else, and the message record's status vocabulary had no value for
+  *the recipient reported this as spam*. Without both halves the suppression rule
+  above is unreachable code — it could only ever fire for a status written by
+  hand. So `complained` is added as a status of its own and the webhook maps
+  `email.complained` onto it.
+
+  **It is a separate status and deliberately not a synonym for `bounced`.** A
+  bounce is the mailbox saying it could not take the message; a complaint is the
+  person saying they did not want it, and an operator reading a contact's history
+  needs to tell a full mailbox from somebody who pressed the spam button. What
+  the two share is the only thing the suppression rule asks. The complaint is
+  also the one that damages deliverability, which is the failure §5 opens with.
+
+  **The status vocabulary becomes one definition rather than two.** The ticket
+  schema that validates every message write spelled the list out a second time,
+  independently of the constant the code reads. Adding a value to one and not the
+  other is a runtime validation error naming a status the code believes in, so
+  the schema now reads the constant.
 - **Sending goes through what already exists** — the mail port, the templates,
   and the message recording — so a delivered asset appears in the contact's
   history beside their invites, and a bounce is as visible as any other. There is
@@ -306,7 +327,10 @@ is a separate purpose and must be separately evidenced.
 11. An asset-bearing form delivers its asset exactly once per address; a second
     request delivers nothing. Asserted by reading the message record, not the
     status code.
-12. An address recorded as bounced or complained is never sent to.
+12. An address recorded as bounced or complained is never sent to. A provider
+    complaint event reaches the record — asserted end to end through the real
+    signed webhook, not by writing the status by hand — and `complained` is a
+    distinct status rather than a second name for `bounced`.
 13. Every method other than the one POST, on every other path of `public-site`,
     still answers `405`.
 14. The internal seam to `control-app` is not reachable by any URL.
