@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T23:55:50.079617+00:00'
+updated_at: '2026-09-11T23:57:16.750448+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -820,6 +820,12 @@ All on the epic. No code.
 <!-- xgd-turn id="fda02e81-2fc3-492e-9e0a-df72c63ec73a-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-11T23:55:48.959805+00:00" -->
+#### You
+Do we need a ticket for 3?
+
+<!-- xgd-turn id="d5d6468f-e2b6-4bf6-8f95-0c7a399d3c7c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T23:57:16.393423+00:00" -->
 #### You
 Do we need a ticket for 3?
 
