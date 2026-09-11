@@ -195,6 +195,34 @@ export function splitBusinessPrefix(pathname: string): {
 }
 
 /**
+ * The inverse: an absolute, same-origin path that names this business explicitly.
+ *
+ * **IT LIVES BESIDE {@link splitBusinessPrefix}, AND THAT IS THE POINT.** The
+ * shape of the prefix is one fact, and two writers that each know it separately
+ * are one rename away from disagreeing — the same argument `materialUidFromUrl`
+ * makes for sitting next to `materialFileUrl` in the builder client.
+ *
+ * WHY THE ORIGIN NEEDS ONE AT ALL ([[REQ-217]]). Until now every scoped URL was
+ * composed in the browser, by `builder/api.js`'s `scoped()`, from a business the
+ * client had already selected. A picture in the conversation is composed on the
+ * SERVER — the tool that made it authors the markdown line the model pastes — and
+ * the server has no `scoped()`. Composing it by hand at each call site is exactly
+ * how the two spellings come apart.
+ *
+ * THE PREFIX IS NOT OPTIONAL FOR THAT USE, and the reason is a real failure and
+ * not tidiness. The builder's own document stays at `/`, so a root-absolute path
+ * written into a chat bubble arrives at {@link resolveScope} with no business
+ * named — which does not 404, it falls through to the FIRST admissible business.
+ * For an operator who holds two, that is one business's conversation showing
+ * another's picture, which is the crossing this module exists to prevent.
+ */
+export function businessPath(businessId: string, path: string): string {
+  const id = String(businessId ?? '').trim()
+  const rel = path.startsWith('/') ? path : `/${path}`
+  return id === '' ? rel : `${BUSINESS_PREFIX}${encodeURIComponent(id)}${rel}`
+}
+
+/**
  * Resolve the business this request operates on.
  *
  * TAKES AN ADMISSION OR NOTHING, and the `null` is not a convenience. `index.ts`
