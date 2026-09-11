@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T21:27:31.287713+00:00'
+updated_at: '2026-09-11T21:29:51.024371+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -478,5 +478,46 @@ No code written — ticket updates only.
 Sure please file that.
 
 On the publish step I suggest 1 we throw up a spinner and lock any changes on the builder while publish is running. We could add a message "first time publication of images required risizing that can take some time - please leave this tab open". We could even add a progress bar?
+
+<!-- xgd-turn id="9b418359-97aa-4d61-a133-d0182b25f6c4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:29:50.410060+00:00" -->
+#### Claude
+Both are actionable. Let me ground each in the actual code before writing.
+
+REQ-221 already fixed that — let me confirm before filing a duplicate.
+
+Two useful findings. Let me check one more thing — whether streaming already has a precedent here.
+
+Everything I need. Writing the decision up.
+
+Now correcting the epic's record, since I'd twice reported that bug as outstanding.
+
+## I didn't file the ticket — it's already fixed
+
+REQ-221 closed it in `f87c58e2a1`. `receiveFiles` now collects refusals across the round and ends with `if (source !== 'chat' && refusals.length) library.refused(...)`, and `library.js` has the `refused(message)` sink to receive it. The commit's own comment is the reasoning we wanted: a refused file used to never appear, leaving the client to conclude the product had ignored them.
+
+My record was stale, not the code — I reported it as open twice after the fix landed. Children merge into the working branch while the epic reasons about them. Filing it would have produced a ticket whose entire content was already true. I've corrected the epic and noted the lesson there. **REQ-221's HEIC refusal is no longer blocked.**
+
+## On the publish UX — all three, and the code helped
+
+**Locking is right, and for a stronger reason than you gave.** Today `publishAction` disables the Publish button and *nothing else*, so the client can keep editing straight through. That leaves them with a reasonable, untested belief about whether the edit they just made is live. Better to remove the question than answer it.
+
+The mechanism already exists: REQ-173's `blockEverything` makes the shell `inert` with one attribute and deliberately keeps its message *outside* the inert subtree so text stays selectable. One trap I flagged — REQ-173's block means *something is broken*; a publish block means *something is working*. Reuse the mechanism, not the register, or you tell the client their site is broken at the moment it goes live.
+
+**Your message text is good and I kept it verbatim.** One refinement: show it only when it's true. "First-time" is accurate because the cache makes republishes free — and *because* it's accurate, a republish with nothing to build must stay silent, or the client learns to ignore the one case that matters. The publish knows the count before it starts, so it can tell.
+
+**The progress bar — yes, and it's cheaper than you'd expect.** Two things I found:
+
+- The ladder already measures every asset and derives its rungs before transforming, so the denominator (assets × rungs × formats, minus cache hits) is **knowable up front**. A real bar, not an animation on a timer.
+- SSE is already the house transport. `router.ts` serves three event-stream routes, and `api.js`'s `postEventStream` is a shared parser whose own doc says it exists so there's exactly one split-on-blank-line parse. Publish progress is a **fourth caller of an existing generator**, not a new transport.
+
+I'd push past the spinner to the bar for the reason your own budget implies: for a wait of minutes, a spinner *is* the thing that reads as a hang.
+
+**One design cost I want visible now rather than discovered later.** An SSE response commits `200` before the first rendition is built, so a publish that fails midway can't report itself as an HTTP status. The terminal frame has to state success or failure explicitly, and the client must treat *a stream ending without one* as failure — otherwise a dropped connection renders as a completed publish, which is the worst outcome available here.
+
+`1c publish` is unaffected — progress is a property of the route, not the publish, same line the ticket already draws around the ladder itself.
+
+Both written up in REQ-222 and the epic. No code — ticket updates only.
 
 <!-- xgd-chat-end -->
