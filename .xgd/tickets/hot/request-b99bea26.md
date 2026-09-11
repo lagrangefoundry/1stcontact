@@ -5,10 +5,10 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-11T02:13:56.036163+00:00'
+updated_at: '2026-09-11T19:43:52.236006+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -60,13 +60,15 @@ true, and the editor must not offer any control that makes it false.
 **Interaction is local; truth is rendered.** Dragging a crop box moves a CSS
 overlay so the gesture is immediate, and committing re-fetches the real bytes
 from the renderer. What the client is looking at after a commit is what will be
-published.
+published — by RE-PROMOTION, not because publish reads the material: a recipe
+change re-promotes new bytes into the site's assets, and that mechanism is
+REQ-219's.
 
-**Crop and focal point are different things and both stay.** `assetRefSchema`
-already carries `focalPoint` — *when a band forces an aspect on this picture,
-keep this bit in frame*. Cropping says *this picture is that shape*. The modal
-should let a client set the focal point too, and must not present the two as
-alternatives.
+**Crop and focal point are different things — and only the crop is this
+ticket's.** *Cropping says this picture is that shape; a focal point says when a
+band forces an aspect on this picture, keep this bit in frame.* The distinction
+is real and is kept in mind wherever per-placement framing is next touched. It is
+not shipped here: see *Answered from EPIC-1* §1 below.
 
 ## Depends on
 
@@ -202,9 +204,27 @@ recipe, whose entries stay individually revisable. Nothing in the editor removes
 an operation's parameters in a way that cannot be re-entered, which is how *the
 picture is never destroyed* is kept true by a surface that cannot see the bytes.
 
-**The focal point is set on the picture, beside the recipe and not inside it.**
-It is not an operation — it changes nothing about what the picture IS — so it
-cannot be an entry in an ordered list of operations, and it is not undone by
-stepping back through them. It is offered next to the crop tool and labelled for
-what it does: *when a band forces an aspect on this picture, keep this bit in
-frame.*
+**There is no focal-point control, and the first implementation pass was wrong
+to add one.** It reached the point of a tool in the modal and a `focal_point`
+field on the record before *Answered from EPIC-1* §1 was read properly; both were
+removed. The reasoning in §1 holds: the axis that is live is
+`l1ImageAxesSchema.objectPosition`, which sits on the L1 image NODE, so it is a
+property of *this picture in this band* — and this dialog holds no page and no
+node. A control here would have written a value no renderer reads. What survives
+is the statement of the distinction, in `image-ops.js`, saying why a focal point
+could never have been an entry in an ordered list of operations.
+
+**A drawing is refused as well as a capture, and each is told which refusal it
+is.** `kindOf` files an SVG as an `image`, so a drawing reaches the same `<img>`
+as a photograph — and none of the four operations applies to one: the platform
+renderer cannot transform a vector, cropping one means changing its viewBox, and
+the assistant can simply redraw it. One predicate, `isEditablePicture`, decides
+both cases, and the Library asks it before it offers the button so the control
+cannot come apart from the refusal behind it.
+
+**The picture is fetched at its stable material address, which is a known gap
+until REQ-219's renderer lands.** *Answered from EPIC-1* §7 asks for the
+content-addressed rendition address, and there is not one yet — the route answers
+`rendered: false` for every commit, so no edited bytes exist to be cached under
+the old URL. When the renderer lands, the address the editor fetches is the one
+thing here that has to change with it.
