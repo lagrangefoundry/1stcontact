@@ -6,7 +6,7 @@ title: A consumer granted only reading cannot reach any operation that changes t
   site
 created_by: xgd
 created_at: '2026-08-10T09:06:13.044555+00:00'
-updated_at: '2026-08-16T03:38:48.174202+00:00'
+updated_at: '2026-09-11T01:49:33.599597+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
