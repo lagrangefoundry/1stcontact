@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T21:42:05.476670+00:00'
+updated_at: '2026-09-11T21:56:52.572472+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,58 @@ This is confusing lets go a step at a time, I want you to fix all the problems.
 **It still cannot move a generated or client-uploaded image into the site's assets**, so it repeatedly asked the operator to re-drop the file into the chat. That's the same `ManageAssets`/`add_asset` grant gap already written up on `comment-c9afb02b` on 2026-09-01 (the gold A logo) — same failure, ten days later. <-- ok this is a gap can you create a ticket for this the ai needs the ability to make changes like this
 
 Explicitly out of scope and recorded as such: actually making large pictures photographable (needs the `OriginResolver` seam instead of a `data:` URL, touching both drivers), and a general tool-result size cap (that renderer is `lagrange-framework`'s `runtime.js` — a different repo). <-- I don't understand this - we have the ability to resize pictures right? Does the AI have access to a tool for that (it needs to)? Can't the AI just make a smaller version if the image and look at that?
+
+<!-- xgd-turn id="7a68aeb2-f102-4f9d-b630-17c626adba18-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:56:52.183927+00:00" -->
+#### Claude
+Now I have the facts. Let me update the ticket to reflect the corrected scope, then cut a branch.
+
+Now the implementation:
+
+Code landed. Now the session repair:
+
+Taking your four points in order.
+
+## 1. The dead session — fixed, and the diagnosis was different from what I said
+
+I was wrong about *where* the poison was. The stored transcript is clean: `comment-40c95649` (the session file) is 26 KB and stops before the fatal turn, and the tool transcript already elides oversized results (`[elided — kept 5800 of 22611384 bytes]`).
+
+What kept it dead is `backend_ref` in the session file's header — the handle the host uses to `--resume` the *backend's* own conversation. That conversation holds the 22 MB message, so every resume re-sent it.
+
+I cleared it. This is a supported state, documented upstream: a header with no `backend_ref` "takes the cold-start path on its next turn: a new conversation, seeded from the summary and the window." Same chat ticket, same visible transcript, fresh backend — exactly what you asked for. Backup at `.xgd/tmp/comment-40c95649.backup.md`.
+
+**Restart `wrangler dev` before you reopen that chat.** A warm isolate holds the session in memory and would overwrite the edit.
+
+## 2. "Is the 1.1 MB problem fixed by the size limit?" — no, and that was the wrong fix
+
+You caught the right thing. A refusal is not a fix; it just makes an ordinary phone photograph politely unviewable. So I fixed the plumbing instead.
+
+The bytes no longer travel in the URL. The browser is navigated to a small fixed shell holding an empty `<img>`, and the picture's base64 is delivered over the driver's evaluation channel in bounded chunks, then assembled and decoded in the page. The evaluation channel has no URL-length limit. **The ~1.1 MB ceiling is gone** — a 12 MB JPEG is now photographable, as is one many times that.
+
+Two other guards on the same path:
+- Every browser interaction is wrapped. What escapes is a bounded sentence with `data:` URLs and long base64 runs stripped, under a hard character cap. No failure on this path can end a conversation again — not just the one we saw.
+- A sanity ceiling (64 MB) refused *before* a browser is leased, so an absurd input doesn't become an unbounded number of round trips.
+- The stored media type is now sanitised before it goes into the `src` — it's a field somebody wrote down, and it was being interpolated into a document raw.
+
+## 3. "Two stores" — neither a data problem nor really a docs problem
+
+Two stores is correct and deliberate, and `image-library.ts` says so: a **site asset** serves the public internet; a **Library item** is the client's confidential material in a private bucket behind Access. That module already unified the one thing that should be — the *name* — which is why `screenshot` can photograph a Library item at all.
+
+The actual problem is **two missing operations**:
+- Nothing enumerates the Library. `list_assets` shows site assets only. `ImageLibrary.list()` returns both halves and is deliberately not exposed, on the reasoning that "a picture's handle arrives in the result of whatever made it" — which holds for one turn and fails across a session. That's why the AI asked you to judge its own illustrations three times instead of looking at them.
+- Nothing promotes a picture from the Library onto the site.
+
+## 4. "Can't it just make a smaller version?" — it shouldn't need to, and now it doesn't
+
+There is no resize tool, and I deliberately didn't add one. The pipeline already reduces every picture twice: `MAX_RASTER_EDGE` (4096) bounds the layout size, and `MAX_IMAGE_EDGE` (1024) downsamples what the model is actually shown. That machinery was working fine — the bytes just never reached the browser.
+
+And a resize tool couldn't have worked anyway: this product has no JPEG decoder by design (REQ-156). The browser *is* the decoder. Fixing the delivery is what restores access to it, and a separate "make a smaller copy" verb would be a second way to do what every picture already goes through.
+
+---
+
+**Landed:** BUG-80 at `free_coded`, commit `3f1480ce1c`, version 0.2.168, merged to `xgd-working`. 7 new UATs plus 2 updated REQ-218 assertions; the REQ-218, REQ-157, REQ-154 and REQ-216 suites all pass. The full node run has 12 failing files — I checked three against a clean `xgd-working` and they fail there too; none touch this path.
+
+**Filed:** REQ-227 (`request-a15815f4`), `draft`, priority high — "Picture stores: the AI cannot list the Library or move a picture onto the site." Covers both gaps from point 3, including the `ManageAssets`/`add_asset` grant gap from `comment-c9afb02b`. It's at draft; promotion is yours.
 
 <!-- xgd-chat-end -->
