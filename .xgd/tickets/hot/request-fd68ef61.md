@@ -5,7 +5,7 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-11T22:11:52.294993+00:00'
+updated_at: '2026-09-11T22:17:35.623831+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -265,3 +265,58 @@ says landed. **Check the installed surface before designing against it**; if the
 seam is present, the two halves can land together and the staging above collapses.
 The `write_image` half is unaffected either way and remains the part that needs
 nothing from upstream.
+
+
+### Confirmed in the installed code: the blocker has cleared
+
+Checked against the shared store this deployment actually bundles
+(`/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai-imagegen/`,
+resolved through `src/generated/ai-imagegen.js`), 2026-09-11. **Both halves of
+what this ticket was waiting for are present.**
+
+**The prohibition is gone.** The overview no longer says *"the picture itself
+never enters this conversation."* What it says now is narrower and is about the
+tool result rather than about display:
+
+> A generated image is not returned to you as a picture. It is stored, and you are
+> told the id of the ticket holding it.
+
+and on the operation, *"The image is never returned here as data."* Neither
+forbids a host from showing the picture; they describe what `create_image` hands
+back. The sentence that would have contradicted a pasted line is no longer there.
+
+**And the seam exists, as a host-composed sentence.** `shapes.host_display`:
+
+> **`display`** — *"How to put this picture in front of the person you are talking
+> to, in the host's own words about its own surface. Absent where there is no way
+> to show this one, in which case the id is the whole of what you can pass on."*
+
+That is exactly the shape the epic asked for: the host contributes a sentence
+about its own surface, and absence is the ordinary state rather than an error.
+
+### So what this ticket must now do — and it is wiring, not a workaround
+
+**Nothing here needs a local workaround, which is what `imagegen.ts` forbids.**
+Its header states its job precisely: *"This file installs it: it names the
+provider, supplies the credential, supplies the ticket type, and hands the plugin
+the one thing a framework component cannot know — this product's own vocabulary
+for a piece of material."* A display sentence for this product's own chat pane is
+another instance of exactly that, so supplying it is this file doing its stated
+job rather than routing around the plugin.
+
+**Nothing supplies it today.** `imagegen.ts` has no `host_display` wiring — the
+seam is open and unfilled. That is the `create_image` half of this ticket, and it
+is now unblocked.
+
+**So the staging in the section above collapses.** Both halves can land together:
+
+- **`write_image`** — ours throughout, needs the display-URL factory on `HostDeps`
+  the investigation designed, and emits the markdown line itself.
+- **`create_image`** — supplies `host_display.display` from `imagegen.ts`, composed
+  the same way the Worker composes any scoped URL, for the same `scope.businessId`
+  the chat host is already keyed on.
+
+**One caveat worth keeping.** `@lagrangefoundry/*` is not pinned in this repo's
+lockfile, so the installed store can move without a commit here. What is recorded
+above is what is installed today; re-check the surface before relying on the exact
+field name.
