@@ -41,6 +41,9 @@ dashboard:
     investigate_extra: ''
     complete_extra: Please be aware that in this current chat environment, background
       jobs die. Please be sure to run any tests in the foreground.
+    reread_extra: ''
+    epic_create_children_extra: ''
+    epic_check_child_progress_extra: ''
 dispatcher:
   bundle_untangle_gap_commits: 50
   costs:
@@ -56,7 +59,6 @@ dispatcher:
     auto_start: true
     scheduled_time: '23:00'
     mode: 'off'
-  auto_push: true
 merge_back:
   max_iterations: 5
   reconciliation:
@@ -92,6 +94,7 @@ project:
   prd: null
 quality:
   min_coverage_percent: 25.0
+  allow_test_skips: false
 quality_checks:
   batch_iteration_buffer_percent: 50
   max_attempts_per_phase: 3
