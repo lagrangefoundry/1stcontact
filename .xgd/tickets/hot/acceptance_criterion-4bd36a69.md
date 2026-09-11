@@ -6,9 +6,9 @@ title: A refused change tells the caller nothing was written and what to do inst
   of resending it
 created_by: xgd
 created_at: '2026-08-10T09:20:12.311805+00:00'
-updated_at: '2026-08-16T02:37:34.890007+00:00'
+updated_at: '2026-09-11T02:17:41.604824+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-189fc1ac
@@ -19,19 +19,24 @@ fields:
 
 ## Criterion
 
-A refusal is correctable within the same exchange: it carries the failure code **and** a
-recovery strategy — that nothing was written, that the same call must not be sent again
-unchanged, and that the way forward is to read the element back and send a corrected
-replacement.
+A refusal is correctable within the same exchange. It carries three things together:
 
-**Known limit, deliberately recorded:** this caller does not receive the specific
-offending field, although the write path reports it and a command-line user sees it. The
-tool layer renders only the declared meaning of the failure code. The declared meaning
-therefore carries the strategy rather than promising specifics it cannot deliver. This
-criterion asserts the strategy; it does not assert the field name.
+- the **failure code**;
+- a **recovery strategy** — that nothing was written, that the same call must not be sent
+  again unchanged, and that the way forward is to read the element back and send a
+  corrected replacement;
+- the **offending field**, named as a pointer into the element, so the caller does not have
+  to guess which part of what it sent was refused.
+
+The strategy and the field are complementary, not alternatives: the declared meaning of the
+code carries the strategy, and the write path's own account of the failure is appended to
+it. A caller that receives both corrects in one step; one that receives either alone does
+not.
 
 ## Verification
 
 Send a replacement with a wrongly-typed value for a typed appearance property. Assert the
-reply carries the schema-invalid code and states all three of: nothing was written, do not
-resend unchanged, read the element back.
+reply carries the schema-invalid code, states all three of: nothing was written, do not
+resend unchanged, read the element back — **and** names the offending property (the
+pointer into the element reaches the caller, e.g. the refusal for a bad `fontSizePx`
+names `fontSizePx`).
