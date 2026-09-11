@@ -389,6 +389,14 @@ should stop asserting.
   and the grant's read-only half is asserted as an equality over the offered
   operations, so an operation added upstream cannot enter the grant unnoticed.
 
+**2026-09-11 — reconciling AC-1652's read-set assertion against upstream drift (BUNDLE-26 / REQ-158).**
+
+- **The read set is not this repository's roster to pin.** AC-1652 named the read set as exactly three operations and asked for it as an equality, so that "an operation added upstream cannot enter the grant unnoticed". The shared knowledge component then widened its own read group from three operations to five — `KnowledgeOutline` and `KnowledgeChanges` — with no commit here. Both were read out of the component's declaration and both declare `effect: read`, so the criterion's substantive claim (the grant is read-only and confined to the system knowledge base on both axes) never stopped being true. What went stale was the mechanism: an identity snapshot of a three-element list standing proxy for a property.
+- **The equality is kept and both of its sides are derived.** What the model is offered must equal exactly what the grant names, resolved through the surface's own declaration; and every granted operation must itself declare `effect: read`, every granted group must be a declared read group. That is strictly **stronger** than the roster equality — a write operation arriving inside an already-granted group fails it, which the roster caught only by accident of the list changing — and it is inert to a read-only addition, which is not a widening of what this session may do. Widening the literal to five names was the available alternative and was rejected: it would restate the same stale mechanism and go stale again on the next upstream read.
+- **The declaration is read off the surface the session travelled with**, not imported alongside it, so there is no second copy for the assertion and the runtime to disagree about.
+- **Both scope axes become every declared axis.** The grant was checked by substring against a serialised blob. It is now checked axis by axis, over the axes the declaration itself defines, so an axis added upstream cannot arrive unconstrained.
+- **AC-1318's node twin is left alone, deliberately.** It fails on the identical assertion, but it is not in this bundle's active set and it sits in a suite whose other criteria (AC-1317, AC-1319) need this story rewritten against a knowledge model upstream retired. The three travel together, against the framework-migration intent, not here.
+
 ## Dependencies
 
 The declared control surface the assistant acts through, and the browser pane
