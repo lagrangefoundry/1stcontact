@@ -6,7 +6,7 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:37:02.502083+00:00'
+updated_at: '2026-09-11T22:50:25.422674+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,8 +16,6 @@ fields:
   needs_review: false
   chat_comment: comment-37c2fe15
 ---
-
-
 
 ## What this is
 
@@ -274,3 +272,108 @@ asking the operator to drag a file into the chat a second time.
 - BUG-80, the stored-picture render path — already fixed.
 - Unifying the two buckets. They are separate on purpose and stay separate; this
   is about the catalogue over them, not the storage under them.
+
+
+## Scope, as built (2026-09-11)
+
+All four halves are in scope. A–C are implemented here; D is a decision recorded
+here and a bug filed elsewhere.
+
+### Half A is granted, and the reach into past conversations is the point
+
+**Operator decision, 2026-09-11.** The proposal above described `ReadTickets` as
+the direct answer and left the size of the grant implicit. It is stated here
+because it was questioned during implementation and the answer changes what gets
+built: the tenant's ticket store holds every `chat` ticket for this client — each
+carrying a previous conversation's full transcript in its `chat_transcript`
+comment — alongside the engagement ledgers, the material records and the
+awareness map.
+
+**That reach is the intention, not a side effect to be narrowed.** An assistant
+that cannot read what it and this client already worked out is an assistant with
+no context, and context is most of what makes it useful. A grant trimmed to "the
+picture catalogue only" would answer this ticket's acceptance test and leave the
+product's actual intent unbuilt.
+
+So the consultant is granted `ReadTickets` over this client's whole store.
+`WriteTickets` is still withheld, exactly as the proposal says: reading what was
+decided is the capability being added, and creating or patching arbitrary
+tickets is a separate decision nobody has made.
+
+**Local-only falls out rather than being configured.** The `project` and
+`project_write` axes are left unset, which their declarations read as an empty
+allow set; a local uid projects to no authority, and a projection that yields
+nothing is unconstrained. The result is that every ticket in this session's own
+store is readable and any reference naming another project is refused, with no
+predicate anybody has to keep correct. The `ticket` axis is left unset too,
+which reads as "this session's store, all of it".
+
+The tenant handle is what keeps this to one business. The store the surface is
+built over is already `forTenant`-bound, so there is no argument anywhere on the
+path that could name another client's tickets.
+
+### Half B — what the catalogue listing actually returns
+
+The catalogue lists **everything the client has given us, not only pictures**.
+The Library holds documents and fonts beside images, and a client who uploads
+their brand font uploaded it so it could go on the site; a listing that silently
+omitted it would be the same shape of bug this ticket is fixing. `kind` is
+therefore a filter rather than a fixed predicate, and the other three dimensions
+a person scrolling the Library tab uses are filters too: what it is for (`role`),
+whether it is already on this site, and text the describer or the client wrote.
+
+**The listing is bounded and says what it left out.** An engagement's Library can
+hold every upload of the whole engagement. The listing takes a limit, defaults
+it, and reports the total it matched and whether more were held back — a bounded
+listing that did not say it was bounded would read as a complete one.
+
+**One naming rule, over a wider set.** `resolveStoredImage` stays the only thing
+that decides what a stored picture is called. The catalogue does not get a second
+matcher: it feeds that same function a candidate set covering every catalogue
+item rather than only the images, so a picture is spelled here exactly as
+`screenshot` and `edit_image` spell it. The projection from a material row to a
+named item is written once and used by both the Library's half of the merged
+image library and the catalogue, so the two cannot drift.
+
+**A name that means two items is refused, never guessed**, and the refusal names
+the candidates — the rule the naming vocabulary already states, inherited rather
+than restated.
+
+### Half C — what placing returns
+
+`place_on_site` reports the `/assets/…` handle as well as the stored name, so the
+next thing the assistant does is write it into a picture element without deriving
+a path. It carries the item's description back with it, because alt text is
+written onto the element that places the picture and the description lives on the
+material record.
+
+Placement is **its own capability group**, separate from looking. It is not
+folded into `ManageAssets`.
+
+**Nothing about the refusal is new or re-implemented here.** `promoteToSiteAsset`
+already refuses material whose record is not `republishable`, already renames
+around a collision rather than overwriting a live picture, and already records
+`placed_on` after the bytes land. The operation is a wire to it.
+
+**Placing is not publishing.** The bytes land in the site's draft assets; the
+site becomes public only when the client publishes. The surface says so, so the
+assistant does not treat placing as an irreversible public act.
+
+### Where the grants live, and where the surfaces are absent
+
+Both grants **travel with their surfaces** rather than sitting in
+`instances.json`, for the reason `ai.ts` and `image-core.ts` already state: that
+file is validated against the declarations this repository holds, so a grant
+there for a surface the validator was never handed is a grant nothing can check.
+
+Both surfaces are **composed only where there is a ticket store**. The `1c` CLI
+has none, so a local builder gets a consultant that edits sites perfectly well
+and simply has no catalogue and no ticket reads — the same conditional
+composition the ledger surface already has, and not a degraded mode.
+
+## Not built here
+
+- The seed/push door — **BUG-84** (`bug-cd883d86`), filed with evidence.
+- `WriteTickets`.
+- The assistant's own `write_image` drawings entering the Library. Excluded by
+  operator decision, 2026-09-11.
