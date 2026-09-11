@@ -15,9 +15,7 @@ fields:
   capability_uid: capability-3606e35b
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-78f4e2fe
-  - bundle-87be4669
+  updated_by: bundle-87be4669
   uat_coverage: pass
 ---
 
