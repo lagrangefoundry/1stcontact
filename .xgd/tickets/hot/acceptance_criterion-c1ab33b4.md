@@ -6,10 +6,10 @@ title: With no indexer configured the file is still stored, and both the answer 
   the deployment log say it cannot be found
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:08:15.743889+00:00'
-updated_at: '2026-09-11T04:08:15.743889+00:00'
+updated_at: '2026-09-11T04:17:56.457715+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
