@@ -117,9 +117,22 @@ function toBase64(bytes: Uint8Array): string {
 }
 
 /**
- * The document a stored picture is photographed in: the picture, and nothing.
+ * The shell a stored picture is photographed in: one empty `<img>`, and nothing.
  *
- * WHY A `data:` URL IS RIGHT HERE AND WRONG FOR A CAPTURE. `OriginResolver`'s
+ * CONSTANT LENGTH IS THE WHOLE POINT, and it is the fix for BUG-80. This used to
+ * be one document with the picture's bytes base64'd inside it and the document
+ * base64'd again — roughly `(4/3)²` the size of the picture, in a URL. Chromium
+ * refuses to navigate to a URL longer than `url::kMaxURLChars` (2 MiB), so any
+ * stored picture over about 1.1 MB could not be photographed at all; an ordinary
+ * phone JPEG was over the limit, not an edge case. Worse, Playwright's navigation
+ * error message is `"<code> at <url>"`, so the refusal handed the whole 22 MB URL
+ * back as an error — which is a tool result the model then has to carry, and in
+ * the observed case ended the conversation permanently.
+ *
+ * Nothing about the picture appears in this URL, so neither failure mode has an
+ * input any more. The bytes arrive afterwards, by {@link INJECT_CHUNK_CHARS} and {@link decodeScript}.
+ *
+ * WHY A `data:` URL IS STILL RIGHT HERE AND WRONG FOR A CAPTURE. `OriginResolver`'s
  * header records that a capture must render against a real origin with a real
  * `baseURI`, because a captured page's asset URLs are relative and a `data:`
  * document has nothing for them to be relative to. This document has no relative
@@ -130,17 +143,87 @@ function toBase64(bytes: Uint8Array): string {
  * handing an unauthenticated client a way into the client's confidential
  * material. It carries the bytes instead.
  */
-function wrapperDocument(bytes: Uint8Array, mediaType: string): string {
-  const doc =
-    '<!doctype html><meta charset="utf-8">' +
-    '<style>html,body{margin:0;padding:0;background:#fff}' +
-    `img{display:block;max-width:${MAX_RASTER_EDGE}px;max-height:${MAX_RASTER_EDGE}px}</style>` +
-    `<img id="stored" src="data:${mediaType};base64,${toBase64(bytes)}">`
-  return `data:text/html;base64,${toBase64(new TextEncoder().encode(doc))}`
+const SHELL_DOCUMENT =
+  '<!doctype html><meta charset="utf-8">' +
+  '<style>html,body{margin:0;padding:0;background:#fff}' +
+  `img{display:block;max-width:${MAX_RASTER_EDGE}px;max-height:${MAX_RASTER_EDGE}px}</style>` +
+  '<img id="stored">'
+
+/** The one URL this path ever navigates to — fixed, and a few hundred bytes. */
+function shellUrl(): string {
+  return `data:text/html;base64,${toBase64(new TextEncoder().encode(SHELL_DOCUMENT))}`
 }
 
 /**
- * Ask the page whether the picture decoded, and how big it ended up.
+ * How much base64 one injected chunk carries.
+ *
+ * A BOUND ON THE FAILURE, NOT A TUNING KNOB. The evaluation channel has no URL
+ * limit, so a picture of any size could be handed over in one call — but a driver
+ * that rejects an evaluation commonly echoes the script it was given, and an
+ * unbounded script is the same prompt bomb in a different costume. Chunking caps
+ * what any single message can be, so the sanitiser below has a bounded worst case
+ * to work on rather than an unbounded one. Half a megabyte is comfortably inside
+ * what a CDP message carries and keeps a 12 MB photograph to a few dozen calls.
+ */
+export const INJECT_CHUNK_CHARS = 512 * 1024
+
+/**
+ * The largest stored picture that will be put in front of a browser at all.
+ *
+ * NOT THE OLD ~1.1 MB CEILING — that was an accident of URL length and is gone.
+ * This is far above any real photograph and exists only so that an absurd input
+ * cannot become an unbounded number of round trips. It is checked before a driver
+ * is leased, so the refusal costs nothing.
+ */
+export const MAX_STORED_PICTURE_BYTES = 64 * 1024 * 1024
+
+/** The longest error text this path will ever hand back. */
+export const MAX_DRIVER_ERROR_CHARS = 400
+
+/**
+ * A driver's own words, with anything it might have been carrying taken out.
+ *
+ * THE RULE IS THE BOUND, NOT THE PATTERN. Stripping `data:` URLs and long base64
+ * runs is what catches the two shapes already observed, but the truncation is
+ * what makes the guarantee hold for a failure nobody has seen yet: whatever a
+ * driver puts in a message, at most {@link MAX_DRIVER_ERROR_CHARS} of it reaches
+ * the model. A tool result must never be able to end a conversation.
+ */
+export function safeDriverMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  const stripped = raw
+    .replace(/data:[^\s'"`)]*/g, 'data:…')
+    .replace(/[A-Za-z0-9+/=]{120,}/g, '…')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return stripped.length > MAX_DRIVER_ERROR_CHARS
+    ? `${stripped.slice(0, MAX_DRIVER_ERROR_CHARS)}…`
+    : stripped
+}
+
+/**
+ * A stored media type, made safe to interpolate into a `src`.
+ *
+ * IT IS A FIELD SOMEBODY WROTE DOWN. `material.ts` repairs it from the filename
+ * when it is silent, which is the tell: it is data, not a value this code chose,
+ * and data goes into a document only after everything that is not a media type
+ * has been taken out of it. Falls back to `application/octet-stream`, which the
+ * browser will refuse to decode — and a refused decode is already a named,
+ * honest failure here.
+ */
+export function safeMediaType(mediaType: string): string {
+  return /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/.test(mediaType)
+    ? mediaType
+    : 'application/octet-stream'
+}
+
+/** Append one chunk of base64 to the page's buffer. */
+function chunkScript(chunk: string): string {
+  return `(function(){(window.__pic=window.__pic||[]).push("${chunk}");return window.__pic.length})()`
+}
+
+/**
+ * Assemble the buffer, set the `src`, and answer the decode question.
  *
  * `decode()` RATHER THAN `complete`, because `navigate` waits for network idle
  * and a `data:` URL makes no request — so there is nothing for idleness to mean
@@ -148,13 +231,18 @@ function wrapperDocument(bytes: Uint8Array, mediaType: string): string {
  * resolves when the pixels exist and rejects when they never will, which is the
  * exact question, and both drivers' `evaluate` awaits a returned promise.
  */
-const DECODE_SCRIPT =
-  '(async () => {' +
-  "  const img = document.getElementById('stored');" +
-  '  try { await img.decode() } catch { return { ok: false } }' +
-  '  return { ok: img.naturalWidth > 0, width: img.width, height: img.height,' +
-  '           naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight }' +
-  '})()'
+function decodeScript(mediaType: string): string {
+  return (
+    '(async () => {' +
+    "  const img = document.getElementById('stored');" +
+    `  img.src = 'data:${safeMediaType(mediaType)};base64,' + (window.__pic || []).join('');` +
+    '  window.__pic = null;' +
+    '  try { await img.decode() } catch { return { ok: false } }' +
+    '  return { ok: img.naturalWidth > 0, width: img.width, height: img.height,' +
+    '           naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight }' +
+    '})()'
+  )
+}
 
 /** What a stored picture became once a browser had read it. */
 export interface Rasterized {
@@ -165,6 +253,14 @@ export interface Rasterized {
   /** The picture's own dimensions, before any lay-out reduction. */
   naturalWidth: number
   naturalHeight: number
+}
+
+interface DecodeReport {
+  ok: boolean
+  width?: number
+  height?: number
+  naturalWidth?: number
+  naturalHeight?: number
 }
 
 /**
@@ -181,6 +277,18 @@ export interface Rasterized {
  * already speaks: the reduction, the diff and the value gates all keep working
  * with no knowledge that a sixth kind exists.
  *
+ * HOW THE BYTES GET THERE (BUG-80). Navigate to a fixed shell, push the base64
+ * over the evaluation channel in bounded chunks, then assemble and decode. The
+ * URL is constant, so the picture's size cannot reach it; every message is
+ * bounded, so a driver that echoes one back in an error cannot be unbounded; and
+ * every driver interaction is wrapped, so what escapes is a sentence rather than
+ * a payload.
+ *
+ * NO RESIZING HAPPENS HERE, and none is needed: `MAX_RASTER_EDGE` bounds what the
+ * browser lays the picture out at, and `MAX_IMAGE_EDGE` in `fidelity-core.ts`
+ * downsamples what the model is shown. A separate "make a smaller copy" verb
+ * would be a second way to do what every picture already goes through.
+ *
  * THE TRADE IT MAKES, STATED. A drawing is rendered outside the site's own page,
  * so its text resolves in the browser's default face rather than in the face the
  * site serves. That is a real difference for a wordmark, it is why the picture
@@ -193,16 +301,39 @@ export async function rasterizeImage(
   factory: BrowserDriverFactory,
   what = 'that picture',
 ): Promise<Rasterized> {
+  // BEFORE A BROWSER IS LEASED, so an absurd input costs nothing. This is not
+  // the URL ceiling that used to live here by accident; it is far above any real
+  // photograph, and it is the only size this path refuses.
+  if (bytes.length > MAX_STORED_PICTURE_BYTES) {
+    throw new ImageNotRenderableError(
+      `${what} is ${Math.round(bytes.length / 1_000_000)} MB, which is past the ` +
+        `${Math.round(MAX_STORED_PICTURE_BYTES / 1_000_000)} MB most this can put in front of a ` +
+        `browser, so there is no picture to show you. Say so, and work from what the Library ` +
+        `says about it instead.`,
+    )
+  }
+
+  const base64 = toBase64(bytes)
   const driver = await factory()
   try {
-    await driver.navigate(wrapperDocument(bytes, mediaType))
-    const size = await driver.query<{
-      ok: boolean
-      width?: number
-      height?: number
-      naturalWidth?: number
-      naturalHeight?: number
-    }>(DECODE_SCRIPT)
+    let size: DecodeReport
+    try {
+      await driver.navigate(shellUrl())
+      for (let i = 0; i < base64.length; i += INJECT_CHUNK_CHARS) {
+        await driver.query(chunkScript(base64.slice(i, i + INJECT_CHUNK_CHARS)))
+      }
+      size = await driver.query<DecodeReport>(decodeScript(mediaType))
+    } catch (err) {
+      // THE BUG-80 GUARANTEE. Whatever the driver was holding — the document, the
+      // script, a URL — stops here. What continues is a bounded sentence naming
+      // the picture and the driver's own code.
+      throw new ImageNotRenderableError(
+        `${what} could not be put in front of the browser: ${safeDriverMessage(err)}. ` +
+          `There is no picture to show you; say so and work from what the Library says ` +
+          `about it instead.`,
+      )
+    }
+
     if (!size.ok || !size.width || !size.height) {
       throw new ImageNotRenderableError(
         `${what} is stored as ${mediaType} and the browser would not decode it, so there ` +
