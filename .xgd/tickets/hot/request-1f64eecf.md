@@ -5,9 +5,9 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-11T02:08:39.296229+00:00'
+updated_at: '2026-09-11T22:09:21.439112+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -268,3 +268,73 @@ The epic is right that the site's page is the better font context. The picture
 says plainly that it is not that, and points at `measure_drawing`, which reads a
 drawing's real geometry inside the draft. Moving the drawn path onto the draft
 preview is a refinement this design leaves open at the same seam.
+
+
+
+---
+
+## Answered from EPIC-1, 2026-09-11 — the two departures reviewed
+
+Both departures were flagged for epic review. **Both are accepted**, and one of
+them carries a consequence the epic wants closed rather than left open.
+
+### Departure 2 — raster now rather than after REQ-219: accepted, and the reasoning is better than the epic's
+
+Accepted without reservation. The epic deferred raster to the Images binding on
+the grounds that a Library blob has no URL an unauthenticated browser may fetch,
+and the departure's answer — *"it doesn't need one: the picture travels inline in
+the document it's photographed in"* — dissolves the premise rather than working
+around it. That is the stronger argument, and it buys the downscale, the reported
+`size` and a working `compare` today instead of behind a dependency.
+
+The epic's note is corrected accordingly: the constraint it named was not a
+constraint.
+
+### Departure 3 — the CLI keeps the kind: accepted, but the stated cost is larger than judged
+
+Accepted. The reasoning holds: the local builder has a site store, so a drawing it
+just wrote is on its own disk, and refusing to look at it would be refusing the
+`measure_drawing` loop the CLI exists to serve. Answering for site assets and
+saying plainly that it holds no Library is the honest shape.
+
+**The cost, though, lands squarely on the epic's motivating case, and the
+surface's own prose says so.** The departure notes that a drawing photographed in
+a bare document renders "in the browser's default face rather than the site's",
+and judges wordmark fidelity as probably not worth the refinement. `write_image`'s
+own description in `l1-surface.json` makes the opposite case, at length and
+deliberately:
+
+> **Name a real font.** `system-ui`, `-apple-system` and a bare `sans-serif` are
+> not faces — each resolves to something different per platform, with different
+> letter widths, **so a mark tuned against one is wrong nearly everywhere else.**
+> Name a font the site has.
+
+So the model is *instructed* to name a site font, and told why guessing is wrong.
+A drawing it then inspects in a bare document resolves that font to whatever the
+browser defaults to — which reproduces, inside the inspection tool, precisely the
+failure the authoring prose exists to prevent. The assistant checking its own
+wordmark would be looking at different letter widths from the ones the client sees,
+and would have no way to know.
+
+**This is the epic's motivating case.** "A picture you made is one you can see" is
+about drawings with text in them more than about anything else, and
+`measure-core.ts` already establishes the remedy: navigate the site's own draft
+preview, *because the page is the font context*.
+
+**So the refinement is wanted, not merely open.** The seam the departure left is
+the right one and the change belongs at it: a drawing resolved for a host that has
+a site should be photographed in that site's draft preview rather than a bare
+document, so the fonts it names are the fonts it gets. Where there is no site to
+navigate — a Library picture on a Worker host, or a CLI session with no draft —
+the bare document remains correct and the caption already says so.
+
+**Until it is done, the caption is load-bearing** and should say what is actually
+wrong rather than that something is: a drawing shown here may not be in the site's
+typeface, so letter widths and line breaks are not evidence. Pointing at
+`measure_drawing` is right; pointing at it *without* saying the face may be wrong
+invites the assistant to trust what it sees.
+
+### Departure 1 — no `list_images`: complied, and correctly
+
+Nothing to add. A picture's handle arrives in the result of whatever made it, and
+the epic's reason for scoping the listing out stands.
