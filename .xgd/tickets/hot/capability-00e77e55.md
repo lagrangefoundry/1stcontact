@@ -5,7 +5,7 @@ type: capability
 title: 'Site Control Surface: Declared, Granted, Validated & Audited'
 created_by: xgd
 created_at: '2026-08-10T09:04:25.561174+00:00'
-updated_at: '2026-08-16T03:39:17.815802+00:00'
+updated_at: '2026-09-11T01:49:52.019392+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
