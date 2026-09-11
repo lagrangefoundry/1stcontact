@@ -6,10 +6,10 @@ title: The list is the whole account's material, and the open site is a badge on
   rows it applies to rather than a boundary on the list
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:41.292816+00:00'
-updated_at: '2026-09-11T05:18:41.292816+00:00'
+updated_at: '2026-09-11T05:28:53.871892+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
