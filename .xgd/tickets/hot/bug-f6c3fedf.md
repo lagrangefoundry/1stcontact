@@ -5,7 +5,7 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-11T02:17:14.628653+00:00'
+updated_at: '2026-09-11T21:34:18.660384+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -252,3 +252,89 @@ surrounding code's.
 
 **Net repo change from this ticket: none.** The only applied change is the
 homepage's two module configs in the local D1 draft.
+
+
+## Decision on finding 1 — the preview submits for real, 2026-09-11
+
+The design question finding 1 left open is settled. **The draft preview answers
+the lead endpoint itself, and a submission from it writes a real contact into
+the real tenant.** The operator asked for exactly that: test rows in the CRM are
+wanted, not avoided.
+
+The alternative — a preview that declines to submit and says so — was rejected
+because the complaint this bug records is a UX one. An operator building a form
+needs to press the button and see what a visitor sees; a preview that refuses is
+a second thing to disbelieve.
+
+### What the preview must do
+
+**Answer `POST /preview/<slug>/draft/api/lead` on `control-app`.** The path is
+the preview channel's own root plus the same `api/lead` suffix `public-site`
+uses, so the `action` a form renders is correct in both places without the
+renderer knowing which channel it is in. A root-relative action resolves against
+the serving host, and the serving host in the preview is `control-app` — that
+mismatch is the whole of finding 1.
+
+**Reuse `handleLead`, never reimplement it.** `apps/public-site/src/lead.ts`
+already owns body-size limits, field caps, the two submit shapes, the honeypot,
+the acknowledgement, and the refusal envelope. It is already parameterised on
+`(request, { siteKey, env })`. `control-app` calls that same function. A second
+validation path would be two endpoints that agree until they do not, which is
+the split this repo's conventions forbid.
+
+**Resolve the site key from the slug through the store, never from the body.**
+`store.siteKey(slug)` is the same lookup the `published` channel redirect
+already uses. A submission cannot name a tenant; it can only be read as an
+answer the visitor typed. This is the property `public-site` gets from its route
+grammar and the preview must get from its own.
+
+**`LeadIntake` is not a service binding here.** `control-app` already defines
+that entrypoint (`worker.ts`) and already owns `captureLead` (`lead.ts`), so the
+preview calls it in process. `public-site` binds to `control-app` across a
+service boundary; `control-app` binding to itself would be a hop for nothing.
+
+**The `edit` channel refuses.** The site is not intended to be functional in
+edit mode. The edit render already emits no `action` and no `method` and ships
+no client script, so nothing can submit from it today; the route refuses anyway,
+so the guarantee survives a change to the renderer.
+
+### Turnstile and the rate limiter are skipped here, and why that is not a hole
+
+`handleLead` fails closed without `TURNSTILE_SECRET` and without
+`LEAD_RATE_LIMIT`, and `control-app` has neither. Both are supplied as
+satisfied rather than added as configuration, because **both controls exist to
+answer a question Access has already answered.** Turnstile asks whether a caller
+is a person; the rate limiter bounds what an anonymous caller may spend. Every
+request to `/preview/*` has already passed Cloudflare Access and carries a
+verified operator identity, which is strictly stronger than either. Requiring a
+bot challenge would mean stamping a sitekey into `control-app` and making an
+operator solve a puzzle to test their own form.
+
+This is a statement about the gate in front of the route, not a convenience.
+If the preview ever moves out from behind Access, both controls come back.
+
+### The definition is read from the channel being previewed
+
+`formDefinitionOf` reads the **live revision** today — it is how `captureLead`
+learns which declared field carries the address and what each consent box said.
+A preview submission must read the **draft** instead, because the form an
+operator is testing is usually the one they just changed, and often one the
+published revision has never contained. Resolving a draft submission against a
+live revision would fail to find the address on a form that plainly has one, and
+would do it silently.
+
+So the channel travels with the submission: `published` keeps today's behaviour
+exactly, `draft` reads the draft.
+
+### A preview lead is marked as one
+
+`provenanceOfSubmission` already records where a submission came from — the
+site, the page, the form instance, the submit label, the wording of every
+consent box. **The channel is that same kind of fact and is recorded alongside
+them.** A row that reads as a public enquiry when it came from the operator's
+own preview is a lie the CRM would carry permanently, and these accumulate every
+time anyone tests a form. Marked, they are still real contacts, still visible,
+and still filterable later.
+
+The marker is provenance on the event, not a second class of contact: there is
+one contact table and one kind of lead.
