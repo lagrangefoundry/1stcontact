@@ -6,10 +6,10 @@ title: The overlay asks what the file is for, offering two roles with the privac
   promise stated in words
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:32:15.955912+00:00'
-updated_at: '2026-09-11T05:32:15.955912+00:00'
+updated_at: '2026-09-11T05:42:22.635225+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
