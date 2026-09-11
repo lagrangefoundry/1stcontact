@@ -6,10 +6,10 @@ title: Retrieved material lands third-party, never republishable, exportable and
   background to read, whatever the request claims
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:42:51.928065+00:00'
-updated_at: '2026-09-11T04:42:51.928065+00:00'
+updated_at: '2026-09-11T04:58:06.972641+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
