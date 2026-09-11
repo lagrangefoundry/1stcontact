@@ -60,6 +60,8 @@ import {
 } from './roles'
 import { ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
+import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
+import type { LibraryDeps } from './library-core'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
 import { configureProjectBackends } from './backends'
 import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
@@ -326,6 +328,24 @@ export interface HostDeps {
    * composes no ledger surface at all, rather than one that fails on first use.
    */
   ledger?: ((slug: string) => LedgerDeps) | null
+
+  /**
+   * The client's catalogue ([[REQ-228]]), or `null` where this deployment holds
+   * none.
+   *
+   * A FACTORY OVER THE SLUG, exactly like `fidelity` above and for the same
+   * reason: *"is this on the site"* is a question about the site the session is
+   * about, and the record answers for every site its bytes are on — so which one
+   * is being asked about falls out of the session rather than being a parameter
+   * the model could get wrong.
+   *
+   * NULL IS ORDINARY, and here it is the `1c` CLI. The Library is material
+   * tickets, a local builder has no ticket store, and a deployment that has
+   * nothing to catalogue composes the surface not at all rather than one that
+   * lists nothing — an empty catalogue and an absent one read identically to a
+   * model, and only one of them is true. Same shape as the ledger above.
+   */
+  library?: ((slug: string) => LibraryDeps) | null
 
   /**
    * Registers the providers the corpus half of the priming names (REQ-182).
@@ -672,6 +692,27 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
               {
                 surface: await ledgerSurfaceFor(lib, deps.ledger(slug)),
                 granted: ledgerInstanceConfig(),
+              },
+            ]
+          : []),
+        // THE CLIENT'S CATALOGUE ([[REQ-228]]), where this deployment holds one.
+        // Its grant TRAVELS WITH IT, like the ledger's and the image surface's
+        // and unlike fidelity's, for the reason `image-core.ts` states:
+        // `instances.json` is validated in CI against the declarations THIS
+        // repository hands the validator, so a key there for a surface composed
+        // per deployment would be a grant nothing can check.
+        //
+        // COMPOSED ONLY WHERE THERE IS SOMETHING TO CATALOGUE. The Library is
+        // material tickets and the `1c` CLI has no ticket store, so a local
+        // builder gets a consultant that edits sites perfectly well and never
+        // hears of a catalogue — rather than one that offers to list a Library
+        // and always finds it empty, which reads to a model as a client who has
+        // given them nothing.
+        ...(deps.library
+          ? [
+              {
+                surface: await librarySurfaceFor(lib, deps.library(slug)),
+                granted: libraryInstanceConfig(),
               },
             ]
           : []),
