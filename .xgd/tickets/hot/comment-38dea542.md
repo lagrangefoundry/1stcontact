@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:31:28.881726+00:00'
+updated_at: '2026-09-11T22:35:18.488175+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -269,5 +269,11 @@ The live instance is a dev fixture and harms nobody — the door is the bug.
 **One consequence worth naming.** With drawings excluded, `placed_on` will never be a complete account of every byte in a site's assets, so REQ-228 shouldn't claim it is. I've rewritten Half D to say the honest thing instead: the catalogue is the complete account of *the client's material*, `list_assets` is the complete account of *the site's contents*, and they're not the same list. That's why Half B already recommended a peer listing rather than folding one into the other — "what's on the site" and "what the client has given us" really are two questions, and the bug was only ever that the second one couldn't be asked.
 
 Still open from last turn: which repo and number the `xgd ticket fetch` work actually lives under — lf's REQ-150 is the imagegen edit ticket, and `xgd ticket` has no `fetch` subcommand yet.
+
+<!-- xgd-turn id="84cc987c-3ced-4813-abf0-32172979caaf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:35:18.428001+00:00" -->
+#### You
+ok lets add SVG to library and just drop list_assets (or make it call the ticket API)
 
 <!-- xgd-chat-end -->
