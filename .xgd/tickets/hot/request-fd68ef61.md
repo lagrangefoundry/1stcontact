@@ -5,7 +5,7 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-10T22:28:26.546993+00:00'
+updated_at: '2026-09-11T22:08:20.853027+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -167,3 +167,85 @@ same shape REQ-149 asks for upstream: an optional display-URL factory on
 `HostDeps`, threaded into `createL1Toolbox`'s deps beside `measurer`, supplied by
 `router.ts` from `scope.businessId`, and absent on the CLI host. Absence stays the
 default, so a deployment that cannot show a picture emits no line.
+
+
+
+---
+
+## Answered from EPIC-1, 2026-09-11
+
+The investigation closed with two questions. Both are answered; a third thing has
+changed underneath this ticket since it was written, and it matters more than
+either.
+
+### 1. `write_image` only. `create_image` stays untouched until REQ-149 lands
+
+Yes — the display line is for `write_image` in this ticket, and `create_image`
+gains nothing. This is already the epic's recorded position: *"the `write_image`
+half is ours and is not blocked, so REQ-217 can start and half-land while REQ-149
+is in flight."* The investigation's reasoning for asking is exactly right — a
+pasted line would contradict the manual the model read first, and `imagegen.ts`'s
+own header forbids the local workaround — so the half that is ours lands and the
+half that is upstream's waits.
+
+### 2. Yes, bake the business-scoped absolute URL into the transcript
+
+Take the scoped absolute URL. Three reasons, and the third is the one that
+settles it:
+
+- **The alternative costs more than it saves.** A site-relative handle rewritten
+  at render time requires the chat pane to learn what site it is showing, and
+  `chat.js` refuses that deliberately. Trading a deliberate layering boundary for
+  a shorter string in an archive is a bad exchange.
+- **The transcript already names the business in every other way.** It is that
+  business's conversation, about that business's site. A URL carrying `/b/<id>`
+  discloses nothing the surrounding text does not.
+- **The scoped URL is the *safe* form, not the risky one.** The investigation
+  established that an unscoped `/preview/…` does not 404 — it resolves through
+  `resolveScope`'s fallback to *the first admissible business*. For a
+  multi-business operator that is precisely the "one business's page rendered with
+  another's assets" failure `scope.ts:161-171` exists to prevent. Naming the
+  business explicitly is what makes a replayed transcript correct years later
+  rather than quietly resolved against whoever happens to be first.
+
+So the durability concern is real and the answer is that an explicit name is more
+durable than an implicit one, not less.
+
+### 3. What changed underneath: REQ-220 has landed, and its parser will not accept your URL
+
+[[REQ-220]] shipped the click handler this ticket was told not to build, and in
+doing so it fixed the URL contract in code — without this ticket in the room. Its
+own investigation predicted this: *"the markdown line REQ-217's tool authors has
+to use a URL shape REQ-220 can parse. Worth writing down in both tickets now, or
+they will disagree."* It was not written down, and they now disagree.
+
+**`materialUidFromUrl` (`builder/api.js:693`) requires `url.pathname` to equal
+`/api/material/file` exactly**, and returns `null` otherwise. `app.js:529` is its
+only caller, and a `null` means the click silently does nothing.
+
+Two consequences for this ticket, which are different from each other:
+
+**A `write_image` drawing is not openable, and that is correct.** A drawing is a
+site asset with no material record, so there is no uid to recover and no recipe to
+edit; [[REQ-220]]'s `isEditablePicture` excludes drawings deliberately, and
+[[REQ-219]] refuses SVG for transforms in any case. **So this ticket should not
+try to make its picture clickable.** Emitting the markdown line is the whole job;
+a drawing that renders in the conversation and does not open a crop tool is the
+designed outcome, not a gap.
+
+**But the parser is broken for the case it was written for**, and this ticket
+should not build against it in its current state. See the note added to
+[[REQ-220]]: `materialFileUrl` composes its URL through `scoped()`, so in any
+session with a business selected the path is `/b/<id>/api/material/file` and the
+exact-match test fails. That is [[REQ-220]]'s debt to fix, not this ticket's —
+recorded there. **What this ticket owes is not to design around it**: when the
+`create_image` half arrives after REQ-149, its line should address the material
+file route in its ordinary scoped form, and the parser is what gets fixed.
+
+### One thing from the investigation worth keeping
+
+The CSS note stands and the instinct to say it out loud was right. A
+`max-width`/`max-height` on content the chat component never anticipated is a
+different act from restyling a component that ships its own look, and
+`builder.css:876-882`'s rule is about the latter. Add the rule; the comment does
+not forbid it.
