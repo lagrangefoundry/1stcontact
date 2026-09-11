@@ -1331,6 +1331,30 @@ body {
   margin: 0;
 }
 
+/*
+ * A refused upload, said out loud (REQ-221).
+ *
+ * ABOVE THE LIST RATHER THAN INSIDE IT, because the thing being reported is
+ * that there is no row — a message rendered among the rows would be looked for
+ * exactly where the client has just been told to stop looking.
+ *
+ * `:empty` HIDES IT, so the element can live in the tree permanently and be
+ * spoken into without the layout jumping when it fills. `flex: 0 0 auto` keeps
+ * it out of the list-detail's height negotiation: `.builder-library` is a
+ * column flex whose child is a split that resolves against a definite height,
+ * and a notice that grew the container would collapse it.
+ */
+.builder-library__refusal {
+  flex: 0 0 auto;
+  margin: 0 0 var(--shell-gap, 0.5rem) 0;
+  color: var(--shell-danger);
+  font-size: 0.85em;
+}
+
+.builder-library__refusal:empty {
+  display: none;
+}
+
 .builder-library__heading {
   font-size: 0.95em;
   margin: 0;

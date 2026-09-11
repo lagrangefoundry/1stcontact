@@ -739,6 +739,12 @@ export function mountBuilder(root, options = {}) {
     // specified to refuse — so the one action with a real origin behind it says
     // no here too, rather than sending bytes the route will 503.
     if (blocked) return
+    // CLEARED BEFORE THE ROUND, NOT AFTER IT ([[REQ-221]]). A refusal left
+    // standing above a list that has since accepted the file is a worse lie than
+    // the silence it replaced, and clearing at the end would wipe the message
+    // this very round is about.
+    library.refused('')
+    const refusals = []
     for (const file of files) {
       let result = null
       let failure = null
@@ -747,10 +753,25 @@ export function mountBuilder(root, options = {}) {
       } catch (err) {
         failure = err
       }
+      if (failure || !result) refusals.push(`${file.name} — ${refusalReason(failure)}`)
       if (source === 'chat') {
         chat.getChat()?.appendMessage('user', uploadNote(file, result, failure))
       }
     }
+    /**
+     * A REFUSAL REACHES THE CLIENT FROM BOTH DROP AREAS ([[REQ-221]]).
+     *
+     * The conversation already reported one; the Library reported nothing at
+     * all, so a file dropped there that the origin refused simply never appeared
+     * and the client was left to conclude the product had ignored them. That is
+     * the same experience as dropping a photograph into silence, arrived at
+     * differently — and it is the experience this change exists to end, so it
+     * cannot be the experience the change itself delivers.
+     *
+     * ONLY FOR THE NON-CHAT ROUTE, because a chat drop has already said it and
+     * saying it twice in two surfaces would read as two separate failures.
+     */
+    if (source !== 'chat' && refusals.length) library.refused(refusals.join(' '))
     // ALWAYS, and from the origin rather than from what the uploads returned: the
     // list carries `description_status` and the site placement, both of which are
     // decided after the bytes leave here.
@@ -1142,9 +1163,30 @@ function blockTabs(shell, message) {
  * confirmation that said "added" and nothing else would make that state
  * indistinguishable from a working one to the only person who could tell us.
  */
+/**
+ * Why an upload was refused, in the origin's own words ([[REQ-221]]).
+ *
+ * THE ORIGIN'S SENTENCE AND NOT A SUBSTITUTE FOR IT. `CopyError` carries the
+ * `error` field off the refusal envelope, and that field is written for the
+ * client — `material.ts` composes it knowing the ceiling, the format and the
+ * remedy. Anything this side invented would be a worse sentence about a fact it
+ * knows less about.
+ *
+ * THE FALLBACK IS FOR A FAILURE WITH NO WORDS: a dropped connection, an origin
+ * that answered non-JSON. Those have no client-facing sentence anywhere, so this
+ * is the only place one can come from.
+ *
+ * IT DOES NOT NAME THE FILE, because both callers do — the chat note prefixes it
+ * and the Library's notice lists it — and the origin's own messages deliberately
+ * leave the naming to them.
+ */
+function refusalReason(failure) {
+  return failure?.message ?? 'the upload failed'
+}
+
 function uploadNote(file, result, failure) {
   if (failure || !result) {
-    return `📎 **${file.name}** — that didn't upload: ${failure?.message ?? 'the upload failed'}`
+    return `📎 **${file.name}** — that didn't upload: ${refusalReason(failure)}`
   }
   const lines = [`📎 **${file.name}**`]
   if (result.site_asset) lines.push(`Added, and it's on your site as \`${result.site_asset}\`.`)
