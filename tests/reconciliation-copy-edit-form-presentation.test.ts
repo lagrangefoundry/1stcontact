@@ -702,7 +702,9 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
             builder.url,
           ),
         )
-      ).json()) as { fields: Array<{ name: string; label: string }> }
+      ).json()) as {
+        fields: Array<{ name: string; label: string; type?: string; format?: string }>
+      }
       // The COPY field keeps its label in the descriptor — only its rendering
       // as a visible column is dropped. Asserted on that field rather than on
       // the whole list, which REQ-135 lengthened with the run's typography.
@@ -725,6 +727,49 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
         // Dropped through the component's own stacked layout option, not by
         // hiding a rule the component owns.
         expect(box.querySelector('.fields')!.getAttribute('data-layout')).toBe('stacked')
+
+        // AND THE SHEET IS THE OPPOSITE CASE — the other half of this
+        // criterion's title. A bare number or a bare weight is meaningless
+        // unlabelled, and nothing about the control it sits in says which axis
+        // it is, so every parameter under the box KEEPS a visible label.
+        //
+        // Asserted EXACTLY IN BOTH DIRECTIONS against the labels the origin
+        // reported, rather than "there is at least one label": the box-side
+        // assertion above is a "there are none", so without this a component
+        // change that dropped `.fields-label` globally would leave both green
+        // while deleting the thing REQ-135 added.
+        //
+        // Both control families, because the sheet is assembled from two. The
+        // typed rows are drawn by the shared component (`.fields-label`) and
+        // the colour row by this dialog (`.builder-color__label`), and a drop
+        // in either is a drop of the same thing. Partitioned on the descriptor
+        // — `type: 'color'` is what `isColorField` keys on — so the day the
+        // derivation grows a parameter it is covered here without an edit.
+        const sheet = opened.modal.querySelector('.builder-modal__props')!
+        expect(sheet, 'the run exposes parameters, so it gets a sheet').toBeTruthy()
+        const parameters = loaded.fields.filter((f) => f.type !== 'string')
+        expect(parameters.length, 'the run exposes parameters beside its words').toBeGreaterThan(1)
+        // The component marks a REQUIRED field with a trailing asterisk, which
+        // is its decoration rather than the descriptor's label. Normalised away
+        // so this compares labels to labels — the claim is that the parameter
+        // is named, not how the form flags it.
+        const labelled = (selector: string) =>
+          [...sheet.querySelectorAll(selector)]
+            .map((el) => (el.textContent ?? '').replace(/\s*\*$/, '').trim())
+            .sort()
+        const expected = (keep: (type?: string) => boolean) =>
+          parameters
+            .filter((f) => keep(f.type))
+            .map((f) => f.label)
+            .sort()
+        expect(expected((t) => t !== 'color').length).toBeGreaterThan(0)
+        expect(labelled('.fields-label')).toEqual(expected((t) => t !== 'color'))
+        expect(expected((t) => t === 'color').length).toBeGreaterThan(0)
+        expect(labelled('.builder-color__label')).toEqual(expected((t) => t === 'color'))
+        // None of them is a label in name only.
+        for (const text of [...labelled('.fields-label'), ...labelled('.builder-color__label')]) {
+          expect(text).toBeTruthy()
+        }
 
         // NEITHER DROP COSTS ANYTHING A SCREEN READER NEEDS. The heading's real
         // job was the dialog's accessible name; the label's was naming the
@@ -1307,10 +1352,34 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
         },
       })
       try {
+        // THE PRECONDITION, PINNED. "A lone field" is counted over the BOX, not
+        // over the region: since REQ-135 this run also exposes its colour and
+        // its typography in the sheet beneath, so the interesting case is a
+        // dialog with several controls in it of which exactly one holds words.
+        // Unpinned, a derivation that stopped exposing typography would quietly
+        // turn this back into the pre-REQ-135 easy case while staying green.
+        const sheet = opened.modal.querySelector('.builder-modal__props')
+        expect(sheet, 'the lone-field dialog also carries a parameter sheet').toBeTruthy()
+        expect(sheet!.querySelectorAll('[data-field]').length).toBeGreaterThan(1)
+
         // Present, holding the region's current words, with NO further click.
         const control = opened.modal.querySelector('.fields-control') as HTMLInputElement
         expect(control, 'the one field opens in its control').toBeTruthy()
         expect(control.value).toBe(HEADLINE)
+        // ...and it is the BOX's control that opened, not a row of the sheet
+        // beside it — which is the whole of what "the one field" means here.
+        expect(
+          opened.modal.querySelector('.builder-modal__box')!.contains(control),
+          'the opened control is the words, not a parameter',
+        ).toBe(true)
+        // A boolean row is a live toggle rather than a value you click to open,
+        // so it is a control at rest and always present; what "none is opened"
+        // rules out is a row that HAD a view and was turned into an editor.
+        expect(
+          [...sheet!.querySelectorAll('.fields-control')].filter(
+            (el) => (el as HTMLInputElement).type !== 'checkbox',
+          ),
+        ).toHaveLength(0)
         // ...and nothing is written by opening it.
         expect(draftBytes()).toBe(beforeDraft)
         expect(renderedBytes()).toBe(beforeRender)
@@ -1356,6 +1425,16 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
         expect(
           image.modal.querySelectorAll('.fields-value-editable').length,
         ).toBeGreaterThan(0)
+        // Opening NONE of them is not the same as opening nothing: the dialog
+        // opened because the operator clicked a picture, so the grid takes the
+        // focus. Asserted here rather than only under AC-1116 because it is
+        // what makes "no field is opened" a decision rather than an omission —
+        // a dialog that opened no control and focused nothing would satisfy
+        // every assertion above while stranding the keyboard outside it.
+        expect(
+          image.modal.querySelector('.builder-modal__picker')!.contains(document.activeElement),
+          'the grid, not a form control, holds the focus',
+        ).toBe(true)
       } finally {
         image.editor.destroy()
       }

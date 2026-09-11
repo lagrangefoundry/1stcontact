@@ -385,6 +385,24 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
   const rowIn = (root: Element, name: string) => root.querySelector(`[data-field="${name}"]`)
 
   /**
+   * The field names a sheet renders, in the order they read down the page.
+   *
+   * `[data-field]` is the one attribute BOTH control families stamp — the shared
+   * component on its own rows, and `mountColorField` deliberately mirroring it —
+   * which is what lets one read span a sheet assembled from two sources. First
+   * occurrence wins, so a row that nests another addressable element inside
+   * itself reports once rather than turning a sequence into a multiset.
+   */
+  const sheetOrder = (root: Element): string[] => {
+    const seen: string[] = []
+    for (const el of root.querySelectorAll('[data-field]')) {
+      const name = el.getAttribute('data-field')!
+      if (!seen.includes(name)) seen.push(name)
+    }
+    return seen
+  }
+
+  /**
    * Type into a row the way the operator does: click the value to open its
    * control, then edit and leave it. Blur is what the component confirms a text
    * or numeric control on; the auto-opened copy row has no value cell to click,
@@ -477,6 +495,21 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       // A row of parameters above the copy would read as a header on it.
       expect(box.compareDocumentPosition(sheet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
+      // ONE ORDER, AND IT IS THE SURFACE'S. The loops above assert MEMBERSHIP,
+      // which every permutation of these rows satisfies — and permutation is
+      // the live risk rather than a cosmetic one: the colour row is drawn by
+      // the dialog and the typed rows by the shared component, so the sheet is
+      // assembled from two sources and the descriptor list is the only thing
+      // saying how they interleave. Compared against the sequence the ORIGIN
+      // declared, so a control that appended its own rows wherever it liked
+      // fails here whichever family it belongs to.
+      expect(sheetOrder(sheet)).toEqual(parameters.map((f) => f.name))
+      // Which for this region is also the concrete claim STORY-101 records —
+      // colour first, because that is where the derivation puts it — stated as
+      // a consequence of the rule rather than as a second rule.
+      expect(sheetOrder(sheet)[0]).toBe(parameters[0].name)
+      expect(parameters[0].type).toBe('color')
+
       // Dismissing by any route tears BOTH forms down, leaving nothing behind.
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       await settle(0)
@@ -535,6 +568,14 @@ describe('story-3bf94bd4 the words in a box, the parameters under it', () => {
       expect(
         pictureBox.compareDocumentPosition(pictureSheet) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
+      // ...and so does the order rule, over a longer list than the run's, mixing
+      // the shapes the criterion enumerates: an enum, several bounded integers
+      // and another enum, interleaved exactly as REQ-136's derivation emits
+      // them. This is the case where the interleave has more than one plausible
+      // shape, so a component that grouped by control type — every enum, then
+      // every number — would pass the run above and fail here.
+      expect(sheetOrder(pictureSheet)).toEqual(asSheet.map((f) => f.name))
+      expect(new Set(asSheet.map((f) => f.type)).size, 'more than one shape in this sheet').toBeGreaterThan(1)
 
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       await settle(0)

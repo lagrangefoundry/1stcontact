@@ -698,10 +698,12 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
         // anything is touched...
         expect(await weight()).toBe('700')
 
-        // ...and after an unrelated parameter is driven. Measured on the BOX,
-        // which is where this particular property lands and stops — that is
-        // AC-1138's recorded divergence, and it is the driven change landing at
-        // all that matters here, not where it is visible.
+        // ...and after an unrelated parameter is driven. Measured on the BOX
+        // because that is the nearest place the driven change is observable,
+        // and what this assertion needs is only that it landed SOMEWHERE — the
+        // claim here is about the untouched weight. Where capitalisation
+        // reaches is AC-1138's own subject, and it is asserted there on the box
+        // AND on the words within it.
         await page.click('.builder-modal__props [data-field="textTransform"] .fields-value-editable')
         await page.selectOption(
           '.builder-modal__props [data-field="textTransform"] select',

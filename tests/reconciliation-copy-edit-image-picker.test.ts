@@ -264,10 +264,13 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
 
   let net: ReturnType<typeof browserFetch>
   let editor: { destroy(): void } | undefined
+  /** Every save the dialog reported — one entry is one re-rendering. */
+  let saves: Array<{ changed?: string[] }>
 
   beforeEach(() => {
     document.body.replaceChildren()
     net = browserFetch(builder.url)
+    saves = []
   })
 
   afterEach(() => {
@@ -293,6 +296,7 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
     editor = mountEditor(document, {
       slug: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+      onSaved: (result: { changed?: string[] }) => void saves.push(result),
     })
     const el = document.querySelector(`[${L1_EDIT_PATH_ATTR}="${address}"]`)
     if (!el) throw new Error(`nothing rendered at ${address}`)
@@ -328,25 +332,64 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
     await settle(0)
   }
 
-  /** The node as the draft now holds it, read back through the real command. */
-  async function nodeAt(address: string): Promise<Record<string, string>> {
+  /**
+   * The node as the draft now holds it, read back through the real command.
+   *
+   * Loosely typed because the surface is: a handle and an alt text are strings,
+   * but REQ-136's framing parameters are numbers and closed keywords, and the
+   * values map is exactly the region's own vocabulary rather than this suite's.
+   */
+  async function nodeAt(address: string): Promise<Record<string, unknown>> {
     const got = await cli(cwd, 'copy', 'get', 'acme', pageId, address)
     const fields = got.data!.fields as Array<{ name: string }>
     expect(fields.length).toBeGreaterThan(0)
-    return got.data!.values as Record<string, string>
+    return got.data!.values as Record<string, unknown>
+  }
+
+  /** A descriptor as the derivation declares it — the authority every control matches. */
+  interface Descriptor {
+    name: string
+    label: string
+    type: string
+    format?: string
+    enum?: string[]
+    min?: number
+    max?: number
+  }
+
+  /** Every field the region exposes, in the order the surface declares them. */
+  async function descriptorsOf(address: string): Promise<Descriptor[]> {
+    const got = await cli(cwd, 'copy', 'get', 'acme', pageId, address)
+    expect(got.ok).toBe(true)
+    return got.data!.fields as Descriptor[]
   }
 
   /** The options the derivation itself declares — the authority a grid must match. */
   async function declaredOptions(address: string, field: string): Promise<string[]> {
-    const got = await cli(cwd, 'copy', 'get', 'acme', pageId, address)
-    const descriptor = (got.data!.fields as Array<{ name: string; enum?: string[] }>).find(
-      (f) => f.name === field,
-    )!
+    const descriptor = (await descriptorsOf(address)).find((f) => f.name === field)!
     return descriptor.enum!
   }
 
+  const rowIn = (root: Element, name: string) => root.querySelector(`[data-field="${name}"]`)
+
+  /**
+   * Type into a row the way the operator does: click the value to open its
+   * control, then edit and leave it. Blur is what the component confirms a text
+   * or numeric control on.
+   */
+  function typeInto(row: Element, value: string): void {
+    const cell = row.querySelector('.fields-value-editable') as HTMLElement | null
+    cell?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+    const control = row.querySelector('.fields-control') as HTMLInputElement
+    expect(control, 'the row opened into a control').toBeTruthy()
+    control.value = value
+    control.dispatchEvent(new window.Event('input', { bubbles: true }))
+    control.dispatchEvent(new window.Event('change', { bubbles: true }))
+    control.dispatchEvent(new window.FocusEvent('blur'))
+  }
+
   /** Put a handle back, so the ordering of this suite's cases cannot matter. */
-  const restore = (address: string, values: Record<string, string>) =>
+  const restore = (address: string, values: Record<string, unknown>) =>
     cli(cwd, 'copy', 'set', 'acme', pageId, address, '--values', JSON.stringify(values))
 
   const draftNode = (index: number): Record<string, unknown> =>
@@ -657,39 +700,84 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
   it.skipIf(!WEBUI_INSTALLED)(
     'test_UAT_AC997_a_picked_image_and_new_alt_text_travel_in_one_change',
     async () => {
+      // ALL THREE CONTROLS, which is the merge this seam exists for. A picture
+      // is the one region that fills every route the dialog has at once — the
+      // grid the dialog draws itself, the editing box, and the parameter sheet
+      // — and "the values staged in all of them merge into a single change" is
+      // only actually exercised where all three are staged. Two-control merges
+      // are covered elsewhere (box+sheet, box+colour); the one with the GRID in
+      // it is the one whose failure mode — a control reporting the value the
+      // dialog OPENED with — silently undid every pick.
+      const declared = await descriptorsOf(AN_IMAGE)
+      const asSheet = declared.filter((f) => f.format !== 'image' && f.type !== 'string')
+      expect(asSheet.length, 'a picture exposes framing parameters too').toBeGreaterThan(1)
+      // Chosen from what the origin REPORTS rather than from a list written
+      // here, so the parameter REQ-136 grows next is exercised without an edit.
+      const axis = asSheet.find(
+        (f) => f.type === 'integer' && f.min !== undefined && f.max !== undefined,
+      )!
+      expect(axis, 'the sheet offers a bounded number to move').toBeTruthy()
+
+      const before = await nodeAt(AN_IMAGE)
+      const moved = Number(before[axis.name]) === axis.max! ? axis.min! : Number(before[axis.name]) + 1
+      expect(moved, 'the framing value actually changes').not.toBe(Number(before[axis.name]))
+
       const modal = await openAt(AN_IMAGE)
+      const box = modal.querySelector('.builder-modal__box')!
+      const sheet = modal.querySelector('.builder-modal__props')!
+      expect(modal.querySelector('.builder-modal__picker'), 'the grid is drawn').toBeTruthy()
+      expect(box, 'the alt text opens in the editing box').toBeTruthy()
+      expect(sheet, 'the framing parameters open in the sheet').toBeTruthy()
 
       // Picking STAGES, it does not commit: Save is still the single flush point
       // however many controls the dialog took to fill in.
       pick(modal, LOGO)
       expect(net.calls.filter((c) => c.method === 'POST')).toEqual([])
 
-      const cell = modal.querySelector('.fields-value-editable') as HTMLElement
-      cell.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-      // The component's own control, reached by its own class — a bare `input`
-      // selector would find the picker's first radio, since the grid sits above
-      // the form.
-      const control = modal.querySelector('.fields-control') as HTMLInputElement
-      control.value = 'A logo instead'
-      control.dispatchEvent(new window.Event('input', { bubbles: true }))
-      control.dispatchEvent(new window.Event('change', { bubbles: true }))
-      control.dispatchEvent(new window.FocusEvent('blur'))
+      // The words, scoped to the BOX. A bare `.fields-control` would find
+      // whichever row happened to be open first, which since REQ-136 is no
+      // longer necessarily the one this line means.
+      typeInto(rowIn(box, 'alt')!, 'A logo instead')
+      // ...and the third control. Editing in any of them still writes nothing.
+      typeInto(rowIn(sheet, axis.name)!, String(moved))
+      expect(net.calls.filter((c) => c.method === 'POST')).toEqual([])
+      expect(saves).toEqual([])
 
       await save(modal)
 
-      // EXACTLY ONE DIFF for the whole dialog — one write, one re-render.
+      // EXACTLY ONE DIFF for the whole dialog — one write, one re-render, not
+      // one per control.
       const posts = net.calls.filter((c) => c.method === 'POST')
       expect(posts).toHaveLength(1)
       expect(new URL(posts[0].url).pathname).toBe('/api/copy')
+      expect(saves).toHaveLength(1)
+      // ALL THREE ride in that one request, which is the clause a two-control
+      // merge cannot show: a dialog that posted the grid separately would still
+      // land all three values while failing here.
+      expect(JSON.parse(posts[0].body!).values).toMatchObject({
+        src: LOGO,
+        alt: 'A logo instead',
+        [axis.name]: moved,
+      })
+      expect([...(saves[0].changed ?? [])].sort()).toEqual(
+        [axis.name, 'alt', 'src'].sort(),
+      )
 
-      // Both halves landed, in that one change...
-      expect(await nodeAt(AN_IMAGE)).toMatchObject({ src: LOGO, alt: 'A logo instead' })
-      // ...and nothing the operator did not touch travelled with them.
+      // All three landed, in that one change...
+      const after = await nodeAt(AN_IMAGE)
+      expect(after).toMatchObject({ src: LOGO, alt: 'A logo instead', [axis.name]: moved })
+      // ...and the change carried ONLY what the operator touched: every other
+      // parameter this region exposes reads exactly what it did before, in the
+      // surface's own vocabulary rather than in whichever axis each projects
+      // onto. The old form of this assertion pinned `axes` whole, which cannot
+      // survive a framing edit and so could never have been made to cover one.
+      for (const field of asSheet.filter((f) => f.name !== axis.name)) {
+        expect(after[field.name], `${field.name} untouched`).toEqual(before[field.name])
+      }
       const node = draftNode(0)
-      expect(node.axes).toEqual({ objectFit: 'cover' })
       expect(node.id).toBe('hero-img')
 
-      await restore(AN_IMAGE, { src: HERO, alt: ALT })
+      await restore(AN_IMAGE, { src: HERO, alt: ALT, [axis.name]: before[axis.name] })
     },
   )
 
