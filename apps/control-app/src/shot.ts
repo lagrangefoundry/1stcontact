@@ -33,6 +33,7 @@ import type { PreviewChannel } from '../../../tools/generate/src/cli/preview'
 import { leasedDriverFactory } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { ReferenceStore } from '../../../tools/generate/src/store/reference-store'
 import type { FidelityDeps } from '../../../tools/generate/src/cli/ai/fidelity-core'
+import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
 
 /** The Browser Rendering binding (`[browser]` in wrangler.toml). */
 export interface ShotEnv {
@@ -290,6 +291,16 @@ export function fidelityDeps(
    * was not written up — see `fidelity-core.ts`.
    */
   adoptCapture?: (bundle: string) => Promise<{ uid: string; created: boolean }>,
+  /**
+   * REQ-218 — every stored picture this deployment can show, both namespaces.
+   *
+   * A PARAMETER FOR THE SAME REASON `adoptCapture` IS: the Library half needs the
+   * ticket store and this function is handed the site's renderer and the
+   * reference store. Binding it in the router keeps the three stores from
+   * meeting in one signature, and keeps the CLI host — which has no tickets —
+   * passing a library with one half in it rather than a flag saying so.
+   */
+  images?: ImageLibrary,
 ): FidelityDeps {
   // Named `launcher`, not `launch`: this module's top-level `launch` is
   // `@cloudflare/puppeteer`'s, and shadowing it here would read as a call to it.
@@ -315,5 +326,6 @@ export function fidelityDeps(
     // optional, and an explicit `undefined` would satisfy the type while making
     // `deps.adoptCapture ? …` read false in a way that looks like a bug.
     ...(adoptCapture ? { adoptCapture } : {}),
+    ...(images ? { images } : {}),
   }
 }

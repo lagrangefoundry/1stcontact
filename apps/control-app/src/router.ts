@@ -38,6 +38,8 @@ import {
 import { imageSurface } from './imagegen'
 import { canEmbed, type EmbedderEnv } from './embedder'
 import { fidelityDeps } from './shot'
+import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
+import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import { adoptCapture } from './capture-material'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
@@ -107,6 +109,7 @@ import {
   listMaterial,
   MATERIAL_CHANGE_POLL_MS,
   materialFile,
+  materialImageLibrary,
   MaterialRejectedError,
   NotMaterialError,
   NotRepublishableError,
@@ -324,6 +327,18 @@ export async function sessionFidelity(
       // read as a launcher that was supplied and is broken.
       deps.launch ? { launch: deps.launch } : {},
       adopt,
+      // REQ-218 — BOTH NAMESPACES, MERGED HERE BECAUSE THIS IS WHERE BOTH STORES
+      // ARE IN SCOPE. A client asking about "the logo" does not know whether it
+      // is a file they dropped on the conversation or a drawing already on the
+      // site, and neither does the assistant answering them; merging at the one
+      // seam that holds both handles is what makes that not a question anybody
+      // has to answer. The barrier the two buckets exist to keep is untouched —
+      // nothing here copies a byte across it, and each half still reads only its
+      // own store.
+      mergeImageLibraries({
+        site: siteImageLibrary(site, store),
+        library: materialImageLibrary(tickets),
+      }),
     )
 }
 
