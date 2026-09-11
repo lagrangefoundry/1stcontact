@@ -915,6 +915,30 @@ body {
 }
 
 /*
+ * A picture in a turn ([[REQ-217]]).
+ *
+ * NOT A RE-STYLE, WHICH THE RULE ABOVE DECLINES TO DO. `webui-chat` ships no
+ * `img` rule because it never expected an image in a message; bounding content a
+ * component never anticipated is a different act from having an opinion about a
+ * component's own look. Without this an unconstrained drawing or a full-size
+ * photograph takes the pane.
+ *
+ * `max-height` AS WELL AS `max-width`, because a tall picture that fits the
+ * pane's width still pushes the sentence that introduced it off the top of the
+ * conversation — and the point of the picture is that it sits in what was said
+ * about it. The full bytes are still fetched: shrinking on the wire is the
+ * publish-time rendition ladder's, and this is a builder-local request.
+ */
+.builder-chat img {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  width: auto;
+  height: auto;
+  border-radius: var(--shell-radius);
+}
+
+/*
  * The colour row and the escalation row (REQ-140).
  *
  * Both live in the parameter sheet's region under the editing box, and both are

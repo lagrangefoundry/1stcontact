@@ -190,6 +190,27 @@ function drawingSource(slug: string, opts: EditOptions, name: string): Promise<s
   return editDrawingRead(slug, name, opts)
 }
 
+/**
+ * The line a model pastes to put a picture in the conversation ([[REQ-217]]).
+ *
+ * ONE PLACE, because it is a CONTRACT and not a formatting choice. What reaches
+ * the client's DOM is an `<img>` carrying this URL and nothing else, so the
+ * chat pane's click handler recovers what the picture is by reading the address
+ * back out of it. A second composer, spelling it slightly differently, is how
+ * the two come to disagree about a picture they are both looking at.
+ *
+ * ORDINARY MARKDOWN, deliberately. The chat's sanitiser is stock DOMPurify and
+ * already permits an `<img>`, so this needs nothing new in the pane — which is
+ * what lets the picture survive a reload for free: the line is inside the
+ * assistant's own turn, and replaying the transcript replays it.
+ *
+ * THE ALT TEXT IS THE NAME AND NOT A DESCRIPTION. A description of the drawing
+ * is the model's to write, in the sentence around the picture; what this can
+ * honestly say is which file it is.
+ */
+export function displayLine(name: string, url: string): string {
+  return `![${name.replace(/\.[^.]+$/, '').replace(/[[\]]/g, '')}](${url})`
+}
 
 /** One operation implementation, keyed by the `op` the declaration names. */
 export type L1Operations = Record<string, (params: Params) => unknown>
@@ -245,6 +266,21 @@ export function l1Operations(
    * is a shape nobody asked for.
    */
   measurer: DrawingMeasurer | null = null,
+  /**
+   * Where a site asset is served to the person being talked to, or `null` where
+   * this deployment has no surface that could show one ([[REQ-217]]).
+   *
+   * WHY A URL AND NOT A LINE. The host knows the address and nothing else: it has
+   * no view on markdown, and the `1c` CLI — whose conversation is a terminal —
+   * has no address at all. The markdown framing belongs HERE, with the surface
+   * prose that tells the model to paste it, because those two have to agree and
+   * they are written in the same place.
+   *
+   * NULL IS AN ORDINARY DEPLOYMENT, exactly as `measurer` above is. A session
+   * with nowhere to show a picture writes the drawing and says so in words, which
+   * is what every session did before this existed.
+   */
+  assetUrl: ((handle: string) => string) | null = null,
 ): L1Operations {
   /** Measure one of the site's own drawings, or say why nothing could be. */
   const measure = async (name: string) => {
@@ -542,7 +578,25 @@ export function l1Operations(
         ...opts,
         force: p.replace === true,
       })
-      const written = { ...(out.data as object), now: out.at }
+      const asset = (out.data as { asset: { id: string; src: string } }).asset
+      const written = {
+        ...(out.data as object),
+        now: out.at,
+        // THE PICTURE GOES BACK INTO THE CONVERSATION THAT MADE IT ([[REQ-217]]).
+        //
+        // THE TOOL AUTHORS THE LINE AND THE MODEL PLACES IT. A tool result is not
+        // a chat bubble — only an assistant's own text turn is in the transcript,
+        // and the transcript is what replays on reload — so the picture has to
+        // reach the client through the reply, which means the model pasting it.
+        // What is NOT left to the model is the address: it composes nothing, it
+        // copies a line, and the line is right because this composed it.
+        //
+        // ABSENT WHERE NOTHING COULD SHOW IT, rather than present and pointing
+        // nowhere. That is the same shape every other optional wire on this
+        // surface has, and it is what keeps the `1c` CLI honest: a terminal
+        // session is told about no line, so it invents none.
+        ...(assetUrl ? { display: displayLine(asset.id, assetUrl(asset.src)) } : {}),
+      }
       const stated = Array.isArray(p.assert) ? (p.assert as string[]) : []
       if (stated.length === 0) return written
       return { ...written, asserted: await assertOnWrite(name, stated) }
@@ -591,9 +645,12 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           opts: EditOptions,
           extra: Partial<L1Operations> = {},
           measurer: DrawingMeasurer | null = null,
+          assetUrl: ((handle: string) => string) | null = null,
         ) {
           super(L1_DECLARATION)
-          for (const [op, run] of Object.entries(l1Operations(slug, opts, extra, measurer))) {
+          for (const [op, run] of Object.entries(
+            l1Operations(slug, opts, extra, measurer, assetUrl),
+          )) {
             ;(this as unknown as Params)[op] = run
           }
         }
@@ -691,6 +748,7 @@ export async function createL1Toolbox(
     extraOps = {},
     extraSurfaces = [],
     measurer = null,
+    assetUrl = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -720,6 +778,15 @@ export async function createL1Toolbox(
      * reason — see {@link l1Operations}.
      */
     measurer?: DrawingMeasurer | null
+    /**
+     * Where a site asset is served to the person being talked to ([[REQ-217]]),
+     * or absent where this deployment has no surface that could show one.
+     *
+     * ALREADY BOUND TO THE SLUG, like {@link measurer} is already bound to a
+     * browser: which site an asset belongs to is settled by the time a manager
+     * is built for one, so the operations below never see it.
+     */
+    assetUrl?: ((handle: string) => string) | null
     /**
      * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
      * with it — a LIST since REQ-157, because there are now two of them.
@@ -755,7 +822,9 @@ export async function createL1Toolbox(
   // learn which store they got, which is what lets the same surface run against
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
-  const surfaces: Untyped[] = [new L1Toolbox(slug, { ...opts, store }, extraOps, measurer)]
+  const surfaces: Untyped[] = [
+    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl),
+  ]
   let granted = instance
   for (const extra of extraSurfaces) {
     surfaces.push(extra.surface)

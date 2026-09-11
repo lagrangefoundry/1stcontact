@@ -392,6 +392,21 @@ export function workerHost(
    * cannot crop anything.
    */
   pictures: HostDeps['pictures'] = null,
+  /**
+   * Where a site's own asset is served to the person being talked to
+   * ([[REQ-217]]), or `null` where nothing could show one.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
+   * one: the address has to name the business this conversation belongs to, and
+   * the scope is the router's — it is resolved per request, before this host is
+   * reached, and it is the one thing that makes a picture in a transcript still
+   * correct years later rather than quietly resolved against whichever business
+   * happens to be admissible first.
+   *
+   * NULL IS ORDINARY. A picture that cannot be shown is simply not offered as a
+   * line to paste, which is the state the `1c` CLI is permanently in.
+   */
+  assetUrl: HostDeps['assetUrl'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -468,6 +483,10 @@ export function workerHost(
       // assistant that could crop a picture it could not look at is a shape
       // nobody asked for but neither is it a reason to couple them.
       pictures,
+      // Passed straight through, like `pictures` above: `host-core.ts` binds it
+      // to the session's site and `toolbox-core.ts` decides what a line looks
+      // like. This file only carries it.
+      assetUrl,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth
