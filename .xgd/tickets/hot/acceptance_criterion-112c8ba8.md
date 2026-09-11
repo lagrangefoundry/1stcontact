@@ -6,10 +6,10 @@ title: A Library sits beside the site tab, presenting the account's material as 
   workspace's own two-pane list-detail with its filters in the list header
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:37.005258+00:00'
-updated_at: '2026-09-11T05:18:37.005258+00:00'
+updated_at: '2026-09-11T05:28:54.005972+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
