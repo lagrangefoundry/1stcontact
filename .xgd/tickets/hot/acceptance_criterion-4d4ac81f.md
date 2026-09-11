@@ -6,7 +6,7 @@ title: An element outside the page's vocabulary is refused whole, and the draft 
   left byte-for-byte unchanged
 created_by: xgd
 created_at: '2026-08-10T09:20:07.806002+00:00'
-updated_at: '2026-08-16T02:37:33.536427+00:00'
+updated_at: '2026-09-11T02:58:59.620921+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
