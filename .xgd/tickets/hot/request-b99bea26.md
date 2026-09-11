@@ -5,7 +5,7 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-10T22:29:45.961688+00:00'
+updated_at: '2026-09-11T02:13:56.036163+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -143,3 +143,68 @@ a `list-detail` swap cannot leave it open over a different material.
 **On sizing:** agreed this is the largest child of the epic and is not a small
 free-code. It is also, correctly, almost entirely downstream — there is little
 worth writing here until REQ-219 lands.
+
+
+## What this surface is made of, and what it refuses to own
+
+Written while implementing, so that every behaviour the code has is a behaviour
+this ticket asked for.
+
+**The Library name is the material's TITLE, and the filename is not touched.**
+The Library lists a row under `title` and falls back to `filename` only when
+there is none; the rights block's *File* row is the filename and stays read-only
+for the reason [[REQ-213]] gives. So renaming a picture changes what the Library
+calls it and leaves the download saving under the name the file arrived with —
+which is the honest pair. Those are two different facts about one material and
+the modal must not quietly conflate them.
+
+**One field definition, mounted twice.** The name is the same `mountFields`
+descriptor in the detail pane and in the modal, committed through the same call,
+because *one field, one meaning, both places* is a claim about the code as much
+as about the screen. Two descriptors that happened to agree today is the drift
+this epic keeps naming.
+
+**The picture is a button.** A client opens the editor by clicking the picture,
+and an `<img>` cannot be reached from a keyboard — so the picture is wrapped in a
+real button carrying the words, exactly as the reader's expand affordance
+(REQ-172) puts the words on a button and the glyph in an `aria-hidden` span.
+Opening the editor is not a mouse-only capability.
+
+**A capture is not offered the editor.** Its bytes are a screenshot of somebody
+else's site held as reference (REQ-166) — it is not a picture the client made or
+owns, and the one thing a crop of it could be for is publishing it. The detail
+pane draws captures and ordinary images through the same `<img>`, so this is
+stated rather than inherited.
+
+**The operation vocabulary lives in one module and this ticket does not define
+what an operation MEANS.** `crop`, `rotate`, `resize` and `adjust` are named in
+one place, with their parameters and their normalised coordinates, and both this
+editor and `edit_image` read that one place. The editor composes recipes; it does
+not apply them to bytes, and it contains no second renderer.
+
+**The local rendering is CSS, and it is the recipe rather than a picture of it.**
+All four operations have exact CSS counterparts — a crop is a clip, a rotate is a
+transform, a resize is a width, an adjustment is a filter — so the preview is
+derived from the recipe the client is building and cannot drift from it. That is
+what makes *interaction is local* honest rather than approximate.
+
+**A commit the origin refuses leaves the recipe as it was and says so.** The
+recipe model and the renderer are REQ-219's; until they answer, a commit is
+refused and the editor reports the refusal against the picture instead of
+inventing a local fallback. Baking bytes in the browser to cover the gap would be
+the second definition of an operation this ticket exists not to create — a client
+would be shown one thing and publish another, which is the exact failure the
+single-renderer decision was taken to prevent.
+
+**Undo and redo span the open editor, and the recipe outlives them.** The stack
+is editor state (REQ-219), so closing the modal ends it; what is persisted is the
+recipe, whose entries stay individually revisable. Nothing in the editor removes
+an operation's parameters in a way that cannot be re-entered, which is how *the
+picture is never destroyed* is kept true by a surface that cannot see the bytes.
+
+**The focal point is set on the picture, beside the recipe and not inside it.**
+It is not an operation — it changes nothing about what the picture IS — so it
+cannot be an entry in an ordered list of operations, and it is not undone by
+stepping back through them. It is offered next to the crop tool and labelled for
+what it does: *when a band forces an aspect on this picture, keep this bit in
+frame.*
