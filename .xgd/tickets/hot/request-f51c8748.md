@@ -5,10 +5,10 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T19:40:21.268579+00:00'
+updated_at: '2026-09-11T21:16:39.107931+00:00'
 completed_at: null
-last_field_updated: status
-status: free_coding
+last_field_updated: body
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-34760bf1
@@ -17,6 +17,27 @@ fields:
   depends_on:
   - REQ-219
   chat_comment: comment-f3ebfc8a
+  commits:
+  - working_sha: c2d79f8ca1f16c1b2c8a71f75f83fb0e4f752327
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9110d75b515a4c89f1627421aa717b6625a0c5f6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b58546d4dc00b73519ad58975d4d22bfc3eef6cf
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 12fabc0ed0dd312ee5ba28b6b112735bf65496e1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c58ad7396bfa89a28092e6fdbbcce5df3f47bd82
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3fb77e4aa254348d37d0db20de49b89e7f580963
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.165
+  story_points: 8
 ---
 
 ## The gap
@@ -381,3 +402,120 @@ of the rest of a revision, so the ladder takes it now. The requested path decide
 so nothing else inherits it. It matters most to exactly the visitor the ladder is
 for: serving a phone a 640px photograph is half undone by a repeat visit that
 pays for it again.
+
+
+
+---
+
+## Answered by the operator, 2026-09-11: typed sources yes, and what "slow" costs
+
+Both questions this ticket left open are now decided. **The width ladder above has
+already landed** (`status=free_coded`, six commits); everything in this section is
+work *on top of* it, and it is written as an extension rather than a correction.
+Nothing above is wrong.
+
+### `<picture>` with typed sources — yes
+
+The body above defers format deliberately: *"a JPEG's rungs are JPEGs… choosing a
+better codec is a separate question with a separate answer."* That question is now
+answered: **the sink emits `<picture>` with typed `<source>` elements.**
+
+The reason to decide it now rather than later is the one the open question gave,
+and it has not weakened: a static publish cannot vary on `Accept`, so format
+negotiation can only be expressed in the *shape* of what the renderer emits. Adding
+a `type=`d source later means changing the element the sink produces, which is a
+different change from adding an attribute to it — every test that asserts an `<img>`
+becomes a test that asserts an `<img>` wrapped in something. That is the retrofit
+this avoids.
+
+**Two formats, not three: the source's own format, plus WebP.** AVIF is deliberately
+excluded from v1, for the same reason `flip` was: it is the expensive half of a
+decision whose cheap half delivers most of the value.
+
+- WebP is the saving. Against JPEG it is roughly a quarter to a third smaller at
+  equivalent quality, and it is supported by every browser a client's visitor is
+  realistically using.
+- AVIF's *additional* saving over WebP is real but modest — on the order of 15–20%
+  — while its encode cost is several times WebP's, and encode cost is precisely what
+  the latency answer below is rationed by. It is the rung that most threatens the
+  ceiling and least changes the visitor's experience.
+- **And excluding it costs nothing later.** Once the sink emits `<picture>`, adding
+  an AVIF `<source>` is one more entry in a list the shape already supports. That
+  asymmetry — cheap to add, expensive to retrofit the shape — is the whole argument
+  for taking the shape now and the format later.
+
+**Source order matters and is not cosmetic.** The browser takes the first `<source>`
+whose `type` it supports, so WebP precedes the original and the original is the
+final fallback inside `<img>`. A browser that understands neither still gets the
+picture it gets today.
+
+**Every rung gains a format, so the ladder's arithmetic doubles**, and that is the
+whole of why the latency question below is not a footnote.
+
+**A format conversion is not a recipe operation.** It belongs on exactly the same
+side of the line the body already draws: delivery, invisible, derived, disposable,
+never a question the client is asked. `convert` must not appear in the editorial
+vocabulary, or the assistant will start hand-picking codecs against this ladder the
+same way the body already warns it would hand-optimise widths.
+
+### Publish latency — minutes is the budget, and the ladder must be made to fit it
+
+The operator's line: **minutes are acceptable if the client is told what is
+happening; hours would require a different UX.** That is a budget, and the honest
+finding is that the ladder as built does not obviously fit inside it once formats
+double it — not because any single transform is slow, but because of how they are
+ordered.
+
+**The ladder is fully sequential today.** `ladder.ts` walks assets in a `for` loop
+and each asset's widths in a nested `for` loop, awaiting every transform before
+starting the next. That is correct, readable, and the right thing to have written
+first — but it makes wall-clock the *sum* of every transform on the site, which is
+the one arrangement that turns a large site's first publish into an open-ended wait.
+
+**The arithmetic.** A photo-heavy small-business site is perhaps 20–40 pictures. A
+phone photograph is several thousand pixels wide and so earns every rung. At six
+rungs and two formats that is on the order of **300–500 transforms plus as many R2
+writes for a 30-picture site** — where today, at six rungs and one format, it is
+150–250. Sequentially that is minutes at best and is bounded by nothing in
+particular at worst; the same work with bounded concurrency is tens of seconds.
+
+**So three things are in scope here, and the first is not optional:**
+
+1. **Bound the concurrency rather than the ambition.** Render renditions in parallel
+   with a small fixed ceiling instead of one at a time. This is a change to code that
+   has already landed and is what converts "minutes, maybe more" into "under a
+   minute, predictably". It is the single highest-value change in this section.
+
+2. **The publish says what it is doing.** A toolbar button that goes quiet for a
+   minute reads as a hang, and a client who reloads mid-publish is a client who has
+   learned not to trust the button. The operator's budget is explicitly *minutes with
+   explanation*, so the explanation is part of the deliverable, not a nicety: the
+   publish reports that it is preparing images and how far through it is.
+
+3. **A budget the publish refuses to exceed, informatively.** A platform request has
+   finite resources — a cap on outbound subrequests being the relevant one — and a
+   sufficiently large site can exhaust them. The failure mode to design against is
+   not slowness; it is a publish that dies most of the way through with a platform
+   error naming nothing the client did. If the projected work exceeds what one
+   request can carry, the publish must say so in terms of the site, before starting.
+
+**A republish stays free, and that is what makes this bearable.** The
+content-addressed derived cache above already means an unchanged picture costs zero
+transforms. This whole section is about the *first* publish of a photo-heavy site,
+and about the first publish after this ticket lands — every one after that reads the
+cache.
+
+### Not verified, and worth verifying before building
+
+The precise per-request resource ceiling a publish runs into — and specifically
+**whether an Images binding transform counts against the same outbound-subrequest
+budget that an R2 write does** — is asserted here from general platform knowledge and
+has **not** been confirmed against current documentation or measured. It is the
+number that decides whether item 3 above is a real guard or a formality, and whether
+two formats is comfortable or marginal. Confirm it before fixing the concurrency
+ceiling or the budget, in the same spirit as the body's note about confirming the
+transform vocabulary rather than trusting a remembered list.
+
+Likewise the transform timings above are **estimates, not measurements**. The first
+real photo-heavy publish is the measurement, and it is worth taking deliberately
+rather than discovering.

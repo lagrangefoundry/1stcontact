@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T02:06:32.217802+00:00'
+updated_at: '2026-09-11T21:17:33.094929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -410,5 +410,65 @@ REQ-222 widened for delivery and reachability. Delivery via per-width `backgroun
 **2. Is a slow first publish acceptable?** Publishing is synchronous behind a toolbar button. A photo-heavy site's first publish is every picture × every rung of transforms plus R2 writes. Republishes are near-free once the cache exists — the first one isn't, and nothing today batches or defers it. Accept it, or should REQ-222 carry progress feedback or deferral?
 
 And one thing I'd like a yes/no on: **the silent Library-drop failure**. It's now blocking, not cosmetic — REQ-221's honest refusal is delivered through exactly the path that swallows errors on Library drops. Shall I file it?
+
+<!-- xgd-turn id="37c705bd-f223-499e-9c1c-ef8b50e8a2f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:13:01.650410+00:00" -->
+#### You
+ok 1 - yes 2 - how slow is slow - minutes is acceptable (with user explanation, hours requires a different UX
+
+<!-- xgd-turn id="37c705bd-f223-499e-9c1c-ef8b50e8a2f8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:17:32.729618+00:00" -->
+#### Claude
+I need to answer "how slow is slow" with a real number, not a shrug. Let me measure what a publish actually does.
+
+The children have been landing code — `image-ladder.ts`, `image-edit.ts`, `heic.ts` now exist. Let me check state before answering.
+
+Ladder is sequential; rungs are 320/640/960/1280/1600/1920. Let me read REQ-222's current body before amending.
+
+REQ-222 already landed (`free_coded`, 6 commits) — so the width ladder is built and typed sources are new scope on top. Let me read its body.
+
+REQ-222 explicitly deferred format ("a JPEG's rungs are JPEGs"). So your "yes" is new work on a landed ticket. Let me check the append mechanism, then answer the latency question with real arithmetic.
+
+Now the epic's decision record.
+
+Both recorded. Answering your question directly, since "how slow is slow" needed a real number rather than a decision.
+
+## How slow it actually is
+
+Two things I found that change the answer:
+
+**REQ-222 already landed** — `free_coded`, six commits. The width ladder, `srcset`, computed `sizes`, the background-image second sink, the content-addressed cache are all built. So typed sources are an extension on top, not part of the original build.
+
+**`ladder.ts` renders every rendition sequentially** — a `for` over assets, a nested `for` over widths, each awaited. Wall-clock is therefore the *sum* of every transform on the site, which is the one arrangement that has no natural ceiling.
+
+The arithmetic, at six rungs (320/640/960/1280/1600/1920):
+
+| | transforms + R2 writes |
+|---|---|
+| 30-picture site, today (one format) | ~150–250 |
+| same, with `<picture>` at two formats | ~300–500 |
+| same, at three formats (AVIF too) | ~450–750 |
+
+Sequentially that is minutes at two formats and open-ended at three. **With bounded concurrency it is tens of seconds at two formats** — so your budget is reachable, but not by the code as it stands. That's now the first of three items in REQ-222, and I've marked it not optional.
+
+The other two: the publish reports progress (your budget is explicitly *minutes with explanation*, so the explanation is deliverable, not polish), and a projected-work budget it refuses to exceed *before* starting — because the failure to design against isn't slowness, it's a publish dying three-quarters through with a platform error naming nothing the client did.
+
+## One call I made that you should sanity-check
+
+**I scoped `<picture>` to two formats — source plus WebP — and excluded AVIF from v1.** You said yes to typed sources, not to a format list, so this is mine.
+
+The reasoning: WebP is a quarter to a third smaller than JPEG and universally supported; AVIF's *further* saving is ~15–20% while its encode cost is several times higher — and encode cost is precisely what your latency budget rations. It's the rung that most threatens the ceiling and least changes what the visitor experiences. Once the sink emits `<picture>`, adding AVIF is one more entry in a list, which is the asymmetry that made deciding the *shape* now worth it. Same logic that dropped `flip`. Say if you'd rather have all three.
+
+## Two things I'm explicitly not confident about
+
+I flagged both in the ticket rather than burying them. The per-transform timings above are estimates, not measurements. And I don't know whether an Images binding transform counts against the same outbound-subrequest budget an R2 write does — that number decides whether the budget guard is a real protection or a formality, and whether two formats is comfortable or marginal. Worth confirming before anyone fixes the concurrency ceiling.
+
+## Still outstanding
+
+**The silent Library-drop failure** — `receiveFiles` surfaces an upload error only when `source === 'chat'`, so a file that 400s on a Library drop does nothing at all. I've asked twice and it's now blocking rather than cosmetic: REQ-221's honest HEIC refusal is delivered through exactly that swallowing path, so until it's fixed that ticket's whole value is invisible on the surface it matters most on. **Shall I file it?**
+
+No code written — ticket updates only.
 
 <!-- xgd-chat-end -->

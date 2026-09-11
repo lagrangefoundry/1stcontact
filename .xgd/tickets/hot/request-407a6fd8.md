@@ -5,9 +5,9 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-09-05T00:33:53.660372+00:00'
+updated_at: '2026-09-11T21:05:01.811011+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: ready_to_reconcile
 fields:
   priority: high
@@ -24,12 +24,6 @@ fields:
     reconcile_sha: null
     main_sha: null
     working_sha_history: []
-  - working_sha: fa0b857db76c343f68b579e7003fb30207840fdb
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: cd6002e17da483e8e2d7c1defa7fb90540bb0336
-    reconcile_sha: null
-    main_sha: null
   version: 0.2.68
 ---
 

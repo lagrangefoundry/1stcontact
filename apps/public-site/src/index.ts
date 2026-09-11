@@ -83,6 +83,24 @@ export interface Env extends LeadEnv {
  */
 const PUBLISHED_CACHE = 'public, max-age=60'
 
+/**
+ * [[REQ-222]] — the path prefix a publish writes DELIVERY RENDITIONS under, and
+ * the only bytes here that may be cached forever.
+ *
+ * THE NAME IS THE CONTENT. A rendition is called `<sha>-<width><ext>` over the
+ * source bytes and the width it was rendered at, so a file at this path can
+ * never change meaning: different bytes or a different width produce a different
+ * name. That is precisely the property `PUBLISHED_CACHE`'s note says it is
+ * waiting for, and it holds here whether or not it ever holds for the rest of a
+ * published revision — so the ladder takes it now rather than waiting.
+ *
+ * IT MATTERS MOST FOR EXACTLY THE VISITOR THIS LADDER IS FOR. The point of
+ * serving a phone a 640px photograph is that it pays for fewer bytes; a repeat
+ * visit that pays for them again halves the saving.
+ */
+const DERIVED_PREFIX = 'assets/d/'
+const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     /*
@@ -275,7 +293,12 @@ async function serve(
   if (target.htmlFallback) candidates.push(target.htmlFallback)
 
   const headers = new Headers()
-  headers.set('cache-control', PUBLISHED_CACHE)
+  // The requested path decides, NOT the key that answered: the HTML fallback can
+  // only ever resolve to a page, and a page is not content-addressed.
+  headers.set(
+    'cache-control',
+    target.path.startsWith(DERIVED_PREFIX) ? IMMUTABLE_CACHE : PUBLISHED_CACHE,
+  )
 
   if (request.method === 'HEAD') {
     for (const candidate of candidates) {

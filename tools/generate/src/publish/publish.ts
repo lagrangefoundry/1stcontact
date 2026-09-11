@@ -1,4 +1,5 @@
 import { renderSiteFiles } from '../render/render'
+import { EMPTY_LADDER, type ImageLadder } from './ladder'
 import { InvalidDefinitionError } from '../cli/errors'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 import type { ChangeSet, RevisionEntry, StoredSnapshot } from '../store/revision-model'
@@ -67,6 +68,17 @@ export interface PublishOptions {
   by?: string
   /** ISO timestamp to record. Injectable so a test can assert one. */
   now?: string
+  /**
+   * [[REQ-222]] — the delivery width ladder, built from this deployment's image
+   * renderer. Omit it and the publish builds no ladder.
+   *
+   * AN OPTION AND NOT A STORE VERB, for the reason `publishSite` is not one
+   * either: a store holds bytes, and which widths a picture should be offered at
+   * is a policy. It is also the seam that makes "the ladder is built in the
+   * Worker" true without a branch — the Worker's route passes one and the CLI
+   * does not, and neither of them tests for the other.
+   */
+  ladder?: ImageLadder
 }
 
 /**
@@ -130,6 +142,13 @@ export async function revisionHistory(
  *      which a revision is listed and unservable.
  *   4. RE-PARENT LAST. The draft's lineage moves only once the revision it now
  *      descends from actually exists.
+ *
+ * [[REQ-222]] PUT THE LADDER BETWEEN 2 AND 3, and the placement is the same
+ * argument rule 2 makes about the render, only stronger. Building it is the most
+ * expensive step in a publish by a wide margin — it decodes and re-encodes every
+ * picture on the site — so it must sit after the no-op check, which is the
+ * common case. It must sit BEFORE the render, because the render is what writes
+ * the manifest into each `<img>`.
  */
 export async function publishSite(
   store: SiteStore,
@@ -150,7 +169,11 @@ export async function publishSite(
     return { id: live, changes, published: false }
   }
 
-  const rendered = await renderSiteFiles(snapshot.result.value)
+  // The delivery renditions, and then the pages that name them. The manifest is
+  // a record of what was actually built, so a `srcset` can only ever name bytes
+  // this same call is about to write.
+  const ladder = opts.ladder ? await opts.ladder.build(draft.assets) : EMPTY_LADDER
+  const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
   const entry: RevisionEntry = {
     id: nextRevisionOf(history),
     publishedAt: opts.now ?? new Date().toISOString(),
@@ -163,6 +186,7 @@ export async function publishSite(
   await store.writeRevision(slug, entry, {
     source: draft,
     out: new Map(rendered.files),
+    derived: ladder.derived,
   })
   await store.setDraftBase(slug, entry.id)
   return { id: entry.id, changes, published: true }

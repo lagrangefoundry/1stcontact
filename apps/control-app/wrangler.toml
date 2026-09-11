@@ -325,6 +325,16 @@ binding = "BROWSER"
 # regardless, because REQ-219's recipe renderer uses it for every other image
 # operation.
 #
+# IT ALSO BUILDS THE DELIVERY WIDTH LADDER AT PUBLISH ([[REQ-222]]). `POST
+# /api/publish` freezes the draft and renders it here, and this is what sizes the
+# pictures on the way out; nothing is resized on request. That use is the ONE
+# optional binding whose absence is not a loud failure — no binding means a
+# publish carries no `srcset`, which is this repository's publish exactly as it
+# was before the ladder existed and exactly as `1c publish` performs it against
+# an operator's disk. It is METERED PER TRANSFORM, which is why renditions are
+# content-addressed on the source bytes and the width and cached under
+# `derived/<tenant>/`, outside the `sites/` root `public-site` resolves.
+#
 # REPEATED UNDER [env.production] because a named environment inherits NEITHER
 # vars NOR bindings — the rule every other binding in this file records.
 # Forgetting the repeat is not a silent degradation: the deployed Worker sees no
@@ -417,10 +427,12 @@ bucket_name = "1stcontact-material"
 [env.production.browser]
 binding = "BROWSER"
 
-# See the top-level block: restated rather than inherited, on purpose (REQ-219).
+# See the top-level block: restated rather than inherited, on purpose (REQ-219,
+# [[REQ-221]], [[REQ-222]]).
 [env.production.images]
 binding = "IMAGES"
 
 # See the top-level block: restated rather than inherited, on purpose (REQ-159).
 [env.production.ai]
 binding = "AI"
+

@@ -55,6 +55,8 @@ interface MemorySite {
   snapshots: Map<number, StoredSnapshot>
   /** Rendered output by revision id — what a published request would serve. */
   outputs: Map<number, Map<string, string>>
+  /** [[REQ-222]] — derived delivery renditions by revision id, beside the output. */
+  derived: Map<number, Map<string, Uint8Array>>
   /** The revision the draft descends from. */
   basedOn: number | null
 }
@@ -83,6 +85,14 @@ export interface MemorySiteStore extends SiteStore {
    * claimed to without a bucket or a filesystem to look in.
    */
   renderedRevision(slug: string, id: number): Map<string, string> | null
+  /**
+   * [[REQ-222]] — the delivery renditions a revision published, or null.
+   *
+   * The same surface and the same reason as {@link renderedRevision}: a UAT has
+   * to be able to ask whether the bytes a `srcset` names were actually written,
+   * and that question has no answer through the port.
+   */
+  derivedRevision(slug: string, id: number): Map<string, Uint8Array> | null
 }
 
 /** A deep copy, so a caller mutating what it read cannot reach into the store. */
@@ -115,6 +125,7 @@ export function memorySiteStore(): MemorySiteStore {
         history: [],
         snapshots: new Map(),
         outputs: new Map(),
+        derived: new Map(),
         basedOn: null,
       })
     },
@@ -203,6 +214,12 @@ export function memorySiteStore(): MemorySiteStore {
         })),
       })
       found.outputs.set(entry.id, new Map(content.out))
+      // [[REQ-222]] — copied in like the snapshot above, and for the same reason:
+      // a revision that shared a buffer with the caller would not be frozen.
+      found.derived.set(
+        entry.id,
+        new Map([...(content.derived ?? [])].map(([path, bytes]) => [path, new Uint8Array(bytes)])),
+      )
       found.history.push(copy(entry))
       return Promise.resolve()
     },
@@ -234,6 +251,12 @@ export function memorySiteStore(): MemorySiteStore {
     renderedRevision(slug, id) {
       const out = site(slug)?.outputs.get(id)
       return out ? new Map(out) : null
+    },
+
+    /** [[REQ-222]] — the delivery renditions a revision published. */
+    derivedRevision(slug, id) {
+      const held = site(slug)?.derived.get(id)
+      return held ? new Map(held) : null
     },
 
     version(slug) {

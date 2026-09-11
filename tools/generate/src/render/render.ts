@@ -22,7 +22,7 @@ import {
   getModule,
   renderL1Document,
 } from '@1stcontact/framework/worker'
-import type { BehaviorDefinition } from '@1stcontact/framework/worker'
+import type { BehaviorDefinition, ImageDeliveryManifest } from '@1stcontact/framework/worker'
 import { resolveSiteLocale } from '@1stcontact/site-schema'
 import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
@@ -60,6 +60,17 @@ export interface RenderSiteOptions {
    * never content-addressed, and never entered in `history.json` (DOC-12 §11).
    */
   edit?: boolean
+  /**
+   * [[REQ-222]] — the delivery width ladder a publish built for this site's
+   * pictures, keyed by asset name.
+   *
+   * PUBLISH IS THE ONLY CALLER THAT SETS IT. `preview.ts` renders the draft and
+   * edit channels through this same function and passes nothing, so "the draft
+   * gets no ladder" holds because there is no manifest to hand it — not because
+   * a mode was checked. Passed straight through to the L1 emitter, which is the
+   * single place an `<img>` is written.
+   */
+  delivery?: ImageDeliveryManifest
 }
 
 /**
@@ -146,6 +157,7 @@ function renderPage(
   page: Page,
   resolveModule: ModuleResolver,
   edit: boolean,
+  delivery?: ImageDeliveryManifest,
 ): string {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
@@ -165,7 +177,7 @@ function renderPage(
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
   })
-  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit }) : null
+  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit, delivery }) : null
   const body = l1 ? l1.html : rendered.join('\n')
 
   const head = [
@@ -310,7 +322,7 @@ export async function renderSiteFiles(
           'snapshot root, because emitted asset URLs are relative to it (REQ-109)',
       )
     }
-    const html = renderPage(site, page, resolveModule, edit)
+    const html = renderPage(site, page, resolveModule, edit, opts.delivery)
     const file = `${page.slug}.html`
     files.set(file, html)
     pages.push(file)

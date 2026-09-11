@@ -5,9 +5,9 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-11T19:43:52.236006+00:00'
+updated_at: '2026-09-11T21:17:19.783706+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   - REQ-219
   chat_comment: comment-8f31e389
 ---
+
 
 ## The gap
 
@@ -211,8 +212,9 @@ removed. The reasoning in §1 holds: the axis that is live is
 `l1ImageAxesSchema.objectPosition`, which sits on the L1 image NODE, so it is a
 property of *this picture in this band* — and this dialog holds no page and no
 node. A control here would have written a value no renderer reads. What survives
-is the statement of the distinction, in `image-ops.js`, saying why a focal point
-could never have been an entry in an ordered list of operations.
+is the statement of the distinction, in `image-editor.js` and in `reviseRecipe`,
+saying why a focal point could never have been an entry in an ordered list of
+operations.
 
 **A drawing is refused as well as a capture, and each is told which refusal it
 is.** `kindOf` files an SVG as an `image`, so a drawing reaches the same `<img>`
@@ -222,9 +224,43 @@ the assistant can simply redraw it. One predicate, `isEditablePicture`, decides
 both cases, and the Library asks it before it offers the button so the control
 cannot come apart from the refusal behind it.
 
-**The picture is fetched at its stable material address, which is a known gap
-until REQ-219's renderer lands.** *Answered from EPIC-1* §7 asks for the
-content-addressed rendition address, and there is not one yet — the route answers
-`rendered: false` for every commit, so no edited bytes exist to be cached under
-the old URL. When the renderer lands, the address the editor fetches is the one
-thing here that has to change with it.
+**The picture is fetched at its stable material address, and a commit moves a
+counter on it.** The file route serves the picture *as it currently stands* — the
+stored bytes with the committed recipe applied by REQ-219's renderer — which is
+what makes the stage the renderer's own output rather than a local approximation
+of it. But that address is stable while the bytes behind it change, so a browser
+holding the last rendition would show the client their old crop and make the
+editor look broken. Until *Answered from EPIC-1* §7's content-addressed rendition
+address is reachable from here, the editor appends a per-commit counter to the
+address it fetches. That counter is the one thing here that changes when the
+rendition's own address arrives.
+
+**A deployment with no renderer still stores the edit, and says so.** Measuring
+the picture is what makes a recipe checkable against it, and where there is no
+Images binding there is nothing to measure with. The recipe is written anyway —
+it will apply the moment the binding exists — and the answer carries
+`rendered: false`, which is what lets the modal say *you are looking at this
+picture before the change* instead of refusing a change we have in fact
+recorded. A client is never told bytes exist that do not.
+
+**An operation outside the vocabulary never becomes a stored instruction.** The
+editor cannot compose one, and that is not the guarantee: the guarantee is that
+the write parses the recipe through the one vocabulary before it stores anything,
+so a caller that skipped the editor is refused on the same terms. And the two
+refusals are different facts. A crop of a document or of a drawing is forbidden
+however the deployment changes; a recipe this picture cannot take — *"that would
+leave nothing"* — is a conflict with the picture as it currently stands, and the
+same route takes it after a smaller trim. The sentence the client reads is the
+vocabulary's own in both cases, because the editor and the assistant explaining
+one refusal two different ways is the drift this epic keeps naming.
+
+**A picture in the conversation that is not ours stays a picture in the
+conversation.** Identity is recovered from the `<img src>` by the inverse of the
+function that forms the address, written beside it, so the tool that writes the
+markdown line and the surface that reads it cannot come to disagree about the
+shape. A URL naming anything else — a picture from elsewhere on the web, or one
+member inside a capture bundle — resolves to nothing, and the click leaves it
+where it is. The chat pane also carries the hook only when a host asks for it: a
+pane mounted without it behaves exactly as it did before this existed, because a
+transcript widget that had quietly acquired a click behaviour would be a change
+to every surface that mounts one.
