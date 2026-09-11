@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-10T23:00:35.575681+00:00'
+updated_at: '2026-09-11T02:03:35.600004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -264,5 +264,15 @@ BUG-78 is updated: `blocked_by: [REQ-223]`, existing diagnosis preserved, with a
 One thing worth carrying forward: **the missing Access bypass is not created by any of this**. `/sign-in` and `/api/email/webhook` are unreachable in production right now, which means REQ-202's sign-in and REQ-198's delivery webhook are both dead there today. REQ-223 routes around it for lead capture, but nothing routes around it for sign-in.
 
 Unrelated housekeeping: the Gmail, Google Calendar and Google Drive connectors need authorising in your claude.ai connector settings before I can use them — nothing here needed them, but the session flagged them as unauthenticated.
+
+<!-- xgd-turn id="25dd74ab-4a13-4436-aa30-c16c3e455533-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T02:03:33.913209+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
