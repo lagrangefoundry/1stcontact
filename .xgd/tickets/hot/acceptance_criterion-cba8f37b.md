@@ -6,10 +6,10 @@ title: Material is retrieved only over a secure web address; an insecure, non-we
   or unreadable address is refused and never silently upgraded
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:42:22.295732+00:00'
-updated_at: '2026-09-11T04:42:22.295732+00:00'
+updated_at: '2026-09-11T04:58:07.812075+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
