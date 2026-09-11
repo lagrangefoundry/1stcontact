@@ -8,12 +8,12 @@ created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
 updated_at: '2026-09-10T22:44:57.607779+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-44a04848
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
   uat_coverage: pass
 ---
@@ -38,9 +38,12 @@ In scope:
   operator can type into and send from, with what the assistant did during a turn
   visible alongside what it said.
 - **Following the displayed site.** The conversation on screen is always the one about
-  the site the display panel is showing. The site is chosen in exactly one place in the
-  workspace; the pane offers no second control of its own that could disagree with it.
-  Changing the site changes both halves together.
+  the site the display panel is showing. Exactly one control in the whole workspace
+  *offers a site to choose*; the pane offers no such control of its own that could
+  disagree with it. Other dropdowns may exist elsewhere in the chrome for unrelated
+  purposes — narrowing a list, say — and are not site controls: the guarantee is about
+  what a control offers, not about how many dropdowns the workspace contains. Changing
+  the site changes both halves together.
 - **Replay.** On first open and on every switch, the pane shows what that site's
   conversation already contains, so the assistant never answers from context the
   operator cannot see. One site's conversation never appears under another's.
@@ -98,6 +101,28 @@ Out of scope:
 - **Known upstream gaps, not claimed here.** Markdown and sanitiser engines load behind
   the component's own seams and are designed to degrade: without them the pane renders
   escaped text rather than failing. No criterion asserts rendered markdown.
+
+## Reconciliation Decisions
+
+*Recorded 2026-09-10, reconciling BUNDLE-26 (bundle-87be4669), item 15 (REQ-161).*
+
+- **"Exactly one place chooses a site" is restated by what the control offers rather
+  than by counting dropdowns.** The criterion was written while the workspace held one
+  dropdown of any kind, so "there is exactly one dropdown" and "exactly one dropdown
+  offers a site" were indistinguishable and the cheaper reading was taken. REQ-161 adds
+  a second tab whose list carries filter dropdowns — offering roles and kinds, never
+  sites — which falsifies the count without touching the property the criterion exists
+  for. REQ-161 names the criterion as superseded and states the restatement, so it is
+  restated: every dropdown in the workspace is examined and those offering one of the
+  store's sites are kept; exactly one survives, and it is the toolbar's.
+  *Rationale:* the risk is a second control changing the site out from under the
+  conversation. A dropdown that cannot name a site cannot do that, so counting it was
+  never the claim — it was a proxy that happened to hold.
+- **The other tab's filters are not described here.** This story asserts only that they
+  do not offer a site; what they narrow, and the surface they narrow it on, belong to
+  the capability that declared that tab.
+  *Rationale:* stating the Library's controls here would put one capability in two
+  places, and the reuse-first rule points them at their own story.
 
 ## Dependencies
 
