@@ -576,7 +576,46 @@ function maskDecls(m: L1Mask): string[] {
  * `background-clip: text`, so its own chip fill would be clipped to the glyphs
  * rather than painted behind them.
  */
-function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[] {
+/**
+ * REQ-103 — the surface's background layer stack, top-most first: a scrim covers
+ * everything; a texture reads *over* the wash and the backdrop it textures; a
+ * gradient washes the image; the image sits on the solid fill. So a dot-grid over
+ * a radial glow over a dark fill — the ordinary dark-theme stack — is what the
+ * axes say.
+ *
+ * EXTRACTED FOR REQ-222, because the background ladder restates this whole list
+ * per breakpoint with one layer's URL swapped. Restating it by hand in the
+ * override would be a second opinion about the stack, and the first breakpoint at
+ * which the two disagreed would silently drop a client's scrim.
+ *
+ * `bgSrc` REPLACES `backgroundImageUrl` AND NOTHING ELSE. It arrives from a
+ * manifest, so it passes {@link cssUrl} exactly as an authored URL does — the
+ * sole `url()` sink stays sole.
+ */
+function surfaceBgLayers(
+  a: L1SurfaceAxes,
+  bgSrc?: string,
+): { layers: BgLayer[]; hasImage: boolean } {
+  const layers: BgLayer[] = []
+  if (a.overlay) {
+    const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
+    if (c8) layers.push(plainLayer(`linear-gradient(${c8}, ${c8})`))
+  }
+  if (a.pattern) layers.push(...patternLayers(a.pattern))
+  if (a.surfaceGradient) {
+    const g = gradientCss(a.surfaceGradient)
+    if (g) layers.push(plainLayer(g))
+  }
+  const bgUrl = cssUrl(bgSrc ?? a.backgroundImageUrl)
+  if (bgUrl) {
+    // BUG-13 — a section/band background image fills its box (cover, centered, no
+    // tiling) — the faithful default for a hero/section backdrop.
+    layers.push({ image: bgUrl, size: 'cover', position: 'center', repeat: 'no-repeat' })
+  }
+  return { layers, hasImage: bgUrl !== null }
+}
+
+function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean; bgSrc?: string } = {}): string[] {
   const out: string[] = []
   if (opts.fill !== false) {
     const fill = cssColor(a.surfaceFill)
@@ -584,26 +623,7 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
   }
   if (px(a.borderRadiusPx)) out.push(`border-radius: ${px(a.borderRadiusPx)}`)
   if (a.opacity !== undefined) out.push(`opacity: ${a.opacity}`)
-  // REQ-103 — the layer order, top-most first: a scrim covers everything; a
-  // texture reads *over* the wash and the backdrop it textures; a gradient washes
-  // the image; the image sits on the solid fill. So a dot-grid over a radial glow
-  // over a dark fill — the ordinary dark-theme stack — is what the axes say.
-  const bgLayers: BgLayer[] = []
-  if (a.overlay) {
-    const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
-    if (c8) bgLayers.push(plainLayer(`linear-gradient(${c8}, ${c8})`))
-  }
-  if (a.pattern) bgLayers.push(...patternLayers(a.pattern))
-  if (a.surfaceGradient) {
-    const g = gradientCss(a.surfaceGradient)
-    if (g) bgLayers.push(plainLayer(g))
-  }
-  const bgUrl = cssUrl(a.backgroundImageUrl)
-  if (bgUrl) {
-    // BUG-13 — a section/band background image fills its box (cover, centered, no
-    // tiling) — the faithful default for a hero/section backdrop.
-    bgLayers.push({ image: bgUrl, size: 'cover', position: 'center', repeat: 'no-repeat' })
-  }
+  const { layers: bgLayers, hasImage: bgUrl } = surfaceBgLayers(a, opts.bgSrc)
   if (bgLayers.length) out.push(`background-image: ${bgLayers.map((l) => l.image).join(', ')}`)
   // The sizing triple is *positional* — one value per layer, in layer order — so a
   // tiled pattern and a `cover` backdrop can coexist on one box. A surface with no
@@ -1647,20 +1667,6 @@ function imageSizes(
 const SRCSET_URL_ALLOWED = /^[A-Za-z0-9\-._~:/?#[\]@!$&*+;=%]+$/
 
 /**
- * REQ-222 — the `srcset` attribute for an image node, or `''`.
- *
- * THE SOLE `srcset` SINK, on the same terms as {@link cssUrl} is the sole
- * `url()` one: every candidate passes the scheme allowlist AND an independent
- * character allowlist, so a manifest entry cannot become list syntax however it
- * was produced. Layer 2 does not trust Layer 1, and the manifest arrives from a
- * publish that read bytes out of a bucket.
- *
- * FEWER THAN TWO CANDIDATES EMITS NOTHING. A one-entry `srcset` names the file
- * that is already in `src` and asks the browser to do arithmetic to arrive back
- * there; the manifest should not contain one, and if it does, the attribute is
- * the wrong place to find that out.
- */
-/**
  * REQ-222 — the manifest entry for an image's `src`, or undefined.
  *
  * `hasOwnProperty` RATHER THAN A BARE INDEX, because the key is derived from a
@@ -1679,6 +1685,20 @@ function deliveryFor(src: string, state: RenderState): ImageDelivery | undefined
     : undefined
 }
 
+/**
+ * REQ-222 — the `srcset` attribute for an image node, or `''`.
+ *
+ * THE SOLE `srcset` SINK, on the same terms as {@link cssUrl} is the sole
+ * `url()` one: every candidate passes the scheme allowlist AND an independent
+ * character allowlist, so a manifest entry cannot become list syntax however it
+ * was produced. Layer 2 does not trust Layer 1, and the manifest arrives from a
+ * publish that read bytes out of a bucket.
+ *
+ * FEWER THAN TWO CANDIDATES EMITS NOTHING. A one-entry `srcset` names the file
+ * that is already in `src` and asks the browser to do arithmetic to arrive back
+ * there; the manifest should not contain one, and if it does, the attribute is
+ * the wrong place to find that out.
+ */
 function srcsetAttr(delivery: ImageDelivery | undefined): string {
   if (!delivery) return ''
   const candidates: string[] = []
@@ -1690,6 +1710,163 @@ function srcsetAttr(delivery: ImageDelivery | undefined): string {
   }
   if (candidates.length < 2) return ''
   return ` srcset="${escapeHtml(candidates.join(', '))}"`
+}
+
+/**
+ * REQ-222 — the device pixel ratio a background rendition is chosen for.
+ *
+ * WHY A BACKGROUND NEEDS ONE AND AN `<img>` DOES NOT. A `srcset` hands the
+ * browser the candidates and the browser applies its own device's ratio, exactly
+ * and for free. A `background-image` has no such list — `image-set()` is the CSS
+ * equivalent and is deliberately not used here (per-width rules ride the
+ * per-breakpoint machinery L1 already emits, rather than introducing a second
+ * mechanism) — so the renderer must choose one rendition per breakpoint, for a
+ * screen it cannot see.
+ *
+ * TWO, BECAUSE UNDER-FETCHING IS THE UNRECOVERABLE ERROR. Nearly every phone and
+ * laptop this ladder matters most on reports 2 or more; choosing 1 would serve a
+ * visibly soft photograph to the majority, which is a bug the client can SEE, in
+ * exchange for bytes. Choosing for 3 would give a 375px-wide phone a 1280px
+ * backdrop and give most of the saving back. Two is the ratio the real population
+ * clusters at, and the error either side of it is bounded: a 1× screen fetches a
+ * picture larger than it needs, a 3× screen fetches one it upscales slightly.
+ */
+const BACKGROUND_DPR = 2
+
+/**
+ * REQ-222 — the node's box width in px at one viewport width, or null when this
+ * renderer does not own it.
+ *
+ * THE POINT-EVALUATED TWIN OF {@link imageSizes}, and they are separate because
+ * they answer different questions. `sizes` must produce a *conditions list* that
+ * is safe across each whole segment, so it takes each segment at its upper
+ * bound; this is asked at one viewport width — always a rung of the document's
+ * own ladder — and answers for that width. Both share {@link anchorWidthAt}, and
+ * both overstate rather than understate, for the same reason.
+ *
+ * THE PRECEDENCE IS `geometryRules`'s and is not a preference: a column anchor
+ * SUPPRESSES the keyframe widths (REQ-88), so reading the keyframes for an
+ * anchored node would describe a box the CSS does not produce.
+ */
+function nodeWidthAt(
+  geometry: L1Geometry | undefined,
+  sizing: L1AxisSizing | undefined,
+  column: L1Column | undefined,
+  vw: number,
+): number | null {
+  const anchoredWidth = column ? geometry?.anchor?.width : undefined
+  if (anchoredWidth && column) return anchorWidthAt(anchoredWidth, column, vw)
+
+  const frames = geometry?.keyframes
+  if (frames && frames.length > 0) {
+    if (vw <= frames[0].at) return frames[0].width
+    for (let i = frames.length - 1; i >= 0; i--) {
+      if (frames[i].at > vw) continue
+      const next = frames[i + 1]
+      if (!next) return frames[i].width
+      // `snap` holds the lower keyframe across the segment; `interpolate` sweeps,
+      // and its upper bound is the larger end — overstating within the segment.
+      return (geometry?.segments?.[i] ?? 'interpolate') === 'snap'
+        ? frames[i].width
+        : Math.max(frames[i].width, next.width)
+    }
+    return frames[0].width
+  }
+
+  const width = sizing?.width
+  if (!width) return null
+  if (width.mode === 'fixed' && width.px !== undefined) return width.px
+  if (width.maxPx !== undefined) return Math.min(width.maxPx, vw)
+  return null
+}
+
+/**
+ * REQ-222 — which rendition of `delivery` a box `boxWidth` px wide should paint.
+ *
+ * SMALLEST THAT STILL COVERS, and the original when nothing does. A background
+ * is painted `cover`, so a rendition narrower than the box is upscaled by the
+ * browser and looks soft — the one outcome worth spending bytes to avoid. The
+ * manifest's last entry is the source itself, so "nothing covers it" resolves to
+ * the bytes that are already the authored URL and the page is unchanged.
+ */
+function backgroundRenditionFor(delivery: ImageDelivery, boxWidth: number): string {
+  const target = boxWidth * BACKGROUND_DPR
+  const covering = delivery.renditions.find((r) => r.width >= target)
+  return (covering ?? delivery.renditions[delivery.renditions.length - 1]).src
+}
+
+/**
+ * REQ-222 — surface declarations for a node, **with its background image taken
+ * from the delivery ladder**, pushing the per-breakpoint overrides as it goes.
+ *
+ * THIS IS THE SECOND SINK, AND IT EXISTS BECAUSE THE FIRST ONE CANNOT REACH THE
+ * PICTURES THAT MATTER. A band backdrop — the hero photograph, the largest file
+ * on most sites — is a CSS `url()` on a box, not an `<img>`, so a ticket that
+ * laddered only `<img>` would save bandwidth on every picture except the one
+ * that costs the most. The ladder is a property of the picture, not of the tag
+ * that happens to place it.
+ *
+ * PER-WIDTH RULES, NOT `image-set()`. L1 already emits a rule per breakpoint and
+ * the widths the rules are keyed to are the same widths the geometry keyframes
+ * describe — which is what makes the choice principled rather than guessed, the
+ * same property that lets `sizes` be computed on the `<img>` side. `image-set()`
+ * would be a second mechanism with its own support story for the same job.
+ *
+ * THE BASE RULE TAKES THE SMALLEST RUNG, because the base rule is what a
+ * viewport BELOW the ladder gets — the narrowest screen, on the worst connection,
+ * which is the visitor this whole ticket is for. Each wider rung then overrides
+ * it, and an override is emitted only where the choice actually changes, so a
+ * picture that answers three breakpoints with one rendition emits one rule.
+ *
+ * A NODE WHOSE WIDTH THIS RENDERER DOES NOT OWN IS ASSUMED TO SPAN THE VIEWPORT.
+ * That is what a band is, it is the only shape a full-bleed backdrop takes, and
+ * the error is in the safe direction: a narrower box gets a rendition larger than
+ * it needed, never one too small to cover it.
+ */
+function surfaceLadderDecls(
+  a: L1SurfaceAxes,
+  selector: string,
+  geometry: L1Geometry | undefined,
+  sizing: L1AxisSizing | undefined,
+  state: RenderState,
+  opts: { fill?: boolean } = {},
+): string[] {
+  const delivery = a.backgroundImageUrl ? deliveryFor(a.backgroundImageUrl, state) : undefined
+  const ladder = [...(state.widths ?? [])].sort((x, y) => x - y)
+  // No manifest, no ladder, or a manifest with one entry (the source itself):
+  // nothing to choose between, so this is byte-identical to the unladdered emit.
+  if (!delivery || delivery.renditions.length < 2 || ladder.length === 0) {
+    return surfaceDecls(a, opts)
+  }
+
+  // A CHOSEN RENDITION THAT WILL NOT PASS THE `url()` SINK FALLS BACK TO THE
+  // AUTHORED URL, and this is the one place the fallback matters: a rejected
+  // candidate would otherwise leave the layer out entirely, which does not serve
+  // a smaller picture — it silently removes the client's backdrop.
+  const authored = a.backgroundImageUrl as string
+  const choiceAt = (vw: number): string => {
+    const src = backgroundRenditionFor(delivery, nodeWidthAt(geometry, sizing, state.column, vw) ?? vw)
+    return cssUrl(src) === null ? authored : src
+  }
+
+  const base = choiceAt(ladder[0])
+  let previous = base
+  for (const w of ladder.slice(1)) {
+    const src = choiceAt(w)
+    if (src === previous) continue
+    previous = src
+    const { layers } = surfaceBgLayers(a, src)
+    if (!layers.length) continue
+    state.rules.push({
+      media: `(min-width: ${num(w)}px)`,
+      selector,
+      // ONLY `background-image` is restated. The sizing triple is positional over
+      // the same layer list, which this override does not change, so restating it
+      // would be repetition that could fall out of step.
+      decls: [`background-image: ${layers.map((l) => l.image).join(', ')}`],
+    })
+  }
+  return surfaceDecls(a, { ...opts, bgSrc: base })
 }
 
 /**
@@ -2577,7 +2754,7 @@ function emitNode(
       // kind. Emitted before `gradientFill` so a text-fill gradient (which
       // repurposes background-image + background-clip:text for the glyphs) still
       // wins; a run never carries both a chip fill and a glyph gradient.
-      base.push(...surfaceDecls(a, { fill: !a.gradientFill }))
+      base.push(...surfaceLadderDecls(a, selector, node.geometry, node.sizing, state, { fill: !a.gradientFill }))
       // A text-fill gradient paints the glyphs via background-clip:text; it
       // overrides the flat colour (pushed later so it wins in the declaration list).
       if (a.gradientFill) {
@@ -2662,7 +2839,7 @@ function emitNode(
       if (a.objectPosition) {
         base.push(`object-position: ${num(a.objectPosition.xPct)}% ${num(a.objectPosition.yPct)}%`)
       }
-      base.push(...surfaceDecls(a))
+      base.push(...surfaceLadderDecls(a, selector, node.geometry, node.sizing, state))
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? relativizeUrl(node.src.trim()) : ''
@@ -2679,7 +2856,18 @@ function emitNode(
       // rung, which is the download we came to remove.
       const sizes = srcset === '' ? null : imageSizes(node.geometry, node.sizing, state)
       const sizesAttr = sizes === null ? '' : ` sizes="${escapeHtml(sizes)}"`
-      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr} alt="${escapeHtml(node.alt)}" />`
+      // REQ-222 — the picture's INTRINSIC dimensions, which the manifest carries
+      // because the publish had to measure the source to cap its ladder. They
+      // give the browser the aspect ratio before a single byte of the image has
+      // arrived, so the box is reserved at first layout and the text below it does
+      // not jump when the photograph lands. They are presentational HINTS, not the
+      // layout: every rule this renderer emits for the node's own width and height
+      // is a stylesheet rule, and a stylesheet beats an attribute.
+      const intrinsic =
+        delivery && Number.isFinite(delivery.width) && Number.isFinite(delivery.height) &&
+        delivery.width > 0 && delivery.height > 0
+      const dims = intrinsic ? ` width="${num(delivery!.width)}" height="${num(delivery!.height)}"` : ''
+      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr}${dims} alt="${escapeHtml(node.alt)}" />`
       html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
       break
     }
@@ -2692,7 +2880,7 @@ function emitNode(
       // The fragment is framework-rendered markup, not instance data, so it is
       // inserted verbatim — every instance value inside it already passed the
       // module's own escaping/URL sinks on the way in.
-      base.push(...surfaceDecls(node.axes ?? {}))
+      base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
       // REQ-105 — the seam's own measure. A mounted module is constrained by the
       // slot it mounts into, so a max-width no longer costs a wrapper container
       // that carries nothing but the number.
@@ -2704,7 +2892,7 @@ function emitNode(
       break
     }
     case 'box': {
-      base.push(...surfaceDecls(node.axes ?? {}))
+      base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       const inner = (node.children ?? [])
@@ -2733,7 +2921,7 @@ function emitNode(
       if (node.align) base.push(`align-items: ${ALIGN[node.align]}`)
       // REQ-98 — a container paints AND lays out, so a painted, internally-laid-out
       // element is ONE node rather than a `box` wrapped around a `container`.
-      base.push(...surfaceDecls(node.axes ?? {}))
+      base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       // REQ-100 — a container's stagger is handed DOWN to each revealing child as
