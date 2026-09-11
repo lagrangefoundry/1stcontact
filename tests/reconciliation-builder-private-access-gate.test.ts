@@ -157,13 +157,17 @@ afterEach(() => {
 })
 
 /**
- * AC-1375 — a granted identity is admitted and gets the surface's own response.
+ * AC-1375 — a granted identity is NOT REFUSED BY THIS GATE.
  *
- * The claim is that the gate is NOT what stops the builder working, so what the
- * surface answers is deliberately not pinned beyond being ITS answer: a success
- * status, its content type and its body — not the gate's plain-text refusal.
+ * The claim is that the gate is not what stops the builder working, and it stops
+ * exactly there. Passing this gate stopped being admission: the identity
+ * gateway's policy is identity-only, so a verified identity establishes WHO the
+ * caller is, and a separate decision behind this gate says whether they may be
+ * here. Asserting a success status or the surface's content type would make the
+ * gate depend on the surface and on the check that both depend on the gate — so
+ * what comes back is asserted only to be NOT one of this gate's own refusals.
  */
-it('test_UAT_AC1375_a_granted_identity_receives_the_response_of_the_surface_behind_the_gate', async () => {
+it('test_UAT_AC1375_a_granted_identity_is_not_refused_by_the_gate', async () => {
   publishKeys()
   const { env } = gateEnv()
   const token = await mint({ email: 'martin-github@westhead.me' })
@@ -171,22 +175,35 @@ it('test_UAT_AC1375_a_granted_identity_receives_the_response_of_the_surface_behi
   const response = await worker.fetch(GET('/', { 'cf-access-jwt-assertion': token }), env)
   const body = await response.text()
 
-  expect(response.status, 'a granted identity was not admitted').toBe(200)
-  // The response is the SURFACE's, not the gate's: HTML the builder produced,
-  // rather than the plain-text shape every refusal in this file carries.
-  expect(response.headers.get('content-type')).toContain('text/html')
-  expect(response.headers.get('content-type')).not.toMatch(REFUSAL_CONTENT_TYPE)
-  expect(body).toContain('1st Contact builder')
-  expect(body).not.toMatch(/Cloudflare Access (rejected|is not configured)/)
+  expect(response.status, 'a granted identity was turned away as unauthenticated').not.toBe(401)
+  expect(response.status, 'a granted identity met the unconfigured-gate refusal').not.toBe(503)
+  // Not the gate's own rejection text — the plain-text shape it produces when it
+  // turns a caller away. Whatever answered, it was not this gate refusing.
+  expect(body, 'the body carries this gate’s own refusal').not.toMatch(
+    /Cloudflare Access (rejected|is not configured)/,
+  )
 })
 
 /**
  * AC-1376 — one identity, three ways of arriving, and the header wins.
  *
+ * THE VERDICT, NOT THE SERVED RESPONSE. Each arrival is asserted only as "not
+ * refused as unauthenticated", because acceptance here means the gate proved the
+ * identity and let the caller past it — what the caller then receives is decided
+ * behind the gate. That distinction is load-bearing for the automation case in
+ * particular: a service identity carries a machine name and no address at all,
+ * and an address is what the decision behind the gate binds to, so an automation
+ * identity this gate accepts may still be refused further in. That outcome is out
+ * of scope and is asserted neither way.
+ *
  * "Header wins" is asserted at the boundary rather than by reading the extractor:
- * a good token in the header beside a bad one in the cookie is ADMITTED, and the
- * reverse arrangement is REFUSED. Only a gate that reads the header first
- * produces both answers.
+ * a good token in the header beside a bad one in the cookie is let past, and the
+ * reverse arrangement is REFUSED, naming the malformed value. Only a gate that
+ * reads the header first produces both answers.
+ *
+ * That the machine-name identity is the one the gate reports having PROVED is the
+ * verdict's own shape, and is asserted by AC-1761 — which owns what the gate
+ * hands onward — rather than restated here.
  */
 it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_service_identity', async () => {
   publishKeys()
@@ -205,12 +222,15 @@ it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_ser
   for (const arrival of arrivals) {
     const { env } = gateEnv()
     const response = await worker.fetch(GET('/', arrival.headers), env)
-    expect(response.status, `a valid identity on ${arrival.what} was refused`).toBe(200)
-    expect(await response.text()).toContain('1st Contact builder')
+    expect(response.status, `a valid identity on ${arrival.what} was refused`).not.toBe(401)
+    expect(
+      await response.text(),
+      `a valid identity on ${arrival.what} met this gate’s own refusal`,
+    ).not.toMatch(/Cloudflare Access (rejected|is not configured)/)
   }
 
   // A service identity carries a machine name instead of an email, and is
-  // admitted on exactly the same terms — so it must not have been let in by some
+  // accepted on exactly the same terms — so it must not have been let in by some
   // laxer path: the same token with a stale audience is still refused.
   const misaddressed = await mint({ common_name: 'deploy-bot.access', aud: ['b'.repeat(64)] })
   expect((await worker.fetch(GET('/', { 'cf-access-jwt-assertion': misaddressed }), gateEnv().env)).status).toBe(401)
@@ -220,7 +240,7 @@ it('test_UAT_AC1376_the_identity_is_accepted_from_the_header_the_cookie_or_a_ser
     GET('/', { 'cf-access-jwt-assertion': human, cookie: 'CF_Authorization=stale-and-invalid' }),
     gateEnv().env,
   )
-  expect(headerWins.status, 'the stale cookie was used in place of the header').toBe(200)
+  expect(headerWins.status, 'the stale cookie was used in place of the header').not.toBe(401)
 
   const headerLoses = await worker.fetch(
     GET('/', { 'cf-access-jwt-assertion': 'stale-and-invalid', cookie: `CF_Authorization=${human}` }),
@@ -376,16 +396,22 @@ it('test_UAT_AC1379_unobtainable_signing_keys_deny_rather_than_admit', async () 
  * on the same running gate. Without the refresh every valid identity would be
  * refused for the cache lifetime, and "valid identity, refused" is an outage
  * that reads to an operator like a break-in.
+ *
+ * The claim is about the gate's VERDICT on the rotated token, not about the
+ * response the caller receives — what answers behind the gate is a separate
+ * decision. The warm-up request is likewise asserted only as "not refused": what
+ * it needs to establish is that the key set was fetched, which the read count
+ * below observes directly.
  */
 it('test_UAT_AC1380_a_newly_published_signing_key_is_honoured_without_a_restart', async () => {
   const net = publishKeys()
 
-  // Admit one request, so the gate has read and retained the current key set.
+  // Let one request past, so the gate has read and retained the current key set.
   const warm = await worker.fetch(
     GET('/', { 'cf-access-jwt-assertion': await mint({ email: 'martin-github@westhead.me' }) }),
     gateEnv().env,
   )
-  expect(warm.status, 'the gate did not admit before the rotation').toBe(200)
+  expect(warm.status, 'the gate refused before the rotation').not.toBe(401)
   const readsBefore = net.calls.length
   expect(readsBefore).toBeGreaterThan(0)
 
@@ -397,8 +423,12 @@ it('test_UAT_AC1380_a_newly_published_signing_key_is_honoured_without_a_restart'
 
   const response = await worker.fetch(GET('/', { 'cf-access-jwt-assertion': token }), gateEnv().env)
 
-  expect(response.status, 'an identity signed by a newly published key was refused').toBe(200)
-  expect(await response.text()).toContain('1st Contact builder')
+  expect(response.status, 'an identity signed by a newly published key was refused').not.toBe(401)
+  // Specifically NOT the refusal that names an unmatched signing key, which is
+  // the one a stale key set produces.
+  expect(await response.text(), 'the rotated token was refused as unsigned').not.toMatch(
+    /no Access signing key matches kid/,
+  )
   // It was honoured by re-reading the publication, not by having never cached.
   expect(net.calls.length, 'the gate did not re-read the key set').toBeGreaterThan(readsBefore)
 
