@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T02:05:54.059619+00:00'
+updated_at: '2026-09-11T02:16:13.156283+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -227,3 +227,84 @@ This widens the ticket materially — a second sink, its own rendition wiring, a
 a reachability sweep across three siblings. It does not change what it depends
 on. Worth splitting only if the `<img>` half is ready to ship well before the
 background half; do not split it to make the first half look finished.
+
+
+## How it works
+
+### The ladder
+
+The conventional widths are **320, 640, 960, 1280, 1600 and 1920**. A picture's
+ladder is every conventional width *strictly below its own*, plus **the original
+at its own width as the top rung** — so the widest entry in a `srcset` is always
+bytes that already exist and nothing is ever upscaled. A 600px logo gets 320 and
+itself; a 5000px photograph gets all six steps and itself; a 300px icon gets no
+ladder at all and is served exactly as it is, with a plain `src` and no `srcset`.
+
+**A rendition keeps its source's format.** This is a width ladder, not a format
+change: a JPEG's rungs are JPEGs. Choosing a better codec is a separate question
+with a separate answer (`<picture>`, `type=`), and conflating the two would make
+neither reviewable.
+
+**Only raster stills get one.** An SVG is resolution-independent, so a width
+ladder for it is a contradiction; a GIF is animated, and a transform would
+flatten it. Both are served as they are. The same is true of anything the
+transform cannot read: a picture that cannot be measured gets no ladder rather
+than a failed publish.
+
+### `sizes` comes from the node, not from the picture
+
+A `srcset` the browser cannot choose from is worse than no `srcset`: with no
+`sizes` the browser assumes the image fills the viewport and takes the largest
+rung, which is the behaviour we came to remove. So the renderer states the box's
+real width.
+
+**It can, exactly, because L1 already pins it.** The renderer emits the image's
+width per breakpoint today, from one of three places, and each yields a `sizes`
+list:
+
+- a **column anchor** — a closed form in the viewport width, evaluated at each
+  rung of the document's own width ladder;
+- a **keyframe track** — the captured width per breakpoint, taken at its upper
+  bound across each segment so the attribute never understates the box;
+- a **fixed px extent** on the node's sizing axis — one length, no conditions.
+
+A node whose width is none of these (fluid, hug) gets **no `sizes`**, which
+falls back to the browser's assumption: an over-fetch, never a picture too small
+for its box.
+
+### Where the bytes live
+
+Renditions ride into **the revision's own `out/assets/`**, under a `d/` segment
+that marks them as derived. They are **not** written to `source/`: a checkout
+restores a definition, and a delivery rendition is not part of what the site
+*is*. So a revision serves its ladder and a checkout never sees one.
+
+**The content-addressed cache is what makes a republish free.** A rendition is
+named for the SHA-256 of the bytes it came from and the width it was rendered
+at, and the cache is consulted before any transform. It sits at
+`derived/<tenant>/…` — **outside the served root**, so no URL can address it,
+and **tenant-prefixed**, because a global content address is an existence oracle
+across the tenant barrier (the same reason `t/<tenant>/blob/<sha256>` carries
+one). A republish of an unchanged picture reads the cache and transforms
+nothing.
+
+### No binding, no ladder
+
+The ladder is built through the **Cloudflare Images binding**, declared in both
+the top-level and the production environment of `apps/control-app`, pinned by a
+UAT like every other binding in that file.
+
+Where there is no binding there is **no ladder, and an otherwise unchanged
+publish** — not a refusal. That is what `1c publish` against an operator's disk
+does, and it is the honest answer: a publish without delivery sizes is exactly
+today's publish, whereas a publish that refused because images were unconfigured
+would take away something that works.
+
+### What does not change
+
+The draft and edit channels never receive a manifest, so the request-time render
+is untouched — the ladder is an argument publish alone supplies. `site.json`,
+the page definitions and the L1 image node are all unchanged: the manifest is a
+render input, and the document stays innocent of delivery. Background images
+(`backgroundImageUrl`) are a CSS `url()` rather than an `<img>` and keep no
+ladder here; they are a separate question.
