@@ -6,10 +6,10 @@ title: The deployed session is primed with the map and granted a read-only surfa
   confined to the system knowledge base on both axes
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:13:12.172796+00:00'
-updated_at: '2026-09-11T03:13:12.172796+00:00'
+updated_at: '2026-09-11T03:24:29.078533+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
