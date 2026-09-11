@@ -6,9 +6,9 @@ title: 'Public forms accept a submission: lead capture, asset delivery, and the 
   that keep it safe'
 created_by: BUG-78
 created_at: '2026-09-10T22:59:48.855411+00:00'
-updated_at: '2026-09-11T00:05:22.427426+00:00'
+updated_at: '2026-09-11T00:05:26.010031+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.158
+  story_points: 13
 ---
 
 # Public forms accept a submission
