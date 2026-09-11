@@ -45,6 +45,10 @@ import type {
   ImageLibrary,
   StoredImage,
 } from '../../../tools/generate/src/cli/image-library'
+import {
+  parseRecipe,
+  type ImageRenderer,
+} from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   describe,
@@ -996,12 +1000,22 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
  * screenshot here as a second way to reach the same pixels would be the second
  * idea of what a capture is that [[REQ-166]] exists to avoid.
  *
- * `original` IS THE SEAM AND NOT YET A BRANCH. A Library record is where an edit
- * recipe will live ([[REQ-219]]), so this is the one half of the merged library
- * that will ever have two answers to give. Until it does, the stored bytes are
- * both of them.
+ * `original` IS THE BRANCH NOW ([[REQ-219]]). A Library record is where the edit
+ * recipe lives, so this is the one half of the merged library that has two
+ * answers to give: `true` is the bytes as the client handed them over, `false`
+ * is the picture as it currently stands. *"What did the crop take away"* is a
+ * real question and both answers have to be reachable.
+ *
+ * THE RENDERER IS OPTIONAL AND ITS ABSENCE IS NOT A DEGRADED MODE. A deployment
+ * with no Images binding has no way to apply a recipe and no way to have written
+ * one, so every picture in it is its own original and both answers are the same
+ * bytes — which is exactly what this returned before the recipe existed. The
+ * same is true, renderer or not, of a picture nobody has edited: an empty recipe
+ * is served as the stored bytes with no transform and no re-encode, because
+ * every picture in the Library is in that state today and none of them should
+ * start paying for a renderer they do not use.
  */
-export function materialImageLibrary(store: TicketStore): ImageLibrary {
+export function materialImageLibrary(store: TicketStore, renderer?: ImageRenderer): ImageLibrary {
   return {
     async list(): Promise<StoredImage[]> {
       const rows = await listMaterial(store)
@@ -1017,8 +1031,16 @@ export function materialImageLibrary(store: TicketStore): ImageLibrary {
           aliases: row.filename === row.title ? [] : [row.filename],
         }))
     },
-    async read(image): Promise<Uint8Array> {
-      return (await materialFile(store, image.name)).bytes
+    async read(image, opts): Promise<Uint8Array> {
+      const file = await materialFile(store, image.name)
+      if (opts?.original !== false || !renderer) return file.bytes
+      // READ FROM THE RECORD RATHER THAN PASSED IN. The caller asked for "the
+      // picture as it stands", which is a question about the record's current
+      // state — a recipe threaded through the call would be the caller's idea of
+      // it, and the two could disagree.
+      const recipe = parseRecipe((await store.get({ uid: image.name })).ticket.fields.edits)
+      if (recipe.length === 0) return file.bytes
+      return (await renderer.render(file.bytes, file.contentType, recipe)).bytes
     },
   }
 }
