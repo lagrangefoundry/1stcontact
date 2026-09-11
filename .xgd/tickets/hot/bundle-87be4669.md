@@ -5,9 +5,9 @@ type: bundle
 title: REQ-164 + REQ-159 + REQ-165 + REQ-163 + REQ-161 + 2 more
 created_by: xgd
 created_at: '2026-09-09T21:32:49.456670+00:00'
-updated_at: '2026-09-09T21:34:43.010549+00:00'
+updated_at: '2026-09-11T06:51:49.462008+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: regression_anchor_uid
 status: reconciling
 fields:
   commits:
@@ -652,6 +652,7 @@ fields:
     new_sha: 5101e676440bc6235259856e48a1148cd6077550
   - old_sha: c2f6c582ad88ff1bf872907a8297bfe2c4a4b91e
     new_sha: aed219dbdf2c53e371d193fac3820552c51c36d3
+  regression_anchor_uid: report-fc15e63a
 ---
 
 # Bundle
