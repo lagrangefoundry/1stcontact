@@ -2,8 +2,8 @@
 uid: acceptance_criterion-f14db6cc
 id: AC-1486
 type: acceptance_criterion
-title: Bytes attached to a piece of material come back as a record naming their content
-  address and size, listed under the material they belong to
+title: Bytes attached to a piece of material come back as a record naming their integrity
+  digest and size, listed under the material they belong to
 created_by: xgd
 created_at: '2026-09-02T00:16:55.839493+00:00'
 updated_at: '2026-09-10T02:22:14.098175+00:00'
@@ -22,8 +22,9 @@ fields:
 Attaching bytes to an existing ticket, through the account-scoped store the deployment itself uses,
 succeeds and yields an attachment record that names the bytes:
 
-- a **content address**: a 64-character lowercase hexadecimal digest derived from the bytes
-  themselves, identical for identical bytes and different for any other bytes;
+- an **integrity digest**: a 64-character lowercase hexadecimal digest derived from the bytes
+  themselves, identical for identical bytes and different for any other bytes. It describes the
+  content — it is not where the bytes are stored, which is derived from the record itself;
 - a **size** equal, exactly, to the number of bytes attached;
 - the filename and content type supplied with the attachment, where supplied.
 
@@ -38,5 +39,6 @@ and no prior registration of a place to put them.
 
 Against a real database and a real object store, inside the deployment's own runtime and through the
 same wiring the deployment uses: create a ticket, attach a known byte sequence to it, and assert the
-returned record's content address matches the 64-hex-character form and its size equals the length of
-the sequence attached. Then list the ticket's attachments and confirm the record is among them.
+returned record's integrity digest matches the 64-hex-character form and equals the digest of the
+attached bytes, and that its size equals the length of the sequence attached. Then list the ticket's
+attachments and confirm the record is among them.
