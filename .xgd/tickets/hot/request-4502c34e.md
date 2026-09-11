@@ -5,7 +5,7 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-09-11T02:13:52.361781+00:00'
+updated_at: '2026-09-11T02:33:12.810603+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -135,3 +135,74 @@ the row simply never appears, and the client is left to conclude the product
 ignored them. A refusal the client cannot see is not a refusal, and this ticket's
 whole answer to an unreadable photograph is a sentence the client can act on, so
 the sentence has to reach them from both drop areas.
+
+
+## Consequences worth stating, because tests assert them
+
+These follow from the decisions above rather than adding to them, and each is a
+thing a later change could quietly reverse.
+
+**AVIF shares the container and is deliberately left alone.** AVIF is an ISO
+base-media file too, so a detector that stopped at the `ftyp` box would convert
+a format this pipeline already stores, previews and serves — re-encoding a
+perfectly good image and losing quality doing it. The brand is what separates
+them, which is the reason the brand is what is read.
+
+**Anything that is not HEIC passes through by identity, not by a re-encode.**
+This check runs on every upload. A PNG that came out the other side of an image
+pipeline would be a different file for no reason, so what is stored for every
+other format is byte-for-byte what arrived.
+
+**What we fetch on a client's behalf is not converted.** The conversion belongs
+to the door, and `ingestFetch` is not the door: it pulls `reference` material
+that is never promoted onto a site. Converting it would be a different change
+with a different justification.
+
+**The failure detail is kept for an operator and withheld from the client.**
+Whatever the converter says about codecs is addressed to a programmer; what
+reaches the client is a sentence they can act on. Both are worth having and they
+are not the same sentence, so the original travels as the refusal's cause rather
+than being concatenated onto the one the client reads. For the same reason, the
+refusals name the format and the remedy and do not name the file — the two
+surfaces that show them name the file themselves, and a filename in the sentence
+would appear twice in every message anybody reads.
+
+**The name is rewritten even where there is nothing to rewrite.** A photograph
+with no extension gains one, because the extension is the only thing the
+silent-type path has to read; a name that is only an extension has nothing in
+front of the dot to keep and becomes a plain name. Getting this wrong stores the
+file as `shopfront.HEIC.jpg`, carrying the extension the rename exists to remove.
+
+**The accept list names HEIC and does not say `image/*`.** Naming HEIC is the
+entry that makes the list worth writing — we take an iPhone photograph now, so a
+picker that greyed it out would refuse a file the product handles. `image/*`
+resolves to whatever the platform thinks an image is, which on some browsers
+excludes HEIC and on others admits formats nothing here can read: an
+advertisement whose content depends on the client's operating system is not an
+advertisement. The list is a hint rather than a gate — a drag never consults it
+and *All Files* is always available — so the origin's refusals stay the only
+enforcement.
+
+**The sentence the client reads is the origin's own.** The surfaces relay it and
+do not compose their own, because the origin is what knows the ceiling, the
+format and the remedy. The browser invents a sentence only where there is none to
+relay — a dropped connection, an answer that was not JSON.
+
+**A refusal is cleared by the next drop that succeeds.** One left standing above
+a list that has since accepted the file would be a worse lie than the silence it
+replaced.
+
+**The Images binding is declared on both sides of `wrangler.toml`.** A named
+wrangler environment inherits neither vars nor bindings, and this binding's
+failure mode is the nastiest of the set: forgetting the production repeat leaves
+local dev converting happily while the deployed Worker has no binding at all and
+refuses every iPhone photograph. Nothing an operator does locally could notice
+it, so the two halves are pinned together.
+
+**And HEIC input is plan-gated at Cloudflare.** It is an Enterprise-plan input
+format on their own list. That is exactly what makes the refusal above
+load-bearing rather than defensive: a deployment whose plan does not admit HEIC
+refuses the file and says so, instead of accepting bytes it cannot decode. What
+this repository can prove locally is that the declaration exists, is named
+identically on both sides, and is what the code reads — what the live API does
+with real HEIC bytes is a question about an account and is not claimed here.
