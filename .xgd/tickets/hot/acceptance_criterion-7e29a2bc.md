@@ -6,10 +6,10 @@ title: An ingested file becomes a stored material record whose body is its descr
   and the answer reports what was stored
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:07:35.484478+00:00'
-updated_at: '2026-09-11T04:07:35.484478+00:00'
+updated_at: '2026-09-11T04:17:57.743627+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-6ccaedd5
   kind: behavior
