@@ -358,7 +358,7 @@ export function mountBuilder(root, options = {}) {
     site: sites[0]?.slug ?? null,
     // The pane is about to re-derive what it shows; take what the outgoing
     // document holds before the URL that replaces it is computed from it.
-    onBeforeNavigate: () => carry.capture(panel.frame.contentWindow),
+    onBeforeNavigate: () => carry.capture(panel.frame?.contentWindow),
   })
 
   /**
@@ -441,7 +441,7 @@ export function mountBuilder(root, options = {}) {
       slug,
       transport,
       shadeHex,
-      onChanged: () => panel.frame.contentWindow?.location.reload(),
+      onChanged: () => panel.reloadDocument(),
       ...opts,
     })
 
@@ -506,7 +506,7 @@ export function mountBuilder(root, options = {}) {
     //
     // Fired PER WRITE rather than at the end of the turn, so a request answered
     // by several edits shows the page unfolding as the assistant works.
-    onSiteChanged: () => panel.frame.contentWindow?.location.reload(),
+    onSiteChanged: () => panel.reloadDocument(),
     // [[REQ-210]] — the pill's expansion is the assistant's ENTIRE channel for a
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
@@ -554,12 +554,19 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(SITE_TAB.id).append(layout)
 
   /**
-   * Bind the edit loop to whatever the frame is currently showing (REQ-117).
+   * Bind the edit loop to whatever the pane is currently showing (REQ-117).
    *
-   * It re-binds on every `load` rather than once at mount, because the document
-   * inside the iframe is REPLACED on each navigation — switching site, switching
-   * mode, and the refresh after a save all produce a new `contentDocument`, and
-   * a bridge holding the old one is bound to a document nobody can see.
+   * It re-binds on the panel's `document` announcement rather than once at
+   * mount, because the document in front of the operator CHANGES: switching
+   * site and the refresh after a save each produce a new `contentDocument`, and
+   * since [[BUG-79]] switching mode reveals a DIFFERENT FRAME'S — a bridge
+   * holding the old one is bound to a document nobody can see either way.
+   *
+   * ON THE PANEL'S EVENT AND NOT THE FRAME'S, for the same reason: there is a
+   * frame per channel now, so a listener on one of them would go deaf the
+   * moment the operator flipped to the other. The panel announces whichever
+   * document has just arrived in front of the operator, whether it arrived by
+   * loading or by being revealed.
    *
    * View mode needs no guard here: `mountL1EditBridge` refuses to bind on a
    * document without the edit marker, so this is a no-op there by construction
@@ -583,7 +590,7 @@ export function mountBuilder(root, options = {}) {
      * a mode to leave, and leaving it with marks on the page would be worse
      * than never having drawn them.
      */
-    points.bind(panel.frame.contentDocument ?? null)
+    points.bind(panel.frame?.contentDocument ?? null)
     /**
      * The document that just arrived is put into the state the one before it was
      * in ([[REQ-215]]).
@@ -596,12 +603,12 @@ export function mountBuilder(root, options = {}) {
      * BEFORE the bridge is mounted below, so the segments the editor binds
      * against are the ones actually on screen.
      */
-    carry.adopt(panel.frame.contentWindow, currentSite)
+    carry.adopt(panel.frame?.contentWindow, currentSite)
     // No bridge supplied → no editing. The browser entry always supplies one;
     // a host that does not (a test mounting only the chrome) gets the pane and
     // the toolbar with no edit loop, rather than a module that fails to load.
     if (!editBridge) return
-    const doc = panel.frame.contentDocument
+    const doc = panel.frame?.contentDocument
     if (!doc) return
     editor = mountEditor(doc, {
       slug: currentSite,
@@ -627,10 +634,10 @@ export function mountBuilder(root, options = {}) {
       // The origin has already re-rendered the edit channel by the time a save
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.
-      onSaved: () => panel.frame.contentWindow?.location.reload(),
+      onSaved: () => panel.reloadDocument(),
     })
   }
-  panel.frame.addEventListener('load', rebind)
+  const unbindDocument = panel.on('document', rebind)
 
   /**
    * Mark Points is an EDIT-MODE mode, so leaving edit mode leaves it
@@ -1048,7 +1055,7 @@ export function mountBuilder(root, options = {}) {
       banner?.remove()
       unwatchSession()
       sessionNotice?.element.remove()
-      panel.frame.removeEventListener('load', rebind)
+      unbindDocument()
       unbindSite()
       switcher.destroy()
       unwatchChat()
