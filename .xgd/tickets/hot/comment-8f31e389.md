@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T21:42:37.285897+00:00'
+updated_at: '2026-09-11T21:46:28.075925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -195,5 +195,40 @@ Ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 <!-- xgd-chat role="user" ts="2026-09-11T21:42:36.196259+00:00" -->
 #### You
 Please create a ticket to fix the 16 failures
+
+<!-- xgd-turn id="792d7b86-4ff7-4310-8bb7-323aa5c952b2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:46:26.981241+00:00" -->
+#### Claude
+The user explicitly asked for a ticket, so I'll file one. First let me find out what actually breaks — a bug ticket that just lists test names is useless.
+
+`AC977` lists uncovered routes — I need to check whether my new routes are among them.
+
+Confirmed — two of those uncovered routes are mine. Let me characterise the rest before writing the ticket.
+
+The priming failures aren't the KB network error — the missing sentences are locally composed. Let me test the upstream-drift hypothesis.
+
+Causes are now pinned. Writing the ticket body.
+
+**BUG-83** (`bug-ee6c6c39`) — filed at `draft`, priority high.
+
+I ran each failure down to a cause rather than listing test names, and the 16 turned out to be five independent problems:
+
+| # | Cause | Tests |
+|---|---|---|
+| 1 | Provider output missing from the primed system text — site-binding sentence, change signal, corpus delta | **11** |
+| 2 | Three declared origin routes have no non-cacheable probe (AC977) | 1 |
+| 3 | Panel width whitelist wrapped across lines; assertion matches a contiguous substring | 2 |
+| 4 | webui component scope restated in three tracked files (AC960) | 1 |
+| 5 | `points.js:49` contains `data-l1-segment` in a CSS string (AC1006) | 1 |
+
+**One thing you should know: two of those uncovered routes in cause 2 are REQ-220's.** `/api/material/name` and `/api/material/recipe` are mine, and I did not extend AC977's probe list. Because that test was *already* red over `/api/material/changes`, nothing went green→red and the omission never announced itself — which is precisely the masking effect this ticket is about, caught in the act. I've named it as mine in the body rather than leaving it to look pre-existing. It's three probes to fix; say the word and I'll do it under REQ-220, since it's that ticket's debt.
+
+Two calls I made in the body rather than guessing at:
+
+- **Cause 1 has two candidate explanations and I did not pick one.** The missing sentences are all *provider* output and the priming list loads through the framework's `rolesFromMapping` — and `@lagrangefoundry/*` isn't in the lockfile, with the shared store last refreshed 2026-09-10, so upstream drift would produce exactly this shape. But the node runs also print `GET /accounts: fetch failed` (the sandbox has no route to Cloudflare). That can't explain the site-binding sentence, which is composed locally — though it probably does explain REQ-160's three document titles. The ticket says to tell those apart *before* fixing, because a fix aimed at the wrong one will appear to work on eight of eleven.
+- **Causes 3 and 5 may be faults in the tests, not the code.** The width rule in `builder.css` is correct and present; the test just looks for `':has(.builder-modal__box'` as one unbroken string and there's a newline plus eight spaces inside the selector list. And a CSS rule mentioning `data-l1-segment` isn't obviously a second address resolution. For 5 I flagged that the AC needs reading before either side is touched — it might be the drift the AC exists to catch.
+
+No code changed, so no branch was cut. REQ-220 remains at `free_coded`.
 
 <!-- xgd-chat-end -->
