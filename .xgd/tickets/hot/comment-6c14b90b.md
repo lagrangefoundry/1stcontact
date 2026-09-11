@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:23:30.088454+00:00'
+updated_at: '2026-09-11T21:32:03.341438+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -522,5 +522,15 @@ My calls, unless you say otherwise:
 One genuine product question before I build: **should a preview-origin lead be marked as such in the CRM?** You want to see the rows, which argues for them being ordinary contacts. But a row that reads as a public enquiry when it came from your own preview is a lie the CRM carries permanently — and these will accumulate every time anyone tests a form. I'd add a source marker so they're visible but honest, and filterable later. Want that, or plain rows indistinguishable from real ones?
 
 Tell me and I'll scope BUG-78, cut the branch, and build it.
+
+<!-- xgd-turn id="85e8fc4b-3a94-4a4a-aa12-effd8b749569-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:32:01.382766+00:00" -->
+#### You
+ok I want to get the contents of my account cleaned up there should be 3 businesses each with one site xgd, lagrange foundry and 1st contact. if there is an additional xgd business it should go - but lets make sure its the right one that goes...
+
+Oh wait - I think you are confusing a site with a PAGE - xgd has two pages home and whitepapers.
+
+Lets go with your recommendations
 
 <!-- xgd-chat-end -->
