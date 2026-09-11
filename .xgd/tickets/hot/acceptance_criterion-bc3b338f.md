@@ -6,10 +6,10 @@ title: How a material's description came to be is a declared pair of fields, so 
   needing describing again is selectable rather than guessable
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:50:13.584690+00:00'
-updated_at: '2026-09-11T05:50:13.584690+00:00'
+updated_at: '2026-09-11T06:00:05.767001+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e07c589b
   kind: behavior
