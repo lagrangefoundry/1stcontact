@@ -118,6 +118,21 @@ const EMPTY_TEXT = 'Ask for a change to your site.'
  *   appear keeps the short form they typed while the turn carries the long one.
  *   A reloaded transcript replays what the session recorded — the expansion —
  *   which is the honest archive: it is what the assistant was actually told.
+ * @param {(src: string, alt: string) => void} [options.onImageClick]
+ *   REQ-220 — the reader clicked a picture in the transcript.
+ *
+ *   A PICTURE IN THE CONVERSATION IS THE SAME PICTURE AS THE ONE IN THE LIBRARY
+ *   and must go to the same place. `mountChat` writes each turn's markdown
+ *   straight into a message element and publishes no per-node hook, so this is a
+ *   DELEGATED listener on the pane's own root: it survives every turn the widget
+ *   appends, including the ones replayed from the transcript on reload, without
+ *   this file having to be told when a message arrived.
+ *
+ *   IT REPORTS THE ADDRESS AND NOT A MATERIAL. This pane knows nothing about
+ *   sites and it is going to know nothing about the Library either — what it can
+ *   honestly say is *the reader clicked this picture*. Deciding whether that URL
+ *   names something this product can open is `app.js`'s, which is where every
+ *   other "what does this identifier mean" question in the builder already sits.
  */
 export function createChatPanel(options = {}) {
   const {
@@ -125,10 +140,26 @@ export function createChatPanel(options = {}) {
     transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
     onSiteChanged = () => {},
     expandPrompt = (markdown) => markdown,
+    onImageClick = null,
   } = options
 
   const element = document.createElement('div')
   element.className = 'builder-chat'
+
+  // DELEGATED ONCE, AT THE ROOT — see `onImageClick` on why it cannot be bound
+  // per message. Bound only when a host asked for it, so a pane mounted without
+  // the option behaves exactly as it did before this existed.
+  if (onImageClick) {
+    element.addEventListener('click', (ev) => {
+      const img = ev.target
+      if (!img || img.tagName !== 'IMG') return
+      // `getAttribute` RATHER THAN `.src`, so the handler is given the address as
+      // the turn wrote it. The property resolves against the document and would
+      // hand on an absolute URL for a line that said something relative — which
+      // is a difference the caller then has to undo.
+      onImageClick(img.getAttribute('src') ?? '', img.getAttribute('alt') ?? '')
+    })
+  }
 
   let chat = null
   let sessionId = null

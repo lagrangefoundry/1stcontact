@@ -626,6 +626,87 @@ export async function saveMaterialDescription(uid, body, fetchImpl = fetch) {
 }
 
 /**
+ * Fix what a piece of material is CALLED ([[REQ-220]]).
+ *
+ * THE LIBRARY NAME, WHICH IS THE TICKET'S TITLE. The Library lists a row under it
+ * and the modal shows the same one; the filename is a different fact and this
+ * never touches it. `material-name.js` is the field both surfaces mount and this
+ * is the one call it commits through, which is what *"editing it in either place
+ * changes the same thing"* actually rests on.
+ *
+ * THROUGH `copyEnvelope`, for the reason the role call gives: the origin refuses
+ * an empty name with a sentence written for the person who cleared the box, and
+ * `mountFields` shows exactly that sentence against the field it rolled back.
+ */
+export async function saveMaterialName(uid, title, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/material/name'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uid, title }),
+    }),
+  )
+}
+
+/**
+ * Write how a picture is edited and framed ([[REQ-220]], [[REQ-219]]).
+ *
+ * IT SENDS A RECIPE AND NEVER BYTES. The original is untouched by construction:
+ * there is no byte in this request, so no call on this path can destroy a
+ * photograph however it fails.
+ *
+ * IT SENDS THE LIST AND NOTHING BESIDE IT. Per-placement framing — *when a band
+ * forces an aspect on this picture, keep this bit in frame* — is a property of
+ * the L1 image node and not of the material, so there is nothing else on this
+ * path for it to carry.
+ */
+export async function saveMaterialRecipe(uid, recipe, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/material/recipe'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uid, recipe }),
+    }),
+  )
+}
+
+/**
+ * The material a file URL names, or `null` for a URL that names none.
+ *
+ * **THE INVERSE OF `materialFileUrl`, AND IT LIVES BESIDE IT.** The chat shows a
+ * picture as markdown, so what reaches the DOM is an `<img>` carrying a URL and
+ * nothing else — and opening the editor from it needs the uid. That makes the
+ * parse a real contract between the tool that writes the line and the surface
+ * that reads it, so it is written once, here, next to the function that forms the
+ * address. Two places that each knew the shape is how they come to disagree about
+ * it.
+ *
+ * RELATIVE OR ABSOLUTE, because a browser resolves an `<img src>` against the
+ * document before anyone reads it back: the string written into the markdown and
+ * the string read off the element are not the same string, and only one of them
+ * has an origin on the front.
+ *
+ * IT ANSWERS FOR THE FILE ROUTE AND FOR NOTHING ELSE. A picture from anywhere
+ * else in the world is a picture in a conversation, which is fine, and is not a
+ * material this product can open.
+ */
+export function materialUidFromUrl(src) {
+  let url
+  try {
+    url = new URL(String(src ?? ''), 'http://local.invalid/')
+  } catch {
+    return null
+  }
+  if (url.pathname !== '/api/material/file') return null
+  // A MEMBER NAMES ONE FILE INSIDE A CAPTURE ([[REQ-166]]), and a capture is not
+  // a picture the editor opens — so a URL that addresses one is declined here
+  // rather than resolved to a uid the editor would then have to refuse.
+  if (url.searchParams.get('member')) return null
+  const uid = url.searchParams.get('uid')
+  return uid || null
+}
+
+/**
  * Correct what a piece of material is FOR ([[REQ-213]]).
  *
  * `role` IS THE WIRE VALUE (`site` | `reference`) AND NOT THE LABEL the client

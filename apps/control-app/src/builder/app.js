@@ -21,6 +21,8 @@ import {
   resolveBusiness,
 } from './business.js'
 import { mountEditor } from './editor.js'
+import { mountImageEditor } from './image-editor.js'
+import { isEditablePicture } from './picture-kind.js'
 import { createLibraryPanel } from './library.js'
 import { createPeoplePanel } from './people.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
@@ -38,10 +40,15 @@ import {
   publishAction,
 } from './toolbar.js'
 import {
+  fetchMaterialItem,
   fetchPalette,
   fetchSites,
+  materialFileUrl,
+  materialUidFromUrl,
   openChatSession,
   previewUrl,
+  saveMaterialName,
+  saveMaterialRecipe,
   setBusinessScope,
   uploadMaterial,
   writePalette,
@@ -494,6 +501,61 @@ export function mountBuilder(root, options = {}) {
    * something. A test still injects one object and overrides either half.
    */
   const openSession = chatTransport?.openSession ?? openChatSession
+
+  /**
+   * Open a picture the assistant put in the conversation ([[REQ-220]]).
+   *
+   * **THE SAME PICTURE MUST GO TO THE SAME PLACE.** An image in a turn and the
+   * row in the Library are one material, so the chat's click opens the modal the
+   * Library's detail pane opens — the same component, the same transport, the
+   * same recipe. A second viewer for the same bytes is how two surfaces come to
+   * disagree about what a picture is.
+   *
+   * THE RESOLUTION LIVES HERE AND NOT IN THE PANE. `chat.js` reports an address
+   * because that is all it can honestly know; whether that address names
+   * something this product can open is a question about materials, and this file
+   * is where every other "what does this identifier mean" question in the builder
+   * is already answered. A picture from anywhere else in the world stays a
+   * picture in a conversation.
+   *
+   * IT FETCHES BEFORE IT OPENS, because the recipe travels on the material's own
+   * record and the chat has never read it — unlike the Library,
+   * which is looking at the detail already. Opening first and filling in after
+   * would show the client their picture unedited for as long as the request takes,
+   * which on a cropped photograph is a picture they would not recognise.
+   */
+  let chatPicture = null
+  async function openPictureFromChat(src, alt) {
+    const uid = materialUidFromUrl(src)
+    if (!uid || chatPicture) return
+    let item
+    try {
+      item = await fetchMaterialItem(uid)
+    } catch {
+      // NOTHING IS SAID, AND THAT IS THE RIGHT AMOUNT. The picture is still on
+      // screen and still correct; a client who clicked an image in a transcript
+      // has not asked a question that a dialog full of apology would answer.
+      return
+    }
+    // THE SAME PREDICATE THE LIBRARY ASKS. A capture and a drawing are both
+    // pictures in a conversation and neither is one these operations mean
+    // anything about, so the click leaves them where they are.
+    if (!isEditablePicture(item)) return
+    chatPicture = mountImageEditor({
+      uid,
+      href: materialFileUrl(uid),
+      name: item.title || alt || '',
+      recipe: item.edits ?? [],
+      host: shell.element,
+      transport: { saveName: saveMaterialName, saveRecipe: saveMaterialRecipe },
+    })
+    const closed = chatPicture.close
+    chatPicture.close = () => {
+      chatPicture = null
+      closed()
+    }
+  }
+
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
@@ -511,6 +573,12 @@ export function mountBuilder(root, options = {}) {
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
     expandPrompt: (markdown) => points.expand(markdown),
+    // [[REQ-220]] — the picture in the chat is the picture in the Library, and
+    // clicking it opens the one modal. The Library needs no telling: it is
+    // subscribed to the material change feed ([[REQ-201]]), so a rename made in
+    // this dialog reaches the row by the route every other write to a material
+    // already takes.
+    onImageClick: (src, alt) => void openPictureFromChat(src, alt),
   })
 
   /**
