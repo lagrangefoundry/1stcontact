@@ -99,9 +99,32 @@ export const contactFormMeta = {
     // is therefore never bound to an L1 node: a designer must not be able to
     // reveal the honeypot, unhide a programmatic label, or move the Turnstile
     // mount away from where the widget expects it.
-    label: { element: 'span', required: false, invariant: true },
-    honeypot: { element: 'input', required: false, invariant: true },
-    turnstile: { element: 'span', required: false, invariant: true },
+    label: {
+      element: 'label',
+      required: false,
+      invariant: true,
+      // [[BUG-76]] Defect 1 — `span` was what this said while the component
+      // emitted `<label>`, and the same correction lands on `account-chrome`.
+      invariantPresentation:
+        'visually hidden — clipped out of the visual flow; a `placeholder` ' +
+        "field's words reach a visitor through its `labelMode` instead",
+    },
+    honeypot: {
+      element: 'input',
+      required: false,
+      invariant: true,
+      invariantPresentation:
+        'off-screen and out of the tab order — a bot fills it and a person ' +
+        'never sees it, so a designer who could reveal it would break the check',
+    },
+    turnstile: {
+      element: 'span',
+      required: false,
+      invariant: true,
+      invariantPresentation:
+        'an empty mount the widget replaces; it must sit where the widget ' +
+        'expects it, so nothing here is the page’s to move',
+    },
   },
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],

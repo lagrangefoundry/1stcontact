@@ -40,6 +40,32 @@ const DEFAULTS = {
   submitColor: '#ffffff',
 } satisfies Required<AccountChromePresetOptions>
 
+/**
+ * A message card — the same panel the dialog is, holding one line of text.
+ *
+ * [[BUG-76]] Defect 4c: the confirmation and the network error are authored
+ * subtrees now, and a preset that left them unauthored would put the site back
+ * where it started. Same fill, radius, padding and measure as the dialog, so the
+ * panel does not change shape when it changes state.
+ */
+function messageCard(text: string, o: Required<AccountChromePresetOptions>): L1Node {
+  return {
+    kind: 'container',
+    layout: 'stack',
+    gapPx: 12,
+    axes: { surfaceFill: o.panelFill, borderRadiusPx: o.radiusPx },
+    padding: { topPx: 24, rightPx: 24, bottomPx: 24, leftPx: 24 },
+    sizing: { width: { mode: 'fluid', maxPx: 380 } },
+    children: [
+      {
+        kind: 'text',
+        text,
+        axes: { color: o.color, fontSizePx: 16, lineHeightPx: 24 },
+      },
+    ],
+  }
+}
+
 function link(control: string, o: Required<AccountChromePresetOptions>): L1Node {
   return {
     kind: 'control',
@@ -129,5 +155,10 @@ export function accountChromePreset(
         },
       ],
     },
+    // ONE MESSAGE FOR EVERY ANSWER ([[REQ-134]]). The endpoint must not reveal
+    // who is on the list, so this is what a known address and an unknown one
+    // both get; the client shows it when the request completes, at any status.
+    sent: messageCard('Check your email for a sign-in link.', o),
+    error: messageCard('Could not reach the server. Please try again.', o),
   }
 }

@@ -7,7 +7,8 @@
 
 /* The module's own chrome must contribute no layout to the L1 it wraps. */
 .account-chrome,
-.account-chrome__state { margin: 0; padding: 0; border: 0; }
+.account-chrome__state,
+.account-chrome__part { margin: 0; padding: 0; border: 0; }
 
 /*
  * WHICH STATE IS CURRENT — the one thing a static L1 subtree has no axis to say.
@@ -35,7 +36,8 @@
  * The programmatic label for the address field: present and associated for
  * assistive technology, removed from the visual flow so it neither paints nor
  * displaces the L1 layout. Obligation, not styling — which is why a designer
- * cannot vary it.
+ * cannot vary it. What a VISITOR reads is `config.labelMode`: the words go
+ * inside the box, or the page authors them beside it ([[BUG-76]] Defect 1b).
  */
 .account-chrome__label {
   position: absolute;
@@ -49,9 +51,16 @@
   border: 0;
 }
 
-/* The two message surfaces take no space of their own until they hold one. */
-.account-chrome__sent,
-.account-chrome__error { margin: 0; }
+/*
+ * WHICH PART OF THE DIALOG IS CURRENT — the form, the confirmation, or the
+ * network error ([[BUG-76]] Defect 4a). Behavioural, exactly as the chrome's
+ * three session states are: a static L1 subtree has no axis to say "not until
+ * the address has been sent", and `client.js` moves the `hidden` attribute. The
+ * wrappers are structure and nothing else; what each part LOOKS like is entirely
+ * its slot's, which is the difference from the module-painted paragraphs these
+ * replaced.
+ */
+.account-chrome__part[hidden] { display: none; }
 
 /*
  * THE DIALOG IS INLINE UNTIL SCRIPT SAYS OTHERWISE. With no JavaScript the form

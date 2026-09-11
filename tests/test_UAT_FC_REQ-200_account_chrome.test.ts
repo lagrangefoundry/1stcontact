@@ -202,7 +202,12 @@ describe('REQ-200 · the sent message cannot distinguish a known address', () =>
       await submitAddress(section, form, async () => ({ ok: status < 400, status }) as Response)
       const sent = doc.querySelector('[data-account-chrome-sent]') as HTMLElement
       const error = doc.querySelector('[data-account-chrome-error]') as HTMLElement
-      outcomes.push(`${sent.hidden}|${sent.textContent}|${error.hidden}`)
+      // [[BUG-76]] moved the confirmation from a module-painted `<p>` into the
+      // `sent` slot, so the words arrive through an authored subtree and carry
+      // its whitespace. The PROPERTY this case defends is untouched: one message,
+      // identical at every status, because the response is never read.
+      const words = (sent.textContent ?? '').replace(/\s+/g, ' ').trim()
+      outcomes.push(`${sent.hidden}|${words}|${error.hidden}`)
     }
     expect(new Set(outcomes).size).toBe(1)
     expect(outcomes[0]).toBe('false|Check your email for a sign-in link.|true')
@@ -239,7 +244,9 @@ describe('REQ-200 · L1 decides where it goes and what it looks like', () => {
             {
               id: 'chrome',
               type: 'account-chrome',
-              version: 1,
+              // [[BUG-76]] — the contract is at 2: `sent` and `error` are slots,
+              // and `sentMessage` is gone.
+              version: 2,
               slot: slotId,
               config: CONFIG,
               slots,

@@ -10,7 +10,7 @@
     {
       "id": "chrome",
       "type": "account-chrome",
-      "version": 1,
+      "version": 2,
       "slot": "account-chrome",
       "config": {
         "signIn": "https://app.1stcontact.io/sign-in",
@@ -268,6 +268,70 @@
                     "offsetPx": 2
                   }
                 }
+              }
+            }
+          ]
+        },
+        "sent": {
+          "kind": "container",
+          "layout": "stack",
+          "gapPx": 12,
+          "axes": {
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8
+          },
+          "padding": {
+            "topPx": 24,
+            "rightPx": 24,
+            "bottomPx": 24,
+            "leftPx": 24
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 380
+            }
+          },
+          "children": [
+            {
+              "kind": "text",
+              "text": "Check your email for a sign-in link.",
+              "axes": {
+                "color": "#0f172b",
+                "fontSizePx": 16,
+                "lineHeightPx": 24
+              }
+            }
+          ]
+        },
+        "error": {
+          "kind": "container",
+          "layout": "stack",
+          "gapPx": 12,
+          "axes": {
+            "surfaceFill": "#ffffff",
+            "borderRadiusPx": 8
+          },
+          "padding": {
+            "topPx": 24,
+            "rightPx": 24,
+            "bottomPx": 24,
+            "leftPx": 24
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 380
+            }
+          },
+          "children": [
+            {
+              "kind": "text",
+              "text": "Could not reach the server. Please try again.",
+              "axes": {
+                "color": "#0f172b",
+                "fontSizePx": 16,
+                "lineHeightPx": 24
               }
             }
           ]

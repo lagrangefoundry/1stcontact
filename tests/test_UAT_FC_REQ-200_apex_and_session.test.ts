@@ -65,7 +65,8 @@ function pageWithChrome(): Record<string, unknown> {
       {
         id: 'chrome',
         type: 'account-chrome',
-        version: 1,
+        // [[BUG-76]] — the contract is at 2: `sent` and `error` are slots now.
+        version: 2,
         slot: 'account-chrome',
         config: CHROME_CONFIG,
         slots: accountChromePreset(),
