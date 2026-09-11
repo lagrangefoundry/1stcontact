@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The component reference describes no component the catalogue does not carry
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:36:04.542747+00:00'
-updated_at: '2026-09-11T02:36:04.542747+00:00'
+updated_at: '2026-09-11T02:51:26.794819+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5836022a
   kind: behavior
