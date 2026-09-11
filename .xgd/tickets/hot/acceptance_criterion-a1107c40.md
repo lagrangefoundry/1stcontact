@@ -6,7 +6,7 @@ title: Drawing an image is its own grantable capability, separate from managing 
   a person supplied
 created_by: xgd
 created_at: '2026-08-10T09:34:52.750404+00:00'
-updated_at: '2026-08-16T01:57:29.729349+00:00'
+updated_at: '2026-09-11T03:40:10.807438+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
