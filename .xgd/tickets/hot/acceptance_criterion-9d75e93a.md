@@ -6,10 +6,10 @@ title: An account may hold several concurrent grants, with plan and status value
   the product does not issue today
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:28:45.660530+00:00'
-updated_at: '2026-09-11T06:28:45.660530+00:00'
+updated_at: '2026-09-11T06:37:29.431714+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
