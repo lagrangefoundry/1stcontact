@@ -6,10 +6,10 @@ title: An image past the ceiling for looking at one is stored whole and simply n
   looked at, rather than refused or shrunk
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:23:08.994039+00:00'
-updated_at: '2026-09-11T04:23:08.994039+00:00'
+updated_at: '2026-09-11T04:35:58.265190+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4cabde9a
   kind: behavior
