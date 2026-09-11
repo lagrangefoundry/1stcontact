@@ -6,7 +6,7 @@ title: A component's configuration is merged on reconfigure, and removing an ins
   leaves its mount seam in place
 created_by: xgd
 created_at: '2026-08-10T09:34:18.296089+00:00'
-updated_at: '2026-08-16T01:57:12.210590+00:00'
+updated_at: '2026-09-11T03:39:59.561406+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
