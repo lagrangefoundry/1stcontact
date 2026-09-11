@@ -6,9 +6,9 @@ title: 'Site Authoring Beyond The Element Tree: Settings, Components, Page Metad
   & Generated Images'
 created_by: xgd
 created_at: '2026-08-10T09:32:11.897403+00:00'
-updated_at: '2026-09-11T03:08:59.539293+00:00'
+updated_at: '2026-09-11T03:40:14.738317+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: Site Authoring Beyond The Element Tree
