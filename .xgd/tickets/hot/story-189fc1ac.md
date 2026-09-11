@@ -7,7 +7,7 @@ title: Have the assistant compose a page — see where everything sits, read an 
   or scripts
 created_by: xgd
 created_at: '2026-08-10T09:18:31.384971+00:00'
-updated_at: '2026-09-11T02:18:44.930225+00:00'
+updated_at: '2026-09-11T02:19:18.196916+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
