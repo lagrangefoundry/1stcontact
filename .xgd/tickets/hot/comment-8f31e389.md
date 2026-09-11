@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T21:19:18.906861+00:00'
+updated_at: '2026-09-11T21:42:37.285897+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -189,5 +189,11 @@ Five new/changed pieces, each elsewhere for a reason:
 2. **I corrected two stale paragraphs in the ticket body.** They were written before REQ-219 landed and said the route answers `rendered: false` for *every* commit and that there was no renderer. There is one now (`env.IMAGES` is bound), so `rendered: false` is specifically the no-binding deployment, and the editor appends a per-commit counter to the stable file address to avoid re-serving a cached rendition. I also added motivating language for four behaviours the tests assert but the body had not named — the vocabulary refusal at the write, the two refusal kinds, the URL-as-contract inverse, and the chat hook being opt-in.
 
 Ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
+
+<!-- xgd-turn id="792d7b86-4ff7-4310-8bb7-323aa5c952b2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:42:36.196259+00:00" -->
+#### You
+Please create a ticket to fix the 16 failures
 
 <!-- xgd-chat-end -->
