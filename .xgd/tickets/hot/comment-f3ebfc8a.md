@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-11T21:10:38.654245+00:00'
+updated_at: '2026-09-11T21:11:40.980685+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -185,5 +185,35 @@ Format negotiation (WebP/AVIF via `<picture>`) and first-publish latency remain 
 <!-- xgd-chat role="user" ts="2026-09-11T21:10:37.650362+00:00" -->
 #### You
 Please explain the open questions I thought everything was closed
+
+<!-- xgd-turn id="f786f81f-7559-424d-acb7-a2597c6d6a0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:11:40.511151+00:00" -->
+#### Claude
+You were mostly right — I overstated it. Let me separate the two.
+
+## Format negotiation — closed, and I mis-described it
+
+This one *is* settled, and the ticket says so at line 265:
+
+> **A rendition keeps its source's format.** This is a width ladder, not a format change: a JPEG's rungs are JPEGs. Choosing a better codec is a separate question with a separate answer (`<picture>`, `type=`), and conflating the two would make neither reviewable.
+
+That's a decision, it's in the body, and it's what shipped — `encodeAs`/`OUTPUT_FORMATS` key the output on the input type, so a PNG stays a PNG and keeps its transparency. Calling it "open" was wrong.
+
+The one residue: the investigation's framing was *"cheaper to decide now than to retrofit"* — meaning, should the sink emit `<picture>` from the start so typed `<source>`s are later an addition rather than a rewrite? The ticket answered by scoping (`<img srcset>`, one sink, unchanged shape), and the operator note said *"do not start on the `<picture>` work before those come back"* — which was never explicitly answered, it was resolved by the scoping decision. If you want `<picture>` later, the `<img>` sink becomes a `<picture>` sink; that's a contained change in one function, not a redesign. So the retrofit cost the investigation worried about is low.
+
+## Publish latency — genuinely untouched
+
+This one is not addressed anywhere in the ticket body, in either direction. Nothing scoped it out, nothing implemented against it.
+
+What actually ships: the ladder runs inside `publishSite`, between the no-op check and the render, on the synchronous `POST /api/publish` request behind the toolbar button. For each raster still in the site's assets that's one `info()` plus up to six transforms, six cache puts, and six puts into the revision. A ten-photograph site's first publish is ~60 metered transforms before the button returns.
+
+Two things make it less bad than it reads, and one that doesn't:
+
+- Republishes are near-free — that's what the content-addressed cache buys, and the workerd sentinel test pins it.
+- The background widening did **not** make this worse. The ladder walks the snapshot's *assets*, not the document, so a backdrop was already being laddered before that work; backgrounds added CSS rules, not transforms.
+- But the *first* publish of a photo-heavy site is still paid in full, synchronously, and nothing batches, defers, or reports progress.
+
+So: one genuinely open item, not two. It's a follow-up rather than a defect in what landed — the ladder is correct, it's just front-loaded onto one request. Say the word and I'll file it; I haven't, since this session is scoped to REQ-222.
 
 <!-- xgd-chat-end -->
