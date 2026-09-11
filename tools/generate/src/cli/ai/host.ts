@@ -50,6 +50,8 @@ import {
 import { fsReferenceStore } from '../../store/fs-reference-store'
 import { createPlaywrightDriver, guardedPlaywrightDriver } from '../capture/playwright-driver'
 import type { FidelityDeps } from './fidelity-core'
+import { siteImageLibrary } from '../edit'
+import { mergeImageLibraries } from '../image-library'
 
 export {
   setModelClient,
@@ -136,6 +138,12 @@ function nodeFidelityDeps(slug: string, opts: GlobalOptions, origin: string): Fi
     slug,
     origin,
     references: fsReferenceStore(ctxOf(opts).cwd),
+    // REQ-218 — ONE NAMESPACE HERE AND TWO IN THE WORKER, which is what this
+    // deployment actually holds rather than a reduced mode of it. The Library is
+    // material tickets and a local `1c` has no ticket store; the site's own
+    // assets are on disk and are every picture this host can reach. The surface
+    // says as much, so an empty-looking list is never mistaken for an empty site.
+    images: mergeImageLibraries({ site: siteImageLibrary(slug, fsSiteStore(ctxOf(opts))) }),
     // NO ORIGIN RESOLVER HERE, and its absence is the difference between the two
     // hosts rather than an omission. The Worker fulfils preview requests in
     // process because the builder it would otherwise fetch is behind Cloudflare

@@ -41,6 +41,10 @@
 
 import { MAX_BLOB_BYTES } from './generated/ticketing'
 import { editAssetAdd } from '../../../tools/generate/src/cli/edit'
+import type {
+  ImageLibrary,
+  StoredImage,
+} from '../../../tools/generate/src/cli/image-library'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   describe,
@@ -840,6 +844,50 @@ export async function listMaterial(store: TicketStore): Promise<MaterialRow[]> {
     .flatMap((page) => page.tickets)
     .map(rowOf)
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0))
+}
+
+/**
+ * REQ-218 — the Library's half of the assistant's image library.
+ *
+ * THE NAME IS THE RECORD AND THE TITLE IS AN ALIAS, in that order, because they
+ * answer different asks. The uid is unambiguous and is what the generator hands
+ * the model when it stores a picture, so it is the canonical name. The title is
+ * what a person would say — it is the sentence the Library shows and the one
+ * [[REQ-220]] makes editable — so it is a spelling and not the identity: two
+ * pictures may share a title, and a picture's title changes the moment a client
+ * corrects it, which an identity may not do.
+ *
+ * IMAGES ONLY, AND CAPTURES ARE NOT IMAGES. A capture is 11–99 attachment
+ * records and is already addressable as a `reference` picture, with a whole
+ * vocabulary of its own for saying which member and which width. Listing its
+ * screenshot here as a second way to reach the same pixels would be the second
+ * idea of what a capture is that [[REQ-166]] exists to avoid.
+ *
+ * `original` IS THE SEAM AND NOT YET A BRANCH. A Library record is where an edit
+ * recipe will live ([[REQ-219]]), so this is the one half of the merged library
+ * that will ever have two answers to give. Until it does, the stored bytes are
+ * both of them.
+ */
+export function materialImageLibrary(store: TicketStore): ImageLibrary {
+  return {
+    async list(): Promise<StoredImage[]> {
+      const rows = await listMaterial(store)
+      return rows
+        .filter((row) => row.kind === 'image')
+        .map((row) => ({
+          name: row.uid,
+          where: 'library' as const,
+          mediaType: row.content_type,
+          title: row.title,
+          // The filename is what a client says out loud about their own upload,
+          // and it is what the row shows beside the title.
+          aliases: row.filename === row.title ? [] : [row.filename],
+        }))
+    },
+    async read(image): Promise<Uint8Array> {
+      return (await materialFile(store, image.name)).bytes
+    },
+  }
 }
 
 // --- the change feed the Library subscribes to (REQ-201, DOC-24) -------------

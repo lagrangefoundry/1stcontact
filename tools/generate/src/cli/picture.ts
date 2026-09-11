@@ -10,11 +10,20 @@
  * every operation understand it — and where "compare anything to anything"
  * is a claim about the *arguments*, not about the comparison.
  *
- * So there is ONE {@link PictureSource}, it names all five kinds of picture, and
+ * So there is ONE {@link PictureSource}, it names all six kinds of picture, and
  * {@link resolvePicture} is the only thing that turns one into pixels.
  * `screenshot` takes one; `compare` takes two, in any combination. That is what
  * makes draft-against-reference, draft-against-revision and
  * revision-against-revision the same operation rather than three.
+ *
+ * REQ-218 ADDED THE SIXTH KIND AND PROVED THE CLAIM THE FIFTH ONLY MADE. Five of
+ * them are a PAGE, which is how the assistant came to be able to see every page
+ * in the product and no picture in it — not one it generated, not one the client
+ * uploaded, not an SVG it drew itself. `image` is a picture in the store,
+ * addressable however it is referenced (see `image-library.ts`), and the whole
+ * of what it cost `compare`, `check_fidelity` and the reduction cap is nothing:
+ * this function normalises it to a screenshot, so every verb downstream gained
+ * it without being told.
  *
  * IT RESOLVES TO BYTES, NEVER TO A PATH. A resolver that handed back a filename
  * would be the filesystem leaking through the same seam `SiteStore` and
@@ -26,14 +35,22 @@ import { ladderMember, SCREENSHOT_MEMBER } from '../store/reference-store'
 import type { BrowserDriverFactory, Viewport } from './capture/types'
 import { PageStepSyntaxError, parsePageSteps } from './capture/interact'
 import type { PageStep } from './capture/interact'
-import { resolveViewport, screenshotUrl, VIEWPORTS } from './capture/screenshot'
+import {
+  rasterizeImage,
+  resolveViewport,
+  screenshotUrl,
+  VIEWPORTS,
+} from './capture/screenshot'
+import { pngDimensions, sniffImageFormat } from './png'
+import { resolveStoredImage } from './image-library'
+import type { ImageLibrary, StoredImage } from './image-library'
 import type { ViewportName } from './capture/screenshot'
 import { revisionChannel } from './preview'
 import type { PreviewChannel } from './preview'
 import { assertPublicUrl } from './capture/egress-guard'
 
-/** The five kinds of picture, as the surface declares them. */
-export type PictureKind = 'reference' | 'draft' | 'edit' | 'revision' | 'url'
+/** The six kinds of picture, as the surface declares them. */
+export type PictureKind = 'reference' | 'draft' | 'edit' | 'revision' | 'url' | 'image'
 
 /**
  * One picture, named.
@@ -59,6 +76,23 @@ export interface PictureSource {
   revision?: number
   /** `url`: the address to fetch. Public http(s) only — see `egress-guard.ts`. */
   url?: string
+  /**
+   * REQ-218 — `image`: which stored picture, however it is referenced.
+   *
+   * The site filename, the `/assets/…` handle a page holds, the bare name a
+   * drawing was written under, the Library record or the Library title — one
+   * rule, in `image-library.ts`, because a client asking about "the logo" does
+   * not know which of the two stores holds it and neither does the assistant.
+   */
+  image?: string
+  /**
+   * REQ-218 — `image`: the picture before any edit, rather than as it stands.
+   *
+   * *"What did the crop take away"* is a real question, and it is the only one
+   * the current state cannot answer. Until the recipe exists ([[REQ-219]]) every
+   * picture is its own original and both answers are the same bytes.
+   */
+  original?: boolean
   /** Which viewport preset to render or read at. Default `desktop`. */
   viewport?: ViewportName
   /**
@@ -109,6 +143,27 @@ export class PictureSourceError extends Error {
   }
 }
 
+/**
+ * REQ-218 — raised when this deployment cannot answer a kind of picture at all.
+ *
+ * A SEPARATE CLASS FROM {@link PictureSourceError} because it is a different
+ * message to a different reader. A source error is the caller's to fix by asking
+ * differently; this one is nobody's to fix from inside a conversation, and the
+ * only useful response is to say so and carry on — which is exactly what the
+ * surface's `ENVIRONMENT` refusal already means for a deployment with no browser.
+ */
+export class PictureEnvironmentError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PictureEnvironmentError'
+  }
+}
+
+/** The sentence a deployment with no image store answers every picture ask with. */
+export const NO_IMAGE_STORE =
+  'this deployment holds no pictures it can show you — there is no image store wired ' +
+  'to it. Nothing you can do about it; say so and carry on with what you can do.'
+
 /** Everything resolution needs, injected — so nothing here knows its runtime. */
 export interface PictureDeps {
   /** The site every draft/edit/revision picture is of. Never model-supplied. */
@@ -126,6 +181,17 @@ export interface PictureDeps {
    * Access challenge rather than a page.
    */
   origin: string
+  /**
+   * REQ-218 — the stored pictures this deployment holds, across both namespaces.
+   *
+   * OPTIONAL, AND ITS ABSENCE IS AN ORDINARY DEPLOYMENT rather than a
+   * misconfiguration — the same rule `adoptCapture` is registered under. The
+   * builder in the cloud holds a site store and a ticket store and therefore
+   * both namespaces; the local `1c` holds a site store and no tickets, so it has
+   * the site's assets and no Library. Each answers for what it has and says so
+   * about the rest, which is the honest shape and not a degraded one.
+   */
+  images?: ImageLibrary
 }
 
 /** The field `kind` requires, so a refusal can name it. (Not `require` — that
@@ -205,7 +271,7 @@ export const EDIT_CHANNEL_NOTE =
  * The steps this picture may be driven with, refusing by kind before a browser
  * is leased.
  *
- * DRAFT ONLY, and each of the other four refuses for its own reason rather than
+ * DRAFT ONLY, and each of the other five refuses for its own reason rather than
  * by a blanket rule. `edit` ships no behaviour at all ([[REQ-116]]), so a step
  * against it would be asking a page to do something it structurally cannot —
  * and driving that channel is [[REQ-215]]'s problem, not this one. `reference`
@@ -213,7 +279,9 @@ export const EDIT_CHANNEL_NOTE =
  * pages belonging to the published site and to strangers respectively, and a
  * click there is a real side effect on somebody else's system — a submitted
  * enquiry, a real request — which is not what "show me what this looks like"
- * should ever be able to cause.
+ * should ever be able to cause. `image` ([[REQ-218]]) is a picture rather than
+ * a page: there is no control on it, and changing what it shows is `edit_image`
+ * deliberately and not a gesture smuggled in front of a shutter.
  */
 function drivableSteps(source: PictureSource): PageStep[] {
   const after = source.after ?? []
@@ -225,7 +293,10 @@ function drivableSteps(source: PictureSource): PageStep[] {
           ? `The edit channel ships no behaviour, so there is nothing there to open or advance. `
           : source.kind === 'reference'
             ? `A reference is a recording of a page, not a page. `
-            : `Driving a published revision or somebody else's address would act on a live system. `) +
+            : source.kind === 'image'
+              ? `A stored picture is a picture and not a page, so there is nothing on it to click or fill; ` +
+                `changing what it shows is 'edit_image'. `
+              : `Driving a published revision or somebody else's address would act on a live system. `) +
         `Ask for the same thing as a 'draft' picture.`,
     )
   }
@@ -234,6 +305,101 @@ function drivableSteps(source: PictureSource): PageStep[] {
   } catch (error) {
     if (error instanceof PageStepSyntaxError) throw new PictureSourceError(error.message)
     throw error
+  }
+}
+
+/**
+ * REQ-218 — the caption a drawing carries, and the one thing it gives up.
+ *
+ * A drawing is photographed in a bare document rather than inside the site's own
+ * page, so the `@font-face` rules the site serves are not in scope and its text
+ * resolves in the browser's default face. On a wordmark that is a visible
+ * difference and exactly the kind of thing a model would otherwise report as a
+ * finding about the drawing. Written here for the same reason
+ * {@link EDIT_CHANNEL_NOTE} is: it is a fact about how the picture was made, not
+ * about any one operation on it.
+ */
+export const DRAWING_RASTER_NOTE =
+  'This is a drawing, photographed outside the site\'s own page, so its text is ' +
+  'in the browser\'s default face rather than the one the site serves. Use ' +
+  '`measure_drawing` to read where anything in it actually is.'
+
+/**
+ * Which stored picture `image` names, refusing by name when it is not one.
+ *
+ * THE REFUSAL IS THE INTERESTING HALF. "Not found" hands back the listing to
+ * look at, because a name that matched nothing is a name the caller invented.
+ * "Found several" hands back the candidates AND their unambiguous names, because
+ * the caller is one call from being right and the worst available outcome is a
+ * picture returned as though it were the one that was asked for.
+ */
+async function storedImage(library: ImageLibrary, source: PictureSource): Promise<StoredImage> {
+  const name = needed(source.image, 'image', 'image')
+  const images = await library.list()
+  const { match, candidates } = resolveStoredImage(name, images)
+  if (match) return match
+  if (candidates.length > 1) {
+    throw new PictureSourceError(
+      `'${name}' names ${candidates.length} pictures: ` +
+        candidates.map((c) => `'${c.name}'`).join(', ') +
+        `. Ask for one of those names, each of which means exactly one picture.`,
+    )
+  }
+  // POINTED AT THE LISTINGS THAT EXIST. There is deliberately no operation that
+  // enumerates the Library — a picture's handle arrives in the result of
+  // whatever made it, which is the case this whole capability is for — so the
+  // refusal names the two listings a caller actually has and the one place a
+  // Library handle comes from, rather than a verb that is not there.
+  throw new PictureNotFoundError(
+    `no stored picture called '${name}'.` +
+      (images.length === 0
+        ? ` This deployment holds none yet.`
+        : ` Name it by the handle you were given when it was made, by the name it appears ` +
+          `under in the Library, or by anything list_assets shows.`),
+  )
+}
+
+/**
+ * A stored picture's pixels, in the currency everything downstream speaks.
+ *
+ * PNG PASSES STRAIGHT THROUGH and everything else is photographed. That is not
+ * two code paths so much as the absence of one: PNG is already what every other
+ * kind of picture resolves to, so re-rendering it would cost a browser lease,
+ * flatten its transparency onto white and give back bytes no better than the
+ * ones we had. Anything else — a phone's JPEG, a generator's WebP, a drawing's
+ * SVG — has no decoder in this product by design ([[REQ-156]]), and the browser
+ * is the decoder we already own.
+ *
+ * SNIFFED RATHER THAN TRUSTED. The stored content type is a field somebody wrote
+ * down, and `material.ts` repairs it from the filename when it is silent — so it
+ * is a good enough hint to hand a browser and not good enough to branch on. The
+ * leading bytes are the thing itself.
+ */
+async function storedPicture(
+  deps: PictureDeps,
+  source: PictureSource,
+): Promise<ResolvedPicture> {
+  const library = deps.images
+  if (!library) throw new PictureEnvironmentError(NO_IMAGE_STORE)
+  const image = await storedImage(library, source)
+  const original = source.original === true
+  const bytes = await library.read(image, { original })
+  const title = image.title && image.title !== image.name ? ` (${image.title})` : ''
+  // `original` is named in the label whenever it was asked for, even though it
+  // is the same picture today. A transcript that says which was asked for stays
+  // readable once the recipe makes the two differ.
+  const label =
+    `${image.where} image ${image.name}${title}` + (original ? ', as originally stored' : '')
+
+  const format = sniffImageFormat(bytes)
+  if (format === 'PNG') return { bytes, label, viewport: pngDimensions(bytes, label) }
+
+  const shot = await rasterizeImage(bytes, image.mediaType, deps.driverFactory, `'${image.name}'`)
+  return {
+    bytes: shot.bytes,
+    label,
+    viewport: { width: shot.width, height: shot.height },
+    ...(format === 'SVG' ? { note: DRAWING_RASTER_NOTE } : {}),
   }
 }
 
@@ -293,10 +459,18 @@ export async function resolvePicture(
       }
     }
 
+    // REQ-218 — THE ONE KIND WITH NO VIEWPORT, and the reason it takes none: a
+    // page is laid out at a width somebody chose and can be right at one and
+    // wrong at another, whereas a picture is already the size it is. So
+    // `viewport` is not read here, and what is reported back is the picture's
+    // own dimensions — which is what `compare` then crops against.
+    case 'image':
+      return storedPicture(deps, source)
+
     default:
       throw new PictureSourceError(
         `'${String(source.kind)}' is not a kind of picture. Use one of: ` +
-          `reference, draft, edit, revision, url.`,
+          `reference, draft, edit, revision, url, image.`,
       )
   }
 }

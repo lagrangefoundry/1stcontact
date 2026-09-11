@@ -22,6 +22,12 @@ export const MIME: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  // REQ-218 — the drift this table's own header warns about, found by the first
+  // consumer that needed every image type rather than the ones a site renders:
+  // `edit.ts` has counted `.gif` and `.avif` as images since REQ-118 while this
+  // table had no entry for either, so both were labelled `application/octet-stream`.
+  '.gif': 'image/gif',
+  '.avif': 'image/avif',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
