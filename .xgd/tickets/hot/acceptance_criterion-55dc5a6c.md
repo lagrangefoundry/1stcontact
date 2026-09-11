@@ -6,10 +6,10 @@ title: A placement that cannot complete is reported as a named failure on a succ
   hand-over, and the file is not lost
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:59.207468+00:00'
-updated_at: '2026-09-11T05:02:59.207468+00:00'
+updated_at: '2026-09-11T05:13:44.932289+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
