@@ -1,4 +1,5 @@
 import type { BehaviorMeta } from '../behavior'
+import { FIELD_TYPES } from './fields'
 
 /**
  * `contact-form` (reframed to a behavior by REQ-85; made layout-agnostic **by
@@ -29,7 +30,7 @@ export const contactFormMeta = {
   config: {
     // Submission endpoint — the no-JS form action and the fetch() target.
     action: { type: 'url', required: true },
-    // The field schema: { name, label, type: text|email|tel|textarea, required }.
+    // The field schema: { name, label, type, required } — see FIELD_TYPES.
     fields: {
       type: 'list',
       required: true,
@@ -45,10 +46,37 @@ export const contactFormMeta = {
         // it is a captured FACT about the control's accessible name, and the a11y
         // tree is its only witness.
         labelMode: { type: 'enum', required: false, values: ['visible', 'placeholder'], default: 'visible' },
-        type: { type: 'enum', required: true, values: ['text', 'email', 'tel', 'textarea'] },
+        // THE VALUES COME FROM THE MODULE THAT NAMES THEM ([[REQ-223]]). A list
+        // restated here is a second answer to what a field type is, and the half
+        // that drifts is whichever one the next type is not added to.
+        type: { type: 'enum', required: true, values: FIELD_TYPES },
         required: { type: 'boolean', required: false, default: false },
       },
     },
+    /*
+     * THE ASSET THIS FORM PROMISES ([[REQ-223]] §5), in three parts because
+     * `config` has no object type and a list of one would be a shape pretending
+     * to be a set.
+     *
+     * BOTH OR NEITHER, AND THE RECEIVER ENFORCES IT. `asset` is the stable key
+     * the at-most-once ledger remembers a delivery by; `assetUrl` is what the
+     * message links to. A key with no URL is an asset nothing can deliver and a
+     * URL with no key is a delivery nothing can remember having made — so half a
+     * declaration is read as none rather than as a best effort.
+     *
+     * IT IS BEHAVIOURAL AND NOT CONTENT. What the mail SAYS is a template in the
+     * business's own store, editable without a deploy; what this names is which
+     * artifact the form is gated on, which is a fact about the form.
+     *
+     * THE RECEIVER READS IT FROM THE PUBLISHED DEFINITION AND NEVER FROM THE
+     * SUBMISSION. That is what stops a caller naming an asset — or a URL — of
+     * their own by editing what their browser posts.
+     */
+    asset: { type: 'string', required: false },
+    // What the message calls it. Prose, not an identifier — "both whitepapers".
+    assetName: { type: 'string', required: false },
+    // Where the artifact lives. Sent as the message's one call to action.
+    assetUrl: { type: 'url', required: false },
     // Markdown shown in place of the form after a successful JSON submit.
     successMessage: { type: 'string', required: false },
     // The submit button's words. Behavioural copy, not styling — the button's

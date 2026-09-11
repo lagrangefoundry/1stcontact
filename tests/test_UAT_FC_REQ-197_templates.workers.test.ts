@@ -106,11 +106,10 @@ describe('REQ-197 — three templates, in the business that owns them', () => {
   it('UAT_FC_REQ-197 a business that has never had templates is given all three, once', async () => {
     const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_B))
     const seeded = await ensureTemplates(store)
-    expect(seeded.map((t) => t.fields.template_key).sort()).toEqual([
-      'invite',
-      'lapsed',
-      'signin',
-    ])
+    // [[REQ-223]] added a fourth: the asset a public form promised. The set is
+    // `TEMPLATE_KEYS` and this asserts against it rather than restating a list
+    // that has to be edited every time the platform learns to send something.
+    expect(seeded.map((t) => t.fields.template_key).sort()).toEqual([...TEMPLATE_KEYS].sort())
 
     // SEED-IF-ABSENT, not seed-unconditionally: a second pass must not leave the
     // business with six templates, three of which quietly outrank the copy
@@ -119,7 +118,7 @@ describe('REQ-197 — three templates, in the business that owns them', () => {
     expect(again.map((t) => t.uid).sort()).toEqual(seeded.map((t) => t.uid).sort())
 
     const { tickets } = await store.query({ predicate: `type=${TEMPLATE_TYPE}`, limit: 'all' })
-    expect(tickets).toHaveLength(3)
+    expect(tickets).toHaveLength(TEMPLATE_KEYS.length)
   })
 
   it('UAT_FC_REQ-197 a customer business holds its own templates, and cannot see another business\'s', async () => {
@@ -176,7 +175,15 @@ describe('REQ-197 — end to end, from the store to a refusal', () => {
     const store = await ticketStoreFor(storeEnv(), scopeOf('req197-render'))
     for (const key of TEMPLATE_KEYS) {
       const template = await templateFor(store, key)
-      const rendered = renderTemplate(template, { cta_url: 'https://app.1stcontact.io/i/xyz' })
+      // EVERY TOKEN THE TEMPLATE DECLARES, not just the link. [[REQ-223]]'s
+      // asset template declares a second one, and a loop that supplied only the
+      // first would be asserting that the OTHER templates render rather than
+      // that each template renders.
+      const values: Record<string, string> = { cta_url: 'https://app.1stcontact.io/i/xyz' }
+      for (const token of (template.fields.placeholders ?? []) as string[]) {
+        values[token] ??= `a value for ${token}`
+      }
+      const rendered = renderTemplate(template, values)
       expect(rendered.body).toContain('https://app.1stcontact.io/i/xyz')
       expect(rendered.body).not.toContain('{{')
       expect(rendered.templateUid).toBe(template.uid)

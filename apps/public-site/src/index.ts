@@ -2,7 +2,11 @@ import {
   applyAccountChromeSession,
   hasAccountChrome,
 } from '../../../packages/framework/src/modules/account-chrome/session'
+import {
+  applyTurnstileSitekey,
+} from '../../../packages/framework/src/modules/contact-form/turnstile'
 import { contentTypeFor } from './content-type'
+import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import { parseRoute, type Route } from './routes'
 import {
   D1SessionReader,
@@ -24,6 +28,16 @@ import { D1SiteStore, type SiteStore } from './site-store'
  * deploy manifest that indexed them; sharing a draft returns as a builder
  * toolbar button rather than as a second channel here.
  *
+ * IT RECEIVES ONE THING NOW ([[REQ-223]]). This Worker answered every method
+ * other than GET/HEAD with `405` by construction, and said so as a statement of
+ * character rather than of configuration. That is amended for exactly one path
+ * and one method — `POST /api/lead`, the lead-capture endpoint — because a form
+ * on a published page has to post to the page's own origin or meet Cloudflare
+ * Access's `403` on its CORS preflight ([[BUG-78]]). The write itself is still
+ * `control-app`'s and is handed over a service binding; nothing about serving
+ * changed, every other method on every other path still answers `405`, and a UAT
+ * holds it there. See `lead.ts`.
+ *
  * PUBLISHED SITES ARE PUBLIC, AND THAT IS UNCHANGED ([[REQ-200]]). What changed
  * is narrower than it sounds: this Worker now reads a session cookie **to choose
  * which of `account-chrome`'s states to render**, and for nothing else. No page
@@ -33,7 +47,7 @@ import { D1SiteStore, type SiteStore } from './site-store'
  * as it was published.
  */
 
-export interface Env {
+export interface Env extends LeadEnv {
   /** The bucket the control-app publishes rendered revisions to. */
   SITES: R2Bucket
   /** The database holding the revision log — which revision is live (REQ-149). */
@@ -71,6 +85,24 @@ const PUBLISHED_CACHE = 'public, max-age=60'
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    /*
+     * `public-site` RECEIVES ONE THING NOW, AND EXACTLY ONE ([[REQ-223]] §3.1).
+     *
+     * This file used to say it serves pages and receives nothing, and answered
+     * every non-GET with `405` by construction. That is amended for ONE path and
+     * ONE method — the lead endpoint, on the page's own origin, for the four
+     * reasons `lead.ts` records. Everything else still answers `405`, and a UAT
+     * proves it: the amendment is a doorway, not a change of character.
+     *
+     * THE PATH IS RESOLVED THROUGH THE SAME GRAMMAR EVERY PUBLISHED BYTE GOES
+     * THROUGH, which is what makes the site key non-caller-controlled. There is
+     * no second parser here that could disagree with `routes.ts` about which site
+     * a URL names.
+     */
+    if (request.method === 'POST') {
+      const target = leadTarget(new URL(request.url).pathname, env.APEX_SITE_KEY)
+      if (target) return await handleLead(request, { siteKey: target, env })
+    }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Method Not Allowed', {
         status: 405,
@@ -101,6 +133,7 @@ export default {
       apexSiteKey: env.APEX_SITE_KEY,
       sessionId,
       sessions: new D1SessionReader(env.DB),
+      turnstileSitekey: env.TURNSTILE_SITEKEY,
     })
 
     // Only successful responses are stored. A 404 is the answer for both "never
@@ -132,10 +165,41 @@ function edgeCache(): Cache | undefined {
   return api?.default
 }
 
+/**
+ * The site this `POST` writes into, or `null` when the path is not the endpoint.
+ *
+ * IT REUSES `parseRoute` RATHER THAN MATCHING A STRING. The grammar already
+ * decides what `/api/lead` and `/site/<siteKey>/api/lead` mean — including the
+ * traversal and percent-encoding edge cases, which are the parts that actually
+ * bite — so asking it is the only way this cannot come to disagree with the
+ * server that resolves every other byte.
+ *
+ * AN APEX SUBMISSION NEEDS AN APEX SITE. A deployment with none has no front
+ * page, so it has no form either; the answer is `null` and the request meets the
+ * ordinary `405`, which is the same thing an unpublished site says.
+ */
+function leadTarget(pathname: string, apexSiteKey: string | undefined): string | null {
+  const parsed = parseRoute(pathname)
+  if (parsed.kind === 'apex' && parsed.path === LEAD_PATH) return apexSiteKey || null
+  if (parsed.kind === 'asset' && parsed.path === LEAD_PATH) return parsed.siteKey
+  return null
+}
+
 /** Everything a request needs resolved for it, gathered once per request. */
 interface Serving {
   store: SiteStore
   bucket: R2Bucket
+  /**
+   * The Turnstile sitekey this deployment's forms use ([[REQ-223]] §6).
+   *
+   * Stamped onto served HTML rather than baked into a published revision: the
+   * key is deployment configuration and a revision is an immutable record of
+   * what a site said, so baking it in would make a key rotation a republish of
+   * every site that has ever carried a form. Empty leaves the bytes untouched
+   * and the mount inert — and the endpoint refuses, which is where that failure
+   * belongs.
+   */
+  turnstileSitekey?: string
   /** The site served at the root of this host, when this deployment has one. */
   apexSiteKey?: string
   /** The session this request carries for THIS host, or null. */
@@ -239,12 +303,21 @@ async function serve(
     headers.set('content-type', contentType)
 
     if (isHtml(contentType)) {
-      const body = await object.text()
+      // THE WIDGET IS STAMPED BEFORE ANYTHING ELSE IS DECIDED ([[REQ-223]] §6).
+      // It is the same for every visitor, so a stamped page stays exactly as
+      // shared-cacheable as the one that came out of the bucket — unlike the
+      // chrome's state below, which is about who asked. A page with no form in it
+      // is returned untouched and cannot acquire a third-party script by accident.
+      const stored = await object.text()
+      const body = applyTurnstileSitekey(stored, serving.turnstileSitekey ?? '')
       // THE TRIGGER IS THE MARKER IN THE BYTES, not a column somewhere. A page
-      // with no account chrome cannot depend on a session, so it keeps its etag,
-      // its shared cacheability, and the exact bytes that were published.
+      // with no account chrome cannot depend on a session, so it keeps its
+      // shared cacheability and the bytes that were published.
       if (!hasAccountChrome(body)) {
-        if (object.httpEtag) headers.set('etag', object.httpEtag)
+        // NO ETAG ONCE THE BYTES HAVE BEEN STAMPED. R2's etag is the etag of what
+        // R2 stored, and a stamped page is not that entity — claiming otherwise
+        // would tell a cache two different bodies are the same one.
+        if (object.httpEtag && body === stored) headers.set('etag', object.httpEtag)
         return respond(request, body, headers)
       }
       const facts = serving.sessionId ? await serving.sessions.read(serving.sessionId) : null

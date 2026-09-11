@@ -43,7 +43,7 @@ export const TEMPLATE_TYPE = 'template'
  * of a closed set is a refusal at authoring time; the failure of an open one is
  * a send that finds nothing at the moment somebody is waiting for mail.
  */
-export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed'] as const
+export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed', 'asset'] as const
 
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
 
@@ -477,6 +477,40 @@ export const SEED_TEMPLATES: Record<TemplateKey, SeedTemplate> = {
    * no ticket triggers it), and it is seeded anyway so that whoever does write
    * that trigger finds copy rather than an empty store.
    */
+  /**
+   * The asset a public form promised ([[REQ-223]] §5).
+   *
+   * IT IS THE ONE MESSAGE THIS PLATFORM SENDS TO AN ADDRESS IT HAS NEVER SEEN,
+   * and that is inherent to an email-gated asset rather than a hole. What keeps
+   * it from being a relay is that the CONTENT is entirely ours — this template,
+   * our links, our sending domain — and that the endpoint sends AT MOST ONE
+   * message per address per asset, ever.
+   *
+   * `{{cta_url}}` IS THE ASSET AND `{{asset_name}}` IS WHAT THE FORM CALLED IT,
+   * and BOTH are declared. A form may promise an unnamed download — the sender
+   * supplies a neutral fallback for that — so the name is never absent by the
+   * time it is rendered; declaring it is what refuses an EDIT that deletes the
+   * sentence naming what the recipient asked for, which is the one thing that
+   * makes an unsolicited-looking message legible.
+   */
+  asset: {
+    title: 'Requested download email',
+    subject: 'The download you asked for',
+    placeholders: ['cta_url', 'asset_name'],
+    body: [
+      '<p>Hello,</p>',
+      '<p>Here is {{asset_name}}, as you asked.</p>',
+      '<p><a href="{{cta_url}}" style="display:inline-block;padding:12px 20px;',
+      'background:#111111;color:#ffffff;text-decoration:none;border-radius:6px;',
+      'font-weight:600">Open your download</a></p>',
+      '<p>If that button does not work, copy the address below and paste it into',
+      'your browser:</p>',
+      '<p>{{cta_url}}</p>',
+      '<p>If you did not ask for this, you can ignore it — we will not send it',
+      'again.</p>',
+    ].join('\n'),
+  },
+
   lapsed: {
     title: 'Lapsed access email',
     subject: 'Your access has ended',

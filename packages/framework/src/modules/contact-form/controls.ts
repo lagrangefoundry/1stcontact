@@ -1,4 +1,5 @@
 import type { L1ControlElement } from '../../l1/render'
+import { CHECKBOX_VALUE, type ContactFormFieldType } from './fields'
 
 /**
  * REQ-96 — `contact-form`'s **attribute bundles**: the module's entire half of
@@ -22,7 +23,7 @@ export interface ContactFormField {
   name: string
   label: string
   labelMode: 'visible' | 'placeholder'
-  type: 'text' | 'email' | 'tel' | 'textarea'
+  type: ContactFormFieldType
   required: boolean
 }
 
@@ -51,9 +52,30 @@ export function contactFormControls(
     // invariant elements).
     const placeholder = field.labelMode === 'placeholder' ? field.label : undefined
     const id = controlId(field.name)
+    if (field.type === 'textarea') {
+      controls[field.name] = {
+        tag: 'textarea',
+        attrs: { id, name: field.name, required: field.required, placeholder },
+      }
+      continue
+    }
+    // A CHECKBOX CARRIES NO PLACEHOLDER ([[REQ-223]] §7). There is no box to put
+    // words inside, so `labelMode` has nothing to select and the attribute would
+    // be inert markup implying a capability the control does not have. What it
+    // carries instead is a `value`, because a ticked box submits its value and an
+    // unticked one submits nothing at all — presence IS the answer.
     controls[field.name] =
-      field.type === 'textarea'
-        ? { tag: 'textarea', attrs: { id, name: field.name, required: field.required, placeholder } }
+      field.type === 'checkbox'
+        ? {
+            tag: 'input',
+            attrs: {
+              id,
+              name: field.name,
+              type: 'checkbox',
+              required: field.required,
+              value: CHECKBOX_VALUE,
+            },
+          }
         : {
             tag: 'input',
             attrs: { id, name: field.name, type: field.type, required: field.required, placeholder },

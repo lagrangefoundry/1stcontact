@@ -131,8 +131,16 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     // (a) The behavior meta carries only behavioural/functional config — no
     // aesthetic dials (fieldLabels / submitInline / submitColor) remain — and its
     // whole presentation surface is the required `form` slot.
+    // [[REQ-223]] added three: the asset a public form promises, by stable key,
+    // by the name the message calls it, and by URL. Behavioural/integration
+    // config in the same sense `action` is — WHICH artifact the form is gated on
+    // — and none of them bottoms out in a CSS value, which is the test that
+    // separates config from a dial ([[DOC-25]] §2).
     expect(Object.keys(contactFormMeta.config).sort()).toEqual([
       'action',
+      'asset',
+      'assetName',
+      'assetUrl',
       'fields',
       'submitLabel',
       'successMessage',

@@ -15,10 +15,24 @@ workers_dev = true
 # host it was issued for. Reading it decides WHICH STATE of `account-chrome`
 # renders and nothing else: no page is gated and no published content varies.
 # Empty means this deployment issues no sessions, so every visitor is signed out.
+#
+# TURNSTILE_SITEKEY is the PUBLIC half of the anti-spam widget ([[REQ-223]] §6).
+#
+# A VAR AND NOT A SECRET: it is printed in the markup of every served page that
+# carries a form, so hiding it would make the configuration unauditable without
+# hiding anything from anybody. The SECRET half is `wrangler secret put
+# TURNSTILE_SECRET` and is never in this file.
+#
+# EMPTY MEANS NO WIDGET AND — separately, and this is the important half — a
+# REFUSED ENDPOINT. An unstamped mount is inert rather than broken, and
+# `lead.ts` refuses every submission while the secret is missing, on the same
+# fail-closed reasoning `access.ts` uses. A deployment that forgot Turnstile
+# takes no leads; it does not take unverified ones.
 [vars]
 APEX_SITE_KEY = ""
 SESSION_COOKIE_NAME = ""
 SESSION_COOKIE_DOMAIN = ""
+TURNSTILE_SITEKEY = ""
 
 # The bucket the control-app publishes rendered revisions to (REQ-110/REQ-111).
 # Declared at the top level for `wrangler dev` and repeated under
@@ -40,6 +54,51 @@ bucket_name = "1stcontact-sites"
 binding = "DB"
 database_name = "1stcontact"
 database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+
+
+# THE WRITE PATH, AND IT IS NOT A URL ([[REQ-223]] §3.2).
+#
+# `POST /api/lead` arrives here, on the published site's own origin, and the
+# WRITE it implies belongs to control-app: `addContact` is the one definition of
+# how a person enters a tenant, and a second implementation in this Worker would
+# be two answers to that question, free to drift.
+#
+# `entrypoint` IS THE WHOLE POINT. A service binding to the default handler would
+# mean an internal HTTP path on control-app — something a request can NAME, and
+# therefore one Access misconfiguration away from being a public write endpoint
+# into every tenant's contact list. A named `WorkerEntrypoint` is reachable over
+# this binding and there is no URL that reaches it at all.
+#
+# AND A SERVICE-BINDING CALL NEVER TRAVERSES THE EDGE, so this needs no Access
+# bypass policy — which is why lead capture works where `/sign-in` currently does
+# not (see apps/control-app/ACCESS.md and [[REQ-223]] §10.2).
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule this file already records for R2 and D1. Omitting
+# the repeat is not a silent degradation: `lead.ts` refuses every submission when
+# the binding is absent, rather than acknowledging one it cannot write.
+[[services]]
+binding = "LEAD_INTAKE"
+service = "1stcontact-control-app"
+entrypoint = "LeadIntake"
+
+# Cloudflare's own rate limiter, keyed on the site and the source IP — the two
+# things a caller cannot vary ([[REQ-223]] §6). Everything in a submission's body
+# is caller-chosen and worthless as a key.
+#
+# GENEROUS BY DESIGN. A per-site cap is itself a denial of service against that
+# customer, since filling the bucket refuses their real enquiries — so this is a
+# backstop and Turnstile is the sharp instrument. Zone-level WAF rate-limiting
+# rules are complementary and are configuration rather than code.
+#
+# `namespace_id` IS AN OPAQUE HANDLE chosen per binding and is not a secret; the
+# period must be 10 or 60 seconds, which is the platform's constraint and not
+# ours. Absent, `lead.ts` refuses rather than running unmetered.
+[[unsafe.bindings]]
+name = "LEAD_RATE_LIMIT"
+type = "ratelimit"
+namespace_id = "2231"
+simple = { limit = 20, period = 60 }
 
 [env.production]
 name = "1stcontact-public-site"
@@ -67,6 +126,10 @@ routes = [
 APEX_SITE_KEY = ""
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = "1stcontact.io"
+# See the top-level block: restated rather than inherited, on purpose
+# ([[REQ-223]]). A named environment inherits no vars, and the failure of
+# omitting this one is a production apex whose forms show no widget.
+TURNSTILE_SITEKEY = ""
 
 [[env.production.r2_buckets]]
 binding = "SITES"
@@ -76,3 +139,16 @@ bucket_name = "1stcontact-sites"
 binding = "DB"
 database_name = "1stcontact"
 database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-223]]).
+[[env.production.services]]
+binding = "LEAD_INTAKE"
+service = "1stcontact-control-app"
+entrypoint = "LeadIntake"
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-223]]).
+[[env.production.unsafe.bindings]]
+name = "LEAD_RATE_LIMIT"
+type = "ratelimit"
+namespace_id = "2231"
+simple = { limit = 20, period = 60 }
