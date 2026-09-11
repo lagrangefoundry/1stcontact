@@ -6,7 +6,7 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:36:42.676940+00:00'
+updated_at: '2026-09-11T22:37:02.502083+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-37c2fe15
 ---
+
 
 
 ## What this is
@@ -75,8 +76,9 @@ is the one we have.
 
 ## The proposal
 
-**One catalogue. Every picture is a catalogue item. Being on the site is a field
-on the item, not a different place to look.**
+**One catalogue. Every asset is a catalogue item. Being on the site is a field on
+the item, not a different place to look, and what the client sees is a filter on
+that one list rather than a second one.**
 
 Concretely, what the assistant should be able to do:
 
@@ -256,8 +258,12 @@ asking the operator to drag a file into the chat a second time.
   explaining why the two stores are two.
 - `apps/control-app/src/material.ts` — `MaterialRow`, `listMaterial`,
   `promoteToSiteAsset`, `recordPlacement`, `materialImageLibrary`.
-- `tools/generate/src/cli/edit.ts` — `siteImageLibrary`, `editAssetList`,
-  `editAssetAdd`.
+- `tools/generate/src/cli/edit.ts` — `siteImageLibrary`, `listSiteAssets`,
+  `editAssetList`, `editAssetAdd`, and `validateOrThrow`, which is the page
+  reference check that reads the listing.
+- **`editAssetGet`'s header in the same file — read it before starting.** It is
+  BUG-45's account of what a registry disagreeing with the bytes cost, written on
+  the function this ticket proposes to re-point at a registry.
 - `tools/generate/src/cli/ai/host.ts` — how `ai-knowledge` is composed through
   `extraSurfaces` with its own grant. The pattern to copy.
 - `apps/control-app/dist-assets/builder/library.js` — what a human sees, which is
