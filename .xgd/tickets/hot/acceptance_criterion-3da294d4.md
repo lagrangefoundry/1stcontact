@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: One map per client knowledge base, recycled in place by every rebuild
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:47:44.795677+00:00'
-updated_at: '2026-09-11T03:47:44.795677+00:00'
+updated_at: '2026-09-11T04:01:57.004434+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ea7b4646
   kind: behavior
