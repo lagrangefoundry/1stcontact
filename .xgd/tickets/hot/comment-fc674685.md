@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-11T22:51:21.941122+00:00'
+updated_at: '2026-09-11T23:13:05.668065+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,13 @@ I'd take (1) for this cycle and file (2) as the contract question, because (2) i
 **One thing changed since last turn:** 4b is a data repair, not a repo fix. The committed draft here already names `https://app.1stcontact.io/sign-in` correctly — one module, no `account:` key. The broken instance is a *second* chrome the session authored, living in the live R2-backed store, not in this checkout. So the code-side fix is just `meta.ts`'s `signIn` doc naming `POST /sign-in` as the built-in answer; the bad value itself needs editing wherever that session's draft lives, and you'll need to tell me which deployment that was. Recorded on the ticket as an addendum.
 
 Still open from last turn: keep all of it on BUG-76, or split? Say the word on the scope and on (1) vs (2) and I'll cut the branch.
+
+<!-- xgd-turn id="c31128e3-0f70-4fb0-a58e-bf0bd0ca7940-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T23:13:05.034564+00:00" -->
+#### You
+**Change the contract** — give `account-chrome` `sent`/`error` slots and a visible-label route (a `labelMode`, as `contact-form` has). Fixes 1b properly and makes the confirmation a designed thing <-- this is the correct solution lets make this happen
+
+PLease proceed
 
 <!-- xgd-chat-end -->
