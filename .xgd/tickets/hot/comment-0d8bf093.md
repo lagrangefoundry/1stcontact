@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-50
 created_by: xgd
 created_at: '2026-09-10T17:16:39.738047+00:00'
-updated_at: '2026-09-11T00:00:06.886060+00:00'
+updated_at: '2026-09-11T00:04:56.908537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,11 @@ Full page, all bands rendered — hero, *"Code got cheap. Confidence didn't"*, t
 **More interesting: Chromium works in this sandbox after all.** The sandbox denies the Mach bootstrap port, so a normal launch dies at `bootstrap_check_in ... Permission denied (1100)` before the browser process is even up — and Firefox dies the same way on its tab subprocess, so it isn't Chromium-specific. But **`--single-process --no-zygote` launches cleanly** and screenshots fine. That contradicts my standing note that headless capture is impossible here; it's only impossible in multi-process mode. If `1c shot`/`1c capture` took those flags when a Mach-restricted environment is detected, the whole capture and gate pipeline would work in sandboxed sessions instead of being dead.
 
 That's a second candidate ticket alongside the import-targeting one from earlier. Want me to file either?
+
+<!-- xgd-turn id="f41f2d9e-c741-40ae-9799-c36c6a6b195a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T00:04:56.328646+00:00" -->
+#### You
+Can you also do one for first contact  please - just a desktop view of the homepage is fine
 
 <!-- xgd-chat-end -->
