@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T19:21:48.917200+00:00'
+updated_at: '2026-09-11T19:52:11.530224+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -119,5 +119,23 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="1f4794da-3efa-44fa-bcee-a2c6fc65a2ce-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:52:10.946829+00:00" -->
+#### Claude
+Now the server side, api, and callers.
+
+Now the tests.
+
+Now the local preview module, rewritten around REQ-219's op shapes.
+
+Now rewrite the editor around "show the rendered picture, preview only the pending op".
+
+Now the origin half: material.ts, router.ts, and the callers.
+
+Now the router route: wire `measure` and map `RecipeRefusedError` to a status.
+
+Now the modal suite, updated to the new behaviour.
 
 <!-- xgd-chat-end -->
