@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:28:23.418788+00:00'
+updated_at: '2026-09-11T22:30:50.062643+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -663,5 +663,58 @@ Recorded on REQ-217, REQ-221, and the epic. Still outstanding from the last revi
 <!-- xgd-chat role="user" ts="2026-09-11T22:28:20.944633+00:00" -->
 #### You
 See the conversation happening at the end of BUG-80 ntranscript and in REQ-150 in lf... all site materials MUST have catalogue (ticket) entries and MUST be available via the ticket API - that's what it was built for!
+
+<!-- xgd-turn id="fa908352-74d7-4773-9775-56cf8e0332cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:30:48.591041+00:00" -->
+#### Claude
+Let me read both sources before responding.
+
+Let me read lf REQ-150 and the two new tickets before I respond.
+
+lf REQ-150 is the imagegen-edit ticket, not attachment fetch. Let me find the real one rather than just report a miss.
+
+lf REQ-150 is the imagegen-edit ticket; I can't find an attachment-fetch ticket in either repo. Let me record what this principle changes for the epic.
+
+You're right, and it lands on something I got wrong.
+
+## It reframes the promotion hole — same fix, better reason
+
+I'd recorded that hole as "a decided design that was never built." REQ-219 chose option three (promotion records the asset name; a recipe change re-promotes) and rejected a `material_uid` column because *"adding a column and a cross-bucket read at publish buys a purity nobody consumes."*
+
+**You've just said that purity is the entire point of building materials as tickets.** The conclusion survives — option three still wins — but not on cost. It wins because the catalogue is the source of truth and the site's assets are a projection of it: a material that records where its bytes landed and re-promotes when its recipe changes *is* that projection. A join key between two peer stores is what your principle rules out; a derived copy that knows its origin is what it asks for. It also stops being optional.
+
+## Three tickets, one sentence failing at three points
+
+BUG-84 and REQ-228 came out of BUG-80's session; neither is a child of this epic. But they're the same problem from different sides:
+
+| | Where the sentence fails |
+|---|---|
+| **BUG-84** | `write_image` mints no ticket — 14 SVG drawings live, 0 catalogue entries. Nothing to project *from*. |
+| **REQ-228** | The AI can't read the catalogue as tickets, and can't promote. No way to *read* it. |
+| **This epic's promotion hole** | A recipe never reaches the projected copy. Nothing carries changes *forward*. |
+
+Fixing any one alone leaves the promise false. I've cross-referenced them without claiming them.
+
+## I gave bad guidance twice, and I've corrected it
+
+In the last review I told REQ-217 not to make its picture clickable, and endorsed REQ-220's `isEditablePicture` excluding drawings — **on the grounds that "a drawing has no material record."** That's true today and is precisely what BUG-84 calls a bug. I reasoned from a defect's current behaviour as though it were a rule.
+
+The corrected position splits the exclusion into its two reasons, which have different lifetimes:
+
+- **"No material record"** — temporary, about to be false. Not a basis for a permanent predicate.
+- **"An SVG cannot be cropped"** — permanent, and unrelated to records.
+
+So the modal should **open for a drawing and offer naming without the transform tools**, rather than not open at all. Naming is the half with nothing to do with pixels, and a drawing is exactly the picture whose name matters — `wordmark-option-a.svg` is a filename, not a name anyone chose. Today's behaviour is still correct as behaviour (no ticket, no uid, nothing to name); what was wrong was the recorded reasoning, which would have kept the predicate closed after its reason expired.
+
+## One thing I couldn't verify — I need the pointer
+
+**lf REQ-150 is *"imagegen: edit an existing image"*** (draft, low) — the colorize half of your original ask. It's not about attachment fetch. I searched both lf's and xgd's ticket stores for an attachment-fetch or `ticket fetch` ticket and found nothing; `xgd ticket` has no `fetch` subcommand today. The other agent asked you the same question last turn and the reply repeated the number, so I think it's genuinely mislaid rather than me looking in the wrong place. **Which repo and number?**
+
+Nothing here is blocked on it. For pictures, the byte paths already exist (`materialImageLibrary.read` → `readBlob`, and promotion's server-side read) — the gap attachment-fetch closes is **documents**, where the AI can currently read a 759-byte describer digest *about* your positioning doc but not the doc.
+
+And worth keeping from BUG-80: an attachment fetch that returns bytes into a tool result is the exact shape that killed that session. If it's being built now, the size discipline wants settling in the same pass.
+
+Recorded on the epic, REQ-217, and REQ-220. No code, no status changes.
 
 <!-- xgd-chat-end -->
