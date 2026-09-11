@@ -6,14 +6,15 @@ title: A region that exposes a colour gets a colour row that opens the site's pa
   to pick from, and the pick saves in the same change as the words
 created_by: xgd
 created_at: '2026-08-20T03:38:45.045656+00:00'
-updated_at: '2026-08-20T03:39:44.089953+00:00'
+updated_at: '2026-09-11T00:51:03.314527+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
