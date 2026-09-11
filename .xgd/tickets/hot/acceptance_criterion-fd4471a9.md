@@ -6,7 +6,7 @@ title: The editing box drops its heading and label column while keeping both acc
   names; the parameter sheet, refusals and dead ends keep theirs
 created_by: xgd
 created_at: '2026-08-10T07:47:00.779120+00:00'
-updated_at: '2026-08-16T04:18:04.244830+00:00'
+updated_at: '2026-09-11T00:51:01.161336+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
