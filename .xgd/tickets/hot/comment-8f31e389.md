@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T19:52:11.530224+00:00'
+updated_at: '2026-09-11T21:05:43.607910+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -137,5 +137,14 @@ Now the origin half: material.ts, router.ts, and the callers.
 Now the router route: wire `measure` and map `RecipeRefusedError` to a status.
 
 Now the modal suite, updated to the new behaviour.
+
+<!-- xgd-turn id="626de7f3-b694-4dc9-95e8-ccb996d60a9b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:05:42.191435+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
