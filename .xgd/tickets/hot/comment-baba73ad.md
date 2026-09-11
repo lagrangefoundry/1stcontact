@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T21:17:33.094929+00:00'
+updated_at: '2026-09-11T21:27:31.287713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -470,5 +470,13 @@ I flagged both in the ticket rather than burying them. The per-transform timings
 **The silent Library-drop failure** — `receiveFiles` surfaces an upload error only when `source === 'chat'`, so a file that 400s on a Library drop does nothing at all. I've asked twice and it's now blocking rather than cosmetic: REQ-221's honest HEIC refusal is delivered through exactly that swallowing path, so until it's fixed that ticket's whole value is invisible on the surface it matters most on. **Shall I file it?**
 
 No code written — ticket updates only.
+
+<!-- xgd-turn id="9b418359-97aa-4d61-a133-d0182b25f6c4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:27:29.412641+00:00" -->
+#### You
+Sure please file that.
+
+On the publish step I suggest 1 we throw up a spinner and lock any changes on the builder while publish is running. We could add a message "first time publication of images required risizing that can take some time - please leave this tab open". We could even add a progress bar?
 
 <!-- xgd-chat-end -->
