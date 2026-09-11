@@ -6,10 +6,10 @@ title: No embedding model available is a second route to no knowledge operations
   and the conversation still takes a turn
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:13:16.341706+00:00'
-updated_at: '2026-09-11T03:13:16.341706+00:00'
+updated_at: '2026-09-11T03:24:28.941568+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
