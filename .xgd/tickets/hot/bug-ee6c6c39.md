@@ -5,9 +5,9 @@ type: bug
 title: Sixteen tests fail on a clean tree, and the suite's red masks new breakage
 created_by: REQ-220
 created_at: '2026-09-11T21:46:08.377325+00:00'
-updated_at: '2026-09-11T22:55:07.630577+00:00'
+updated_at: '2026-09-11T22:55:08.460190+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -226,3 +226,21 @@ forbidding a mention that a later intent deliberately introduced.
    narrowed to the claim it is making.
 
 `npm test` is green on a clean tree afterwards, with nothing retired.
+
+
+## Outcome
+
+`npm test` runs green on a clean tree: 444 files, 3698 tests, 0 failures, and
+nothing was retired. All seventeen were fixed rather than removed.
+
+**One caveat, recorded rather than hidden.** Three suites are order-dependent
+under the parallel pool and each has failed once across four full runs while
+passing in isolation every time: `reconciliation-l1-navigation`'s AC-845 (jsdom
+delivers no `hashchange`), `req115-builder-shell` (`wrangler d1 migrations
+apply` racing another worker on the same local database file), and
+`test_UAT_FC_REQ-150_plain_vite_bootstrap` (`1c assets --json` racing on
+`dist-assets`). All three predate this ticket, all three share a process-global
+rather than an assertion, and none was in the sixteen. They are a separate
+defect of the same family — a suite that fails for a reason nobody reads stops
+being read — and are worth a ticket of their own rather than being folded in
+here.
