@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-59
 created_by: xgd
 created_at: '2026-09-06T23:21:32.100304+00:00'
-updated_at: '2026-09-11T19:21:21.197712+00:00'
+updated_at: '2026-09-11T19:22:23.213734+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -291,5 +291,37 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="913f1099-5e50-4758-bc03-1c6fbcdf0055-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:22:22.949947+00:00" -->
+#### Claude
+Ticket is already at `free_coded` with all three commits recorded, and `99b88111d9` is an ancestor of `xgd-working`. The only outstanding step is the branch teardown.
+
+Worktree is clean, nothing unmerged. Tearing it down:
+
+BUG-59's free-coding is complete. The work had already landed in the previous session — the only step left was the teardown, which is now done.
+
+**Final state:**
+
+| | |
+|---|---|
+| Status | `free_coded` |
+| Version | `0.2.126` |
+| Commits | `2ca6ef1a16`, `2751532a22`, `99b88111d9` — all ancestors of `xgd-working` |
+| Branch `free-BUG-59` | deleted |
+| Worktree | removed, lock released |
+
+I verified before tearing down: the worktree tree was clean, and `git log xgd-working..free-BUG-59` was empty, so nothing on the branch was unmerged.
+
+**What shipped**, for the record:
+
+- **`bin/access-sim` is now the edge, not just the issuer.** Anything outside its own three routes is forwarded to the builder credential-first — a matching `CF-Access-Client-Id`/`Secret` pair becomes a `cf-access-jwt-assertion` on the forwarded request, a wrong pair is a 403 (not a 302 into a login page), a cookie passes through untouched. That makes `bin/access-sim` and `1c push` usable together locally, which was the reported breakage.
+- **`SERVICE_TOKEN_IDENTITIES`** — a service token acts as a named person rather than as a new kind of principal, which is what also unblocked `bin/publish --production`.
+- **The committed-credential scan** learned that a `*_IDENTITIES` var names *who* a credential is, never *what* it is — narrow in both directions, and its duplicate definition was factored into `tests/support/credential-scan.ts`.
+
+One caveat I flagged last session still stands and is recorded in the ticket body: the three-process live composition (access-sim → `wrangler dev` → `bin/publish`) could not be re-run after the token shape changed, because `wrangler dev` doesn't build in any checkout — `KnowledgeDocs` isn't re-exported from the installed `@lagrangefoundry/ai-knowledge` index. Both halves are covered by suites driving the real thing; the composition itself is not.
+
+The ticket is parked at `free_coded`. Promoting to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
