@@ -15,7 +15,9 @@ fields:
   capability_uid: capability-a994b8f3
   story_kind: upgrade
   story_points: 3
-  updated_by: bundle-78f4e2fe
+  updated_by:
+  - bundle-78f4e2fe
+  - bundle-87be4669
   sprint_uid: sprint-a864c33e
   uat_coverage: pass
 ---
