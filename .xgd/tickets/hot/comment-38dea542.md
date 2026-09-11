@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:29:34.863517+00:00'
+updated_at: '2026-09-11T22:31:28.881726+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -234,5 +234,40 @@ REQ-228's Half D now points at it instead of describing it.
 <!-- xgd-chat role="user" ts="2026-09-11T22:29:33.170264+00:00" -->
 #### You
 I'm less concerned about SVG images - the user does not need to see those in the catalog
+
+<!-- xgd-turn id="84551615-df48-44b9-9081-513b44da9a4b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:31:28.397604+00:00" -->
+#### Claude
+Measured before rewriting. With drawings out, the remaining gap is one file — and it's more interesting than `add_asset`:
+
+Applied. Drawings are out of scope, recorded as your decision with the reason.
+
+**What that leaves.** Excluding SVG, the entire gap in the store is one file:
+
+```
+AlchemistLabWithTech.png  2.4 MB  — no material ticket
+DSC_7975.jpg             12.7 MB  — has one, promoted, placed_on correct
+```
+
+And its provenance is the interesting part:
+
+```
+storage/references/gigabytealchemy.ai/index/assets/AlchemistLabWithTech.png
+storage/sites/gigabytealchemy/draft/assets/AlchemistLabWithTech.png
+→ site_d669b155… (gigabytealchemy)
+```
+
+It's a subresource **mirrored from a captured third-party website** that reached a site's assets through the seed/push door. No ticket, so no `rights` block, so `republishable` was never evaluated.
+
+`promoteToSiteAsset` refuses precisely this picture — it raises `NotRepublishableError` for anything capture-sourced, because DOC-38 §5 calls promoting a capture-sourced asset "the most damaging single action available in the system": it publishes third-party copyright under the client's domain. That gate is right, and this door goes around it, because a picture with no ticket has nothing for the gate to read.
+
+So BUG-84 is now **"A capture-mirrored picture can reach a site's assets with no catalogue ticket and no rights record"**, medium/medium rather than high/high. It offers a narrow framing as an alternative to the broad one: rather than minting tickets at the seed door, just require that a capture-mirrored image passes the same gate promotion passes. One rule, one door, closes the exposure without touching the catalogue's shape.
+
+The live instance is a dev fixture and harms nobody — the door is the bug.
+
+**One consequence worth naming.** With drawings excluded, `placed_on` will never be a complete account of every byte in a site's assets, so REQ-228 shouldn't claim it is. I've rewritten Half D to say the honest thing instead: the catalogue is the complete account of *the client's material*, `list_assets` is the complete account of *the site's contents*, and they're not the same list. That's why Half B already recommended a peer listing rather than folding one into the other — "what's on the site" and "what the client has given us" really are two questions, and the bug was only ever that the second one couldn't be asked.
+
+Still open from last turn: which repo and number the `xgd ticket fetch` work actually lives under — lf's REQ-150 is the imagegen edit ticket, and `xgd ticket` has no `fetch` subcommand yet.
 
 <!-- xgd-chat-end -->
