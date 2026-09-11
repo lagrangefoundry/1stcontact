@@ -5,7 +5,7 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-11T22:08:20.853027+00:00'
+updated_at: '2026-09-11T22:11:52.294993+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -249,3 +249,19 @@ The CSS note stands and the instinct to say it out loud was right. A
 different act from restyling a component that ships its own look, and
 `builder.css:876-882`'s rule is about the latter. Add the rule; the comment does
 not forbid it.
+
+
+### Postscript: the upstream blocker has moved
+
+lagrange-framework **REQ-149 is now `ready_to_reconcile`**, where the investigation
+recorded it as `draft`. The seam this ticket was told to wait for — a host
+contributing a display handle, and the surface prose that currently forbids one —
+has been built upstream.
+
+**This does not automatically unblock the `create_image` half here.**
+`@lagrangefoundry/*` is not pinned in this repo's lockfile, so what the installed
+package actually exposes is a separate question from what the upstream ticket
+says landed. **Check the installed surface before designing against it**; if the
+seam is present, the two halves can land together and the staging above collapses.
+The `write_image` half is unaffected either way and remains the part that needs
+nothing from upstream.
