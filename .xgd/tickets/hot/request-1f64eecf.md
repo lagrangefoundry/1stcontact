@@ -5,10 +5,10 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-11T02:02:19.085189+00:00'
+updated_at: '2026-09-11T02:05:29.670973+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -17,6 +17,14 @@ fields:
   depends_on:
   - REQ-219
   chat_comment: comment-d7e6b937
+  commits:
+  - working_sha: f768e8e343f3c7110df8cb8d07081265514d8dec
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e144cb0b973e09b441b702b820ea8717b7b85541
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.159
 ---
 
 ## The gap
