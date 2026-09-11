@@ -5,18 +5,25 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-11T19:42:55.391404+00:00'
+updated_at: '2026-09-11T19:48:35.153385+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-34760bf1
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-cbce646b
+  commits:
+  - working_sha: d1b808f68af26807075940d99c991da6cdc3e878
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2bef88cf5d5f3888a7b7079dc56faa9614f0dc29
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.164
 ---
-
 
 ## The gap
 
