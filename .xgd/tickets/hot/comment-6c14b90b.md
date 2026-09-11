@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T02:07:48.717933+00:00'
+updated_at: '2026-09-11T02:10:33.378127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -319,5 +319,11 @@ The free-coding protocol exempts configuration and document changes, so items 1,
 If BUG-78: say so and I'll do items 1 and 2 immediately, then hand back with 3 and 4 named as blocked on you — and I'll tell you plainly that the form still won't work end-to-end until the Turnstile keys exist, rather than declaring it fixed.
 
 If you want me to **review** REQ-223's implementation rather than rebuild it — a fresh pair of eyes on 2,800 lines of security-sensitive code that its own author tested — say that instead. Given it's an unauthenticated public write endpoint that sends mail, I'd actually recommend it, and `/code-review` is the better instrument than me re-reading it inline.
+
+<!-- xgd-turn id="e8296109-ec09-49e2-990a-c155ba1d56ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T02:10:32.980271+00:00" -->
+#### You
+REQ-233 is already done - you said there was additional work on your ticket (BUG-78) that was dependent on 233 please can you do that work now?
 
 <!-- xgd-chat-end -->
