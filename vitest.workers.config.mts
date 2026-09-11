@@ -44,6 +44,21 @@ export default defineConfig({
         compatibilityFlags: ['nodejs_compat'],
         d1Databases: ['DB'],
         r2Buckets: ['SITES', 'BLOBS'],
+        // IMAGES — the renderer an edit recipe is applied by (REQ-219).
+        //
+        // Locally this is Miniflare's own implementation over `sharp`, and it is
+        // a THIRD of the real one: it honours `rotate`, `width` and `height` and
+        // silently drops trim, gravity and every colour adjustment. That is why
+        // `compileRecipe` is a pure function asserted directly — a suite that
+        // cropped and compared pixels here would pass against an uncropped
+        // image, which is worse than no suite at all. What these bindings do
+        // prove is the half the local renderer really performs, against the real
+        // binding API rather than a hand-written stand-in of it.
+        //
+        // REQ-222 uses the SAME binding for a publish's delivery width ladder,
+        // and that half the local renderer does perform faithfully — `width` is
+        // one of the three verbs it honours — so a UAT can publish a real
+        // photograph and assert the widths that actually came out.
         images: { binding: 'IMAGES' },
       },
     }),

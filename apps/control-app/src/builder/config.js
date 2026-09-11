@@ -279,6 +279,68 @@ export const SIGN_OUT_LABEL = 'Sign out'
  */
 export const UPLOAD_PROMPT = 'Purpose'
 
+/**
+ * What the file picker offers, as an `accept` list ([[REQ-221]]).
+ *
+ * IT EXISTS BECAUSE THE PICKER ADVERTISED NOTHING. The overlay's input was built
+ * with `multiple` and no `accept` at all, so the picker offered every file on
+ * the disk and the first thing a client learned about what we take was a refusal
+ * after the upload — which is the same experience as dropping a photograph and
+ * getting silence, arrived at differently.
+ *
+ * IT IS A HINT AND NOT A GATE, in both directions, and neither is a defect.
+ * A client can always choose *All Files* in the picker, and a drag-and-drop
+ * never consults this list at all — so the origin's refusals remain the only
+ * real enforcement and stay exactly as load-bearing as they were. What this buys
+ * is the ordinary case: the formats we actually read are the ones shown first.
+ *
+ * HEIC IS ON THE LIST, and it is the entry that makes the list worth writing.
+ * We take an iPhone photograph and convert it at the door ([[REQ-221]]), so a
+ * picker that greyed it out would refuse a file the product now handles. The two
+ * extensions and both HEIF media types are named because the browser's idea of
+ * what `.heic` is varies by platform, and an unrecognised token in an `accept`
+ * list is ignored rather than fatal.
+ *
+ * `image/*` IS DELIBERATELY NOT USED. It would resolve to whatever the platform
+ * thinks an image is, which on some browsers excludes HEIC and on others admits
+ * formats nothing here can read — an advertisement whose content depends on the
+ * client's operating system is not an advertisement. Every entry below is a
+ * format some step of this pipeline can actually do something with, which is the
+ * rule `TYPE_BY_EXTENSION` in `material.ts` already follows.
+ */
+export const UPLOAD_ACCEPT = [
+  // Photographs and pictures, including the one this ticket is about.
+  '.heic',
+  '.heif',
+  'image/heic',
+  'image/heif',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.avif',
+  '.svg',
+  // Documents the describer reads or extracts.
+  '.pdf',
+  '.md',
+  '.markdown',
+  '.txt',
+  '.csv',
+  '.tsv',
+  '.html',
+  '.json',
+  '.xml',
+  '.yaml',
+  '.yml',
+  // Fonts, whose name tables the pipeline parses.
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.ttc',
+].join(',')
+
 export const UPLOAD_AREAS = [
   {
     id: 'site',

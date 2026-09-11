@@ -11,8 +11,7 @@ import { validateL1, type L1Document, type L1Node } from '../packages/site-schem
 import {
   buildImageLadder,
   imageLadder,
-  type ImageRenderer,
-  type RenditionCache,
+  type ImageSizer,
 } from '../tools/generate/src/publish/ladder'
 import { publishSite } from '../tools/generate/src/publish/publish'
 import { starterHomePage } from '../tools/generate/src/cli/scaffold'
@@ -50,11 +49,11 @@ import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/p
 
 const WIDTHS = [320, 1280]
 
-/** A renderer over a fixed source size that records everything asked of it. */
+/** A sizer over a fixed source size that records everything asked of it. */
 function fakeRenderer(
   size: { width: number; height: number } | null,
   opts: { failAt?: number[] } = {},
-): ImageRenderer & { resized: number[]; measured: number } {
+): ImageSizer & { resized: number[]; measured: number } {
   const state = { resized: [] as number[], measured: 0 }
   return {
     ...state,
@@ -75,19 +74,7 @@ function fakeRenderer(
       // without decoding anything.
       return new TextEncoder().encode(`rendition-${width}`)
     },
-  } as ImageRenderer & { resized: number[]; measured: number }
-}
-
-/** A cache over a plain map, recording what it was asked for. */
-function fakeCache(): RenditionCache & { held: Map<string, Uint8Array> } {
-  const held = new Map<string, Uint8Array>()
-  return {
-    held,
-    get: async (key) => held.get(key) ?? null,
-    put: async (key, bytes) => {
-      held.set(key, bytes)
-    },
-  }
+  } as ImageSizer & { resized: number[]; measured: number }
 }
 
 /** Some bytes that are not any particular picture. */
@@ -374,32 +361,27 @@ describe('REQ-222 building the ladder', () => {
     expect(renditionPath('abc', 640, '.jpg')).toBe('assets/d/abc-640.jpg')
   })
 
-  it('transforms nothing at all for an unchanged picture on a republish', async () => {
-    // The claim content-addressing exists to deliver. Publishes are frequent —
-    // it is a toolbar button — and image edits are rare.
-    const cache = fakeCache()
-    const first = fakeRenderer({ width: 1000, height: 500 })
-    const before = await buildImageLadder(jpeg(), first, cache)
-    expect(first.resized).toEqual([320, 640, 960])
-
-    const second = fakeRenderer({ width: 1000, height: 500 })
-    const after = await buildImageLadder(jpeg(), second, cache)
-    expect(second.resized).toEqual([])
-    // And the republish still holds every rendition, from the cache.
-    expect([...after.derived.keys()].sort()).toEqual([...before.derived.keys()].sort())
-    expect(after.manifest).toEqual(before.manifest)
+  it('names a rendition for the SOURCE bytes, so a republish of one picture is free', async () => {
+    // The ladder does not hold the cache — [[REQ-219]]'s renderer already does,
+    // addressed by the original, the recipe and the size asked for. What IS the
+    // ladder's own job is the name, and the name is why an unchanged picture
+    // republishes for nothing: identical bytes at an identical width produce an
+    // identical address, so the sizer's cache answers before any transform.
+    const same = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const again = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    expect([...again.derived.keys()].sort()).toEqual([...same.derived.keys()].sort())
+    expect(again.manifest).toEqual(same.manifest)
   })
 
-  it('addresses a rendition by the source bytes, so edited bytes miss the cache', async () => {
-    const cache = fakeCache()
-    await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }), cache)
-    const edited = fakeRenderer({ width: 1000, height: 500 })
-    await buildImageLadder(
+  it('gives edited bytes a different address, so nothing serves a stale rendition', async () => {
+    const before = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
+    const after = await buildImageLadder(
       [{ name: 'hero.jpg', bytes: new TextEncoder().encode('different bytes entirely') }],
-      edited,
-      cache,
+      fakeRenderer({ width: 1000, height: 500 }),
     )
-    expect(edited.resized).toEqual([320, 640, 960])
+    // Same name, same width, different bytes — and therefore a different key
+    // everywhere: the manifest, the revision, and the renderer's own cache.
+    expect([...after.derived.keys()]).not.toEqual([...before.derived.keys()])
   })
 
   it('gives a picture the renderer cannot read no ladder, and no failed publish', async () => {
@@ -410,7 +392,7 @@ describe('REQ-222 building the ladder', () => {
 
   it('drops a rung that would not render and keeps the rest of the ladder', async () => {
     const renderer = fakeRenderer({ width: 1000, height: 500 }, { failAt: [640] })
-    const built = await buildImageLadder(jpeg(), renderer, fakeCache())
+    const built = await buildImageLadder(jpeg(), renderer)
     expect(built.manifest['hero.jpg'].renditions.map((r) => r.width)).toEqual([320, 960, 1000])
     expect([...built.derived.keys()].some((k) => k.includes('-640.'))).toBe(false)
   })

@@ -64,3 +64,52 @@ export function scannedPdf(): Uint8Array {
 export function bytesOf(text: string): Uint8Array {
   return new TextEncoder().encode(text)
 }
+
+
+/**
+ * A HEIC photograph's leading bytes — REQ-221.
+ *
+ * REAL WHERE IT MATTERS AND NOWHERE ELSE. What `isHeic` reads is the `ftyp` box:
+ * four bytes of length, the four-character type, then the MAJOR BRAND. That
+ * structure is reproduced exactly, because it is the whole of what detection
+ * depends on. What follows it is filler, because nothing in this repository ever
+ * decodes a HEIC — the Images binding does, at the door, and every suite here
+ * substitutes a double for it. A real 3MB iPhone photograph checked in would
+ * make the same claims more slowly and would still be decoded by nothing.
+ *
+ * THE BRAND IS A PARAMETER because the brand is the interesting axis. A real
+ * iPhone photograph carries `heic` or the generic HEIF `mif1` depending on how
+ * it was produced, and AVIF sits in the identical container under `avif` — so
+ * the fixture has to be able to produce the file that must NOT be converted as
+ * easily as the one that must.
+ */
+export function isoMediaBytes(brand: string, filler = 64): Uint8Array {
+  // `0000` is a placeholder: the length field is a big-endian u32 rather than
+  // ASCII, and is written over it below.
+  const header = new TextEncoder().encode(`0000ftyp${brand}    mif1`)
+  const total = header.length + filler
+  const bytes = new Uint8Array(total)
+  bytes.set(header, 0)
+  bytes[0] = (header.length >>> 24) & 0xff
+  bytes[1] = (header.length >>> 16) & 0xff
+  bytes[2] = (header.length >>> 8) & 0xff
+  bytes[3] = header.length & 0xff
+  // Filler that is deliberately not zeroes, so a test asserting "these exact
+  // bytes were stored" is asserting something.
+  for (let i = header.length; i < total; i += 1) bytes[i] = (i * 7) % 256
+  return bytes
+}
+
+/** The commonest form of the file REQ-221 is about. */
+export function heicBytes(filler = 64): Uint8Array {
+  return isoMediaBytes('heic', filler)
+}
+
+/** A PNG's signature, and enough after it to be a distinguishable byte string. */
+export function pngBytes(): Uint8Array {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  const bytes = new Uint8Array(signature.length + 32)
+  bytes.set(signature, 0)
+  for (let i = signature.length; i < bytes.length; i += 1) bytes[i] = (i * 11) % 256
+  return bytes
+}

@@ -955,9 +955,12 @@ describe('story-4300366a the palette popup', () => {
     // `location.reload` is non-configurable, and jsdom does not navigate an
     // iframe anyway, so the reachable evidence is that the workspace ASKED the
     // displayed frame to reload — and the fetch below shows what that ask gets.
-    // Exactly one frame is in the document, so the ask cannot be another's.
-    expect(document.querySelectorAll('iframe')).toHaveLength(1)
-    expect(document.querySelector('iframe')).toBe(app.panel.frame)
+    //
+    // The pane holds a frame per channel since [[BUG-79]], so "the displayed
+    // frame" is named rather than assumed: exactly one of them is shown, and it
+    // is the one the workspace reloads.
+    expect(document.querySelectorAll('.builder-panel__frame')).toHaveLength(1)
+    expect(document.querySelector('.builder-panel__frame')).toBe(app.panel.frame)
 
     let reloads = 0
     const contentWindow = vi

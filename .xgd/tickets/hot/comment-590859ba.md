@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-221
 created_by: xgd
 created_at: '2026-09-10T22:11:20.853946+00:00'
-updated_at: '2026-09-11T02:11:27.787317+00:00'
+updated_at: '2026-09-11T02:36:15.321645+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,73 @@ Sources: [Images limits and formats](https://developers.cloudflare.com/images/ge
 <!-- xgd-chat role="user" ts="2026-09-11T02:11:27.604479+00:00" -->
 #### You
 Please reread the ticket your answers are there and proceed with the implementation
+
+<!-- xgd-turn id="7a80b0d6-4cc4-447c-a87f-e65ff2d49a68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:36:15.161714+00:00" -->
+#### Claude
+You're right — the ticket answers all five. Let me re-read the decisions it makes and get the remaining implementation details.
+
+Re-reading the ticket, every question I raised is decided in it. Let me record the behaviour the UATs will trace to, then cut the branch.
+
+Ticket scoped. Now cutting the branch.
+
+Now let me write the detection + conversion module.
+
+Now wire it into the ingest path in `material.ts`.
+
+Now the `material.ts` changes.
+
+Now the conversion function and its two refusal messages:
+
+Now wire the binding in the router.
+
+Now the wrangler binding declaration, on both sides.
+
+Now the two client-side halves the ticket calls for — the accept list and the silent Library refusal.
+
+Now the silent Library-route refusal in `app.js`.
+
+Now add the refusal notice to the Library panel.
+
+Now wire it from `app.js` so a refusal reaches the client from either drop area.
+
+Now let me typecheck before writing the UATs.
+
+Now the main UAT file.
+
+16 passing. Now the surface UATs — the accept list and the refusal that reaches the client from both drop areas.
+
+`library` and `upload` are already exposed. Now the surface UAT.
+
+All 7 pass (the builder-mounted ones included). Now the binding-parity UAT.
+
+Now the route-level UAT in workerd, and then the full suite.
+
+All 31 pass. Now let me close the gap between the UATs and the ticket body — several assertions are technical consequences the body doesn't yet state.
+
+Done. Merged to `xgd-working`, version 0.2.161, ticket `REQ-221` at `free_coded`.
+
+## What landed
+
+**The door** — `apps/control-app/src/heic.ts` (new), called from `ingestUpload` *before* `ingest`. That placement is the point: `ingest` creates the material ticket and then attaches bytes, so a conversion attempted inside it could fail with a record already written — the record-naming-absent-bytes DOC-38 §7.3 forbids. Converting in front of the call makes that state unreachable.
+
+**Detection reads the bytes.** The `ftyp` major brand, never the declared type — because the browser's ordinary answer for a HEIC dragged from Finder is silence, and that silent case is what today files a photograph as a *document*. Eight HEIF brands convert; `avif`/`avis` share the container and are left alone.
+
+**JPEG out.** Not AVIF: the vision describer reads JPEG/PNG/GIF/WebP and not AVIF, so an AVIF conversion would land a photograph undescribed — this ticket's own failure from the other side. Not WebP: this is the master that REQ-222's width ladder and REQ-219's renderer re-derive from. The filename changes with it, so the Library row, the attachment record and any later re-describe agree.
+
+**Three refusals, three different sentences** — no binding (a fact about the deployment), too large (about the file, and the converter's 20 MB ceiling sits below our 25 MiB one), conversion threw (about the bytes). None creates a material; the codec's own words survive as the error's `cause` without reaching the client.
+
+**Both halves of the silence note, both real.** The picker carried no `accept` at all; a Library-route refusal was reported nowhere — the row simply never appeared. Fixed.
+
+**31 UATs across four files**, plus the wrangler binding declared on both sides.
+
+## Two things to flag
+
+**HEIC input is Enterprise-plan-only at Cloudflare.** I could not confirm the account's plan, so I built the refusal to carry that weight: a deployment whose plan does not admit HEIC refuses the file and names the format and the remedy, rather than storing bytes it cannot decode. The reasoning is recorded beside the binding declaration and a UAT pins it there. **Worth confirming the plan** — if it is Enterprise, everything works as written; if not, the product's behaviour is an honest refusal rather than the conversion, and you may want a follow-up ticket on a wasm decoder. This also weakens one sentence in REQ-219's rationale (the "Browser Rendering cannot decode HEIC" argument for choosing Images), which you may want to revisit there.
+
+**What no local suite can prove.** The Images binding's offline implementation supports only width/height/rotate/format and does not decode HEIC, so the converter is doubled in every test. That what the live API does with real HEIC bytes is unproven is stated in the suite headers rather than left implied.
+
+Full node and workers projects run clean apart from 11 node files and 1 workers file that were already failing — priming/chat, copy-edit, change-journal, a repo-wide scope scan, and the KB session suite. I confirmed the last one by removing my conversion step and re-running: same three failures.
 
 <!-- xgd-chat-end -->

@@ -15,10 +15,14 @@ import type { StoredAsset } from '../store/site-store'
  *
  * WHERE THIS SITS. `publish.ts` sequences a publish over the {@link SiteStore}
  * port and knows nothing about HTTP or bindings; this is the same shape for
- * images. The POLICY — which widths, what a rendition is called, when a transform
- * is skipped — lives here, once, in worker-safe TypeScript. The two things that
- * genuinely need a platform (decoding a picture, and a bucket to cache in) are
- * the two ports below, and the Worker supplies them.
+ * images. The POLICY — which widths, what a rendition is called, what the
+ * manifest records — lives here, once, in worker-safe TypeScript. The one thing
+ * that genuinely needs a platform is decoding and resizing a picture, and that is
+ * {@link ImageSizer}, which the Worker supplies by adapting the renderer
+ * [[REQ-219]] already composed. Caching is deliberately NOT here: that renderer
+ * is already wrapped in a rendition cache addressed by the original, the recipe
+ * and the size asked for, which is exactly the address this ladder would have
+ * invented.
  *
  * WHY NOT A VERB ON THE SITE STORE. Because a store holds bytes and this decides
  * what bytes should exist. Putting it behind `SiteStore` would oblige the
@@ -41,7 +45,8 @@ import type { StoredAsset } from '../store/site-store'
  * bits that needs on the order of four billion distinct pictures in one tenant
  * before it is even worth thinking about, and the name stays short enough to
  * read in a bucket listing. It is not a security boundary: the bucket prefix is
- * (see the cache's own tenant scoping).
+ * — [[REQ-219]]'s cache is tenant-prefixed for exactly that reason, and these
+ * names never leave a revision's own `out/`.
  */
 const RENDITION_SHA_LENGTH = 16
 
@@ -65,47 +70,31 @@ export interface ImageSize {
 }
 
 /**
- * What the ladder needs from an image renderer — the Cloudflare Images binding,
- * in the deployment that has one.
+ * What the ladder needs of an image renderer — two verbs, and no opinions.
  *
- * TWO VERBS AND NO OPINIONS. Neither decides anything: `measure` reports what a
- * picture IS, `resize` produces a width this module already decided to ask for.
- * That is what keeps a fake in a test honest — there is no policy inside it to
- * get right differently from the real one.
+ * NEITHER VERB DECIDES ANYTHING: `measure` reports what a picture IS, `resize`
+ * produces a width this module already decided to ask for. That is what keeps a
+ * fake in a test honest — there is no policy inside it to get right differently
+ * from the real one.
+ *
+ * A SIZER AND NOT A RENDERER, because [[REQ-219]] already has a renderer and
+ * this is deliberately not a second one. That renderer applies an editorial
+ * recipe and takes a delivery width alongside it; `apps/control-app`'s adapter
+ * is what turns it into this. The narrower port is what keeps the ladder from
+ * knowing that recipes exist at all.
  *
  * NULL IS "I COULD NOT", NEVER A THROW. A picture the renderer cannot decode is
  * an ordinary thing to meet in a client's asset library, and it must cost that
  * picture its ladder and nothing else. A publish that failed because one upload
  * was a `.png` that is not a PNG would be a site nobody can publish, diagnosable
- * only by deleting assets one at a time.
+ * only by deleting assets one at a time. The adapter is where the editing path's
+ * refusals become this.
  */
-export interface ImageRenderer {
+export interface ImageSizer {
   /** The picture's own pixel dimensions, or null if these bytes are not one. */
   measure(bytes: Uint8Array, contentType: string): Promise<ImageSize | null>
   /** The picture at `width`, same format, or null if it could not be rendered. */
   resize(bytes: Uint8Array, contentType: string, width: number): Promise<Uint8Array | null>
-}
-
-/**
- * Where renditions that have already been rendered are looked for and kept.
- *
- * THIS IS WHAT MAKES A REPUBLISH FREE. Publishes are frequent — it is a toolbar
- * button — and image edits are rare, so the overwhelmingly common publish is one
- * where every picture is byte-identical to last time. Keyed by content, that
- * publish performs reads and no transforms.
- *
- * THE KEY IS THE RENDITION'S IDENTITY, NOT ITS LOCATION. `<sha>-<width><ext>`
- * over the SOURCE bytes: the adapter decides what prefix that sits under, which
- * is where the tenant scoping lives. A global content address would be an
- * existence oracle across the tenant barrier — the same reason the material
- * store's blobs are `t/<tenant>/blob/<sha256>` and not `blob/<sha256>`.
- *
- * OPTIONAL, AND A MISS IS NOT AN ERROR. A deployment with no cache renders every
- * rung every time, which is slower and identical.
- */
-export interface RenditionCache {
-  get(key: string): Promise<Uint8Array | null>
-  put(key: string, bytes: Uint8Array, contentType: string): Promise<void>
 }
 
 /** What a ladder build produced. */
@@ -145,12 +134,13 @@ export const EMPTY_LADDER: LadderBuild = { manifest: {}, derived: new Map() }
  *
  * THE ORDER WITHIN ONE PICTURE IS: measure, decide, then render only what is
  * missing. Measuring first is what caps the ladder at the source; deciding
- * before rendering is what lets the cache answer; and a rung that fails to
- * render drops out of the manifest rather than out of the publish, so one
- * awkward picture costs its own ladder and nobody else's.
+ * before rendering is what lets the sizer's own cache answer without this module
+ * knowing it has one; and a rung that fails to render drops out of the manifest
+ * rather than out of the publish, so one awkward picture costs its own ladder and
+ * nobody else's.
  *
  * THE MANIFEST IS A RECORD OF WHAT LANDED. An entry is written only from
- * renditions that are in `derived` (or were already in the cache), because a
+ * renditions that are in `derived`, because a
  * `srcset` candidate the bucket does not hold is a 404 on the one request the
  * page cannot recover from — and the browser will have chosen it precisely
  * because it was the best fit.
@@ -162,8 +152,7 @@ export const EMPTY_LADDER: LadderBuild = { manifest: {}, derived: new Map() }
  */
 export async function buildImageLadder(
   assets: readonly StoredAsset[],
-  renderer: ImageRenderer,
-  cache?: RenditionCache,
+  sizer: ImageSizer,
 ): Promise<LadderBuild> {
   const manifest: Record<string, ImageDelivery> = {}
   const derived = new Map<string, Uint8Array>()
@@ -173,7 +162,7 @@ export async function buildImageLadder(
     // are, and anything else unknown is left alone rather than guessed at.
     if (!isLadderedAsset(asset.name)) continue
     const contentType = contentTypeOf(asset.name)
-    const size = await renderer.measure(asset.bytes, contentType)
+    const size = await sizer.measure(asset.bytes, contentType)
     if (size === null) continue
 
     const widths = deliveryWidthsFor(size.width)
@@ -184,18 +173,12 @@ export async function buildImageLadder(
     const renditions: ImageRendition[] = []
 
     for (const width of widths) {
-      const key = `${sha}-${width}${extension}`
-      const path = renditionPath(sha, width, extension)
-      let bytes = (await cache?.get(key)) ?? null
-      if (bytes === null) {
-        bytes = await renderer.resize(asset.bytes, contentType, width)
-        // A rung that would not render is dropped and the rest of the ladder
-        // stands: fewer choices for the browser, never a broken candidate.
-        if (bytes === null) continue
-        await cache?.put(key, bytes, contentType)
-      }
-      derived.set(path, bytes)
-      renditions.push({ src: path, width })
+      const bytes = await sizer.resize(asset.bytes, contentType, width)
+      // A rung that would not render is dropped and the rest of the ladder
+      // stands: fewer choices for the browser, never a broken candidate.
+      if (bytes === null) continue
+      derived.set(renditionPath(sha, width, extension), bytes)
+      renditions.push({ src: renditionPath(sha, width, extension), width })
     }
 
     if (renditions.length === 0) continue
@@ -207,7 +190,7 @@ export async function buildImageLadder(
   return { manifest, derived }
 }
 
-/** An {@link ImageLadder} over a renderer and an optional cache. */
-export function imageLadder(renderer: ImageRenderer, cache?: RenditionCache): ImageLadder {
-  return { build: (assets) => buildImageLadder(assets, renderer, cache) }
+/** An {@link ImageLadder} over a sizer. */
+export function imageLadder(sizer: ImageSizer): ImageLadder {
+  return { build: (assets) => buildImageLadder(assets, sizer) }
 }

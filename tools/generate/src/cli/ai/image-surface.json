@@ -1,0 +1,122 @@
+{
+  "surface": "image",
+  "version": 1,
+  "surface_version": 1,
+  "title": "Changing a picture",
+  "call_type": "inproc",
+  "overview": "This is how you **change a picture** — crop it, straighten it, size it, warm it up. Nothing else you can do touches a picture at all: you can place one on a page and you cannot make it the right picture first.\n\n**An edit is a recipe, and the original is kept forever.** You are not writing new bytes over old ones. A picture carries an ordered list of operations, and what anyone sees is the original with that list applied. Nothing you do here can destroy what your client gave you.\n\n**Which means \"a little wider\" is an edit, not an undo.** A crop is an operation with parameters, so widening it is changing one number in that operation — in a conversation months later, with the original still underneath. Removing an operation from the middle, or inserting one before another, are ordinary things to do and nothing downstream has to be rewritten.\n\n**Coordinates are fractions and sizes are pixels, and they never share a name.** A crop says how much of the picture to trim off each edge, as a fraction between 0 and 1 — `top: 0.35, bottom: 0.35` keeps the middle strip. A resize says how many pixels wide the picture should be. That split is what makes a recipe survive being reordered: a crop written in pixels would silently move the moment a resize appeared before it.\n\n**The whole vocabulary is four operations.**\n\n- `crop` — `left`, `top`, `right`, `bottom`: fractions trimmed off each edge. Leave out the edges you are not moving.\n- `rotate` — `degrees`: `90`, `180` or `270`. A picture turns in quarters.\n- `resize` — `width` and/or `height`, in whole pixels. Never larger than the picture already is.\n- `adjust` — `brightness`, `contrast`, `saturation`: multipliers where `1` is the picture unchanged. `1.2` is a fifth brighter. `saturation: 0` is black and white.\n\n**You send the whole recipe, every time.** A call replaces the list entirely, so read the current one first and send it back with your change in it. Anything you leave out is removed. What comes back is always the complete recipe, so a list that arrived short of an operation is visible immediately rather than discovered in a picture later.\n\n**Sizes for the web are handled automatically and are not your problem.** When a site is published, every picture on it is built at the widths visitors actually need, without anyone being asked. `resize` is for when a size is part of what the picture *is* — a logo that is 400px wide because that is what it is. Do not use it to save bandwidth; you would be fighting machinery that is already doing a better job of it.\n\n**Refusing is normal, and a refusal is information.** A crop that would leave nothing, a crop reaching outside the frame, a resize larger than the source — each is refused with the reason, nothing is written, and the recipe is exactly as it was. Read the reason and correct the call; it is telling you something true about the picture.\n\n**A picture's written description describes the original.** Cropping something does not rewrite the text that was written about it when it arrived, so after a heavy crop that description may describe parts of a picture nobody can see any more. Look at the picture rather than trusting the words, and say so to your client if it matters.\n\n**Naming a picture is the same everywhere.** A picture answers to the name it was given when it was made, the filename it was uploaded under, or what the Library calls it — the same spellings every other way of looking at a picture accepts. If a name means two pictures you are told both, and you ask again with one of them.",
+  "param_types": {
+    "recipe": {
+      "base": "array",
+      "item_base": "object",
+      "description": "The complete ordered list of operations for this picture. Each entry is an object whose `op` is one of `crop`, `rotate`, `resize` or `adjust`, carrying that operation's own parameters — `{\"op\": \"crop\", \"top\": 0.35, \"bottom\": 0.35}`, `{\"op\": \"rotate\", \"degrees\": 90}`, `{\"op\": \"resize\", \"width\": 400}`, `{\"op\": \"adjust\", \"saturation\": 0}`. They are applied in the order given, and each one's fractions are fractions of what the operations before it left. An empty list means the picture as it was stored."
+    }
+  },
+  "shapes": {
+    "picture_edits": {
+      "image": "The picture's unambiguous name. Use this one when you call again — it always means exactly one picture.",
+      "title": "What the Library calls it, where it has a title. A picture stored as a site file has none.",
+      "edits": "The complete recipe as it now stands, in order.",
+      "original": "What the stored picture measures in pixels, before anything is applied.",
+      "size": "What it measures with the recipe applied — the picture as anyone looking at it now sees it."
+    }
+  },
+  "errors": {
+    "NOT_FOUND": {
+      "message": "there is no picture of that name. A picture answers to the name it was given when it was made, the filename it arrived under, or what the Library calls it — check what you were told when it was stored rather than guessing at a spelling."
+    },
+    "AMBIGUOUS": {
+      "message": "that name means more than one picture, and guessing which would be a wrong answer that looked like a right one. The message names the candidates; ask again with one of them."
+    },
+    "NOT_EDITABLE": {
+      "message": "that picture is a file on the site rather than an item in the Library, and only a Library item carries a recipe. A site file is bytes with nowhere to keep a list of edits. Edit the Library picture it came from, or draw a replacement."
+    },
+    "REFUSED": {
+      "message": "that recipe will not be applied to that picture, and the message says exactly why — a crop that would leave nothing, a crop reaching outside the frame, a size larger than the picture already is, or an operation that is not one of the four. Nothing was written and the recipe is exactly as it was. This is a finding about the picture: read it and correct the call."
+    },
+    "UNREADABLE": {
+      "message": "that picture cannot be measured, so a recipe written in fractions of it has nothing to be a fraction of. Drawings and animations are stored as themselves and are not edited this way — redraw one rather than cropping it."
+    },
+    "ENVIRONMENT": {
+      "message": "this deployment cannot change pictures at all — there is no renderer configured to apply a recipe with. Nothing you can do about it; say so and carry on with what you can do."
+    }
+  },
+  "operations": [
+    {
+      "op": "list_image_edits",
+      "tool": "list_image_edits",
+      "effect": "read",
+      "summary": "Read the recipe a picture currently carries.",
+      "description": "What has been done to this picture, in order, and what it measures before and after.\n\nRead this before changing anything. A change replaces the whole list, so this is where you get the list to send back — and it is how you find the operation whose parameters you actually want to alter.\n\nA picture nobody has edited answers with an empty list and the same size twice, which is an ordinary answer and not a missing one.",
+      "params": {
+        "image": {
+          "type": "string",
+          "required": true,
+          "description": "Which picture, by any name it answers to."
+        }
+      },
+      "returns": {
+        "shape": "picture_edits"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "AMBIGUOUS",
+        "NOT_EDITABLE",
+        "UNREADABLE",
+        "ENVIRONMENT"
+      ]
+    },
+    {
+      "op": "edit_image",
+      "tool": "edit_image",
+      "effect": "write",
+      "summary": "Set the whole list of operations a picture carries.",
+      "description": "Replaces the picture's recipe with the list you give, having checked every operation against the picture's real pixels first. Either the whole list is accepted or none of it is — a recipe is never half-applied.\n\n**Send the complete list, not the change.** Read the current recipe, alter or remove the entry you mean, add any new one at the position you want it, and send the result. Anything missing from your list is gone from the picture.\n\nAn empty list is how you put a picture back exactly as it arrived — the original was never touched, so nothing has to be recovered.\n\nThe bytes are not rewritten here and no picture is produced. Look at the picture afterwards if you want to see what you did; that is a separate act and worth doing when a crop was a judgement rather than a measurement.",
+      "params": {
+        "image": {
+          "type": "string",
+          "required": true,
+          "description": "Which picture, by any name it answers to."
+        },
+        "edits": {
+          "type": "recipe",
+          "required": true,
+          "description": "The complete recipe this picture should carry from now on. Pass an empty list to return it to the way it was stored."
+        }
+      },
+      "returns": {
+        "shape": "picture_edits"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "AMBIGUOUS",
+        "NOT_EDITABLE",
+        "REFUSED",
+        "UNREADABLE",
+        "ENVIRONMENT"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group": "SeeImageEdits",
+      "effect": "read",
+      "title": "What has been done to a picture",
+      "description": "Reading the list of operations a picture carries, and what it measures before and after them. Nothing here changes anything.",
+      "operations": [
+        "list_image_edits"
+      ]
+    },
+    {
+      "group": "EditImages",
+      "effect": "write",
+      "title": "Changing a picture",
+      "description": "Cropping, straightening, sizing and colour. Every change is kept as a list of operations over the picture your client gave you, which is never altered and never lost.",
+      "operations": [
+        "edit_image"
+      ]
+    }
+  ],
+  "sequences": [],
+  "absences": []
+}

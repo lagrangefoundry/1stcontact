@@ -1,139 +1,67 @@
-import { derivedPrefix } from '../../../tools/generate/src/store/revision-model'
+import { imageRendererFor, UnrenderableImageError, type ImageEditEnv } from './image-edit'
 import {
   imageLadder,
   type ImageLadder,
-  type ImageRenderer,
+  type ImageSizer,
   type ImageSize,
-  type RenditionCache,
 } from '../../../tools/generate/src/publish/ladder'
 
 /**
  * The delivery width ladder, over this deployment's actual platform ([[REQ-222]]).
  *
- * THE POLICY IS NOT HERE. Which widths a picture gets, what a rendition is
- * called, when a transform is skipped and what the manifest records all live in
- * `publish/ladder.ts`, in worker-safe TypeScript that a node test can drive with
- * fakes. This file is the two things that genuinely need a platform — a decoder
- * and a bucket — and nothing else. A rule that lived here would be a rule only
- * reachable through a real binding, which is how it would come to differ from
- * what the renderer writes into a `srcset`.
+ * IT RIDES [[REQ-219]]'s RENDERER RATHER THAN THE BINDING. That renderer is
+ * already the one composition root that names `env.IMAGES`, already measures a
+ * picture before doing anything to it, already takes a delivery `width` as an
+ * argument that is deliberately NOT part of a recipe, and is already wrapped in
+ * a rendition cache addressed by the original, the recipe and the size asked
+ * for. Every one of those is something this ladder needs, and a second renderer
+ * beside it would be a second opinion about which formats are renderable, a
+ * second cache with its own keyspace, and a second place to discover that a
+ * deployment's binding cannot transform. So there is one renderer, and this file
+ * is the narrow adapter between its verbs and the ladder's.
  *
- * WHY THE IMAGES BINDING RATHER THAN BROWSER RENDERING. `[browser]` is already
- * bound and already paid for ([[REQ-154]]), and was rejected upstream ([[EPIC-1]]
- * §6): it is far heavier per publish, and it cannot decode HEIC, so it would have
- * solved this and left the upload path needing a second answer anyway.
+ * WHAT THE ADAPTER ACTUALLY CHANGES IS THE FAILURE CONTRACT, and that is the
+ * whole of why it exists. The editing path RAISES for a picture it cannot render
+ * — the assistant asked to crop something, and the honest answer is that it
+ * cannot be cropped. A publish must not: a `.png` that is not a PNG is an
+ * ordinary thing to meet in a client's asset library, and a site nobody can
+ * publish, diagnosable only by deleting assets one at a time, is far worse than
+ * a photograph served at its full width the way it was last week. So every
+ * refusal becomes `null`, which the ladder reads as "this picture gets no
+ * rendition".
+ *
+ * THE RECIPE IS EMPTY, AND THAT IS NOT A SHORTCUT. A site asset is bytes that
+ * promotion already produced by applying the recipe ([[REQ-219]]); re-applying
+ * one here would be applying it twice. What a publish adds is sizing, and
+ * nothing else.
  */
 
-/** The output formats the Images binding will encode, by source content type. */
-const ENCODABLE: Record<string, 'image/jpeg' | 'image/png' | 'image/webp' | 'image/avif'> = {
-  'image/jpeg': 'image/jpeg',
-  'image/png': 'image/png',
-  'image/webp': 'image/webp',
-  'image/avif': 'image/avif',
-}
-
-/**
- * The source content type, as the format to encode a rendition in.
- *
- * SAME FORMAT IN AND OUT. This is a WIDTH ladder: a JPEG's rungs are JPEGs. A
- * better codec for the same picture is a real and separate question — it needs
- * `<picture>` and typed `<source>`s, because a static publish cannot vary on the
- * `Accept` header — and answering both here would mean a change nobody could
- * review as one thing.
- */
-function encodeAs(contentType: string): 'image/jpeg' | 'image/png' | 'image/webp' | 'image/avif' | null {
-  return ENCODABLE[contentType.split(';')[0].trim().toLowerCase()] ?? null
-}
-
-/** Bytes as a stream, which is what every verb on the binding takes. */
-function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  // Through a `Response` rather than a hand-built `ReadableStream`: it is the
-  // runtime's own conversion, so there is no queuing strategy here to get subtly
-  // wrong for a multi-megabyte photograph.
-  const body = new Response(bytes as unknown as BodyInit).body
-  if (body === null) throw new Error('image bytes produced no stream')
-  return body as ReadableStream<Uint8Array>
-}
-
-/**
- * {@link ImageRenderer} over `env.IMAGES`.
- *
- * EVERY FAILURE IS `null`, INCLUDING THE THROWN ONES. The binding raises an
- * `ImagesError` for input it cannot decode (code 9412) and for a format it will
- * not encode, and both of those are ordinary things to meet in a client's asset
- * library — a `.png` that is not a PNG, a picture the platform has stopped
- * supporting. The ladder's contract is that either means "this picture gets no
- * rendition", never "this publish fails": a site nobody can publish, diagnosable
- * only by deleting assets one at a time, is a far worse outcome than a
- * photograph that is served at its full width the way it was last week.
- */
-export function imagesRenderer(images: ImagesBinding): ImageRenderer {
+/** An {@link ImageSizer} over the one renderer, with publish's failure contract. */
+function ladderSizer(renderer: NonNullable<ReturnType<typeof imageRendererFor>>): ImageSizer {
   return {
-    async measure(bytes: Uint8Array, _contentType: string): Promise<ImageSize | null> {
+    async measure(bytes: Uint8Array, contentType: string): Promise<ImageSize | null> {
       try {
-        const info = await images.info(streamOf(bytes))
-        // The SVG arm of the response carries no dimensions at all, which is the
-        // binding agreeing with the ladder: a vector has no pixel width to cap at.
-        if (!('width' in info) || !('height' in info)) return null
-        return { width: info.width, height: info.height }
-      } catch {
-        return null
+        return await renderer.measure(bytes, contentType)
+      } catch (err) {
+        // A picture that cannot be measured cannot be capped at its own width,
+        // and capping is what stops the ladder upscaling. So it gets no ladder.
+        if (err instanceof UnrenderableImageError) return null
+        throw err
       }
     },
-
     async resize(bytes: Uint8Array, contentType: string, width: number): Promise<Uint8Array | null> {
-      const format = encodeAs(contentType)
-      if (format === null) return null
       try {
-        const result = await images
-          .input(streamOf(bytes))
-          // `scale-down` NEVER ENLARGES, and saying so here costs nothing even
-          // though `deliveryWidthsFor` has already guaranteed the width is below
-          // the source's. Belt and braces in the one direction that matters: an
-          // upscaled rendition is more bytes for the same picture, which is the
-          // exact harm this ticket exists to remove, and a local emulation of
-          // this binding does not necessarily default the same way.
-          .transform({ width, fit: 'scale-down' })
-          .output({ format })
-        return new Uint8Array(await new Response(result.image()).arrayBuffer())
-      } catch {
-        return null
-      }
-    },
-  }
-}
-
-/**
- * {@link RenditionCache} over the sites bucket, under this tenant's own prefix.
- *
- * OUTSIDE THE SERVED ROOT — see `DERIVED_ROOT`. `public-site` resolves published
- * revisions and only those, so nothing here is addressable by a URL however it
- * is crafted; these bytes reach the public internet only as the copy a publish
- * writes into a revision's `out/`.
- *
- * A FAILED `put` IS SWALLOWED, and that is deliberate: the cache is an
- * optimisation, and the rendition it failed to record is already in hand and
- * already on its way into the revision. Failing the publish to preserve a cache
- * entry would be the tail wagging the dog.
- */
-export function r2RenditionCache(bucket: R2Bucket, tenantId: string): RenditionCache {
-  const prefix = derivedPrefix(tenantId)
-  return {
-    async get(key: string): Promise<Uint8Array | null> {
-      try {
-        const object = await bucket.get(`${prefix}/${key}`)
-        return object ? new Uint8Array(await object.arrayBuffer()) : null
-      } catch {
-        return null
-      }
-    },
-    async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
-      try {
-        await bucket.put(`${prefix}/${key}`, bytes as unknown as ArrayBuffer, {
-          httpMetadata: { contentType },
-        })
-      } catch {
-        // See above: a cache that could not record is a slower next publish.
+        // The empty recipe: this is the sizing pass and nothing else. `render`
+        // applies `scale-down`, so a width at or above the source is a no-op
+        // rather than an enlargement — belt and braces over the cap the ladder
+        // has already applied.
+        const rendered = await renderer.render(bytes, contentType, [], { width })
+        return rendered.bytes
+      } catch (err) {
+        // One rung that would not render drops out and the rest of the ladder
+        // stands: fewer choices for the browser, never a broken candidate.
+        if (err instanceof UnrenderableImageError) return null
+        throw err
       }
     },
   }
@@ -142,23 +70,26 @@ export function r2RenditionCache(bucket: R2Bucket, tenantId: string): RenditionC
 /**
  * The ladder this deployment can build, or **null** where it cannot.
  *
- * NULL IS NOT A DEGRADED PUBLISH. With no Images binding the publish that
- * happens is exactly the publish this repository has always performed — the same
- * revision, the same bytes, pages whose `<img>` carries a `src` and nothing else.
- * That is the same publish `1c publish` performs against an operator's disk, on
- * purpose, and it is why an absent binding is not the loud failure `env.AI` and
- * `env.BROWSER` are: those absences take away a capability that has no fallback,
- * and this one takes away an optimisation that does.
+ * NULL IS NOT A DEGRADED PUBLISH. With no Images binding — or one that cannot
+ * transform — the publish that happens is exactly the publish this repository
+ * has always performed: the same revision, the same bytes, pages whose `<img>`
+ * carries a `src` and nothing else. That is the same publish `1c publish`
+ * performs against an operator's disk, on purpose, and it is why an absent
+ * binding is not the loud failure `env.AI` and `env.BROWSER` are: those absences
+ * take away a capability that has no fallback, and this one takes away an
+ * optimisation that does.
+ *
+ * THE CACHE COMES WITH THE RENDERER, scoped to the business this request
+ * resolved to and never to a value from the request itself. That is what makes a
+ * republish free — publishes are frequent and image edits are rare, so the
+ * overwhelmingly common publish is one where every picture is byte-identical to
+ * last time, and keyed by content that publish performs reads and no transforms.
  */
 export function ladderFor(
-  env: { IMAGES?: ImagesBinding; SITES?: R2Bucket },
+  env: ImageEditEnv,
   scope: { businessId: string },
 ): ImageLadder | null {
-  if (!env.IMAGES) return null
-  // THE CACHE IS SCOPED TO THE BUSINESS THIS REQUEST RESOLVED TO, never to a
-  // value from the request itself. It is the same barrier `storeFor` applies,
-  // stated on a key: a content address shared across businesses would tell one
-  // of them which pictures another holds.
-  const cache = env.SITES ? r2RenditionCache(env.SITES, scope.businessId) : undefined
-  return imageLadder(imagesRenderer(env.IMAGES), cache)
+  const renderer = imageRendererFor(env, scope.businessId)
+  if (renderer === null) return null
+  return imageLadder(ladderSizer(renderer))
 }

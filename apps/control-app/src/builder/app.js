@@ -358,7 +358,7 @@ export function mountBuilder(root, options = {}) {
     site: sites[0]?.slug ?? null,
     // The pane is about to re-derive what it shows; take what the outgoing
     // document holds before the URL that replaces it is computed from it.
-    onBeforeNavigate: () => carry.capture(panel.frame.contentWindow),
+    onBeforeNavigate: () => carry.capture(panel.frame?.contentWindow),
   })
 
   /**
@@ -441,7 +441,7 @@ export function mountBuilder(root, options = {}) {
       slug,
       transport,
       shadeHex,
-      onChanged: () => panel.frame.contentWindow?.location.reload(),
+      onChanged: () => panel.reloadDocument(),
       ...opts,
     })
 
@@ -506,7 +506,7 @@ export function mountBuilder(root, options = {}) {
     //
     // Fired PER WRITE rather than at the end of the turn, so a request answered
     // by several edits shows the page unfolding as the assistant works.
-    onSiteChanged: () => panel.frame.contentWindow?.location.reload(),
+    onSiteChanged: () => panel.reloadDocument(),
     // [[REQ-210]] — the pill's expansion is the assistant's ENTIRE channel for a
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
@@ -554,12 +554,19 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(SITE_TAB.id).append(layout)
 
   /**
-   * Bind the edit loop to whatever the frame is currently showing (REQ-117).
+   * Bind the edit loop to whatever the pane is currently showing (REQ-117).
    *
-   * It re-binds on every `load` rather than once at mount, because the document
-   * inside the iframe is REPLACED on each navigation — switching site, switching
-   * mode, and the refresh after a save all produce a new `contentDocument`, and
-   * a bridge holding the old one is bound to a document nobody can see.
+   * It re-binds on the panel's `document` announcement rather than once at
+   * mount, because the document in front of the operator CHANGES: switching
+   * site and the refresh after a save each produce a new `contentDocument`, and
+   * since [[BUG-79]] switching mode reveals a DIFFERENT FRAME'S — a bridge
+   * holding the old one is bound to a document nobody can see either way.
+   *
+   * ON THE PANEL'S EVENT AND NOT THE FRAME'S, for the same reason: there is a
+   * frame per channel now, so a listener on one of them would go deaf the
+   * moment the operator flipped to the other. The panel announces whichever
+   * document has just arrived in front of the operator, whether it arrived by
+   * loading or by being revealed.
    *
    * View mode needs no guard here: `mountL1EditBridge` refuses to bind on a
    * document without the edit marker, so this is a no-op there by construction
@@ -583,7 +590,7 @@ export function mountBuilder(root, options = {}) {
      * a mode to leave, and leaving it with marks on the page would be worse
      * than never having drawn them.
      */
-    points.bind(panel.frame.contentDocument ?? null)
+    points.bind(panel.frame?.contentDocument ?? null)
     /**
      * The document that just arrived is put into the state the one before it was
      * in ([[REQ-215]]).
@@ -596,12 +603,12 @@ export function mountBuilder(root, options = {}) {
      * BEFORE the bridge is mounted below, so the segments the editor binds
      * against are the ones actually on screen.
      */
-    carry.adopt(panel.frame.contentWindow, currentSite)
+    carry.adopt(panel.frame?.contentWindow, currentSite)
     // No bridge supplied → no editing. The browser entry always supplies one;
     // a host that does not (a test mounting only the chrome) gets the pane and
     // the toolbar with no edit loop, rather than a module that fails to load.
     if (!editBridge) return
-    const doc = panel.frame.contentDocument
+    const doc = panel.frame?.contentDocument
     if (!doc) return
     editor = mountEditor(doc, {
       slug: currentSite,
@@ -627,10 +634,10 @@ export function mountBuilder(root, options = {}) {
       // The origin has already re-rendered the edit channel by the time a save
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.
-      onSaved: () => panel.frame.contentWindow?.location.reload(),
+      onSaved: () => panel.reloadDocument(),
     })
   }
-  panel.frame.addEventListener('load', rebind)
+  const unbindDocument = panel.on('document', rebind)
 
   /**
    * Mark Points is an EDIT-MODE mode, so leaving edit mode leaves it
@@ -739,6 +746,12 @@ export function mountBuilder(root, options = {}) {
     // specified to refuse — so the one action with a real origin behind it says
     // no here too, rather than sending bytes the route will 503.
     if (blocked) return
+    // CLEARED BEFORE THE ROUND, NOT AFTER IT ([[REQ-221]]). A refusal left
+    // standing above a list that has since accepted the file is a worse lie than
+    // the silence it replaced, and clearing at the end would wipe the message
+    // this very round is about.
+    library.refused('')
+    const refusals = []
     for (const file of files) {
       let result = null
       let failure = null
@@ -747,10 +760,25 @@ export function mountBuilder(root, options = {}) {
       } catch (err) {
         failure = err
       }
+      if (failure || !result) refusals.push(`${file.name} — ${refusalReason(failure)}`)
       if (source === 'chat') {
         chat.getChat()?.appendMessage('user', uploadNote(file, result, failure))
       }
     }
+    /**
+     * A REFUSAL REACHES THE CLIENT FROM BOTH DROP AREAS ([[REQ-221]]).
+     *
+     * The conversation already reported one; the Library reported nothing at
+     * all, so a file dropped there that the origin refused simply never appeared
+     * and the client was left to conclude the product had ignored them. That is
+     * the same experience as dropping a photograph into silence, arrived at
+     * differently — and it is the experience this change exists to end, so it
+     * cannot be the experience the change itself delivers.
+     *
+     * ONLY FOR THE NON-CHAT ROUTE, because a chat drop has already said it and
+     * saying it twice in two surfaces would read as two separate failures.
+     */
+    if (source !== 'chat' && refusals.length) library.refused(refusals.join(' '))
     // ALWAYS, and from the origin rather than from what the uploads returned: the
     // list carries `description_status` and the site placement, both of which are
     // decided after the bytes leave here.
@@ -1048,7 +1076,7 @@ export function mountBuilder(root, options = {}) {
       banner?.remove()
       unwatchSession()
       sessionNotice?.element.remove()
-      panel.frame.removeEventListener('load', rebind)
+      unbindDocument()
       unbindSite()
       switcher.destroy()
       unwatchChat()
@@ -1142,9 +1170,30 @@ function blockTabs(shell, message) {
  * confirmation that said "added" and nothing else would make that state
  * indistinguishable from a working one to the only person who could tell us.
  */
+/**
+ * Why an upload was refused, in the origin's own words ([[REQ-221]]).
+ *
+ * THE ORIGIN'S SENTENCE AND NOT A SUBSTITUTE FOR IT. `CopyError` carries the
+ * `error` field off the refusal envelope, and that field is written for the
+ * client — `material.ts` composes it knowing the ceiling, the format and the
+ * remedy. Anything this side invented would be a worse sentence about a fact it
+ * knows less about.
+ *
+ * THE FALLBACK IS FOR A FAILURE WITH NO WORDS: a dropped connection, an origin
+ * that answered non-JSON. Those have no client-facing sentence anywhere, so this
+ * is the only place one can come from.
+ *
+ * IT DOES NOT NAME THE FILE, because both callers do — the chat note prefixes it
+ * and the Library's notice lists it — and the origin's own messages deliberately
+ * leave the naming to them.
+ */
+function refusalReason(failure) {
+  return failure?.message ?? 'the upload failed'
+}
+
 function uploadNote(file, result, failure) {
   if (failure || !result) {
-    return `📎 **${file.name}** — that didn't upload: ${failure?.message ?? 'the upload failed'}`
+    return `📎 **${file.name}** — that didn't upload: ${refusalReason(failure)}`
   }
   const lines = [`📎 **${file.name}**`]
   if (result.site_asset) lines.push(`Added, and it's on your site as \`${result.site_asset}\`.`)

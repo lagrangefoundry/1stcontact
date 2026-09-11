@@ -239,31 +239,6 @@ export function padRevision(id: number): string {
 export const PUBLISHED_ROOT = 'sites'
 
 /**
- * [[REQ-222]] — the R2 root the delivery-rendition CACHE lives under, and the
- * whole of why it is a sibling of {@link PUBLISHED_ROOT} rather than a prefix
- * inside it.
- *
- * `public-site` resolves {@link PUBLISHED_ROOT} and nothing else, and it appends
- * a request's path to a prefix the DATABASE gave it — so a key outside that root
- * is unreachable by construction rather than by a check. The cache holds one
- * tenant's pictures at every width they were ever published at, including
- * revisions that have been superseded; that is not a thing to leave one routing
- * mistake away from the public internet.
- *
- * A KEY UNDER IT IS `derived/<tenant>/<sha>-<width><ext>`. Tenant-prefixed, for
- * the reason the material store's blobs are `t/<tenant>/blob/<sha256>` and not
- * `blob/<sha256>`: a GLOBAL content address answers "does anyone have these
- * bytes" across the tenant barrier, which is an existence oracle, and it makes
- * one tenant's erasure another tenant's cache hit.
- */
-export const DERIVED_ROOT = 'derived'
-
-/** Where one tenant's cached delivery renditions live. */
-export function derivedPrefix(tenantId: string): string {
-  return `${DERIVED_ROOT}/${tenantId}`
-}
-
-/**
  * The key prefix holding one revision: `sites/<siteId>/rev/<NNNN>`.
  *
  * THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). It used to be the slug, which made

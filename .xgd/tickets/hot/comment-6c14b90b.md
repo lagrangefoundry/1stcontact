@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T02:10:33.378127+00:00'
+updated_at: '2026-09-11T19:24:18.716660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,150 @@ If you want me to **review** REQ-223's implementation rather than rebuild it —
 <!-- xgd-chat role="user" ts="2026-09-11T02:10:32.980271+00:00" -->
 #### You
 REQ-233 is already done - you said there was additional work on your ticket (BUG-78) that was dependent on 233 please can you do that work now?
+
+<!-- xgd-turn id="e8296109-ec09-49e2-990a-c155ba1d56ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:17:36.425838+00:00" -->
+#### Claude
+On it. Let me check how the site key and publishing work before I touch the data.
+
+Nothing has ever been published locally — `site_revisions` is empty in every local D1. That changes what "fixed" means, and I'll report it. First, the work you asked for.
+
+Now the work. First, checking nothing is holding the local database open:
+
+Now applying the two config changes, mirroring exactly what the store's own write path does (page row plus the version bump):
+
+Item 2 — the apex key. Let me first verify the Turnstile test keys rather than trust my memory of them:
+
+Both verified. Creating local dev config for public-site:
+
+One more check — the L2 default and how non-apex sites are meant to address the endpoint:
+
+Now updating the ticket to reflect what actually landed:
+
+Let me make sure the new `.dev.vars` doesn't perturb the existing suite — `unstable_dev` reads it by default:
+
+The apex key makes a local `wrangler dev` 500 rather than 404. Let me understand the local topology before deciding how to resolve it.
+
+That settles it — the two dev workers don't share D1 state, so public-site's local database is empty and unmigrated. The apex key can't help there and only breaks a test. Removing it:
+
+Done. Here's what actually happened.
+
+## Applied
+
+**The two module configs on the homepage draft** — the fix BUG-78 was waiting on REQ-223 for:
+
+| Module | Field | Was | Now |
+|---|---|---|---|
+| `beta-form` | `action` | `https://app.1stcontact.io/beta-apply` | `/api/lead` |
+| `signin` | `signIn` | `https://app.1stcontact.io/auth/request-link` | `https://app.1stcontact.io/sign-in` |
+
+Applied the way the store applies it (`d1r2-store.ts`): page row rewritten, `sites.version` bumped 58 → 59. The script refuses rather than guesses if either field doesn't hold the exact expected value. Backup at `.xgd/tmp/d1-backup-bug78.sqlite`.
+
+**No repo code changed, so there's no commit and no `[FREE-CODED]` branch.** The protocol exempts configuration, and once REQ-223 landed the endpoint, everything left here was data or operator-held keys. I didn't perform the ceremony on an empty diff.
+
+## What I got wrong mid-task
+
+I wrote an `apps/public-site/.dev.vars` with the apex key and Cloudflare's published Turnstile test keys, then removed it. Two reasons, and the second matters more than the first:
+
+- It broke `tests/public-site.test.ts` — `unstable_dev` reads `.dev.vars`, so the apex resolved and `live()` hit a local D1 with no `site_revisions` table: 404 became 500. That file is gitignored, so CI would never have caught it; it would have been a failure sitting on your machine alone.
+- It wouldn't have enabled anything regardless. `pnpm dev` runs the two Workers with **separate local state** — neither passes `--persist-to` — so public-site's local D1 is a different, empty, unmigrated database from the one holding your sites.
+
+Test suite is green and the tree is clean.
+
+## Two findings worth your attention
+
+**1. The form now returns a different error, not a working form.** `site_revisions` is empty in every local D1 and production has no sites — nothing has ever been published anywhere. The only thing rendering this page is control-app's draft preview, and control-app has no `/api/lead` route by REQ-223 §3.2's deliberate design. So a preview submission answers 404 instead of "could not reach the server."
+
+Whether preview submissions *should* work is a real design question I didn't settle: they'd write actual contacts into the actual tenant, so making the preview post for real puts test data in the CRM. The alternatives are a gated preview-only route, or a preview that declines to submit and says so.
+
+**2. A cross-tenant lead leak for non-apex sites.** `leadTarget` takes the site key from the URL: `/site/<key>/api/lead` resolves to that site, a bare `/api/lead` resolves to the **apex**. The XGD site's two forms are both configured `action: "/api/lead"` and XGD is not the apex — so once published, its leads land in the apex tenant's contact list. REQ-223's UATs don't catch it because they build `/site/<key>/api/lead` themselves rather than following the rendered action. Correct value is `/site/<key>/api/lead`, or document-relative `api/lead`, which works for both. I left it alone — different site's content, not this bug.
+
+## Still blocked on you
+
+- **A real Turnstile widget.** No secret means refuse, by design.
+- **Production `APEX_SITE_KEY`** — can't be set yet. Site ids are minted per environment and production's `sites` table is empty, so there's no key to write.
+- **The Access bypass policy.** Re-verified: `GET /sign-in` still 302s to the Access login. The `signIn` value is now correct and the dialog will still fail in production until that policy exists.
+
+**Bottom line: not fixed end to end.** The configuration is right and the endpoint is proven by REQ-223's own 27 UATs, but nothing renders this page outside the preview and the preview can't reach the endpoint. Closing it needs a decision on finding 1, or a publish plus the production config above. All of this is recorded in the ticket.
+
+<!-- xgd-turn id="2ce93b5e-3c53-4b77-8573-393ffd5fd0bd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:08:29.610107+00:00" -->
+#### You
+Please give me more context on 1 and 2.
+
+I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:21:12.776677+00:00" -->
+#### You
+Please give me more context on 1 and 2.
+
+I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:24:18.553776+00:00" -->
+#### Claude
+Let me go read the preview path rather than describe it from memory.
+
+I've traced both. Here's what's actually going on.
+
+## 1 — Preview isn't a different page. It's the same page at a different address.
+
+You're right that it's the site running in a frame, and it genuinely is — same renderer, same module code, byte-for-byte the same `<form>`. Nothing about the form is rewritten for preview.
+
+**And it isn't a cross-site posting question. It's the exact opposite: the form posts *same-origin*, and in preview "same origin" is the builder rather than the site server.**
+
+The action is `/api/lead` — root-relative. A root-relative URL resolves against whatever host served the document, and the two channels are served by two different Workers on two different hosts:
+
+| | Document URL | `/api/lead` resolves to | Who answers |
+|---|---|---|---|
+| **Preview** (iframe) | `app.1stcontact.io/preview/1stcontact/draft/` | `app.1stcontact.io/api/lead` | control-app — **no such route** |
+| **Published** | `1stcontact.io/` | `1stcontact.io/api/lead` | public-site — `leadTarget()` → apex site |
+
+I grepped control-app for any lead route: there is none, by REQ-223 §3.2's deliberate design — the intake is a `LeadIntake` service-binding entrypoint, not a path, specifically so it can't be reached by naming it in a URL. So an unmatched POST falls through `router.ts` to `env.ASSETS.fetch(request)` and comes back 404, and `client.js` prints `Something went wrong (404). Please try again.` A different message from the one you originally hit, same dead end.
+
+**Two more differences worth knowing, both in the same direction:**
+
+- **Edit mode strips the form entirely.** `component.ts:110` — in the `edit` channel the form gets no `action` and no `method`, and the channel ships no client script at all (REQ-116: a click inside edit mode must edit, never submit). So only View mode has a live form; Edit mode's can't post anywhere by construction.
+- **Turnstile only exists on the published channel.** The sitekey is deployment config, not site content, so `public-site/index.ts:312` stamps it onto the HTML at serve time. control-app's preview never does — the mount div is there and empty. Even if preview could reach the endpoint, it would have no token to send.
+
+**The design tension this exposes.** Whoever wrote the original `https://app.1stcontact.io/beta-apply` was, I suspect, solving exactly this: an absolute URL posts to the same place from both channels. The reason REQ-223 chose relative is that absolute reintroduces cross-origin — CORS preflight plus the Access gate, which is what was breaking it in the first place. So the choice is real, not an oversight, and its cost is precisely that a preview submission has nowhere to go.
+
+Three ways out, and I'd want your call rather than to pick one:
+
+1. **Preview declines to submit and says so** — the form shows "submissions work on the published site" rather than an error. Honest, cheap, and consistent with edit mode already refusing.
+2. **control-app proxies `/api/lead` to the same `LeadIntake` binding.** Preview then works end-to-end — but it writes *real contacts into the real tenant*, so every time you test the form you put a row in the CRM.
+3. **Absolute action pointing at the published apex.** Preview posts cross-origin to public-site. Needs CORS on the endpoint, and breaks in local dev where there is no published apex.
+
+## 2 — The XGD forms will post into the wrong tenant
+
+Verified directly against the live D1 rather than the repo copy:
+
+```
+1stcontact  home.json        "action": "/api/lead"     ← apex, correct
+xgd         home.json        "action":"/api/lead"      ← not apex
+xgd         whitepapers.json "action":"/api/lead"      ← not apex
+```
+
+(There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.)
+
+`leadTarget()` in `public-site/index.ts:181` reuses `parseRoute`, so the site key comes from the URL grammar and nothing else:
+
+```ts
+if (parsed.kind === 'apex'  && parsed.path === LEAD_PATH) return apexSiteKey || null
+if (parsed.kind === 'asset' && parsed.path === LEAD_PATH) return parsed.siteKey
+```
+
+XGD publishes to `1stcontact.io/site/site_9a3dcd09…/`. A bare `/api/lead` is not under `/site/`, so it parses as **apex** — and the whitepaper leads land in the 1stcontact tenant's contact list, not XGD's. Not a security hole (nobody can retarget a tenant they don't own — the URL is ours), but the wrong destination, silently.
+
+REQ-223's UATs don't catch it because they construct `/site/<key>/api/lead` themselves rather than following the action the renderer actually emits. That's the gap worth closing: **an assertion that a rendered form's action resolves to its own site.**
+
+The correct value is `/site/<key>/api/lead`. I should correct something I said last turn: I offered document-relative `api/lead` as working for both, and that's only true while page slugs are flat. On a page at `/site/<key>/blog/post/` it would resolve to `…/blog/post/api/lead`, which parses as an asset path and misses the endpoint. Today's slugs are flat so it happens to work, but it's fragile and I'd use the explicit form.
+
+I've left XGD alone — different site's content, and it's not what BUG-78 is about. Say the word and I'll fix it, or file it.
 
 <!-- xgd-chat-end -->

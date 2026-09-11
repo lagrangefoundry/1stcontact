@@ -5,10 +5,10 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T02:16:13.156283+00:00'
+updated_at: '2026-09-11T19:40:21.268579+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-34760bf1
@@ -306,5 +306,78 @@ The draft and edit channels never receive a manifest, so the request-time render
 is untouched — the ladder is an argument publish alone supplies. `site.json`,
 the page definitions and the L1 image node are all unchanged: the manifest is a
 render input, and the document stays innocent of delivery. Background images
-(`backgroundImageUrl`) are a CSS `url()` rather than an `<img>` and keep no
-ladder here; they are a separate question.
+(`backgroundImageUrl`) are a CSS `url()` rather than an `<img>`, so the `<img>`
+sink cannot reach them — see the next section, which is how they get a ladder
+anyway.
+
+
+### The second sink: a background image's ladder
+
+**A background image gets the same ladder as an `<img>`** — same rungs, same
+content-addressed rendition names, same cap at the source width, same cache. The
+ladder is built by walking the snapshot's **assets**, not the document, so a
+picture qualifies by being a raster still in the site's assets and not by the tag
+that places it. That is also what makes the "silently skipped" failure
+unconstructible rather than merely avoided: there is no predicate anywhere in the
+ladder that asks what kind of node a picture is placed on.
+
+**Per-width `background-image` rules, not `image-set()`.** L1 already emits a
+rule per breakpoint, and the widths those rules are keyed to are the same widths
+the geometry keyframes describe — which makes the choice principled rather than
+guessed, the same property that lets `sizes` be computed on the `<img>` side.
+
+**The override restates the whole layer stack**, with one layer's URL swapped. A
+surface is a composed stack — scrim over texture over wash over image over fill —
+and a rule that restated only the picture would drop the client's scrim at the
+first breakpoint it applied to. The stack is emitted from one function, so the
+override cannot hold a second opinion about it.
+
+**The base rule takes the smallest rung.** The base rule is what a viewport
+*below* the ladder gets — the narrowest screen, on the worst connection, which is
+the visitor this whole ticket is for. Each wider rung then overrides it, and an
+override is emitted only where the choice actually changes: a picture that
+answers three breakpoints with one rendition emits one rule.
+
+**A background is chosen for a 2× screen**, because a `background-image` has no
+candidate list for the browser to choose from — that is the price of not using
+`image-set()`. Under-fetching is the unrecoverable error here: `cover` upscales a
+rendition narrower than the box and the photograph is visibly soft, which is a
+bug the client can see. Two is where the real population clusters, and the error
+either side of it is bounded. A box whose width the renderer does not own is
+assumed to span the viewport — that is what a band is, and the error is in the
+safe direction.
+
+**A rendition that would not pass the `url()` sink falls back to the authored
+URL.** A rejected candidate must not remove the layer: that does not serve a
+smaller picture, it serves none.
+
+### Reachability: nothing else excludes a background
+
+The risk the widening names is not that a background needs special handling; it
+is that a predicate written against an `<img>` silently skips it and nobody
+notices, because backgrounds are the pictures nobody clicks on. Checked, and each
+already covers `backgroundImageUrl` explicitly: the L1 asset-reference sweep in
+validation, the capture localiser that rewrites asset handles, and the derived
+segmentation that decides a node is an editable container. Nothing to build; a
+case pins the one that could have gone wrong — a site whose only picture is a
+backdrop still gets renditions, and every rendition its stylesheet paints is a
+file that same publish wrote.
+
+### The two adjacent wins
+
+**The picture states its own dimensions.** The publish had to measure the source
+to cap its ladder, so `width` and `height` on the `<img>` cost nothing and give
+the browser the aspect ratio before a byte of the photograph has arrived — the
+box is reserved at first layout and the text below it does not jump. They are
+presentational hints: every rule this renderer emits for the node's own size is a
+stylesheet rule, and a stylesheet beats an attribute. No manifest, no dimensions,
+which keeps the draft channel byte-identical.
+
+**A rendition is cached forever.** `public-site` serves every published byte with
+`max-age=60`, and its own note names the fix it is waiting for: paths whose name
+cannot change meaning. A content-addressed rendition *is* that today —
+`<sha>-<width><ext>` over the source bytes — whether or not it ever becomes true
+of the rest of a revision, so the ladder takes it now. The requested path decides,
+so nothing else inherits it. It matters most to exactly the visitor the ladder is
+for: serving a phone a 640px photograph is half undone by a repeat visit that
+pays for it again.

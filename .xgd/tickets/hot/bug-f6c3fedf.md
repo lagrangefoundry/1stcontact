@@ -5,7 +5,7 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-11T02:15:48.046172+00:00'
+updated_at: '2026-09-11T02:17:14.628653+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -218,3 +218,37 @@ it is another site's content and not this bug.
 by REQ-223's own UATs, but nothing renders this page outside the preview, and the
 preview cannot reach the endpoint. Closing this needs a decision on finding 1,
 or a publish plus the production configuration above.
+
+
+### Correction to "2. `apps/public-site/.dev.vars`" above — reverted, 2026-09-10
+
+That file was written and then **removed**. It was wrong twice over, and the
+second reason is the interesting one.
+
+**It broke a test.** With `APEX_SITE_KEY` set, `tests/public-site.test.ts`'s
+`test_UAT_FC_REQ-1_public_site_returns_placeholder` went from `404` to `500`:
+`unstable_dev` reads `.dev.vars` by default, so the apex resolved to a site key
+and `live()` queried a local D1 that has no `site_revisions` table at all. The
+file is gitignored, so CI would never have seen this — it would have been a
+failure waiting on the operator's machine only.
+
+**It would not have enabled anything anyway.** `pnpm dev` runs the two Workers
+with **separate local state**: `dev:public` is `wrangler dev` inside
+`apps/public-site` and `dev:control` is `./bin/1c builder` inside
+`apps/control-app`, and neither passes `--persist-to`. So public-site's local D1
+is a different, empty, unmigrated database from the one holding the sites. The
+apex key names a site that local public-site cannot see.
+
+So local end-to-end lead capture needs three things that do not exist today,
+none of them in this bug's scope: shared D1 persistence between the two dev
+Workers, a publish (no site has ever been published in any local D1), and the
+apex key. Until then the only local surface for this page remains the
+`control-app` draft preview, which finding 1 above covers.
+
+Minor, noted not fixed: public-site answers `500` rather than `404` when an apex
+is configured and the revision query errors. That is a dev-environment artifact —
+the production D1 is migrated — but the refusal is less graceful than the
+surrounding code's.
+
+**Net repo change from this ticket: none.** The only applied change is the
+homepage's two module configs in the local D1 draft.

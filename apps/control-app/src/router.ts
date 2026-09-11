@@ -42,6 +42,9 @@ import { canEmbed, type EmbedderEnv } from './embedder'
 import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
+import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
+import { imageRendererFor, materialRecipes } from './image-edit'
+import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
@@ -100,6 +103,7 @@ import {
   type SessionCookieEnv,
   type SessionEnv,
 } from './sessions'
+import { type ConvertHeic, imagesHeicConverter, type ImagesLike } from './heic'
 import { TemplateRefusedError } from './templates'
 import {
   AlreadyOnSiteError,
@@ -248,6 +252,13 @@ export async function sessionFidelity(
   if (!deps.launch && !env.BROWSER) return null
   if (!env.BLOBS) return null
 
+  // THE RENDERER, SO A PICTURE CAN BE LOOKED AT AS IT CURRENTLY STANDS
+  // ([[REQ-219]]). Null where this deployment has no `[images]` binding, which
+  // makes every picture its own original — the answer this surface gave before
+  // recipes existed, and still the right one for a deployment that cannot apply
+  // them.
+  const renderer = imageRendererFor(env, scope.businessId)
+
   // THE CLIENT'S OWN PRIVATE BUCKET, bound to THIS business by `forTenant`, so
   // one business never sees another's references. That barrier is a property of
   // the handle rather than a predicate the surface has to remember, which is why
@@ -315,11 +326,101 @@ export async function sessionFidelity(
       // has to answer. The barrier the two buckets exist to keep is untouched —
       // nothing here copies a byte across it, and each half still reads only its
       // own store.
-      mergeImageLibraries({
-        site: siteImageLibrary(slug, store),
-        library: materialImageLibrary(tickets),
-      }),
+      sessionPictures(store, tickets, renderer)(slug),
     )
+}
+
+/**
+ * Every stored picture this session can reach, as one library — [[REQ-218]]'s
+ * merge, built once and handed to both surfaces that need it ([[REQ-219]]).
+ *
+ * ONE LIBRARY AND NOT TWO, which is the whole of why this is a function rather
+ * than two call sites. The surface that LOOKS at a picture and the surface that
+ * CHANGES one have to agree about what every picture is called, or the assistant
+ * is told it can see something it cannot edit under the name it just used. They
+ * agree by construction here, because there is one merge.
+ *
+ * THE RENDERER TRAVELS WITH THE LIBRARY HALF, so a picture asked for as it
+ * currently stands arrives with its recipe applied — which is what makes *"crop
+ * it, then look at it"* a thing the assistant can actually do. Absent, every
+ * picture is its own original, which is the deployment that has no renderer.
+ */
+function sessionPictures(
+  store: TenantSiteStore,
+  tickets: TicketStore,
+  renderer: ImageRenderer | null,
+): (slug: string) => ImageLibrary {
+  return (slug: string) =>
+    mergeImageLibraries({
+      site: siteImageLibrary(slug, store),
+      library: materialImageLibrary(tickets, renderer ?? undefined),
+    })
+}
+
+/**
+ * One material's bytes as the route should serve them — [[REQ-219]].
+ *
+ * SEPARATE FROM THE ROUTE BECAUSE IT IS A DECISION AND THE ROUTE IS A
+ * TRANSPORT, which is the division every other handler in this file keeps.
+ *
+ * FOUR WAYS TO END UP WITH THE STORED BYTES, and only one of them is a failure:
+ * the caller asked for the original; this deployment has no renderer; the
+ * material is not a picture; or it is a picture nobody has edited. All four are
+ * ordinary, and a picture in the last of them must not pay a transform — which
+ * is every picture in the Library today.
+ *
+ * A RENDER THAT THROWS SERVES THE STORED BYTES. The pane's job is to show the
+ * client their own file, and a renderer that refused a picture it had already
+ * accepted a recipe for is a fault on our side; blanking the pane over it would
+ * turn a degraded picture into a missing one.
+ */
+async function renderedMaterial(
+  env: RouterEnv,
+  scope: Scope,
+  store: TicketStore,
+  uid: string,
+  file: { bytes: Uint8Array; contentType: string; filename: string },
+  url: URL,
+): Promise<{ bytes: Uint8Array; contentType: string }> {
+  if (url.searchParams.get('original') !== null) return file
+  const renderer = imageRendererFor(env, scope.businessId)
+  if (!renderer) return file
+  const width = Number(url.searchParams.get('width') ?? '')
+  const wanted = Number.isInteger(width) && width > 0 ? { width } : {}
+  try {
+    const recipe = await materialRecipes(store).read(uid)
+    if (recipe.length === 0 && wanted.width === undefined) return file
+    const out = await renderer.render(file.bytes, file.contentType, recipe, wanted)
+    return { bytes: out.bytes, contentType: out.mediaType }
+  } catch {
+    return file
+  }
+}
+
+/**
+ * What the `image` surface needs, or `null` where this deployment has no
+ * renderer to apply a recipe with ([[REQ-219]]).
+ *
+ * THE SAME MERGE THE FIDELITY SURFACE GETS, so the two surfaces cannot disagree
+ * about what a picture is called. What this adds is the one thing only a write
+ * needs: somewhere to keep a recipe, which the Library has and the site's own
+ * files do not — so `recipes` carries one namespace and the other's absence is
+ * what `NOT_EDITABLE` is made of.
+ */
+export function sessionPicturesFor(
+  env: RouterEnv,
+  scope: Scope,
+  store: TenantSiteStore,
+  tickets: TicketStore,
+): HostDeps['pictures'] {
+  const renderer = imageRendererFor(env, scope.businessId)
+  if (!renderer) return null
+  const pictures = sessionPictures(store, tickets, renderer)
+  return (slug: string) => ({
+    images: pictures(slug),
+    recipes: { library: materialRecipes(tickets) },
+    renderer,
+  })
 }
 
 function chatHost(
@@ -393,6 +494,13 @@ function chatHost(
           await (deps.index ?? defaultIndexer)(env, scope),
           deps.imageFetch ? { fetch: deps.imageFetch } : {},
         ),
+        // THE ASSISTANT'S HANDS FOR *CHANGING* A PICTURE ([[REQ-219]]).
+        // Assembled here like the eyes and the generator above, and for the same
+        // reason: what it needs is request-scoped — this business's ticket
+        // store, the renderer bound to this business's rendition prefix, and the
+        // merged picture library. `null` where there is no `[images]` binding,
+        // which composes no surface at all.
+        sessionPicturesFor(env, scope, store, tickets),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -491,20 +599,6 @@ export interface RouterEnv
    */
   BROWSER?: Fetcher
   /**
-   * Cloudflare Images ([[REQ-222]]) — what builds a picture's delivery ladder at
-   * publish.
-   *
-   * OPTIONAL, AND ITS ABSENCE IS NOT A FAILURE OF ANY KIND. Every other optional
-   * binding here takes a capability away when it is missing and says so loudly;
-   * this one takes away an optimisation. With no binding a publish freezes the
-   * same revision and renders the same pages, each `<img>` carrying its `src`
-   * and no `srcset` — which is this repository's publish as it has always been,
-   * and is exactly what `1c publish` does against an operator's disk. Refusing
-   * to publish because delivery sizes could not be built would remove something
-   * that works in exchange for something that was never promised.
-   */
-  IMAGES?: ImagesBinding
-  /**
    * Workers AI ([[REQ-159]]) — the embedder behind the project knowledge base.
    *
    * On the router's env because [[REQ-163]]'s ingestion routes index what they
@@ -519,6 +613,48 @@ export interface RouterEnv
    * {@link defaultIndexer} asks it rather than testing this field.
    */
   AI?: { run(model: string, input: unknown): Promise<unknown> }
+  /**
+   * Cloudflare Images ([[REQ-219]]), which this route needs for one thing:
+   * reading the HEIC an iPhone produces ([[REQ-221]]).
+   *
+   * THE STRONGEST SINGLE REASON THAT DEPENDENCY IS WORTH TAKING. Neither the
+   * client's canvas nor Browser Rendering can decode HEIC — a headless Chrome is
+   * still a Chrome — so without this binding the upload path needs a wasm
+   * decoder shipped inside the Worker bundle.
+   *
+   * OPTIONAL, and absent stays an ordinary state rather than a boot failure, for
+   * the reason {@link RouterEnv.BROWSER} is optional: a deployment without it
+   * still stores, describes, lists and publishes every other format. What it
+   * does NOT do is silently accept a photograph it cannot show — `ingestUpload`
+   * refuses the file and names the format, which is the loud failure this
+   * repository chooses over a Library row with no picture in it.
+   *
+   * THREE CONSUMERS NOW, AND ONE DECLARATION ([[REQ-219]], [[REQ-222]]). The
+   * second is the renderer an edit recipe is applied by: `/api/material/file`
+   * serves the Library its picture as it currently stands, and
+   * `sessionPicturesFor` hands the assistant the surface that changes one. The
+   * third is the delivery width ladder a publish builds, which rides that same
+   * renderer rather than reaching the binding itself. Declaring the binding once,
+   * here, is what stops any of them being wired to something the others have not
+   * got.
+   *
+   * ITS ABSENCE IS A LOUD FAILURE FOR THE FIRST TWO AND A QUIET ONE FOR THE
+   * THIRD, deliberately. No binding means an upload of a HEIC is refused by name
+   * and the editing tool is not composed; it also means a publish carries no
+   * `srcset`, which is this repository's publish exactly as it was before the
+   * ladder existed, and exactly what `1c publish` does against an operator's
+   * disk. Refusing to publish would take away something that works in exchange
+   * for an optimisation.
+   *
+   * THE TYPE STAYS THE NARROW ONE the HEIC path named, and the renderer narrows
+   * further at runtime rather than widening it here. `ImagesLike` names two calls
+   * so a UAT can hand this field a double without implementing an image service;
+   * widening it to the platform's whole `ImagesBinding` would take that away from
+   * a path that has nothing to do with recipes. `imageRendererFor` asks the
+   * object whether it can transform, and answers `null` where it cannot — which
+   * is the same "no renderer" state a missing binding already means.
+   */
+  IMAGES?: ImagesLike
   /**
    * The image-generation credential ([[REQ-208]]) — **the first credential in
    * this product for a vendor that is not Anthropic**.
@@ -608,6 +744,24 @@ export interface RouterDeps {
   describeImage?: DescribeImage
   /** The digest seam, so a document is described without a network (REQ-173). */
   describeText?: DescribeText
+  /**
+   * The HEIC converter ([[REQ-221]]), so the door is provable without an image
+   * service.
+   *
+   * THE SEAM IS THE ONLY WAY TO PROVE THE INTERESTING HALF. The Images binding's
+   * local implementation supports a subset of transforms and does not decode
+   * HEIC, so a suite that reached for the real binding could prove the happy
+   * path nowhere and the refusals nowhere either. What the claims here are
+   * actually about is what the PIPELINE does with a conversion, with its
+   * absence, and with its failure — and a double makes all three reachable while
+   * the real binding makes none of them.
+   *
+   * `null` IS A MEANINGFUL VALUE and not merely a default, which is why the
+   * wiring below uses `??` on the whole expression rather than `||`: a UAT
+   * passing `null` is asserting the unconfigured deployment, and a falsy test
+   * would silently hand it the real binding instead.
+   */
+  convertHeic?: ConvertHeic | null
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
   /**
@@ -1488,6 +1642,11 @@ async function routeUncached(
       : await defaultIndexer(env, requireScope()),
     describeImage: deps.describeImage ?? defaultDescriber(env),
     describeText: deps.describeText ?? defaultTextDescriber(env),
+    // `undefined` MEANS "NOT INJECTED" AND `null` MEANS "NO BINDING", and both
+    // reach `ingestUpload` as themselves ([[REQ-221]]). `imagesHeicConverter`
+    // returns `null` for an unconfigured deployment, so the two ways of having
+    // no converter converge on the value the refusal is keyed on.
+    convertHeic: deps.convertHeic !== undefined ? deps.convertHeic : imagesHeicConverter(env),
   })
 
   try {
@@ -2225,11 +2384,32 @@ async function routeUncached(
       // every existing caller is unaffected; present, it addresses one of a
       // bundle's 11–99 members without materialising the rest of it.
       const member = url.searchParams.get('member') ?? undefined
-      const file = await materialFile(await openTickets(), uid, member)
-      return new Response(file.bytes as unknown as BodyInit, {
+      const store = await openTickets()
+      const file = await materialFile(store, uid, member)
+      // THE PICTURE AS IT CURRENTLY STANDS, BY DEFAULT ([[REQ-219]]).
+      //
+      // The default is the edited state and not the stored bytes, which is what
+      // makes the Library's existing detail pane show a cropped picture with no
+      // change of its own — and what [[REQ-220]]'s modal fetches when it commits
+      // a recipe and re-draws. `?original=1` is the other half: *"what did the
+      // crop take away"* is a real question, and the answer has to be reachable
+      // from the same route or somebody will build a second one.
+      //
+      // `?width=` IS A DELIVERY SIZE AND NEVER AN EDIT. It renders this picture
+      // smaller for whoever is showing it; it does not touch the recipe, and the
+      // recipe is what the picture IS. Ignored where it is wider than the
+      // picture, because nothing is ever enlarged.
+      //
+      // A MEMBER OF A CAPTURE IS NEVER RENDERED. A capture bundle's screenshots
+      // are not Library pictures and carry no recipe — the `member` parameter is
+      // what says so, and rendering one would be applying another material's
+      // recipe to bytes that have nothing to do with it.
+      const rendered =
+        member === undefined ? await renderedMaterial(env, requireScope(), store, uid, file, url) : file
+      return new Response(rendered.bytes as unknown as BodyInit, {
         status: 200,
         headers: {
-          'content-type': file.contentType,
+          'content-type': rendered.contentType,
           // INLINE, with the original name. The pane renders images and audio
           // directly and offers everything else as a download; a bare
           // `attachment` would make the preview a download prompt instead.

@@ -5,7 +5,6 @@ import { encodePng, pngDimensions } from '../tools/generate/src/cli/png'
 import { publishSite } from '../tools/generate/src/publish/publish'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import {
-  derivedPrefix,
   publishedOutPrefix,
   publishedSourcePrefix,
   PUBLISHED_ROOT,
@@ -94,7 +93,7 @@ async function siteWithAPicture(bytes: Uint8Array) {
 
 /** The ladder this deployment builds — the real binding, the real bucket. */
 function realLadder() {
-  const built = ladderFor(env as unknown as { IMAGES?: ImagesBinding; SITES?: R2Bucket }, {
+  const built = ladderFor(env as unknown as Parameters<typeof ladderFor>[0], {
     businessId: TENANT,
   })
   expect(built, 'the workerd project declares an IMAGES binding').not.toBeNull()
@@ -118,10 +117,34 @@ async function shaOf(bytes: Uint8Array): Promise<string> {
     .slice(0, 16)
 }
 
-/** Every key under a prefix. */
-async function keysUnder(prefix: string): Promise<string[]> {
-  const listed = await env.SITES.list({ prefix, limit: 1000 })
+/** Every key under a prefix, in the named bucket (the sites bucket by default). */
+async function keysUnder(prefix: string, bucket: R2Bucket = env.SITES): Promise<string[]> {
+  const listed = await bucket.list({ prefix, limit: 1000 })
   return listed.objects.map((o) => o.key).sort()
+}
+
+/** Full hex SHA-256, which is what the shared rendition cache keys with. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes.slice())
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * The key [[REQ-219]]'s rendition cache will hold this rung under.
+ *
+ * DERIVED HERE RATHER THAN IMPORTED, deliberately, for the reason {@link shaOf}
+ * is: what is worth pinning is the ADDRESS — the thing the cache, the bucket and
+ * the ladder all have to agree on — and a test that called the implementation
+ * would only assert that it agrees with itself.
+ *
+ * THE EMPTY RECIPE IS THE POINT. A site asset is bytes promotion already
+ * produced by applying the recipe, so a publish adds sizing and nothing else. If
+ * the ladder ever started passing a recipe here, this key would stop matching
+ * and the sentinel below would stop being served.
+ */
+async function cacheKeyFor(bytes: Uint8Array, width: number): Promise<string> {
+  const source = await sha256Hex(bytes)
+  return await sha256Hex(new TextEncoder().encode(`${source}\n[]\n${width}`))
 }
 
 /** The `srcset` the published home page carries. */
@@ -198,7 +221,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     expect(frozen).toEqual([`${publishedSourcePrefix(siteKey, result.id)}/assets/hero.png`])
   })
 
-  it('caches renditions outside the root public-site can reach', async () => {
+  it('caches renditions in a bucket no published URL resolves into', async () => {
     // A picture of its own width, so the keys this publish caches are this
     // publish's — the tenant prefix is shared by every test in the file, and a
     // count over it would be an assertion about the other tests.
@@ -206,34 +229,35 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     const { store, slug } = await siteWithAPicture(bytes)
     await publishSite(store, slug, { ladder: realLadder() })
 
-    const sha = await shaOf(bytes)
-    const cached = await keysUnder(`${derivedPrefix(TENANT)}/${sha}-`)
-    expect(cached).toEqual([
-      `${derivedPrefix(TENANT)}/${sha}-320.png`,
-      `${derivedPrefix(TENANT)}/${sha}-640.png`,
-      `${derivedPrefix(TENANT)}/${sha}-960.png`,
-    ])
-    // `public-site` resolves `sites/` and appends a request path to a prefix the
-    // DATABASE gave it, so a key outside that root is unreachable by any URL
-    // rather than by a check that could be missed.
-    for (const key of cached) {
+    // [[REQ-219]]'s cache, which the ladder rides rather than duplicating: the
+    // MATERIAL bucket, under this tenant's own prefix. `public-site` never
+    // touches that bucket at all, and within the sites bucket it resolves
+    // `sites/` and appends a request path to a prefix the DATABASE gave it — so
+    // these bytes are unreachable by any URL rather than by a check.
+    for (const width of [320, 640, 960]) {
+      const key = `rendition/${TENANT}/${await cacheKeyFor(bytes, width)}`
+      expect(await env.BLOBS.get(key), `the ${width} rung was cached`).not.toBeNull()
       expect(key.startsWith(`${PUBLISHED_ROOT}/`)).toBe(false)
     }
-    expect(await keysUnder(`${PUBLISHED_ROOT}/${derivedPrefix(TENANT)}`)).toEqual([])
+    expect(await keysUnder(`${PUBLISHED_ROOT}/rendition/`)).toEqual([])
   })
 
   it('reads the cache instead of transforming, addressed by the source bytes and the width', async () => {
     const bytes = await picture(1000, 500)
     const { store, slug } = await siteWithAPicture(bytes)
 
-    // The key the ladder will derive, computed here the same way it is there —
-    // and then planted with a rendition that is unmistakably not a transform of
-    // anything. If the publish serves these bytes, the cache was consulted
-    // BEFORE the transform, and it was consulted at this exact key.
-    const sha = await shaOf(bytes)
+    // The key the shared cache will derive, computed here the same way it is
+    // there — and then planted with a rendition that is unmistakably not a
+    // transform of anything. If the publish serves these bytes, the cache was
+    // consulted BEFORE the transform, and at this exact key.
     const sentinel = new TextEncoder().encode('a planted rendition, not a transform')
-    await env.SITES.put(`${derivedPrefix(TENANT)}/${sha}-640.png`, sentinel as unknown as ArrayBuffer)
+    await env.BLOBS.put(
+      `rendition/${TENANT}/${await cacheKeyFor(bytes, 640)}`,
+      sentinel as unknown as ArrayBuffer,
+      { httpMetadata: { contentType: 'image/png' }, customMetadata: { width: '640', height: '320' } },
+    )
 
+    const sha = await shaOf(bytes)
     const result = await publishSite(store, slug, { ladder: realLadder() })
     const siteKey = (await store.siteKey(slug))!
     const out = publishedOutPrefix(siteKey, result.id)
@@ -273,7 +297,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
 
 describe('REQ-222 — a deployment with no Images binding', () => {
   it('builds no ladder at all, rather than refusing to publish', async () => {
-    expect(ladderFor({ SITES: env.SITES }, { businessId: TENANT })).toBeNull()
+    expect(ladderFor({ BLOBS: env.BLOBS }, { businessId: TENANT })).toBeNull()
   })
 
   it('publishes the same revision it always did', async () => {

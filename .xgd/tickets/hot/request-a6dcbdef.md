@@ -5,10 +5,10 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-10T22:29:19.818978+00:00'
+updated_at: '2026-09-11T19:42:55.391404+00:00'
 completed_at: null
 last_field_updated: body
-status: draft
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-34760bf1
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-cbce646b
 ---
+
 
 ## The gap
 
@@ -200,3 +201,253 @@ free either: `description_status` is
 value is a reason a description could not be produced**, and none means *produced
 but no longer true*. Adding one widens every predicate over the field. Flagged to
 the operator; do not invent a value.
+
+
+---
+
+## What this ticket builds, settled at implementation time
+
+### The vocabulary, exactly
+
+Four operations, each a plain object with `op` and its own parameters. **Nothing
+else is accepted**, and an unknown `op` is refused by name rather than ignored —
+an operation silently dropped is a picture nobody chose.
+
+| `op` | parameters | |
+|---|---|---|
+| `crop` | `left`, `top`, `right`, `bottom` | fractions of the **current** picture trimmed off each edge; absent is `0` |
+| `rotate` | `degrees` | `90`, `180` or `270` — a quarter turn, because that is what the renderer has |
+| `resize` | `width`, `height` | **pixels**, at least one of the two |
+| `adjust` | `brightness`, `contrast`, `saturation` | multipliers where `1` is unchanged; at least one of the three |
+
+**`crop` is four insets and not a rectangle**, and that is what stops `width`
+meaning a fraction in one operation and a pixel count in another. *"Crop an
+interesting strip"* is `{op: 'crop', top: 0.35, bottom: 0.35}`. It is also
+exactly the shape the renderer's own primitive takes, so the mapping is a
+multiplication rather than a coordinate system.
+
+**`resize` is in pixels because that is the whole point of it** — a logo that is
+400px wide because that is what it is. A fraction could not say that. So
+*coordinates* are normalised and *sizes* are pixels, and the two never share a
+parameter name.
+
+### The refusals, each naming what was wrong
+
+`crop` whose insets leave nothing (`left + right >= 1`, or a side that rounds to
+under one pixel); `crop` reaching outside the frame (a negative inset); `crop`
+given a number greater than one, which is the pixels-for-fractions mistake and is
+told as such; `rotate` by anything but a quarter turn; `resize` past the source's
+own dimensions; `resize` and `adjust` with no parameter at all; an unknown
+operation; a picture that is not a raster this renderer can read.
+
+**A refused call leaves the recipe exactly as it was.** The whole list is
+validated against the picture's real dimensions before a single byte is written,
+so a recipe is never half-applied.
+
+### Naming a picture: REQ-218's vocabulary, not a second one
+
+[[REQ-218]] landed first and already unified how a stored picture is named across
+the two namespaces — the site's assets and the Library's records — behind
+`resolveStoredImage`. `edit_image` takes a name in exactly that vocabulary, so a
+picture the assistant just looked at is a picture it can now edit, spelled the
+same way. Ambiguity is refused with the candidates named, because that is what
+resolution already does.
+
+**A site asset is refused, and it is a refusal rather than a gap.** [[REQ-218]]
+recorded the reason and this makes it operative: an edit recipe lives on a
+Library record, and a site asset is bytes with nowhere to carry one. The refusal
+says so and names what the client can do instead.
+
+### The recipe is replaced whole, and read back before it is
+
+`edit_image` takes the entire list and replaces the entire list. `list_image_edits`
+hands it back. That pairing is what makes *"the crop needs to be a little wider"*
+one call: read the recipe, change the one number, send it back. A partial-update
+verb was considered and rejected — the client's editor commits a whole recipe
+too, and two shapes for one idea is the drift this ticket exists to prevent.
+
+The result of every call is the **whole** resulting recipe and the dimensions it
+produces, so a list sent back short of an operation is visible on the turn it
+happens rather than discovered in a picture later.
+
+### One renderer, and what it actually does
+
+The Cloudflare Images binding, declared as `IMAGES` in both wrangler
+environments — a named environment inherits no bindings, so the pair is pinned by
+a UAT like every other binding in that file.
+
+**Each operation is its own step in the chain, in the author's order.** Within a
+single transform the platform applies trim before resize before rotate, so a
+recipe collapsed into one call would silently reorder itself. One operation, one
+step.
+
+**Dimensions are tracked through the recipe** — a crop scales them, a resize sets
+them, a quarter turn swaps them — because a normalised inset means nothing
+without the pixels it is a fraction of, and operation *N* is a fraction of what
+operations 1..*N*−1 left.
+
+**An empty recipe renders nothing at all.** A picture nobody has edited is served
+as the bytes it was stored as, with no transform and no re-encode. Every picture
+in the Library is in that state today and must not start paying for a renderer it
+does not use.
+
+### Renditions are content-addressed, and deliberately not where the blobs are
+
+Keyed on the original's hash, the recipe and the width asked for, so nothing is
+recomputed that has not changed.
+
+**They do not go in the ticketing component's keyspace**, and this is the one
+storage decision worth stating plainly. That store's orphan sweep lists every key
+under `t/<tenant>/` and deletes whatever no attachment record names. A rendition
+is by construction a key no record names, so putting one there would be writing a
+cache into a collector's input. Renditions live under their own `rendition/<tenant>/`
+prefix on the same bucket, reached directly — tenant-prefixed, because a
+content address shared across the barrier is an existence oracle across it.
+
+### The surface
+
+A surface of its own, `image`, with one group `EditImages` over `edit_image` and
+`list_image_edits`. Not folded into the fidelity surface, whose overview promises
+that nothing on it changes anything; not folded into the L1 surface, which is the
+documented way to change a *site*.
+
+**Its grant travels with it**, as the ledger's does and for the ledger's reason:
+what a session may do to a picture's recipe is a property of the surface rather
+than a per-role decision, and the narrowing already in `createL1Toolbox` removes
+it wherever the surface was not composed.
+
+**A deployment with no Images binding has no editing tool** — the surface is
+`null`, the manual never mentions it, and the model cannot propose it. The same
+shape a missing browser and a missing image credential already have.
+
+### Where the rendered bytes come out
+
+Two consumers land here, which is two of the three the section above promises:
+
+- **The assistant's view.** The stored-picture half of [[REQ-218]]'s image library
+  fills in the `original` argument it declared and left as a seam — `false` is the
+  picture as it currently stands, `true` is what the crop took away.
+- **The builder's.** `/api/material/file` serves the current state by default and
+  the original on request, so the Library's existing detail pane shows the edited
+  picture with no change of its own, and [[REQ-220]]'s modal has the route it needs.
+
+The published output is [[REQ-222]]'s, and it needs something this ticket does not
+supply — see below.
+
+## Three corrections to the text above
+
+**`flip` is out of v1, but not for the reason given.** The platform renderer
+*can* flip: `ImageTransform` declares `flip: 'h' | 'v' | 'hv'`. It stays out
+because four operations answer the ask and a fifth with no caller is a fifth to
+maintain, and because the local renderer the tests run against implements neither
+it nor most of the rest. It can return when something wants it.
+
+**The material store does not content-address its blobs.** It did, and the
+component withdrew it deliberately: a blob shared between two records cannot be
+moved to the trash without breaking whichever sibling still names it. Keys are
+`t/<tenant>/<attachment-uid>`. So renditions are not *following* an established
+pattern here — they are introducing content addressing, for derived bytes where
+it is safe precisely because nothing else names them.
+
+**The local renderer implements a third of the surface.** Miniflare's Images
+binding honours `rotate`, `width` and `height` and silently drops trim, gravity
+and every colour adjustment. So the compiled transform chain is asserted directly
+— it is where the logic is — and the byte-level assertions are held to what the
+local renderer actually performs. A test that cropped and compared pixels would
+pass against an uncropped image, which is worse than no test.
+
+## Left undone, deliberately
+
+**A crop does not re-describe the picture.** The body text a client and the
+knowledge index both read describes the original, and after a crop it describes
+something that is no longer quite what is shown. `description_status` is the
+mechanism that would drive a re-describe pass and it is not driven here: the
+surface prose says plainly that a description describes the original, and a pass
+that rewrote a client's own corrected description on every crop would be worse
+than the staleness.
+
+**Publishing an edited picture is not wired, because there is nothing to wire it
+to.** `promoteToSiteAsset` copies bytes across the bucket boundary and records
+only which sites a material was placed on — not the asset name it landed under,
+and `site_assets` has no column for the record it came from. So a published site
+serves the bytes as promoted, recipe or no recipe. [[REQ-222]] needs that join key
+and this ticket does not invent one: which side carries it is a decision about
+publishing, and guessing here would leave that ticket with a column it has to
+work around.
+---
+
+## Technical consequences, settled in the code
+
+These are not new intent. Each falls out of something above, and each is pinned
+by a test — so they are written down rather than left for reconciliation to
+infer from an assertion.
+
+**A picture keeps the format it was stored as.** The renderer writes back the
+media type it read: a PNG stays a PNG and keeps its transparency, a JPEG stays a
+JPEG. Re-encoding a client's logo into a format nobody chose is the kind of quiet
+change that is noticed a month later on a printed brochure.
+
+**An animation is refused for the same reason a drawing is.** The refusal the
+body names for SVG — *"a picture that is not a raster this renderer can read"* —
+covers GIF too, and for a sharper reason: every operation here would flatten an
+animation to one frame without saying so. Both are refused where they are
+measured, which is before anything is written.
+
+**A crop that trims nothing is refused.** It is not in the body's list of
+refusals because it does not leave nothing — it leaves everything. It is still a
+refusal: an operation sitting in a recipe doing nothing leaves the client who
+added it wondering which of the others was the one that did not work.
+
+**A resize preserves the aspect ratio.** `width` and `height` are a box the
+picture is fitted within, never a shape it is stretched to and never a crop to
+fill. A resize that quietly threw away the edges would be a crop nobody wrote.
+
+**An `adjust` multiplier is bounded above as well as below.** It runs from `0` to
+`10`. Zero is allowed and is meaningful — `saturation: 0` is black and white — and
+the ceiling exists because a value in the hundreds is a client who meant a
+percentage, which is worth telling them rather than rendering.
+
+**`fields.edits` is declared on the material record.** The engine tolerates an
+undeclared field, but an undeclared field is a convention rather than a schema
+and this one is read by the renderer, the tool and the builder alike. The engine
+checks only that it is a list; what is *in* it is the vocabulary's to validate,
+against the picture's own pixels.
+
+**`/api/material/file` takes a delivery width.** `?width=` renders the picture
+smaller for whoever is showing it and never touches the recipe — the same split
+the surface prose draws for the assistant, made operative for the builder. It is
+ignored where it is wider than the picture, because nothing is ever enlarged. A
+member of a capture bundle is never rendered at all: those screenshots are not
+Library pictures and carry no recipe.
+
+**A deployment with no renderer serves every picture as its own original.** Not a
+degraded mode — it is the answer this product gave before recipes existed, and it
+is still correct, because a deployment that cannot apply a recipe also never had
+one written.
+
+**A render that throws serves the stored bytes.** The Library's pane exists to
+show the client their own file. A renderer that refused a picture it had already
+accepted a recipe for is a fault on our side, and blanking the pane over it would
+turn a degraded picture into a missing one.
+
+**The surface has two groups, not one.** `SeeImageEdits` over `list_image_edits`
+and `EditImages` over `edit_image`. A group is effect-homogeneous — the
+framework's validator refuses a `write` group holding a `read` operation, and it
+is right to: the manual's read-only projection is what makes *"nothing here
+changes anything"* a checkable claim rather than a sentence.
+
+**An absent list of edits is not an empty one.** `edits: []` is the deliberate
+*"put it back as it arrived"*; a call that omitted the parameter is a mistake, and
+treating the two alike would throw away a client's crop because an argument went
+missing.
+
+**One binding, one declaration, and the renderer narrows to it.** [[REQ-221]]
+landed the `[images]` binding first, for the one thing the upload path needs it
+for — reading the HEIC an iPhone produces — and typed it on the router's env as
+`ImagesLike`, a two-call slice of the platform binding so a UAT can hand that
+path a double without implementing an image service. This adds the second
+consumer rather than a second declaration: the wrangler block and the env field
+stay singular and the type stays narrow, and `imageRendererFor` asks at runtime
+whether the object it was given can actually transform. Where it cannot, the
+answer is `null` — which is not a new state but the one a missing binding already
+meant: no editing surface, and every picture its own original.
