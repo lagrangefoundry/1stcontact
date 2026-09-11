@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:21:12.667875+00:00'
+updated_at: '2026-09-11T21:23:30.088454+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -480,5 +480,47 @@ The site is not intended to be functional in Edit mode.
 The issue is really the UX. I think we want 2 - and yes I want to see the test rows in the CRM absolutely.
 
 (There are two `xgd` sites in the local database, `site_9a3dcd09…` and `site_bca807fc…`; both have it.) <-- I only want one. If we delete the other one does this problem go away?
+
+<!-- xgd-turn id="d078958f-2678-4d75-a161-0239cdf3957e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:23:29.114762+00:00" -->
+#### Claude
+Two separate questions. Let me check both.
+
+Answers to both, and the second one changes the shape of the work.
+
+## The two `xgd` sites — no, deleting one doesn't fix it
+
+They aren't duplicates. They're in **different businesses**:
+
+| site id | tenant | created | version |
+|---|---|---|---|
+| `site_9a3dcd09…` | `biz_51a6…` = **1st Contact** | 2026-09-06 | 1, never edited |
+| `site_bca807fc…` | `biz_96fc…` = **XGD** | 2026-09-10 | 4, counter 3, actively edited |
+
+The unique index is `(tenant_id, slug)`, so two businesses both naming a site `xgd` is legal by design, not a collision. The stray is the one in the **1st Contact** tenant — an `xgd` site created inside the platform's own business, untouched since creation. That's the one you'd delete, and it's worth deleting for tidiness.
+
+But it isn't the fix. The misrouting is a property of the action string, not of duplication: whichever site survives still carries `action: "/api/lead"`, still isn't the apex, and still posts into 1st Contact's contact list. The fix is the action value (`/site/<key>/api/lead`), independently of how many `xgd` sites exist.
+
+## Option 2 — cheaper in one way, more expensive in another
+
+**Cheaper than I said:** `LeadIntake` is *control-app's own entrypoint*. `public-site/wrangler.toml:80` binds `LEAD_INTAKE` → `service = "1stcontact-control-app"`, and `control-app/src/worker.ts:58` defines it, delegating to `captureLead()` in `control-app/src/lead.ts:383`. control-app already owns the write — it needs no binding to itself, just an in-process call. And `handleLead()` (`public-site/src/lead.ts:337`) is already parameterised on `(request, {siteKey, env})`, so control-app can call the *same* function with a shim env. One validation path, one honeypot, one intake — no second implementation.
+
+**More expensive than I said** — four things fail closed, and one is substantive:
+
+1. **`LEAD_RATE_LIMIT` absent on control-app** → `handleLead` returns 503 (`lead.ts:379`).
+2. **`TURNSTILE_SECRET` absent on control-app** → 503, and preview never stamps a sitekey so there'd be no token to verify anyway.
+3. **The real one: `formDefinitionOf` reads the *published* revision** (`control-app/src/lead.ts:179` — `liveRevisionOf(await store.revisions(slug))`). It's how `captureLead` learns which field carries the email address. So previewing a form you just added to the draft resolves against a revision that doesn't contain it — the submission fails, or guesses. Making preview work properly means teaching the intake to resolve the definition from **the channel being previewed**, not the live revision. That's the actual work; the routing is a dozen lines.
+4. **Never-published sites.** `businessOfSite` reads the `sites` table directly, so that part is fine — an unpublished site resolves. Only the definition lookup is publication-bound.
+
+My calls, unless you say otherwise:
+
+- **Turnstile and the rate limiter: skipped on the preview channel, justified by Access** — the operator is an Access-verified identity, which is strictly stronger than a bot challenge. I'll write that reasoning into the code rather than let it read as a convenience shortcut.
+- **Definition resolved from the previewed channel's draft**, so a form you just added works.
+- **Edit channel refuses**, per your point — belt-and-braces, since the edit render emits no action anyway.
+
+One genuine product question before I build: **should a preview-origin lead be marked as such in the CRM?** You want to see the rows, which argues for them being ordinary contacts. But a row that reads as a public enquiry when it came from your own preview is a lie the CRM carries permanently — and these will accumulate every time anyone tests a form. I'd add a source marker so they're visible but honest, and filterable later. Want that, or plain rows indistinguishable from real ones?
+
+Tell me and I'll scope BUG-78, cut the branch, and build it.
 
 <!-- xgd-chat-end -->
