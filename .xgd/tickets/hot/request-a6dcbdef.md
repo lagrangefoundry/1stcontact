@@ -5,9 +5,9 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-11T21:05:59.731081+00:00'
+updated_at: '2026-09-11T22:10:36.590334+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -459,3 +459,77 @@ stay singular and the type stays narrow, and `imageRendererFor` asks at runtime
 whether the object it was given can actually transform. Where it cannot, the
 answer is `null` — which is not a new state but the one a missing binding already
 meant: no editing surface, and every picture its own original.
+
+
+
+---
+
+## Corrected from EPIC-1, 2026-09-11
+
+Three corrections. The first is the one that matters: **the design this ticket
+settled did not land, and the epic's headline promise is broken end to end
+because of it.**
+
+### 1. The join is decided in this body and contradicted later in the same body
+
+**"The material ↔ site-asset join" above already decides this** — option three,
+the material records the site asset name it was promoted to, and a recipe change
+re-promotes. That section is correct and stays.
+
+**But "Publishing an edited picture is not wired, because there is nothing to wire
+it to" then says [[REQ-222]] *"needs that join key and this ticket does not invent
+one"*.** Those two passages contradict each other. The key is not missing by
+decision; the decision says where it goes. The later passage is describing
+implementation state in the language of an open question, which is what let it
+read as deferred rather than as unbuilt.
+
+Correct reading: **the design is settled, the implementation is absent.**
+
+### 2. Neither half of the decided design exists in the code
+
+Verified rather than inferred:
+
+- **`promoteToSiteAsset` (`material.ts:712`) does not record the promoted name.**
+  It computes `name` through `freeAssetName` — which *may rename on collision* —
+  writes bytes via `editAssetAdd`, then calls `recordPlacement`, which writes
+  `placed_on` slugs and nothing else. The section above says promotion
+  *"must additionally record the resulting asset name"*. It does not.
+- **`reviseRecipe` (`material.ts:1594`) does not re-promote.** It validates,
+  compiles if a measurer is supplied, writes `fields.edits`, and returns. Nothing
+  touches the site's copy.
+- **Publish reads no recipe at all.** Neither `publish.ts` nor `ladder.ts`
+  mentions `edits`, which is correct under this design — they are supposed to be
+  laddering bytes promotion already corrected.
+
+**So the client's crop never reaches their site.** A picture is promoted, its
+bytes are copied into `SITES`, and the recipe is later written on the material
+with no path back to that copy. [[REQ-220]] ships an editor over this;
+[[REQ-222]] ladders the promoted bytes assuming the recipe was applied at
+promotion. It was not. The result is that a client crops a photograph in the
+Library, sees it cropped there, publishes, and gets the uncropped original — with
+no error anywhere.
+
+**[[REQ-220]]'s investigation found exactly this and was told the answers were in
+the ticket.** They were — at the design level. The design's answer was never
+built, so its finding stands unaddressed: *"editing the recipe in the Library
+changes the Library's picture and not the site's."*
+
+**This is the epic's headline promise.** "A picture you made is one you can see,
+name, change, and publish at a sane size" — *change* and *publish* are currently
+joined by nothing. It is not a defect in any one ticket's code; it is the seam
+between three of them, which is why no ticket's own suite is red.
+
+### 3. The Browser Rendering rationale has lost one of its reasons
+
+*"It cannot decode HEIC — so it would have solved this and left the upload path
+needing a second answer"* no longer holds as stated. [[REQ-221]] established that
+**Cloudflare Images HEIC input is Enterprise-plan-only**, so on a non-Enterprise
+account the Images binding does not decode HEIC either, and the upload path needs
+its own answer regardless of which renderer was chosen. REQ-221 shipped that
+answer — conversion where the binding can, an honest refusal where it cannot.
+
+**The conclusion is unaffected and the other reasons are untouched** — per-publish
+cost and transform-chain fit still select Images, and this is the renderer that
+landed. Only the HEIC sentence is wrong, and it is corrected here rather than
+removed so that reconciliation does not read the deletion as a change of mind. The
+plan question itself is the operator's and is open; it is recorded on [[REQ-221]].
