@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:05:07.698114+00:00'
+updated_at: '2026-09-11T22:12:12.299745+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -525,5 +525,78 @@ Both written up in REQ-222 and the epic. No code — ticket updates only.
 <!-- xgd-chat role="user" ts="2026-09-11T22:05:07.337812+00:00" -->
 #### You
 Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="48c46718-144a-4d08-ac13-8c3caebbe5d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:12:11.417500+00:00" -->
+#### Claude
+Six children. Let me read the epic's Children section and each child's frontmatter in one pass.
+
+Six local children plus two foreign framework tickets. Let me size the transcripts before reading.
+
+Manageable. Reading transcripts — starting with REQ-217, the only child still in `draft`.
+
+REQ-217 has two explicit unanswered questions. Continuing through the rest.
+
+REQ-218 ends with two departures flagged "please review these" — unanswered. Continuing.
+
+Now let me check one thing that may have silently answered REQ-217's open question — what REQ-220 actually shipped for the chat hook.
+
+This is decisive for REQ-217. One more check.
+
+Found something material. Let me verify it properly before asserting.
+
+Confirmed a real defect. Let me write the answers, starting with REQ-217.
+
+REQ-218's departure #3 hinges on whether drawings carry live text. Let me check rather than guess.
+
+Decisive — the surface tells the model to "name a font the site has." Writing REQ-218's answer.
+
+Two stale passages, and one looks like an internal contradiction. Let me confirm.
+
+This looks like a real hole across three tickets. Verifying against the code.
+
+Let me make sure nothing else closes this loop before I call it a hole.
+
+Confirmed — the loop is genuinely open. Writing REQ-219's correction.
+
+Let me check the two framework tickets the epic names, since REQ-149 gates REQ-217.
+
+Reviewed all six children — bodies, fields, and chat transcripts — plus the two framework tickets the epic names.
+
+## The thing that matters most
+
+**A client's crop never reaches their published site.** Not a question anyone asked — a hole across three tickets that no single suite can see.
+
+REQ-219 settled the material↔site-asset join as "promotion records the asset name it wrote; a recipe change re-promotes." That decision is sound. **Neither half was built:**
+
+- `promoteToSiteAsset` computes a free name (which may *rename* on collision), writes bytes, records only `placed_on` slugs — never the name.
+- `reviseRecipe` writes `fields.edits` and returns. No re-promotion.
+- Publish reads no recipe — correct *under that design*, since it's meant to ladder bytes promotion already fixed.
+
+So: crop a photo in REQ-220's editor, see it cropped in the Library, publish, get the original. No error anywhere, because every component does exactly what it was designed to do.
+
+Two things make this worse than a normal bug. **REQ-220's investigation found it** and was told "reread the ticket, your answers are there" — they were, at design level; the design was never implemented. And REQ-219's own body contradicts itself: it decides the join in one section and says "REQ-222 needs that join key and this ticket does not invent one" in another, which is how "unbuilt" came to read as "deferred."
+
+It's the epic's title. *See, name, change, publish* — the fourth verb doesn't receive the third.
+
+**It spans three children and belongs to none. It needs a ticket and I haven't filed one** — say the word.
+
+## Answered directly on the children
+
+- **REQ-217** — `write_image` only. Bake the scoped URL into the transcript: the unscoped form is the *dangerous* one (it resolves through `resolveScope`'s fallback to the first admissible business). And don't make the picture clickable — a drawing has no material record, and REQ-220 excludes drawings by design.
+- **REQ-218** — both departures accepted. Raster-now dissolves the epic's premise rather than dodging it. But the CLI cost was underjudged: `write_image`'s surface tells the model to *"name a font the site has"* and warns a generic family is *"wrong nearly everywhere else"* — so photographing a drawing in a bare document reproduces, inside the inspection tool, the exact failure the authoring prose exists to prevent. That refinement is wanted.
+- **REQ-219** — the contradiction above, plus the Browser-Rendering rationale's HEIC sentence that REQ-221 disproved.
+- **REQ-220** — yes, fix the three AC977 probes there. Plus a defect I found while answering REQ-217: `materialUidFromUrl` requires pathname `== '/api/material/file'`, but `materialFileUrl` goes through `scoped()` and prefixes `/b/<id>` whenever a business is selected. **The builder's click handler cannot parse the builder's own URLs in any real session.** No test covers it, and REQ-217 hasn't landed, so the caller that would expose it doesn't exist yet.
+- **REQ-221** — the epic's record was stale: it says conversion "is dropped," but the ticket shipped conversion *and* refusal chosen at runtime, which is better than the rescope.
+- **REQ-222** — answered earlier today.
+
+## Two I'm surfacing rather than guessing
+
+**Is the Cloudflare account Enterprise for Images?** REQ-221's central premise. I can't answer it from the repo — it's a billing fact. Nothing is blocked: the refusal was built to carry the weight, so the answer decides which of two correct behaviours a client meets.
+
+**Framework REQ-149 is now `ready_to_reconcile`** (it was `draft` when REQ-217 investigated) — so REQ-217's `create_image` blocker may have cleared. I couldn't confirm the seam reached this repo: `@lagrangefoundry/*` isn't lockfile-pinned, so what upstream says landed and what's installed here are different questions. Worth checking before REQ-217 starts.
+
+No code changed, no ticket statuses touched.
 
 <!-- xgd-chat-end -->
