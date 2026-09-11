@@ -6,9 +6,9 @@ title: 'Handing A File To The Platform: One Overlay, Two Entry Points, And The O
   Question It Asks'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:31:10.902566+00:00'
-updated_at: '2026-09-11T05:31:10.902566+00:00'
+updated_at: '2026-09-11T05:33:10.042500+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-87be4669
@@ -98,14 +98,14 @@ declared `role` field and the rights it narrows; and the Library tab itself.
   when it is, and clears the "say what is missing" state before it is raised again. Formalized,
   because a surface whose whole claim is "nothing is created without a choice" must also honour
   the choice to make none, and a stale *you missed* message on a fresh drag would accuse the
-  client of a mistake they have not yet made.
+  client of a mistake they have not yet made. Formalized as AC-1734.
 
 - **Several files in one handover are reported one by one** (decided at reconciliation,
   2026-09-10): the intent speaks throughout of *a* file and is silent on a multi-file drop. The
   landed surface accepts them, hands them over one at a time, and reports each on its own.
   Formalized, because a client dropping four photographs needs to know which of the four
   arrived — a single aggregate confirmation makes one failure among four indistinguishable from
-  four successes.
+  four successes. Formalized as AC-1735.
 
 - **The Library reflects the new material after a handover from either route** (decided at
   reconciliation, 2026-09-10): the intent states that both routes reach the assistant the same
@@ -113,7 +113,7 @@ declared `role` field and the rights it narrows; and the Library tab itself.
   platform after a handover, including one made in the conversation. Formalized, because the
   facts that decide how a row reads — whether the file could be described, whether it reached the
   site — are settled after the bytes leave the browser, so a list redrawn from what the handover
-  returned would show a different state than the one that exists.
+  returned would show a different state than the one that exists. Formalized as AC-1735.
 
 ## Dependencies
 
