@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T02:41:28.081931+00:00'
+updated_at: '2026-09-11T18:05:14.713783+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,14 @@ Now the type pack fields and the routes.
 Now wiring the two entry points together in `app.js`.
 
 Now the UAT suites. Starting with the pure vocabulary/rendering contract.
+
+<!-- xgd-turn id="38d14443-0534-4b92-b675-889a58ec5026-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T18:05:13.519130+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
