@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-11T19:52:03.781795+00:00'
+updated_at: '2026-09-11T21:10:38.654245+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,11 @@ REQ-219 landed on `xgd-working` while this branch was cut, and the two had conve
 ## Still open on the ticket
 
 Format negotiation (WebP/AVIF via `<picture>`) and first-publish latency remain unanswered — both flagged by the operator as raised-not-decided, and neither is in this ticket's scope.
+
+<!-- xgd-turn id="f786f81f-7559-424d-acb7-a2597c6d6a0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:10:37.650362+00:00" -->
+#### You
+Please explain the open questions I thought everything was closed
 
 <!-- xgd-chat-end -->
