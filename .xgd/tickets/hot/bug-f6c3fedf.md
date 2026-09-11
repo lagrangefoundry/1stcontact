@@ -5,7 +5,7 @@ type: bug
 title: Homepage beta form posts to a route that does not exist
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:42:09.866810+00:00'
-updated_at: '2026-09-10T23:00:10.432323+00:00'
+updated_at: '2026-09-11T02:15:48.046172+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -131,3 +131,90 @@ unreachable.
 
 The beta form needs no such thing: REQ-223 routes lead capture through
 `public-site`, which sits in front of no Access gate.
+
+
+## What was done, 2026-09-10
+
+[[REQ-223]] landed (2 commits, 27 UATs passing, `ready_to_reconcile`), so the
+endpoint exists. **The remaining work was configuration and data — no repo code
+changed, and there is no commit against this ticket.**
+
+### Applied
+
+**1. The homepage's two module configs**, in the `1stcontact` draft page
+(`site_62d3d0097bbc7b6e86bdcdb3728389a3`, `home.json`):
+
+| Module | Field | Was | Now |
+| --- | --- | --- | --- |
+| `beta-form` | `action` | `https://app.1stcontact.io/beta-apply` | `/api/lead` |
+| `signin` | `signIn` | `https://app.1stcontact.io/auth/request-link` | `https://app.1stcontact.io/sign-in` |
+
+Applied as the store applies it (`tools/generate/src/store/d1r2-store.ts`): the
+page row rewritten and `sites.version` bumped 58 → 59, which is what a builder
+save does. The edit refuses rather than guesses if either field does not hold
+the exact expected value. Backup at `.xgd/tmp/d1-backup-bug78.sqlite`.
+
+`/api/lead` is root-relative and correct **because this site is the apex**. See
+the cross-tenant note below — it is not correct for a site served under
+`/site/<key>/`.
+
+**2. `apps/public-site/.dev.vars`** (new, gitignored, local dev only):
+`APEX_SITE_KEY` — without it `leadTarget` returns null for the apex and the
+endpoint refuses a submission from `/` — plus Cloudflare's published Turnstile
+testing keys, verified against the live siteverify endpoint on 2026-09-10 (the
+accept key answers `success: true`; its always-fail counterpart answers
+`invalid-input-response`; both tagged `result_with_testing_key`). Those keys
+switch the control off and must never reach production.
+
+### Not applied, and why
+
+**`APEX_SITE_KEY` in `[env.production.vars]` — cannot be set yet.** Site ids are
+minted per environment and the production `sites` table is **empty**; nothing has
+ever been published there. There is no production apex key to write. It belongs
+in `wrangler.toml` once the site is created and published in production.
+
+**A real Turnstile widget.** `TURNSTILE_SECRET` absent means refuse, by design,
+so production and any non-loopback deployment needs a real sitekey and secret
+(`wrangler secret put TURNSTILE_SECRET`). Operator action.
+
+**The Access bypass policy.** Still outstanding, still affects only sign-in.
+Verified again 2026-09-10: `GET https://app.1stcontact.io/sign-in` answers `302`
+to the Access login origin. The `signIn` value above is now correct and the
+dialog will still fail in production until the policy exists.
+
+## Two findings this work turned up
+
+**1. The form renders in only one place, and `/api/lead` does not work there.**
+`site_revisions` is **empty in every local D1** and production has no sites, so
+nothing has ever been published anywhere. The only surface that renders this page
+today is `control-app`'s draft preview (`/preview/1stcontact/draft/…`), and
+`control-app` has no `/api/lead` route and no `LEAD_INTAKE` binding — deliberately,
+per [[REQ-223]] §3.2, which refuses to put the intake behind a URL. So a
+submission from the preview now answers `404` instead of the original
+"could not reach the server": a different error, not a working form.
+
+Whether a preview submission should work at all is a genuine design question and
+is **not** settled here. It writes a real contact into a real tenant, so making
+the preview post for real would put test submissions in the CRM; the alternatives
+are a gated preview-only route on `control-app`, or a preview that declines to
+submit and says so. This bug does not decide it.
+
+**2. A cross-tenant lead leak for non-apex sites — worth its own attention.**
+`leadTarget` reads the site key from the URL: a path under `/site/<key>/api/lead`
+resolves to that site, and a bare `/api/lead` resolves to the **apex**. The `xgd`
+site's two forms (`home.json`, `whitepapers.json`) are both configured
+`action: "/api/lead"` and that site is **not** the apex — so once it is published,
+its leads land in the apex tenant's contact list rather than its own.
+
+The [[REQ-223]] UATs do not catch this because they construct
+`/site/<key>/api/lead` themselves rather than following the rendered `action`.
+The correct value for a non-apex site is `/site/<key>/api/lead`, or a
+document-relative `api/lead`, which resolves correctly for both. Left alone here:
+it is another site's content and not this bug.
+
+## Status
+
+**Not fixed end to end.** The configuration is right and the endpoint is proven
+by REQ-223's own UATs, but nothing renders this page outside the preview, and the
+preview cannot reach the endpoint. Closing this needs a decision on finding 1,
+or a publish plus the production configuration above.
