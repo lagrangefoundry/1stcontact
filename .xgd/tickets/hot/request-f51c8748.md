@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T21:16:39.107931+00:00'
+updated_at: '2026-09-11T21:29:11.526713+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -519,3 +519,101 @@ transform vocabulary rather than trusting a remembered list.
 Likewise the transform timings above are **estimates, not measurements**. The first
 real photo-heavy publish is the measurement, and it is worth taking deliberately
 rather than discovering.
+
+
+
+---
+
+## Operator decision, 2026-09-11: what a publish looks like while it runs
+
+The latency section above makes "the publish says what it is doing" a deliverable
+rather than a nicety. This is what it is. **Three things: the builder locks, a
+message explains, and the bar is real.**
+
+### The builder locks for the duration
+
+**Today a publish disables the Publish button and nothing else.**
+`publishAction` in `toolbar.js` sets `btn.disabled = true`, awaits, and re-enables
+in a `finally`. Every other control in the builder stays live — so a client can
+keep editing through a publish that takes a minute, which is precisely the window
+this ticket is about to make longer.
+
+**The lock is not only politeness.** A client who edits during a publish has a
+reasonable and untested belief about whether that edit is in the site that just
+went live. Whatever the server actually does — and that is worth confirming rather
+than assuming — the honest fix is to remove the question instead of answering it:
+while a publish is running, there is nothing to have edited.
+
+**The mechanism already exists and should be reused, carefully.** [[REQ-173]]'s
+`blockEverything` makes the shell `inert` — one attribute covering the tabs, the
+toolbar and the pane — and deliberately puts its message *outside* the inert
+subtree so the text stays selectable. That is exactly the shape this needs.
+
+**But its meaning is wrong as-is, and that is the thing to get right.** REQ-173's
+block says *something is broken and you cannot proceed*; a publish block says
+*something is working, please wait*. Reusing the mechanism must not import the
+banner's alarm — same `inert`, different register. A client who sees the
+"blocked" chrome during a successful publish has been told their site is broken at
+the exact moment it is going live.
+
+**The chrome stays live**, on REQ-173's own precedent: the switcher, account,
+theme and about are outside the block. Nothing there can change the draft.
+
+### What it says
+
+The message is the operator's, and it earns its length by naming the cause:
+
+> **First-time publication of images requires resizing, which can take some
+> time — please leave this tab open.**
+
+**"First-time" is the load-bearing word** and it is true: the content-addressed
+derived cache means an unchanged picture costs zero transforms, so the second
+publish of the same site is fast. A client who is told this once understands why
+the wait does not repeat, and does not learn to dread the button.
+
+**So it is shown when it is true, not always.** The publish knows before it starts
+how many renditions it must build — the cache tells it what already exists. A
+republish with nothing to do should not display a warning about resizing; that
+would train the client to ignore the one case where it matters. A publish with
+nothing to build says nothing and simply completes.
+
+### The progress bar is real, and cheaper than it looks
+
+**Yes — and determinate, not a spinner pretending.** A spinner is the right
+affordance for an unknown wait of a few seconds; for a wait of minutes it is the
+thing that reads as a hang, which is the failure this section exists to prevent.
+The operator's budget is *minutes with explanation*, and a spinner is not an
+explanation.
+
+**Two facts make it genuinely cheap here:**
+
+- **The total is knowable before the first transform.** The ladder already walks
+  the snapshot's assets, measures each one, and derives its rungs; the count of
+  renditions to build — assets × rungs × formats, minus cache hits — is available
+  up front. So the denominator is real rather than an animation on a timer.
+- **The transport exists, with a parser already shared.** `router.ts` serves
+  `text/event-stream` on three routes, and `api.js`'s `postEventStream` is an
+  async generator whose own doc says it exists so there is exactly one
+  split-on-blank-line parse — *"a second transcription is how a fix to one SSE
+  route silently misses the other."* A publish progress stream is a fourth caller
+  of that generator, not a new transport.
+
+**`POST /api/publish` therefore gains a streaming form**, emitting a frame per
+rendition completed — or per asset, if per-rendition proves chatty — and a
+terminal frame carrying the result the JSON response carries today.
+
+**The one real design cost, named: a failure after the headers are sent.** An SSE
+response has already committed `200` by the time the first rendition is built, so
+a publish that fails midway cannot report itself as an HTTP status. The terminal
+frame must therefore distinguish success from failure explicitly, and the client
+must treat *a stream that ends without a terminal frame* as a failure rather than
+as success — otherwise a dropped connection renders as a completed publish, which
+is the worst outcome available here. `postEventStream` already turns a non-OK
+response into frames rather than a throw; this is the same principle extended to
+the end of the stream.
+
+**The non-streaming form does not disappear.** `1c publish` has no browser and no
+use for frames, and `publishSite` in `publish.ts` is the one implementation both
+go through. Progress is a property of the *route*, not of the publish — the same
+line this ticket already draws around the ladder itself, which publish takes as an
+optional argument and the CLI simply does not supply.
