@@ -18,6 +18,8 @@ import {
 } from './portal'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
+import type { ImageLadder } from '../../../tools/generate/src/publish/ladder'
+import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import { publicSiteUrl } from './public-url'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
@@ -489,6 +491,20 @@ export interface RouterEnv
    */
   BROWSER?: Fetcher
   /**
+   * Cloudflare Images ([[REQ-222]]) — what builds a picture's delivery ladder at
+   * publish.
+   *
+   * OPTIONAL, AND ITS ABSENCE IS NOT A FAILURE OF ANY KIND. Every other optional
+   * binding here takes a capability away when it is missing and says so loudly;
+   * this one takes away an optimisation. With no binding a publish freezes the
+   * same revision and renders the same pages, each `<img>` carrying its `src`
+   * and no `srcset` — which is this repository's publish as it has always been,
+   * and is exactly what `1c publish` does against an operator's disk. Refusing
+   * to publish because delivery sizes could not be built would remove something
+   * that works in exchange for something that was never promised.
+   */
+  IMAGES?: ImagesBinding
+  /**
    * Workers AI ([[REQ-159]]) — the embedder behind the project knowledge base.
    *
    * On the router's env because [[REQ-163]]'s ingestion routes index what they
@@ -550,6 +566,16 @@ export interface RouterEnv
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
+  /**
+   * The delivery width ladder `/api/publish` builds ([[REQ-222]]).
+   *
+   * INJECTABLE FOR THE REASON THE STORE IS: the real one reaches a metered
+   * platform transform, so a UAT that wanted to assert what a published page's
+   * `srcset` says would otherwise have to pay for renditions to find out. It
+   * returns null where the deployment has no Images binding, and a UAT returning
+   * null is asserting the no-binding publish rather than simulating it.
+   */
+  ladder?: (env: RouterEnv, scope: Scope) => ImageLadder | null
   /**
    * The ticket store the ingestion routes write material into ([[REQ-163]]).
    *
@@ -2078,8 +2104,14 @@ async function routeUncached(
         return json(400, { error: 'slug is required' })
       }
       const store = await openStore()
+      // [[REQ-222]] — the delivery ladder, built here in the Worker and nowhere
+      // else. `publishSite` sequences it like every other step; what this line
+      // decides is only whether this DEPLOYMENT can build one.
+      const scope = requireScope()
+      const ladder = (deps.ladder ?? ladderFor)(env, scope) ?? undefined
       const result = await publishSite(store, body.slug, {
         message: typeof body.message === 'string' ? body.message : undefined,
+        ladder,
       })
       // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
       // address; the slug is what this business calls the site and means nothing

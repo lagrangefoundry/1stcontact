@@ -37,6 +37,11 @@ import {
   L1_DIALOG_OPENS_ATTR as DIALOG_OPENS_ATTR,
   L1_DIALOG_READY_ATTR as DIALOG_READY_ATTR,
 } from './dialog'
+import {
+  deliveryAssetName,
+  type ImageDelivery,
+  type ImageDeliveryManifest,
+} from './delivery'
 import type {
   L1Action,
   L1AxisSizing,
@@ -1515,6 +1520,179 @@ function columnOriginCss(col: L1Column): string {
 }
 
 /**
+ * REQ-222 — the column extent {@link columnExtentCss} emits, **evaluated** at one
+ * viewport width.
+ *
+ * The CSS form is what the browser lays out with; this is what `sizes` has to
+ * state, and the two must be the same function or the attribute describes a box
+ * that is not on the page. They are written adjacently for exactly that reason.
+ * Non-decreasing in `vw`, which is what lets {@link imageSizes} sample it at the
+ * document's own ladder and know the answer between samples is bounded above.
+ */
+function columnExtentAt(col: L1Column, vw: number): number {
+  const inner = Math.min(col.containerPx, vw) - col.insetPx * 2
+  return Math.max(0, col.maxWidthPx === undefined ? inner : Math.min(col.maxWidthPx, inner))
+}
+
+/**
+ * REQ-222 — an anchored width term in px at one viewport width: the evaluated
+ * twin of `anchorDecls`'s `termCss`.
+ *
+ * A TRACKED CONSTANT TAKES ITS LARGEST KEYFRAME. The track is a small offset
+ * inside the column, keyframed because the page changes layout mode across the
+ * ladder; resolving it per breakpoint here would double the arithmetic to refine
+ * a `sizes` hint by a few pixels. The largest value is the safe direction —
+ * `sizes` may overstate a box (the browser fetches a rendition larger than it
+ * needs) and must never understate one (it fetches one too small and the picture
+ * is soft).
+ */
+function anchorWidthAt(term: L1ColumnTerm, col: L1Column, vw: number): number {
+  const constant = term.pxTrack
+    ? Math.max(...term.pxTrack.keyframes.map((k) => k.value))
+    : (term.px ?? 0)
+  const value = constant + (term.fraction ?? 0) * columnExtentAt(col, vw)
+  return Math.max(0, term.maxPx === undefined ? value : Math.min(term.maxPx, value))
+}
+
+/**
+ * REQ-222 — the `sizes` attribute for an image node, or null when its width is
+ * not something L1 pins.
+ *
+ * WHY THIS EXISTS AT ALL. A `srcset` with no `sizes` is not a smaller download —
+ * it is the same download with extra bytes of markup. The browser must choose a
+ * rendition before layout, so with no `sizes` it assumes the picture fills the
+ * viewport, multiplies by the device pixel ratio, and takes the top rung. That
+ * is precisely the behaviour the ladder exists to remove, which makes `sizes`
+ * the load-bearing half of the pair rather than the decorative one.
+ *
+ * AND IT CAN BE EXACT HERE, WHICH IS UNUSUAL. Most sites hand-write `sizes` and
+ * get it wrong, because the author is describing a layout the stylesheet owns.
+ * This renderer *is* that stylesheet: it has already decided the image's width
+ * at every breakpoint, from one of the three sources below, so the attribute is
+ * read off the same data the CSS is emitted from rather than guessed alongside
+ * it.
+ *
+ * THE PRECEDENCE MIRRORS `geometryRules` and is not a preference: a column
+ * anchor SUPPRESSES the keyframe widths there (REQ-88), so reading the keyframes
+ * for an anchored node would describe a box the CSS does not produce.
+ *
+ * NULL IS A REAL ANSWER. A fluid or hug width with no cap is a box whose extent
+ * belongs to its parent, and this renderer does not resolve parents. Omitting
+ * the attribute falls back to the browser's assumption — an over-fetch, which is
+ * the failure we can afford.
+ */
+function imageSizes(
+  geometry: L1Geometry | undefined,
+  sizing: L1AxisSizing | undefined,
+  state: RenderState,
+): string | null {
+  const col = state.column
+  const anchoredWidth = col ? geometry?.anchor?.width : undefined
+  if (anchoredWidth && col) {
+    // Sampled at the document's own ladder. The function is non-decreasing, so a
+    // viewport inside `(w[i-1], w[i]]` is served by `w[i]`'s value, which is an
+    // upper bound for it — conservative in the safe direction, exact at every
+    // width the document was actually captured at.
+    const ladder = [...(state.widths ?? [])].sort((a, b) => a - b)
+    const conditions = ladder.map(
+      (w) => `(max-width: ${num(w)}px) ${num(anchorWidthAt(anchoredWidth, col, w))}px`,
+    )
+    // Past the ladder the column has stopped growing, so the term saturates at
+    // its own cap: one unconditional length, which is what `sizes` requires last.
+    conditions.push(`${num(anchorWidthAt(anchoredWidth, col, Infinity))}px`)
+    return conditions.join(', ')
+  }
+
+  const frames = geometry?.keyframes
+  if (frames && frames.length > 0) {
+    if (frames.length === 1) return `${num(frames[0].width)}px`
+    const conditions: string[] = []
+    for (let i = 0; i < frames.length - 1; i++) {
+      const a = frames[i]
+      const b = frames[i + 1]
+      // `snap` holds the lower keyframe across the whole segment; `interpolate`
+      // sweeps between the two, so its upper bound is the larger end.
+      const seg = geometry?.segments?.[i] ?? 'interpolate'
+      const cap = seg === 'snap' ? a.width : Math.max(a.width, b.width)
+      conditions.push(`(max-width: ${num(b.at)}px) ${num(cap)}px`)
+    }
+    // The first condition also covers everything BELOW the lowest keyframe,
+    // where `geometryRules` holds that keyframe's width statically.
+    conditions.push(`${num(frames[frames.length - 1].width)}px`)
+    return conditions.join(', ')
+  }
+
+  const width = sizing?.width
+  if (!width) return null
+  if (width.mode === 'fixed' && width.px !== undefined) return `${num(width.px)}px`
+  // A capped fluid box: at most `maxPx`, and at most the viewport below that.
+  // Both halves overstate rather than understate, which is the tolerable error.
+  if (width.maxPx !== undefined) {
+    return `(max-width: ${num(width.maxPx)}px) 100vw, ${num(width.maxPx)}px`
+  }
+  return null
+}
+
+/**
+ * Characters a URL may carry inside a `srcset` list.
+ *
+ * {@link CSS_URL_ALLOWED} **minus the comma**, and that subtraction is the whole
+ * point: `srcset` is a comma-separated list of `url descriptor` pairs, so a
+ * comma inside one URL does not escape the attribute (`escapeHtml` still runs)
+ * but it does split one candidate into two malformed ones — and a browser that
+ * cannot parse the list falls back to `src` silently, on every page, with
+ * nothing anywhere reporting why. Whitespace is excluded for the same reason:
+ * it is the separator between a URL and its descriptor.
+ */
+const SRCSET_URL_ALLOWED = /^[A-Za-z0-9\-._~:/?#[\]@!$&*+;=%]+$/
+
+/**
+ * REQ-222 — the `srcset` attribute for an image node, or `''`.
+ *
+ * THE SOLE `srcset` SINK, on the same terms as {@link cssUrl} is the sole
+ * `url()` one: every candidate passes the scheme allowlist AND an independent
+ * character allowlist, so a manifest entry cannot become list syntax however it
+ * was produced. Layer 2 does not trust Layer 1, and the manifest arrives from a
+ * publish that read bytes out of a bucket.
+ *
+ * FEWER THAN TWO CANDIDATES EMITS NOTHING. A one-entry `srcset` names the file
+ * that is already in `src` and asks the browser to do arithmetic to arrive back
+ * there; the manifest should not contain one, and if it does, the attribute is
+ * the wrong place to find that out.
+ */
+/**
+ * REQ-222 — the manifest entry for an image's `src`, or undefined.
+ *
+ * `hasOwnProperty` RATHER THAN A BARE INDEX, because the key is derived from a
+ * document that a client's assistant writes: `src: "/assets/__proto__"` would
+ * otherwise read `Object.prototype.__proto__` and hand this renderer an object
+ * that is not a manifest entry at all, to be destructured for `renditions`. The
+ * cost of the guard is nil and the alternative is a class of bug that only
+ * appears for one magic filename.
+ */
+function deliveryFor(src: string, state: RenderState): ImageDelivery | undefined {
+  if (!state.delivery) return undefined
+  const name = deliveryAssetName(src)
+  if (name === null) return undefined
+  return Object.prototype.hasOwnProperty.call(state.delivery, name)
+    ? state.delivery[name]
+    : undefined
+}
+
+function srcsetAttr(delivery: ImageDelivery | undefined): string {
+  if (!delivery) return ''
+  const candidates: string[] = []
+  for (const rendition of delivery.renditions) {
+    const url = rendition.src.trim()
+    if (!isSafeUrl(url) || !SRCSET_URL_ALLOWED.test(url)) continue
+    if (!Number.isFinite(rendition.width) || rendition.width <= 0) continue
+    candidates.push(`${relativizeUrl(url)} ${num(rendition.width)}w`)
+  }
+  if (candidates.length < 2) return ''
+  return ` srcset="${escapeHtml(candidates.join(', '))}"`
+}
+
+/**
  * REQ-88 — `left` / `width` for a column-anchored node, as closed-form CSS. These
  * are *static* declarations: the column function is exact at every viewport width,
  * so unlike a keyframe track it needs no media queries and no extrapolation.
@@ -2052,6 +2230,13 @@ interface RenderState {
   column?: L1Column
   /** REQ-88 — the ladder's smallest width; below it the base rule is in force. */
   minWidth?: number
+  /** REQ-222 — the document's whole width ladder, sampled to build `sizes`. */
+  widths?: readonly number[]
+  /**
+   * REQ-222 — what this PUBLISH rendered each picture at. Absent for the draft
+   * and edit channels, which is what gives them no ladder without a flag.
+   */
+  delivery?: ImageDeliveryManifest
   /** REQ-93 — pre-rendered behavior-module HTML, keyed by the slot name it binds to. */
   mounts?: Readonly<Record<string, string>>
   /** REQ-96 — the mounted behavior's declared leaf elements, keyed by control name. */
@@ -2481,7 +2666,20 @@ function emitNode(
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? relativizeUrl(node.src.trim()) : ''
-      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
+      // REQ-222 — the delivery ladder, when this render is a publish that built
+      // one for THIS picture. `src` is untouched: it stays the full rendition, so
+      // a browser that understands neither attribute gets exactly today's page,
+      // and `assetRefSchema` and the L1 image node are both unchanged — the
+      // ladder is a render input, not something the document learned to carry.
+      const delivery = deliveryFor(node.src, state)
+      const srcset = srcsetAttr(delivery)
+      // `sizes` is emitted ONLY beside a `srcset`. On its own it is inert markup,
+      // and a pair where one half is missing is the failure mode this ticket is
+      // about: with no `sizes` the browser assumes the viewport and takes the top
+      // rung, which is the download we came to remove.
+      const sizes = srcset === '' ? null : imageSizes(node.geometry, node.sizing, state)
+      const sizesAttr = sizes === null ? '' : ` sizes="${escapeHtml(sizes)}"`
+      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr} alt="${escapeHtml(node.alt)}" />`
       html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
       break
     }
@@ -2773,6 +2971,19 @@ export interface L1RenderOptions {
    * content-addressed, and never entered in `history.json` (DOC-12 §11).
    */
   edit?: boolean
+  /**
+   * REQ-222 — the delivery width ladder this publish built, keyed by asset name.
+   *
+   * SUPPLIED BY PUBLISH AND BY NOTHING ELSE. The request-time draft and edit
+   * renders call the same renderer and simply do not pass it, so "the draft gets
+   * no ladder" is a property of who holds the manifest rather than a mode the
+   * renderer has to be told about and could be told wrongly.
+   *
+   * An entry names renditions that a publish actually wrote. Nothing here
+   * predicts what *should* exist: a `srcset` candidate the bucket does not hold
+   * is a 404 the page cannot recover from, so the manifest is a record.
+   */
+  delivery?: ImageDeliveryManifest
 }
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
@@ -2783,8 +2994,10 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
     rules: [],
     column: doc.column,
     minWidth: Math.min(...doc.widths),
+    widths: doc.widths,
     mounts: opts.mounts,
     edit: opts.edit,
+    delivery: opts.delivery,
   }
   // The document's root node list is the single `doc.root`, so its address is
   // `0` — the same "index the list, then walk `children`" rule a fragment uses.

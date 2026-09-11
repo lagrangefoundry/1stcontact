@@ -102,3 +102,18 @@ export {
   L1_EDIT_PAGE_ATTR,
   L1_EDIT_CSS,
 } from './l1/render'
+
+// [[REQ-222]] — the delivery width ladder. Exported from the WORKER entry
+// because the Worker is where a publish happens: `publish.ts` builds the ladder
+// and `render.ts` writes it into a `srcset`, and both have to compute the same
+// widths or a candidate names bytes nobody rendered. Type-only for the renderer
+// side; the arithmetic is what the publish side imports.
+export {
+  DELIVERY_WIDTHS,
+  deliveryWidthsFor,
+  deliveryAssetName,
+  extensionOfAsset,
+  isLadderedAsset,
+  renditionPath,
+} from './l1/delivery'
+export type { ImageDelivery, ImageDeliveryManifest, ImageRendition } from './l1/delivery'

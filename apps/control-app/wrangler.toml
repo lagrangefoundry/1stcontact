@@ -321,6 +321,36 @@ binding = "BROWSER"
 [ai]
 binding = "AI"
 
+# Cloudflare Images — the delivery width ladder a publish builds ([[REQ-222]]).
+#
+# WHAT IT IS FOR. `POST /api/publish` freezes the draft and renders it here, in
+# the Worker, and this is what sizes the pictures on the way out: a photograph
+# from a modern phone is several thousand pixels wide, and without this every
+# visitor downloads all of them on their own data. Nothing is resized on request
+# — the ladder is built once, into the revision, and `public-site` serves what is
+# there.
+#
+# THE ONE OPTIONAL BINDING WHOSE ABSENCE IS NOT A LOUD FAILURE, and the asymmetry
+# is deliberate rather than an omission. `[ai]` missing means the knowledge base
+# knows nothing and `[browser]` missing means the assistant cannot see, so both
+# raise named errors; this missing means a publish carries no `srcset`, which is
+# this repository's publish exactly as it was before the ladder existed and
+# exactly as `1c publish` performs it against an operator's disk. Refusing to
+# publish would take away something that works to protect something that is an
+# optimisation.
+#
+# METERED PER TRANSFORM, which is why renditions are content-addressed on the
+# source bytes and the width, and cached under `derived/<tenant>/` — OUTSIDE the
+# `sites/` root `public-site` resolves, so the cache is unreachable by URL. A
+# republish of an unchanged picture reads the cache and transforms nothing, and
+# publishing is a toolbar button that gets pressed often.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule every other binding in this file records. A UAT
+# pins the two sides together so the omission cannot recur unnoticed.
+[images]
+binding = "IMAGES"
+
 [env.production]
 name = "1stcontact-control-app"
 workers_dev = false
@@ -387,3 +417,7 @@ binding = "BROWSER"
 # See the top-level block: restated rather than inherited, on purpose (REQ-159).
 [env.production.ai]
 binding = "AI"
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-222]]).
+[env.production.images]
+binding = "IMAGES"

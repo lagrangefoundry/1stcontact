@@ -275,6 +275,21 @@ function isUnsafeName(name: string): boolean {
   return name.includes('/') || name.includes('\\') || name === '..' || name.startsWith('../')
 }
 
+/**
+ * [[REQ-222]] — the same rule for a value that IS a path within `out/`.
+ *
+ * A delivery rendition is written at `assets/d/<sha>-<w>.jpg`, so the separator
+ * {@link isUnsafeName} refuses outright is legitimate here and the question
+ * becomes what the separator is allowed to join. An absolute path would compose
+ * a key with a double slash that no reader resolves the way the writer meant, a
+ * backslash is a separator to some readers and not others, and any `..`
+ * component names a key outside the revision this publish is writing.
+ */
+function isUnsafePath(rel: string): boolean {
+  if (rel === '' || rel.startsWith('/') || rel.includes('\\')) return true
+  return rel.split('/').some((part) => part === '' || part === '.' || part === '..')
+}
+
 /** One revision as `site_revisions` holds it. */
 interface RevisionRow {
   id: number
@@ -767,6 +782,16 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
       for (const [rel, text] of content.out) {
         await putText(SITES, `${out}/${rel}`, text, contentTypeOf(rel))
+      }
+      // [[REQ-222]] — the delivery renditions. Keys are composed from the path
+      // the ladder chose, which is why `isUnsafePath` and not `isUnsafeName`
+      // guards them: a rendition legitimately carries a `d/` segment, and what
+      // must never reach a key is a component that climbs out of `out/`.
+      for (const [rel, bytes] of content.derived ?? []) {
+        if (isUnsafePath(rel)) continue
+        await SITES.put(`${out}/${rel}`, bytes as unknown as ArrayBuffer, {
+          httpMetadata: { contentType: contentTypeOf(rel) },
+        })
       }
       // The rendered tree carries the assets it references, exactly as the
       // filesystem writer copies `assets/` through — a published page whose
