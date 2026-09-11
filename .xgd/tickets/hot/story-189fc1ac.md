@@ -7,9 +7,9 @@ title: Have the assistant compose a page — see where everything sits, read an 
   or scripts
 created_by: xgd
 created_at: '2026-08-10T09:18:31.384971+00:00'
-updated_at: '2026-08-16T02:37:48.836908+00:00'
+updated_at: '2026-09-11T02:03:51.498643+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-e59210c5
@@ -101,15 +101,21 @@ Out of scope:
   and the renderer independently re-checks every URL sink. **Any hole found in that
   closure is a security finding against this story, not a capability gap.**
 
-**Divergences and known limits recorded in the intent, not claimed as correct behaviour:**
+**Divergences and known limits recorded in the intent, not claimed as correct behaviour
+(the first has since been closed upstream):**
 
-- **Refusal specificity is degraded for this caller.** The write path reports the exact
-  offending field when a change is refused, and a command-line user sees it; the
-  assistant's tool layer renders only the declared meaning of the error code and drops
-  the detail, so a refusal names *what to do* rather than *which field*. Filed upstream
-  and mitigated by making the declared meaning carry the recovery strategy. The
-  acceptance criterion below asserts the mitigation that exists, not the fix that does
-  not.
+- **Refusal specificity was degraded for this caller — closed upstream, no longer a
+  limit.** The write path reports the exact offending field when a change is refused, and
+  a command-line user always saw it. When this story landed, the assistant's tool layer
+  rendered only the declared meaning of the error code and dropped that detail, so a
+  refusal named *what to do* rather than *which field*; it was filed upstream, and the
+  declared meaning was written to carry the recovery strategy because of it. The upstream
+  fix has since landed: a declared refusal now appends the host's own account of the
+  failure, that behaviour is opt-*out* and this surface's schema-invalid code does not opt
+  out, so a refused replacement now names the offending pointer **as well as** the
+  strategy. Recorded rather than deleted because the acceptance criterion below is still
+  written to the weaker promise — strengthening it to assert the field name is an
+  outstanding matrix edit, not a missing behaviour.
 - The site's settings still carry a vestigial navigation key that nothing renders.
   Navigation is expressed in the element tree; that a caller is shown a setting with no
   effect is a separate defect and is not addressed here.
