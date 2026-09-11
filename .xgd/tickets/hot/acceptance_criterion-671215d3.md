@@ -6,10 +6,10 @@ title: A conversational handover appears as the client's own turn; a Library one
   no turn
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:32:39.314516+00:00'
-updated_at: '2026-09-11T05:32:39.314516+00:00'
+updated_at: '2026-09-11T05:42:21.722183+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
