@@ -6,14 +6,15 @@ title: The record of every call survives the host that wrote it, loses no entry 
   a concurrent caller, and is kept even for an abandoned turn
 created_by: xgd
 created_at: '2026-08-31T10:40:28.722749+00:00'
-updated_at: '2026-08-31T10:40:28.722749+00:00'
+updated_at: '2026-09-11T01:49:20.979523+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-93905de4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
