@@ -6,9 +6,9 @@ title: 'Guarded Retrieval: Material Fetched On The Client''s Behalf, And What It
   Recorded As'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:40:46.962006+00:00'
-updated_at: '2026-09-11T04:40:46.962006+00:00'
+updated_at: '2026-09-11T04:43:47.060558+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-87be4669
@@ -98,7 +98,7 @@ own intent.
   for retrieved content" without naming a mechanism. The landed code carries no separate
   `untrusted` flag: the marking is `origin: fetched` + `rights: third_party` +
   non-republishable, and the implementation states in as many words that this is where that half
-  lives. Formalized in that observable form as AC-A7, because those three values are what any
+  lives. Formalized in that observable form as AC-1706, because those three values are what any
   surface or tool can actually read. How retrieved content is delimited *where it enters the
   assistant's context* is the assistant's knowledge surface, not this ingestion path, and is not
   asserted here.
@@ -106,27 +106,27 @@ own intent.
 - **Non-web and malformed addresses are refused with the non-secure ones** (decided at
   reconciliation, 2026-09-10): the intent names only "non-HTTPS". The landed guard refuses
   `file:`, `data:` and anything that is not parsable as an address at all, through the same
-  refusal. Formalized as part of AC-A1 because an allowlist of exactly one scheme is a stronger
+  refusal. Formalized as part of AC-1700 because an allowlist of exactly one scheme is a stronger
   and more durable claim than a denylist of `http:`, and because the alternative — an
   unparsable string reaching the retrieval at all — has no defensible behaviour.
 
 - **A retrieval that brings back nothing usable creates nothing** (decided at reconciliation,
   2026-09-10): the intent is silent on a remote error status, a redirect that names no
   destination, and a permitted retrieval whose body is empty. The landed guard refuses all three,
-  each in the client's own words and with nothing left behind. Formalized as AC-A8 because each
+  each in the client's own words and with nothing left behind. Formalized as AC-1707 because each
   is a real outcome of pointing at a real address, and because the alternative — material with no
   bytes, or a redirect chain abandoned silently — would create exactly the permanently unfindable
   record every other refusal in this pipeline exists to avoid.
 
 - **The recorded content type carries no parameters** (decided at reconciliation, 2026-09-10):
   the intent does not mention the charset and other parameters a remote server attaches to its
-  content type. The landed guard records the type alone. Formalized as part of AC-A6 because the
+  content type. The landed guard records the type alone. Formalized as part of AC-1705 because the
   kind of a file is classified from that value downstream, and a type carrying a charset would
   match nothing in the closed kind vocabulary — the classification would silently degrade rather
   than fail.
 
 - **The address check is scoped to the literal address, deliberately** (decided at
-  reconciliation, 2026-09-10): AC-A2 asserts the address families that are refused and that
+  reconciliation, 2026-09-10): AC-1701 asserts the address families that are refused and that
   ordinary public addresses are permitted. It does **not** assert completeness, because REQ-163
   records the name-resolution gap as an open question with a stated reason. Stating the guard as
   complete would be the more dangerous error of the two.
