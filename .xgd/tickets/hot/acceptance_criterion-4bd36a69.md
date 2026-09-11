@@ -2,13 +2,13 @@
 uid: acceptance_criterion-4bd36a69
 id: AC-1090
 type: acceptance_criterion
-title: A refused change tells the caller nothing was written and what to do instead
-  of resending it
+title: A refused change tells the caller nothing was written, which field was wrong,
+  and what to do instead of resending it
 created_by: xgd
 created_at: '2026-08-10T09:20:12.311805+00:00'
-updated_at: '2026-09-11T02:17:41.604824+00:00'
+updated_at: '2026-09-11T02:19:42.848132+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-189fc1ac
