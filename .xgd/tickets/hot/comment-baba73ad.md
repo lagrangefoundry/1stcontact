@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T02:01:18.831988+00:00'
+updated_at: '2026-09-11T02:06:32.217802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -373,5 +373,42 @@ I can't find how to upgrade to Enterprise or what it cost - lets just skip HEIC 
 Background images have to be included in scope and reachability
 
 I don't read a question under 4 what are you asking
+
+<!-- xgd-turn id="1704714a-8226-4460-8898-9106180c4259-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:06:31.957133+00:00" -->
+#### Claude
+Found them — note `cd` doesn't switch ticket stores, so my first read hit 1stcontact's REQ-149/150. Both framework tickets have sessions too, and one already pushed back on an unclear question.
+
+Shim works. Now REQ-150.
+
+Now the two decisions you just made — HEIC and background images.
+
+All four done. On the framework tickets — note `cd` doesn't switch xgd's ticket store, so my first attempt read 1stcontact's REQ-149/150 (different tickets entirely). Both framework tickets do have sessions, and one had already pushed back on an unclear question the same way you just did.
+
+## The framework tickets
+
+**REQ-149** investigated well and found the defect is one clause in two byte-identical declaration files, pinned equal by a parity UAT. It asked two questions:
+
+- **Where the `display` field is documented.** Its concern was sharp: adding it to the shared declaration means an adopter who *can't* show pictures reads *"display: how to put this picture in front of the person"* and never receives it — the same bug we're fixing, opposite sign. **Answered: compose the declaration at construction**, so each deployment's manual describes only what it can supply. There's precedent — a plugin whose credentials don't resolve already drops out of the surface *and the manual*.
+- **Sentence or bare handle.** **Answered: sentence**, on the `host_detail` precedent — declaration owns the meaning, host owns the value. A bare URL can't cover the variation (markdown host vs tool-call host vs ticket-only host).
+
+**REQ-150** found something worth knowing: `edit()` already exists in the port and **is almost certainly broken on the wire** — it posts JSON where OpenAI's edits endpoint needs multipart, there's no multipart transport in either language, and the one Python test that touches it pins the wrong shape. Answered its four questions: closed-loop v1, absence shape reuses REQ-149's mechanism, transport repair is in scope and must be named in the body, and it waits behind REQ-149 *and* REQ-141/142 reconciling.
+
+## HEIC — dropped
+
+REQ-221 is rescoped to what needs no plan change: detect by magic number, **refuse honestly** with the *Settings → Camera → Formats → Most Compatible* advice, and add the `accept` attribute the picker never had. That's a real improvement — today a HEIC produces either a false *"That file is no longer in storage."* or gets silently filed as a document. The conversion design is recorded for a follow-on. It no longer depends on REQ-219, so it can ship first and alone.
+
+## Background images — in scope
+
+REQ-222 widened for delivery and reachability. Delivery via per-width `background-image` rules rather than `image-set()`, since L1 already emits per-width rules. Reachability mostly follows free (a background is an ordinary site asset), so the real work is a sweep ensuring no sibling capability silently excludes one — the risk being a predicate written against `<img>`-placed pictures, which nobody would catch because backgrounds are exactly the pictures nobody clicks on.
+
+## My item 4 — you're right, that wasn't a question. Two questions:
+
+**1. Should a publish emit `<picture>` with typed `<source>`s?** Width alone gets some of the saving; serving WebP/AVIF gets considerably more at the same transform cost. But a static publish can't vary on `Accept`, so the only way is typed sources — which changes the *shape* of what the renderer emits, not just its attributes. Cheap to decide now, expensive to retrofit. **My recommendation: yes**, since you've just widened scope to catch the background case for the same reason.
+
+**2. Is a slow first publish acceptable?** Publishing is synchronous behind a toolbar button. A photo-heavy site's first publish is every picture × every rung of transforms plus R2 writes. Republishes are near-free once the cache exists — the first one isn't, and nothing today batches or defers it. Accept it, or should REQ-222 carry progress feedback or deferral?
+
+And one thing I'd like a yes/no on: **the silent Library-drop failure**. It's now blocking, not cosmetic — REQ-221's honest refusal is delivered through exactly the path that swallows errors on Library drops. Shall I file it?
 
 <!-- xgd-chat-end -->
