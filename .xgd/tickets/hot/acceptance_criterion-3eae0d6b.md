@@ -6,14 +6,15 @@ title: Copy inside a component the assistant instantiated is addressable and edi
   in the operator's modal
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T03:09:49.219016+00:00'
-updated_at: '2026-09-11T03:09:49.219016+00:00'
+updated_at: '2026-09-11T03:39:47.269804+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
