@@ -6,10 +6,10 @@ title: The client narrows the Library by role, by kind, by used-on-this-site and
   typed text, conjunctively and as a view over the same listed material
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:45.613665+00:00'
-updated_at: '2026-09-11T05:18:45.613665+00:00'
+updated_at: '2026-09-11T05:28:53.741047+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
