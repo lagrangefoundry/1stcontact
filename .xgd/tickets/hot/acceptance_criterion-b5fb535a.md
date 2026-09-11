@@ -6,10 +6,10 @@ title: The layout reference names every element kind with its closed value sets,
   the limits every page is held to
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:36:11.107602+00:00'
-updated_at: '2026-09-11T02:36:11.107602+00:00'
+updated_at: '2026-09-11T02:51:26.658155+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5836022a
   kind: behavior
