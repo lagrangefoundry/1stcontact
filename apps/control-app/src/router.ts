@@ -86,7 +86,7 @@ import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
-import { NoBusinessError, splitBusinessPrefix, type Scope } from './scope'
+import { NoBusinessError, businessPath, splitBusinessPrefix, type Scope } from './scope'
 import {
   findAccount,
   ownsBusiness,
@@ -508,7 +508,15 @@ function chatHost(
           env,
           tickets,
           await (deps.index ?? defaultIndexer)(env, scope),
-          deps.imageFetch ? { fetch: deps.imageFetch } : {},
+          {
+            ...(deps.imageFetch ? { fetch: deps.imageFetch } : {}),
+            // AND WHERE THE PICTURE IT MAKES CAN BE SEEN ([[REQ-217]]). The
+            // route and the business are both here and nowhere else, which is
+            // why the composition is here: `imagegen.ts` says what a display
+            // sentence SAYS, this says what it points AT.
+            materialUrl: (uid: string) =>
+              businessPath(scope.businessId, `/api/material/file?uid=${encodeURIComponent(uid)}`),
+          },
         ),
         // THE ASSISTANT'S HANDS FOR *CHANGING* A PICTURE ([[REQ-219]]).
         // Assembled here like the eyes and the generator above, and for the same
@@ -517,6 +525,27 @@ function chatHost(
         // merged picture library. `null` where there is no `[images]` binding,
         // which composes no surface at all.
         sessionPicturesFor(env, scope, store, tickets),
+        // WHERE A DRAWING THE ASSISTANT MAKES CAN BE SEEN ([[REQ-217]]).
+        //
+        // THE SAME ADDRESS THE BUILDER'S OWN PREVIEW PANE LOADS, deliberately: a
+        // drawing is a SITE ASSET and not a piece of material — `write_image`
+        // mints no catalogue ticket and [[BUG-84]] settles that it should not —
+        // so the only address it has is the one the draft channel serves it at.
+        // A reader who clicks it opens nothing, and that is the designed
+        // outcome rather than a gap.
+        //
+        // SCOPED EXPLICITLY. The builder's document stays at `/`, so a
+        // root-absolute path pasted into a bubble would arrive naming no
+        // business and resolve against the first admissible one — which for an
+        // operator holding two is the crossing `scope.ts` exists to prevent.
+        // Naming the business is what keeps a replayed transcript correct.
+        (slug: string, handle: string) =>
+          /^[a-z][a-z0-9+.-]*:|^\/\//i.test(handle)
+            ? handle
+            : businessPath(
+                scope.businessId,
+                `/preview/${encodeURIComponent(slug)}/draft/${handle.replace(/^\/+/, '')}`,
+              ),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
