@@ -18,6 +18,9 @@ import { publishSite } from '../tools/generate/src/publish/publish'
 import { starterHomePage } from '../tools/generate/src/cli/scaffold'
 import { memorySiteStore } from '../tools/generate/src/store'
 import { siteSeed } from './support/site-seed'
+import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
+import worker, { type Env as PublicEnv } from '../apps/public-site/src/index'
+import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/published-site'
 
 /**
  * REQ-222 — the delivery width ladder, and the `srcset`/`sizes` the renderer
@@ -524,5 +527,291 @@ describe('REQ-222 publish builds the ladder and the pages name it', () => {
     expect(again.published).toBe(false)
     expect(renderer.measured).toBe(0)
     expect(renderer.resized).toEqual([])
+  })
+})
+
+/**
+ * REQ-222 — the SECOND sink: a background image's ladder.
+ *
+ * WHY IT NEEDED ITS OWN CASES RATHER THAN RIDING THE `<img>` ONES. A band
+ * backdrop is the largest file on most sites and it is not an `<img>` at all —
+ * it is a CSS `url()` on a box. A ladder that reached only `<img>` would report
+ * success and save nothing on the one photograph a real client actually has, so
+ * these cases are the difference between the ticket being true and being
+ * plausible.
+ *
+ * WHAT THE FAILURES LOOK LIKE HERE:
+ *
+ *   - AN OVERRIDE THAT DROPS A LAYER. The rule restates the whole stack with one
+ *     URL swapped, so a scrim or a gradient that survives the base rule and
+ *     vanishes at 1280px is a client's contrast disappearing on a desktop only.
+ *   - A RENDITION TOO SMALL FOR THE BOX. `cover` upscales it, and the photograph
+ *     is visibly soft — a bug the client can see, in exchange for bytes.
+ *   - AN OVERRIDE PER RUNG REGARDLESS. Stylesheet noise that says the same thing
+ *     three times and invites the three copies to fall out of step.
+ */
+const BAND_MANIFEST = {
+  'band.jpg': {
+    width: 4000,
+    height: 2000,
+    renditions: [
+      { src: 'assets/d/beef01-320.jpg', width: 320 },
+      { src: 'assets/d/beef01-640.jpg', width: 640 },
+      { src: 'assets/d/beef01-1280.jpg', width: 1280 },
+      { src: 'assets/band.jpg', width: 4000 },
+    ],
+  },
+}
+
+/** One box carrying a surface, rendered — returns the stylesheet. */
+function renderBox(
+  box: Partial<L1Node & { kind: 'box' }>,
+  opts: Parameters<typeof renderL1Document>[1] = {},
+): string {
+  const node = { kind: 'box', children: [], ...box } as L1Node
+  const doc: L1Document = { widths: WIDTHS, root: { kind: 'box', children: [node] } }
+  const res = validateL1(doc)
+  expect(res.ok, res.ok ? '' : JSON.stringify(res.errors)).toBe(true)
+  return renderL1Document(doc, opts).css
+}
+
+describe('REQ-222 a background image gets the same ladder as an img', () => {
+  it('paints a rendition at the base rule, not the full photograph', () => {
+    // The base rule is what a viewport BELOW the ladder gets — the narrowest
+    // screen on the worst connection, which is the visitor this ticket is for.
+    // A 320px band at 2× wants 640px of picture.
+    const css = renderBox({ axes: { backgroundImageUrl: '/assets/band.jpg' } }, {
+      delivery: BAND_MANIFEST,
+    })
+    expect(css).toContain('url("assets/d/beef01-640.jpg")')
+  })
+
+  it('overrides per breakpoint, through the rules L1 already emits', () => {
+    const css = renderBox({ axes: { backgroundImageUrl: '/assets/band.jpg' } }, {
+      delivery: BAND_MANIFEST,
+    })
+    // A 1280px band at 2× wants 2560px, which only the source covers.
+    expect(css).toContain('@media (min-width: 1280px)')
+    expect(css).toContain('url("assets/band.jpg")')
+    // ...and it is a `background-image` override, not an `image-set()`.
+    expect(css).not.toContain('image-set(')
+  })
+
+  it('restates the whole layer stack, so a scrim survives the override', () => {
+    const css = renderBox(
+      {
+        axes: {
+          backgroundImageUrl: '/assets/band.jpg',
+          overlay: { color: '#000000', opacity: 0.5 },
+        },
+      },
+      { delivery: BAND_MANIFEST },
+    )
+    const override = css.slice(css.indexOf('@media (min-width: 1280px)'))
+    expect(override).toContain('linear-gradient(')
+    expect(override).toContain('url("assets/band.jpg")')
+  })
+
+  it('emits one rule where one rendition answers every breakpoint', () => {
+    // A 150px box at 2× wants 300px at every rung, and 320 is the smallest that
+    // covers it — so there is nothing for a wider breakpoint to say.
+    const css = renderBox(
+      {
+        axes: { backgroundImageUrl: '/assets/band.jpg' },
+        sizing: { width: { mode: 'fixed', px: 150 } },
+      },
+      { delivery: BAND_MANIFEST },
+    )
+    expect(css).toContain('url("assets/d/beef01-320.jpg")')
+    expect(css).not.toContain('@media (min-width: 1280px)')
+  })
+
+  it('takes a smaller rendition for a box narrower than the viewport', () => {
+    const band = renderBox({ axes: { backgroundImageUrl: '/assets/band.jpg' } }, {
+      delivery: BAND_MANIFEST,
+    })
+    const card = renderBox(
+      {
+        axes: { backgroundImageUrl: '/assets/band.jpg' },
+        sizing: { width: { mode: 'fixed', px: 300 } },
+      },
+      { delivery: BAND_MANIFEST },
+    )
+    // Same picture, same viewport, different box — so a different rendition.
+    expect(band).toContain('url("assets/d/beef01-640.jpg")')
+    expect(card).toContain('url("assets/d/beef01-640.jpg")')
+    expect(band).toContain('@media (min-width: 1280px)')
+    expect(card).not.toContain('@media (min-width: 1280px)')
+  })
+
+  it('emits exactly today’s stylesheet when this render has no manifest', () => {
+    const axes = { backgroundImageUrl: '/assets/band.jpg' }
+    expect(renderBox({ axes })).toBe(renderBox({ axes }, {}))
+    expect(renderBox({ axes })).toContain('url("assets/band.jpg")')
+    expect(renderBox({ axes })).not.toContain('assets/d/')
+  })
+
+  it('leaves a picture the manifest does not mention alone', () => {
+    const css = renderBox({ axes: { backgroundImageUrl: '/assets/other.jpg' } }, {
+      delivery: BAND_MANIFEST,
+    })
+    expect(css).toContain('url("assets/other.jpg")')
+    expect(css).not.toContain('assets/d/')
+  })
+
+  it('keeps the backdrop when a rendition would not pass the url() sink', () => {
+    // A rejected candidate must not remove the layer: that does not serve a
+    // smaller picture, it serves none — the client's backdrop simply disappears.
+    const css = renderBox({ axes: { backgroundImageUrl: '/assets/band.jpg' } }, {
+      delivery: {
+        'band.jpg': {
+          width: 4000,
+          height: 2000,
+          renditions: [
+            { src: 'javascript:alert(1)', width: 320 },
+            { src: 'assets/band.jpg', width: 4000 },
+          ],
+        },
+      },
+    })
+    expect(css).toContain('url("assets/band.jpg")')
+    expect(css).not.toContain('javascript:')
+  })
+})
+
+describe('REQ-222 the picture states its own dimensions', () => {
+  it('stamps the intrinsic width and height the publish measured', () => {
+    // The publish had to measure the source to cap its ladder, so these cost
+    // nothing — and they give the browser the aspect ratio before a byte of the
+    // photograph has arrived, which is what stops the text below it jumping.
+    const html = renderImage({ src: '/assets/hero.jpg' }, { delivery: HERO_MANIFEST })
+    expect(html).toContain('width="2000"')
+    expect(html).toContain('height="1000"')
+  })
+
+  it('stamps nothing when this render was handed no manifest', () => {
+    const html = renderImage({ src: '/assets/hero.jpg' })
+    expect(html).not.toContain('width="')
+    expect(html).not.toContain('height="')
+  })
+})
+
+/**
+ * REQ-222 — a rendition may be cached forever, and `public-site` says so.
+ *
+ * WHY THIS BELONGS TO THIS TICKET RATHER THAN TO THE CACHE NOTE IT ANSWERS.
+ * `public-site` serves every published byte with `max-age=60`, and its own
+ * comment names the fix it is waiting for: paths whose name cannot change
+ * meaning. Content-addressed renditions ARE that, today — `<sha>-<width><ext>`
+ * over the source bytes — whether or not it ever becomes true of the rest of a
+ * revision. And the saving is worth the most to exactly the visitor the ladder
+ * is for: serving a phone a 640px photograph is undone by a repeat visit that
+ * pays for it again.
+ *
+ * THROUGH THE WORKER'S REAL ENTRY POINT, with the bucket seeded by a REAL
+ * publish — so the path this asserts on is the path the ladder actually chose,
+ * not one this file invented and then matched.
+ */
+describe('REQ-222 a content-addressed rendition is cached forever', () => {
+  const ORIGIN = 'https://1stcontact.io'
+  const SLUG = 'ladder-site'
+
+  async function publishWithLadder() {
+    const fixture = emptyPublished()
+    const page = {
+      ...starterHomePage('home'),
+      l1: {
+        widths: WIDTHS,
+        root: {
+          kind: 'box',
+          children: [{ kind: 'image', src: '/assets/hero.jpg', alt: 'a picture' }],
+        },
+      },
+    }
+    const { content } = await publishInto(
+      fixture,
+      SLUG,
+      {
+        siteJson: starterSiteJson(SLUG) as unknown as Record<string, unknown>,
+        pages: { 'home.json': page },
+        assets: { 'hero.jpg': SOURCE },
+      },
+      imageLadder(fakeRenderer({ width: 1000, height: 500 })),
+    )
+    return { fixture, content }
+  }
+
+  async function get(fixture: PublishedFixture, path: string): Promise<Response> {
+    return await worker.fetch(
+      new Request(`${ORIGIN}${path}`),
+      { SITES: fixture.bucket as unknown as R2Bucket, DB: fixture.db as unknown as D1Database } as PublicEnv,
+      { waitUntil: () => {}, passThroughOnException: () => {}, props: {} } as unknown as ExecutionContext,
+    )
+  }
+
+  it('serves a rendition immutably, at the key the publish actually wrote', async () => {
+    const { fixture, content } = await publishWithLadder()
+    const rendition = [...(content.derived ?? new Map()).keys()][0]
+    expect(rendition).toMatch(/^assets\/d\//)
+
+    const res = await get(fixture, `/site/${SLUG}/${rendition}`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toContain('immutable')
+  })
+
+  it('leaves every other published byte on the short cache it had', async () => {
+    // The rest of a revision is NOT content-addressed — `assets/hero.jpg` means
+    // different bytes after an edit — so nothing here may quietly inherit this.
+    const { fixture } = await publishWithLadder()
+    for (const path of ['/site/' + SLUG + '/', `/site/${SLUG}/assets/hero.jpg`]) {
+      const res = await get(fixture, path)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('cache-control')).toBe('public, max-age=60')
+    }
+  })
+})
+
+/**
+ * REQ-222 — a picture placed ONLY as a background is not quietly skipped.
+ *
+ * THE RISK IS NOT THAT A BACKGROUND NEEDS SPECIAL HANDLING. It is that a
+ * predicate written against "an image node" silently excludes it, and nobody
+ * notices — because backgrounds are exactly the pictures nobody clicks on. The
+ * ladder is built by walking the SNAPSHOT'S ASSETS rather than the document, so
+ * it cannot have that bug by construction; this case is what keeps that true
+ * when someone later reaches for the document instead.
+ */
+describe('REQ-222 a background-placed picture reaches the ladder', () => {
+  it('renders and names renditions for a site whose only picture is a backdrop', async () => {
+    const seed = siteSeed({
+      pages: {
+        'home.json': {
+          ...starterHomePage('home'),
+          l1: {
+            widths: WIDTHS,
+            root: {
+              kind: 'box',
+              children: [
+                { kind: 'box', children: [], axes: { backgroundImageUrl: '/assets/band.jpg' } },
+              ],
+            },
+          },
+        },
+      },
+      assets: { 'band.jpg': SOURCE },
+    })
+    const store = memorySiteStore()
+    store.seed(seed.slug, { siteJson: seed.siteJson, pages: seed.pages, assets: seed.assets })
+
+    const renderer = fakeRenderer({ width: 4000, height: 2000 })
+    const result = await publishSite(store, seed.slug, { ladder: imageLadder(renderer) })
+    expect(renderer.resized).toEqual([...DELIVERY_WIDTHS])
+
+    const derived = store.derivedRevision(seed.slug, result.id) ?? new Map()
+    const html = store.renderedRevision(seed.slug, result.id)?.get('home.html') ?? ''
+    // Every rendition the stylesheet paints is a file this same publish wrote.
+    const painted = [...html.matchAll(/url\("(assets\/d\/[^"]+)"\)/g)].map((m) => m[1])
+    expect(painted.length).toBeGreaterThan(0)
+    for (const src of painted) expect(derived.has(src), src).toBe(true)
   })
 })
