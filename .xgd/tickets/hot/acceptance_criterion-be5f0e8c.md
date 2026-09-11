@@ -6,10 +6,10 @@ title: With no image describer configured the image is still stored, and the rec
   says nothing has looked at it
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:23:04.117198+00:00'
-updated_at: '2026-09-11T04:23:04.117198+00:00'
+updated_at: '2026-09-11T04:35:58.406578+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4cabde9a
   kind: behavior
