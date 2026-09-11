@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T02:03:35.600004+00:00'
+updated_at: '2026-09-11T02:07:48.717933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -274,5 +274,50 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="25dd74ab-4a13-4436-aa30-c16c3e455533-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:07:48.030900+00:00" -->
+#### Claude
+Let me read the protocol and the code I'll be touching before I ask anything.
+
+REQ-223 was built and merged while I was away — two commits, now at `ready_to_reconcile`. Let me confirm what it delivered before touching anything.
+
+The implementation is complete and matches the ticket closely. Let me verify it actually passes before I decide anything.
+
+All 27 pass. Let me pin down exactly what's left for BUG-78.
+
+Before I touch anything — REQ-223 is already built, and I need to check I'm not about to duplicate it.
+
+## What I found
+
+While I was idle, the ticket's own agent implemented REQ-223 and it's merged into `xgd-working`:
+
+- `c1c41b1983 feat(lead): public forms accept a submission [FREE-CODED]` — 31 files, ~2,800 lines, plus a version bump commit.
+- Status is **`ready_to_reconcile`**, which is operator-only — so you promoted it.
+- I ran its four UAT suites: **27 tests, all passing.**
+
+Spot-checking the implementation against what I wrote: `/api/lead` on public-site, site key from the URL grammar, a `LeadIntake` `WorkerEntrypoint` rather than a path (`worker.ts` splits along the runtime boundary so the ~60 node suites importing `index.ts` don't break on the workerd built-in), honeypot before Turnstile so bots don't spend siteverify budget, `asset`/`assetName`/`assetUrl` as both-or-neither read from the published definition rather than the submission, and `checkbox` added to `FIELD_TYPES`. It follows the ticket closely and in places improved on it.
+
+So **if "this ticket" meant REQ-223, there's nothing to implement** and re-doing it would produce a conflicting second implementation. That's the one outcome worth a question rather than a guess.
+
+## If you meant BUG-78 — which is what I assume
+
+Then the honest answer is that **almost none of it is code**. REQ-223 built the endpoint; BUG-78 is now configuration and data:
+
+1. **Page config** — `beta-form.action` → `/api/lead`, and `signin.signIn` → `https://app.1stcontact.io/sign-in`. This lives in D1 as site content, not in the repo (`db/dev-seed.sql` has no sites, and `storage/sites/1stcontact/` is an older copy of the site without the beta form). I can edit the local draft and republish.
+2. **`APEX_SITE_KEY`** in `apps/public-site/wrangler.toml` → `site_62d3d0097bbc7b6e86bdcdb3728389a3`, in both `[vars]` and `[env.production.vars]`. It's `""` today, and `leadTarget` returns null for the apex without it, so the homepage's form would refuse even with the right action. A repo file, but a config value.
+3. **Turnstile keys** — `TURNSTILE_SITEKEY` (var) and `TURNSTILE_SECRET` (secret). Both empty. The endpoint answers `503` with no secret, by design, and the widget isn't stamped into the page with no sitekey. **This one I can't do**: it needs a Turnstile widget created in your Cloudflare account. Cloudflare publishes always-pass test keys for development, and I can wire those into local dev if you want — but they must not reach production, since they'd switch the control off.
+4. **The Access bypass policy** — still outstanding, still only affects sign-in, not lead capture.
+
+The free-coding protocol exempts configuration and document changes, so items 1, 2 and 4 wouldn't involve a branch or UATs. Item 3 is yours.
+
+## The question
+
+**Did you mean BUG-78, or did you want me to review or redo REQ-223?**
+
+If BUG-78: say so and I'll do items 1 and 2 immediately, then hand back with 3 and 4 named as blocked on you — and I'll tell you plainly that the form still won't work end-to-end until the Turnstile keys exist, rather than declaring it fixed.
+
+If you want me to **review** REQ-223's implementation rather than rebuild it — a fresh pair of eyes on 2,800 lines of security-sensitive code that its own author tested — say that instead. Given it's an unauthenticated public write endpoint that sends mail, I'd actually recommend it, and `/code-review` is the better instrument than me re-reading it inline.
 
 <!-- xgd-chat-end -->
