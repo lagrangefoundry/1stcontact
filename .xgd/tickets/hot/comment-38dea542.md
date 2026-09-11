@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:12:48.994340+00:00'
+updated_at: '2026-09-11T22:16:36.096239+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -143,5 +143,36 @@ And a resize tool couldn't have worked anyway: this product has no JPEG decoder 
 Can you create a ticket to resolve 2 stores - make a proposal for how this should look to the AI.
 
 I would argue that it should look to the AI exactly the way it looks to a human looking at the library - 1 set of catalogue items with metadata - one aspect of the data is the attachment, another is the mark saying if this is a site asset or not. Note: my intention was that the ticket API would be used to access this that was the WHOLE POINT of implementing this as tickets. Why is the AI not able to access these as tickets as intended.
+
+<!-- xgd-turn id="fa5f0843-a599-4be9-ad12-b858001d8159-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:16:35.778365+00:00" -->
+#### Claude
+Created **REQ-228** (`request-77e4e59c`), draft, priority high. REQ-227 is marked abandoned with a pointer to it — it reported the gap without proposing a shape, and one of its claims was wrong (below).
+
+## Why the AI can't access these as tickets
+
+I went looking, expecting a design problem. It isn't one. Your intention is intact in the data model — it's the wiring that never happened. Three findings:
+
+**The ticket surface for the AI is shipped and simply not granted.** `@lagrangefoundry/ai-ticketing` declares a `tickets` surface — `get`, `query`, `comments`, `backlinks`, `history`, `create`, `update`, `append_body`, `comment` — in two groups, `ReadTickets` and `WriteTickets`. It exports `TicketToolbox` / `instanceConfig` / `ticketToolbox(store, config)`, the same triple `ai-knowledge` exports, and `host.ts` already composes that one through `HostDeps.extraSurfaces`. It even carries `scope_axes` for project/ticket with `when_unset: deny`, so the grant is a per-session allow-set.
+
+`instances.json` grants the consultant `l1` and `fidelity`. Nothing else. **The AI is the only actor in the system that can't read the project's own tickets.**
+
+**Promotion already exists, already gated, wired only to the human's UI.** `promoteToSiteAsset` in `material.ts` copies the bytes through the ordinary `editAssetAdd` path, refuses anything not `republishable`, and records the placement. Its header says it "ships WITH its refusal, unrouted", so a surface could later be wired "to something that is already safe." `router.ts` then wired it — to the Library tab's HTTP route. The gate has been sitting there ready.
+
+**Your proposed model is already the data model.** `MaterialRow.placed_on: string[]` — "the sites this material's bytes are ON — where it landed, not where it was uploaded from" (BUG-47). That is exactly "one aspect is the attachment, another is the mark saying if this is a site asset." The client's Library tab already renders it as a pill and a filter. Only the assistant sees two stores.
+
+What happened is ordinary: REQ-161 built the Library for the client's UI, and every capability added afterwards — the placement record, the promotion gate, the edit recipe — got an HTTP route for that UI. The toolbox was never pointed at the same store.
+
+**Correction to what I said last turn:** I called this "the `ManageAssets`/`add_asset` grant gap." That's wrong, and it would have misled whoever built it. `add_asset` takes a path on the operator's own disk and its own description says it "is not a way to accept a file from a conversation." Granting it would have fixed nothing. The missing verb is promotion, which is a different function.
+
+## The proposal, in four parts
+
+- **A — grant the ticket surface.** Compose `TicketToolbox` through `extraSurfaces`, scoped to the client's project, `ReadTickets` only. `WriteTickets` is a much larger grant and shouldn't ride along; the engagement record already has its own narrow verb. The grant travels with the surface, not in `instances.json`, for the reason `ai.ts` already states for knowledge.
+- **B — a picture-shaped view.** A raw ticket isn't a picture. The rows should come back in the `StoredImage` vocabulary `screenshot` already takes, plus the material fields and `placed_on` — so `resolveStoredImage` stays the single naming rule. I recommend a peer operation rather than extending `list_assets`, because "what's on the site" and "what the client has given us" are genuinely two questions and only the first was askable. Bounded, like `list_references`.
+- **C — `place_on_site`** over the existing `promoteToSiteAsset`, in its own group. It's a copy across the private/public bucket boundary and a publication decision; a distinct group is what lets a deployment grant looking without granting publishing.
+- **D — the part that needs your decision.** A–C don't make the catalogue *complete*. `write_image` (a drawing the AI makes) and `add_asset` both put bytes in the site store and mint no ticket, so the site holds pictures the catalogue has never heard of. Until every door mints a catalogue item, "one catalogue with a mark" isn't quite true. I scoped that as the destination rather than the work — it touches ingestion, the drawing path and the capture pipeline — but asked that A–C be built so they don't have to be unpicked to get there: catalogue as source of truth, site listing as a view of it.
+
+The acceptance test in the ticket is the session that started this: the same run reads its own catalogue, sees the three illustrations it made, looks at them, and places the one it picked — without asking you to drag a file in a second time.
 
 <!-- xgd-chat-end -->
