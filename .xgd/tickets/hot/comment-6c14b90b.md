@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T19:08:29.879088+00:00'
+updated_at: '2026-09-11T19:21:13.597060+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -395,6 +395,14 @@ Whether preview submissions *should* work is a real design question I didn't set
 <!-- xgd-turn id="2ce93b5e-3c53-4b77-8573-393ffd5fd0bd-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-11T19:08:29.610107+00:00" -->
+#### You
+Please give me more context on 1 and 2.
+
+I think I understand 1 - you are saying that when I am looking at the site in preview mode it is different. I would like you to explain how its different - its not supposed to be that is supposed to be the site running in a frame - is this a cross- site posting question
+
+<!-- xgd-turn id="67e9da9f-b960-4ca6-b34a-edb97dd89adf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:21:12.776677+00:00" -->
 #### You
 Please give me more context on 1 and 2.
 
