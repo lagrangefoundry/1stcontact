@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:28:06.101517+00:00'
+updated_at: '2026-09-11T22:29:34.863517+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -228,5 +228,11 @@ So it's a real bug, narrower than I implied — and I should have said "the SVG 
 **Filed BUG-84** (`bug-cd883d86`), high/high. It carries the evidence, states the three doors that are correct so they don't get re-litigated, and scopes the rule to **pictures** — fonts and capture-mirrored stylesheets are build output and shouldn't fill the Library. Open questions left for scoping: whether a drawing gets a new `origin` value; whether its description comes from what the assistant already wrote in `write_image` rather than being re-derived; how `placed_on` is written when the bytes land and the ticket mints at the same moment; and whether the existing fourteen get backfilled.
 
 REQ-228's Half D now points at it instead of describing it.
+
+<!-- xgd-turn id="84551615-df48-44b9-9081-513b44da9a4b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:29:33.170264+00:00" -->
+#### You
+I'm less concerned about SVG images - the user does not need to see those in the catalog
 
 <!-- xgd-chat-end -->
