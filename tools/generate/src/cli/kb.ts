@@ -258,23 +258,6 @@ export function inSystemKb(ticket: { fields?: Record<string, unknown> | null }):
 }
 
 /**
- * The frontmatter field carrying a document's kind, and the kind that means
- * "this document is the assistant's, not ours" (DOC-39 §3.3).
- *
- * What a PROJECTION says about itself. A projection has no ticket, so nothing
- * else can state what kind of document it is — {@link projectedDocument} writes
- * this pair alongside whatever the declaration's own predicate asks for, so a
- * reader of the file (and of a retrieved chunk of it) is told it is a document
- * written for the AI rather than an architecture record.
- *
- * `doc_kind` rather than a field of our own: the sub-classification on `doc`
- * tickets already carries `architecture`, `security_policy` and the rest, so
- * "what kind of document is this" is answered where it is already asked.
- */
-export const DOC_KIND_FIELD = 'doc_kind'
-export const MEMBER_KIND = 'system_kb'
-
-/**
  * A frontmatter scalar, quoted only when it has to be.
  *
  * `DocDirStore`'s parser is a small hand-written one — scalars, one `fields`
