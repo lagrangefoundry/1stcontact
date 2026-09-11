@@ -5,10 +5,10 @@ type: story
 title: 'Material Description: What The System Understands A File To Be'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:21:12.885489+00:00'
-updated_at: '2026-09-11T04:21:12.885489+00:00'
+updated_at: '2026-09-11T04:35:57.022043+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
