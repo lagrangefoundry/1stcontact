@@ -6,7 +6,7 @@ title: A page's search metadata is written on creation, merged on update, and ap
   in the rendered document
 created_by: xgd
 created_at: '2026-08-10T09:34:28.087754+00:00'
-updated_at: '2026-08-16T01:57:16.708913+00:00'
+updated_at: '2026-09-11T03:40:04.094199+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
