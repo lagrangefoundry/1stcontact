@@ -6,7 +6,7 @@ title: A capture-mirrored picture can reach a site's assets with no catalogue ti
   and no rights record
 created_by: BUG-80
 created_at: '2026-09-11T22:27:15.822174+00:00'
-updated_at: '2026-09-11T22:37:16.187932+00:00'
+updated_at: '2026-09-11T22:37:26.530820+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 
 ## What is wrong
@@ -91,11 +92,16 @@ Three of four doors are right. This is about the fourth.
    stakes: the operator is asserting their own material, and the operation is not
    granted to the consultant.
 
-Not in scope by the decision above: `write_image`.
+`write_image` is a third door and is now in scope for the catalogue — but it is
+**REQ-228 Half D's**, not this ticket's. A drawing this system composed has no
+rights question: it is owned and republishable by construction. Keeping it here
+would mix a catalogue gap into a rights gap and blur what this ticket is for.
 
-Also not in scope, and correctly so: fonts (`satoshi-*.woff2`), stylesheets and
-other mirrored subresources (`blog.*.css`, `css2`, `index`). Those are build
-output and third-party subresources, not the client's material.
+Fonts (`satoshi-*.woff2`), stylesheets and other mirrored subresources
+(`blog.*.css`, `css2`, `index`) are likewise REQ-228's to decide. Note that they
+arrive through the *same* seed/push door as the picture above, so whatever answer
+that door gets has to cover them — which is part of why the door, rather than the
+file type, is the right thing to fix.
 
 ## What we want
 
