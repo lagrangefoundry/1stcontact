@@ -342,13 +342,18 @@ should stop asserting.
   sentence is not a claim this story can keep. It is replaced rather than
   deleted, because the distinction it drew (absent is ordinary, unopenable is
   reported) is still exactly right and only its third example was wrong.
-- **AC-1320 keeps its shape and changes its two situations.** The criterion has
-  always been "the ordinary absence, stated against the exceptional failure". The
-  reconciliation's decision is to keep that structure and replace the pair of
-  ordinary situations it names — a workspace that never built one, and the
-  deployed host as such — with the pair the code now has: nothing built and
-  packed, and no embedding model to search with. The exceptional half (built,
-  and then unopenable, reported on the error output) is untouched.
+- **AC-1320 keeps its shape and loses one of its two examples.** The criterion has
+  always been "the ordinary absence, stated against the exceptional failure", and
+  it named two situations that were the same to the operator: a workspace that
+  never built a corpus, and the deployed host as such. The second is gone, so the
+  criterion now states the first alone — nothing built, or built and never packed
+  — and says explicitly that the deployed host is no longer an instance of it.
+  Its exceptional half (built, and then unopenable, reported on the error output)
+  is untouched. Its verification also now asserts the offered knowledge
+  operations are **empty** rather than that the turn merely survived, which is
+  this reconciliation's sharpening: a session that failed to build its surface
+  and one that correctly built an empty one are indistinguishable to a test that
+  only checks the turn completed.
 - **"Reaches the knowledge base in the deployed runtime" is claimed as the
   assistant's answer, not as the wiring.** The intent says the behavioural test
   is the one that matters, so the criterion is written at the conversation: a
@@ -371,6 +376,10 @@ should stop asserting.
   one that will actually happen in a misconfigured deployment. Formalised now, as
   this reconciliation's decision, because an unstated degradation is the kind
   that gets traded for a throw by someone who did not know it was load-bearing.
+  It is a criterion of its own rather than a second clause on AC-1320: the two
+  routes are reached through different code and fail independently, and one of
+  them is a configuration mistake in a live deployment while the other is the
+  ordinary shape of a fresh checkout.
 - **Priming and the grant are claimed on the deployed host specifically, rather
   than treated as covered by the existing host-neutral criteria.** AC-1319 and
   AC-1318 state the properties; they were evidenced only where the corpus could
