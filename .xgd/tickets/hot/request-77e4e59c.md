@@ -6,15 +6,16 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T22:15:59.242213+00:00'
+updated_at: '2026-09-11T22:27:27.103033+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
 ---
+
 
 ## What this is
 
@@ -160,10 +161,20 @@ Half A–C make the Library readable and placeable. They do **not** yet make the
 catalogue complete, and this is the part that needs a decision rather than an
 implementation.
 
-A picture can be on the site without being in the Library. `write_image` — a
-drawing the assistant composes — goes through `editAssetWrite` into the site
-store and mints no material ticket. `add_asset` takes a path on the operator's own
-disk and does the same. Captured bundles mirror subresources site-side too.
+A picture can be on the site without being in the Library. This is now filed as
+a defect with evidence — **BUG-84 (`bug-cd883d86`)** — and measured: 14 SVG
+drawings are live on sites and 0 of them have a material ticket.
+
+To be precise about which doors, because three of the four are correct: a client
+upload mints a ticket, `create_image` mints one through `generatedMaterialStore`,
+and promotion records `placed_on`. The two that do not are **`write_image`** —
+a drawing the assistant composes, which goes through `editAssetWrite` into the
+site store and stops — and **`add_asset`**, which takes a path on the operator's
+own disk and does the same. A site seeded or pushed from `storage/sites/` is a
+probable third.
+
+Fonts and subresources mirrored from a capture are deliberately not catalogue
+material; the rule is about pictures.
 
 While that is true, "one catalogue with a mark" is not quite true: the catalogue
 is the client's uploads and the generator's output, and the site holds things the
@@ -177,10 +188,9 @@ door. Then `placed_on` is the whole truth, `list_assets` becomes a view of the
 catalogue filtered by `placed_on ∋ slug`, and the second store stops being a
 store and becomes a rendering target.
 
-That is deliberately not scoped here — it touches ingestion, the drawing path and
-the capture pipeline. What this ticket asks is that Halves A–C are built so they
-do not have to be unpicked to get there: the catalogue is the source of truth,
-and the site listing is a view of it.
+That is BUG-84's to close. What this ticket asks is that Halves A–C are built so
+they do not have to be unpicked to get there: the catalogue is the source of
+truth, and the site listing is a view of it.
 
 ## What good looks like
 
