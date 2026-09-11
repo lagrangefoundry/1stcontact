@@ -5,7 +5,7 @@ type: request
 title: 'The assistant can look at a stored image: a sixth picture kind'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:07.330391+00:00'
-updated_at: '2026-09-10T22:28:48.824403+00:00'
+updated_at: '2026-09-11T01:40:20.024056+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -140,3 +140,53 @@ Also worth carrying into the implementation: `drivableSteps` needs its own
 refusal sentence for the new kind — a stored image is not a page, so `after` is
 meaningless against it — and `pictureUrl` must return `null`, since it is the
 "has a live page" predicate the value gates read.
+
+
+## The design, settled
+
+**Both namespaces, one name.** The product stores pictures in two places and a
+client does not know which. Site assets are what `list_assets` shows — a drawing
+`write_image` made, a file already placed on the site — named by their filename.
+Library items are material tickets — what the client dropped on the conversation,
+what the generator made — named by their record and titled the way the Library
+titles them. A stored image is addressable **however it is referenced**: the
+site filename, the `/assets/…` handle a page holds, the bare name a drawing was
+written under, the Library record, or the Library title. One rule, one place, so
+the two namespaces cannot answer differently. A name that matches more than one
+picture is refused and the candidates are named, because guessing between two
+pictures is the one outcome worse than asking again.
+
+**The assistant can see what is there.** `list_images` answers with every stored
+picture across both namespaces and the name to ask for each by — the cheap first
+move, exactly as `list_references` is for captures. Without it the Library half
+is unreachable: nothing else on any surface the assistant holds lists material,
+so a picture it was never told about could only be guessed at.
+
+**Every stored picture is normalised to a screenshot on the way in.** A page
+picture is PNG because a browser made it, and everything downstream — the
+reduction, the diff, the value gates — is built on that. A stored picture is
+whatever the client's camera or the generator produced, so it is put in front of
+the same browser this surface already owns and comes back as a picture of itself.
+That is what makes **`compare` gain it for free** true rather than aspirational,
+and it is why the reduction argument in `fidelity-core.ts` applies unchanged
+instead of being restated. A format the browser will not decode is refused by
+name rather than returned blank.
+
+**A drawing is rasterised outside the site's own page**, so its text renders in
+the browser's default face rather than the site's. The picture says so, in the
+same caption that says which channel it is of. `measure_drawing` is what reads a
+drawing's real geometry, and looking is not a substitute for it.
+
+**Asking for the original is accepted now.** Until the recipe exists every
+picture is its own original, which is what "where no recipe exists the two are
+the same image" means; the field is the seam the renderer fills in, not a
+promise deferred.
+
+**A stored picture cannot be driven.** `after` drives a page into a state, and a
+stored picture is not a page — it refuses by name, as the other four
+non-`draft` kinds do.
+
+**A deployment that holds no image store does not answer for the kind.** The
+builder in the cloud has both namespaces; the local `1c` has the site's assets
+and no Library, because the Library is tickets and it has none. Each says which,
+the same way a deployment with no browser says it cannot take pictures.
