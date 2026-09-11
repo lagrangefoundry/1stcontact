@@ -6,15 +6,15 @@ title: Size, weight, italic and capitalisation all restyle the words in the edit
   box as each is confirmed, and nothing is written
 created_by: xgd
 created_at: '2026-08-13T01:08:41.637462+00:00'
-updated_at: '2026-08-20T03:36:37.761043+00:00'
+updated_at: '2026-09-11T00:51:02.222325+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
