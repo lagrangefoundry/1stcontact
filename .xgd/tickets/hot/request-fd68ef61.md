@@ -5,7 +5,7 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-11T22:17:35.623831+00:00'
+updated_at: '2026-09-11T22:30:25.126432+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -320,3 +320,35 @@ is now unblocked.
 lockfile, so the installed store can move without a commit here. What is recorded
 above is what is installed today; re-check the surface before relying on the exact
 field name.
+
+
+### Correction from EPIC-1, 2026-09-11: "a drawing has no material record" is a bug, not a rule
+
+The section above told this ticket not to make its picture clickable, because a
+`write_image` drawing is a site asset with no material record and therefore no uid
+to recover. **That is true today and is exactly what [[BUG-84]] calls a defect.**
+
+The operator's constraint: *"all site materials MUST have catalogue (ticket)
+entries and MUST be available via the ticket API — that's what it was built for."*
+BUG-84 carries the evidence: 14 SVG drawings live on sites, zero catalogue
+entries, while `create_image` and the upload path both mint one correctly.
+
+**What changes for this ticket, and what does not:**
+
+- **The instruction stands for now.** Until `write_image` mints a ticket there is
+  no uid in the URL to recover, so a clickable drawing would resolve to nothing.
+  Emitting the markdown line remains the whole job.
+- **But do not build the impossibility in.** The earlier reasoning — *"a drawing
+  that renders in the conversation and does not open a crop tool is the designed
+  outcome, not a gap"* — was half right and is corrected: the *crop* tool is
+  permanently inapplicable to an SVG ([[REQ-219]] refuses it, and `info()` gives no
+  dimensions), but **naming is not**, and a drawing is exactly the picture whose
+  name a client should be able to fix. So the line this ticket emits should address
+  the drawing in a form that can carry a uid once one exists, rather than one that
+  forecloses it.
+- **The `create_image` half is unaffected** — a generated picture has had a
+  catalogue entry all along, through `generatedMaterialStore`.
+
+**Which makes the URL question above easier, not harder.** A catalogue entry means
+the material file route is the natural address for every picture in a conversation,
+and the scoped-URL decision recorded above already points there.
