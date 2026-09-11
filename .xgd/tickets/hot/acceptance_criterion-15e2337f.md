@@ -6,10 +6,10 @@ title: A retrieval that brings back nothing usable — an error status, a redire
   no destination, an empty document — creates no material
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:42:56.765457+00:00'
-updated_at: '2026-09-11T04:42:56.765457+00:00'
+updated_at: '2026-09-11T04:58:06.838595+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-77f8fc9e
   kind: behavior
