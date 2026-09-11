@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-218
 created_by: xgd
 created_at: '2026-09-10T22:08:15.654310+00:00'
-updated_at: '2026-09-11T01:36:41.177321+00:00'
+updated_at: '2026-09-11T02:06:07.199646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,57 @@ This should understand both namespaces - the AI should have access to all the im
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
 
 Project note (additive — does not override the above): Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance. Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="0e8aaed7-846f-472a-b2fe-d7567992aec8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T02:06:07.148291+00:00" -->
+#### Claude
+Design settled. Let me scope the ticket first.
+
+Now implementing. Starting with the naming vocabulary, which is the piece both namespaces share.
+
+Now the rasteriser — the piece that makes `compare` work for free.
+
+Now the resolver case itself.
+
+Now the surface declaration — the part the model actually reads.
+
+Now wiring the operation into `fidelity-core.ts` and the two hosts.
+
+Now the UAT suite.
+
+All green — the one extra failure is a parallel-load flake that passes in isolation, and every other failure is on the baseline too. Now closing the trace from UATs back to ticket language.
+
+The ticket picked up an epic-level answer from another agent after my investigation. Reconciling with it — one of its decisions changes what I built.
+
+Now the UATs that asserted `list_images`.
+
+No new failures against baseline. Committing.
+
+Done. REQ-218 is `free_coded` at version 0.2.159, merged into `xgd-working`.
+
+## What landed
+
+**The sixth kind costs one enum entry and two fields.** `resolvePicture` in `picture.ts` was already the single resolver, and its own header promised that "a sixth kind of picture is added here and every verb gets it." That promise held — `screenshot`, `compare` and `check_fidelity` gained the kind without being touched.
+
+**Both namespaces, one name** (`tools/generate/src/cli/image-library.ts`, new). Site assets and Library items stay in their separate buckets — one serves the public internet, one holds confidential client material — but the *name* is unified. A picture answers to its site filename, the `/assets/…` handle a page carries, the bare stem a drawing was written under, its Library record, or its Library title. Each namespace declares its own spellings, so the matcher is one comparison over a flat set. Ambiguity is refused with the candidates named rather than guessed at.
+
+**The PNG contract, found and honoured.** `ResolvedPicture.bytes` carried an unstated PNG assumption — `decodePng` runs on every returned picture and on both sides of `compare` — which held only because all five existing kinds get their bytes from `driver.screenshot()`. Rather than break it, `rasterizeImage` puts any non-PNG in front of the browser this surface already leases, so resolution still hands back PNG. A stored PNG passes through untouched. The existing reduction cap and diff work unchanged.
+
+Also: `.gif` and `.avif` gained entries in the shared MIME table — they've counted as images in the asset listing since REQ-118 while that table had no entry for either.
+
+**9 UATs**, all passing; full suite shows zero new failures against baseline (16 vs 27 pre-existing).
+
+## Two places I departed from the epic's answers — please review these
+
+Another agent answered my investigation questions on the ticket while I was building. I complied with one and departed from two, recorded in the ticket body:
+
+1. **Complied — no `list_images`.** I'd built a listing operation; the epic scoped it out on the grounds that a picture's handle arrives in the result of whatever made it. I removed it.
+
+2. **Departed — raster works now, not after REQ-219.** The epic deferred raster to the Images binding because a Library blob has no URL an unauthenticated browser may fetch. It doesn't need one: the picture travels inline in the document it's photographed in. So the downscale, the reported size and `compare` all work today for a photograph. When the renderer lands it replaces this at one seam.
+
+3. **Departed — the CLI keeps the kind.** The epic said a local `1c` session "simply has five kinds." But the local builder has a site store, so a drawing it just wrote is on its own disk — that's the `measure_drawing` loop. It answers for site assets and says it holds no Library.
+
+**The cost of (3), stated plainly:** a drawing is photographed in a bare document, not inside the site's page, so its text renders in the browser's default face rather than the site's. The epic is right that the site's own page is the better font context. The picture carries a caption saying so and points at `measure_drawing`. Moving the drawn path onto the draft preview is a refinement left open at the same seam — worth doing if wordmark fidelity matters more than I've judged.
 
 <!-- xgd-chat-end -->
