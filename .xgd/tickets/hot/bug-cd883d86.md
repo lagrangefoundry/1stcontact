@@ -15,9 +15,8 @@ fields:
   severity: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-10050685
 ---
-
-
 
 ## What is wrong
 
