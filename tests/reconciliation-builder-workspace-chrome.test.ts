@@ -259,28 +259,37 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a display panel modes', () => {
     const { panel } = app
 
     // AC-968 — a change of SOURCE, not a teardown and remount of the layout.
+    //
+    // Since [[BUG-79]] the source that changes is the pane's, not one frame's:
+    // a channel owns a frame, which is what lets the one being left keep its
+    // document and its scroll offset for the flip back. What the AC is about is
+    // unchanged and is asserted the same way — the PANE is never rebuilt, and
+    // every frame it holds stays attached to it.
     const pane = panel.element
-    const surface = panel.frame
+    const viewSurface = panel.frame
     expect(panel.getMode()).toBe('view')
-    const first = surface.getAttribute('src')
+    const first = panel.getSrc()
     expect(first).toBe('/preview/alpha/draft/')
+    expect(viewSurface.getAttribute('src')).toBe(first)
 
     panel.setMode('edit')
-    const second = surface.getAttribute('src')
+    const editSurface = panel.frame
+    const second = panel.getSrc()
     expect(panel.element).toBe(pane)
-    expect(panel.frame).toBe(surface)
     // The identity check is not passing on a switch that did nothing.
     expect(second).not.toBe(first)
     expect(second).toBe('/preview/alpha/edit/')
+    expect(editSurface.getAttribute('src')).toBe(second)
 
     panel.setMode('view')
     expect(panel.element).toBe(pane)
-    expect(panel.frame).toBe(surface)
-    expect(surface.getAttribute('src')).toBe(first)
+    expect(panel.frame).toBe(viewSurface)
+    expect(panel.getSrc()).toBe(first)
 
     // Still the live, ATTACHED elements — not detached survivors of a remount.
     expect(pane.isConnected).toBe(true)
-    expect(surface.isConnected).toBe(true)
+    expect(viewSurface.isConnected).toBe(true)
+    expect(editSurface.isConnected).toBe(true)
     expect(app.shell.getPanel(SITE_TAB.id).contains(pane)).toBe(true)
   })
 

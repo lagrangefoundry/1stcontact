@@ -253,14 +253,38 @@ body {
   background: var(--shell-surface-alt, #f4f4f5);
 }
 
-.builder-panel__frame {
+/* --- the channel frames ([[BUG-79]]) ------------------------------------------
+ *
+ * ONE FRAME PER DOCUMENT MODE, all of them stacked on the panel and only one of
+ * them visible. A mode switch changes which — it does not navigate anything, so
+ * the channel being left keeps its layout and its scroll offset for when the
+ * operator comes back.
+ *
+ * HIDDEN IS `visibility`, NEVER `display`. A `display: none` iframe is out of
+ * layout and does not keep where it was scrolled to, which would give back by
+ * the back door the exact thing this stacking exists to stop losing.
+ *
+ * `.builder-panel__pane` is every frame; `.builder-panel__frame` is the one on
+ * screen. That split is deliberate: the second class is the address the rest of
+ * the codebase already uses for "the frame the pane is showing", so it goes on
+ * whichever frame that currently is.
+ */
+.builder-panel__pane {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-.builder-panel__frame[hidden],
+.builder-panel__pane.builder-panel__frame {
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .builder-panel__host[hidden] {
   display: none;
 }

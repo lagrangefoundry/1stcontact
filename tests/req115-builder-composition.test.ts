@@ -141,20 +141,26 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 display panel mode contract', () => {
     const { panel } = app
 
     const pane = panel.element
-    const frame = panel.frame
+    const viewFrame = panel.frame
     expect(panel.getMode()).toBe('view')
-    expect(frame.getAttribute('src')).toBe('/preview/alpha/draft/')
+    expect(viewFrame.getAttribute('src')).toBe('/preview/alpha/draft/')
 
     panel.setMode('edit')
-    // AC 7 — the pane is the SAME node; only the source changed.
+    // AC 7 — the pane is the SAME node; only what it shows changed.
     expect(panel.element).toBe(pane)
-    expect(panel.frame).toBe(frame)
-    expect(frame.getAttribute('src')).toBe('/preview/alpha/edit/')
+    // [[BUG-79]] — a channel gets a frame of its own, so that the one being
+    // left keeps its document, its layout and its scroll for the flip back.
+    // What must not be rebuilt is the PANE, and it is not.
+    const editFrame = panel.frame
+    expect(editFrame).not.toBe(viewFrame)
+    expect(editFrame.getAttribute('src')).toBe('/preview/alpha/edit/')
+    expect(viewFrame.isConnected).toBe(true)
     expect(app.shell.getPanel(SITE_TAB.id).contains(pane)).toBe(true)
 
     panel.setMode('view')
-    expect(panel.frame).toBe(frame)
-    expect(frame.getAttribute('src')).toBe('/preview/alpha/draft/')
+    expect(panel.element).toBe(pane)
+    expect(panel.frame).toBe(viewFrame)
+    expect(viewFrame.getAttribute('src')).toBe('/preview/alpha/draft/')
   })
 
   it('test_UAT_FC_REQ-115_registering_a_mode_is_an_entry_not_a_branch', () => {
@@ -178,13 +184,16 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 display panel mode contract', () => {
     expect(panel.getMode()).toBe('revisions')
     expect(mountedInto).toBeTruthy()
     expect(panel.element.textContent).toContain('revision diff')
-    // A non-document mode hides the frame rather than pointing it somewhere.
-    expect(frame.hidden).toBe(true)
+    // A non-document mode hides the frames rather than pointing one somewhere.
+    // Hidden is the absence of the shown-frame class since [[BUG-79]], never
+    // `hidden`/`display: none`, which would cost the frame its scroll offset.
+    expect(frame.classList.contains('builder-panel__frame')).toBe(false)
+    expect(frame.hasAttribute('hidden')).toBe(false)
     expect(panel.getSrc()).toBe('')
 
     panel.setMode('view')
     expect(panel.frame).toBe(frame)
-    expect(frame.hidden).toBe(false)
+    expect(frame.classList.contains('builder-panel__frame')).toBe(true)
     expect(() => panel.setMode('nope')).toThrow(/unknown mode/)
   })
 })

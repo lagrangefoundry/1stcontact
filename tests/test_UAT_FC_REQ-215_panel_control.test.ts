@@ -76,7 +76,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-215 — the panel selector', () => {
     mountBuilder(root, { sites: SITES, storage: memoryStorage(), pageState })
 
   const panelOf = () => root.querySelector('.builder-panel') as HTMLElement
-  const frameOf = () => panelOf().querySelector('iframe') as HTMLIFrameElement
+  // THE SHOWN one. Since [[BUG-79]] the pane holds a frame per channel and
+  // `.builder-panel__frame` is the class the visible one carries.
+  const frameOf = () => panelOf().querySelector('.builder-panel__frame') as HTMLIFrameElement
   const selectorOf = () => root.querySelector('[data-action="panels"]') as HTMLElement | null
   const modeButton = (id: string) =>
     root.querySelector(`.builder-toolbar__modes button[data-mode="${id}"]`) as HTMLButtonElement
