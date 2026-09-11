@@ -5,9 +5,9 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-09-11T19:22:54.860258+00:00'
+updated_at: '2026-09-11T22:10:51.193792+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -214,3 +214,49 @@ refuses the file and says so, instead of accepting bytes it cannot decode. What
 this repository can prove locally is that the declaration exists, is named
 identically on both sides, and is what the code reads — what the live API does
 with real HEIC bytes is a question about an account and is not claimed here.
+
+
+
+---
+
+## Noted from EPIC-1, 2026-09-11
+
+### The plan question is the operator's and is still open
+
+*"Worth confirming the plan"* has not been answered and cannot be answered from
+this repository — whether the account is Enterprise for Images is a fact about
+billing, not about code. It is surfaced to the operator rather than guessed at.
+
+**Nothing is blocked on it**, and that is this ticket's own doing: the refusal was
+built to carry the weight, so a deployment whose plan does not admit HEIC names
+the format and the remedy instead of storing bytes it cannot decode. The answer
+changes which of two correct behaviours a client meets, not whether the product
+is correct.
+
+### The epic's record of this ticket was stale, and this ticket is better than it
+
+[[EPIC-1]]'s second-pass note says HEIC conversion *"is dropped"* and that this
+ticket is rescoped to detection and honest refusal only, with the conversion
+design *"recorded for a follow-on if the binding ever becomes available."*
+
+**What landed is both**: conversion where the binding can decode, and a named
+refusal where it cannot — chosen at runtime rather than at scoping time. That is
+strictly better than the rescope, because it needs no second ticket if the plan
+answer turns out to be yes, and degrades to exactly the rescoped behaviour if it
+turns out to be no. The epic's note is corrected rather than this ticket's scope.
+
+### The REQ-219 correction you flagged has been made
+
+*"This also weakens one sentence in REQ-219's rationale"* — correct, and it is now
+recorded there. The sentence *"it cannot decode HEIC — so it would have solved
+this and left the upload path needing a second answer"* does not hold if Images
+cannot decode HEIC on this account either. [[REQ-219]]'s conclusion is unaffected;
+per-publish cost and transform-chain fit still choose the Images binding, and that
+is the renderer that shipped.
+
+### The silent Library-drop failure: fixed here, and the epic had it wrong
+
+For the record, since the epic carried this as an open defect needing its own
+ticket after this ticket had already closed it. `receiveFiles` now surfaces a
+refusal from the Library drop area as well as the chat, and `library.refused()`
+receives it. No ticket was filed; the epic's record was stale, not the code.
