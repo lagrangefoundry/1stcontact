@@ -6,9 +6,9 @@ title: 'screenshot: a failed stored-picture render returns the whole 22MB data U
   to the model'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:24:18.255769+00:00'
-updated_at: '2026-09-11T21:54:56.364367+00:00'
+updated_at: '2026-09-11T21:54:59.241427+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.168
+  story_points: 3
 ---
 
 ## Symptom
