@@ -6,10 +6,10 @@ title: Every material records exactly one of six description outcomes and who pr
   the description, so a re-describe pass is a query
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:23:35.539736+00:00'
-updated_at: '2026-09-11T04:23:35.539736+00:00'
+updated_at: '2026-09-11T04:35:57.714294+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4cabde9a
   kind: behavior
