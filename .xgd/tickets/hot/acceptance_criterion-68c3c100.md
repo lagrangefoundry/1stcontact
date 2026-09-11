@@ -6,10 +6,10 @@ title: An absent knowledge base is loud in the application build's report and a 
   one is counted
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:56:41.415487+00:00'
-updated_at: '2026-09-11T02:56:41.415487+00:00'
+updated_at: '2026-09-11T03:06:54.010985+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
