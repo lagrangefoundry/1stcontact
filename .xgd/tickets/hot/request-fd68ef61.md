@@ -5,9 +5,9 @@ type: request
 title: 'Chat: an image a turn produced appears in the conversation'
 created_by: EPIC-1
 created_at: '2026-09-10T21:49:47.223456+00:00'
-updated_at: '2026-09-11T22:35:00.421480+00:00'
+updated_at: '2026-09-11T22:43:16.593670+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -352,3 +352,113 @@ entries, while `create_image` and the upload path both mint one correctly.
 **Which makes the URL question above easier, not harder.** A catalogue entry means
 the material file route is the natural address for every picture in a conversation,
 and the scoped-URL decision recorded above already points there.
+
+
+
+---
+
+## What landed, 2026-09-11 — both halves, in one pass
+
+The staging above is superseded: the upstream seam is present in the installed
+store, so `write_image` and `create_image` both put their picture in the
+conversation and there is nothing left waiting on lagrange-framework.
+
+### The seam, and why it is a seam and not a literal
+
+Neither tool can compose its own address. `write_image` runs bound to a slug and
+knows nothing about a business; `create_image` is upstream's and knows nothing
+about this product's routes. So each is handed a **URL factory by the host**, and
+composes nothing itself:
+
+- **`HostDeps.assetUrl`** — `(slug, handle) => string`, a factory over the slug
+  exactly like `fidelity`, `pictures` and `ledger`, bound to the session's site in
+  `host-core.ts` and threaded into `createL1Toolbox` beside `measurer`. **Absent is
+  the default and is ordinary**: the `1c` CLI's conversation is a terminal, so a
+  drawing is written and described in words, as it was before this existed.
+- **`ImageSurfaceOptions.materialUrl`** — `(uid) => string`, supplied to the
+  plugin through upstream's own `display` construction option. Absent means the
+  plugin composes no display field and its manual describes none, which is
+  precisely what the shipped prose says absence means.
+
+`router.ts` supplies both from `scope.businessId`, because it is the only place
+holding the route and the business at once.
+
+### One composer, because the line is a contract
+
+`displayLine(name, url)` in `toolbox-core.ts` is the single place the markdown is
+formed, used by both halves. What reaches the client's DOM is an `<img>` carrying
+that URL and nothing else, so the chat pane recovers what a picture *is* by
+reading the address back off it — two spellings of that address is how the two
+come apart. The alt text is the file's name and not a description: describing the
+drawing is the model's job, in the sentence around the picture.
+
+### `businessPath()` — the scoped-URL composer the origin never had
+
+Every scoped URL until now was formed in the browser by `builder/api.js`'s
+`scoped()`, from a business the client had already selected. A picture in the
+conversation is composed on the **server**, which has no `scoped()`. So
+`scope.ts` gains **`businessPath(businessId, path)`**, the inverse of
+`splitBusinessPrefix` and deliberately beside it: the shape of the prefix is one
+fact, and two writers that each know it separately are one rename away from
+disagreeing.
+
+The two functions round-trip, and that is asserted rather than assumed.
+
+### The surface prose
+
+`l1-surface.json`, `surface_version` 8 → 9:
+
+- `shapes.image` gains **`display`** — what the line is for, that it is pasted
+  *exactly as written*, and that absence means there is nowhere to show a picture.
+- `write_image`'s description tells the model to paste it **word for word**, not
+  to retype it, not to rename the file in it, and not to describe the picture
+  instead of including it.
+- `absences` gains **"Showing a picture any way but pasting the line"**, which is
+  where the accepted failure mode is made hard to miss.
+
+### Two consequences, written down so nobody meets them as bugs
+
+**A redraw retroactively changes every earlier bubble.** The URL names the asset
+as the site now holds it, so `replace: true` changes what a transcript from an
+hour ago shows. That is the honest semantics of naming a live asset; site assets
+are not content-addressed and a frozen per-turn copy is not worth a second byte
+store.
+
+**A drawing is not clickable, permanently.** [[BUG-84]]'s operator scope decision
+settles that `write_image` drawings stay site assets and are deliberately kept out
+of the Library — so there is no uid to recover and no recipe to edit, and
+[[REQ-219]] refuses SVG for transforms in any case. The earlier note in this
+ticket anticipating a uid is superseded by that decision. A drawing that renders
+in the conversation and opens nothing is the designed outcome.
+
+**A generated picture's click is REQ-220's to finish.** Its line addresses the
+material file route in the ordinary scoped form, which is the correct thing to
+emit; `materialUidFromUrl`'s exact-match on `/api/material/file` cannot read a
+`/b/<id>` prefix, and fixing that is recorded on [[REQ-220]] rather than worked
+around here.
+
+### The pane
+
+`builder.css` gains `.builder-chat img` with `max-width: 100%` and a
+`max-height`. `webui-chat` ships no `img` rule because it never expected an image
+in a message; bounding content a component never anticipated is a different act
+from restyling a component that ships its own look. The `max-height` earns its
+place separately: a tall picture that fits the width still pushes the sentence
+that introduced it off the top of the conversation, and the point of the picture
+is that it sits in what was said about it.
+
+### Evidence
+
+- `tests/test_UAT_FC_REQ-217_a_picture_in_the_conversation.test.ts` — the tool
+  authors the line; a redraw points at the same picture; no surface to show it
+  means no field at all; the line is ordinary markdown the stock sanitiser
+  already permits; the surface says to paste it verbatim and `absences` names the
+  failure; the address round-trips through the production prefix reader; the pane
+  bounds the picture.
+- `tests/test_UAT_FC_REQ-217_a_picture_in_the_conversation.workers.test.ts` —
+  **the round trip, through the Worker's own route table over real D1 and R2**: a
+  scripted turn draws a mark, the line the model was handed is split by
+  `splitBusinessPrefix` and fetched, and the drawing's bytes come back; the same
+  for a generated picture's material URL; and a deployment with no way to show
+  one gets no display field. The claim is *the client sees the picture*, and
+  fetching it is the only honest form of that.
