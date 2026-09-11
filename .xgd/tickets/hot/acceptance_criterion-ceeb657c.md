@@ -2,8 +2,8 @@
 uid: acceptance_criterion-ceeb657c
 id: AC-1320
 type: acceptance_criterion
-title: No knowledge base to open is an ordinary state and is silent, whether nothing
-  was packed or nothing can embed; one that was built and cannot be opened is reported
+title: No knowledge base packed is an ordinary state and is silent, on either host;
+  one that was built and cannot be opened is reported
 created_by: xgd
 created_at: '2026-08-20T04:42:15.957143+00:00'
 updated_at: '2026-09-10T21:47:12.165414+00:00'
@@ -19,24 +19,21 @@ fields:
 
 ## Criterion
 
-Having no knowledge base to open is an ordinary state, not a fault. A
+Never having a knowledge base to open is an ordinary state, not a fault. A
 conversation opened where there is none runs exactly as it did before the corpus
-existed — every site operation offered, no knowledge operation offered, nothing
-reported missing to the operator and nothing failed.
+existed — every site operation offered, no knowledge operation offered, a turn
+that runs to its completion, nothing reported missing to the operator and nothing
+failed.
 
-**Two situations arrive there, and they are the same to the operator.** No
-knowledge base was ever built and packed into the application, which is the shape
-every fresh checkout ships in and the reason the packed module is written whether
-or not there is anything to put in it; or no embedding model is available to
-search one with, which is what a deployment missing that binding looks like.
-Neither is announced, because in neither is anything wrong, and neither may be
-traded for a refusal to start: a builder that cannot answer a question about the
-design documents is still a builder, while one that will not boot is not.
+The situation this covers is a corpus that was never built, or was built and
+never packed into the application — which is the shape every fresh checkout ships
+in, and the reason the packed module is written whether or not there is anything
+to put in it. It is not announced, because nothing is wrong.
 
-**The host is no longer one of those situations.** A conversation served from the
-deployed runtime reaches the same packed corpus one on the operator's own machine
-does, so absence there means the same thing it means anywhere else — nothing was
-packed, or nothing can embed — rather than "this is the deployed host".
+**The deployed host is no longer an instance of it.** A conversation served there
+reaches the same packed corpus one on the operator's own machine does, so absence
+there means what it means anywhere else — nothing was packed — rather than "this
+is the deployed host, where the corpus cannot be reached at all".
 
 A knowledge base that **was** built and then cannot be opened is a different
 situation and must not look the same: the conversation still opens and still works
