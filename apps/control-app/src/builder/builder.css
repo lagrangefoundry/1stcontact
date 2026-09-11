@@ -385,6 +385,7 @@ body {
         .builder-modal__box,
         .builder-modal__picker,
         .builder-modal__reader,
+        .builder-modal__imaged,
         .builder-people__compose
       )
   ) {
@@ -2543,4 +2544,186 @@ body {
    `.builder-modal__btn`; the form around it carries nothing but its place. */
 .builder-account__sign-out {
   margin: 0 auto 0 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+ * The image modal ([[REQ-220]]).
+ *
+ * THE BOX IS ON THE WIDE-PANEL LIST ABOVE, beside the reader's, and for the same
+ * reason: a photograph at a size worth cropping does not fit a dialog measured
+ * for one sentence. It is named there rather than carrying a modifier class, so
+ * a dialog that forgot the class would merely be narrow rather than broken.
+ * ------------------------------------------------------------------------- */
+.builder-modal__imaged {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* THE STAGE IS A FIXED WINDOW AND THE PICTURE IS SCALED INTO IT. The picture's
+   own size is the recipe's business, so the stage must never take its height
+   from what is inside it: a resize to 4000px would otherwise push the footer,
+   and therefore Close, off the bottom of the screen. */
+.builder-imaged__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 260px;
+  max-height: 56vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-surface-alt);
+}
+
+/* Scaled from the CENTRE, which is what lets the crop overlay be positioned
+   from the same centred rectangle `drawnRect()` computes. */
+.builder-imaged__fit {
+  transform-origin: center center;
+}
+
+.builder-imaged__image {
+  /* Everything geometric here is written by `presentationOf` — this rule exists
+     only to stop the sheet's other `img` rules reaching it. */
+  max-width: none;
+  max-height: none;
+  display: block;
+}
+
+/* THE OVERLAY IS A SIBLING OF THE PICTURE, NOT A CHILD. The picture sits inside
+   a window that clips — that IS the crop — so a box drawn in there would be
+   clipped by the very thing it is being dragged to define. */
+.builder-imaged__crop {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--shell-bg);
+  outline: 1px solid var(--shell-fg);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  cursor: move;
+}
+
+.builder-imaged__crop-grip {
+  position: absolute;
+  inset: 0;
+}
+
+.builder-imaged__crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--shell-bg);
+  border: 1px solid var(--shell-fg);
+}
+
+.builder-imaged__crop-handle--nw { left: -6px; top: -6px; cursor: nwse-resize; }
+.builder-imaged__crop-handle--ne { right: -6px; top: -6px; cursor: nesw-resize; }
+.builder-imaged__crop-handle--sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.builder-imaged__crop-handle--se { right: -6px; bottom: -6px; cursor: nwse-resize; }
+
+
+.builder-imaged__tools,
+.builder-imaged__history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* SIZED, NOT MERELY INHERITING ([[BUG-70]]). `font: inherit` takes the app font
+   and leaves the SIZE to whatever the control's ancestor happens to be, which is
+   how a builder control ends up at the browser's own default beside one that is
+   not. Every text-bearing control in this sheet names the token. */
+.builder-imaged__tool,
+.builder-imaged__apply {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  padding: 5px 10px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-surface-alt);
+  color: inherit;
+  cursor: pointer;
+}
+
+.builder-imaged__apply {
+  border-color: var(--shell-accent);
+  color: var(--shell-accent);
+}
+
+.builder-imaged__tool[aria-pressed='true'] {
+  border-color: var(--shell-accent);
+  color: var(--shell-accent);
+}
+
+.builder-imaged__tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.builder-imaged__resize,
+.builder-imaged__slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.builder-imaged__resize-input {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  width: 6em;
+  padding: 4px 6px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: inherit;
+}
+
+.builder-imaged__adjust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* The origin's own answer, in the pane's ordinary quiet voice — it is a note
+   about what was saved and not a failure of the client's. */
+.builder-imaged__note {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+.builder-imaged__note:empty {
+  display: none;
+}
+
+/* THE PICTURE'S OWN BUTTON ([[REQ-220]]). The button carries the words and the
+   photograph sits inside it, so opening the editor is reachable from a keyboard
+   — and it must look like the picture did, not like a button with a picture on
+   it, which is why it contributes no box of its own. */
+.builder-library__open-image {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+}
+
+.builder-library__open-image:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
+}
+
+/* The name sits between the picture and the rights record, which is the order
+   the client reads them in: this is the thing they came to fix. */
+.builder-library__name {
+  margin: 0;
 }

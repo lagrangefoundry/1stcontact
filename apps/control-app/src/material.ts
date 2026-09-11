@@ -46,6 +46,9 @@ import type {
   StoredImage,
 } from '../../../tools/generate/src/cli/image-library'
 import {
+  compileRecipe,
+  type Dimensions,
+  type EditOp,
   parseRecipe,
   type ImageRenderer,
 } from '../../../tools/generate/src/cli/image-recipe'
@@ -60,6 +63,7 @@ import {
 import { guardedFetch, tooBig } from './fetch-guard'
 import { type ConvertHeic, isHeic, MAX_CONVERTIBLE_BYTES } from './heic'
 import type { ChangeEvent, Ticket, TicketStore, TicketSubscription } from './tickets'
+import { isEditablePicture } from './builder/picture-kind.js'
 
 /**
  * The per-blob ceiling ([[DOC-38]] §14), which is the component's and not a
@@ -920,6 +924,19 @@ export interface MaterialRow {
   source_url: string | null
   description_status: string | null
   description_model: string | null
+  /**
+   * What has been done to this picture ([[REQ-219]], [[REQ-220]]).
+   *
+   * ON THE ROW BECAUSE THE EDITOR OPENS FROM IT. [[REQ-220]]'s modal is opened by
+   * a client who is already looking at the detail, and it needs the recipe to
+   * hand them their own history — a second request for a field this one already
+   * read would be a round trip to learn something the row was holding.
+   *
+   * ALWAYS AN ARRAY, never null, for the reason `placed_on` is: absence is the
+   * empty recipe, which is what *"nobody has edited this"* means, and no consumer
+   * gets a third state.
+   */
+  edits: EditOp[]
   updated_at: string
 }
 
@@ -949,7 +966,30 @@ function rowOf(ticket: Ticket): MaterialRow {
     source_url: str(f.source_url),
     description_status: str(f.description_status),
     description_model: str(f.description_model),
+    // READ THROUGH THE ONE VOCABULARY, AND A RECORD IT CANNOT READ IS SHOWN AS
+    // UNEDITED. `parseRecipe` refuses a malformed recipe, which is right where a
+    // recipe is being WRITTEN and wrong here: this function draws every row of
+    // the Library, and one bad record must not be able to empty the list. The
+    // refusal still happens at the write, which is where it changes an outcome.
+    edits: safeRecipe(f.edits),
     updated_at: ticket.updated_at,
+  }
+}
+
+
+/**
+ * A stored recipe, or the empty one where it cannot be read ([[REQ-220]]).
+ *
+ * SEE `rowOf`. This is the reading half of the vocabulary used defensively; the
+ * writing half, in {@link reviseRecipe}, refuses instead — because a refusal
+ * there leaves the client's recipe as it was, and a refusal here would take the
+ * Library down over a record nobody is editing.
+ */
+function safeRecipe(value: unknown): EditOp[] {
+  try {
+    return parseRecipe(value)
+  } catch {
+    return []
   }
 }
 
@@ -1449,4 +1489,129 @@ export async function reviseRole(
     patch: { fields: { role: args.role, republishable: args.role !== 'reference' } },
   })
   return readMaterial(store, args.uid)
+}
+
+/**
+ * Raised when a recipe is asked for on something that is not a picture ([[REQ-220]]).
+ *
+ * A RIGHTS-SHAPED REFUSAL RATHER THAN A BAD REQUEST, on {@link RoleNotChosenError}'s
+ * pattern: the call is perfectly well formed and there is nothing the caller could
+ * send that would make it meaningful. A crop of a brand PDF is not a narrower crop
+ * of something; it is a sentence with no referent.
+ *
+ * CAPTURES AND DRAWINGS FAIL IT TOO, AND NOT BY ACCIDENT. A capture's bytes are a
+ * screenshot of somebody else's site held as reference ([[REQ-166]]); a drawing is
+ * a vector `kindOf` files as an `image` and that no raster operation applies to.
+ * `isEditablePicture` is where both are decided, and it is the same predicate the
+ * Library asks before it offers the button — so the refusal and the absence of the
+ * control cannot come apart.
+ *
+ * THE SENTENCE SAYS WHICH REFUSAL IT IS. *Not a picture* and *a drawing, which is
+ * not edited this way* are different facts, and a client who is told the second
+ * about their own logo has been told something true.
+ */
+export class NotAPictureError extends Error {
+  readonly name = 'NotAPictureError'
+  constructor(readonly uid: string, message?: string) {
+    super(
+      message ?? 'That is not a picture, so there is nothing to crop, turn or adjust on it.',
+    )
+  }
+}
+
+/**
+ * The client fixes what their material is CALLED ([[REQ-220]]).
+ *
+ * **THE TITLE, AND NOT THE FILENAME.** The Library lists a row under its title and
+ * falls back to the filename only where there is none, so the title is what *"the
+ * name it appears under in the Library"* means. The filename is the name the bytes
+ * arrived with and is what the download saves under — a client who renames a
+ * photograph has said something about how they file it and nothing about the file.
+ * Writing both from one control would conflate two different facts about one
+ * material and would quietly change what lands in their downloads folder.
+ *
+ * THE THIRD SIBLING OF `reviseDescription` AND `reviseRole`, and the set is worth
+ * reading together: one corrects what we SAID a file is, one what the client said
+ * it is FOR, and this one what it is CALLED. All three exist because something
+ * other than the client wrote the answer first — and for a generated image the
+ * title is the prompt that made it, which is the case this one is for.
+ *
+ * IT DOES NOT RE-INDEX, WHICH IS THE DIFFERENCE FROM THE DESCRIPTION. Retrieval
+ * reads the indexed body ([[DOC-39]] §4); the title is a label on a row. Calling
+ * the index here would re-embed an unchanged description on every rename, which is
+ * a cost with no reader.
+ *
+ * EMPTY IS REFUSED, because the Library's row falls back to the FILENAME when a
+ * title is missing — so an empty name would not leave the picture nameless, it
+ * would silently re-label it with the path the client was trying to get away from.
+ */
+export async function reviseName(
+  store: TicketStore,
+  args: { uid: string; title: string },
+): Promise<MaterialRow & { body: string; members: string[] }> {
+  const title = args.title.trim()
+  if (title === '') {
+    throw new MaterialRejectedError(
+      'Give it a name — this is what you will find it by in your Library.',
+    )
+  }
+  await materialTicket(store, args.uid)
+  await store.update({ uid: args.uid, patch: { title } })
+  return readMaterial(store, args.uid)
+}
+
+/**
+ * The client changes how a picture is edited ([[REQ-220]], [[REQ-219]]).
+ *
+ * **AN EDIT IS A RECIPE, NOT NEW BYTES.** This writes an ordered list of
+ * parameterised operations onto the record and touches no attachment — the
+ * original is kept forever and every state of the picture is that original plus a
+ * prefix of the list. It is what makes *"the crop needs to be a little wider"*
+ * answerable in June by editing January's operation, rather than by going back to
+ * the client for the file.
+ *
+ * **THE SAME THREE STEPS `edit_image` TAKES, IN THE SAME ORDER** — parse, compile,
+ * then write. The parse catches what is wrong with the recipe on its own; the
+ * compile catches what is wrong with it *for this picture*, which is a question
+ * nothing can answer without the real pixels; and the write happens after both,
+ * because *the recipe is left exactly as it was* is the whole content of a
+ * refusal. This route is the modal's transport over the same functions, not a
+ * second write path — the surface is a second PRODUCER of structured edits and
+ * never a second definition of what one means.
+ *
+ * WITHOUT A RENDERER IT STILL STORES, AND SAYS SO. A deployment with no Images
+ * binding cannot measure the picture, so the compile step is skipped and
+ * `rendered` comes back `false`: the recipe is on the record and will apply the
+ * moment the binding exists, and the client is told they are looking at the
+ * picture before the change rather than being refused a change we have recorded.
+ *
+ * THERE IS NO FOCAL POINT HERE. *Cropping says this picture is that shape; a
+ * focal point says when a band forces an aspect on this picture, keep this bit in
+ * frame* — a real distinction, and one that belongs to the L1 image NODE, where
+ * per-placement framing already lives. A material-level field for it would be a
+ * value no renderer reads.
+ */
+export async function reviseRecipe(
+  store: TicketStore,
+  args: { uid: string; recipe: unknown },
+  deps: { measure?: (uid: string) => Promise<Dimensions> } = {},
+): Promise<(MaterialRow & { body: string; members: string[] }) & { rendered: boolean }> {
+  const ticket = await materialTicket(store, args.uid)
+  const kind = String(ticket.fields.kind ?? '')
+  if (!isEditablePicture({ kind, content_type: String(ticket.fields.content_type ?? '') })) {
+    throw new NotAPictureError(
+      args.uid,
+      kind === 'image'
+        ? 'That is a drawing, so it is changed by redrawing it rather than by cropping it.'
+        : undefined,
+    )
+  }
+  const recipe = parseRecipe(args.recipe)
+  let rendered = false
+  if (deps.measure) {
+    compileRecipe(recipe, await deps.measure(args.uid))
+    rendered = true
+  }
+  await store.update({ uid: args.uid, patch: { fields: { edits: [...recipe] } } })
+  return { ...(await readMaterial(store, args.uid)), rendered }
 }

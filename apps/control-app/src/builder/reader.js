@@ -28,6 +28,13 @@
  * browsers because it IS the browser's, and iOS Safari renders only the first
  * page in a frame — accepted while the builder is a desktop surface (DOC-14 §8).
  *
+ * A PICTURE IS NOT READ HERE, AND STILL IS NOT ([[REQ-220]]). `readerKind`
+ * answers `null` for every image, including SVG, and the pane's own `<img>` is
+ * what draws one — now inside a button that opens `image-editor.js`. That editor
+ * borrows this module's shape (one shell, `modal.js`; content built then mounted)
+ * and shares none of its code, because a picture is not a document shown larger:
+ * it is a document shown larger PLUS everything that can be changed about it.
+ *
  * ONE BODY BUILDER, TWO PLACES TO PUT IT. The pane's window and the expanded
  * modal are the same content at two sizes, so {@link mountReader} paints every
  * registered body from one piece of state — which is also what lets a fetch or a

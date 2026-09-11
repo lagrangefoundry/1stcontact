@@ -57,6 +57,15 @@
  * second editing vocabulary for material would be a second set of controls to
  * keep in step with the first, for no behaviour the first does not already have.
  *
+ * A PICTURE IS OPENED, NOT JUST SHOWN ([[REQ-220]]). The pane could render a
+ * photograph and let the client change nothing about it — no crop, and no way to
+ * fix a generated image's name, which arrives as the prompt that made it. So the
+ * picture is a BUTTON onto `image-editor.js`, which is `mountReader`'s modal host
+ * one file type further on, and the name is `material-name.js`'s one field
+ * mounted here and in that dialog. Both of those are elsewhere for the same
+ * reason the reader is: this file configures the Library, it does not own a
+ * second way of showing a file.
+ *
  * THE DESCRIPTION IS MARKDOWN, AND IS SHOWN AS SUCH (BUG-42). It is the ticket
  * body an AI wrote about the file (DOC-38 §6), so it arrives with headings, bold
  * and lists in it — and `mountFields` reads a scalar, which means its read cell
@@ -74,6 +83,8 @@ import {
   fetchMaterialItem,
   materialFileUrl,
   saveMaterialDescription,
+  saveMaterialName,
+  saveMaterialRecipe,
   saveMaterialRole,
   subscribeMaterial,
 } from './api.js'
@@ -83,6 +94,9 @@ import {
   markdownReady as defaultMarkdownReady,
   renderSafe,
 } from './markdown.js'
+import { mountImageEditor } from './image-editor.js'
+import { isEditablePicture } from './picture-kind.js'
+import { mountMaterialName } from './material-name.js'
 import { mountReader, readerKind } from './reader.js'
 
 /** Shown in the detail pane before a row is chosen. */
@@ -98,6 +112,16 @@ const EMPTY_DETAIL = 'Pick something on the left, or drop a file here to add one
  * a module constant because a node can only be in one document at a time.
  */
 const emptyPane = () => el('p', 'builder-empty', EMPTY_DETAIL)
+
+/**
+ * What the picture's own button is called ([[REQ-220]]).
+ *
+ * THE WORDS ARE ON THE BUTTON AND THE PICTURE IS INSIDE IT, which is the reader's
+ * expand affordance read the other way round: there, a glyph in an `aria-hidden`
+ * span sits inside a button carrying the label; here the photograph does. Either
+ * way a screen reader is never asked to pronounce the thing that was drawn.
+ */
+const OPEN_IMAGE_LABEL = 'Open this picture to rename it or change it'
 
 /** Shown in place of a description nothing has written yet. */
 const NO_DESCRIPTION =
@@ -353,6 +377,15 @@ export function createLibraryPanel(options = {}) {
       // into it: they are two routes with two refusal vocabularies, and the one
       // that can be refused is the one the pane has to roll back.
       setRole: saveMaterialRole,
+      // WHAT IT IS CALLED, CORRECTED ([[REQ-220]]). Beside `save` and `setRole`
+      // for the same reason those are beside each other: three routes, three
+      // refusal vocabularies, and the field that is rolled back is the field the
+      // refusal came from.
+      setName: saveMaterialName,
+      // HOW IT IS EDITED ([[REQ-220]], [[REQ-219]]). The panel never calls this
+      // itself — it hands it to the editor, which is the only thing here that
+      // composes a recipe.
+      setRecipe: saveMaterialRecipe,
       fileUrl: materialFileUrl,
       // OPTIONAL AT THE SEAM, AND THE PANEL CHECKS FOR IT (REQ-201). A suite
       // that injects a transport to assert something else entirely should not
@@ -557,12 +590,62 @@ export function createLibraryPanel(options = {}) {
     let fields = null
     let description = null
     let repaint = null
+    let nameField = null
+    let editor = null
+
+    /**
+     * Open the picture in the modal — the same modal the chat opens ([[REQ-220]]).
+     *
+     * IT IS TOLD THE RECIPE THE PANE ALREADY READ. The detail request carries the
+     * material's edits, so handing them over saves the dialog a round trip to
+     * learn what this pane is already holding.
+     *
+     * IT IS NOT TOLD WHERE THE BYTES ARE APPLIED. The address it is given is the
+     * ordinary file route, which serves the picture AS IT CURRENTLY STANDS — the
+     * renderer applies the recipe there ([[REQ-219]]), and this pane knows nothing
+     * about that beyond passing the same URL it draws its own `<img>` from.
+     *
+     * ONE AT A TIME. `list-detail` swaps details as the client browses and the
+     * editor is torn down with the detail that opened it, so a second press
+     * cannot leave two dialogs over one picture.
+     */
+    function openPicture(target) {
+      if (editor) return
+      editor = mountImageEditor({
+        uid: target.uid,
+        href: transport.fileUrl(target.uid),
+        name: target.title || target.filename,
+        recipe: detail?.edits ?? target.edits ?? [],
+        host: getModalHost(),
+        transport: {
+          saveName: (uid, title) => transport.setName(uid, title),
+          saveRecipe: (uid, recipe) => transport.setRecipe(uid, recipe),
+        },
+        // THE PANE BEHIND FOLLOWS THE MODAL IN FRONT. *One field, one meaning,
+        // both places* is not true of two fields that merely started equal — a
+        // rename in the dialog has to reach the pane's own box and the row in
+        // the list, or the client closes the modal onto the old name.
+        onSaved: (saved) => adoptSaved(saved),
+      })
+      // A DIALOG THAT CLOSES ITSELF STILL HAS TO SAY SO. `modal.js` routes every
+      // exit — the button, Escape, the backdrop — through one `close`, and this
+      // is how the pane learns the editor is gone rather than holding a handle
+      // to a dialog that has left the document.
+      const closed = editor.close
+      editor.close = () => {
+        editor = null
+        closed()
+      }
+    }
 
     // DESTROYED WITH THE DETAIL, because it owns an in-flight fetch and possibly
     // an open dialog. `list-detail` swaps details as the client browses, and a
     // reader left behind would repaint an element that is no longer on screen —
     // and, worse, leave its expanded window over the pane that replaced it.
-    const shown = preview(row)
+    /** The full record, once its own request lands — see below for why it is held. */
+    let detail = null
+
+    const shown = preview(row, openPicture)
     view.append(shown.element)
 
     const rights = el('div', 'builder-library__rights')
@@ -608,6 +691,46 @@ export function createLibraryPanel(options = {}) {
       },
     })
 
+    /**
+     * Take what the origin returned, everywhere it is shown.
+     *
+     * THE ROW, THE PANE'S FIELD, THE OPEN MODAL AND THE LIST, in that order and
+     * from ONE answer. A rename changes the row's label, the detail's name box,
+     * the dialog's own box and its accessible title — four places showing one
+     * fact, which is exactly the set that comes apart if any of them is updated
+     * from a guess at what changed instead of from what the store now holds.
+     */
+    function adoptSaved(saved) {
+      if (!saved) return
+      Object.assign(row, saved)
+      if (detail) Object.assign(detail, saved)
+      nameField?.setName(saved.title ?? '')
+      editor?.setName(saved.title ?? '')
+      const shownImg = view.querySelector('.builder-library__image')
+      if (shownImg) shownImg.alt = saved.title || saved.filename || ''
+      apply()
+    }
+
+    /**
+     * The name, in the pane ([[REQ-220]]).
+     *
+     * THE SAME DESCRIPTOR THE MODAL MOUNTS, from `material-name.js`, committed
+     * through the same call. *Editing it in either place changes the same thing*
+     * is a claim about this line as much as about the screen: two `mountFields`
+     * calls written separately would agree until one of them was fixed.
+     *
+     * ABOVE *What this is* AND BELOW THE PICTURE, because it is what the client
+     * came here to correct on a generated image — the description is ours to
+     * write and the name is theirs.
+     */
+    const nameHost = el('div', 'builder-library__name')
+    view.append(nameHost)
+    nameField = mountMaterialName(nameHost, {
+      name: row.title || '',
+      save: (next) => transport.setName(row.uid, next),
+      onSaved: (saved) => adoptSaved(saved),
+    })
+
     const heading = el('h3', 'builder-library__heading', 'What this is')
     view.append(heading)
 
@@ -642,6 +765,13 @@ export function createLibraryPanel(options = {}) {
      * cell, which is where the fact actually lives.
      */
     async function reload() {
+      // AND THE NAME BOX COUNTS ([[REQ-220]]). `setValues` rebuilds a read cell,
+      // so a background re-describe landing while somebody is half-way through
+      // renaming their photograph would take the word they were typing off the
+      // screen. The test is the CELL and not `isDirty()`, for the reason the
+      // description's own guard gives: this field is `commit: 'auto'` and stages
+      // nothing, so `isDirty()` is false the whole time they are typing.
+      if (nameHost.querySelector('.fields-control-cell')) return
       if (!description || host.querySelector('.fields-control-cell')) return
       let item
       try {
@@ -651,7 +781,13 @@ export function createLibraryPanel(options = {}) {
         // nothing useful to say and the next event will try again.
         return
       }
+      detail = item
       status.textContent = item.body ? '' : NO_DESCRIPTION
+      // THE NAME IS RE-READ TOO, because a rename is a title change and the feed
+      // carries `title` ([[REQ-201]]) — so a picture renamed from another tab, or
+      // by the assistant, lands here rather than waiting for the client to leave
+      // the row and come back to it.
+      nameField?.setName(item.title ?? '')
       // `setValues` re-renders the read cell, and the observer below repaints
       // the markdown off the back of that — so this is one call and not two.
       description.setValues({ body: item.body ?? '' })
@@ -665,6 +801,11 @@ export function createLibraryPanel(options = {}) {
         status.textContent = `That could not be loaded: ${err.message}`
         return
       }
+      // HELD, BECAUSE THE RECIPE TRAVELS ON THE ITEM AND NOT ON THE ROW. The list
+      // deliberately does not carry a picture's edit recipe — it is per-material
+      // detail nobody drawing a list of names needs — so the editor reads it from
+      // the request this pane has already made rather than making a second one.
+      detail = item
       status.textContent = item.body ? '' : NO_DESCRIPTION
       // The member list travels on the item and not on the row — see
       // `membersOf` in `material.ts` for why listing it per row was refused.
@@ -725,6 +866,12 @@ export function createLibraryPanel(options = {}) {
         shown.destroy()
         fields?.destroy()
         description?.destroy()
+        nameField?.destroy()
+        // AND THE DIALOG, FOR THE REASON THE READER'S IS CLOSED HERE. `list-detail`
+        // swaps details as the client browses, so an editor left behind would sit
+        // over the pane that replaced it, editing a picture that is no longer the
+        // one on screen.
+        editor?.close()
       },
     }
   }
@@ -742,8 +889,13 @@ export function createLibraryPanel(options = {}) {
    * Being able to read a file on screen is not the same as having it, and the
    * kinds nothing can render — a font, an unrecognised binary — reach exactly
    * the pane they reached before.
+   *
+   * AND A PICTURE IS NOW AN OPENER ([[REQ-220]]). `onOpen` is passed rather than
+   * reached for, because this function is also called with nothing to open —
+   * which is what keeps the button out of the pane in the one case where pressing
+   * it could not work.
    */
-  function preview(row) {
+  function preview(row, onOpen = null) {
     const wrap = el('div', 'builder-library__preview')
     // A CAPTURE'S BYTES ARE ITS SCREENSHOT (REQ-166). The bare file URL serves
     // whichever of a bundle's 11–99 records comes back first, so both the
@@ -777,7 +929,31 @@ export function createLibraryPanel(options = {}) {
       img.addEventListener('error', () => {
         img.replaceWith(el('p', 'builder-library__missing', 'That file is no longer in storage.'))
       })
-      wrap.append(img)
+      // CLICKING THE PICTURE OPENS IT, AND THE PICTURE IS A BUTTON ([[REQ-220]]).
+      // An `<img>` cannot be reached from a keyboard, so a click handler on one
+      // would make the whole editor — the crop, the name, the adjustments —
+      // available only to a mouse. The button carries the words and the picture
+      // sits inside it, which is the reader's expand affordance ([[REQ-172]])
+      // read the other way round.
+      //
+      // AND NOT EVERYTHING DRAWN HERE IS OFFERED IT. A capture and a drawing
+      // both reach this `<img>` — the first because its screenshot is what a
+      // client came to look at ([[REQ-166]]), the second because `kindOf` files
+      // an SVG as an image — and neither is a picture the four operations mean
+      // anything about. `isEditablePicture` is the one place that is decided, and
+      // it is the same predicate the origin's refusal is written from, so this
+      // cannot become a button that opens an editor the route then refuses.
+      if (onOpen && isEditablePicture(row)) {
+        const opener = el('button', 'builder-library__open-image')
+        opener.type = 'button'
+        opener.setAttribute('aria-label', OPEN_IMAGE_LABEL)
+        opener.title = OPEN_IMAGE_LABEL
+        opener.append(img)
+        opener.addEventListener('click', () => onOpen(row))
+        wrap.append(opener)
+      } else {
+        wrap.append(img)
+      }
     }
     const link = document.createElement('a')
     link.className = 'builder-library__download'

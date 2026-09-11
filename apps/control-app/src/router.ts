@@ -42,7 +42,10 @@ import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
 import { imageRendererFor, materialRecipes } from './image-edit'
-import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
+import {
+  RecipeRefusedError,
+  type ImageRenderer,
+} from '../../../tools/generate/src/cli/image-recipe'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
@@ -112,12 +115,15 @@ import {
   materialFile,
   materialImageLibrary,
   MaterialRejectedError,
+  NotAPictureError,
   NotMaterialError,
   NotRepublishableError,
   promoteToSiteAsset,
   readMaterial,
   reviseDescription,
   reviseRole,
+  reviseName,
+  reviseRecipe,
   RoleNotChosenError,
   watchMaterial,
   type IndexMaterial,
@@ -2451,6 +2457,87 @@ async function routeUncached(
      * is the field the warning badge reads. Only when something was placed, since
      * that is the only branch that wrote.
      */
+    /**
+     * The client fixes what their picture is CALLED ([[REQ-220]]).
+     *
+     * THE THIRD OF THE CORRECTION ROUTES, beside the description and the role, and
+     * it is the one a generated image needs: the imagegen plugin titles its ticket
+     * from the prompt that made the picture, so it arrives in the Library under a
+     * sentence nobody chose to call it.
+     *
+     * IT WRITES THE TITLE AND NOT THE FILENAME. Those are two different facts
+     * about one material — what we call it, and what the bytes arrived as — and
+     * the download link reads the second. `reviseName` is where that is argued.
+     *
+     * NO INDEXING CALL, WHICH IS THE DIFFERENCE FROM THE DESCRIPTION ROUTE ABOVE.
+     * Retrieval reads the indexed body; a rename changes a label on a row, and
+     * re-embedding an unchanged description on every rename would be a cost with
+     * no reader.
+     */
+    if (p === '/api/material/name' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.uid !== 'string' || body.uid === '') {
+        return json(400, { error: 'uid is required' })
+      }
+      if (typeof body.title !== 'string') {
+        return json(400, { error: 'title is required' })
+      }
+      return json(200, await reviseName(await openTickets(), { uid: body.uid, title: body.title }))
+    }
+
+    /**
+     * The client edits a picture ([[REQ-220]], [[REQ-219]]).
+     *
+     * **AN EDIT IS A RECIPE, NOT NEW BYTES.** Nothing on this path writes an
+     * attachment: the original is kept forever and what is stored is an ordered
+     * list of parameterised operations over it. That is what makes a crop
+     * revisable a year later rather than a file the client has to re-upload.
+     *
+     * A THIN TRANSPORT OVER `reviseRecipe`, which parses, compiles and writes
+     * through `image-recipe.ts` — the same functions `edit_image` dispatches to.
+     * The builder is a second PRODUCER of structured edits and never a second
+     * write path, so nothing here can bypass a refusal because nothing here does
+     * any of that work itself.
+     *
+     * IT HANDS DOWN A WAY TO MEASURE THE PICTURE, because a recipe in fractions
+     * cannot be checked against the picture without its real pixels — and where
+     * this deployment has no renderer there is nothing to measure with, which is
+     * what `rendered: false` reports. That flag is what lets the modal say *you
+     * are looking at this picture before the change* rather than implying bytes
+     * that do not exist.
+     *
+     * A NON-PICTURE IS A 403 AND NOT A 400, on the pattern the two routes above
+     * set: the request is perfectly well formed and there is nothing the caller
+     * could send instead that would make a crop of a brand PDF mean something.
+     */
+    if (p === '/api/material/recipe' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.uid !== 'string' || body.uid === '') {
+        return json(400, { error: 'uid is required' })
+      }
+      if (!Array.isArray(body.recipe)) {
+        return json(400, { error: 'recipe must be a list of operations' })
+      }
+      const scope = requireScope()
+      const store = await openTickets()
+      const renderer = imageRendererFor(env, scope.businessId)
+      return json(
+        200,
+        await reviseRecipe(
+          store,
+          { uid: body.uid, recipe: body.recipe },
+          renderer
+            ? {
+                measure: async (uid: string) => {
+                  const file = await materialFile(store, uid)
+                  return renderer.measure(file.bytes, file.contentType)
+                },
+              }
+            : {},
+        ),
+      )
+    }
+
     if (p === '/api/material/role' && method === 'POST') {
       const body = await readJsonBody(request)
       if (typeof body.uid !== 'string' || body.uid === '') {
@@ -2982,6 +3069,23 @@ async function routeUncached(
     // refused by the same §5 gate one step earlier.
     if (err instanceof RoleNotChosenError) {
       return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // AND 403 FOR THE THIRD TIME ([[REQ-220]]). Asking for a crop of a font, a PDF
+    // or a capture is the well-formed request the paragraphs above are about: no
+    // other body would make it mean something, so it is not a 400.
+    if (err instanceof NotAPictureError) {
+      return json(403, { error: scrub(err.message), uid: err.uid })
+    }
+    // A REFUSED RECIPE IS A 409, AND THE DIFFERENCE FROM THE 403 ABOVE IS WHETHER
+    // ANOTHER BODY COULD EVER SUCCEED ([[REQ-219]], [[REQ-220]]). *"That would
+    // leave nothing of a 400×300 picture"* is a conflict with the picture as it
+    // currently stands — trim less, or resize first, and the same route takes it.
+    // The sentence is `image-recipe.ts`'s own, written for the person who asked,
+    // and it reaches the modal unaltered because inventing a second wording here
+    // is how the assistant and the editor come to explain the same refusal two
+    // different ways.
+    if (err instanceof RecipeRefusedError) {
+      return json(409, { error: scrub(err.message) })
     }
     // 409 AND NOT 403, AND THE DIFFERENCE IS WHETHER IT COULD EVER SUCCEED
     // ([[REQ-213]]). Everything above is forbidden and stays forbidden however
