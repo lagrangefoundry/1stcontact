@@ -6,10 +6,10 @@ title: Listing the account's material returns rows newest first carrying no desc
   reading one adds its description, and neither reaches another account
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:19:10.547234+00:00'
-updated_at: '2026-09-11T05:19:10.547234+00:00'
+updated_at: '2026-09-11T05:28:52.878764+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
