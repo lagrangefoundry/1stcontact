@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:47:58.310236+00:00'
+updated_at: '2026-09-11T21:50:05.705045+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -649,5 +649,18 @@ Whether reproductions and imports should be marked as such is a product question
 Revised, and much smaller: nothing to delete in the 1st Contact tenant. What's left is only the fixture businesses with no sites of their own — **Alice's Plumbing, Alice's Lettings, Alice's Old Salon, Felix Test** — and Felix Test carries 2 tickets that would go with it. `uat@westhead.me` I'd still leave alone; it's a live UAT fixture.
 
 Still haven't touched anything. BUG-78 stands as delivered — commits `1bcc94e51f` + `9a10d34f65`, 0.2.167, `free_coded`.
+
+<!-- xgd-turn id="a6432d5e-bbf4-4930-b47c-bb7aac1844da-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T21:50:05.140117+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-78` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-78`
+- branch HEAD: `9a10d34f659fdf3fbb69cd9fd63dadf715964337`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
