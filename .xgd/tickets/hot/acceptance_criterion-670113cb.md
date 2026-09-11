@@ -6,7 +6,7 @@ title: The declaration carries named worked sequences whose steps are declared o
   in order, and no sequence shown to a consumer names an operation it was not granted
 created_by: xgd
 created_at: '2026-08-16T03:06:04.662988+00:00'
-updated_at: '2026-08-16T03:39:10.114495+00:00'
+updated_at: '2026-09-11T01:49:49.950262+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
