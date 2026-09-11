@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-220
 created_by: xgd
 created_at: '2026-09-10T22:09:13.101115+00:00'
-updated_at: '2026-09-11T21:05:43.607910+00:00'
+updated_at: '2026-09-11T21:19:18.906861+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -146,5 +146,48 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="626de7f3-b694-4dc9-95e8-ccb996d60a9b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:19:17.877909+00:00" -->
+#### Claude
+Work is in progress in the branch worktree with no commits yet. Let me assess it.
+
+Now let me run the four UAT suites in the foreground.
+
+All 31 pass. Now reviewing the implementation for coherence — the prior session ended mid-rewrite.
+
+Some failures may be pre-existing. Let me baseline them against `xgd-working`.
+
+All 16 failures are identical on the `xgd-working` baseline — pre-existing, none from this work. Now let me check the UAT names against the ticket body.
+
+All 31 UATs trace to the body, but two paragraphs in it went stale (they were written before REQ-219 landed) and a couple of behaviours need motivating language. Let me correct the body — preserving everything else exactly.
+
+Now the merge lock, then merge working in, bump, and fast-forward back.
+
+Now the version bump as the tip commit, then fast-forward.
+
+Free-coding complete. REQ-220 is at `free_coded`, both commits are on `xgd-working`, and the branch is torn down.
+
+## What landed
+
+**The surface** — clicking a picture opens `modal.js`'s shell with the Library name and the four tools REQ-219's vocabulary names (crop, rotate, resize, adjust). It opens from the Library's detail pane and from the picture in the chat, because that is the same picture. Undo/redo span the sitting; the recipe is what persists, and no control sends bytes — so a crop can be widened a year later.
+
+Five new/changed pieces, each elsewhere for a reason:
+
+- `picture-kind.js` — one predicate, asked by the Library *and* by the origin, so a capture or a drawing cannot be offered a button the route would then refuse.
+- `material-name.js` — one `mountFields` descriptor mounted in the pane and in the modal, committed through one call. That is what *"editing it in either place changes the same thing"* rests on.
+- `image-preview.js` — the *one pending* operation as CSS over bytes the renderer made. No second fold, no browser-side bake.
+- `reviseName` / `reviseRecipe` + their two routes — parse, compile, then write, through `image-recipe.ts`. A second producer of edits, never a second definition of one. 403 for a crop of a document or drawing; 409 for a recipe this picture cannot take, in the vocabulary's own words.
+
+**Evidence** — 31 UATs across four suites, all passing. Typecheck clean, `wrangler --dry-run` clean, and the browser module graph resolves.
+
+**Two things worth knowing:**
+
+1. **16 pre-existing failures.** The full suite has 12 failing files (priming configuration, two-KB sessions, copy-edit gesture, webui scope). I ran the identical set on `xgd-working` and got the *same* 16 — none is from this work, and none is in the areas it touched.
+
+2. **I corrected two stale paragraphs in the ticket body.** They were written before REQ-219 landed and said the route answers `rendered: false` for *every* commit and that there was no renderer. There is one now (`env.IMAGES` is bound), so `rendered: false` is specifically the no-binding deployment, and the editor appends a per-commit counter to the stable file address to avoid re-serving a cached rendition. I also added motivating language for four behaviours the tests assert but the body had not named — the vocabulary refusal at the write, the two refusal kinds, the URL-as-contract inverse, and the chat hook being opt-in.
+
+Ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
