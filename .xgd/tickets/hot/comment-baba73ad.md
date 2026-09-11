@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-10T22:31:28.801780+00:00'
+updated_at: '2026-09-11T02:01:18.831988+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -361,5 +361,17 @@ All six children had already investigated and reported. Every one raised questio
 4. **Format negotiation and publish latency.** Serving WebP/AVIF from a static publish means `<picture>` with typed sources — that changes the sink's *shape*, so it's cheaper to decide now than retrofit. And a first publish of a photo-heavy site is N images × M widths inside a synchronous route behind a toolbar button.
 
 Separately: REQ-221's session confirmed a real defect unrelated to this epic — **a Library-route upload failure is completely silent**, because `receiveFiles` surfaces the error only when `source === 'chat'`. Drop a file that 400s and nothing happens at all. Want me to file it?
+
+<!-- xgd-turn id="1704714a-8226-4460-8898-9106180c4259-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T02:01:18.764203+00:00" -->
+#### You
+Please also check the tickets in Lagrange Framework
+
+I can't find how to upgrade to Enterprise or what it cost - lets just skip HEIC for now
+
+Background images have to be included in scope and reachability
+
+I don't read a question under 4 what are you asking
 
 <!-- xgd-chat-end -->
