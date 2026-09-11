@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T21:56:52.572472+00:00'
+updated_at: '2026-09-11T22:12:48.994340+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -135,5 +135,13 @@ And a resize tool couldn't have worked anyway: this product has no JPEG decoder 
 **Landed:** BUG-80 at `free_coded`, commit `3f1480ce1c`, version 0.2.168, merged to `xgd-working`. 7 new UATs plus 2 updated REQ-218 assertions; the REQ-218, REQ-157, REQ-154 and REQ-216 suites all pass. The full node run has 12 failing files — I checked three against a clean `xgd-working` and they fail there too; none touch this path.
 
 **Filed:** REQ-227 (`request-a15815f4`), `draft`, priority high — "Picture stores: the AI cannot list the Library or move a picture onto the site." Covers both gaps from point 3, including the `ManageAssets`/`add_asset` grant gap from `comment-c9afb02b`. It's at draft; promotion is yours.
+
+<!-- xgd-turn id="fa5f0843-a599-4be9-ad12-b858001d8159-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T22:12:48.371311+00:00" -->
+#### You
+Can you create a ticket to resolve 2 stores - make a proposal for how this should look to the AI.
+
+I would argue that it should look to the AI exactly the way it looks to a human looking at the library - 1 set of catalogue items with metadata - one aspect of the data is the attachment, another is the mark saying if this is a site asset or not. Note: my intention was that the ticket API would be used to access this that was the WHOLE POINT of implementing this as tickets. Why is the AI not able to access these as tickets as intended.
 
 <!-- xgd-chat-end -->
