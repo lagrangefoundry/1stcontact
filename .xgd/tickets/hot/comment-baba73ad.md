@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-11T22:33:58.046245+00:00'
+updated_at: '2026-09-11T22:35:58.884283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -724,5 +724,53 @@ Recorded on the epic, REQ-217, and REQ-220. No code, no status changes.
 g; `xgd ticket` has no `fetch` subcommand today <-- As I said it is being build as we speak in REQ-150
 
 Is there anything else design wise that is still open the
+
+<!-- xgd-turn id="205611dc-ed27-4bcb-91cc-292a4166eec0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:35:58.827236+00:00" -->
+#### Claude
+Let me check rather than repeat myself — it may have moved or be a different repo.
+
+lf REQ-150 has zero occurrences of "fetch" and no other repo has a matching ticket — I'll take your word that it's in flight and stop hunting for it.
+
+Let me verify two things before I answer the design question, because they decide the sharpest item.
+
+Both confirmed. Here's the survey.
+
+Yes — five, and the first two are sharp enough to be worth your attention now.
+
+## 1. Re-promotion will mint `logo-2.png`, and the client's page will keep serving the old one
+
+The decided fix says a recipe change re-promotes. Promotion runs through `freeAssetName` (`material.ts:812`), which on collision appends `-2`, `-3`, `-4`. So the first crop produces `logo-2.png`, the second `logo-3.png` — while every page referencing `logo.png` keeps serving the **unedited** original, and a fresh orphan lands in the bucket on every commit.
+
+The trap is that this is the function promotion is *supposed* to use. Its own comment says why: *"promoting a second `logo.png` would REPLACE the first — silently changing a picture that is live on the client's site, from a surface whose whole promise is that it only adds."* Re-promotion needs exactly the behaviour that comment forbids, because it's the one caller for which replacing is right.
+
+So the two doors have to be told apart explicitly: a **new** placement takes a free name; a **re**-placement of a material that already records its asset name overwrites that name and mints nothing. Which is a second reason the recorded name is load-bearing — it's what distinguishes them.
+
+## 2. A picture placed on two sites
+
+`placed_on` is a list, and collision resolution may have given the same logo a different name on each site. So the record can't be one string — it has to be per-site. Follows directly from (1) and is unspecified today.
+
+## 3. Your catalogue rule and the width ladder collide on a literal reading
+
+BUG-84 scopes the rule to *"a **picture** that lands in a site's assets"*, excluding fonts and stylesheets as build output. **A delivery rendition is a picture and is build output.** REQ-222 writes up to six per photograph, and `<picture>` doubles that. Read literally, the ladder fills the client's Library with hundreds of derived files nobody uploaded and nobody can name.
+
+The line that works isn't "picture" — it's provenance. **Catalogued = authored or received** (uploaded, generated, drawn, captured). **Not catalogued = derived at publish** from a catalogue item, already content-addressed and owned by the revision that built it. This epic has drawn that exact line once before, between editorial versions and delivery renditions; it's the same line. Worth stating in BUG-84 explicitly, or whoever implements the rule will either flood the Library or quietly special-case the ladder and leave no record of why.
+
+## 4. Nobody tells the client an edit isn't live until they republish
+
+Re-promotion updates the draft; a published revision is frozen. So crop-and-don't-republish means the live site keeps the old picture. That's correct and consistent with REQ-220's *"what the client is looking at after a commit is what **will be** published"* — but nothing says it. Given you've just decided a publish should explain itself, this is the same class of thing and probably wants a sentence in the same place.
+
+## 5. Description staleness — punted, and worth re-affirming rather than inheriting
+
+REQ-219 decided to leave it: a description describes the original. The reason to revisit is that **the description is what the KB indexes**, so a crop leaves the knowledge base answering from text about a picture that no longer exists. `description_status` exists precisely to make a re-describe a query rather than a migration. Still a defensible punt — but it should be one you take again knowingly, not one that carries by default.
+
+---
+
+**Decided but unbuilt and easy to lose:** REQ-218's font-context refinement, REQ-220's parser scope defect and its three AC977 probes, REQ-222's `<picture>` + concurrency + progress + budget guard, and the promotion hole itself — still without a ticket.
+
+**Genuinely unspecified but small:** what sentence the host supplies for `create_image`'s `host_display.display`. The seam asks for "the host's own words about its own surface," and nobody has written those words.
+
+All recorded on the epic. On REQ-150 — taking your word it's in flight; I've stopped looking and treated attachment fetch as a settled upstream dependency.
 
 <!-- xgd-chat-end -->
