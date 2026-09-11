@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-218
 created_by: xgd
 created_at: '2026-09-10T22:08:15.654310+00:00'
-updated_at: '2026-09-10T22:14:09.673895+00:00'
+updated_at: '2026-09-11T01:35:12.776470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,5 +92,15 @@ There is no `[images]` binding in `wrangler.toml` today. And if REQ-218 is built
 1. **Which namespace** the sixth kind addresses — materials, site assets, or both.
 2. **Whether it lands after REQ-219's renderer** (my read: for `compare` it has to), or whether v1 is deliberately PNG-and-SVG-only on the browser path with a named refusal for other formats.
 3. **Whether the CLI host gets this kind at all**, or omits it the way it omits `adoptCapture`.
+
+<!-- xgd-turn id="ca481a6d-fd9f-4410-869c-0010de98c433-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T01:35:12.640872+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
