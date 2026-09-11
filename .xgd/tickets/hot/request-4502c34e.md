@@ -5,7 +5,7 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-09-11T22:10:51.193792+00:00'
+updated_at: '2026-09-11T22:17:17.775878+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -260,3 +260,42 @@ For the record, since the epic carried this as an open defect needing its own
 ticket after this ticket had already closed it. `receiveFiles` now surfaces a
 refusal from the Library drop area as well as the chat, and `library.refused()`
 receives it. No ticket was filed; the epic's record was stale, not the code.
+
+
+### The plan question is answered: the account is not Enterprise
+
+Queried against the Cloudflare API with the deployment's own token, 2026-09-11:
+
+```
+GET /client/v4/accounts/<id>
+  "type": "standard"
+  "legacy_flags": { "enterprise_zone_quota": { "maximum": 0, "current": 0 } }
+```
+
+**`type: "standard"` is the answer** — an Enterprise account reports `enterprise`,
+and the zero enterprise-zone quota corroborates it. So **Cloudflare Images HEIC
+input is not available to this deployment**, and the conversion branch this ticket
+built will not run in production.
+
+**What actually runs is the refusal**, which is why this ticket was built the way
+it was. A client's iPhone photograph is refused by name, with the *Settings →
+Camera → Formats → Most Compatible* remedy — a change that takes them under a
+minute and fixes every future upload. That is the product's real behaviour, and it
+is correct rather than degraded.
+
+**The upgrade has no published price.** Enterprise is sales-negotiated at
+Cloudflare; there is no self-serve tier that adds HEIC input, and nothing in the
+dashboard will quote one. So the honest framing for the operator is that this is
+not a purchase decision with a number attached — it is a sales conversation, and
+not one worth opening for HEIC decode alone.
+
+**Two caveats on the evidence.** The token is scoped narrowly: `/subscriptions`
+and the Images endpoints both return `10000 Authentication error`, so this is the
+account object's own type rather than a direct read of the Images entitlement. And
+the conversion path remains genuinely untested against real HEIC bytes, as the
+suite headers already say — if the plan ever changes, that is what to test first.
+
+**The follow-on, if HEIC volume ever justifies it**, is the wasm decoder (libheif)
+this ticket's investigation named and deliberately avoided. It needs no plan
+change. It is not worth building on today's evidence: the refusal is cheap,
+honest, and teaches the client a fix that helps them everywhere else too.
