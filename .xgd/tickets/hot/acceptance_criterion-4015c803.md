@@ -6,14 +6,15 @@ title: A locked control is drawn unavailable rather than faded — it cannot be 
   by any route — and its reason is rendered under the row, for both control families
 created_by: xgd
 created_at: '2026-08-20T03:38:59.624312+00:00'
-updated_at: '2026-08-20T03:39:51.878180+00:00'
+updated_at: '2026-09-11T00:51:10.112359+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
