@@ -6,7 +6,7 @@ title: The declaration and its grant are checkable before anything runs, reporti
   no problems and naming the surface and the role they configure
 created_by: xgd
 created_at: '2026-08-10T09:05:53.786391+00:00'
-updated_at: '2026-08-16T03:38:41.466454+00:00'
+updated_at: '2026-09-11T01:49:29.426014+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
