@@ -40,6 +40,7 @@ import {
   L1_EDIT_SEGMENT_ATTR,
 } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
+import { shadeHex } from '../packages/site-schema/src/l1/shade'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const HEADLINE = 'A painted band.'
@@ -79,6 +80,14 @@ const PAINTED_PANEL_PATH = '0.2'
  * exposes tracks what it carries, not what its kind is.
  */
 const FILL_ONLY_PANEL_PATH = '0.0'
+
+/**
+ * The site's palette, so "a colour chosen there lands on that panel" has a
+ * colour to choose. Two entries, and neither value collides with a fill this
+ * fixture already paints — otherwise "the panel is now painted from the
+ * palette" could not be told from "it was already that colour".
+ */
+const PALETTE = { ink: { value: '#0b0f14' }, brand: { value: '#2e86a3' } }
 
 /** The asset files the site's own images are, beside two that are not images. */
 const ASSET_FILES: Record<string, string> = {
@@ -156,6 +165,14 @@ function seedPage(cwd: string, slug: string): void {
   }
   home.l1 = { ...(home.l1 as Record<string, unknown>), root }
   fs.writeFileSync(homePath, JSON.stringify(home, null, 2))
+
+  // The palette the colour row picks from (REQ-140). Every fill above stays a
+  // literal, which is the state a folded site is really in and the one the
+  // "reported rather than resolved to an entry it never named" assertion pins.
+  const sitePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'site.json')
+  const site = JSON.parse(fs.readFileSync(sitePath, 'utf8')) as Record<string, unknown>
+  site.palette = PALETTE
+  fs.writeFileSync(sitePath, JSON.stringify(site, null, 2))
 
   // The site's own images, so the picker has a closed list to be closed over.
   // The font file is a real asset and nothing a background can point at.
@@ -295,6 +312,14 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
 
   function draftBytes(): string {
     return fs.readFileSync(homeJson(), 'utf8')
+  }
+
+  /** A top-level child's axes, straight out of the draft on disk. */
+  function draftNodeAxes(index: number): Record<string, unknown> {
+    const root = JSON.parse(draftBytes()).l1.root as {
+      children: Array<{ axes?: Record<string, unknown> }>
+    }
+    return root.children[index].axes ?? {}
   }
 
   /**
@@ -692,6 +717,31 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     // painted panels.
     expect((await read(FILL_ONLY_PANEL_PATH)).fields.map((f) => f.name)).toEqual(['surfaceFill'])
 
+    // ── a container that paints NOTHING is not a region at all ───────────────
+    //
+    // The other half of the same rule, and the reason the criterion can say
+    // "there is no gesture that reaches it and no empty form to open" rather
+    // than "it opens a dialog saying there is nothing here". The root container
+    // above carries no axes whatever, so it paints nothing — and it is the
+    // ancestor of every region on this page, which is what makes it the honest
+    // specimen: a segmentation that stamped containers by KIND would stamp it.
+    // Anchored to the ELEMENT rather than to the absence of a selector match.
+    // The renderer emits every node's element and stamps the address onto it
+    // conditionally, so "no element matches `[data-l1-path="0"]`" would also be
+    // satisfied by a page that never rendered — this pins that the container is
+    // on screen, holds the regions that ARE addressable, and still carries
+    // neither half of the edit stamp.
+    const unpainted = document.getElementById('root')!
+    expect(unpainted, 'the unpainted container is rendered').toBeTruthy()
+    expect(unpainted.hasAttribute(L1_EDIT_PATH_ATTR)).toBe(false)
+    expect(unpainted.hasAttribute(L1_EDIT_SEGMENT_ATTR)).toBe(false)
+    expect(document.querySelector(`[${L1_EDIT_PATH_ATTR}="0"]`)).toBeNull()
+    // ...and it is the ancestor of regions that ARE offered, which is what makes
+    // it the honest specimen: a segmentation keyed on KIND would have stamped it
+    // alongside the two painted containers inside it.
+    const addressable = unpainted.querySelector(`[${L1_EDIT_PATH_ATTR}="${FILL_ONLY_PANEL_PATH}"]`)
+    expect(addressable, 'a painted container inside it is offered').toBeTruthy()
+
     // ── a choice the surface refuses comes back field-scoped ─────────────────
     const beforeDraft = draftBytes()
     const refused = await post(PAINTED_PANEL_PATH, { backgroundImageUrl: ABSENT })
@@ -714,11 +764,22 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     // ── the dialog itself ────────────────────────────────────────────────────
     const net = browserFetch(builder.url)
     let editor: { destroy(): void } | undefined
+    /** Every value the colour row asked the palette with, and what it answers. */
+    const asked: unknown[] = []
+    const CHOSEN = { ref: 'brand' }
+    const picked = (value: unknown): unknown => {
+      asked.push(value)
+      return CHOSEN
+    }
     try {
       display({ from: served })
       editor = mountEditor(document, {
         slug: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+        // REQ-140's colour transport. The popup itself is AC-1281's subject and
+        // is driven for real there; what this criterion needs is only that the
+        // row reaches one and that what comes back lands on THIS panel.
+        colors: { shadeHex, open: (value: unknown) => Promise.resolve(picked(value)) },
       })
       const clickRegion = (address: string): void =>
         document
@@ -732,10 +793,54 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       clickRegion(FILL_ONLY_PANEL_PATH)
       await settle()
       expect(modals()).toHaveLength(1)
-      expect(modals()[0].textContent).not.toContain('Background image')
-      document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      expect(modals()).toHaveLength(0)
+      const fillOnly = modals()[0]
+      expect(fillOnly.textContent).not.toContain('Background image')
+      // Not a dead end, which is the whole point of the clause: the panel that
+      // once answered "nothing to edit here" opens a form offering its colour.
+      expect(fillOnly.textContent).not.toContain('Nothing to edit')
+      expect(fillOnly.querySelector('.builder-modal__picker')).toBeNull()
+      expect(fillOnly.querySelector('.builder-modal__box')).toBeNull()
 
+      // ── AND A COLOUR CHOSEN THERE LANDS ON THAT PANEL ────────────────────────
+      //
+      // Proving the row EXISTS is not proving it works, and the two halves fail
+      // apart: a row wired to the wrong address, or reporting the value the
+      // dialog opened with, renders identically to a correct one.
+      const fillRow = fillOnly.querySelector('.builder-color[data-field="surfaceFill"]')!
+      expect(fillRow, 'the panel exposes the colour it is painted').toBeTruthy()
+      const fillBefore = draftNodeAxes(0)
+      expect(fillBefore.surfaceFill, 'it starts as the literal the fixture paints').toBe('#101822')
+
+      ;(fillRow.querySelector('.builder-color__swatch') as HTMLElement).click()
+      for (let i = 0; i < 200; i += 1) await new Promise((r) => setTimeout(r, 1))
+      // Asked with NOTHING: this panel holds a hex literal, which names no
+      // entry, so there is no entry to pre-select.
+      expect(asked).toEqual([null])
+      // Staged, not committed — the Save below is still the only write.
+      expect(draftNodeAxes(0).surfaceFill).toBe('#101822')
+
+      const fillPostsBefore = net.calls.filter((c) => c.method === 'POST').length
+      ;(fillOnly.querySelector('.builder-modal__btn--primary') as HTMLElement).dispatchEvent(
+        new window.MouseEvent('click', { bubbles: true }),
+      )
+      await until(() => modals().length === 0)
+
+      // It landed on THIS panel, as a palette REFERENCE rather than a resolved
+      // hex — the rule the whole colour surface lives on...
+      expect(draftNodeAxes(0).surfaceFill).toEqual(CHOSEN)
+      // ...and on no other. The panel next door paints a fill too, and a row
+      // wired to the wrong address would be invisible without this.
+      expect(draftNodeAxes(2).surfaceFill).toBe('#1d2733')
+      // One dialog, one change — over the same transport as everything else.
+      const fillPosts = net.calls.filter((c) => c.method === 'POST').slice(fillPostsBefore)
+      expect(fillPosts).toHaveLength(1)
+      expect(new URL(fillPosts[0].url).pathname).toBe('/api/copy')
+      // And the page the operator is looking at repaints with the entry's value.
+      expect(await servedEdit()).toContain(PALETTE.brand.value)
+
+      // Counted from HERE, so the panel's own two saves below stay a statement
+      // about this dialog rather than a running total over the whole test.
+      const panelPostsBefore = net.calls.filter((c) => c.method === 'POST').length
       clickRegion(PAINTED_PANEL_PATH)
       await settle()
 
@@ -795,7 +900,9 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       save.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       await until(() => modals().length === 0)
       expect(modals()).toHaveLength(0)
-      expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(2)
+      expect(
+        net.calls.filter((c) => c.method === 'POST').slice(panelPostsBefore),
+      ).toHaveLength(2)
     } finally {
       editor?.destroy()
       net.restore()

@@ -74,6 +74,14 @@ const LONG_COPY =
   'the editing area has to be tall as well as wide.'
 /** Gold copy over a dark photograph — the observed misreport, reproduced. */
 const OVER_LAYERS = 'Gold over the photograph.'
+/**
+ * A run the author has made fully transparent, carrying no glyph paint either —
+ * AC-1040's backstop specimen. It is the case where mirroring faithfully would
+ * put the operator's cursor in words they cannot see.
+ */
+const INVISIBLE = 'Copy nobody can see.'
+/** Fully transparent: a real colour, resolving to no paint at all. */
+const INVISIBLE_COLOR = '#00000000'
 
 const PAGE_FAMILY = 'Editorial'
 const PAGE_COLOR = '#f8f5ef'
@@ -114,6 +122,8 @@ const PATH = {
   long: '0.7',
   /** The seam — the one region that exposes nothing (see `seedPage`). */
   seam: '0.8',
+  /** AC-1040's backstop: a run that resolves to no paint at all. */
+  invisible: '0.9',
 } as const
 
 if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 form-presentation suite: ${WEBUI_SKIP_REASON}`)
@@ -213,6 +223,16 @@ function seedPage(cwd: string, slug: string, family: string, fontSrc: string): v
       // end AC-1039 pins had to move to something that holds no copy, no asset
       // and no paint. It is unmounted, so it renders nothing (see `deadEnd`).
       { kind: 'slot', name: 'gallery' },
+      // [0.9] AC-1040's BACKSTOP specimen, appended last so no address above it
+      // moves. A run whose resolved colour is fully transparent and which
+      // carries no glyph paint: the one case where reproducing the page
+      // faithfully would be reproducing invisibility.
+      {
+        kind: 'text',
+        text: INVISIBLE,
+        axes: { ...copyAxes, color: INVISIBLE_COLOR, fontSizePx: ORDINARY_SIZE_PX },
+        geometry: at(40, 1200, 600),
+      },
     ],
   }
   home.l1 = {
@@ -841,6 +861,35 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
           expect(css).not.toMatch(/^\s*\.fields[-.\s]/m)
         } finally {
           opened.editor.destroy()
+        }
+        for (const m of modals()) m.remove()
+
+        // A FOREGROUND THAT PAINTS NOTHING IS NOT A FOREGROUND.
+        //
+        // The criterion scopes this as a BACKSTOP over the whole mirroring rule
+        // rather than as a case of it: whatever route produces an unpaintable
+        // foreground, the box degrades to legible-but-unmirrored instead of to
+        // invisible. Asserted here, at the criterion that claims it, rather than
+        // only under the intent-named suite that found the gradient route —
+        // this run reaches it by the other route, an author-set transparent
+        // colour with no glyph paint anywhere near it.
+        display()
+        const ghost = await openOn(region(PATH.invisible))
+        try {
+          const box = ghost.modal.querySelector('.builder-modal__box') as HTMLElement
+          expect(box, 'the run still opens in a proper box').toBeTruthy()
+          // NO colour reproduced, so the box keeps the chrome's own — rather
+          // than a transparent one faithfully copied across.
+          expect(box.style.getPropertyValue('--preview-color')).toBe('')
+          // ...and it degraded because there was no paint, not because the
+          // dressing failed: everything else about the run IS mirrored.
+          expect(box.style.getPropertyValue('--preview-font-family')).toContain(PAGE_FAMILY)
+          expect(box.style.getPropertyValue('--preview-font-weight')).toBe(String(PAGE_WEIGHT))
+          // And no glyph paint stood behind it either, which is what makes this
+          // the backstop rather than the gradient case wearing a different hat.
+          expect(box.style.getPropertyValue('--preview-text-image')).toBe('')
+        } finally {
+          ghost.editor.destroy()
         }
         for (const m of modals()) m.remove()
 
