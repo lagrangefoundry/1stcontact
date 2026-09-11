@@ -54,6 +54,7 @@ import {
   type MaterialKind,
 } from './describe'
 import { guardedFetch, tooBig } from './fetch-guard'
+import { type ConvertHeic, isHeic, MAX_CONVERTIBLE_BYTES } from './heic'
 import type { ChangeEvent, Ticket, TicketStore, TicketSubscription } from './tickets'
 
 /**
@@ -308,6 +309,23 @@ export interface IngestDeps {
   index?: IndexMaterial | null
   describeImage?: DescribeImage
   describeText?: DescribeText
+  /**
+   * Turn a HEIC photograph into something everything downstream can read
+   * ([[REQ-221]]).
+   *
+   * `null` AS WELL AS ABSENT, for the reason {@link IngestDeps.index} is: the
+   * router distinguishes "this deployment has no Images binding" from "this
+   * caller did not supply one", and the two are answered with different
+   * sentences. Collapsing them would make {@link heicUnsupported}'s condition
+   * unrepresentable, and the client would be told their photograph could not be
+   * read when the truth is that nothing here tried.
+   *
+   * ONLY THE UPLOAD PATH CONSULTS IT. {@link ingestFetch} does not convert —
+   * [[REQ-221]] is about a client's own photograph arriving at the door, and
+   * what we pull on their behalf is `reference` material that is never promoted
+   * onto a site.
+   */
+  convertHeic?: ConvertHeic | null
 }
 
 /**
@@ -339,8 +357,16 @@ export interface Ingested {
 /** Raised for a file we will not store. Carries a message a client can act on. */
 export class MaterialRejectedError extends Error {
   readonly name = 'MaterialRejectedError'
-  constructor(message: string) {
-    super(message)
+  /**
+   * `options` carries a `cause` for the refusals that HAVE one ([[REQ-221]]).
+   *
+   * The message is written for the client and deliberately says nothing about
+   * codecs; the underlying error is what an operator reading a log needs. Both
+   * are worth keeping and they are not the same sentence, so the original
+   * travels here rather than being concatenated onto the one the client sees.
+   */
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
   }
 }
 
@@ -353,6 +379,16 @@ export class MaterialRejectedError extends Error {
  * has just dragged their brand book onto the page needs a sentence they can act
  * on, which is what {@link tooBig} writes. Checking early also means the material
  * ticket is never created for a file that will not fit.
+ *
+ * AND HEIC IS CONVERTED HERE, BEFORE ANYTHING IS CREATED ([[REQ-221]]). This is
+ * *the door* — the last point at which refusing costs nothing. `ingest` below
+ * creates the material ticket and then attaches the bytes, so a conversion
+ * attempted anywhere inside it could fail with a record already written, which
+ * is precisely the record-naming-absent-bytes that [[DOC-38]] §7.3's ordering
+ * exists to forbid. Converting in front of the call makes that state
+ * unreachable rather than merely unlikely: {@link convertAtTheDoor} either
+ * hands `ingest` an ordinary JPEG or throws, and nothing has been created
+ * either way.
  */
 export async function ingestUpload(
   store: TicketStore,
@@ -371,16 +407,113 @@ export async function ingestUpload(
   if (file.bytes.length === 0) {
     throw new MaterialRejectedError('That file is empty, so there is nothing to store.')
   }
+  const atTheDoor = await convertAtTheDoor(file, deps.convertHeic)
   return ingest(
     store,
     {
-      bytes: file.bytes,
-      filename: file.filename,
-      contentType: file.contentType,
+      bytes: atTheDoor.bytes,
+      filename: atTheDoor.filename,
+      contentType: atTheDoor.contentType,
       origin: 'uploaded',
       role: file.role,
     },
     deps,
+  )
+}
+
+/**
+ * HEIC in, an ordinary JPEG out — or a refusal ([[REQ-221]]).
+ *
+ * WHAT IT IS FOR. HEIC is what a modern iPhone produces by default and Chrome
+ * decodes none of it, so a client photographing their own shopfront hands us
+ * bytes the Library cannot preview, the describer cannot look at, the editor
+ * cannot open and the site cannot serve. Converting at the door means what lands
+ * in the Library is an ordinary image indistinguishable from any other, and
+ * every later step — preview, describe, edit, promote, publish — works on it
+ * without knowing what it arrived as.
+ *
+ * ANYTHING THAT IS NOT HEIC PASSES THROUGH UNTOUCHED, by identity and not by a
+ * re-encode. This runs on every upload, and a PNG that came out the other side
+ * of an image pipeline would be a different file for no reason.
+ *
+ * THE HEIC BYTES ARE DISCARDED, AND THAT IS A DELIBERATE EXCEPTION. This epic's
+ * rule is that an original is never lost. Here it is: we can do nothing with
+ * those bytes — no preview, no edit, no publish — and the client has the file on
+ * their phone by definition. Keeping an unreadable archival copy would cost
+ * storage on every iPhone upload to buy a copy of a file its owner already has.
+ * Nothing below writes them anywhere; `ingest` receives the JPEG and only the
+ * JPEG.
+ *
+ * THREE REFUSALS AND THEY SAY DIFFERENT THINGS, because they are different
+ * facts about different parties. No binding is a fact about this DEPLOYMENT; too
+ * large is a fact about this FILE and is actionable; a conversion that threw is
+ * a fact about these BYTES. One message covering all three would be wrong twice
+ * every time it was right.
+ */
+async function convertAtTheDoor(
+  file: { bytes: Uint8Array; filename: string; contentType: string },
+  convertHeic: ConvertHeic | null | undefined,
+): Promise<{ bytes: Uint8Array; filename: string; contentType: string }> {
+  if (!isHeic(file.bytes)) return file
+  // NO BINDING IS A REFUSAL AND NOT A FALL-THROUGH. Storing the HEIC and getting
+  // on with it is precisely the broken row this ticket is about: a material
+  // whose preview cannot render, whose description says the format cannot be
+  // looked at, and which will be exactly as unreadable in six months. A refusal
+  // costs the client one setting on their phone; the alternative costs them a
+  // photograph they think they uploaded.
+  if (!convertHeic) throw new MaterialRejectedError(heicUnsupported())
+  // BEFORE THE CALL, SO THE SIZE IS THE REASON GIVEN. The converter's own input
+  // ceiling is below this repository's material ceiling, so there is a band of
+  // files `ingestUpload` accepts and the converter will not take — and a client
+  // in that band is owed the reason they are actually in.
+  if (file.bytes.length > MAX_CONVERTIBLE_BYTES) {
+    throw new MaterialRejectedError(tooBig(file.bytes.length, MAX_CONVERTIBLE_BYTES))
+  }
+  try {
+    return await convertHeic({ bytes: file.bytes, filename: file.filename })
+  } catch (cause) {
+    // THE CAUSE IS KEPT AND NOT SHOWN. Whatever the binding said is about codecs
+    // and is addressed to a programmer; what reaches the client is a sentence
+    // they can act on. `cause` keeps the original readable in a log.
+    throw new MaterialRejectedError(heicUnreadable(), { cause })
+  }
+}
+
+/**
+ * What a deployment with no Images binding tells the client.
+ *
+ * IT NAMES THE FORMAT. "That file could not be read" sends a client looking at
+ * their photograph; naming HEIC tells them the one true thing — this is about
+ * the format, not about their picture — and makes the remedy obvious enough to
+ * act on without support.
+ *
+ * AND THE REMEDY IS THEIRS RATHER THAN OURS. Their phone will take JPEGs
+ * directly if they ask it to, which is a setting and under a minute, and it
+ * fixes every future upload rather than this one.
+ */
+function heicUnsupported(): string {
+  return (
+    'That photograph is in HEIC, the format iPhones use by default, and this ' +
+    'deployment has no image converter configured to read it. On the phone, ' +
+    'Settings → Camera → Formats → Most Compatible makes it take ordinary ' +
+    'JPEGs instead.'
+  )
+}
+
+/**
+ * What a conversion that actually failed tells the client. Same remedy.
+ *
+ * IT DOES NOT NAME THE FILE, and neither does {@link heicUnsupported}. The two
+ * surfaces that show this both name the file themselves — the chat note prefixes
+ * it and the Library's notice lists it — so a filename in the sentence would
+ * appear twice in every message a client actually reads.
+ */
+function heicUnreadable(): string {
+  return (
+    'That photograph is in HEIC, the format iPhones use by default, and it ' +
+    'could not be converted into a picture we can show you — the file may be ' +
+    'damaged. On the phone, Settings → Camera → Formats → Most Compatible ' +
+    'makes it take ordinary JPEGs instead.'
   )
 }
 

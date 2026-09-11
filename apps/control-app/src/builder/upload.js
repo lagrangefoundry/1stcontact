@@ -30,7 +30,7 @@
  * different trigger.
  */
 
-import { UPLOAD_AREAS, UPLOAD_PROMPT } from './config.js'
+import { UPLOAD_ACCEPT, UPLOAD_AREAS, UPLOAD_PROMPT } from './config.js'
 
 /** Shown when a file lands on the overlay but not in an area. */
 const AMBIGUOUS_NOTE = 'Drop it on one of these two, so I know what to do with it.'
@@ -96,12 +96,23 @@ export function createUploadOverlay({
    * accept list would be declared N times, and the change handler would have to
    * find which of N fired. The role is the only thing that varies, and it varies
    * per click rather than per element.
+   *
+   * THE ACCEPT LIST IS NOW REAL ([[REQ-221]]). The sentence above described one
+   * while the element carried none, so the picker offered every file on the disk
+   * and the first thing a client learned about what we take was a refusal after
+   * the upload. `UPLOAD_ACCEPT` is the list; `config.js` records why it names
+   * HEIC and why it does not say `image/*`.
    */
   let source = null
 
   const input = document.createElement('input')
   input.type = 'file'
   input.multiple = true
+  // A HINT TO THE PICKER, NOT A GATE. Drag-and-drop never consults it and the
+  // client can always choose *All Files*, so the origin's refusals remain the
+  // only enforcement — what this changes is that the ordinary case no longer has
+  // to guess.
+  input.accept = UPLOAD_ACCEPT
   input.className = 'builder-upload__input'
   // Not `hidden`: a hidden input cannot be `click()`ed into opening a picker in
   // every browser. It is taken out of the layout by the stylesheet instead, and
