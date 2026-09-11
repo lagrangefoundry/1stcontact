@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-78
 created_by: xgd
 created_at: '2026-09-10T21:43:34.354314+00:00'
-updated_at: '2026-09-11T21:50:05.705045+00:00'
+updated_at: '2026-09-11T21:52:42.537129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -662,5 +662,43 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a6432d5e-bbf4-4930-b47c-bb7aac1844da-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T21:52:41.148961+00:00" -->
+#### Claude
+Let me check what's actually outstanding.
+
+The code is already an ancestor of `xgd-working`. Remaining: verify green on the current tip, bring the body up to date, then tear down. Tests first, foreground:
+
+30 passed. Now the body needs to match what actually landed — three UATs assert behaviour the body doesn't yet state:
+
+BUG-78 free-coding is complete.
+
+**Final state**
+
+| | |
+|---|---|
+| Status | `free_coded` |
+| Version | 0.2.167 |
+| Commits | `1bcc94e51f` (code + UATs), `9a10d34f65` (version bump) |
+| Merged | both are ancestors of `xgd-working` |
+| Branch | `free-BUG-78` torn down, worktree removed, lock released |
+
+**Tests, run in the foreground on the current `xgd-working` tip:** 30 passed across 4 files — the 9 new BUG-78 UATs plus REQ-223's lead-endpoint and public-form suites and `public-site.test.ts`, to confirm the `identified` seam didn't widen the public endpoint.
+
+**What I did in this pass beyond what was already landed:**
+
+The code was already merged and claimed, so the outstanding steps were the body sync and the teardown. Auditing the UATs against the ticket body turned up three assertions the body didn't yet state, which would have left them untraceable at reconciliation:
+
+- that the channel marker is recorded for `published` too, not only for previews — the body described the marker but not that it's unconditional;
+- that `identified` is set in code at one call site and no request can carry it — the body justified the skip but never stated the falsifier the UAT actually checks;
+- that `public-site` still challenges an anonymous caller unchanged.
+
+I appended a "What was built" section covering those, plus the parts of the implementation the original decision section predicted but didn't pin: the exact `formDefinitionOf` signature change, the `LeadSubmission.channel` default, and the fact that `handleLead`'s doc comment reasoning was generalised rather than overturned.
+
+One thing recorded there rather than silently left: **`control-app` now imports from `apps/public-site`**, which is a new app-to-app dependency in this repo. It's deliberate — the alternative is a second copy of the body limits, field caps, submit shapes, honeypot and refusal envelope — but if that shared surface belongs in `packages/`, it's a one-import refactor and is cheaper before reconciliation than after.
+
+The account cleanup is still untouched and still waiting on your go-ahead; after the correction, it's down to the three Alice fixtures and Felix Test (which carries 2 tickets), with `uat@westhead.me` left alone.
 
 <!-- xgd-chat-end -->
