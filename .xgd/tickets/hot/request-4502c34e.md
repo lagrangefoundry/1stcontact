@@ -5,7 +5,7 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-09-10T22:30:12.209797+00:00'
+updated_at: '2026-09-11T02:05:26.104272+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -136,3 +136,75 @@ routing against an injected fake converter (HEIC-by-magic-number routes to it;
 the wiring. That the binding genuinely decodes HEIC is provable only against the
 live API, and the ticket should say so rather than let a green suite imply
 otherwise.
+
+
+---
+
+## Rescoped by the operator, 2026-09-10: HEIC conversion is dropped
+
+**The Enterprise question is answered by not answering it.** There is no visible
+route to the plan tier or its price, and the epic is not going to wait behind a
+procurement question. **Conversion is out of scope for this ticket.**
+
+What remains is worth shipping on its own, needs no plan change, and fixes the
+part of this that is actively misleading.
+
+### What this ticket now delivers
+
+**A HEIC upload is refused at the door, honestly.** Detected by magic number,
+because the second failure mode never says `image/heic` — a file arriving as
+`application/octet-stream` is filed as a *document* today. `sniffImageFormat`
+(`tools/generate/src/cli/png.ts:83`) already tests the `ftyp` brands correctly
+and wants lifting somewhere the Worker can import it.
+
+**The refusal says what to do about it.** Point the client at *Settings → Camera
+→ Formats → Most Compatible*, which changes their phone's default to JPEG and
+solves it permanently in one visit. `MaterialRejectedError` already carries a
+message to a client, so this is a message and a predicate, not a mechanism.
+
+**And it refuses before any record exists.** In `ingestUpload`, ahead of
+`ingest`, so no material ticket is created that names bytes we cannot use.
+
+**The picker advertises what it accepts.** `upload.js:102` sets no `accept`
+attribute at all, despite the module comment at line 96 discussing "the accept
+list" as though one existed. After this change the answer to *"can I upload my
+iPhone photo"* is a real answer, and it must be visible where the client is
+choosing the file rather than after they have dropped it.
+
+### Why a refusal is a genuine improvement, not a consolation
+
+Today a HEIC upload produces one of two wrong outcomes and no true one:
+
+- announced as `image/heic`, it is filed as an image, the Library renders
+  `<img src>`, Chrome fails to decode, and the error handler prints **"That file
+  is no longer in storage."** — a sentence that is false, and that sends the
+  client looking for a problem that does not exist;
+- announced as nothing, it is filed as a **document**, and simply never behaves
+  like a picture again.
+
+A client who is told *"iPhone photos in this format can't be read — here is the
+one setting that fixes it"* is strictly better served than by either. This is
+the DOC-38 §10 argument: a named state beats a silent wrong one.
+
+**Promotion also needs the guard.** Nothing between `promoteToSiteAsset` and the
+public site checks content type today, so a HEIC that predates this change can
+still be placed on a site and served to every visitor. Refusing at the door does
+not clean up what is already stored.
+
+### What is deliberately left undone
+
+**Conversion.** If the Images binding becomes available, this ticket's detection
+point is exactly where the conversion belongs, and the earlier analysis of it
+holds in full — convert in `ingestUpload`, before `ingest`; output **WebP**,
+never AVIF, because AVIF is not in `VISION_MEDIA_TYPES` and would land
+undescribed; change filename and content type together, before `ingest` resolves
+the type once at its head; and pre-check the binding's 20 MB input ceiling with
+its own refusal, since `MAX_MATERIAL_BYTES` is 25 MiB and would otherwise let a
+22 MB file through to a 500. File it as a follow-on rather than reopening this.
+
+**The silent Library-drop failure** stays out, as before: `receiveFiles`
+surfaces an upload error only when `source === 'chat'`, so a Library drop that
+400s or 503s produces nothing at all. It is independent of HEIC, it predates this
+work, and it needs its own ticket — **and this rescope makes it urgent**, because
+the refusal above is delivered through exactly that silent path. A honest refusal
+nobody ever sees is not a fix.
