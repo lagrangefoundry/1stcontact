@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-80
 created_by: xgd
 created_at: '2026-09-11T02:26:02.664956+00:00'
-updated_at: '2026-09-11T22:25:17.851506+00:00'
+updated_at: '2026-09-11T22:28:06.101517+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,45 @@ Note that REQ-15o in lf is adding xgd ticket fetch to retrieve attachments via t
 Note that REQ-15o in lf is adding xgd ticket fetch to retrieve attachments via the ticket API so that closes one last potential gap, right?
 
 `write_image` (a drawing the AI makes) and `add_asset` both put bytes in the site store and mint no ticket, so the site holds pictures the catalogue has never heard of. <-- I'm not sure that this is correct all the images I have created have tickets...if its true then it is a major bug with write_image and add_asset which MUST add tickets when they add blobs
+
+<!-- xgd-turn id="3bc4c50e-d4c2-4947-b083-bd84c912517a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:28:05.595916+00:00" -->
+#### Claude
+Your challenge sent me to the data. You're right about generated images, and the gap is real but narrower than I implied. Evidence first:
+
+Two separate answers, and you were right on the second.
+
+## REQ-150 — I can't find that ticket
+
+lf's REQ-150 is *"imagegen: edit an existing image, for the changes a transform pipeline cannot express"* (draft). I checked lf REQ-140…150 and nothing there is about attachment fetch; the nearest are REQ-104 (*"Ticket attachments: a BlobStore port, with typed attachment records"* — the storage layer, already landed) and REQ-147 (*"A development-ticket surface: let a product's AI file bugs and capability requests"*). `xgd ticket` currently has no `fetch` subcommand. So either the number's off or it's in the xgd repo rather than lf — which is it?
+
+**On the substance, though: it closes a real gap, but not this one.**
+
+For pictures it isn't load-bearing. The bytes already have paths that don't go through the ticket API: `screenshot` resolves them via `materialImageLibrary.read` → `readBlob`, and `promoteToSiteAsset` reads the blob server-side. Both work today.
+
+Where it matters is **documents**. Of the 17 material tickets here, 13 are uploads and most are documents — the positioning doc, the brand messaging, the two PDFs. The ticket body is a describer-written digest: `material-0c513381` is 759 bytes standing in for `XGD_Positioning.md`. The AI can read *about* the client's brand document; it cannot read the document. Attachment fetch fixes that, and it's the gap that actually costs something.
+
+One caution, straight from BUG-80: an attachment fetch that returns bytes into a tool result is the exact shape that killed that session. A 12 MB PDF fetched into the conversation is a prompt bomb regardless of which surface produced it. That surface needs a size discipline built in — which is the general tool-result cap I recorded as out of scope on BUG-80 and attributed to lf's `runtime.js`. If `fetch` is being built now, that's the moment to settle it.
+
+## The catalogue gap — you were right, and I've narrowed it
+
+Your images do have tickets. I checked the store:
+
+```
+material tickets by origin : generated 4, uploaded 13
+SVG pictures in site_assets: 14
+SVG material tickets       :  0
+```
+
+`create_image` mints a ticket through `generatedMaterialStore` — `imagegen.ts` exists specifically so "a generated image is an ordinary `material`". Uploads mint one through ingestion. Promotion records `placed_on` correctly; `How_Can_You_Trust_the_Code_Your_AI_Writes?.pdf` is in both places with `placed_on: ["xgd"]`. Three of four doors are right.
+
+The one that isn't is **`write_image`** — the SVG drawing path, not the generator. Fourteen drawings are live on sites (`xgd-echo-1.svg`, `xgd-grid-hero.svg`, `wordmark-option-a.svg`, `mark-orbit.svg` …) and none is in the catalogue. `add_asset` has the same hole at lower volume, and a pushed/seeded site is a probable third.
+
+So it's a real bug, narrower than I implied — and I should have said "the SVG drawing path" rather than "a drawing the AI makes", which reads as covering your generated images.
+
+**Filed BUG-84** (`bug-cd883d86`), high/high. It carries the evidence, states the three doors that are correct so they don't get re-litigated, and scopes the rule to **pictures** — fonts and capture-mirrored stylesheets are build output and shouldn't fill the Library. Open questions left for scoping: whether a drawing gets a new `origin` value; whether its description comes from what the assistant already wrote in `write_image` rather than being re-derived; how `placed_on` is written when the bytes land and the ticket mints at the same moment; and whether the existing fourteen get backfilled.
+
+REQ-228's Half D now points at it instead of describing it.
 
 <!-- xgd-chat-end -->
