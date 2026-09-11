@@ -6,9 +6,9 @@ title: 'screenshot: a failed stored-picture render returns the whole 22MB data U
   to the model'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T02:24:18.255769+00:00'
-updated_at: '2026-09-11T21:54:59.241427+00:00'
+updated_at: '2026-09-11T21:56:00.501257+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -23,6 +23,7 @@ fields:
   version: 0.2.168
   story_points: 3
 ---
+
 
 ## Symptom
 
@@ -155,8 +156,8 @@ visible transcript, fresh backend. Applied as data repair; no code change.
   `lagrange-framework` `components/ai/js/src/toolbox/runtime.js` — a different
   repository.
 - **The two picture stores.** That the assistant could not enumerate the Library,
-  and cannot move a picture from it onto the site, is a separate capability gap
-  with its own ticket.
+  and cannot move a picture from it onto the site, is a separate capability gap —
+  REQ-227 (`request-a15815f4`).
 
 ## Test plan
 
