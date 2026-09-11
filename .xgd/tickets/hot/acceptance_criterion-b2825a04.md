@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: All four capabilities are reachable from the command line
 created_by: xgd
 created_at: '2026-08-10T09:34:57.911103+00:00'
-updated_at: '2026-08-16T01:57:31.609403+00:00'
+updated_at: '2026-09-11T03:40:12.092778+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
