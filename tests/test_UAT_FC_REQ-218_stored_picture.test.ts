@@ -112,6 +112,16 @@ const svgBytes = (): Uint8Array => new TextEncoder().encode(DRAWING_SVG)
  */
 class RasterDriver implements BrowserDriver {
   static navigated: string[] = []
+  /**
+   * Every script evaluated on the page, in order.
+   *
+   * BUG-80 MOVED THE BYTES HERE. The picture used to travel inside the navigated
+   * URL; it now travels over the evaluation channel in bounded chunks, because a
+   * URL has a length limit and an error message quoting one has none. So the
+   * assertion that the rasteriser put the RIGHT picture in front of the browser
+   * reads the scripts rather than the URL — same question, new channel.
+   */
+  static queried: string[] = []
   private url = ''
   constructor(private readonly size: { width: number; height: number }) {}
 
@@ -127,10 +137,11 @@ class RasterDriver implements BrowserDriver {
     const h = viewport?.height ?? this.size.height
     return png(solid(w, h, [12, 34, 56]))
   }
-  async query<T>(_script: string): Promise<T> {
+  async query<T>(script: string): Promise<T> {
+    RasterDriver.queried.push(script)
     // Answers the decode question the way a browser that could read the image
-    // does. The document is a `data:` URL, so what was handed over is readable
-    // back off `this.url` — which is what the navigation assertions use.
+    // does. What was handed over is readable back out of the recorded scripts —
+    // which is what the delivery assertions use.
     return { ok: true, ...this.size, naturalWidth: this.size.width, naturalHeight: this.size.height } as T
   }
   responses(): CapturedResponse[] {
@@ -149,6 +160,21 @@ class RasterDriver implements BrowserDriver {
 function documentOf(url: string): string {
   const b64 = url.slice('data:text/html;base64,'.length)
   return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
+}
+
+/**
+ * The `src` the rasteriser assembled on the page, rebuilt from the scripts it ran.
+ *
+ * The chunk scripts carry the base64 and the last script carries the media type,
+ * so joining them back up is the same read `documentOf` used to be: what picture,
+ * in what format, was actually put in front of this browser.
+ */
+function injectedSrc(scripts: readonly string[]): string {
+  const chunks = scripts
+    .map((s) => /push\("([A-Za-z0-9+/=]*)"\)/.exec(s)?.[1])
+    .filter((c): c is string => c !== undefined)
+  const prefix = /img\.src = '(data:[^']*base64,)'/.exec(scripts[scripts.length - 1] ?? '')?.[1] ?? ''
+  return prefix + chunks.join('')
 }
 
 // ── the Library, over a store that answers out of memory ─────────────────────
@@ -434,6 +460,7 @@ describe('REQ-218 AC3 — screenshot answers for a stored picture as it does for
     const site = siteWithPictures({ 'poster.png': stored })
     try {
       RasterDriver.navigated = []
+      RasterDriver.queried = []
       const ops = fidelityOperations(await deps(site, [SUNRISE]))
       const blocks = (await ops.screenshot({
         of: { kind: 'image', image: 'poster.png' },
@@ -469,6 +496,7 @@ describe('REQ-218 AC3 — screenshot answers for a stored picture as it does for
     const site = siteWithPictures()
     try {
       RasterDriver.navigated = []
+      RasterDriver.queried = []
       const ops = fidelityOperations(await deps(site, [SUNRISE], { raster: { width: 300, height: 200 } }))
 
       // A JPEG. `png.ts` decodes PNG and says so — REQ-156 replaced the native
@@ -481,9 +509,8 @@ describe('REQ-218 AC3 — screenshot answers for a stored picture as it does for
       // its own bytes: a Library blob is in a private bucket behind Access and
       // there is no URL this browser could fetch it from.
       expect(RasterDriver.navigated).toHaveLength(1)
-      const document = documentOf(RasterDriver.navigated[0])
-      expect(document).toContain('src="data:image/jpeg;base64,')
-      expect(document).toContain('margin:0')
+      expect(documentOf(RasterDriver.navigated[0])).toContain('margin:0')
+      expect(injectedSrc(RasterDriver.queried)).toMatch(/^data:image\/jpeg;base64,.+/)
 
       // And it came back in the currency everything downstream speaks.
       const image = blocks.find((b) => b.type === 'image') as {
@@ -544,6 +571,7 @@ describe('REQ-218 AC5 — a drawing says what it gave up, and no picture can be 
     const site = siteWithPictures()
     try {
       RasterDriver.navigated = []
+      RasterDriver.queried = []
       const fidelity = await deps(site, [SUNRISE])
       const picture = await resolvePicture({ kind: 'image', image: 'wordmark' }, fidelity)
 
@@ -553,7 +581,7 @@ describe('REQ-218 AC5 — a drawing says what it gave up, and no picture can be 
       // reports a font substitution as a finding about the drawing.
       expect(picture.note).toBe(DRAWING_RASTER_NOTE)
       expect(picture.note).toContain('measure_drawing')
-      expect(documentOf(RasterDriver.navigated[0])).toContain('src="data:image/svg+xml;base64,')
+      expect(injectedSrc(RasterDriver.queried)).toMatch(/^data:image\/svg\+xml;base64,.+/)
 
       // The caption travels with the picture into what the model actually reads.
       const blocks = (await fidelityOperations(fidelity).screenshot({
