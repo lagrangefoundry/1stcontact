@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-11T19:23:09.225900+00:00'
+updated_at: '2026-09-11T19:52:03.781795+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,53 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="bb412fc9-8611-49a4-853a-9dd897540f6d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T19:52:02.687995+00:00" -->
+#### Claude
+Now let me make the changes. First, the surface-layer extraction and the background-image override:
+
+Now the docblock fix plus the background-ladder machinery:
+
+Now the `width`/`height` stamping on `<img>`:
+
+Now extend the fixture and add the new UATs:
+
+Now append the new UATs:
+
+Now the immutable-cache UAT:
+
+Now version bump and commit:
+
+Now the duplicated `IMAGES` field in `RouterEnv`:
+
+Now the reuse refactor — the ladder rides REQ-219's renderer rather than reaching the binding itself:
+
+Now rewrite the workerd cache cases against the shared rendition cache:
+
+REQ-222 is landed on `xgd-working` at `free_coded`, version 0.2.165, six commits recorded.
+
+## What shipped
+
+**The `<img>` half** (from the prior session, unchanged): the ladder is built at publish in the Worker, capped at the source width so nothing upscales, renditions content-addressed into the revision's `out/assets/d/`, and `render.ts` emits `srcset` plus a `sizes` computed from L1's own geometry rather than guessed.
+
+**The background half** — the part the operator explicitly widened scope for, and which the prior session had narrowed back out. A band backdrop is a CSS `url()` on a box, not an `<img>`, and it's the largest file on most sites: without this, the ticket saved nothing on the only real photograph in the repo. Backgrounds now take the same ladder through per-width `background-image` rules riding L1's existing per-breakpoint machinery. The layer stack is emitted from one function so an override can't silently drop a client's scrim; the base rule takes the smallest rung (the narrowest screen is the visitor this is for); a rule is emitted only where the choice changes. Renditions are chosen for a 2× screen, because a `background-image` has no candidate list for the browser to pick from — that's the price of not using `image-set()`, and under-fetching is the error you can see.
+
+**The two adjacent wins** the ticket asked for and the prior session hadn't taken: `width`/`height` stamped from dimensions the publish already measured, and `immutable` caching for content-addressed renditions — the fix `public-site`'s own cache note names.
+
+**Reachability sweep**: the L1 asset-reference sweep, the capture localiser, and derived segmentation all already handle `backgroundImageUrl` explicitly. Nothing to build; a UAT pins the one place that could have gone wrong.
+
+## One thing worth flagging
+
+REQ-219 landed on `xgd-working` while this branch was cut, and the two had converged badly — it already had a renderer over `env.IMAGES` that measures, takes a delivery width explicitly separated from the recipe, and is wrapped in a rendition cache keyed on exactly the address this ticket would have invented. This branch had grown its own of each. I collapsed them at merge: the ladder now rides that one renderer through a narrow adapter whose real job is the failure contract (the editing path *raises* for an unrenderable picture; a publish must not), and the ladder's own cache port plus the `derived/<tenant>` root are gone. Also deduped the `[images]` binding and the `RouterEnv.IMAGES` field, which both sides had added.
+
+## Tests
+
+54 UATs for this ticket (45 node + 9 workerd against the real Images binding). Full workers project: 702 pass, 3 fail — all in `REQ-160_two_kb_session`, a known pre-existing knowledge-base failure. Full node project: 2849 pass, 13 fail across 11 files (webui scope, priming, chat host, builder chrome). I verified two of those fail identically with my changes reverted, and the set matches what the prior session recorded as the branch's baseline.
+
+## Still open on the ticket
+
+Format negotiation (WebP/AVIF via `<picture>`) and first-publish latency remain unanswered — both flagged by the operator as raised-not-decided, and neither is in this ticket's scope.
 
 <!-- xgd-chat-end -->
