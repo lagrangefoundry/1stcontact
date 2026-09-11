@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-217
 created_by: xgd
 created_at: '2026-09-10T22:08:15.541627+00:00'
-updated_at: '2026-09-11T22:30:00.838972+00:00'
+updated_at: '2026-09-11T22:47:42.265283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,41 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="77002d07-79c8-47ea-9160-8a14b477a280-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T22:47:42.066524+00:00" -->
+#### Claude
+Now the toolbox changes.
+
+Now `host-core.ts`:
+
+Now the node UAT file.
+
+Done. REQ-217 is at `free_coded`, commit `215187d` on `xgd-working`, version 0.2.169.
+
+## What landed — both halves, not just the drawing one
+
+I re-checked the installed `@lagrangefoundry/ai-imagegen` before designing: upstream REQ-149's seam **is** in the store (`host_display` shape, `display` construction option, `composeDeclaration`), and the prohibiting sentence is gone. So the staging in the ticket collapsed and `create_image` landed alongside `write_image`.
+
+**The seam.** Neither tool can compose its own address — `write_image` knows a slug and nothing about a business; `create_image` is upstream's and knows nothing about our routes. Each takes a URL factory from the host: `HostDeps.assetUrl` (factory over slug, bound in `host-core.ts`, threaded into `createL1Toolbox` beside `measurer`) and `ImageSurfaceOptions.materialUrl` (through upstream's `display`). `router.ts` supplies both from `scope.businessId`. **Absence is the default** — the `1c` CLI gets no field at all.
+
+**`scope.ts` gained `businessPath()`**, the inverse of `splitBusinessPrefix`, beside it. The origin never had a `scoped()` of its own because every scoped URL until now was formed in the browser.
+
+**`displayLine()` is the one composer** for both halves — the URL is a contract the chat pane reads back off the `<img>`.
+
+**Surface prose**, `surface_version` 8 → 9: `shapes.image.display`, a paste-it-word-for-word instruction on the op, and a new `absences` entry. Plus `.builder-chat img` in `builder.css`.
+
+## Decisions I made rather than asking
+
+- **Did not fix `materialUidFromUrl`'s scope bug.** REQ-220 records it explicitly as its own debt, so the generated picture's *click* won't work until that lands — the line itself is correct. Noted in the ticket.
+- **A drawing is permanently unclickable.** BUG-84's operator scope decision (2026-09-11) rules `write_image` drawings out of the Library for good, which supersedes the earlier note in this ticket about leaving room for a uid.
+- **No `?width=` shrink** — the ticket rules the thumbnail out; stylesheet-bounded, full bytes.
+
+## Evidence
+
+Two UAT files, 11 tests. The workers one is the real claim: a scripted turn through `route()` over real D1/R2 draws a mark, the line the model was handed is split by the *production* `splitBusinessPrefix` and fetched, and the drawing's bytes come back — same for a generated picture's material URL. Fetching it is the only honest form of "the client sees the picture."
+
+**Regression**: full suite run — 13 files / 17 tests fail identically with and without my changes (the extra 6 in the parallel full run are the known load artifact). None are mine.
 
 <!-- xgd-chat-end -->
