@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-11T23:13:05.668065+00:00'
+updated_at: '2026-09-11T23:35:20.058332+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,47 @@ Still open from last turn: keep all of it on BUG-76, or split? Say the word on t
 **Change the contract** — give `account-chrome` `sent`/`error` slots and a visible-label route (a `labelMode`, as `contact-form` has). Fixes 1b properly and makes the confirmation a designed thing <-- this is the correct solution lets make this happen
 
 PLease proceed
+
+<!-- xgd-turn id="c31128e3-0f70-4fb0-a58e-bf0bd0ca7940-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-11T23:35:18.988404+00:00" -->
+#### Claude
+Design settled. Recording it on the ticket first, then cutting the branch.
+
+Now the `account-chrome` contract itself.
+
+Now the component, controls, styles and client.
+
+Now the L2 preset needs default `sent` and `error` cards.
+
+Now the schema-error localisation in `site-schema`.
+
+Now the reference projection, so the surfaces stop disagreeing.
+
+Now the remaining three UAT files.
+
+Done. BUG-76 is `free_coded` on `xgd-working` at `0.2.172`.
+
+**What landed** — `account-chrome` contract v1 → v2, plus the three cross-cutting fixes:
+
+| Defect | Change |
+|---|---|
+| 1 | `meta.ts`'s *"visible unless L1 hides it"* deleted; `element` corrected to `label` (both modules emitted one and declared `span`); new `BehaviorControlSpec.invariantPresentation` states the pinned presentation once and every reference surface projects it |
+| 1b | `labelMode: 'visible' \| 'placeholder'`, with `contact-form`'s exact semantics |
+| 2 | `validateBehaviorConfig` **and** `validateBehaviorSlots` refuse undeclared names, at the write boundary only — a stored instance with a stray key still paints |
+| 3 | `chooseBranch` now localises unions that discriminate on *shape*, so a bad axis key in a behavior slot reports the same path and key it reports in the page's own `l1` |
+| 3b / 3c | unknown `kind` names the valid kinds; `validateOrThrow` reports every error, capped at 10 with the count stated |
+| 4a / 4c | `sent` and `error` are required slots; `config.sentMessage` and the hardcoded error string are gone. The overlay holds three parts and shows one — a completed submit hides the form and shows the confirmation, which is a card the author drew |
+| 4b | `meta.ts` names `POST /sign-in`; the bad value itself is outside this repo |
+
+REQ-134 survives the move: one authored subtree, revealed on completion at any status, response never read.
+
+**Tests** — four new `test_UAT_FC_BUG-76_*` files (17 cases). Full suite: 3646 passed, 1 failed. That one, `test_UAT_FC_BUG-67_backend_settings.test.ts > rejects a malformed document at install`, fails identically on the unmodified checkout — pre-existing, not mine.
+
+**Two things to flag:**
+
+1. The migration is repo-side only. `storage/sites/1stcontact/draft/pages/home.json` moved to v2 with `sent`/`error` from the preset, but the instance the original session authored lives in the live R2-backed store. It will fail validation against the new contract until someone adds those two slots there — a v1 instance no longer resolves in the registry.
+
+2. `packages/framework/src/modules/account-chrome/.claude/.cc-writes/` — an empty, untracked harness directory in your main checkout (dated Sep 9). It makes `test_UAT_FC_REQ_200_no_branch_on_which_site_or_business_it_renders_for` throw `EISDIR` there; it passes in the worktree. Nothing to do with this change, and I left it alone rather than deleting something the harness made. Say the word and I'll remove it, or harden that test to skip directories.
 
 <!-- xgd-chat-end -->
