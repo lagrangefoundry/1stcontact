@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-219
 created_by: xgd
 created_at: '2026-09-10T22:08:15.852975+00:00'
-updated_at: '2026-09-11T18:05:06.343283+00:00'
+updated_at: '2026-09-11T19:21:45.966978+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -152,6 +152,15 @@ The output was truncated — re-running with full capture so I can see every fai
 <!-- xgd-turn id="6a5be2ce-69ed-49eb-bfe6-86a5333db503-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-11T18:05:04.918728+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="25ea6376-16ba-4be7-a6ea-458456fe2b14-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-11T19:21:43.734055+00:00" -->
 #### You
 please complete the free-coding of this ticket
 
