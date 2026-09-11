@@ -1,4 +1,4 @@
-import { webuiPackageDir, WEBUI_PACKAGES } from '../../tools/generate/src/cli/webui'
+import { sharedModuleUrl, webuiPackageDir, WEBUI_PACKAGES } from '../../tools/generate/src/cli/webui'
 
 /**
  * Whether the shared `webui-*` components are present.
@@ -31,3 +31,26 @@ export const WEBUI_INSTALLED = WEBUI_PACKAGES.every((name) => {
 
 export const WEBUI_SKIP_REASON =
   'webui components not installed — run `bin/install --lang js --component all` in lagrange-framework'
+
+/**
+ * One installed component, reached the way everything else reaches one.
+ *
+ * WHY A HELPER AND NOT A BARE SPECIFIER. A specifier written out in a test is a
+ * reference to a component composed by hand, and AC-960 is that the scope those
+ * references are made under is written in exactly ONE place — the declaration in
+ * `tools/generate/src/cli/webui.ts`. `sharedModuleUrl` composes it from there, so
+ * a rebrand upstream moves every one of these with a single edit and a suite that
+ * missed the rename fails at resolution rather than mounting a stale copy.
+ *
+ * It is the SAME module the suites that import by bare specifier receive: the
+ * Vitest alias derived in `vitest.node.config.mts` rewrites that specifier to
+ * this very path, so both routes land on one module id and a module-global seam
+ * — `setParser`, `setSanitizer` — is shared across them rather than installed on
+ * a second instance nothing else can see.
+ */
+export async function importWebui(name: string, subpath = '.'): Promise<Record<string, unknown>> {
+  return (await import(/* @vite-ignore */ sharedModuleUrl(name, subpath))) as Record<
+    string,
+    unknown
+  >
+}

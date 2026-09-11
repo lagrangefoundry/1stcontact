@@ -19,7 +19,7 @@ import { primingText, PURPOSE_ENTRY } from '../tools/generate/src/cli/ai/roles'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { STUB_DIM, stubEmbedder, stubVector } from './support/stub-embedder'
-import { says, scriptedClient, systemText } from './support/scripted-model-client'
+import { says, scriptedClient, sentText } from './support/scripted-model-client'
 
 /**
  * REQ-160 — **two knowledge bases in one session, and the channel that says one
@@ -220,8 +220,17 @@ async function chatTicket(sessionId: string): Promise<Ticket | null> {
   return tickets.find((t) => (t.fields ?? {}).session_id === sessionId) ?? null
 }
 
-/** Open a session and take one turn, returning what the model was sent. */
-async function turn(slug: string, text: string): Promise<{ system: string; sessionId: string }> {
+/**
+ * Open a session and take one turn, returning what the model was sent.
+ *
+ * EVERYTHING SENT, NOT THE PRIMING ALONE ([[BUG-83]]). Every assertion in this
+ * file is about the corpus delta, which is a per-turn reminder entry — and
+ * upstream moved the reminder out of the system field onto the tail of the user
+ * message, so that no cache marker could land on a block guaranteed to differ
+ * next turn. The several NEGATIVE assertions below matter most here: aimed at the
+ * old field they would pass whether or not a delta had been reported.
+ */
+async function turn(slug: string, text: string): Promise<{ sent: string; sessionId: string }> {
   const opened = await post('/api/ai/session', { slug })
   expect(opened.status).toBe(200)
   const { sessionId } = (await opened.json()) as { sessionId: string }
@@ -229,7 +238,7 @@ async function turn(slug: string, text: string): Promise<{ system: string; sessi
   setModelClient(client)
   const events = await frames(await post('/api/ai/prompt', { sessionId, text }))
   expect(events.at(-1)?.kind).toBe('done')
-  return { system: systemText(client.seen[0]), sessionId }
+  return { sent: sentText(client.seen[0]), sessionId }
 }
 
 beforeAll(async () => {
@@ -252,7 +261,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     await seedSite(slug)
     await publishProjectMap('# Awareness map: project\n\n## Brand and positioning\n\nWhat this client sounds like.\n')
 
-    const { system } = await turn(slug, 'Hello.')
+    const { sent: system } = await turn(slug, 'Hello.')
 
     // ANCHORED ON CONTENT, NOT ON A HEADING WE NO LONGER PRINT (BUG-63).
     // `# What exists` and `# How to search` are the knowledge component's own
@@ -325,7 +334,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const built = await kb.rebuildMap()
     expect(built.mode).toBe('enumerated')
 
-    const { system } = await turn(slug, 'Hello.')
+    const { sent: system } = await turn(slug, 'Hello.')
     expect(system).toContain('The kitchen at dusk')
     expect(system).toContain('small enough to list in full')
   })
@@ -367,7 +376,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const slug = nextSlug('mid')
     await seedSite(slug)
     const first = await turn(slug, 'Do you have any positioning material?')
-    expect(first.system).not.toContain('Ravenswood positioning note')
+    expect(first.sent).not.toContain('Ravenswood positioning note')
 
     await upload('Ravenswood positioning note', 'We sell to independent restaurants.')
 
@@ -375,7 +384,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId: first.sessionId, text: 'I just uploaded it.' }))
 
-    const reminder = systemText(client.seen[0])
+    const reminder = sentText(client.seen[0])
     expect(reminder).toContain('Ravenswood positioning note')
     expect(reminder).toContain('1 document')
   })
@@ -393,7 +402,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const client = scriptedClient([says('Still here.')])
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Anything else?' }))
-    expect(systemText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
+    expect(sentText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
   })
 
   it('test_UAT_FC_REQ-160_the_cursor_lives_on_the_chat_ticket_and_advances', async () => {
@@ -410,7 +419,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const client = scriptedClient([says('Seen it.')])
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Take a look.' }))
-    expect(systemText(client.seen[0])).toContain('Winter menu')
+    expect(sentText(client.seen[0])).toContain('Winter menu')
 
     const chat = await chatTicket(sessionId)
     const cursor = JSON.parse(String((chat!.fields ?? {})[CURSOR_FIELD])) as {
@@ -425,7 +434,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const again = scriptedClient([says('Yes.')])
     setModelClient(again)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'Anything new?' }))
-    expect(systemText(again.seen[0])).not.toContain('Winter menu')
+    expect(sentText(again.seen[0])).not.toContain('Winter menu')
   })
 
   it('test_UAT_FC_REQ-160_a_resumed_sessions_first_turn_reports_what_arrived_while_away', async () => {
@@ -448,7 +457,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     const reopened = await post('/api/ai/session', { slug })
     expect(reopened.status).toBe(200)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'I am back.' }))
-    expect(systemText(client.seen[0])).toContain('Supplier agreement')
+    expect(sentText(client.seen[0])).toContain('Supplier agreement')
   })
 
   it('test_UAT_FC_REQ-160_a_conversation_is_never_reported_to_itself', async () => {
@@ -466,7 +475,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // The quoted form is the one a delta entry takes; the bare slug appears in
     // the reminder's own first line and always will, which is why the assertion
     // names the shape rather than the string.
-    expect(systemText(client.seen[0])).not.toContain(`"${sessionId}"`)
-    expect(systemText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
+    expect(sentText(client.seen[0])).not.toContain(`"${sessionId}"`)
+    expect(sentText(client.seen[0])).not.toMatch(/entered this client's knowledge/)
   })
 })

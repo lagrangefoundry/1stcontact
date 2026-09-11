@@ -58,6 +58,7 @@ import {
 } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { rulesOf } from './support/css-rules'
 
 const REPO = path.resolve(__dirname, '..')
 const BUILDER_CSS = path.join(REPO, 'apps/control-app/src/builder/builder.css')
@@ -203,21 +204,6 @@ async function cli(cwd: string, ...argv: string[]): Promise<CliResult> {
   return { ...envelope, exitCode: Number(process.exitCode ?? 0) }
 }
 
-/**
- * Every declaration block whose selector satisfies `keep`.
- *
- * Comments are stripped FIRST — a selector is everything since the last `}`, so
- * a rule preceded by a comment (which is most of the modal's) would otherwise
- * arrive with that comment glued to its front and match nothing.
- */
-function rulesOf(css: string, keep: (selector: string) => boolean): string[] {
-  const blocks: string[] = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m: RegExpExecArray | null
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '')
-  while ((m = re.exec(bare))) if (keep(m[1].trim())) blocks.push(m[2])
-  return blocks
-}
 
 /** See the neighbouring suites — playwright is `tools/generate`'s dependency. */
 async function loadChromium(): Promise<typeof import('playwright').chromium | undefined> {

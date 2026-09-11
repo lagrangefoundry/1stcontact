@@ -6,7 +6,7 @@ import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/buil
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient, systemText } from './support/scripted-model-client'
+import { calls, says, scriptedClient, sentText, systemText } from './support/scripted-model-client'
 
 /**
  * REQ-122 — **the assistant, end to end over the builder origin**.
@@ -283,9 +283,12 @@ describe('REQ-122 — what the model is told', () => {
     // it rather than discover it by failing.
     expect(system).toContain('## Not available')
 
-    // The per-turn reminder names the site, and rides the system channel rather
-    // than the transcript.
-    expect(system).toContain(`the site "${SLUG}"`)
+    // The per-turn reminder names the site, and rides a channel of its own rather
+    // than the transcript. WHICH channel is upstream's business and has already
+    // moved once ([[BUG-83]]) — it left the system field for the tail of the
+    // user message so that no cache marker lands on a block guaranteed to differ
+    // next turn — so this asks what the session was TOLD and not where.
+    expect(sentText(client.seen[0])).toContain(`the site "${SLUG}"`)
 
     // The tool schemas the model receives are the declared ones, and no tool
     // takes a site: naming another site is not a mistake it can make.

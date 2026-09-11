@@ -328,7 +328,7 @@ describe('REQ-199 — what the operator sees afterwards', () => {
   it('test_UAT_FC_REQ-199_the_record_lands_with_its_journal_row_so_a_worker_can_write_a_ticket', async () => {
     // THE INVITE IS THE FIRST PRODUCT PATH THAT WRITES A TICKET FROM INSIDE THE
     // WORKER, and that is a claim about the deployed migration rather than about
-    // this file's own logic. `@lagrangefoundry/ticketing` writes one
+    // this file's own logic. The shared `ticketing` component writes one
     // `ticket_changes` row in the SAME batch as the ticket, so a database whose
     // transcription of `SCHEMA_STATEMENTS` has fallen behind the component
     // refuses `create` outright — `no such table: ticket_changes` — and every

@@ -37,7 +37,7 @@ export interface SystemBlock {
 /** What the host sends the model — the half of a turn a test can assert on. */
 export interface ModelRequest {
   /**
-   * The assembled priming, reminder included — a string, OR a list of blocks.
+   * The assembled priming — a string, OR a list of blocks.
    *
    * TWO SHAPES, AND BOTH ARE PRODUCTION (BUG-63). Upstream sends one string
    * where the turn has no usable cache breakpoint, and an array of `text`
@@ -46,6 +46,15 @@ export interface ModelRequest {
    * property of the tier's boundary, not of the test, so an assertion that
    * indexes into a string is asserting against whichever shape happened to
    * come back that day. Read it through {@link systemText}.
+   *
+   * THE REMINDER IS NO LONGER IN HERE ([[BUG-83]]). It was, and this field's
+   * documentation said so, and eleven assertions across seven suites read it
+   * here until they all went red at once. Upstream moved it: the reminder and
+   * the volatile seed are appended to the tail of the last user MESSAGE instead,
+   * so that no cache marker can land on a block guaranteed to differ next turn.
+   * Same words, same point in the conversation, a different field. Read it
+   * through {@link turnTailText}, or {@link sentText} when the question is
+   * merely whether the model was told something.
    */
   system: string | SystemBlock[]
   messages: { role: string; content: unknown }[]
@@ -75,6 +84,54 @@ export interface ModelRequest {
  */
 export function systemText(req: ModelRequest): string {
   return typeof req.system === 'string' ? req.system : req.system.map((b) => b.text).join('')
+}
+
+/**
+ * The per-turn tail: the last user message, where the reminder now rides.
+ *
+ * WHY THE WHOLE MESSAGE AND NOT THE TAIL ALONE. Upstream appends the tail to the
+ * user's own text with a blank line between them, and once joined there is no
+ * marker to cut on — so this returns the message and lets the assertion say what
+ * it is looking for. That costs nothing: a test asking whether the reminder is
+ * here is asking `toContain`, and the user's turn is a sentence the suite wrote
+ * itself.
+ *
+ * Empty when the request has no trailing user message, which is what a caller
+ * asserting ABSENCE wants: nothing found, rather than a throw that reads like a
+ * different bug.
+ */
+export function turnTailText(req: ModelRequest): string {
+  const last = req.messages[req.messages.length - 1]
+  if (!last || last.role !== 'user') return ''
+  return contentText(last.content)
+}
+
+/** Message content as text, whether it arrived as a string or as blocks (REQ-111). */
+function contentText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((block) =>
+      block && typeof block === 'object' && typeof (block as { text?: unknown }).text === 'string'
+        ? (block as { text: string }).text
+        : '',
+    )
+    .join('\n')
+}
+
+/**
+ * Everything the model was sent on this request: the priming and the per-turn tail.
+ *
+ * THE READER FOR "WAS THE MODEL TOLD THIS". Most assertions are about delivery
+ * and not about position — that the session knows which site it is on, that it
+ * was handed the change signal — and those should not have to know which field
+ * upstream currently carries the reminder in, because that has now moved once
+ * and may move again. A suite whose subject genuinely IS the position (where the
+ * cache boundary falls, what is re-sent per turn) reads the two halves
+ * separately and is meant to.
+ */
+export function sentText(req: ModelRequest): string {
+  return [systemText(req), turnTailText(req)].filter(Boolean).join('\n\n')
 }
 
 /** One Anthropic streaming event, as the SDK emits them. */

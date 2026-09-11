@@ -43,10 +43,20 @@ const BODY_FLAG = 'data-fc-points'
  * says what a hot segment looks like, and this says what it looks like while a
  * different gesture is in force — the outline is kept, because knowing which
  * element you are marking inside previews what the pill will say.
+ *
+ * THAT ONE RULE NAMES THE HOT CLASS AND NOTHING ELSE ([[BUG-83]]). The renderer's
+ * own treatment selects the class together with the region stamp it writes, and
+ * mirroring that pair here made this stylesheet a second reader of the markup
+ * contract: rename the stamp upstream and this rule would stop matching,
+ * silently, with nothing to say so. The class alone already selects exactly that
+ * set — only the renderer's client ever puts it on anything — so the stamp
+ * bought nothing here but the specificity that was winning the override.
+ * `!important` buys that back explicitly, which is the honest way to say *while
+ * this mode is on, the hover is dimmed whatever the render asked for*.
  */
 const OVERLAY_CSS = `
 [${BODY_FLAG}], [${BODY_FLAG}] * { cursor: crosshair !important }
-[${BODY_FLAG}] [data-l1-segment].l1-edit-hot { outline: 1px solid rgba(99, 102, 241, 0.4); outline-offset: -1px }
+[${BODY_FLAG}] .l1-edit-hot { outline: 1px solid rgba(99, 102, 241, 0.4) !important; outline-offset: -1px !important }
 .fc-points { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 2147483000 }
 .fc-point { position: absolute; width: 0; height: 0; cursor: grab }
 .fc-point.is-sent { cursor: default; opacity: 0.4; filter: grayscale(1) }

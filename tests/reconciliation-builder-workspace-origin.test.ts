@@ -456,6 +456,35 @@ describe('story-e674c60a builder origin', () => {
         ok: false,
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
+      // The two corrections REQ-220 added and did not probe — a picture's NAME
+      // and the recipe that edits it. Probed in the same rejection shape and
+      // reaching one for the same reason their siblings do: the uid is checked
+      // on the request's own arguments, before a store is opened. A cached
+      // refusal here is a client told their retitle failed after it worked.
+      {
+        route: '/api/material/name',
+        url: '/api/material/name',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+      {
+        route: '/api/material/recipe',
+        url: '/api/material/recipe',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
+      // The change tail ([[REQ-161]]), and it is probed ONLY in its rejection
+      // shape — deliberately, not for convenience. Its success shape is a
+      // long-lived `text/event-stream` that by design never ends, so the
+      // `arrayBuffer()` every probe below performs would hang the suite rather
+      // than measure anything. The refusal is reached on the cursor's own
+      // arguments before any subscription opens, and carries the same headers
+      // the stream would, which is what makes the claim checkable at all. The
+      // harm is the sharpest on this route of any here: a cached tail is a
+      // Library that has stopped being told the site moved.
+      { route: '/api/material/changes', url: '/api/material/changes?since=not-a-cursor', ok: false },
+
       // And the other correction the Library makes ([[REQ-213]]) — what a piece
       // of material is FOR. Probed in the same rejection shape, and it reaches
       // one for the same reason its sibling does: the uid and the role are
