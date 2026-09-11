@@ -6,10 +6,10 @@ title: 'Arrival is recorded on every attempt: first arrival never moves, latest 
   does, refused visits included'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:28:57.347593+00:00'
-updated_at: '2026-09-11T06:28:57.347593+00:00'
+updated_at: '2026-09-11T06:37:28.978319+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
