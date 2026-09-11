@@ -97,6 +97,13 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 - **The loud report is the operator-facing half of graceful degradation.** The intent asks only that an absent knowledge base degrade rather than fail; the implementation adds a line that shouts. Kept and given a criterion, because silence is precisely how a knowledge-less assistant ships unnoticed — the shout and the degradation answer different failures and neither substitutes for the other.
 - **Where the emission lives was settled inside the intent, not against it.** The ticket's acceptance list says the knowledge-base build emits the modules; its later revision says the asset build writes them, always. The later passage governs, the code agrees with it, and the earlier line is read as superseded — so no code-issue is raised and the pipeline's own report keeps describing only what the pipeline produces.
 
+**2026-09-11 — reconciling AC-1295's integration half against an empty member set (BUNDLE-26 / REQ-164).**
+
+- **Member count is curation state, and this criterion is about the rule.** AC-1295's integration half was asserting a non-empty member set against the real document store. No document in the store carries `doc_kind: system_kb` — not on this branch and not on `main`, verified by frontmatter search across the whole ticket store — because the value cannot be set at all until the closed `doc_kind` enum that xgd owns ships it (REQ-164's own body; [[DOC-39]] §10). So the assertion was pinning this week's curation, and pinning it to a value nothing in this repository can produce. It is removed from the criterion and from the UAT.
+- **What replaces it is a vacuity guard over the thing the rule needs in order to have been exercised**: that the store holds documents at all, that every one of them reached a decision, and that the excluded set is non-empty. Against the store as it stands that is 38 documents, every one correctly excluded — a substantive claim, not two empty lists matching each other.
+- **The corpus-directory check is strengthened while it is open.** It was a per-excluded-document absence; it is now an equality over the whole directory, so a file the rule never selected cannot survive there unnoticed either.
+- **This resolves a tension inside this story rather than creating one.** AC-1300 already pins the empty-member-set store as a declared, tested state — a build against it is *refused*, by name. A sibling criterion demanding the same store be non-empty could not both be true.
+
 ## Dependencies
 
 None. The build runs with no session, and its corpus-only form runs with no model and no credentials at all.
