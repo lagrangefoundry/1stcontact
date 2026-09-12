@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T00:49:41.553871+00:00'
+updated_at: '2026-09-12T00:53:54.476151+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,13 @@ That last row matters: all three shipped forms (`1stcontact/home`, `xgd/home`, `
 - **C — stop it being a dial.** `action` is free-text `{type: 'url', required: true}`, and the product's own endpoint isn't a URL an operator should type. A sentinel would let the renderer emit the right relative target itself, keeping free-text for the DOC-47 case (post to a mailbox the client already has). Schema change — bigger than a bug fix.
 
 My recommendation is **B**: A alone leaves a trap that has now sprung twice, and C is a real design decision that deserves its own ticket rather than riding in on a 404.
+
+<!-- xgd-turn id="7806f4bd-ab56-47c0-855f-4b6fb6bdd75c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:53:54.191380+00:00" -->
+#### You
+OK, so I am confused. I don't understand why this is "data". This feels like it should be figured out written once correctly, perhaps with parameters associated with the specific site and nailed in place. Are you telling me that we have to get the production AI to get this right every time or the form breaks?
+
+Maybe we need a guard, but I think the model for where these characters come from sounds broken
 
 <!-- xgd-chat-end -->
