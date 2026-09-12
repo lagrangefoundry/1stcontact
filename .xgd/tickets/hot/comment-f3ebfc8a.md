@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-12T22:47:26.621582+00:00'
+updated_at: '2026-09-12T23:18:00.624502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -229,5 +229,147 @@ Two decided sections of this ticket's body were never built. Build both, under t
 **Land them together, latency first.** Typed sources double the ladder's transform count, which is exactly why the body says the latency question "is not a footnote". Shipping format negotiation onto an unrationed synchronous publish makes the problem it was costed against twice as bad.
 
 The body language already exists for both, so UATs should trace to those sections rather than new prose. Add language only for what the code settles beyond them.
+
+<!-- xgd-turn id="6f043cd5-b148-485c-a2b6-5d3ab9663dac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T23:18:00.404242+00:00" -->
+#### Claude
+I'll start by reading the ticket body to ground both pieces of work in the existing decided language.
+
+Now let me survey the code that both halves touch.
+
+Now the `<img>` sink and the background rendition logic:
+
+Now the Worker side — the sizer adapter, the publish route, and `image-edit.ts`:
+
+Now the front-end and route side:
+
+Now the toolbar's `publishAction` and the SSE plumbing:
+
+Now the publish route and `publishSite`:
+
+The ticket explicitly asks that I confirm the platform ceiling before fixing the concurrency/budget numbers. Let me do that first.
+
+Platform ceiling confirmed — that answers the ticket's explicit "verify before building" item:
+
+- **Paid plan: 10,000 subrequests per invocation** (default since Feb 2026, raisable to 10M via wrangler `limits`). Free plan: 50 external + 1,000 to Cloudflare services.
+- **R2/KV/D1 bindings *do* count** — "any request a Worker makes using the Fetch API or to Cloudflare services like R2, KV, or D1."
+- **Whether an Images transform counts is undocumented.** No limits on transforms-per-request, no concurrency limit. `.info()` is explicitly free.
+
+So two formats is comfortable, not marginal — the guard bites around 150+ pictures, not 30. Cutting the branch:
+
+Good, node_modules present. Now let me read the existing UATs to match their style and see exactly what they assert about the bare `<img>`:
+
+Design is settled. Writing the framework's delivery vocabulary first — formats and the typed-source ordering:
+
+Now the renderer port — a target format and the "do I already hold this" predicate:
+
+Now `image-edit.ts` — honour the target format, and give the cache decorator its `held` predicate:
+
+Now the cache decorator gains `held`, sharing one key derivation with `render`:
+
+Now the ladder itself — the latency work. Rewriting `ladder.ts`'s build as plan → budget → bounded-concurrency execute, with alternative formats:
+
+Now the build function itself — plan, budget, then bounded-concurrency execution:
+
+Now replacing the sequential build with the planned, budgeted, bounded-concurrency one:
+
+Pre-existing generated-module errors only; none in my files. Now the Worker adapter:
+
+Now `publish.ts` — pass progress through, and let the budget refusal reach the route:
+
+Now the renderer — `<picture>` with typed sources. First the source-list helper next to `srcsetAttr`:
+
+Now the `<img>` sink itself — wrapping in `<picture>` only when there's a typed source to offer:
+
+Now the route — the streaming publish form. Let me check the existing SSE route shape I'll model on:
+
+Now the streaming publish route. Let me rewrite the publish route to branch on `Accept`:
+
+That call signature is muddled — let me simplify it to one executor plus the answer mapper:
+
+Now `streamPublish` itself. Let me add it next to the other SSE helpers:
+
+Clean. Now the client side — the SSE parser extraction and `streamPublish`:
+
+Now the builder lock, message and bar in `app.js`. First let me see how `blockTabs` targets, and the CSS:
+
+Now the publish block in `app.js`:
+
+Now wire it into the publish seam so `publishAction` stays a transport:
+
+Now `main.js` uses the streaming form, and the CSS:
+
+Now let me run the existing REQ-222 suites to see what the change did:
+
+All three failures are exactly the typed-source retrofit the ticket predicted — tests asserting the source-format ladder now see the WebP one too. Let me look at them:
+
+The fake needs to distinguish the two ladders. Let me sharpen it rather than loosen the assertions:
+
+All 45 pass. Now the workers suite:
+
+Generated modules aren't built in this fresh worktree. Let me build them:
+
+Generated files are gitignored build artifacts; copying them from the main worktree (which has them):
+
+Two mechanical breaks: `srcsetOf` grabs the first `srcset` (now the WebP `<source>`'s), and the cache key gained a format segment. Let me look at the rest:
+
+Both are mechanical — `srcsetOf` must name which ladder it reads, and `cacheKeyFor` must carry the format:
+
+All 9 pass — and the real Images binding is encoding WebP. Now let me record in the ticket what the code settles beyond the existing prose, before writing UATs against it:
+
+Body updated and preserved. Now the UATs — tracing to that language. First the node-side suite:
+
+67 pass. Now the workers-side UATs — the real binding actually producing WebP, the budget, and the SSE contract:
+
+Now the workers UATs:
+
+Test cross-contamination: `picture(1000, 500)` shares cache keys with the sentinel test. Distinct dimensions:
+
+Now the route's streaming form and the builder lock. Let me find the existing patterns:
+
+Good pattern. Now writing the builder-lock UATs:
+
+That's a real defect surfaced, not a test artifact: a failed publish produces only an unhandled rejection — the client is told nothing. The body already requires the client to *treat* a failure as a failure, so it must be surfaced:
+
+The unhandled rejection is gone. Now a UAT for the failure report:
+
+Now the route's SSE contract, in workerd:
+
+Better than expected — the non-existent site *does* exercise the terminal-failure path. Let me fix both assertions to test what actually happens:
+
+Now the client-side contract — a stream that ends without a verdict:
+
+15 pass. Now the regression scope — everything touching what I changed:
+
+Running. Meanwhile, let me add the body language for the failure-reporting the code settled after I wrote that section:
+
+While those run, let me review my own diff for issues:
+
+One redundancy in my own diff — two overlapping lookups for the stale banner. Simplifying:
+
+While they run, let me review the ladder diff for correctness:
+
+Two corrections in my own arithmetic: the `held` phase adds a fifth subrequest per rendition, and duplicate progress frames are noise. Fixing both:
+
+Workers: 809/809 clean. Let me check the 11 node failures:
+
+Baseline is 2 failures on those files, so some of the 11 are mine. Let me isolate:
+
+One genuine regression — REQ-115's publish-button test. Let me look:
+
+That's the seam gaining its progress observer — the claim survives, the arity assertion has to state it:
+
+Now let me confirm the two remaining failures are pre-existing baseline, then re-sweep:
+
+Both pre-existing, identical without my changes. Full re-sweep:
+
+While those run, let me typecheck everything and re-read the key new logic:
+
+Typechecks clean in every file I touched. Let me re-read the rewritten build for correctness:
+
+One edge case worth closing — a non-integer source width can duplicate a rung:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
