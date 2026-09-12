@@ -13,6 +13,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-44a1d9ad
 ---
 
 # Session renewal and mid-session denial — the start of a conversation
