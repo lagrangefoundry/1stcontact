@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:53:50.624499+00:00'
+updated_at: '2026-09-12T20:58:41.933415+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -617,5 +617,15 @@ The proposed fix is ordered by value per unit of work — (1) move the status ch
 I also noted your `report create` kind gotcha as related — same shape, a type-specific field handled non-uniformly across create paths.
 
 One correction to my earlier message: I said two IDs were burned "by the failed attempts," which was right, but I then ran further probes to write this ticket. Those didn't burn anything — `todo`, `doc`, `goal`, `decision`, `capability`, `story` and `sprint` all failed on required-field or type checks that run *before* allocation. No junk tickets were created; I verified against the ticket store and git log.
+
+<!-- xgd-turn id="49e84973-1e9f-4fee-ba1f-5b529ec1809c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:58:41.785223+00:00" -->
+#### You
+**It's account-scoped under a business-scoped strip.** `DOC-40` §2 is explicit — *"Account — the payer, and ****not a tenant of its own****. <-- why do tabs need to be business scoped? A non-business scoped tab appears the same regardless of the business*
+
+*Ah no you are missing the point - there are two control surfaces required - one for the site owner which is exactly per-business - and one for the customer which is account scoped. I need a control surface in first contact to set up pricing, cadences, special offers and review state. The customer needs a billing and payments area for them to pay me. But the system has two levels - the 1st level users are site owners who need the billing tab to charge their customers (2nd level users), right?*
+
+**"Payments" is overloaded.** `DOC-40` §2 gives *payments* to the business — meaning their customers paying *them*. EPIC-9 is the account paying *us*. <-- NO Epic 9 is the whole system both sides are needed
 
 <!-- xgd-chat-end -->
