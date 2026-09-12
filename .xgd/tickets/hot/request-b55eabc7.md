@@ -6,17 +6,21 @@ title: Adopt rolling session credentials — send the rotated cookie, migrate th
   table
 created_by: REQ-151
 created_at: '2026-09-12T20:12:43.372086+00:00'
-updated_at: '2026-09-12T21:10:57.145435+00:00'
+updated_at: '2026-09-12T21:14:18.594848+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e883f22d
+  commits:
+  - working_sha: 475f47248a9f741ee89deff17ff29837a0c1cd46
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.178
 ---
-
 
 # Adopt rolling session credentials — send the rotated cookie, migrate the sessions table
 
