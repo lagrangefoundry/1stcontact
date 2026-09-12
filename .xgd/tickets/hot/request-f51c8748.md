@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-12T23:13:14.197771+00:00'
+updated_at: '2026-09-12T23:14:56.014009+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -39,6 +39,7 @@ fields:
   version: 0.2.165
   story_points: 8
 ---
+
 
 
 
@@ -754,12 +755,22 @@ fixed. Checked against current documentation, 2026-09-12:
   which is the conservative direction.
 
 **Which answers the question the section above said this number decides: two
-formats is comfortable, not marginal.** At four subrequests per rendition worst
-case, the budget admits about 2,000 renditions — roughly 150 full-ladder
-photographs, several times the 20–40 a photo-heavy small-business site holds. The
-guard is real and distant, which is the right shape for a guard: no ordinary
-client meets it, and a site that does is one a single request genuinely cannot
-carry.
+formats is comfortable, not marginal.** Per rendition, worst case, a publish
+spends five subrequests: the `held` read that gives the progress bar a real
+denominator, `resize`'s own cache read, the transform, the cache write, and the
+revision write. **The first of those is the price of the bar** — one read paid to
+be able to say *this will take a minute* rather than leaving the client watching a
+spinner; removing it would mean either caching the answer, which is state the
+ladder deliberately does not hold, or a denominator that lies on every republish.
+
+So the cap is **1,200 renditions — 6,000 subrequests**, leaving real headroom for
+the store reads, the page writes, the D1 writes and the revision the publish also
+performs. A cap sized to land exactly on 10,000 would be a cap with nothing left
+for the rest of the publish. At thirteen renditions for a full-ladder photograph
+that is roughly **90 pictures**, several times the 20–40 a photo-heavy
+small-business site holds. The guard is real and distant, which is the right shape
+for a guard: no ordinary client meets it, and a site that does is one a single
+request genuinely cannot carry.
 
 ### `<picture>`: what the shape actually is
 
@@ -863,6 +874,10 @@ leave the opposite: a partial ladder, paid for, serving nothing. The refusal
 **names the site's own facts** — how many pictures, how many renditions, the
 ceiling — because the client can act on those and cannot act on a subrequest
 budget.
+
+**A progress frame is emitted only when it moved.** A republish's total is zero,
+so every clamped completion would otherwise emit an identical frame — a stream of
+frames saying nothing, down a connection whose whole purpose is to say something.
 
 **The denominator subtracts what is already held**, through one more optional verb
 on the image renderer: *does this rendition cost anything*. It is answered by the
