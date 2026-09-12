@@ -5,10 +5,10 @@ type: request
 title: A band's backdrop gets WebP too, which means image-set() after all
 created_by: EPIC-1
 created_at: '2026-09-12T23:32:42.049163+00:00'
-updated_at: '2026-09-12T23:32:42.049163+00:00'
+updated_at: '2026-09-12T23:46:48.402208+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-34760bf1
