@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T20:38:45.391478+00:00'
+updated_at: '2026-09-12T20:39:04.895284+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -352,5 +352,39 @@ Object { slug: "unnamed", pages: (1) […], stale: 1, written: false }
 debugger eval code:15:13
 
 undefined
+
+<!-- xgd-turn id="de9ae75f-e84b-48fe-a000-bd41c1d0846f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:39:04.704337+00:00" -->
+#### Claude
+Dry run matches my audit exactly — 8 stale instances across the five sites, and the per-site counts line up (gigabytealchemy's 2 are both in `home.json`, which is why it reports 1 page / 2 stale).
+
+Go ahead with the write — same snippet, one word changed:
+
+```js
+const targets = [
+  ['biz_51a6746495c8057e886ff98d4208e6b9', '1stcontact'],
+  ['biz_51a6746495c8057e886ff98d4208e6b9', 'xgd'],
+  ['biz_51a6746495c8057e886ff98d4208e6b9', 'gigabytealchemy'],
+  ['biz_96fc32af73335ad5e315d58acc2d5c92', 'xgd'],
+  ['biz_5b101742d436573a04a2512fb7ecdbb5', 'unnamed'],
+]
+for (const [biz, slug] of targets) {
+  const r = await fetch(`/b/${biz}/api/modules/upgrade`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, write: true }),
+  })
+  console.log(biz, slug, r.status, await r.json())
+}
+```
+
+Expect the same `stale` counts with `written: true`. Re-running it afterwards is safe and should report `stale: 0` — that's the confirmation it took.
+
+Then reload a site. Two things worth checking once it renders:
+
+- The form's `action` is `./api/lead` — that's the fix itself.
+- Submitting from the draft preview now gets an acknowledgement instead of the 404. That's the original bug, end to end, and it's the one thing none of the tests can prove for your actual store.
+
+Tell me the counts and I'll verify against the D1 read-only from here.
 
 <!-- xgd-chat-end -->
