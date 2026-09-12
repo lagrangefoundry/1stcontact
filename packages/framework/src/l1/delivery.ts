@@ -77,6 +77,165 @@ export interface ImageDelivery {
    * nothing to offer has no manifest entry at all rather than a lone rung.
    */
   renditions: readonly ImageRendition[]
+  /**
+   * The SAME picture in another format, as `<source type=…>` elements, in the
+   * order they must be offered.
+   *
+   * ORDER IS THE WHOLE MECHANISM AND IS NOT COSMETIC. A browser takes the FIRST
+   * `<source>` whose `type` it supports and never looks at the rest, so this
+   * list is ordered best-first by {@link alternativeDeliveryTypes} and the
+   * renderer emits it as it is. A renderer that sorted it, filtered it or
+   * reversed it would be a second opinion about codec preference, held in the
+   * one place that cannot see which codecs a publish managed to encode.
+   *
+   * ABSENT OR EMPTY IS THE COMMON CASE, and it is not a degraded manifest: a
+   * WebP source has no better format to offer, a deployment whose binding cannot
+   * encode one produced none, and both emit exactly the bare `<img srcset>` that
+   * shipped before this existed. {@link ImageDelivery.renditions} is untouched by
+   * this field and remains the source's own format throughout — which is what
+   * keeps the `<img>` a real fallback and what keeps a `background-image`, which
+   * cannot negotiate anything, from ever being handed a format the visitor's
+   * browser may not read.
+   */
+  sources?: readonly ImageDeliverySource[]
+}
+
+/** One alternative format's whole ladder. */
+export interface ImageDeliverySource {
+  /**
+   * The media type these renditions are encoded in (`image/webp`).
+   *
+   * WRITTEN INTO A `type=` ATTRIBUTE, so the renderer checks it against
+   * {@link DELIVERY_SOURCE_TYPES} rather than escaping it and hoping. A `type`
+   * the browser cannot parse disqualifies the `<source>` silently, on every
+   * page, with nothing anywhere reporting why — the same failure mode a
+   * malformed `srcset` has.
+   */
+  type: string
+  /**
+   * Every width this picture was encoded at in {@link type}, ascending.
+   *
+   * NO FREE TOP RUNG HERE, unlike {@link ImageDelivery.renditions}. The original
+   * IS the source format, so naming it costs no transform there; in another
+   * format every rung including the source's own width had to be encoded. That
+   * is why {@link alternativeDeliveryWidthsFor} adds the source width rather
+   * than borrowing the original — a ladder that stopped below the source would
+   * hand a wide box an upscaled rendition, which is the one error this whole
+   * ticket spends bytes to avoid.
+   */
+  renditions: readonly ImageRendition[]
+}
+
+/**
+ * The one alternative format v1 offers.
+ *
+ * WEBP IS THE SAVING. Against JPEG it is roughly a quarter to a third smaller at
+ * equivalent quality, it carries alpha so a PNG keeps its transparency, and it is
+ * supported by every browser a client's visitor is realistically using.
+ *
+ * AVIF IS DELIBERATELY OUT OF v1, and the asymmetry is the argument rather than a
+ * judgement about the codec: its ADDITIONAL saving over WebP is on the order of
+ * 15–20% while its encode cost is several times WebP's — and encode cost is
+ * precisely what the publish budget is rationed by. It is the rung that most
+ * threatens the ceiling and least changes the visitor's experience. Adding it
+ * later is one more entry in {@link ImageDeliverySource}'s list; adding the
+ * `<picture>` SHAPE later would have been a rewrite of every test that asserts an
+ * `<img>`. That asymmetry is why the shape is taken now and the format later.
+ */
+export const DELIVERY_ALTERNATIVE_TYPE = 'image/webp'
+
+/**
+ * The `type` values a `<source>` may carry — an allowlist, not an escape.
+ *
+ * LAYER 2 DOES NOT TRUST LAYER 1, on the same terms as the `srcset` and `url()`
+ * sinks. A manifest arrives from a publish that read bytes out of a bucket, and a
+ * `type` is a value the browser parses rather than merely displays.
+ */
+export const DELIVERY_SOURCE_TYPES: ReadonlySet<string> = new Set([
+  'image/webp',
+  'image/avif',
+  'image/jpeg',
+  'image/png',
+])
+
+/** The media type an asset's own extension means, or null for anything else. */
+export function deliveryTypeOfExtension(extension: string): string | null {
+  switch (extension.toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    case '.avif':
+      return 'image/avif'
+    default:
+      return null
+  }
+}
+
+/** The file extension a delivery media type is written with. */
+export function deliveryExtensionOfType(type: string): string | null {
+  switch (type) {
+    case 'image/webp':
+      return '.webp'
+    case 'image/avif':
+      return '.avif'
+    case 'image/jpeg':
+      return '.jpg'
+    case 'image/png':
+      return '.png'
+    default:
+      return null
+  }
+}
+
+/**
+ * The formats a source of `sourceType` is ALSO offered in, best first.
+ *
+ * A SOURCE IS NEVER RE-OFFERED IN ITS OWN FORMAT. That is not a tidiness rule:
+ * the `<img>` fallback already carries the source-format ladder, so a `<source>`
+ * repeating it would be a byte-for-byte duplicate ladder for every visitor to
+ * choose between identically.
+ *
+ * AND AN AVIF SOURCE IS NOT OFFERED WEBP, which is the case worth stating because
+ * it looks like an omission. WebP is *larger* than AVIF at equivalent quality, so
+ * a WebP `<source>` ahead of an AVIF original would be a pessimisation the
+ * browser could not refuse — it takes the first type it supports, and it supports
+ * WebP. Offering a worse picture first is worse than offering nothing.
+ */
+export function alternativeDeliveryTypes(sourceType: string | null): string[] {
+  if (sourceType === 'image/jpeg' || sourceType === 'image/png') {
+    return [DELIVERY_ALTERNATIVE_TYPE]
+  }
+  return []
+}
+
+/**
+ * The rungs to ENCODE for an alternative format, given the source's own width.
+ *
+ * {@link deliveryWidthsFor} PLUS THE SOURCE'S OWN WIDTH — see
+ * {@link ImageDeliverySource.renditions} for why the source width is a rung here
+ * and not there.
+ *
+ * AND EMPTY WHEN THE SOURCE-FORMAT LADDER IS EMPTY, so a 300px icon gains no
+ * `<picture>` any more than it gains a `srcset`. A lone alternative rendition of
+ * a picture that already fits every box it appears in is a transform, an R2 write
+ * and a second element, in exchange for a few kilobytes on a file that is already
+ * small — and it would contradict this ticket's plainest promise, that a picture
+ * below the smallest step is served exactly as it is.
+ */
+export function alternativeDeliveryWidthsFor(sourceWidth: number): number[] {
+  const below = deliveryWidthsFor(sourceWidth)
+  if (below.length === 0) return []
+  const top = Math.round(sourceWidth)
+  // THE SOURCE WIDTH IS ADDED ONLY IF IT IS NOT ALREADY A RUNG. A fractional
+  // measurement — 640.4, from a port that does not promise integers — would round
+  // onto a conventional width that `deliveryWidthsFor` has already admitted, and
+  // the ladder would name one rendition twice: a duplicate `srcset` candidate the
+  // browser has to parse and choose between identically.
+  return below[below.length - 1] === top ? [...below] : [...below, top]
 }
 
 /**

@@ -453,8 +453,60 @@ export interface ImageRenderer {
     bytes: Uint8Array,
     mediaType: string,
     recipe: readonly EditOp[],
-    opts?: { width?: number },
+    opts?: RenderOptions,
   ): Promise<RenderedImage>
+  /**
+   * Whether this exact render is already held, so asking for it costs nothing
+   * ([[REQ-222]]).
+   *
+   * IT EXISTS SO A PUBLISH CAN STATE A REAL DENOMINATOR BEFORE IT STARTS. The
+   * builder shows a determinate bar and a sentence explaining that FIRST-TIME
+   * publication has to resize — and both are lies on a republish, where every
+   * rendition is already held and there is nothing to wait for. A client told
+   * once that a wait does not repeat, and then made to watch the same warning
+   * every time, has been taught to ignore the one case where it matters.
+   *
+   * OPTIONAL, AND ABSENCE MEANS "NOTHING IS FREE" rather than "everything is".
+   * A renderer with nowhere to keep a rendition genuinely holds none, so the
+   * truthful answer for an uncached deployment is to report all of it as work —
+   * which is what it is.
+   *
+   * ITS ARGUMENTS ARE {@link render}'s EXACTLY, so whatever derives the address
+   * derives it once. A predicate that computed a key the renderer would not have
+   * computed would answer confidently about a rendition nobody is holding.
+   */
+  held?(
+    bytes: Uint8Array,
+    mediaType: string,
+    recipe: readonly EditOp[],
+    opts?: RenderOptions,
+  ): Promise<boolean>
+}
+
+/**
+ * What a render is asked for beyond the recipe — delivery, and only delivery.
+ *
+ * NEITHER FIELD IS EVER PART OF A RECIPE. Editorial versions are what the picture
+ * *is*; delivery renditions are the same picture at several widths and in several
+ * formats, and conflating the two is how a Library ends up holding five copies of
+ * everything. In particular there is no `convert` operation and there must never
+ * be one: a codec is not a question the client is asked, and an editorial
+ * vocabulary that named one would have the assistant hand-picking formats against
+ * the delivery ladder the same way it would hand-optimise widths.
+ */
+export interface RenderOptions {
+  /** Deliver at this pixel width, scaled down only. */
+  width?: number
+  /**
+   * Encode in this media type instead of the source's own.
+   *
+   * ABSENT IS THE DEFAULT AND THE DEFAULT IS PRESERVATION — a PNG stays a PNG and
+   * keeps its transparency, a JPEG stays a JPEG. That rule is what the editorial
+   * path relies on and it is unchanged; this field is how the DELIVERY path asks
+   * for the one thing preservation cannot give it, which is a smaller codec for a
+   * visitor whose browser said it can read one.
+   */
+  type?: string
 }
 
 /** What a render produced. */

@@ -107,6 +107,16 @@ export function mountBuilder(root, options = {}) {
      */
     loadSites = null,
     sites = [],
+    /**
+     * Snapshot the draft into a revision and render it.
+     *
+     * IT TAKES A PROGRESS OBSERVER ([[REQ-222]]) because building the delivery
+     * ladder is the one step of a publish slow enough to need explaining, and the
+     * only thing that knows how far through it is, is the origin. `main.js` wires
+     * the streaming form; a host with no origin injects one that reports nothing,
+     * and a publish that reports nothing renders as a publish with nothing to
+     * resize — which is exactly what it is.
+     */
     publish = async () => {},
     storage,
     editBridge = null,
@@ -470,6 +480,52 @@ export function mountBuilder(root, options = {}) {
     removeToken: (label) => removePointToken(label),
   })
 
+  /**
+   * Publish, with the builder held still while it runs ([[REQ-222]]).
+   *
+   * IT WRAPS THE SEAM RATHER THAN CHANGING THE ACTION, and that is what keeps
+   * `publishAction` a transport: the toolbar still disables its own button, awaits
+   * one promise and re-enables in a `finally`, exactly as before. What it awaits
+   * now happens to hold a lock and draw a bar — and the action has no business
+   * knowing either, because it has no access to the shell and no opinion about
+   * what a publish costs.
+   *
+   * THE LOCK IS TAKEN FOR EVERY PUBLISH AND THE MESSAGE FOR ALMOST NONE. Locking
+   * is about the edit-during-publish question, which exists whatever the publish
+   * turns out to cost; the resizing sentence is about work, and the cache means a
+   * republish has none. So `planned` is called with whatever the publish reports
+   * it must actually build, and zero draws nothing.
+   *
+   * A HOST THAT INJECTED A PLAIN `publish` STILL WORKS. It reports no progress, so
+   * the lock is taken and released with nothing drawn between — which is the
+   * correct rendering of a publish that never said it had anything to resize.
+   */
+  const lockedPublish = async (slug) => {
+    const block = blockForPublish(shell)
+    try {
+      const result = await publish(slug, ({ total, done }) => {
+        block.planned(total)
+        block.progress(done)
+      })
+      block.release()
+      return result
+    } catch (err) {
+      // A FAILED PUBLISH IS REPORTED, AND THAT IS NOT A NICETY EITHER. A publish
+      // can now fail for reasons the client can act on — a site whose ladder is
+      // larger than one request can carry names exactly that — and it can fail
+      // after the response committed `200`, where the only verdict is in the
+      // stream's terminal frame. Treating that verdict as a failure means TELLING
+      // the client: before this, the rejection went to the console and the button
+      // simply came back, which is indistinguishable from a publish that worked.
+      block.fail(err instanceof Error ? err.message : String(err))
+      // NOT RETHROWN, deliberately. `publishAction` awaits this and re-enables its
+      // button in a `finally`; it has no catch and no surface to report on, so a
+      // rethrow here is an unhandled rejection and nothing else. The report has
+      // already happened, in the one place that has somewhere to put it.
+      return null
+    }
+  }
+
   const toolbar = createToolbar({
     panel,
     // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
@@ -482,7 +538,7 @@ export function mountBuilder(root, options = {}) {
       panelsAction(carry),
       colorsAction(openPalette),
       openInNewTabAction(),
-      publishAction(publish),
+      publishAction(lockedPublish),
     ],
   })
 
@@ -1191,6 +1247,148 @@ function blockEverything(root, shell, message) {
   shell.element.setAttribute('inert', '')
   shell.element.classList.add('builder-shell--blocked')
   return banner
+}
+
+/**
+ * What the client is told while a first publish resizes their pictures.
+ *
+ * IT EARNS ITS LENGTH BY NAMING THE CAUSE, and **"first-time" is the load-bearing
+ * word**. It is true: the content-addressed derived cache means an unchanged
+ * picture costs no transform, so the second publish of the same site is fast. A
+ * client told this once understands why the wait does not repeat, and does not
+ * learn to dread the button.
+ */
+const PUBLISH_RESIZING_MESSAGE =
+  'First-time publication of images requires resizing, which can take some time — ' +
+  'please leave this tab open.'
+
+/**
+ * Hold the builder still while a publish runs, and say why ([[REQ-222]]).
+ *
+ * THE LOCK IS NOT ONLY POLITENESS. Before this, a publish disabled the Publish
+ * button and nothing else — so a client could keep editing through a publish that
+ * takes a minute, and then hold a reasonable and untested belief about whether
+ * that edit is in the site that just went live. The honest fix is to remove the
+ * question rather than answer it: while a publish is running, there is nothing to
+ * have edited.
+ *
+ * SAME MECHANISM AS [[REQ-173]]'s BLOCK, AND DELIBERATELY NOT ITS MEANING. `inert`
+ * over a subtree is one attribute covering every surface the builder has and every
+ * surface it grows, with nothing per-panel to remember — that is what is worth
+ * reusing. What must NOT come with it is the register: REQ-173's banner says
+ * *something is broken and you cannot proceed*, and this says *something is
+ * working, please wait*. A client shown the "blocked" chrome during a successful
+ * publish has been told their site is broken at the exact moment it is going live.
+ * Hence `role="status"` rather than `alert`, its own class, and no dimming.
+ *
+ * THE BOUNDARY IS {@link blockTabs}'s AND NOT {@link blockEverything}'s, on
+ * REQ-173's own precedent: the switcher, the account, Theme and About are outside
+ * the block, because nothing there can change the draft. A publish is a fact about
+ * the draft, so it takes the draft's surfaces and leaves the person's.
+ *
+ * THE MESSAGE AND THE BAR ARRIVE LATER THAN THE LOCK, AND THAT IS THE POINT.
+ * Locking applies to every publish; the resizing sentence is true of almost none
+ * of them, because the cache makes a republish free. So the caller calls
+ * {@link PublishBlock.planned} once the publish has said how much it must
+ * actually build, and a total of zero shows nothing at all — a republish that
+ * displayed a warning about resizing would train the client to ignore the one
+ * case where it matters.
+ *
+ * @returns a handle whose `release` puts the builder back exactly as it was.
+ */
+function blockForPublish(shell) {
+  const tabs = shell.element.querySelector('.shell-tabs')
+  const panels = shell.element.querySelector('.shell-panels')
+  const content = shell.element.querySelector('.shell-content')
+
+  // A FAILURE REPORT FROM THE LAST ATTEMPT GOES NOW. It deliberately outlived its
+  // own block so the client could read it; leaving it beside a publish that is
+  // running would be the previous failure and the current attempt on screen
+  // together, which reads as the current one having already failed.
+  for (const stale of (content ?? shell.element).querySelectorAll(
+    '.builder-banner--publish-failed',
+  )) {
+    stale.remove()
+  }
+
+  tabs?.setAttribute('inert', '')
+  panels?.setAttribute('inert', '')
+  shell.element.classList.add('builder-shell--publishing')
+
+  let banner = null
+  let bar = null
+
+  return {
+    /**
+     * Say what is happening, now that the publish knows how much there is.
+     *
+     * `total` IS RENDITIONS TO BUILD, cache hits already subtracted, so zero means
+     * there is nothing to explain and nothing is drawn.
+     */
+    planned(total) {
+      if (total <= 0 || banner !== null) return
+      banner = document.createElement('div')
+      banner.className = 'builder-banner builder-banner--publishing'
+      // `status` AND NOT `alert`. This is progress, which is the precise thing
+      // `alert` is wrong for — a screen reader should be able to reach it without
+      // having the client's work interrupted to announce that it is going well.
+      banner.setAttribute('role', 'status')
+      const text = document.createElement('span')
+      text.textContent = PUBLISH_RESIZING_MESSAGE
+      // DETERMINATE, NOT A SPINNER. A spinner is the right affordance for an
+      // unknown wait of a few seconds; for a wait of minutes it is the thing that
+      // reads as a hang, which is the failure this whole banner exists to prevent.
+      // The denominator is real — the publish counted it before the first
+      // transform — so the bar is a report rather than an animation on a timer.
+      bar = document.createElement('progress')
+      bar.max = total
+      bar.value = 0
+      banner.append(text, bar)
+      // OUTSIDE THE INERT SUBTREE, on REQ-173's reasoning: a message whose text
+      // cannot be selected is a message that cannot be pasted into a support
+      // request. In the content area above the panels, which is where a person
+      // looks when the product is not responding.
+      if (content && panels) content.insertBefore(banner, panels)
+      else (content ?? shell.element).prepend(banner)
+    },
+    /** How far through. Silent until {@link planned} has drawn a bar. */
+    progress(done) {
+      if (bar) bar.value = done
+    },
+    /**
+     * Let the builder go, and say why it did not work.
+     *
+     * THE LOCK COMES OFF FIRST. Whatever went wrong, the client's draft is theirs
+     * again — a failure that left the builder inert would cost them more than the
+     * publish did.
+     *
+     * AND THIS ONE IS AN `alert`, where the progress banner is a `status`. The
+     * register follows the meaning rather than the mechanism: this is the reason
+     * something did not happen, and a screen reader should reach it without being
+     * asked. It is the same distinction [[REQ-173]]'s banner draws, arrived at
+     * from the other direction.
+     *
+     * IT SURVIVES THE RELEASE, until the next publish replaces it. A message that
+     * vanished with the lock would be a failure the client saw for one frame.
+     */
+    fail(message) {
+      this.release()
+      banner = document.createElement('div')
+      banner.className = 'builder-banner builder-banner--publish-failed'
+      banner.setAttribute('role', 'alert')
+      banner.textContent = `This site was not published. ${message}`
+      if (content && panels) content.insertBefore(banner, panels)
+      else (content ?? shell.element).prepend(banner)
+    },
+    release() {
+      tabs?.removeAttribute('inert')
+      panels?.removeAttribute('inert')
+      shell.element.classList.remove('builder-shell--publishing')
+      banner?.remove()
+      banner = null
+      bar = null
+    },
+  }
 }
 
 /**

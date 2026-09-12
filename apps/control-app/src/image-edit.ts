@@ -33,6 +33,7 @@ import {
   type ImageRenderer,
   type RecipeStore,
   type RenderedImage,
+  type RenderOptions,
 } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { ImagesLike } from './heic'
@@ -114,7 +115,16 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
     measure,
     async render(bytes, mediaType, recipe, opts): Promise<RenderedImage> {
       const source = await measure(bytes, mediaType)
-      const format = OUTPUT_FORMATS[mediaType.toLowerCase()]!
+      // [[REQ-222]] — A DELIVERY FORMAT, WHEN ONE WAS ASKED FOR. It is checked
+      // against the same table the source's own format comes out of, so an
+      // unknown target is refused here rather than handed to `output()` to fail
+      // inside a transform chain. A delivery format is NOT a recipe operation and
+      // never becomes one: see `RenderOptions`.
+      const requested = opts?.type === undefined ? undefined : OUTPUT_FORMATS[opts.type.toLowerCase()]
+      if (opts?.type !== undefined && !requested) {
+        throw new UnrenderableImageError(`${opts.type} is not a format this renderer writes.`)
+      }
+      const format = requested ?? OUTPUT_FORMATS[mediaType.toLowerCase()]!
       const compiled = compileRecipe(recipe, source)
 
       // A DELIVERY WIDTH IS NOT AN OPERATION and never joins the recipe.
@@ -124,11 +134,19 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
       // larger than the picture is a no-op rather than an enlargement.
       const deliver = opts?.width !== undefined && opts.width < compiled.width
       const scale = deliver ? opts!.width! / compiled.width : 1
+      // A RE-ENCODE IS WORK EVEN WHEN NOTHING ELSE IS ([[REQ-222]]). Asking for a
+      // JPEG's WebP at its own width has an empty recipe and no narrower width,
+      // and the short-circuit below would hand back the JPEG — labelled as the
+      // WebP the caller asked for. That is the one failure here the browser
+      // cannot recover from: a `<source type="image/webp">` whose bytes are a
+      // JPEG is a picture that does not paint at all, for every visitor whose
+      // browser reads WebP, which is nearly all of them.
+      const recode = format !== OUTPUT_FORMATS[mediaType.toLowerCase()]
 
       // NOTHING IS RENDERED FOR AN UNEDITED PICTURE. Every picture in the
       // Library is in that state today; none of them should start paying a
       // transform for a recipe they have not got.
-      if (compiled.transforms.length === 0 && !deliver) {
+      if (compiled.transforms.length === 0 && !deliver && !recode) {
         return { bytes, mediaType, width: source.width, height: source.height }
       }
 
@@ -231,17 +249,43 @@ export function r2Renditions(bucket: R2Bucket, tenantId: string): RenditionCache
  * keyspace to invalidate for something nobody is waiting on.
  */
 export function cachedRenderer(renderer: ImageRenderer, cache: RenditionCache): ImageRenderer {
+  /**
+   * The address of one render.
+   *
+   * ONE FUNCTION, TWO CALLERS ([[REQ-222]]). `held` has to ask about exactly the
+   * rendition `render` would produce, and a second derivation of this key — even
+   * a correct one — is the shape where a later change to one drifts from the
+   * other and the predicate starts answering confidently about a rendition
+   * nobody is holding. The bar in the builder would then be a bar for the wrong
+   * denominator, which is worse than no bar.
+   *
+   * THE RECIPE AS IT IS, NOT NORMALISED. Two recipes that differ only in key
+   * order are the same picture and would miss each other here — which costs one
+   * transform and is correct, where a normalisation that was subtly wrong would
+   * serve one recipe's bytes for another's.
+   *
+   * THE FORMAT IS IN THE KEY. Two renders of one picture at one width in two
+   * codecs are two different files, and a key that omitted the format would
+   * serve whichever of them was encoded first for both.
+   */
+  const addressOf = async (
+    bytes: Uint8Array,
+    recipe: readonly EditOp[],
+    opts?: RenderOptions,
+  ): Promise<string> =>
+    sha256(
+      new TextEncoder().encode(
+        `${await sha256(bytes)}\n${JSON.stringify(recipe)}\n${opts?.width ?? ''}\n${opts?.type ?? ''}`,
+      ),
+    )
+
   return {
     measure: renderer.measure,
+    async held(bytes, _mediaType, recipe, opts): Promise<boolean> {
+      return (await cache.get(await addressOf(bytes, recipe, opts))) !== null
+    },
     async render(bytes, mediaType, recipe, opts): Promise<RenderedImage> {
-      const source = await sha256(bytes)
-      // THE RECIPE AS IT IS, NOT NORMALISED. Two recipes that differ only in key
-      // order are the same picture and would miss each other here — which costs
-      // one transform and is correct, where a normalisation that was subtly
-      // wrong would serve one recipe's bytes for another's.
-      const key = await sha256(
-        new TextEncoder().encode(`${source}\n${JSON.stringify(recipe)}\n${opts?.width ?? ''}`),
-      )
+      const key = await addressOf(bytes, recipe, opts)
       const hit = await cache.get(key)
       if (hit) return hit
       const rendered = await renderer.render(bytes, mediaType, recipe, opts)

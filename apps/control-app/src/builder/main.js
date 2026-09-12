@@ -1,5 +1,5 @@
 import { mountBuilder } from './app.js'
-import { fetchAiStatus, fetchBusinesses, publishSite } from './api.js'
+import { fetchAiStatus, fetchBusinesses, streamPublish } from './api.js'
 import { loadOrSignOut } from './session.js'
 import { mountL1EditBridge, resolveEditTarget } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
@@ -58,7 +58,11 @@ if (loaded) {
     businesses: businesses.businesses,
     person: businesses.person,
     aiStatus,
-    publish: (slug) => publishSite(slug),
+    // [[REQ-222]] — THE STREAMING FORM, so the builder can say how far through
+    // resizing the pictures a first publish is. The non-streaming `publishSite`
+    // is still exported and still used by anything with no use for frames; this
+    // is the representation a browser wants, asked for by `Accept`.
+    publish: (slug, onProgress) => streamPublish(slug, onProgress),
     /**
      * ONE OBJECT, because these are one contract: every module in it is served
      * from `packages/` (and, for the measuring script, from the one place the

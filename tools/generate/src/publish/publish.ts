@@ -1,5 +1,5 @@
 import { renderSiteFiles } from '../render/render'
-import { EMPTY_LADDER, type ImageLadder } from './ladder'
+import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './ladder'
 import { InvalidDefinitionError } from '../cli/errors'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 import type { ChangeSet, RevisionEntry, StoredSnapshot } from '../store/revision-model'
@@ -79,6 +79,23 @@ export interface PublishOptions {
    * does not, and neither of them tests for the other.
    */
   ladder?: ImageLadder
+  /**
+   * Told how far through building the ladder this publish is ([[REQ-222]]).
+   *
+   * PROGRESS IS A PROPERTY OF THE ROUTE, NOT OF THE PUBLISH — the same line this
+   * ticket already draws around the ladder itself. `POST /api/publish` supplies a
+   * reporter because it has a stream to write frames into; `1c publish` has a
+   * terminal and no use for frames, and supplies none. So there is one
+   * implementation and no branch inside it, and the CLI is byte-identical to
+   * before.
+   *
+   * IT IS THE LADDER'S PROGRESS AND NOT THE PUBLISH'S, deliberately. Every other
+   * step here is a handful of store calls; the ladder is the one that decodes and
+   * re-encodes every picture on the site, and it is the only reason a publish ever
+   * takes long enough to need explaining. Reporting the cheap steps too would
+   * dilute the one number the client is waiting on.
+   */
+  onLadderProgress?: LadderProgressReporter
 }
 
 /**
@@ -149,6 +166,13 @@ export async function revisionHistory(
  * picture on the site — so it must sit after the no-op check, which is the
  * common case. It must sit BEFORE the render, because the render is what writes
  * the manifest into each `<img>`.
+ *
+ * WHICH ALSO PUTS THE LADDER'S OWN REFUSAL INSIDE RULE 1's PROMISE. A site whose
+ * projected renditions exceed what one request can carry throws before a single
+ * rendition is written, and that is upstream of `writeRevision` — so an
+ * over-budget publish leaves no revision, no history entry and no bytes, exactly
+ * as an invalid draft does. A publish that died halfway would leave the opposite:
+ * a partial ladder, paid for, serving nothing.
  */
 export async function publishSite(
   store: SiteStore,
@@ -172,7 +196,9 @@ export async function publishSite(
   // The delivery renditions, and then the pages that name them. The manifest is
   // a record of what was actually built, so a `srcset` can only ever name bytes
   // this same call is about to write.
-  const ladder = opts.ladder ? await opts.ladder.build(draft.assets) : EMPTY_LADDER
+  const ladder = opts.ladder
+    ? await opts.ladder.build(draft.assets, { onProgress: opts.onLadderProgress })
+    : EMPTY_LADDER
   const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
   const entry: RevisionEntry = {
     id: nextRevisionOf(history),

@@ -18,7 +18,10 @@ import {
 } from './portal'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
-import type { ImageLadder } from '../../../tools/generate/src/publish/ladder'
+import type {
+  ImageLadder,
+  LadderProgressReporter,
+} from '../../../tools/generate/src/publish/ladder'
 import { ladderFor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import { publicSiteUrl } from './public-url'
@@ -2529,27 +2532,51 @@ async function routeUncached(
       if (typeof body.slug !== 'string' || body.slug === '') {
         return json(400, { error: 'slug is required' })
       }
+      const slug = body.slug
       const store = await openStore()
       // [[REQ-222]] — the delivery ladder, built here in the Worker and nowhere
       // else. `publishSite` sequences it like every other step; what this line
       // decides is only whether this DEPLOYMENT can build one.
       const scope = requireScope()
       const ladder = (deps.ladder ?? ladderFor)(env, scope) ?? undefined
-      const result = await publishSite(store, body.slug, {
-        message: typeof body.message === 'string' ? body.message : undefined,
-        ladder,
-      })
-      // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
-      // address; the slug is what this business calls the site and means nothing
-      // outside it. Asked of the store rather than assembled here, because the
-      // store's lookup is the one that is scoped to this business.
-      const siteKey = await store.siteKey(body.slug)
-      return json(200, {
-        id: result.id,
-        changes: result.changes,
-        published: result.published,
-        url: siteKey === null ? null : publicSiteUrl(siteKey),
-      })
+      const message = typeof body.message === 'string' ? body.message : undefined
+
+      /**
+       * What the client is told when it worked — the same value in both forms.
+       *
+       * ONE FUNCTION SO THE TWO FORMS CANNOT DISAGREE about what a publish
+       * answered. The streaming form's terminal frame carries exactly the JSON
+       * form's body, which is what lets the builder treat the two as one call.
+       */
+      const answer = async (result: Awaited<ReturnType<typeof publishSite>>) => {
+        // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
+        // address; the slug is what this business calls the site and means nothing
+        // outside it. Asked of the store rather than assembled here, because the
+        // store's lookup is the one that is scoped to this business.
+        const siteKey = await store.siteKey(slug)
+        return {
+          id: result.id,
+          changes: result.changes,
+          published: result.published,
+          url: siteKey === null ? null : publicSiteUrl(siteKey),
+        }
+      }
+
+      // [[REQ-222]] — THE STREAMING FORM, ASKED FOR BY `Accept` AND NOTHING ELSE.
+      // It is the HTTP-native way to ask for a different representation of the
+      // same resource, so every existing caller — `1c`, a UAT, anything that
+      // posts and reads JSON — is untouched and continues to get the envelope it
+      // always got. A body flag would have been a second vocabulary for something
+      // the protocol already has a word for.
+      if ((request.headers.get('accept') ?? '').includes('text/event-stream')) {
+        return streamPublish(
+          (onLadderProgress) => publishSite(store, slug, { message, ladder, onLadderProgress }),
+          answer,
+          scrub,
+        )
+      }
+
+      return json(200, await answer(await publishSite(store, slug, { message, ladder })))
     }
 
     /**
@@ -3993,6 +4020,101 @@ function streamContactChanges(
       'x-content-type-options': 'nosniff',
       // A change feed a proxy answered from cache would be a pane watching a
       // recording of a list that has moved on.
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+/**
+ * A publish, as the `data: {json}` frames the builder consumes ([[REQ-222]]).
+ *
+ * WHY A PUBLISH STREAMS AT ALL. Building the ladder decodes and re-encodes every
+ * picture on the site, which on a photo-heavy site's FIRST publish is minutes.
+ * A toolbar button that goes quiet for a minute reads as a hang, and a client who
+ * reloads mid-publish is a client who has learned not to trust the button. The
+ * budget for this work is explicitly *minutes with explanation*, so the
+ * explanation is part of the deliverable rather than a nicety.
+ *
+ * THE SAME FRAMING AS EVERY OTHER SSE ROUTE HERE — `data:` then a blank line —
+ * because `api.js` has one split-on-blank-line parser and a fourth caller of it
+ * is not a new transport. A second frame shape would be a second parser to keep
+ * in step for no gain.
+ *
+ * THE ONE REAL DESIGN COST, NAMED: A FAILURE AFTER THE HEADERS ARE SENT. The
+ * response has already committed `200` by the time the first rendition is built,
+ * so a publish that fails midway cannot report itself as an HTTP status. Hence:
+ *
+ *   - the TERMINAL frame distinguishes success from failure explicitly, in the
+ *     frame rather than in the status. `{kind:'done', ok:true, …}` carries exactly
+ *     what the JSON form's body carries; `{kind:'done', ok:false, error}` carries
+ *     the sentence;
+ *   - and the CLIENT must read a stream that ends WITHOUT a terminal frame as a
+ *     failure. A dropped connection rendering as a completed publish is the worst
+ *     outcome available here — the client would believe a site is live that is
+ *     not — so the contract is stated on both sides and tested on both.
+ *
+ * THE ERROR SENTENCE GOES THROUGH `scrub`, like every other error this router
+ * emits. An over-budget ladder is written for the client and names only the
+ * site's own facts, but it reaches here as an ordinary `Error` and must not be the
+ * one place a message escapes the scrubber.
+ */
+function streamPublish<T>(
+  run: (onLadderProgress: LadderProgressReporter) => Promise<T>,
+  answer: (result: T) => Promise<unknown>,
+  scrub: (message: string) => string,
+): Response {
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      /**
+       * One frame, or nothing if the client has gone.
+       *
+       * SWALLOWED RATHER THAN THROWN, because a client that closed the tab is an
+       * ordinary way for a publish to be watched and not an ordinary way for one
+       * to fail. The publish itself is already past the point where it could be
+       * abandoned — every rendition it built is in the cache and the revision it
+       * writes is the revision it would have written — so there is nothing to
+       * report and nobody to report it to.
+       */
+      const write = (frame: unknown): void => {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(frame)}\n\n`))
+        } catch {
+          // The client left. See above.
+        }
+      }
+
+      try {
+        // THE PLAN FRAME IS THE FIRST THING THE LADDER SAYS, and the builder's
+        // whole decision rests on it: a total of zero means there is nothing to
+        // resize, so nothing about resizing is shown. That is why this is the
+        // ladder's own progress rather than a step count invented here — only the
+        // ladder knows what the cache already holds.
+        const result = await run((progress) => write({ kind: 'progress', ...progress }))
+        write({ kind: 'done', ok: true, ...((await answer(result)) as object) })
+      } catch (err) {
+        write({
+          kind: 'done',
+          ok: false,
+          error: scrub(err instanceof Error ? err.message : String(err)),
+        })
+      } finally {
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client; closing it twice is not a failure.
+        }
+      }
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+      // A publish a proxy answered from cache would be a button that reported
+      // the last publish's outcome for this one.
       'cache-control': 'no-store',
     },
   })
