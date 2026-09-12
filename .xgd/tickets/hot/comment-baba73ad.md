@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:40:32.667864+00:00'
+updated_at: '2026-09-12T22:49:59.482542+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1055,5 +1055,11 @@ But `image-set()` with `type()` is the **only** way CSS negotiates format. So th
 ## One housekeeping note
 
 The body's *"Open — raised with the operator, not answered here"* section still says **"do not start on the background-image or `<picture>` work before those come back."** I appended a correction yesterday, but if the session reads top-down it will hit the prohibition first. Worth one line in your ask: that instruction is stale, all three came back, and two of them are the job.
+
+<!-- xgd-turn id="2485fbc6-e971-4e0f-8263-80ea9cb5e65b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:49:59.405396+00:00" -->
+#### You
+**There are two sinks, and the decision only names one.** I don't understand this paragraph. please give more context and fewer details.
 
 <!-- xgd-chat-end -->
