@@ -16,6 +16,7 @@ fields:
   needs_review: false
   depends_on:
   - REQ-222
+  chat_comment: comment-d70ad543
 ---
 
 ## The gap
