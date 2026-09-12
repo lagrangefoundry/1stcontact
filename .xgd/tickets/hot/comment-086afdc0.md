@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T19:13:11.123300+00:00'
+updated_at: '2026-09-12T19:43:13.141307+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -113,5 +113,43 @@ One judgment call I'd like your steer on before I cut the branch: **should the t
 So in my mind the module should be self-contained, it should be automatically provisioned by the system with the correct URLs etc. etc. The AI has freedom to style and arrange it with any look but it should not need to set up its functionality.
 
 I don't know what the third-party escape hatch is? Are you suggesting we allow the form to post to other locations? Why would we do that? This is an email capture module, it is to capture emails into your site, this is not a general web form module
+
+<!-- xgd-turn id="5574f085-8387-445b-b7d2-be0d8d4c9b6b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T19:43:12.775195+00:00" -->
+#### Claude
+Agreed — I'll drop the escape hatch. I raised it because DOC-47 describes that case, but DOC-47 describes it as a workaround for an inbox that didn't exist yet. It exists now, so the field is vestigial. An email-capture module that can be pointed at someone else's server is just a hole.
+
+Let me check what removing the config key implies for stored instances.
+
+The machinery for this already exists (BUG-85's migrations). Let me scope the decision onto the ticket.
+
+node_modules is present. Now the implementation — starting with the endpoint constant.
+
+Now the meta — removing `action`, bumping to v5 with a migration.
+
+Now the component — it emits the endpoint itself.
+
+Now point `public-site` at the single definition.
+
+Let me typecheck before going further.
+
+Pre-existing lib/types noise, nothing from my change. Let me see the blast radius on existing tests.
+
+145 failed files needs a baseline before I trust it. Let me get one and classify my failures at the same time.
+
+Baseline is 9 failed files; mine is 145. The version bump orphaned every `v4` fixture in the suite — the exact BUG-85 failure. That churn is real, so let me see its shape before deciding how to absorb it.
+
+The JSON reporter is too slow. Let me fix the known fixtures and re-measure.
+
+Storage files only — my grep missed the test files' unquoted form. Let me redo those.
+
+More fixtures reference `action` without a version pin. Let me look at the semantics before bulk-editing.
+
+These assertions encode the contract being removed, so they have to move. Let me sweep the configs first.
+
+Configs are clean. Now the assertions — let me re-run and see what's left.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
