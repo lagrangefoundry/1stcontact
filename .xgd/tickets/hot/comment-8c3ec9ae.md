@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T01:01:31.965342+00:00'
+updated_at: '2026-09-12T19:09:42.352581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -260,5 +260,18 @@ So I added **`migrationsFrom`**: the oldest version a module still migrates from
 New: 35 assertions across five UATs. Full workers suite **759/759 green** (including the new route against real D1). Node suite: two failures I introduced and fixed (the origin-route probe and an unscrubbed error path caught by the REQ-146 boundary test — good catch by that test), plus `AC961`, the known dist-assets rebuild race that passes in isolation.
 
 Two pre-existing failures on `xgd-working` are untouched by this work — I confirmed both fail identically on the unmodified tree: `bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings`.
+
+<!-- xgd-turn id="28fd983f-bd2c-4de1-894e-f41b65135d7b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T19:09:41.472454+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-85` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-85`
+- branch HEAD: `efba90deab3082da7d0c81d7ac2a04b27a1694a9`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
