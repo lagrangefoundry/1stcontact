@@ -6,9 +6,9 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-11T22:46:15.066292+00:00'
+updated_at: '2026-09-12T00:06:42.244375+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -54,6 +54,25 @@ current recipe replace the bytes already at the name the site's pages reference.
 
 **This is the decision that makes the ticket safe, and it is the operator's.**
 Re-promotion must **replace bytes at an existing name**, as one operation.
+
+**The principle, in the operator's words.** *When I edit a photo, I expect the edit
+to replace the existing photo — same name, everything.* That is the whole of it,
+and it is what a user of any photo tool expects; a crop that arrives as a second
+file called `logo-2.png` is not an edit, it is a copy.
+
+**A second name would be a version mechanism on top of a version mechanism.**
+Editing is already non-destructive here: the material retains the **original bytes**
+and the **sequence of operations** that produced the current render ([[REQ-219]]'s
+recipe). Nothing is lost by overwriting, because the thing being overwritten is a
+*derived artifact* — re-derivable from the original and the recipe at any moment.
+Minting a new name to preserve the old bytes preserves nothing that is not already
+preserved, and pays for it twice: an orphan in the bucket on every commit, and a
+site whose pages still point at the stale derivation.
+
+**So naming is settled by what the name addresses.** The site asset name addresses
+*this material's picture, as currently edited* — a stable pointer, not a version.
+Versions live in the material: the original, plus the operations. One mechanism,
+in one place.
 
 **Why not delete and re-add.** Between the two there is a window in which the
 site's pages reference an asset that does not exist — a broken picture on the
