@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:51:43.322722+00:00'
+updated_at: '2026-09-12T20:53:50.624499+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -579,5 +579,43 @@ Your other two epics both survive the same test: monitoring is business-scoped b
 <!-- xgd-chat role="user" ts="2026-09-12T20:51:42.181151+00:00" -->
 #### You
 Valid statuses are `draft|underway|done|ongoing` — creating with `draft`. (Two IDs got burned by the failed attempts; harmless, numbering just starts at EPIC-4.) <-- please create an xgd bug to fix the AX (AI experience) - the ticket creation AI needs to be simple to use and well documented
+
+<!-- xgd-turn id="97771593-38f7-4a7e-a4ec-64c9a63e8d4d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:53:50.234818+00:00" -->
+#### Claude
+This belongs in the xgd project rather than 1stcontact. Let me verify a few things first.
+
+Those probes revealed something worse — and created junk I need to clean up.
+
+No junk created — the last ticket file predates the probes. Let me see what those types actually did.
+
+Filed as **BUG-1387** in the `xgd` project (not 1stcontact — it's a tool defect), committed as `b5d9b6df8be`.
+
+Investigating it turned up a sharper defect than the one you saw. **Validation runs on both sides of ID allocation, inconsistently:**
+
+| Check | Runs | Burns an ID |
+|---|---|---|
+| unknown `--type` | pre-allocation | no |
+| missing required field (`todo`'s `fields.kind`) | pre-allocation | no |
+| **invalid `--status`** | **post-allocation** | **yes** |
+
+Status is validated from the same static per-type table as type is — no I/O, no dependency on the allocated id — so there's no reason it runs late. Moving that one check earlier removes the destructive property on its own, and it's much smaller than the documentation work. The system already knows it does this: there's a dedicated telemetry event called `ticket_create_id_burned`.
+
+The AX framing is that **discovery is destructive**. An agent that can't read the valid values has exactly one way to find them — trigger the error. So the tool charges an ID for a question it declines to answer.
+
+Three more things `--help` gets wrong, all verified by probing:
+
+- **Statuses are per-type and wildly uneven** — `epic` has 4, `request` has 18, `bug` has 19. Nothing says the sets differ. The single unqualified example, `ready_to_implement`, is drawn from the large set and is invalid for epics.
+- **Required per-type fields are undocumented.** `todo` requires `fields.kind`, which isn't in `--help` and whose valid values aren't discoverable. I got `user_task` by reading TODO-5's frontmatter — which only works if a ticket of that type already exists.
+- **`--help` names a type that doesn't exist.** It says *"(epic, story, task, sprint, report, comment, etc.)"* — there is no `task` type. Meanwhile the four most-used types (`request`, `bug`, `doc`, `todo`) are hidden behind "etc."
+
+There's also no way to ask: no `schema`, `describe` or `types` command anywhere in `xgd --help`.
+
+The proposed fix is ordered by value per unit of work — (1) move the status check earlier, (2) make the error self-sufficient, (3) add `xgd ticket schema --type X --json`, (4) fix the help text, (5) consider defaulting `--status` per type, since `draft` is valid for every type I checked and that would make the common invocation stop needing this knowledge at all.
+
+I also noted your `report create` kind gotcha as related — same shape, a type-specific field handled non-uniformly across create paths.
+
+One correction to my earlier message: I said two IDs were burned "by the failed attempts," which was right, but I then ran further probes to write this ticket. Those didn't burn anything — `todo`, `doc`, `goal`, `decision`, `capability`, `story` and `sprint` all failed on required-field or type checks that run *before* allocation. No junk tickets were created; I verified against the ticket store and git log.
 
 <!-- xgd-chat-end -->
