@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:23:41.364394+00:00'
+updated_at: '2026-09-12T00:24:46.928783+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -93,5 +93,11 @@ Everything else is a brochure site whose only module is `contact-form`, which BU
 Point 3 is the one that generalises: **a migration done by editing files in the repo can only ever reach the fixtures.** As long as that's how a version bump migrates data, the live stores are structurally guaranteed to be missed — and the only reason this cost one site rather than all of them is point 1. The next bump to `contact-form` hits six.
 
 That sharpens my earlier recommendation: the guard can't just check the repo fixtures, it has to walk a real `SiteStore`. Ticket updated with the analysis.
+
+<!-- xgd-turn id="bfcec88a-d388-4180-b6e5-0fd5b6e19c7b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:24:46.749822+00:00" -->
+#### You
+What is account-chrome?
 
 <!-- xgd-chat-end -->
