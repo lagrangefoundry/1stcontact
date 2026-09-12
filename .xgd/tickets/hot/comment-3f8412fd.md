@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-90
 created_by: xgd
 created_at: '2026-09-12T22:00:54.939955+00:00'
-updated_at: '2026-09-12T22:05:55.501609+00:00'
+updated_at: '2026-09-12T22:13:20.893305+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,11 @@ And the vocabulary itself: the tab is *Site*, the control inside it is *Business
 3. Should `config.businessName` stay a site-content field, or be seeded from `tenants.name` (still editable, since a site's displayed name may legitimately differ from the registered business)?
 
 I'll hold off coding until you've steered. Shall I record this diagnosis on BUG-90's body now so it survives the session?
+
+<!-- xgd-turn id="3dbf4d6c-138d-4762-8732-32f3740fef95-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:13:20.838533+00:00" -->
+#### You
+Are you SURE there is an XGD SITE in 1st Contact? I know there is an xgd screenshot but a site? Really?
 
 <!-- xgd-chat-end -->
