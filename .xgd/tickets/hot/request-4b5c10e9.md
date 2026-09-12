@@ -6,7 +6,7 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T19:29:43.358123+00:00'
+updated_at: '2026-09-12T19:30:56.606354+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -386,3 +386,27 @@ The empty-recipe short-circuit is not an optimisation — it is what keeps
 promotion's cost unchanged for the overwhelming majority of pictures, which have
 no recipe and never will. That is load-bearing for [[REQ-222]]'s publish-latency
 budget, which was costed before promotion rendered anything.
+
+
+### The `republishable` re-check §4 asked for is correctly absent
+
+§4 above asked that *"the `republishable` gate travels with the bytes"* on
+re-promotion. `republishMaterial` does not check it, and **that is right** —
+recorded here so reconciliation does not read the omission as an unbuilt
+requirement.
+
+The gate cannot be evaded, because the state §4 worried about is unreachable:
+
+- `republishable` is **derived, never accepted from a caller** — `reviseRole` is
+  the only writer, and it sets it from the role alone.
+- `reviseRole` **refuses narrowing once the bytes have landed**: `role:
+  'reference'` against a non-empty `placed_on` raises `AlreadyOnSiteError`.
+
+So a material that has placements to re-promote to is a material that was
+`republishable` at promotion and cannot since have stopped being one. A second
+check would be dead code asserting an invariant two other functions already
+hold — and the kind of dead check that later reads as the real guard.
+
+**What does still gate it** is the record itself: `placedAs` empty means nothing
+to replace and the function returns immediately, so a material that was never
+promoted cannot acquire site bytes through the recipe path.
