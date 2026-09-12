@@ -5,10 +5,10 @@ type: request
 title: Session renewal and mid-session denial — the start of a conversation
 created_by: xgd
 created_at: '2026-09-05T19:26:36.232349+00:00'
-updated_at: '2026-09-12T00:45:48.536123+00:00'
+updated_at: '2026-09-12T21:40:19.770805+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: legacy_done
 fields:
   priority: medium
   auto_merge_back: true
