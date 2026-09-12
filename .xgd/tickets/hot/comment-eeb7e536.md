@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:58:41.933415+00:00'
+updated_at: '2026-09-12T21:02:04.827558+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -627,5 +627,52 @@ One correction to my earlier message: I said two IDs were burned "by the failed 
 *Ah no you are missing the point - there are two control surfaces required - one for the site owner which is exactly per-business - and one for the customer which is account scoped. I need a control surface in first contact to set up pricing, cadences, special offers and review state. The customer needs a billing and payments area for them to pay me. But the system has two levels - the 1st level users are site owners who need the billing tab to charge their customers (2nd level users), right?*
 
 **"Payments" is overloaded.** `DOC-40` §2 gives *payments* to the business — meaning their customers paying *them*. EPIC-9 is the account paying *us*. <-- NO Epic 9 is the whole system both sides are needed
+
+<!-- xgd-turn id="49e84973-1e9f-4fee-ba1f-5b529ec1809c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T21:02:04.749369+00:00" -->
+#### Claude
+You're right, and it's a bigger correction than a naming one — let me check the recursion is written down where I think it is.
+
+I had this wrong, and `DOC-42` refines it further. Reading the key sections.
+
+`DOC-42` §1 settles it, and I scoped EPIC-9 into the exact failure mode `DOC-40` §2.1 rule 1 names. Rewriting it.
+
+Corrected. EPIC-9 rewritten, with correction notes appended to EPIC-4 and EPIC-8 where they cited the withdrawn argument.
+
+You're right, and the documents already said so more plainly than I did. `DOC-40` §2.1 rule 1 names what I built: *"A bespoke admin billing page is the failure mode: it is the same page a customer needs, and building it twice forfeits the whole of this section."* I split one capability into a platform-only half and a customer-facing half — the thing rule 1 exists to prevent.
+
+`DOC-42` §1 states your model in the product's own example: *"Bob logs in to Alice's Plumbing and reaches a User Portal: his payments to Alice… Alice logs in to 1st Contact and reaches her User Portal: her payments to 1st Contact… **Those two are the same thing.** Not analogous, not one level up — the same surface, the same code, pointed at a different business."*
+
+## The two surfaces
+
+| | Surface | Scope | Where |
+|---|---|---|---|
+| **Configure** | prices, cadences, offers, review state; what's owed to this business | business | **a tab** |
+| **Pay** | what I owe, pay it, invoices, card, delete button | account, relative to a business | **the User Portal** |
+
+Both are used at both levels. Alice sets her prices in the billing tab; Bob pays her in his Portal. 1st Contact sets *its* prices in the same tab, in the 1st Contact business; Alice pays us in her Portal — which is the Account surface already in the builder chrome, and `DOC-40` §2.1 is explicit that it *"is not a builder feature… it appears in the builder chrome because that is where a person looks for it."*
+
+On your direct question — tabs don't inherently need business scoping. REQ-179's reasoning was narrower than I made it: a surface where the switcher is present and inert reads as broken. But it's moot, because the billing tab *is* business-scoped. I misidentified the surface, not the rule.
+
+**And the deadlock I raised doesn't exist.** You don't pay in the tab, you pay in the Portal, and `DOC-42` §5 makes Portal access membership rather than a grant *precisely* so it can't go missing — *"the failure mode is a person who can log in but cannot reach the surface where they would fix anything."* So `blockTabs` blocking the billing tab on lapse is correct behaviour. The architecture had already answered it.
+
+## What this actually changes: Stripe Connect
+
+Alice charging Bob isn't us taking a payment — it's us facilitating a payment between two third parties. That's **Connect**, not plain Stripe, and it's the biggest fact in the epic now:
+
+- **Every business that charges anyone needs its own connected account**, verified before it can take a penny.
+- **That verification is KYC — regulatory, not a form we can soften.** Legal identity, DOB, address, bank details, company ownership structure. Stripe can host it, but Alice still has to do it.
+- **It will be the highest-dropout step in the product.** Comparable to the nameserver paste, and worse — it asks a sole trader for photo ID before they've earned anything. It needs the same treatment EPIC-5 gives its cliff.
+- **Merchant of record decides who eats chargebacks.** Recommend direct charges with Alice as MoR, keeping us out of the flow of funds. Destination charges pull that liability onto us.
+- **Account type:** Express probably fits a sole trader; Standard is defensible; Custom should be ruled out now rather than considered later.
+
+One consequence of your recursion worth flagging: **the 1st Contact business holds a connected account like every other business.** If charging Alice used the platform account directly, the code would need a predicate meaning "is this our own tenant" — which is exactly `DOC-42` §3's falsifier. It also works arithmetically without a branch: the platform fee on a 1st Contact charge is simply the whole of it.
+
+## Two things I need from you
+
+**"Review state" — what's being reviewed?** I've read it as an approval step before a charge goes out (Alice approves an invoice before Bob is billed). It could equally mean customer reviews and testimonials, which is a different feature. One sentence and I'll scope it right.
+
+**EPIC-9 is now much bigger than the other five.** It holds a regulated onboarding flow, a two-sided payment system, *and* the Portal. The Portal is load-bearing for `DOC-42` §5 and `DOC-37` erasure — neither of which is about money. Worth considering splitting it out as its own epic.
 
 <!-- xgd-chat-end -->
