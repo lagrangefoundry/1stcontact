@@ -6,9 +6,9 @@ title: A capture-mirrored picture can reach a site's assets with no catalogue ti
   and no rights record
 created_by: BUG-80
 created_at: '2026-09-11T22:27:15.822174+00:00'
-updated_at: '2026-09-12T00:12:10.832573+00:00'
+updated_at: '2026-09-12T00:13:01.377239+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -144,3 +144,98 @@ would be worth closing even if the catalogue were never unified.
 - BUG-45 — made promotion go *through* `editAssetAdd` rather than past it, so a
   file arriving by one door is treated like one arriving by another. This is the
   same argument, at a door that has no gate at all.
+
+
+---
+
+## Scope settled, 2026-09-11 (implementation)
+
+The three scoping questions above are answered as follows.
+
+**The seed/push door is gated, not made to mint tickets.** Minting a `material`
+ticket per seeded asset is REQ-228's shape decision — it is the one that has to
+cover fonts, stylesheets and build output too, and the ticket says so. More to
+the point, minting a ticket for a capture-mirrored picture would *record* the
+infringement rather than prevent it: there is no `rights` block that makes a
+third party's photograph publishable on a client's domain, so the only honest
+entry is one that refuses. This ticket therefore takes its own narrower framing:
+**a capture-mirrored asset must not reach a site's assets without passing the
+same gate promotion passes.** REQ-228's invariant is still served — after this,
+the door either writes bytes that some record can account for, or writes nothing.
+
+**`AlchemistLabWithTech.png` is the test case, and is left where it is.** The
+local reproduction under `storage/sites/gigabytealchemy/draft/` is what `1c
+repro` exists to produce and what the fidelity loop reads; deleting its mirrored
+assets would break the framework-growth loop rather than close a hole. The
+refusal is at the push door, so the reproduction keeps rendering locally and
+stops being publishable. Measured against the real corpus, the rule is exactly
+discriminating: all five of that draft's assets are byte-identical to members of
+`storage/references/gigabytealchemy.ai/index/assets/`, and none of the nine
+assets under `storage/sites/xgd/draft/assets/` matches anything in any bundle.
+
+**Whether a capture bundle's members become catalogue items in their own right
+is REQ-228's**, and nothing here decides it.
+
+## The rule
+
+> Bytes this system mirrored from a captured page may not enter a site's assets.
+
+**Identity is the sha256 of the bytes.** The copy into
+`storage/sites/<slug>/draft/assets/` destroys every other link back to the
+capture — the file arrives under its own basename in a directory that records
+nothing — so the content hash is the only evidence that survives it. That is
+also why the gate reads bytes rather than provenance: a path-based or
+name-based test would be defeated by the rename the copy already performs.
+
+**Every mirrored subresource counts, not only pictures.** The scan is the
+bundle's `assets/` prefix, which is where the capture pipeline puts every
+subresource it mirrored. A third party's stylesheet or licensed webfont
+republished on a client's domain is the same act as their photograph, and a
+type test would be one more thing to get wrong. The bundle's own derived and
+observed members (`multistate.json`, the screenshot ladder, `rendered.html`)
+are deliberately **not** scanned: they run to tens of megabytes, nothing copies
+them into a draft, and reading them on every import would put a Worker's limits
+between the operator and their push.
+
+**The refusal is hard and has no override.** `NotRepublishableError` has none
+either, for the same reason: an escape hatch on a rights gate is the gate not
+existing. `--force` remains what it has always been — BUG-51's answer to
+replacing builder changes — and does not reach this.
+
+## Where it is enforced
+
+Both halves of the one door, because each half holds different evidence and
+neither alone is sufficient.
+
+1. **`1c push` (Node).** Checked against the operator's own
+   `storage/references/` bundles, before anything crosses the wire. **This is
+   the half that catches the reported instance**: the gigabytealchemy capture
+   was taken on the operator's disk and was never adopted into any tenant's
+   cloud store, so a Worker-side check alone would have found nothing to match
+   and let it through.
+2. **`POST /api/import` (the Worker).** Checked against the tenant's R2
+   reference store, which is where a capture taken in the cloud lives. The
+   Worker is the writer, and a rule only the client enforces is not a rule: a
+   request posted by hand must be refused by the same rule that refuses the CLI.
+
+One predicate, two call sites, two adapters of the one `ReferenceStore` port.
+
+## What must not change
+
+- A push carrying no assets, or a tenant holding no captures, is unaffected —
+  there is nothing to match against and no extra work is done.
+- A deployment with no `BLOBS` binding has nowhere for captures to live, so the
+  import route has nothing to check and proceeds as before rather than failing.
+- The refusal names the offending asset and the bundle member it mirrors, so
+  the operator is told *which* file and *where it came from* rather than that
+  the push was refused.
+- BUG-51's 409 conflict and this refusal are different answers to different
+  questions and must stay distinguishable: the import route answers this one
+  with **403**, because the request was well formed and the rule said no.
+
+## Not in scope
+
+- `write_image` and `add_asset` — REQ-228 Half D's, named there.
+- Cataloguing fonts, stylesheets and build output — REQ-228 Half B's.
+- The `AlchemistLabWithTech.png` row already in a dev deployment's `site_assets`
+  is an operator cleanup, not a code change; the door it came through is shut.
