@@ -95,6 +95,7 @@ import {
   renderSafe,
 } from './markdown.js'
 import { mountImageEditor } from './image-editor.js'
+import { clearDetail } from './detail-pane.js'
 import { isEditablePicture } from './picture-kind.js'
 import { mountMaterialName } from './material-name.js'
 import { mountReader, readerKind } from './reader.js'
@@ -1141,6 +1142,12 @@ export function createLibraryPanel(options = {}) {
     // here rather than in the host, so every caller of `clear` gets it.
     unsubscribe()
     all = []
+    // THE OPEN MATERIAL GOES WITH THE ROWS ([[BUG-89]]). `apply` sets the items and
+    // the component holds the open detail apart from them, so a switch emptied the
+    // list and left the PREVIOUS business's material rendered beside it — the very
+    // outcome this function's own comment says it may not produce. See
+    // `clearDetail`.
+    clearDetail(listDetail)
     apply()
   }
 

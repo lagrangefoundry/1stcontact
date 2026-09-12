@@ -83,6 +83,7 @@ import {
   stageOf,
 } from './people-axes.js'
 import { eventLabel } from './contact-events.js'
+import { clearDetail } from './detail-pane.js'
 import {
   addContact,
   fetchInviteDraft,
@@ -1714,6 +1715,12 @@ export function createPeoplePanel(options = {}) {
     invite.hidden = true
     add.hidden = true
     syncInvite()
+    // AND THE OPEN CONTACT GOES WITH THEM ([[BUG-89]]). Dropping the rows left the
+    // detail pane painting whoever was open, because the component holds it apart
+    // from the item list — so the switch emptied the list and left the PREVIOUS
+    // business's contact on screen under a switcher naming this one. See
+    // `clearDetail`.
+    clearDetail(listDetail)
     listDetail.setItems([])
   }
 
