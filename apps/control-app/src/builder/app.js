@@ -1064,11 +1064,13 @@ export function mountBuilder(root, options = {}) {
     // the one outcome a failure here may not produce.
     //
     // THE CHANGE FEED RIDES ON THIS PAIR AND NEEDS NOTHING ADDED HERE
-    // ([[REQ-201]]). `clear` closes the subscription raised under the OLD
-    // business and `refresh` opens one under the new scope, from the cursor its
-    // own read returned. That places both halves inside the panel, which is
-    // where they can be true of every caller rather than of this one — and it is
-    // why a switch remains a clear-and-re-read and never a patch.
+    // ([[REQ-201]] for the Library, [[REQ-233]] for Contacts). `clear` closes the
+    // subscription raised under the OLD business and `refresh` opens one under
+    // the new scope, from the cursor its own read returned. That places both
+    // halves inside each panel, which is where they can be true of every caller
+    // rather than of this one — and it is why a switch remains a
+    // clear-and-re-read and never a patch. Both panels do it the same way, which
+    // is what keeps this call site from growing a second shape.
     library.clear()
     await library.refresh().catch(() => {})
     people.clear()
@@ -1151,6 +1153,10 @@ export function mountBuilder(root, options = {}) {
       unwatchLibrary()
       upload.destroy()
       library.destroy()
+      // THE CONTACTS FEED GOES WITH THE APP ([[REQ-233]]). An open subscription
+      // outliving the mount is a live `EventSource` delivering into a torn-down
+      // component, and the origin polls D1 for as long as it is held open.
+      people.destroy()
       chat.destroy()
       points.destroy()
       editor?.destroy()

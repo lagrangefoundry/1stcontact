@@ -55,6 +55,10 @@ export function storeEnv(): SiteStoreEnv {
 const MIGRATIONS = [
   () => import('../../db/migrations/0001_baseline.sql?raw'),
   () => import('../../db/migrations/0002_session_rotation.sql?raw'),
+  // [[REQ-233]] — the Contacts change-feed index, applied here for the reason
+  // `0002` is: `wrangler d1 migrations apply` will run it against every database
+  // this product has, including the fresh ones the baseline already indexed.
+  () => import('../../db/migrations/0003_contact_change_cursor.sql?raw'),
 ]
 
 /**

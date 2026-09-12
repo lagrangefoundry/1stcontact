@@ -1123,3 +1123,198 @@ export async function revokeGrant(env: IdentityEnv, grantId: string): Promise<vo
  * own the business you are in, and this business's product is businesses.
  */
 export { ownsBusiness, ownsPlatformBusiness } from './identity'
+
+// ---------------------------------------------------------------------------
+// The Contacts pane's change feed ([[REQ-233]])
+// ---------------------------------------------------------------------------
+
+/**
+ * Why the cursor is `users.updated_at` and not `contact_events.recorded_at`.
+ *
+ * THE EVENT SPINE DOES NOT RECORD EVERY MUTATION, and [[DOC-44]] §4.1 is why it
+ * should not be made to. `addContact` and `markInvited` write events because
+ * they are acts with meanings; {@link setPersonStatus}, {@link setPersonRecord}
+ * and `writeName` write none, because what they change is STATE and the history
+ * of a name already lives in `user_names`. Sourcing the feed from events would
+ * therefore miss every rename and every status change — the pane would hold a
+ * stale name for a row somebody else corrected — and closing that gap by
+ * emitting `contact.renamed` would put a second representation of one fact
+ * beside the table that holds it, which is the `source`-column mistake §4.1
+ * exists to refuse.
+ *
+ * `users.updated_at` IS ALREADY THE ANSWER TO *did this person's row change*. It
+ * is stamped by every write that moves a field the pane draws — the two above,
+ * the invite, the address rewrite, the admission's `last_seen_at`, the terms
+ * acceptance, and (since [[REQ-233]]) the name — so one column covers a person
+ * assembled from four tables without the feed knowing there are four.
+ *
+ * A TIMESTAMP IS NOT A LOG POSITION, and the difference is {@link CONTACT_CHANGE_LOOKBACK_MS}.
+ */
+export interface ContactChange {
+  /**
+   * This row's position: `<updated_at>|<id>`.
+   *
+   * COMPOUND, BECAUSE A MILLISECOND HOLDS SEVERAL WRITES. A bare timestamp
+   * cursor advanced past `updated_at = T` drops the second and third row stamped
+   * at T — and a batch invite stamps every contact it touches at one instant, so
+   * that is the ordinary case rather than a race. The id breaks the tie, and
+   * neither half can contain the separator: one is an ISO instant and the other
+   * is a minted `usr_…` key.
+   */
+  seq: string
+  /** The row, exactly as {@link peopleOf} would have returned it. */
+  person: Person
+}
+
+/**
+ * How often the origin asks D1 what has changed.
+ *
+ * THE SAME CADENCE THE LIBRARY'S FEED USES, and chosen the same way: the
+ * question an operator is asking of this pane is *did that signup land*, and an
+ * answer that takes longer than a breath is one they will go and reload for —
+ * which is the behaviour this whole feature replaces.
+ */
+export const CONTACT_CHANGE_POLL_MS = 2000
+
+/**
+ * How far behind the cursor each poll actually reads from.
+ *
+ * BECAUSE THE CURSOR IS A CLOCK AND NOT A COUNTER. The ticket store's change log
+ * hands out a monotonic integer minted by the writer; `updated_at` is
+ * `new Date()` in whichever isolate did the write, and two isolates do not agree
+ * to the millisecond. Without a lookback, a row stamped very slightly BEHIND a
+ * cursor another isolate had already advanced is a contact that never appears —
+ * which is precisely the bug this feature exists to fix, reintroduced in a form
+ * nobody would find.
+ *
+ * RE-READING IS CHEAP AND RE-DELIVERING IS FREE. The window is a few seconds of
+ * one business's rows, and the pane patches by id, so a row delivered twice is
+ * the same row. The subscription still de-duplicates (see `streamContactChanges`)
+ * so the tab is not handed the same values every two seconds.
+ */
+export const CONTACT_CHANGE_LOOKBACK_MS = 5000
+
+/**
+ * The most rows one poll will carry.
+ *
+ * A DRAIN RATHER THAN A CAP. Hitting it advances the cursor to the last row
+ * delivered, so the next tick continues from there — an import of a thousand
+ * contacts arrives over a few seconds instead of as one frame the size of the
+ * business.
+ */
+export const CONTACT_CHANGE_LIMIT = 200
+
+/** The empty cursor: before every row there has ever been. */
+export const CONTACT_CHANGE_START = ''
+
+/** Compose the cursor for one row. Its shape is {@link ContactChange.seq}'s. */
+function cursorOf(updatedAt: string, id: string): string {
+  return `${updatedAt}|${id}`
+}
+
+/** Split a cursor back into its two halves. An unparseable one reads as the start. */
+function partsOf(cursor: string): { at: string; id: string } {
+  const cut = cursor.indexOf('|')
+  if (cut === -1) return { at: cursor, id: '' }
+  return { at: cursor.slice(0, cut), id: cursor.slice(cut + 1) }
+}
+
+/**
+ * Where this business's contacts currently stand, as a cursor ([[REQ-233]]).
+ *
+ * READ BEFORE THE LIST AND NEVER AFTER IT. A write landing between the head and
+ * the list is then in BOTH the page and the replay the subscription opens with —
+ * which patches a row the pane already drew, and is idempotent. The other order
+ * puts that write in neither, and the contact is invisible until a reload: the
+ * exact failure this ticket is about, moved one step earlier.
+ *
+ * AN EMPTY BUSINESS ANSWERS WITH THE EMPTY CURSOR rather than with "now". It
+ * sorts before every row that could ever be written, so the first contact a new
+ * business captures still arrives on a feed opened before it existed.
+ */
+export async function contactChangeHead(env: IdentityEnv, scope: Scope): Promise<string> {
+  const row = await env.DB.prepare(
+    'SELECT updated_at, id FROM users WHERE tenant_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1',
+  )
+    .bind(scope.businessId)
+    .first<{ updated_at: string; id: string }>()
+  return row ? cursorOf(row.updated_at, row.id) : CONTACT_CHANGE_START
+}
+
+/**
+ * Everyone in this business whose row has moved since `cursor` ([[REQ-233]]).
+ *
+ * THE CHANGE CARRIES THE ROW AND NOT A UID TO GO AND FETCH, on the Library
+ * feed's precedent ([[DOC-24]]): the pane splices in something indistinguishable
+ * from what a re-read would have given it, so there is no second row shape and
+ * no round trip per event.
+ *
+ * THE SAME PROJECTION THE LIST READ USES — {@link USER_COLUMNS} through
+ * {@link toPerson} — which is what makes that claim mechanical rather than a
+ * promise two functions have to keep separately.
+ *
+ * SCOPED BY `tenant_id`, exactly as {@link peopleOf} is. A feed is a read, and a
+ * change feed that crossed businesses would be the same leak through a new door.
+ *
+ * THERE IS NO `exit`. Nothing in this product deletes a contact — withdrawing
+ * access sets `status` and leaves the row, which the access facet shows — so a
+ * row that has entered the list never leaves it. The day erasure lands, this is
+ * where its counterpart belongs.
+ *
+ * FORMER NAMES ARE READ FOR THE CHANGED ROWS ONLY, not for the business.
+ * `formerNamesIn` is right for a list read that needs all of them once; asking
+ * it every two seconds would make an idle subscription cost a full-business scan
+ * per tick to answer "nothing happened". The trade is a query per changed row,
+ * which is one or two on an ordinary tick and up to {@link CONTACT_CHANGE_LIMIT}
+ * on the drain after a bulk invite — a rare, bounded cost paid once, against a
+ * scan paid by every open pane for ever. An `IN (…)` list would collapse it into
+ * one query and is deliberately not used: `formerNamesIn`'s own note explains why
+ * a bind-variable count is a cliff the model knows nothing about.
+ */
+export async function contactsChangedSince(
+  env: IdentityEnv,
+  scope: Scope,
+  cursor: string,
+  limit: number = CONTACT_CHANGE_LIMIT,
+): Promise<ContactChange[]> {
+  const { at, id } = partsOf(cursor)
+  // `updated_at` IS SELECTED HERE AND IS NOT ON {@link USER_COLUMNS}. It is this
+  // feed's cursor and nothing else reads it, so putting it on the shared
+  // projection would add a column to every list read to serve one caller — and
+  // it is deliberately not on {@link Person} either, because a stamp the pane
+  // could render is a stamp somebody eventually renders.
+  const { results } = await env.DB.prepare(
+    `SELECT ${USER_COLUMNS}, u.updated_at AS updated_at ${USER_SOURCE} WHERE u.tenant_id = ? ` +
+      'AND (u.updated_at > ? OR (u.updated_at = ? AND u.id > ?)) ' +
+      'ORDER BY u.updated_at ASC, u.id ASC LIMIT ?',
+  )
+    .bind(scope.businessId, at, at, id, limit)
+    .all<UserRecord & { updated_at: string }>()
+  const rows = results ?? []
+  if (rows.length === 0) return []
+  const formerly = new Map<string, string[]>()
+  for (const row of rows) formerly.set(row.id, await formerNamesOf(env, row.id))
+  return rows.map((row) => ({
+    seq: cursorOf(row.updated_at, row.id),
+    person: toPerson(row, formerly.get(row.id) ?? []),
+  }))
+}
+
+/**
+ * Wind a cursor back by the lookback window ([[REQ-233]]).
+ *
+ * THE WHOLE OF THE CLOCK-SKEW DEFENCE, and it is deliberately this small: the
+ * cursor is an instant, so reading from slightly earlier than it is the entire
+ * mechanism. The id half is dropped because a wound-back instant has no row it
+ * belongs to.
+ *
+ * AN UNPARSEABLE OR EMPTY CURSOR WINDS BACK TO THE START, which reads
+ * everything — the honest answer for a cursor we cannot interpret, and free on a
+ * business that has no rows before it.
+ */
+export function windBack(cursor: string, ms: number = CONTACT_CHANGE_LOOKBACK_MS): string {
+  const { at } = partsOf(cursor)
+  const t = Date.parse(at)
+  if (!Number.isFinite(t)) return CONTACT_CHANGE_START
+  return new Date(t - ms).toISOString()
+}

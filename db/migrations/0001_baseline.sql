@@ -506,6 +506,15 @@ CREATE INDEX IF NOT EXISTS idx_user_emails_user ON user_emails (user_id);
 -- first because every read of this table already is.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_stage ON users (tenant_id, pipeline_stage);
 
+-- REQ-233 — the Contacts pane's change cursor. The pane subscribes to *who in
+-- this business has changed since*, which is a range over `updated_at` inside one
+-- tenant, asked every couple of seconds by every open pane. Without this the same
+-- question is a scan of the business's whole contact list on every tick, which is
+-- affordable in a beta and is the wrong shape to leave in place. It also serves
+-- `contactChangeHead`'s `ORDER BY updated_at DESC LIMIT 1`, which is the read the
+-- list does before every load.
+CREATE INDEX IF NOT EXISTS idx_users_tenant_updated ON users (tenant_id, updated_at);
+
 -- A PERSON'S NAME, WHICH IS A TABLE AND EVERY PART OF WHICH IS OPTIONAL
 -- (REQ-193, CHAT-38). The product is called 1st Contact; if it cannot hold a
 -- person's name correctly it is broken at the first thing it does.

@@ -738,11 +738,69 @@ export async function saveMaterialRole(uid, role, fetchImpl = fetch) {
 // decides which site the editor is editing — the tab has no scope of its own and
 // cannot acquire one ([[DOC-42]] §7).
 
-/** Everyone in this business, contacts included, plus whether we may fulfil. */
+/**
+ * Everyone in this business, contacts included, plus whether we may fulfil.
+ *
+ * IT ALSO CARRIES `seq` ([[REQ-233]]) — the cursor the origin read BEFORE it
+ * listed, which is what {@link subscribeContacts} opens the change feed at. Read
+ * in that order, a write landing between the two is in the page and in the
+ * replay, which patches a row the pane already drew and is idempotent.
+ */
 export async function fetchPeople(fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/people'))
   if (!res.ok) throw new Error(`GET /api/people → ${res.status}`)
   return res.json()
+}
+
+/**
+ * Watch this business's contacts for changes ([[REQ-233]]).
+ *
+ * THE SAME MECHANISM AS {@link subscribeMaterial} AND FOR THE SAME REASONS —
+ * a `GET` so it can be an `EventSource`, so the browser does the reconnect and
+ * the `Last-Event-ID` resume for free; `scoped()` so the feed a tab opens is the
+ * feed for the business the prefix names; a closer and nothing else, so a
+ * business switch is close-one-open-another.
+ *
+ * `since` IS A STRING HERE AND A NUMBER THERE, and the difference is real rather
+ * than cosmetic. Material rides a change log with a monotonic counter; a contact
+ * is a `users` row whose cursor is `<updated_at>|<id>` — an instant and a tie
+ * break. Nothing on this side interprets it: it comes from `fetchPeople`'s
+ * answer and goes back out unread, which is what keeps its shape the origin's.
+ *
+ * SEEDS THE FIRST CONNECTION ONLY. `fetchPeople` returns the cursor the origin
+ * read at BEFORE it listed, so nothing that lands between the load and the
+ * subscription is missed. Every reconnect after that carries the header instead.
+ *
+ * @param {string} since the cursor `fetchPeople` returned
+ * @param {(change: object) => void} onChange one frame, already parsed
+ * @param {object} [opts]
+ * @param {typeof EventSource} [opts.EventSourceImpl] the constructor, injected
+ *   by tests — jsdom has no `EventSource`, and a suite driving this would be
+ *   asserting a polyfill rather than the contract.
+ * @returns {{close: () => void}}
+ */
+export function subscribeContacts(since, onChange, { EventSourceImpl = globalThis.EventSource } = {}) {
+  if (typeof EventSourceImpl !== 'function') {
+    // NOT AN ERROR, AND NOT SILENT EITHER. A browser without `EventSource` still
+    // gets a working Contacts pane — the one that redraws when the operator
+    // wrote, which is exactly what this tab did before REQ-233. Throwing would
+    // trade a missing improvement for a broken tab.
+    return { close: () => {} }
+  }
+  const source = new EventSourceImpl(scoped(`/api/people/changes?since=${encodeURIComponent(since)}`))
+  source.onmessage = (event) => {
+    let change
+    try {
+      change = JSON.parse(event.data)
+    } catch {
+      // A frame we cannot parse is one we cannot act on, and there is no
+      // operator-facing thing to say about it. The next one still arrives.
+      return
+    }
+    onChange(change)
+  }
+  // NO `onerror` HANDLER, deliberately — see {@link subscribeMaterial}.
+  return { close: () => source.close() }
 }
 
 /** One person, with the businesses they run and the grants they hold. */
