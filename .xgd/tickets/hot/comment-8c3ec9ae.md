@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:18:56.504303+00:00'
+updated_at: '2026-09-12T00:22:23.440334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -60,5 +60,11 @@ A breaking version bump silently orphans every stored instance on the old versio
 My recommendation is **(a) now**, with (b) filed as its own request — the guard is what turns this from "site goes dark" into "the bump fails in CI", which is the whole difference, and (b) is a design decision DOC-25 should settle rather than something to improvise inside a bug fix.
 
 Say the word and I'll cut the branch. I'll back up the D1 row before touching it.
+
+<!-- xgd-turn id="8f325965-5fb9-4bc9-8499-6b5b8bce0286-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:22:22.960336+00:00" -->
+#### You
+Why did only this site break?
 
 <!-- xgd-chat-end -->
