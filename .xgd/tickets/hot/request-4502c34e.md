@@ -5,7 +5,7 @@ type: request
 title: HEIC converts at the door, so an iPhone photograph is an ordinary image
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:10.281072+00:00'
-updated_at: '2026-09-11T22:17:17.775878+00:00'
+updated_at: '2026-09-12T22:27:41.201852+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -299,3 +299,25 @@ suite headers already say — if the plan ever changes, that is what to test fir
 this ticket's investigation named and deliberately avoided. It needs no plan
 change. It is not worth building on today's evidence: the refusal is cheap,
 honest, and teaches the client a fix that helps them everywhere else too.
+
+
+---
+
+## Correction from EPIC-1, 2026-09-12: a stale heading contradicts a later answer
+
+The heading *"The plan question is the operator's and is still open"* is **no
+longer true**, and the section that resolves it sits further down the same body:
+*"The plan question is answered: the account is not Enterprise"* — queried
+against the Cloudflare API with the deployment's own token, `"type": "standard"`,
+zero enterprise-zone quota.
+
+Recorded because this ticket is `ready_to_reconcile` and the two sections
+disagree in reading order: anyone stopping at the first heading concludes an open
+question blocks the ticket, when the answer is forty lines below it.
+
+**The answer, restated once so it cannot be missed:** HEIC input is Enterprise-
+only at Cloudflare, this account is standard, so the shipped behaviour is the
+**honest refusal** — naming the format and the *Settings → Camera → Formats →
+Most Compatible* remedy — and not the conversion. That is what the UATs pin, and
+it is correct for this deployment. The wasm decoder (libheif) remains the
+follow-on if HEIC volume ever justifies it; it needs no plan change.
