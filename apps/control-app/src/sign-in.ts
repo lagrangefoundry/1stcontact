@@ -32,7 +32,7 @@ import { ticketStoreFor, type TicketStoreEnv } from './tickets'
  *   POST /sign-in           issue a link — one frozen acknowledgement, always
  *   GET  /sign-in/<token>   the Continue page. Changes nothing; may be repeated
  *   POST /sign-in/<token>   redeem, set the cookie, and go in
- *   POST /sign-out          end this session
+ *   POST /sign-out          end this session — or, with `everywhere`, all of them
  *
  * REDEMPTION IS ON THE POST AND NEVER ON THE GET, which is the component's rule
  * and this file's reason for existing at all ([[REQ-134]]). Enterprise mail
@@ -244,6 +244,27 @@ async function redeem(request: Request, env: SignInEnv, token: string): Promise<
 }
 
 /**
+ * The form field that widens sign-out from this browser to every browser
+ * ([[REQ-231]]).
+ *
+ * A FIELD ON THIS ENDPOINT RATHER THAN A SECOND PATH, and the reason is
+ * operational rather than aesthetic. Every route here runs ahead of the Access
+ * gate and therefore needs a bypass POLICY, configured by hand in Cloudflare and
+ * recorded in ACCESS.md — a step no test in this repository can perform or
+ * verify. A new path would be complete, correct, and refused at the edge with an
+ * Access one-time-PIN page until somebody remembered; the field inherits
+ * `/sign-out`'s existing bypass and cannot be forgotten.
+ *
+ * EXPORTED SO THE CONTROL THAT SENDS IT CAN BE PINNED TO IT. `builder/config.js`
+ * is browser JavaScript and cannot import this module, so the two literals are
+ * held equal by a UAT rather than by an import — the same arrangement
+ * `SIGN_OUT_HREF` already has with {@link SIGN_OUT_PATH}, and for the same
+ * reason: a field nothing reads is a control that silently does the narrow
+ * thing.
+ */
+export const SIGN_OUT_EVERYWHERE = 'everywhere'
+
+/**
  * End this session and clear the cookie.
  *
  * BOTH HALVES, ALWAYS. Clearing the cookie without ending the row leaves a live
@@ -259,16 +280,45 @@ async function redeem(request: Request, env: SignInEnv, token: string): Promise<
  * this Worker can do about one is send its holder where the edge ends it. That
  * is the whole of {@link signOutDestination}, and it is what makes this endpoint
  * answer "sign me out" for the operator as well as for the customer.
+ *
+ * WITH `everywhere`, IT ENDS EVERY SESSION THE SUBJECT HOLDS ([[REQ-231]]).
+ *
+ * THE RESIDUAL RISK OF A LONG SIGN-IN INTERVAL IS AN ABANDONED DEVICE, and it is
+ * the one thing rotation cannot help with: rotation detects theft by CONFLICT —
+ * two parties presenting one chain — and a laptop sold with a live cookie on it
+ * has no second party to conflict with. Nothing in the system can notice that.
+ * The person can, and until now had no control to act on it: `endSessionsForSubject`
+ * existed and was reachable only by withdrawing somebody's login, which is an
+ * operator's act against them rather than their own.
+ *
+ * IT IS PER SUBJECT AND NOT PER ACCOUNT, which is what `endSessionsForSubject`
+ * takes and is the right unit anyway: the thing being revoked is a credential
+ * that names a PERSON, and a person's sessions are theirs to end wherever their
+ * businesses happen to be.
+ *
+ * A CALLER WITHOUT A LIVE SESSION GETS THE ORDINARY SIGN-OUT, silently. There is
+ * no subject to sweep and saying so would answer a question this endpoint
+ * deliberately does not answer.
  */
 async function signOut(request: Request, env: SignInEnv): Promise<Response> {
   // DECIDED BEFORE THE SESSION IS TOUCHED, so a deployment that issues no
   // sessions at all still sends an Access caller somewhere that ends theirs.
   const location = signOutDestination(request, env)
+  // READ BEFORE THE EARLY RETURN, because the body is a stream and a `return`
+  // that skipped it would leave the shape of this function depending on
+  // configuration.
+  const everywhere = await wantsEverywhere(request)
   if (!sessionsConfigured(env)) return page(303, null, { location })
   const tenantId = signInTenant(env, new URL(request.url).hostname)
   const auth = passwordlessFor(env, tenantId)
   const session = await auth.resolveFromCookie(request.headers.get('cookie'))
-  if (session) await auth.endSession(session.id)
+  if (session) {
+    // THE WIDER ACT SUBSUMES THE NARROW ONE. `endSessionsForSubject` deletes
+    // every row for the subject, this chain included, so calling both would be
+    // one DELETE that matched nothing after another that matched everything.
+    if (everywhere) await auth.endSessionsForSubject(session.subjectId)
+    else await auth.endSession(session.id)
+  }
   return new Response(null, {
     status: 303,
     headers: {
@@ -299,6 +349,35 @@ async function signOut(request: Request, env: SignInEnv): Promise<Response> {
  * of it and every caller who reached us without an edge credential. That is the
  * behaviour this endpoint had before, unchanged for the people it was right for.
  */
+/**
+ * Whether this sign-out was asked to reach every browser ([[REQ-231]]).
+ *
+ * A FORM ENCODING AND NOT JSON, because the control that posts it is a
+ * `<form method="post">` — the same no-JavaScript baseline `signOutControl`
+ * already uses, and for the same reason: a sign-out that needs script to work is
+ * a sign-out that fails in exactly the state somebody most wants to leave. JSON
+ * is read too, for a caller that is not the chrome.
+ *
+ * A BODY THAT WILL NOT PARSE IS "NO". Widening a revocation on a guess would be
+ * the wrong direction to fail in for the opposite reason to the usual one: the
+ * surprise is not a security hole, it is signing somebody out of three other
+ * machines they were working on.
+ */
+async function wantsEverywhere(request: Request): Promise<boolean> {
+  const type = (request.headers.get('content-type') ?? '').toLowerCase()
+  const body = await request.text().catch(() => '')
+  if (body === '') return false
+  if (type.includes('application/json')) {
+    try {
+      const parsed = JSON.parse(body) as Record<string, unknown>
+      return parsed[SIGN_OUT_EVERYWHERE] === true || parsed[SIGN_OUT_EVERYWHERE] === '1'
+    } catch {
+      return false
+    }
+  }
+  return new URLSearchParams(body).get(SIGN_OUT_EVERYWHERE) === '1'
+}
+
 function signOutDestination(request: Request, env: SignInEnv): string {
   if (accessTokenFrom(request) === '') return SIGN_IN_PATH
   const origin = new URL(request.url).origin

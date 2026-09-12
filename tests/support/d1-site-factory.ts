@@ -41,10 +41,21 @@ export function storeEnv(): SiteStoreEnv {
  * names. D1 cannot alter a primary key in place, so re-keying `sites` the
  * incremental way would have added eight more such rebuilds carrying data that
  * does not exist. `0001`–`0009` are one file now and the ordering problem is
- * gone with them; the list stays a list because REQ-192's seed will be the
- * second entry.
+ * gone with them; the list stays a list because there is a second entry now.
+ *
+ * AND THE SECOND ENTRY IS WHY THIS IS STILL A LIST OF FILES RATHER THAN ONE
+ * ([[REQ-231]]). `0002_session_rotation.sql` rebuilds `sessions` into the
+ * rotation shape, and it is applied here for the reason every fixture applies
+ * the real files: `wrangler d1 migrations apply` will run it against every
+ * database this product has, including the fresh ones the baseline already put
+ * in that shape. Running only the baseline here would leave the suite unable to
+ * notice a second migration that a fresh database cannot survive — which is
+ * exactly the failure mode a file of bare `ALTER TABLE ADD COLUMN` would have.
  */
-const MIGRATIONS = [() => import('../../db/migrations/0001_baseline.sql?raw')]
+const MIGRATIONS = [
+  () => import('../../db/migrations/0001_baseline.sql?raw'),
+  () => import('../../db/migrations/0002_session_rotation.sql?raw'),
+]
 
 /**
  * Split a migration into the statements D1 will be handed one at a time.

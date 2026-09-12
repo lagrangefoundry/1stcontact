@@ -84,8 +84,26 @@ describe('REQ-190 — one baseline', () => {
     // fixing something the one before had left (`0003` adding the column `0001`
     // created `tenants` without; `0006` having to follow `0005` because `0005`
     // was written against the old column names).
+    //
+    // THE CLAIM IS ONE BASELINE, NOT ONE FILE ([[REQ-231]]). This asserted a
+    // directory of exactly one entry while that was the same statement — the
+    // deployment held no data, so a schema change was an edit to a file that had
+    // never been applied. It stopped being the same statement when `sessions`
+    // acquired rows: the live database ran `0001` and will never run it again,
+    // so a change there reaches every database EXCEPT the one that matters, and
+    // a second file is the only thing that can. What must not come back is the
+    // repair chain — a baseline that is repaired by its successors rather than
+    // edited — so what is asserted is that there is one baseline, that it is
+    // first, and that everything after it is a numbered migration rather than a
+    // second attempt at declaring the schema.
     const files = fs.readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()
-    expect(files).toEqual(['0001_baseline.sql'])
+    expect(files[0]).toBe('0001_baseline.sql')
+    expect(files.filter((f) => f.includes('baseline'))).toEqual(['0001_baseline.sql'])
+    // Numbered from 0001, with no gaps: wrangler applies in name order, so a gap
+    // is a migration somebody deleted after it had run somewhere.
+    expect(files.map((f) => f.slice(0, 4))).toEqual(
+      files.map((_, i) => String(i + 1).padStart(4, '0')),
+    )
   })
 
   it('test_UAT_FC_REQ-190_tenant_id_literal', () => {

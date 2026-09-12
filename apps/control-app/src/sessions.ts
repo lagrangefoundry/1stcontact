@@ -72,16 +72,107 @@ export const SIGN_OUT_PATH = '/sign-out'
 export const SIGNIN_RATE_WINDOW_MS = 60 * 60_000
 export const SIGNIN_RATE_LIMIT = 5
 
+/**
+ * The three numbers rotation costs this deployment ([[REQ-231]], REQ-151
+ * upstream), and the one it makes affordable.
+ *
+ * ROTATION SEPARATES TWO CLOCKS THAT USED TO BE ONE OBJECT. Before it, the
+ * cookie's value WAS the session, so {@link SESSION_TTL_MS} chose two unrelated
+ * things with one number — how long a stolen cookie stays useful, and how often
+ * a person is mailed a link — and there is no value at which both are right.
+ * They are separate now: `expires_at` is the sign-in interval and nothing moves
+ * it, and the credential on the wire rolls underneath a session already live.
+ *
+ * WHICH IS WHY THE INTERVAL DOUBLES RATHER THAN THE OPPOSITE. 90 days was the
+ * component's default and was chosen against the stolen-cookie window; that
+ * window is governed by {@link SESSION_ROTATE_AFTER_MS} now, so 180 days halves
+ * the emailed links without widening anything. Two things bound it and neither
+ * is reached: the 400-day `Max-Age` cap Chrome and Safari enforce per RFC
+ * 6265bis, and the one risk that really does scale with the interval — a cookie
+ * lifted from a device its owner never uses again, which rotation cannot detect
+ * because there is no second party to conflict with. `POST /sign-out` with
+ * `everywhere` is the answer to that one, and it is why it exists.
+ */
+export const SESSION_TTL_MS = 180 * 24 * 60 * 60_000
+
+/**
+ * The CEILING on how long one credential serves a continuously active session.
+ *
+ * A CEILING AND NOT A CADENCE. Most rotations fire on the start of a visit,
+ * well before this — somebody who opens the builder each morning replaces their
+ * credential each morning. This is what bounds the other case: the tab left open
+ * for a fortnight, which never goes quiet long enough to start a visit and would
+ * otherwise carry one credential for the whole sign-in interval.
+ *
+ * A DAY, because the number this trades against is writes. Every rotation is an
+ * INSERT plus an UPDATE plus a row `purgeExpired` later reaps, and a ceiling
+ * short enough to fire on an ordinary working day's traffic would be paying that
+ * repeatedly to shorten a window the visit rotation has already shortened.
+ */
+export const SESSION_ROTATE_AFTER_MS = 24 * 60 * 60_000
+
+/**
+ * P — how close to its end a session must be for the start of a visit to be
+ * spent signing in again ([[REQ-231]]).
+ *
+ * THE PROBLEM THIS SOLVES IS NOT THE LENGTH OF THE INTERVAL, IT IS WHERE IT
+ * LANDS. `expires_at` is a wall-clock instant and nothing moves it, so it
+ * arrives whenever it arrives — which is, for somebody who uses the builder, in
+ * the middle of using the builder. Being denied access mid-session is
+ * [[ticket://lagrangefoundry/1stcontact/REQ-187]]'s unacceptable case, and a
+ * longer interval does not remove it; it only makes it rarer and therefore more
+ * surprising.
+ *
+ * SO THE DEADLINE IS MOVED TO THE ONE MOMENT IT COSTS NOTHING. `startsVisit` is
+ * true on the first request after a period of silence — somebody who has just
+ * arrived, with nothing half-finished — and a sign-in there is a redirect they
+ * were expecting to navigate through anyway.
+ *
+ * TWO WEEKS, and the bound is on the small side rather than the large one. P is
+ * also the fraction of the interval a person is asked to spend re-authenticating
+ * early, so a large P is a shorter interval wearing a different name. Two weeks
+ * out of 180 days is a little over a week of visits in which the prompt can fire
+ * before the wall does, at a cost of ~8% of the interval.
+ */
+export const SESSION_PREEMPT_MS = 14 * 24 * 60 * 60_000
+
 /** Re-exported so a route can word an outcome without importing the component. */
 export { PURPOSES, REDEEM_STATUS }
 
-/** A live session, as the component hands one back. */
+/**
+ * A live session, as the component hands one back.
+ *
+ * `id` IS THE BEARER AND NOT THE SIGN-IN ([[REQ-231]]). With rotation on the
+ * cookie's value rolls underneath a session that is already live, so the id a
+ * request arrived on is one credential in a chain rather than the identity of
+ * the sign-in. `expiresAt` is the sign-in interval and is the only thing that
+ * ends it; nothing — not activity, not rotation — ever moves it.
+ */
 export interface Session {
   id: string
   subjectId: string
   expiresAt: string
   createdAt: string
   lastSeenAt: string
+  /**
+   * This request is the first after the component's visit gap of silence.
+   *
+   * A FACT AND NOT AN INSTRUCTION. The component reports the visit and has no
+   * opinion about it; {@link expiringWithinPreemption} is this deployment's
+   * policy on top of it.
+   */
+  startsVisit?: boolean
+  /**
+   * A `Set-Cookie` THIS DEPLOYMENT IS OBLIGED TO SEND, when it is present.
+   *
+   * The server has rotated the credential. Drop this header and the browser
+   * goes on presenting the id that was just retired, which resolves for one
+   * grace window and then does not — signing
+   * everybody out on a timer, from a line of code that looks like an omission
+   * rather than a bug. {@link SignedIn} carries it out of here for exactly this
+   * reason.
+   */
+  setCookie?: string
 }
 
 /** What one redemption did. */
@@ -109,6 +200,22 @@ export interface Auth {
   cookieFor(session: { id: string; expiresAt: string }): string
   clearCookie(): string
   recentTokenCount(subjectId: string, sinceMs: number): Promise<number>
+  purgeExpired(): Promise<PurgeReport>
+}
+
+/**
+ * What one sweep took ([[REQ-231]]).
+ *
+ * THREE NUMBERS BECAUSE THEY ARE THREE FACTS. `sessions` is sign-ins that ran
+ * out; `retired` is credentials that were REPLACED and have outlived the window
+ * in which a replayed one is still evidence of theft. A rotating deployment's
+ * second number is large and its first is not, and a log line that added them
+ * together would hide the one that says whether rotation is working.
+ */
+export interface PurgeReport {
+  tokens: number
+  sessions: number
+  retired: number
 }
 
 /** The message the component hands its mail port. */
@@ -379,10 +486,20 @@ export class UnknownAddressError extends Error {
  * reached. A silent no-op there is an `issue` that reports success and mails
  * nobody, which is the failure this whole ticket exists to remove.
  *
- * THE COMPONENT'S DEFAULTS ARE NOT OVERRIDDEN. Sign-in token 30 minutes, invite
- * token 30 days, session 90 days — [[CHAT-39]] settled exactly those, and
- * restating them here would be a second copy free to drift from the one the
- * component's own tests pin.
+ * TWO OF THE COMPONENT'S DEFAULTS ARE NOW OVERRIDDEN, AND THREE ARE NOT
+ * ([[REQ-231]]). Token lifetimes are still the component's — sign-in 30 minutes,
+ * invite 30 days, [[CHAT-39]] settled exactly those — and so are `visitGapMs`,
+ * `graceMs` and `retiredRetentionMs`, which are the component's own race and
+ * evidence windows and are not this deployment's to tune. What this deployment
+ * chooses is {@link SESSION_ROTATE_AFTER_MS}, which is the OPT-IN, and
+ * {@link SESSION_TTL_MS}, which is the number rotation makes affordable.
+ *
+ * OPTING IN IS A PROMISE, NOT A SETTING. `rotateAfterMs` is null upstream
+ * precisely because a session carrying a `setCookie` is useless to a host that
+ * drops it, and every caller written before rotation drops it. Setting it here is
+ * this file saying *I send the cookie you give me* — which {@link SignedIn}
+ * carries out and `index.ts` appends. Removing either of those two and leaving
+ * this line is how a deployment signs everybody out on a 60-second timer.
  */
 export function passwordlessFor(
   env: SessionEnv,
@@ -393,9 +510,17 @@ export function passwordlessFor(
     origin?: string
     /** Injectable clock, for suites that need to age a token. */
     now?: () => number
+    /**
+     * Rotation off, for a suite proving what this deployment does WITHOUT it.
+     *
+     * Not a mode and not a fallback: nothing in production passes it, and the
+     * router has no branch on it. It exists so a UAT can state the difference
+     * rotation makes rather than assert the same numbers twice.
+     */
+    rotateAfterMs?: number | null
   } = {},
 ): Auth {
-  return new PasswordlessAuth(env.DB, {
+  const settings: PasswordlessConfig = {
     resolveSubject: (email: string) => subjectFor(env, tenantId, email),
     sendLoginEmail:
       config.sendLoginEmail ??
@@ -409,8 +534,46 @@ export function passwordlessFor(
       return signInUrl(config.origin, token)
     },
     cookie: sessionCookie(env),
+    sessionTtlMs: SESSION_TTL_MS,
+    rotateAfterMs: config.rotateAfterMs === undefined ? SESSION_ROTATE_AFTER_MS : config.rotateAfterMs,
     ...(config.now ? { now: config.now } : {}),
-  }) as Auth
+  }
+  return new PasswordlessAuth(env.DB, settings) as Auth
+}
+
+/**
+ * The component's CONSTRUCTOR argument, as this repository fills it in.
+ *
+ * DECLARED FOR THE REASON {@link Auth} IS, AND IT MATTERS MORE HERE.
+ * `src/generated/auth-passwordless.d.ts` says `any` for every export, so
+ * `new PasswordlessAuth(db, { … })` typechecks whatever is in the braces —
+ * including `rotateAfterMS`, `rotatesAfterMs`, or the right key on the wrong
+ * object. A misspelling there is not a compile error, it is rotation silently
+ * staying off: every session resolves, nothing carries a `setCookie`, and the
+ * only symptom is a feature that quietly does nothing. Building the literal as
+ * this type is what makes the spelling checked.
+ *
+ * THE THREE WINDOWS THIS DEPLOYMENT DOES NOT SET ARE DECLARED ANYWAY. They are
+ * optional and absent from the literal above on purpose — but a field the type
+ * does not name is a field the type would reject, so leaving them out would make
+ * this declaration refuse the very change it exists to make safe.
+ */
+export interface PasswordlessConfig {
+  resolveSubject: (email: string) => Promise<string | null>
+  sendLoginEmail: SendLoginEmail
+  buildUrl: (link: { token: string; purpose?: string }) => string
+  cookie: { name: string; domain?: string }
+  /** The sign-in interval. Written once at `startSession`; nothing moves it. */
+  sessionTtlMs?: number
+  /** Null disables rotation and everything that hangs off it. */
+  rotateAfterMs?: number | null
+  /** Silence after which the next request starts a visit. */
+  visitGapMs?: number
+  /** How long a retired id still resolves through to its successor. */
+  graceMs?: number
+  /** How long a retired row is kept as replay evidence before it is reaped. */
+  retiredRetentionMs?: number
+  now?: () => number
 }
 
 /** Who a request's session cookie says is asking. */
@@ -419,6 +582,43 @@ export interface SignedIn {
   subjectId: string
   /** Their primary address — what `admit` takes. */
   email: string
+  /**
+   * When this SIGN-IN ends — not when this credential does ([[REQ-231]]).
+   *
+   * Carried because {@link expiringWithinPreemption} is this deployment's policy
+   * and policy needs the deadline. It is the same value before and after any
+   * number of rotations.
+   */
+  expiresAt: string
+  /** The first request of a visit — see {@link Session.startsVisit}. */
+  startsVisit: boolean
+  /**
+   * THE HEADER `index.ts` IS OBLIGED TO APPEND, when it is here.
+   *
+   * `sessionIdentity` used to return three fields and discard the rest, which
+   * was right for a component that had nothing else to say. This is the field
+   * that changed that: the component has rotated the credential and the browser
+   * does not know yet. See {@link Session.setCookie}.
+   */
+  setCookie?: string
+}
+
+/**
+ * Whether this is the moment to spend on signing in again ([[REQ-231]]).
+ *
+ * BOTH HALVES, AND NEITHER ALONE. `startsVisit` without the deadline would
+ * re-authenticate somebody at the start of every visit forever; the deadline
+ * without `startsVisit` would fire on whatever request happened to be in flight,
+ * which is the mid-task denial the whole feature exists to remove.
+ *
+ * IT ANSWERS AND DOES NOT ACT. Where the person is sent, and whether the request
+ * is the kind that can be sent anywhere at all, are `index.ts`'s — this is the
+ * question, in the one place both numbers are already in scope.
+ */
+export function expiringWithinPreemption(signedIn: SignedIn, now: number = Date.now()): boolean {
+  if (!signedIn.startsVisit) return false
+  const ends = Date.parse(signedIn.expiresAt)
+  return Number.isFinite(ends) && ends - now <= SESSION_PREEMPT_MS
 }
 
 /**
@@ -446,11 +646,22 @@ export async function sessionIdentity(
   const session = await auth.resolveFromCookie(cookieHeader)
   if (!session) return null
   // A session whose subject no longer resolves — withdrawn, or gone — is not a
-  // session. The cookie survives the row by design (it is 90 days of opaque
-  // bytes), so the row is what decides.
+  // session. The cookie survives the row by design (it is an opaque bearer with
+  // its own `Max-Age`), so the row is what decides.
   const email = await primaryEmailOf(env, tenantId, session.subjectId)
   if (!email) return null
-  return { sessionId: session.id, subjectId: session.subjectId, email }
+  // EVERY FIELD THE COMPONENT OFFERED, AND NOT THREE ([[REQ-231]]). `setCookie`
+  // is an obligation rather than information, and a mapping that dropped it
+  // would compile, pass every existing test, and sign the deployment out one
+  // grace window after the first rotation.
+  return {
+    sessionId: session.id,
+    subjectId: session.subjectId,
+    email,
+    expiresAt: session.expiresAt,
+    startsVisit: session.startsVisit === true,
+    ...(session.setCookie ? { setCookie: session.setCookie } : {}),
+  }
 }
 
 /**
@@ -474,6 +685,34 @@ export async function sessionIdentity(
 export async function endSessionsFor(env: SessionEnv, subjectId: string): Promise<number> {
   if (!sessionsConfigured(env) || subjectId === '') return 0
   return passwordlessFor(env, requirePlatformTenant(env)).endSessionsForSubject(subjectId)
+}
+
+/**
+ * Reap what nothing else reaps ([[REQ-231]]).
+ *
+ * IT WAS SURVIVABLE TO CALL THIS FROM NOWHERE AND IT IS NOT ANY MORE. Before
+ * rotation the only dead rows were sign-ins that had run out, at a rate of one
+ * per person per interval; a rotating deployment writes one RETIRED row per
+ * visit per person, every one of them carrying the chain's `expires_at` — so
+ * without a sweep they survive to the end of the sign-in interval, which is now
+ * 180 days. `purgeExpired` is the only sanctioned way to take them, because the
+ * component owns the tables.
+ *
+ * WIRED TO THE CRON IN `index.ts`'s `scheduled`, which is the whole of why that
+ * handler exists.
+ *
+ * TENANT-BLIND, AND CORRECTLY SO. Neither of the component's tables carries a
+ * tenant — they are keyed by opaque token and session ids, and `subject_id` is
+ * globally unique — so there is no per-business sweep to do and a loop over
+ * tenants would be the same DELETE run N times.
+ *
+ * ZERO WHEN SESSIONS ARE NOT CONFIGURED, because a deployment that issues none
+ * holds none. A refusal here would make the cron a red alarm on a deployment
+ * that has simply not switched sign-in on.
+ */
+export async function purgeSessions(env: SessionEnv): Promise<PurgeReport> {
+  if (!sessionsConfigured(env)) return { tokens: 0, sessions: 0, retired: 0 }
+  return passwordlessFor(env, requirePlatformTenant(env)).purgeExpired()
 }
 
 /**

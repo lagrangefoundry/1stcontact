@@ -813,12 +813,28 @@ CREATE INDEX IF NOT EXISTS idx_login_tokens_subject_created
 CREATE INDEX IF NOT EXISTS idx_login_tokens_expires_at
      ON login_tokens (expires_at);
 
+-- A LIVE SESSION IS ONE **BEARER** OF ONE SIGN-IN ([[REQ-231]], REQ-151
+-- upstream). The row is the credential; the sign-in it belongs to is the chain
+-- of rows sharing an `origin_id`. `expires_at` is written once, at
+-- `startSession`, and rotation carries it across unchanged — so no number of
+-- rotations lengthens a session by a millisecond, and the four columns after
+-- `last_seen_at` are what buy the rotation rather than what pay for it.
+--
+-- ALL FOUR ARE NULLABLE, AND THAT IS THE COMPONENT'S DECISION RATHER THAN A
+-- LOOSENING HERE. `ALTER TABLE ADD COLUMN` cannot add a NOT NULL column without
+-- a default, so a table migrated into this shape (`0002_session_rotation.sql`)
+-- and a table created in it would otherwise be two different schemas for the
+-- component to be correct against instead of one.
 CREATE TABLE IF NOT EXISTS sessions (
-     id           TEXT PRIMARY KEY,
-     subject_id   TEXT NOT NULL,
-     expires_at   TEXT NOT NULL,
-     created_at   TEXT NOT NULL,
-     last_seen_at TEXT NOT NULL
+     id            TEXT PRIMARY KEY,
+     subject_id    TEXT NOT NULL,
+     expires_at    TEXT NOT NULL,
+     created_at    TEXT NOT NULL,
+     last_seen_at  TEXT NOT NULL,
+     issued_at     TEXT,
+     origin_id     TEXT,
+     superseded_by TEXT,
+     retired_at    TEXT
    );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_subject_id
@@ -826,6 +842,15 @@ CREATE INDEX IF NOT EXISTS idx_sessions_subject_id
 
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at
      ON sessions (expires_at);
+
+-- Backs ending a whole CHAIN — sign-out, and the response to a replayed id.
+CREATE INDEX IF NOT EXISTS idx_sessions_origin_id
+     ON sessions (origin_id);
+
+-- Backs the retired-row sweep in `purgeExpired`. Without it a rotating
+-- deployment's reap is a full scan of a table whose live rows are the minority.
+CREATE INDEX IF NOT EXISTS idx_sessions_retired_at
+     ON sessions (retired_at);
 
 -- ---------------------------------------------------------------------------
 -- The one seeded row
