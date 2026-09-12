@@ -5,9 +5,9 @@ type: bug
 title: 'Sign-in modal: three defects that made a working component look broken'
 created_by: martin-github@westhead.me
 created_at: '2026-09-10T21:28:05.411826+00:00'
-updated_at: '2026-09-11T23:34:07.981427+00:00'
+updated_at: '2026-09-12T00:07:30.062724+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -561,3 +561,5 @@ UATs are `test_UAT_FC_BUG-76_*`:
 asserts `sent.hidden === false` on a `<p>` this change deletes. Its REQ-134
 property — one message, identical at every status — is carried across to the new
 shape rather than dropped.
+
+-
