@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T19:31:13.460987+00:00'
+updated_at: '2026-09-12T22:25:16.820272+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -967,5 +967,11 @@ My §4 asked that the `republishable` gate travel with the bytes on re-promotion
 `safeRecipe` swallows a parse failure and returns `[]`, so an unparseable `fields.edits` promotes the original silently — this ticket's headline symptom, via a catch block. I checked the reachability: both writers (`reviseRecipe` and `edit_image`) parse before writing, and the assistant's grants compose per-surface rather than through `instances.json`, so there's no granted path to a malformed value. It's defensive-only today. Mentioning it because it's a fail-open on the one invariant this ticket exists to hold, not because I think it needs action now.
 
 I filed nothing new and changed no child's status.
+
+<!-- xgd-turn id="cacdb6c4-cb81-4011-a39f-c773ea8ad43b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:25:16.135685+00:00" -->
+#### You
+Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
 
 <!-- xgd-chat-end -->
