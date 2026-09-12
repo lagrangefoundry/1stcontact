@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:51:21.162599+00:00'
+updated_at: '2026-09-12T00:55:00.723793+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -220,5 +220,14 @@ You asked for two things and both exist:
 - **REQ-151** in lagrange-framework — a new `request` ticket for the component work.
 
 Nothing is waiting on you.
+
+<!-- xgd-turn id="d74da71c-4d65-4386-b657-2b13a9879eaf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:55:00.610455+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
