@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-87
 created_by: xgd
 created_at: '2026-09-12T20:49:52.292073+00:00'
-updated_at: '2026-09-12T21:39:37.171187+00:00'
+updated_at: '2026-09-12T21:51:10.019575+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -108,5 +108,11 @@ Concretely, that bites when the site key doesn't match a `sites` row (mis-keyed 
 Both are silent. Not a wrong answer to the visitor — arguably 200 is right, you don't want to leak which site keys exist — but there's no server-side record either, so you'd be debugging a form that reports success, writes nothing, and logs nothing. Note the contrast: when `captureLead` *throws*, `lead.ts:468-481` catches it, logs `lead_capture_failed`, and returns 503. The thrown path is handled well. It's only the returned-refusal path that vanishes.
 
 That one's unticketed. Want a bug for it?
+
+<!-- xgd-turn id="697ac89d-9420-430e-a391-01fbbeaa8de0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T21:51:08.738876+00:00" -->
+#### You
+We should not be exposing technical issues to the user - this needs to be logged. - I have started an epic (EPIC-1) for logging in lagrange framework, Lets consider what, if anything it makes sense to do now, in advance of that landing so this isn't lost
 
 <!-- xgd-chat-end -->
