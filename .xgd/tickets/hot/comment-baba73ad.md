@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:39:22.846539+00:00'
+updated_at: '2026-09-12T22:40:32.667864+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1021,5 +1021,39 @@ Also worth knowing: **the epic itself is now `done`** while all seven children s
 <!-- xgd-chat role="user" ts="2026-09-12T22:39:22.661472+00:00" -->
 #### You
 I have reopened 222 - what do I need to ask it to do?
+
+<!-- xgd-turn id="a04b4800-b28a-4263-a6e5-f534224a92c4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:40:32.481837+00:00" -->
+#### Claude
+REQ-222 is back at `free_coded`. Here's what to ask it — and the three things that will bite if they're not in the ask.
+
+## The brief, paste-ready
+
+> Two decided sections of this ticket's body were never built. Build both, under the free-coding protocol.
+>
+> **1. `<picture>` with typed `<source>`s.** The decision is already in the body under *"Answered by the operator, 2026-09-11 — `<picture>` with typed sources: yes"*. Two formats — the source's own plus WebP — WebP first because the browser takes the first `type` it supports, original as the final fallback inside `<img>`. AVIF is out of v1 and that is settled; do not re-litigate it. `convert` must not enter the editorial recipe vocabulary.
+>
+> **2. The publish lock, message and progress bar**, plus rationing the ladder to the latency budget. The decision is in the body under *"Operator decision, 2026-09-11: what a publish looks like while it runs"* and the section above it. `publishAction` (`builder/toolbar.js:235`) is untouched — still `btn.disabled = true`, await, re-enable in a `finally`. `blockEverything` is the mechanism to reuse, but its *meaning* is wrong as-is: REQ-173's block says "something is broken", a publish block says "something is working, please wait".
+>
+> **Land them together, latency first.** Typed sources double the ladder's transform count, which is exactly why the body says the latency question "is not a footnote". Shipping format negotiation onto an unrationed synchronous publish makes the problem it was costed against twice as bad.
+>
+> The body language already exists for both, so UATs should trace to those sections rather than new prose. Add language only for what the code settles beyond them.
+
+## The one thing the decision doesn't cover — flag it explicitly
+
+**There are two sinks, and the decision only names one.** `<picture>` is an `<img>` mechanism. The background ladder (`surfaceLadderDecls`, `render.ts:1832`) is CSS `background-image` per-width rules, and it deliberately rejected `image-set()` — *"a second mechanism with its own support story for the same job"*.
+
+But `image-set()` with `type()` is the **only** way CSS negotiates format. So the session has to settle: either backgrounds stay source-format and typed sources are `<img>`-only, or `image-set()` comes back for format alone having been rejected for width. Given backgrounds are *"the largest file on most sites"* — the whole reason the second sink exists — leaving them out of the WebP saving is the bigger loss. I'd ask the session to make the case either way rather than pre-deciding it, but it must not discover the question mid-implementation.
+
+## Three facts worth handing it
+
+- **WebP output is assertable in CI, unlike a crop.** The offline Images implementation drops `trim`/`gravity`/`adjust` silently, which is why the existing UATs assert with `rotate` — but `output({format})` is sharp-backed and does convert. Worth a five-minute confirmation rather than an assumption, in the ticket's own spirit about remembered lists.
+- **The two existing UAT files assert the bare `<img>`** — `test_UAT_FC_REQ-222_width_ladder.test.ts` and `..._publish_ladder.workers.test.ts`. They must be rewritten to assert the wrapped shape, not worked around. This is the retrofit the decision was taken early to avoid and did not, so the cost lands now; better it lands deliberately.
+- **The subrequest-budget question is still unanswered** and is what any concurrency ceiling gets sized against — specifically whether an Images transform counts against the same outbound budget as an R2 write. The body flags it under *"Not verified, and worth verifying before building"*. That verification is genuinely part of item 2, not a precondition to starting it.
+
+## One housekeeping note
+
+The body's *"Open — raised with the operator, not answered here"* section still says **"do not start on the background-image or `<picture>` work before those come back."** I appended a correction yesterday, but if the session reads top-down it will hit the prohibition first. Worth one line in your ask: that instruction is stale, all three came back, and two of them are the job.
 
 <!-- xgd-chat-end -->
