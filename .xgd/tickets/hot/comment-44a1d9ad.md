@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:55:58.169033+00:00'
+updated_at: '2026-09-12T00:56:17.136491+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -235,5 +235,36 @@ Please be aware that in this current chat environment, background jobs die. Plea
 <!-- xgd-chat role="user" ts="2026-09-12T00:55:57.775960+00:00" -->
 #### You
 If this is complete, please move the ticket to legacy_done
+
+<!-- xgd-turn id="300ce890-632f-4d14-9f9b-5eb3e70f9df6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:56:17.085778+00:00" -->
+#### Claude
+No — it isn't complete, so I haven't moved it.
+
+What exists is documentation only:
+
+- **REQ-187** body has the design write-up appended.
+- **REQ-151** created in lagrange-framework.
+
+What doesn't exist: no branch was cut, no code was written, no UATs. Still on `xgd-working` with a clean tree. I was at the scoping step of the free-coding when the turn ended.
+
+There's also a substantive blocker I found while scoping, which you should know before deciding what to do with this ticket. Most of REQ-187's design **cannot** be built in this repo yet:
+
+- **Visit detection is impossible against the component as it stands.** `resolveSession` overwrites `last_seen_at` *before* returning it, so when the gap exceeds `touchAfterMs` the host reads a gap of zero — exactly the case it needs to detect. Rotation, and the pre-emption that hangs off visit-start, are both blocked on REQ-151.
+
+What *is* free-codable here without the component change is a smaller slice:
+
+1. **Set I1 = 365 days** — `sessions.ts` overrides none of the component's defaults today, so it's on the 90-day default. One config pass through `passwordlessFor`.
+2. **Customer-facing "sign out everywhere"** — `endSessionsForSubject` exists and is reachable only from `setPersonStatus`. REQ-187 flags this as no longer a nicety at I1 = a year.
+
+Item 2 is currently written in the ticket as an observed gap, not a requirement, so the body needs language added before it can motivate a UAT.
+
+Two ways forward — your call:
+
+- **Free-code that slice now** under REQ-187, and leave rotation/pre-emption to land after REQ-151.
+- **Leave REQ-187 as the conversation it says it is**, and treat REQ-151 as the thing that moves first.
+
+Which do you want?
 
 <!-- xgd-chat-end -->
