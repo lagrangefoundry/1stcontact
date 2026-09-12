@@ -5,9 +5,9 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-11T22:48:11.362817+00:00'
+updated_at: '2026-09-12T00:19:36.738650+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: medium
@@ -617,3 +617,24 @@ use for frames, and `publishSite` in `publish.ts` is the one implementation both
 go through. Progress is a property of the *route*, not of the publish — the same
 line this ticket already draws around the ladder itself, which publish takes as an
 optional argument and the CLI simply does not supply.
+
+
+---
+
+## Noted from EPIC-1, 2026-09-11: what this ticket's correctness rests on, before it reconciles
+
+This ticket is `ready_to_reconcile`, and its central simplifying claim is right
+but conditional: *"the ladder walks the snapshot's assets"* and needs nothing
+from the recipe, because **promotion is supposed to have already applied it**.
+
+**Promotion does not apply it yet.** `promoteToSiteAsset` (`material.ts:712`)
+copies the attachment's original blob, with no renderer anywhere in its
+signature or its three callers. So today the ladder faithfully sizes the
+*uncropped* original — every rung correct, every rung of the wrong picture.
+
+That is [[REQ-229]] (`request-4b5c10e9`, `draft`), not a defect here, and this
+ticket needs no change: once the bytes at the name are the corrected ones, the
+ladder ladders the corrected ones, exactly as the body says. Recorded so a
+reviewer does not read *"nothing about the ladder needs to know a recipe
+exists"* as *"the client's crop reaches their site"* — the first is true now,
+the second is not true until REQ-229 lands.
