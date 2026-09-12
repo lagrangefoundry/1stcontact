@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-87
 created_by: xgd
 created_at: '2026-09-12T20:49:52.292073+00:00'
-updated_at: '2026-09-12T21:51:10.019575+00:00'
+updated_at: '2026-09-12T21:52:21.819296+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -114,5 +114,51 @@ That one's unticketed. Want a bug for it?
 <!-- xgd-chat role="user" ts="2026-09-12T21:51:08.738876+00:00" -->
 #### You
 We should not be exposing technical issues to the user - this needs to be logged. - I have started an epic (EPIC-1) for logging in lagrange framework, Lets consider what, if anything it makes sense to do now, in advance of that landing so this isn't lost
+
+<!-- xgd-turn id="697ac89d-9420-430e-a391-01fbbeaa8de0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T21:52:21.417894+00:00" -->
+#### Claude
+Let me look at EPIC-1 and the logging that exists today.
+
+EPIC-1 is an empty draft — Untitled, `(new ticket)`, no body. So there's nothing to align a design to yet, which actually settles the question: **do the small thing now, in the idiom that already exists, and don't invent anything EPIC-1 would have to adopt or delete.**
+
+## The convention is already there
+
+This isn't a gap waiting on EPIC-1. There's an established house idiom — `console.warn(JSON.stringify({ event: '<snake_name>', ...context }))` — in ~14 call sites across both workers: `admission_denied`, `scope_refused`, `invite_refused`, `person_record_refused`, `signin_rate_limited`, `email_webhook_refused`, `lead_capture_failed`. It's documented as a rule at `apps/control-app/src/identity.ts:931-934`.
+
+More to the point, **this exact bug class already has a precedent fix in this codebase.** Read `identity.ts:918-930` — `denyAdmission` was filed from a silent refusal that locked an operator out of their own deployment "with nothing in the running system saying why." The resolution was the principle you just stated:
+
+> Deciding and recording are now the same statement, so a reason cannot be computed without being reported.
+
+And it pre-answers the disclosure worry: the visitor is told one thing because telling them more would be an oracle; the operator reading the invocation log is not the visitor, and the log is ours. So the 200 stays — you're right that the visitor shouldn't see the technical reason.
+
+## What's actually being dropped
+
+Larger than I said earlier. `LeadOutcome` (`apps/control-app/src/lead.ts:99-111`) carries three kinds of news, and `await` with no assignment discards all of them:
+
+| Outcome | Written? | Visitor sees | Currently logged |
+|---|---|---|---|
+| `unknown_site` | no | success | nothing |
+| `no_email` | no | success | nothing |
+| `assetSkipped` | contact yes, asset no | success | nothing |
+
+That third one is the one I'd underweighted: `already_sent` / `suppressed` / `no_address` / `not_offered` means the form *promised a download*, the visitor was told it was coming, and it never left the building. Silently.
+
+## Recommendation
+
+Do it now. Roughly ten lines at `apps/public-site/src/lead.ts:462` — capture the outcome instead of dropping it, and `console.warn` a structured line when `accepted === false` or `assetSkipped` is set. Nothing else changes: same 200, same `acknowledge(shape)`, no new module, no helper, no abstraction.
+
+Three reasons not to wait:
+
+1. **It's not a bet on EPIC-1's design.** It's consistency with 14 existing call sites. If EPIC-1 replaces the idiom, this is one more mechanical edit in a migration that has to touch all 14 anyway — and `grep -rn "JSON.stringify({ event:"` is the complete, self-maintaining inventory of what to migrate.
+2. **Waiting has a running cost.** Between now and EPIC-1 landing, every mis-keyed site and every undelivered asset stays invisible.
+3. **EPIC-1 can't be designed well from zero examples.** One more real call site with real fields is input to that epic, not debt against it.
+
+What I would *not* do now: build a logger abstraction, add a log sink, change any visitor-facing response, or touch the honeypot and rate-limit paths — those are silent *by design* (an attacker who could distinguish them gets a probe), and that reasoning is written into the code at `lead.ts:400-405`.
+
+One thing worth flagging as genuinely EPIC-1's: a Worker invocation log is not somewhere an operator looks. For a lead that vanishes, the business arguably needs it surfaced *in the app*. That's a real gap and the right place for it is the epic, not here.
+
+Want me to scope this into BUG-87 and implement it? It's code, so it needs the ticket body written and a branch cut first.
 
 <!-- xgd-chat-end -->
