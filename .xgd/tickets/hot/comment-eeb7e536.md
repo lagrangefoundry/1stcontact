@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-09T18:48:03.941329+00:00'
+updated_at: '2026-09-12T20:11:02.713806+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -370,5 +370,23 @@ Relevant to that: Cloudflare now has an **Email Sending** product (transactional
 We take responsibility for **the records being correct**. We don't take responsibility for **the mail servers being up**.
 
 That's a clean line, it's the one the monitoring enforces, and it means a customer on Workspace is fully supported without us being anywhere near their mail.
+
+<!-- xgd-turn id="72717c40-a2dd-4b5f-8d94-4491fb337de1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:11:02.370414+00:00" -->
+#### You
+I would put it more strongly I do not want to host their mailbox - I could change my mind about that but that's where I am right now.
+
+ok I have bought 1stc.site
+
+Lets discuss what we need:
+
+1) I think we need a settings tab where this kind of stuff gets managed.
+2) We need a flow for the user to pick a hostname for 1stc.site - can be skipped if they just straight to custom dns
+3) We need a flow/experience for dns purchase
+4) We need a flow dns managment with two flavors (1) dns is owned by cloudflare (2) nameservers run on cloudflare
+5) we need a flow for helping the user make the changes to make cloudflare the nameserver
+
+Do you agree?
 
 <!-- xgd-chat-end -->
