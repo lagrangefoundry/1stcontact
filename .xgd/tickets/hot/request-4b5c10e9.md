@@ -6,7 +6,7 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T00:06:42.244375+00:00'
+updated_at: '2026-09-12T00:18:45.683241+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -133,3 +133,123 @@ Fixing any one alone leaves the promise false.
 
 Depends on nothing new. Both halves are edits to `material.ts` plus the site
 store's ability to write bytes at an existing name.
+
+
+---
+
+## Answered from EPIC-1, 2026-09-11 — four things an implementer hits on day one
+
+Swept for unanswered questions across the epic's children. This ticket was the
+only one with no epic-level answer pass, and its last chat turn — *"if you have
+any questions ask them here"* — never got a reply: the generation failed on a
+spend limit. So these are the questions that would have been asked, answered
+where the epic's design conversation settles them and escalated where it does
+not. **Verified against the code, not inferred from the ticket.**
+
+### 1. Promotion itself must apply the recipe — not only re-promotion
+
+**The body describes two halves and there are three.** As written, this ticket
+records the name at promotion and re-promotes when the recipe changes. Both are
+right. But `promoteToSiteAsset` (`material.ts:712`) reads the **attachment's
+original blob** — `readBlob(tickets, args.uid, attachment.uid)` — and hands those
+bytes straight to `editAssetAdd`. It takes no renderer and has no parameter for
+one, and none of its three callers (`placeOnSite` at `router.ts:1338`, the
+role-change route at `router.ts:2532`, the Library's **Use on site** button at
+`library.ts:138`) could supply one.
+
+So the failure this ticket exists to fix has **two doors**, and the body only
+shuts one:
+
+- *promote, then crop* — the recorded name is stale. This ticket fixes it.
+- *crop, then promote* — promotion writes the uncropped original. **This ticket
+  does not fix it**, and the client's experience is identical: they crop in the
+  Library, see it cropped, publish, and get the original.
+
+[[REQ-219]] decided *"the recipe is applied at promotion, not at publish"*. Read
+literally, that is a statement about **promotion**, and it is the first
+placement that most obviously has to honour it. **Both doors are in scope**:
+promotion renders the current recipe before it writes, and re-promotion is the
+same act against a recorded name. A material with an empty recipe renders to its
+original bytes, so there is one path, not two.
+
+### 2. The record is per-site, and it must not be carried in `placed_on`
+
+The body says *"the asset name it landed under"*, singular. It cannot be
+singular. `placed_on` is a **list of slugs** and [[REQ-219]] states the
+consequence explicitly — *"a material placed on several sites re-promotes to
+each, driven by `placed_on`"* — and `freeAssetName` resolves collisions against
+**one site's** listing, so the same logo can be `logo.png` on one site and
+`logo-2.png` on another. One name would re-promote to the wrong file.
+
+**And the name must not be folded into `placed_on` by changing its element
+shape.** That field is `{ type: 'list' }` in `MATERIAL_FIELDS` (`tickets.ts:121`)
+— the engine checks only `Array.isArray`, so nothing would stop it — but four
+readers would break silently rather than loudly:
+
+- `placedOn()` (`material.ts:799`) filters `typeof v === 'string'`, so every
+  object would be dropped and **every placed material would read as unplaced**.
+- `MaterialRow.placed_on` is typed `string[]` (`material.ts:923`).
+- `library.ts:71` carries it to the client, where the pane's *Used on* field,
+  its pill and its "used on this site" filter all read it.
+- `router.ts:3229` returns it in the `AlreadyOnSiteError` 409 envelope.
+
+The first of those is the dangerous one: it fails **open**, into the state that
+reads as "never placed", which is exactly the state this ticket uses to decide
+that a promotion is a *first* one. A shape change would make every existing row
+take a free name on its next edit — the `logo-2.png` failure the body is written
+to prevent, arrived at through the migration instead.
+
+**So: a second field, keyed by slug**, beside `placed_on` and declared in
+`MATERIAL_FIELDS` the way `edits` was. `placed_on` keeps saying *which sites*;
+the new field says *under what name on each*. Absence reads as "no recorded
+name", which is the first-placement branch — so material that predates the field
+needs no migration, the same property `placed_on` and `edits` were both given.
+
+### 3. Re-promotion cannot go through `editAssetAdd`, and fixing that in place is forbidden
+
+`editAssetAdd` (`edit.ts:2287`) throws `CommandError{code:'CONFLICT'}` when the
+name is already in `listAssets`. `promoteToSiteAsset`'s own comment relies on
+never meeting it — *"The name is already free, so the CONFLICT branch cannot fire
+from here"* — which stops being true the moment a re-promotion aims at a recorded
+name. The body is right that this must not become "fix `freeAssetName`"; the same
+argument applies one layer up, because `editAssetAdd`'s refusal is the same
+only-adds promise stated in a different place.
+
+**The replace path is a sibling of `editAssetAdd`, not a flag on it.** The
+underlying call is already replace-capable — `opts.store.write(slug, {assets:
+[{name, bytes}]})` puts bytes at a name and says nothing about what was there —
+so the sibling is that write plus the same draft-journal note (`op:
+'asset.replace'`), which is what keeps the assistant told that a picture changed
+on the turn it changes. That preserves the property `promoteToSiteAsset`'s
+header insists on: *"one write path, one set of rules about names"* — two verbs
+over one write, rather than one verb with two meanings.
+
+### 4. `reviseRecipe` has neither of the two things it now needs
+
+`reviseRecipe` (`material.ts:1616`) is `(store, args, deps: {measure?})`. It has
+no site store and its only dep **measures** — it never produces bytes. Both have
+to be threaded for the re-promote to happen where the body puts it.
+
+Two things to carry through that threading, both already decided elsewhere:
+
+- **The `republishable` gate travels with the bytes.** `promoteToSiteAsset`
+  checks it on the material's own ticket before anything is copied, and
+  [[BUG-84]] is the ticket about what happens when bytes reach a site without
+  that check. A re-promotion is a fresh cross-bucket copy and takes the same
+  gate — a material whose rights were narrowed after its first placement must
+  not keep pushing new bytes through on every crop.
+- **`rendered: false` stays honest.** A deployment with no Images binding already
+  stores the recipe and reports that the client is looking at the picture before
+  the change. The same deployment cannot re-promote either, and must say so in
+  the same field rather than silently recording an edit that never reached the
+  site.
+
+### What this does not change
+
+The body's own decisions all stand and none of the above disturbs them:
+replacement rather than delete-then-add, no new join key, a stale record
+reporting rather than repairing, and the draft/published distinction. The
+operator's principle — *an edit replaces the existing photo, same name,
+everything* — is what item 1 extends rather than qualifies: the first promotion
+of an already-cropped photograph should put the cropped photograph on the site,
+for the same reason.
