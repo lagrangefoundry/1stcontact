@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T00:56:39.941297+00:00'
+updated_at: '2026-09-12T19:13:11.123300+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,13 @@ So the fix I'd propose, all under BUG-86:
 4. Correct the four stored values.
 
 One judgment call I'd like your steer on before I cut the branch: **should the third-party escape hatch survive at all?** Keeping it means the failure mode that produced `https://example.com/enquiry` stays reachable, just no longer the default. Removing it makes the form always the product's lead capture, and a client needing an external endpoint becomes a new ticket with a real design. I lean toward keeping it — DOC-47's "a form that silently posts nowhere is the worst possible outcome" is still true, and an explicit opt-out is honest — but it's your product call.
+
+<!-- xgd-turn id="5574f085-8387-445b-b7d2-be0d8d4c9b6b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T19:13:10.985413+00:00" -->
+#### You
+So in my mind the module should be self-contained, it should be automatically provisioned by the system with the correct URLs etc. etc. The AI has freedom to style and arrange it with any look but it should not need to set up its functionality.
+
+I don't know what the third-party escape hatch is? Are you suggesting we allow the form to post to other locations? Why would we do that? This is an email capture module, it is to capture emails into your site, this is not a general web form module
 
 <!-- xgd-chat-end -->
