@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:25:03.809036+00:00'
+updated_at: '2026-09-12T00:28:12.331760+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -125,5 +125,11 @@ Plus, since BUG-76, two more slots: `sent` (the confirmation card) and `error` (
 - **It authenticates nothing and gates nothing.** It renders every state and lets the Worker pick. No published content varies by who's looking — the only verb is the address POST.
 
 There's one deliberate carve-out: the `<label>` on the email field is an *invariant* element, clipped to 1×1px and not bindable from L1 — an accessibility obligation, not taste. The visitor reads the prompt via `config.emailLabel` + `labelMode`. That invariant was mis-documented, which is what kicked off BUG-76 and the v2 bump your draft is now stranded behind.
+
+<!-- xgd-turn id="98629a2c-f743-4692-9e38-ce30f14156fa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:28:12.076410+00:00" -->
+#### You
+ok yes please fix the data and then I would love to get 2b - I'm not sure if I understand how that could be automated exactly?
 
 <!-- xgd-chat-end -->
