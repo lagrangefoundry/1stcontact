@@ -121,6 +121,40 @@ const MATERIAL_FIELDS = {
   placed_on: { type: 'list' },
 
   /**
+   * What the material's bytes are CALLED on each of those sites — [[REQ-229]],
+   * [[REQ-219]].
+   *
+   * THE POINTER THE WHOLE PROPAGATION RESTS ON. `placed_on` says a logo reached
+   * a site; it does not say under what name, and promotion may not have used the
+   * one it was asked for — `freeAssetName` renames on collision, so a client's
+   * second `logo.png` lands as `logo-2.png`. Without the name there is nothing to
+   * write the edited bytes back to, and a recipe change can only either mint a
+   * fresh orphan on every commit or do nothing at all. Both were real: the
+   * second is what shipped.
+   *
+   * A LIST OF `{ slug, name }`, FOR THE REASON `placed_on` IS A LIST. Placement
+   * is many-to-many ([[DOC-38]] §7.7) and the name may differ per site, because
+   * the collision it was resolved against is that site's.
+   *
+   * WRITTEN IN THE SAME PATCH AS `placed_on`, BY THE SAME FUNCTION, so the two
+   * cannot disagree about where a material went. `placed_on` remains the answer
+   * to *which sites* — it is what the Library's pill, its `Used on` field and its
+   * "used on this site" filter read, and none of them has anything to do with a
+   * filename.
+   *
+   * IT IS ALSO WHICH DOOR A PROMOTION GOES THROUGH. No recorded name for a site
+   * is a FIRST placement: it takes a free name, exactly as before. A recorded one
+   * is a RE-placement: it overwrites that name and mints nothing. The record is
+   * what makes that distinction mechanical rather than a flag a caller has to
+   * remember to pass.
+   *
+   * NOT REQUIRED. Material that predates this field, and material placed nowhere,
+   * read as the empty list — so nothing needs migrating and no consumer has a
+   * third state to handle.
+   */
+  placed_as: { type: 'list' },
+
+  /**
    * What the client said the material is FOR — [[REQ-161]], [[DOC-38]] §4.2.
    *
    * THE ONE THING PROVENANCE CANNOT INFER. `origin` records where the bytes came

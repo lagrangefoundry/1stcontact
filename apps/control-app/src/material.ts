@@ -40,14 +40,13 @@
  */
 
 import { MAX_BLOB_BYTES } from './generated/ticketing'
-import { editAssetAdd } from '../../../tools/generate/src/cli/edit'
+import { editAssetAdd, editAssetReplace } from '../../../tools/generate/src/cli/edit'
 import type {
   ImageLibrary,
   StoredImage,
 } from '../../../tools/generate/src/cli/image-library'
 import {
   compileRecipe,
-  type Dimensions,
   type EditOp,
   parseRecipe,
   type ImageRenderer,
@@ -708,11 +707,41 @@ export class NotRepublishableError extends Error {
  * It goes through the site store's ordinary `write`, so the asset lands by the
  * same path an import or an edit lands one — one write path, one set of rules
  * about names.
+ *
+ * **IT WRITES THE RENDER, NOT THE STORED ORIGINAL** ([[REQ-229]], [[REQ-219]]).
+ * The recipe is applied *at promotion*, which is the decision REQ-219 recorded
+ * under that heading: a site asset is bytes, with nowhere to carry a recipe and
+ * no record to hang one from, so the correction has to happen on the way across
+ * or it never happens at all. This copied the attachment untouched, which meant
+ * a picture cropped in the Library and *then* put on the site arrived uncropped.
+ * For the overwhelming case — a file dropped on the overlay and promoted in the
+ * same second — the recipe is empty and nothing is rendered, so an unedited
+ * picture pays no transform.
+ *
+ * **THE RECORD SAYS WHICH DOOR THIS IS.** A material with no recorded asset name
+ * for this site is a FIRST placement: it takes a free name through
+ * {@link freeAssetName} and adds, exactly as before. A material that already
+ * records one is a RE-placement: it replaces the bytes at that name and mints
+ * nothing. That is what stops a client's second drag of the same logo — or the
+ * re-promotion an edit triggers — from minting `logo-2.png` while every page
+ * that references `logo.png` goes on serving the picture they were trying to
+ * change.
  */
 export async function promoteToSiteAsset(
   tickets: TicketStore,
   sites: TenantSiteStore,
   args: { uid: string; slug: string; name: string },
+  /**
+   * The renderer, where this deployment has one ([[REQ-219]]).
+   *
+   * OPTIONAL, AND ITS ABSENCE IS THE BEHAVIOUR THAT PREDATES RECIPES. A
+   * deployment with no `[images]` binding cannot apply one, so every picture is
+   * its own original — which is the same answer `rendered: false` gives the
+   * editor and the same one the preview pane gives. Making it required would
+   * turn "this deployment cannot crop" into "this deployment cannot publish a
+   * logo", which is a much larger claim than the binding's absence supports.
+   */
+  deps: { renderer?: ImageRenderer } = {},
 ): Promise<{ name: string; size: number; sha256: string }> {
   const { ticket } = await tickets.get({ uid: args.uid })
   // CHECKED ON THE TICKET, not on an argument. The caller does not get to assert
@@ -728,14 +757,31 @@ export async function promoteToSiteAsset(
     )
   }
   const sha256 = String(attachment.fields.sha256 ?? '')
-  const bytes = await readBlob(tickets, args.uid, attachment.uid)
+  const stored = await readBlob(tickets, args.uid, attachment.uid)
+  // THE PICTURE AS IT CURRENTLY STANDS, WHICH IS WHAT THE SITE IS OWED
+  // ([[REQ-229]]). The recipe is read off the record rather than passed in: the
+  // question is *what is this picture now*, which is a fact about the record's
+  // own state, and a recipe threaded through the call would be the caller's idea
+  // of it with two things that could disagree.
+  const bytes = await renderedBytes(
+    stored,
+    String(attachment.fields.content_type ?? 'application/octet-stream'),
+    safeRecipe(ticket.fields.edits),
+    deps.renderer,
+  )
+  // WHICH DOOR: THE RECORD DECIDES, NOT AN ARGUMENT ([[REQ-229]]). A name this
+  // material already occupies on this site is a name its pages already
+  // reference, so the bytes belong AT it; anything else is a first placement.
+  const recorded = placedAs(ticket.fields).find((placed) => placed.slug === args.slug)
   // A FREE NAME, NEVER THE REQUESTED ONE BLIND. `write` puts bytes at a name and
   // says nothing about what was already there, so promoting a second `logo.png`
   // would REPLACE the first — silently changing a picture that is live on the
   // client's site, from a surface whose whole promise is that it only adds. The
   // CLI's `asset add` refuses a collision instead, because it has an operator to
-  // tell; this has a client who dragged a file, so it renames and reports.
-  const name = await freeAssetName(sites, args.slug, args.name)
+  // tell; this has a client who dragged a file, so it renames and reports. That
+  // rule is for a DIFFERENT material arriving under a taken name, which is why
+  // the re-placement above is decided before this runs rather than inside it.
+  const name = recorded ? recorded.name : await freeAssetName(sites, args.slug, args.name)
   // THROUGH `editAssetAdd`, NOT PAST IT (BUG-45). This wrote the bytes directly,
   // which meant a file dropped on the chat arrived by a path no other asset took
   // — and so was described differently by the one listing every picker reads.
@@ -753,25 +799,160 @@ export async function promoteToSiteAsset(
   // tells the assistant to read it there and write it onto the picture element
   // that places the image, which is the only place a renderer has ever read alt
   // text from anyway.
-  await editAssetAdd(args.slug, name, bytes, { store: sites, actor: 'client' })
+  //
+  // AND A RE-PLACEMENT GOES THROUGH `editAssetReplace`, WHICH IS THE SAME
+  // SENTENCE INVERTED. That one refuses a name that is NOT there, because a
+  // record naming an asset the site no longer holds is stale — an operator
+  // deleted it, a push overwrote the site — and re-adding the picture would put
+  // back something somebody removed. The refusal travels out as it is; both
+  // callers of this function already report a promotion that did not land.
+  if (recorded) {
+    await editAssetReplace(args.slug, name, bytes, { store: sites, actor: 'client' })
+  } else {
+    await editAssetAdd(args.slug, name, bytes, { store: sites, actor: 'client' })
+  }
   // PLACEMENT IS RECORDED HERE, AND ONLY HERE (BUG-47). This is the one function
   // that puts a material's bytes on a site, so it is the only thing that knows
   // the fact the Library's pill, its `Used on` field and its "used on this site"
   // filter are all trying to state. Recording it anywhere earlier would restate
   // the upload's context instead — which is the bug — and recording it before
   // this line would badge a promotion that threw identically to one that landed.
-  await recordPlacement(tickets, ticket, args.slug)
+  await recordPlacement(tickets, ticket, args.slug, name)
   return { name, size: bytes.byteLength, sha256 }
 }
 
 /**
- * Append a slug to the material's `placed_on`, idempotently.
+ * A picture with its own recipe applied, or the stored bytes where there is
+ * nothing to apply or nothing to apply it with ([[REQ-229]]).
+ *
+ * THREE WAYS TO END UP WITH THE ORIGINAL AND NONE OF THEM IS A FAILURE: the
+ * material has no recipe, which is every picture in the Library that nobody has
+ * edited; this deployment has no renderer; or the recipe is empty because the
+ * client put the picture back as it arrived. All three mean *the current state
+ * of this picture is the bytes we were given*, which is exactly what should go
+ * on the site.
+ *
+ * A RENDER THAT THROWS IS NOT CAUGHT HERE. The preview pane swallows a failed
+ * render because showing the client a degraded picture beats blanking the pane;
+ * a promotion is a write, and writing the uncropped original under the name the
+ * client's pages reference would be the very bug this ticket exists to close,
+ * recorded as a success. The caller reports it instead.
+ */
+async function renderedBytes(
+  stored: Uint8Array,
+  contentType: string,
+  recipe: readonly EditOp[],
+  renderer?: ImageRenderer,
+): Promise<Uint8Array> {
+  if (recipe.length === 0 || !renderer) return stored
+  return (await renderer.render(stored, contentType, recipe)).bytes
+}
+
+/** One site a material's bytes are on, and what they are called there. */
+export interface Placement {
+  slug: string
+  name: string
+}
+
+/** What a re-promotion did at one of those placements. */
+export interface Republication extends Placement {
+  /** Whether the bytes at {@link Placement.name} are now the current render. */
+  replaced: boolean
+  /** Why not, where they are not. */
+  error?: string
+}
+
+/**
+ * Push a material's current render back to every site it is already on
+ * ([[REQ-229]]).
+ *
+ * **THIS IS THE SEAM THE EPIC'S TITLE BREAKS AT.** A recipe change wrote
+ * `fields.edits` and stopped there, so the client cropped their logo, saw it
+ * cropped in the Library, published, and their site served the picture
+ * uncropped. Nothing errored: promotion had copied bytes, publish ladders
+ * whatever bytes it finds, and neither of them was wrong. What was missing is
+ * this — the step that carries a change from the record to the copy the pages
+ * reference.
+ *
+ * **IT REPLACES; IT NEVER MINTS.** Every name here came off the record, written
+ * by the promotion that created it, so each one is a name the site's pages
+ * already point at. Re-promoting through the ADD path would hand back
+ * `logo-2.png` on the first edit and `logo-3.png` on the second while every page
+ * kept serving the unedited original — the client's crop strictly invisible and
+ * strictly expensive.
+ *
+ * **A NAME THAT IS GONE IS REPORTED, NOT REPAIRED.** `editAssetReplace` refuses
+ * it, and that refusal becomes one entry answering `replaced: false` rather than
+ * an exception: the recipe has already landed, the edit is real, and the one
+ * thing that failed is its propagation to one site. Turning that into a thrown
+ * error would tell a client their crop did not happen when it did.
+ *
+ * **ONE FAILED PLACEMENT DOES NOT COST THE OTHERS THEIRS.** A material on two
+ * sites re-promotes to both, and a stale record on one says nothing about the
+ * other — so each is attempted and each answers for itself.
+ *
+ * **IT IS THE DRAFT THAT CHANGES.** The store's `write` is a draft write, which
+ * is the whole product's semantics: a published revision is a frozen snapshot,
+ * and the change reaches the live site when the client publishes. Nothing here
+ * wants an exception to that.
+ */
+export async function republishMaterial(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  uid: string,
+  deps: { renderer?: ImageRenderer } = {},
+): Promise<Republication[]> {
+  const { ticket } = await tickets.get({ uid })
+  const placements = placedAs(ticket.fields)
+  if (placements.length === 0) return []
+  const file = await materialFile(tickets, uid)
+  const bytes = await renderedBytes(
+    file.bytes,
+    file.contentType,
+    safeRecipe(ticket.fields.edits),
+    deps.renderer,
+  )
+  const done: Republication[] = []
+  for (const placement of placements) {
+    try {
+      await editAssetReplace(placement.slug, placement.name, bytes, {
+        store: sites,
+        actor: 'client',
+      })
+      done.push({ ...placement, replaced: true })
+    } catch (error) {
+      done.push({
+        ...placement,
+        replaced: false,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+  return done
+}
+
+/**
+ * Record that this material's bytes are on `slug`, under `name` — idempotently.
  *
  * A SET UNION RATHER THAN A PUSH. Promoting the same logo onto the same site
  * twice is an ordinary thing for a client to do — they drag it again because
  * they forgot — and it must not leave the row claiming two placements where
  * there is one. Absence reads as the empty list, so material that predates the
  * field needs no migration to grow its first placement.
+ *
+ * **THE NAME IS THE PART [[REQ-229]] ADDS, AND IT IS THE POINT.** `placed_on`
+ * says a logo reached a site; it does not say what it is CALLED there, and
+ * promotion may not have used the name it was asked for — `freeAssetName`
+ * renames on collision. Without the name there is nothing for a recipe change to
+ * write back to. So the two fields are written in ONE patch, by this function,
+ * which is what stops them disagreeing about where a material went. `placed_on`
+ * is unioned rather than derived from `placed_as` — see the write itself, where
+ * the one case that distinguishes them is argued.
+ *
+ * **IT RE-RECORDS RATHER THAN SKIPPING WHEN THE NAME MOVES.** A slug already in
+ * the list is not a reason to return: the promotion that just ran is what knows
+ * the name, and a record left holding a stale one would send the next edit's
+ * bytes to a name nothing references.
  *
  * READ OFF THE TICKET WE ALREADY HOLD, not re-fetched: `promoteToSiteAsset` got
  * it to check `republishable`, and a second read would be a window in which the
@@ -781,10 +962,53 @@ async function recordPlacement(
   tickets: TicketStore,
   ticket: Ticket,
   slug: string,
+  name: string,
 ): Promise<void> {
-  const placed = placedOn(ticket.fields)
-  if (placed.includes(slug)) return
-  await tickets.update({ uid: ticket.uid, patch: { fields: { placed_on: [...placed, slug] } } })
+  const named = placedAs(ticket.fields)
+  const slugs = placedOn(ticket.fields)
+  if (slugs.includes(slug) && named.some((e) => e.slug === slug && e.name === name)) return
+  await tickets.update({
+    uid: ticket.uid,
+    patch: {
+      fields: {
+        // `placed_on` IS UNIONED AND NOT DERIVED FROM `placed_as`, which matters
+        // for exactly one case and matters completely: material placed BEFORE
+        // this ticket has slugs and no names, and deriving the list would erase
+        // every one of those placements the first time the material was put on
+        // another site. Such a material is in the state the design already has a
+        // reading for — placed, under no recorded name — and its next promotion
+        // to that site records one.
+        placed_on: slugs.includes(slug) ? slugs : [...slugs, slug],
+        placed_as: [...named.filter((entry) => entry.slug !== slug), { slug, name }],
+      },
+    },
+  })
+}
+
+/**
+ * `fields.placed_as` as placements, whatever the row actually holds.
+ *
+ * ABSENCE IS THE EMPTY LIST, the reading `placed_on` and `edits` both take, so
+ * material that predates the field reads as "placed under no recorded name"
+ * rather than as unknown — and that reading is exactly right: such a material
+ * has a first placement ahead of it, not a stale one.
+ *
+ * ENTRIES THAT ARE NOT A `{ slug, name }` PAIR ARE DROPPED rather than repaired.
+ * The declared type only asserts the value is a list, so anything could be in
+ * one; a half-formed entry would name a site or a file we cannot address, and
+ * dropping it means the material re-places from scratch rather than writing
+ * bytes somewhere nobody meant.
+ */
+function placedAs(fields: Record<string, unknown>): Placement[] {
+  const raw = fields.placed_as
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { slug, name } = entry as Record<string, unknown>
+    if (typeof slug !== 'string' || slug === '') return []
+    if (typeof name !== 'string' || name === '') return []
+    return [{ slug, name }]
+  })
 }
 
 /**
@@ -1612,12 +1836,32 @@ export async function reviseName(
  * frame* — a real distinction, and one that belongs to the L1 image NODE, where
  * per-placement framing already lives. A material-level field for it would be a
  * value no renderer reads.
+ *
+ * **AND IT RE-PROMOTES** ([[REQ-229]]). Writing `fields.edits` and returning is
+ * where the epic's own title broke between its third and fourth verbs: the
+ * change did not reach the publish. {@link republishMaterial} is the step that
+ * carries it — the current render replaces the bytes at the name each site's
+ * pages already reference — and its outcome travels back in `republished` rather
+ * than as an exception, because the edit itself has landed and a site that could
+ * not be reached is a smaller fact than that.
+ *
+ * **THE RENDERER ARRIVES WHOLE, NOT AS A WAY TO MEASURE.** This took a `measure`
+ * closure, which was enough while the only thing a recipe needed was validating
+ * against real pixels. Re-promotion needs the same port's other verb over the
+ * same bytes, and handing down two halves of one object would be two things that
+ * could be composed from different deployments. It reads the file itself through
+ * {@link materialFile}, which is what the caller's closure did anyway.
  */
 export async function reviseRecipe(
   store: TicketStore,
   args: { uid: string; recipe: unknown },
-  deps: { measure?: (uid: string) => Promise<Dimensions> } = {},
-): Promise<(MaterialRow & { body: string; members: string[] }) & { rendered: boolean }> {
+  deps: { renderer?: ImageRenderer; sites?: TenantSiteStore } = {},
+): Promise<
+  (MaterialRow & { body: string; members: string[] }) & {
+    rendered: boolean
+    republished: Republication[]
+  }
+> {
   const ticket = await materialTicket(store, args.uid)
   const kind = String(ticket.fields.kind ?? '')
   if (!isEditablePicture({ kind, content_type: String(ticket.fields.content_type ?? '') })) {
@@ -1630,10 +1874,22 @@ export async function reviseRecipe(
   }
   const recipe = parseRecipe(args.recipe)
   let rendered = false
-  if (deps.measure) {
-    compileRecipe(recipe, await deps.measure(args.uid))
+  if (deps.renderer) {
+    // MEASURED BEFORE THE WRITE, which is what makes a refusal mean the recipe is
+    // left exactly as it was: the parse catches what is wrong with the recipe on
+    // its own, and this catches what is wrong with it FOR THIS PICTURE.
+    const file = await materialFile(store, args.uid)
+    compileRecipe(recipe, await deps.renderer.measure(file.bytes, file.contentType))
     rendered = true
   }
   await store.update({ uid: args.uid, patch: { fields: { edits: [...recipe] } } })
-  return { ...(await readMaterial(store, args.uid)), rendered }
+  // AFTER THE WRITE, AND READ BACK OFF THE RECORD. The recipe that goes to the
+  // site is the one the record now holds, not the one this call was handed —
+  // which is the same rule the preview pane and the assistant's view of a
+  // picture already follow, and the reason all three show the same picture.
+  const republished =
+    deps.sites && deps.renderer
+      ? await republishMaterial(store, deps.sites, args.uid, { renderer: deps.renderer })
+      : []
+  return { ...(await readMaterial(store, args.uid)), rendered, republished }
 }
