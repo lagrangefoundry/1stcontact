@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:27:58.821159+00:00'
+updated_at: '2026-09-12T22:39:22.846539+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1015,5 +1015,11 @@ Both tickets are `ready_to_reconcile` and contradict themselves in reading order
 2. **REQ-222 — the outbound-subrequest budget question.** Unverified, and it's what any latency rationing would be sized against.
 
 Also worth knowing: **the epic itself is now `done`** while all seven children sit at `ready_to_reconcile`.
+
+<!-- xgd-turn id="a04b4800-b28a-4263-a6e5-f534224a92c4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:39:22.661472+00:00" -->
+#### You
+I have reopened 222 - what do I need to ask it to do?
 
 <!-- xgd-chat-end -->
