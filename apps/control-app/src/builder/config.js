@@ -253,6 +253,30 @@ export const SIGN_OUT_HREF = '/sign-out'
 export const SIGN_OUT_LABEL = 'Sign out'
 
 /**
+ * Signing out of every browser ([[REQ-231]]).
+ *
+ * THE SAME ENDPOINT, WITH A FIELD — see `sign-in.ts` for why it is not a second
+ * path. The field's name is duplicated here for the reason the path above is:
+ * this is browser JavaScript and cannot import the Worker's TypeScript, so a
+ * UAT holds the two equal.
+ *
+ * THE LABEL SAYS EVERYWHERE BECAUSE THE HINT CANNOT BE RELIED ON TO BE READ.
+ * This control is destructive in a way its neighbour is not — it ends sessions
+ * on machines the person is not looking at, and there is no undo but signing in
+ * again on each of them — so the words on the button have to carry that on
+ * their own.
+ *
+ * AND THE HINT IS THERE ANYWAY, because the reason to press it is not obvious
+ * from the name. It is the answer to a device somebody no longer has, which is
+ * the one risk rotation cannot detect, and nobody reaches for a control whose
+ * purpose they have to infer.
+ */
+export const SIGN_OUT_EVERYWHERE_FIELD = 'everywhere'
+export const SIGN_OUT_EVERYWHERE_LABEL = 'Sign out everywhere'
+export const SIGN_OUT_EVERYWHERE_HINT =
+  'Ends this sign-in on every browser and device, including ones you no longer have.'
+
+/**
  * The two drop areas of the upload overlay — REQ-161, and the only question this
  * product ever asks about a file.
  *

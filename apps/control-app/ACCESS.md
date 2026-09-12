@@ -258,7 +258,14 @@ paths on `app.1stcontact.io`:
 |---|---|---|
 | `/sign-in` | `GET`, `POST`, `OPTIONS` | the address form, and the endpoint the address is posted to |
 | `/sign-in/*` | `GET`, `POST` | the emailed link's Continue page, and the redeem it posts to |
-| `/sign-out` | `POST` | ending a session |
+| `/sign-out` | `POST` | ending a session — or, with `everywhere=1` in the body, every session
+  the person holds ([[REQ-231]]) |
+
+**Signing out everywhere is a field on `/sign-out` rather than a second path**, and that is
+deliberately a decision about *this table*. A new path would need a new row here and a new
+Bypass rule configured by hand in Cloudflare — a step nothing in the repository can perform or
+verify, and one whose omission is invisible until an invitee meets an Access PIN page. A field
+inherits the bypass the path already has.
 
 Zero Trust → Access → Applications → the app → **Policies** → Add a policy → Action **Bypass**,
 Include **Everyone**, and add the paths under the application's *Path* configuration (or add a

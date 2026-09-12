@@ -63,6 +63,30 @@ directory = "./dist-assets"
 binding = "ASSETS"
 run_worker_first = true
 
+# The sweep ([[REQ-231]]). The one thing on a clock in this Worker.
+#
+# WHY IT EXISTS. `purgeExpired` is the component's only sanctioned way to reap
+# `login_tokens` and `sessions`, and before this it was called by nothing. That
+# was survivable while the only dead rows were sign-ins that had run out. With
+# rotation on, every visit retires a credential and leaves the row behind as
+# replay evidence for seven days — so a deployment with no cron accumulates one
+# dead row per visit per person for the whole 180-day sign-in interval, and the
+# evidence window stops meaning anything because nothing ever closes it.
+#
+# ONCE A DAY, OFF THE HOUR. The retention window is measured in days, so a
+# sweep more often than daily reaps exactly the same rows and pays for the
+# privilege; and a schedule on the hour is a schedule sharing a spike with every
+# other cron on the platform, for no benefit to a job nothing waits on.
+#
+# REPEATED UNDER [env.production] for the reason every key in this file is.
+# `triggers` IS on wrangler's inheritable list, unlike vars and bindings, so the
+# repeat is redundant TODAY and is written anyway: this file's own rule is that
+# nothing depends on remembering which keys inherit, and the failure mode of
+# losing the production one is silent — the deploy succeeds and the sweep simply
+# never runs. A UAT pins both declarations.
+[triggers]
+crons = ["17 4 * * *"]
+
 # TENANT_ID names the PLATFORM's own business (REQ-168), BY KEY ([[REQ-190]]).
 #
 # It used to be the word `1stcontact`, which was the business's *name* doing a
@@ -407,6 +431,10 @@ SESSION_COOKIE_DOMAIN = "1stcontact.io"
 directory = "./dist-assets"
 binding = "ASSETS"
 run_worker_first = true
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-231]]).
+[env.production.triggers]
+crons = ["17 4 * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"

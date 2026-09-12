@@ -2570,6 +2570,19 @@ body {
   margin: 0 auto 0 0;
 }
 
+/* Sign out everywhere sits in the panel rather than the footer ([[REQ-231]]),
+   above the hint that explains it — the footer is where a dialog's exits live
+   and this is not an exit from the dialog, it is an act on machines that are
+   not here. It carries a top margin because what precedes it is the portal's
+   own hint, and two sentences of different kinds running together read as one.
+   The button inside wears the ordinary `.builder-modal__btn`, like its
+   neighbour: the difference between the two is what they say, not how they
+   look, and a styled-red button would be claiming a danger the words already
+   carry. */
+.builder-account__sign-out-everywhere {
+  margin: 20px 0 0;
+}
+
 
 /* ---------------------------------------------------------------------------
  * The image modal ([[REQ-220]]).

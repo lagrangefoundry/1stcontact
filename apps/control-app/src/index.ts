@@ -15,7 +15,13 @@ import {
 import { type LeadEnv } from './lead'
 import { route, type RouterEnv } from './router'
 import { handleSignIn, type SignInEnv } from './sign-in'
-import { sessionIdentityFor } from './sessions'
+import {
+  expiringWithinPreemption,
+  purgeSessions,
+  sessionIdentityFor,
+  SIGN_IN_PATH,
+  type SignedIn,
+} from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { guardTerms } from './terms'
 
@@ -117,6 +123,91 @@ function uncacheable(response: Response): Response {
   const headers = new Headers(response.headers)
   headers.set('cache-control', 'no-store, must-revalidate')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+}
+
+/**
+ * Put the rotated credential on the way out ([[REQ-231]]).
+ *
+ * THE OBLIGATION THIS WHOLE TICKET TURNS ON. `resolveFromCookie` may rotate the
+ * session it resolves — a new row, the same subject, the same `expires_at` — and
+ * hand back the `Set-Cookie` that tells the browser. Dropping it does not fail:
+ * the request succeeds, the response looks right, and the browser goes on
+ * presenting an id the server retired. That id resolves for one grace window and
+ * then does not, so the symptom is everybody signed out sixty seconds after
+ * their first visit of the day, from an omission rather than from an error.
+ *
+ * SO IT IS APPLIED AT THE EXITS RATHER THAN AT THE ROTATION. The rotation is
+ * known the moment `sessionIdentityFor` answers; the response is not built until
+ * several branches later, and one of those branches is the `catch`. Wrapping
+ * every exit is what makes "did we send it" answerable by reading one function
+ * instead of by auditing eight returns.
+ *
+ * APPENDED AND NEVER SET. A route may already be setting a cookie of its own,
+ * and `Set-Cookie` is the one header where a second value is a second cookie
+ * rather than a replacement.
+ *
+ * THE RESPONSE IS REBUILT because the one a route returns may be immutable —
+ * anything that came back from `env.ASSETS.fetch` is — and a silent
+ * `TypeError: immutable` at this point would be the same signed-out-in-sixty-
+ * seconds failure with a stack trace nobody reads.
+ */
+function withRotatedCookie(response: Response, setCookie: string | null): Response {
+  if (!setCookie) return response
+  const rebuilt = new Response(response.body, response)
+  rebuilt.headers.append('set-cookie', setCookie)
+  return rebuilt
+}
+
+/**
+ * Whether this request is one a person could be sent to sign in ([[REQ-231]]).
+ *
+ * A TOP-LEVEL NAVIGATION AND NOTHING ELSE. Pre-emption answers 303 to the
+ * sign-in page, which is the right answer for somebody who has just typed the
+ * address and the wrong one for everything else a page fires: an XHR follows the
+ * redirect and gets HTML where it expected JSON, an image gets a login form, and
+ * an SSE stream simply ends. The failure is worse than the wall it replaces,
+ * because it is silent.
+ *
+ * `Sec-Fetch-Mode: navigate` IS THE QUESTION, AND IT IS ASKED OF THE BROWSER
+ * RATHER THAN OF THE PATH. Every browser this product supports sends it and no
+ * page can forge it, so it distinguishes exactly the case that matters; a
+ * path-shaped guess (`not /api/`, not an asset extension) would have to be kept
+ * in step with the router forever. An old client sends nothing, which reads as
+ * "not a navigation" — so the cost of the header being absent is that
+ * pre-emption does not fire, and somebody meets the ordinary expiry they would
+ * have met anyway.
+ *
+ * AND THE START OF A VISIT IS ALMOST ALWAYS A NAVIGATION, which is what makes
+ * this cheap rather than lossy: a visit begins with silence ending, and silence
+ * ends when somebody opens the page.
+ */
+function isNavigation(request: Request): boolean {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false
+  return (request.headers.get('sec-fetch-mode') ?? '') === 'navigate'
+}
+
+/**
+ * Spend the start of a visit on signing in, rather than the middle of a task.
+ *
+ * IT DOES NOT END THE SESSION AND MUST NOT. The cookie is still live and still
+ * theirs; what this does is offer the sign-in at the one moment it is free. A
+ * person who backs out keeps working — their `last_seen_at` has just been
+ * refreshed, so the next navigation does not start a visit and is not
+ * intercepted. The prompt is therefore once per visit, and the ordinary expiry
+ * is still underneath it as the real boundary.
+ */
+function preemptSignIn(setCookie: string | null): Response {
+  return withRotatedCookie(
+    new Response(null, {
+      status: 303,
+      headers: {
+        location: SIGN_IN_PATH,
+        'cache-control': 'no-store',
+        'x-robots-tag': 'noindex',
+      },
+    }),
+    setCookie,
+  )
 }
 
 /**
@@ -259,6 +350,11 @@ export default {
     // thrown from inside the router, several frames down, and the one thing its
     // log line needs is who it happened to — which only exists here.
     let admission: Admission | null = null
+    // AND THE SAME, FOR THE SAME REASON ([[REQ-231]]). The rotation is known
+    // where the session is read; the response is built several branches later,
+    // and one of those branches is the `catch` below. See
+    // {@link withRotatedCookie}.
+    let rotated: string | null = null
     try {
       /**
        * THE ONE ROUTE AHEAD OF THE GATE ([[REQ-198]]).
@@ -348,9 +444,24 @@ export default {
          * Refusing here instead would make a stale cookie in some browser a
          * lockout from a builder Access would have let its holder into.
          */
-        const signedIn = await sessionIdentityFor(env, request)
+        const signedIn: SignedIn | null = await sessionIdentityFor(env, request)
         let email: string | null
         if (signedIn) {
+          // THE OBLIGATION, TAKEN BEFORE ANYTHING ELSE CAN RETURN ([[REQ-231]]).
+          // Every exit below carries it from here, including the refusals and
+          // the `catch` — because the rotation has already happened in the
+          // database whatever this request goes on to answer, and a refusal that
+          // dropped the header would retire the credential of the person it
+          // refused.
+          rotated = signedIn.setCookie ?? null
+          // THE PRE-EMPTION, AND IT IS AHEAD OF `admit` DELIBERATELY. What it
+          // offers is a fresh sign-in, which is worth offering to somebody whose
+          // admission is about to be re-checked anyway — and running it after
+          // `admit` would put a redirect behind a denial for the one person it
+          // cannot help.
+          if (expiringWithinPreemption(signedIn) && isNavigation(request)) {
+            return preemptSignIn(rotated)
+          }
           email = signedIn.email
         } else {
           const gate = await guardAccess(request, env)
@@ -379,13 +490,13 @@ export default {
         }
 
         admission = await admit(env, email)
-        if (!admission.ok) return denied()
+        if (!admission.ok) return withRotatedCookie(denied(), rotated)
 
         // Terms LAST of the identity checks, and inside this block rather than
         // after it: the dev-open branch has no admission at all, so there is no
         // person to have accepted anything and nothing to check.
         const terms = await guardTerms(request, env, admission)
-        if (terms) return terms
+        if (terms) return withRotatedCookie(terms, rotated)
       }
 
       const scope = await resolveScope(env, admission, requested)
@@ -395,32 +506,61 @@ export default {
       // already answered here, ahead of routing. Handing the answer down is what
       // keeps it a single answer; asking again inside the router would need the
       // verified email the router is deliberately never given.
-      return await route(request, env, scope, { admission }, ctx)
+      return withRotatedCookie(await route(request, env, scope, { admission }, ctx), rotated)
     } catch (err) {
       // A REFUSED TARGET IS A 403, NOT THE 503 BELOW. The caller named a business
       // they may not operate: an answer about them, not a configuration failure
       // an operator can act on. Dressing it as one would invite a retry that
       // fails identically forever, and would put someone else's business id in
       // front of an operator as though it were theirs to fix.
-      if (err instanceof ScopeRefusedError) return refused(err)
+      if (err instanceof ScopeRefusedError) return withRotatedCookie(refused(err), rotated)
       // THE SAME REASONING, ONE STEP EARLIER. The caller named no business and
       // holds none they may open — an answer about their account, not a
       // configuration failure. Before [[DOC-42]] §10.1 this was unreachable: the
       // account was refused at the door instead, which is the refusal that took
       // away the remedy along with the access.
-      if (err instanceof NoBusinessError) return noBusiness(admission)
+      if (err instanceof NoBusinessError) return withRotatedCookie(noBusiness(admission), rotated)
       // Anything reaching here escaped the router's own handler, or the
       // admission check ahead of it — a store that could not be constructed, an
       // identity table that is not migrated, most likely a missing binding or an
       // unknown tenant. It is a configuration failure rather than a bad request,
       // and it says so in prose an operator can act on.
       const message = err instanceof Error ? err.message : String(err)
-      return uncacheable(
-        new Response(message, {
-          status: 503,
-          headers: { 'content-type': 'text/plain; charset=utf-8' },
-        }),
+      return withRotatedCookie(
+        uncacheable(
+          new Response(message, {
+            status: 503,
+            headers: { 'content-type': 'text/plain; charset=utf-8' },
+          }),
+        ),
+        rotated,
       )
     }
+  },
+
+  /**
+   * The cron ([[REQ-231]]). It has one job and the job is `purgeSessions`.
+   *
+   * WHY THERE IS A SCHEDULED HANDLER AT ALL NOW. `purgeExpired` is the only
+   * sanctioned way to reap the component's two tables, and until this it was
+   * called by nothing — survivable while the only dead rows were sign-ins that
+   * had run out. Rotation changes the rate: one RETIRED row per visit per
+   * person, each carrying its chain's `expires_at`, so an unswept table keeps
+   * every credential anybody has ever been handed for the length of the sign-in
+   * interval. The sweep is what makes the retention window (7 days of replay
+   * evidence) mean anything.
+   *
+   * IT REPORTS RATHER THAN RETURNS. Nothing consumes a cron's value, so the
+   * three counts go to the invocation log — which is the only place a question
+   * like "is rotation actually firing" can be answered from, and where a sweep
+   * that has quietly been taking nothing for a month is visible.
+   *
+   * IT DOES NOT SWALLOW A FAILURE. A throw here marks the invocation failed,
+   * which is what makes a broken sweep visible in the dashboard rather than
+   * only in a log line nobody reads.
+   */
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    const purged = await purgeSessions(env)
+    console.log(JSON.stringify({ event: 'sessions_purged', cron: event.cron, ...purged }))
   },
 } satisfies ExportedHandler<Env>

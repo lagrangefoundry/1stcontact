@@ -65,9 +65,21 @@ describe('REQ-194 — the account is a table', () => {
     // rather than follow it). A tenth migration adding a NOT NULL column to a
     // table with rows in it is a create-copy-drop-rename rebuild; there are no
     // rows, so the file that has never been applied is the file that changes.
-    expect(
-      fs.readdirSync(path.join(REPO, 'db', 'migrations')).filter((f) => f.endsWith('.sql')),
-    ).toEqual(['0001_baseline.sql'])
+    //
+    // THE ASSERTION IS ABOUT THIS TABLE, NOT ABOUT THE DIRECTORY ([[REQ-231]]).
+    // It read `toEqual(['0001_baseline.sql'])`, which was the same statement for
+    // as long as nothing had data; `sessions` does now, so there is a second
+    // migration and it has nothing to do with accounts. What this case is for is
+    // that `accounts` arrived by EDITING the baseline — so that is what it says.
+    const migrations = fs
+      .readdirSync(path.join(REPO, 'db', 'migrations'))
+      .filter((f) => f.endsWith('.sql'))
+    expect(migrations).toContain('0001_baseline.sql')
+    for (const file of migrations.filter((f) => f !== '0001_baseline.sql')) {
+      const sql = fs.readFileSync(path.join(REPO, 'db', 'migrations', file), 'utf8')
+      expect(sql, `${file} repairs the account tables instead of the baseline declaring them`)
+        .not.toMatch(/(CREATE TABLE|ALTER TABLE)[^;]*\baccounts\b/)
+    }
 
     expect(ddl).toMatch(/CREATE TABLE IF NOT EXISTS accounts\s*\(/)
     // The person names their account, and cannot not name one.

@@ -21,6 +21,9 @@ import {
   PORTAL_HREF,
   PORTAL_LINK_HINT,
   PORTAL_LINK_LABEL,
+  SIGN_OUT_EVERYWHERE_FIELD,
+  SIGN_OUT_EVERYWHERE_HINT,
+  SIGN_OUT_EVERYWHERE_LABEL,
   SIGN_OUT_HREF,
   SIGN_OUT_LABEL,
   BUSINESS_LABEL,
@@ -317,6 +320,17 @@ export function openAccountSurface({ host = null, person = null, businesses = []
   portalHint.textContent = PORTAL_LINK_HINT
   modal.panel.append(portalHint)
 
+  // THE SECOND WAY OUT, AND IT IS THE WIDER ONE ([[REQ-231]]) — see
+  // {@link signOutEverywhereControl}. Above the footer rather than in it,
+  // because it is not a way to close this dialog: it is an act with a
+  // consequence on machines that are not in the room.
+  modal.panel.append(signOutEverywhereControl())
+
+  const everywhereHint = document.createElement('p')
+  everywhereHint.className = 'builder-account__portal-hint'
+  everywhereHint.textContent = SIGN_OUT_EVERYWHERE_HINT
+  modal.panel.append(everywhereHint)
+
   // THE OTHER WAY OUT, AND IT IS ALWAYS DRAWN ([[REQ-204]]) — see
   // {@link signOutControl} for why there is no state in which it is absent.
   modal.panel.append(
@@ -327,6 +341,50 @@ export function openAccountSurface({ host = null, person = null, businesses = []
   )
   modal.mount()
   return modal
+}
+
+/**
+ * Sign out everywhere — the same endpoint, one field wider ([[REQ-231]]).
+ *
+ * WHAT IT IS FOR. A sign-in interval of 180 days is affordable because the
+ * credential on the wire rotates, but rotation detects theft by CONFLICT — two
+ * parties presenting one chain — and a device somebody no longer has produces no
+ * conflict at all. It is the residual risk of the longer interval and it is the
+ * one thing the system cannot notice on its own. This is the control that lets
+ * the person act on what only they know.
+ *
+ * A FORM, POSTED, for `signOutControl`'s reason exactly: there is no response to
+ * read and nowhere to decide to go, because the endpoint answers a 303. It also
+ * keeps working when script does not, which is when somebody most wants out.
+ *
+ * A HIDDEN INPUT AND NOT A QUERY STRING. The distinction between the two
+ * sign-outs is what the request BODY says, so a URL copied out of history or a
+ * referrer cannot carry it — and there is exactly one path for an Access bypass
+ * policy to cover, which is the path that already has one.
+ *
+ * IT IS DRAWN UNCONDITIONALLY, for [[REQ-204]]'s reason. A caller holding no
+ * session of ours gets the ordinary sign-out from this button, silently, which
+ * is the same outcome the narrow control gives them — hiding it would document
+ * a gap rather than close one.
+ */
+function signOutEverywhereControl() {
+  const form = document.createElement('form')
+  form.className = 'builder-account__sign-out-everywhere'
+  form.method = 'post'
+  form.action = SIGN_OUT_HREF
+
+  const flag = document.createElement('input')
+  flag.type = 'hidden'
+  flag.name = SIGN_OUT_EVERYWHERE_FIELD
+  flag.value = '1'
+  form.append(flag)
+
+  const button = document.createElement('button')
+  button.type = 'submit'
+  button.className = 'builder-modal__btn'
+  button.textContent = SIGN_OUT_EVERYWHERE_LABEL
+  form.append(button)
+  return form
 }
 
 /**
