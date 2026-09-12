@@ -5,9 +5,9 @@ type: request
 title: A band's backdrop gets WebP too, which means image-set() after all
 created_by: EPIC-1
 created_at: '2026-09-12T23:32:42.049163+00:00'
-updated_at: '2026-09-12T23:46:48.402208+00:00'
+updated_at: '2026-09-12T23:59:18.870297+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -123,3 +123,5 @@ The last piece of [[EPIC-1]]'s fourth verb. *Publish at a sane size* is nearly
 true: widths reach every picture, and formats reach every picture placed as an
 `<img>`. This is the one remaining picture that gets neither the format saving nor
 an explanation of why not.
+
+-
