@@ -186,7 +186,6 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
         props: {
           version: latestModuleVersion('contact-form'),
           config: {
-            action: '/leads',
             fields: [{ name: 'email', label: 'Your email', type: 'email', labelMode: 'placeholder' }],
           },
           slots: { form: { kind: 'control', control: 'email' } },
@@ -287,7 +286,6 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
         props: {
           version: latestModuleVersion('contact-form'),
           config: {
-            action: '/leads',
             fields: [{ name: 'email', label: 'Your email', type: 'email' }],
             submitLabel: 'Send message',
           },

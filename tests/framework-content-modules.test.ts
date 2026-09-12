@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import {
   validateBehaviorConfig,
@@ -52,7 +53,7 @@ describe('contact-form capability', () => {
 
   it('test_UAT_FC_REQ-5_contact_form_renders_configured_fields', async () => {
     const html = await render(ContactForm, {
-      config: { action: '/api/forms/contact', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     })
     expect(html).toMatch(/<input[^>]+name="name"[^>]+type="text"/)
@@ -63,17 +64,22 @@ describe('contact-form capability', () => {
     expect(html).toContain('Message')
   })
 
-  it('test_UAT_FC_REQ-5_contact_form_action_attribute_uses_configured_url', async () => {
+  // RENAMED BY [[BUG-86]]: there is no configured URL any more. The endpoint is
+  // the module's own, so what this proves is that the form carries it without
+  // anything in `config` having supplied it.
+  it('test_UAT_FC_REQ-5_contact_form_action_attribute_is_the_modules_own_endpoint', async () => {
     const html = await render(ContactForm, {
-      config: { action: '/leads/intake', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     })
-    expect(html).toMatch(/<form[^>]+data-contact-form[^>]+action="\/leads\/intake"[^>]+method="post"/)
+    expect(html).toMatch(
+      new RegExp(`<form[^>]+data-contact-form[^>]+action="${LEAD_ACTION}"[^>]+method="post"`),
+    )
   })
 
   it('test_UAT_FC_REQ-5_contact_form_includes_honeypot_hidden_field', async () => {
     const html = await render(ContactForm, {
-      config: { action: '/api/forms/contact', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     })
     expect(html).toContain('contact-form__honeypot')
@@ -82,7 +88,7 @@ describe('contact-form capability', () => {
 
   it('test_UAT_FC_REQ-5_contact_form_renders_turnstile_mount_point', async () => {
     const html = await render(ContactForm, {
-      config: { action: '/api/forms/contact', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     })
     expect(html).toContain('data-turnstile-target')
@@ -94,20 +100,19 @@ describe('contact-form capability', () => {
     // `type="module"` script, inert when JS is unavailable — so the no-JS
     // submission path never depends on it.
     const html = await render(ContactForm, {
-      config: { action: '/api/forms/contact', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     })
-    expect(html).toMatch(/<form[^>]+action="\/api\/forms\/contact"[^>]+method="post"/)
+    expect(html).toMatch(new RegExp(`<form[^>]+action="${LEAD_ACTION}"[^>]+method="post"`))
     expect(html).toContain('type="submit"')
     // Any script present must be a deferred module (progressive enhancement only).
     expect(html).not.toMatch(/<script(?![^>]*\btype="module")/)
   })
 
   it('test_UAT_FC_REQ-5_contact_form_field_count_validated_1_to_8', () => {
-    const none = validateBehaviorConfig(contactFormMeta, { action: '/x', fields: [] })
+    const none = validateBehaviorConfig(contactFormMeta, { fields: [] })
     expect(none.some((e) => e.field === 'config.fields')).toBe(true)
     const nine = validateBehaviorConfig(contactFormMeta, {
-      action: '/x',
       fields: Array.from({ length: 9 }, (_, i) => ({
         name: `f${i}`,
         label: `F${i}`,
@@ -122,9 +127,10 @@ describe('module registry — surviving capability catalog', () => {
   it('test_UAT_FC_REQ-5_registry_includes_the_surviving_capability_modules', () => {
     // Post-pivot the catalog holds only the two vetted behavior modules;
     // REQ-96 (controls replace module-painted leaves) bumped both again:
-    // contact-form v4 and carousel v3.
+    // contact-form v4 and carousel v3. [[BUG-86]] took contact-form to v5 when
+    // it deleted `config.action`.
     const catalog: Array<[string, number]> = [
-      ['contact-form', 4],
+      ['contact-form', 5],
       ['carousel', 3],
     ]
     for (const [id, version] of catalog) {

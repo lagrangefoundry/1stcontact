@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { cmdNew, cmdPublish, cmdRender, cmdRevisions } from '../tools/generate/src/cli/commands'
 import { editCopyGet } from '../tools/generate/src/cli/edit'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 // The stamp vocabulary as the SITE DEFINITION SCHEMA publishes it (AC-1008) —
 // the one contract the render writes and a client reads.
 import {
@@ -64,7 +65,9 @@ const LINKED_COPY = 'Read the whitepaper'
 const BAND_COPY = 'A painted band.'
 const SLIDE_ONE = 'The first slide.'
 const SLIDE_TWO = 'The second slide, off-screen until you swipe.'
-const FORM_ACTION = 'https://example.com/submit'
+// [[BUG-86]] — the form's endpoint is the module's own, not an authored URL,
+// so this names the constant the component emits rather than a fixture value.
+const FORM_ACTION = LEAD_ACTION
 const LINK_HREF = 'https://example.com/paper'
 
 const homeJsonPath = (cwd: string, slug: string): string =>
@@ -147,10 +150,9 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 4,
+      version: 5,
       slot: 'get-in-touch',
       config: {
-        action: FORM_ACTION,
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       slots: {
@@ -227,11 +229,10 @@ const SEAM_CASES: SeamCase[] = [
   },
   {
     type: 'contact-form',
-    version: 4,
+    version: 5,
     instance: 'get-in-touch',
     slot: 'form',
     config: {
-      action: FORM_ACTION,
       fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
     },
     // A SINGLE-subtree seam: the node list is that one subtree, so the items are

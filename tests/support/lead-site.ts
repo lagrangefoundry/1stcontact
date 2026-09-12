@@ -60,9 +60,8 @@ function pageWith(options: SeedFormOptions, instanceId: string): Record<string, 
       {
         id: instanceId,
         type: 'contact-form',
-        version: 4,
+        version: 5,
         config: {
-          action: '/api/lead',
           submitLabel: options.submitLabel ?? 'Send',
           fields: options.fields ?? [
             { name: 'email', label: 'Your email', type: 'email', required: true },

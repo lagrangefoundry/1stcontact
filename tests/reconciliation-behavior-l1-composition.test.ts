@@ -127,7 +127,6 @@ function walk(node: unknown): Array<Record<string, unknown>> {
 describe('story-179b8c06 — control bindings are validated in both directions', () => {
   it('test_UAT_AC808_control_bindings_validated_in_both_directions', () => {
     const formConfig = {
-      action: 'https://example.com/submit',
       fields: [
         { name: 'your-name', label: 'Your name', type: 'text', required: true },
         { name: 'your-email', label: 'Email', type: 'email', required: false },
@@ -359,7 +358,6 @@ describe('story-179b8c06 — behavior modules paint only their invariant element
     // ── Rendered: every invariant element carries the marker attribute ────────
     const formHtml = await render(ContactForm, {
       config: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       slots: {
@@ -390,7 +388,6 @@ describe('story-179b8c06 — behavior modules paint only their invariant element
     expect(
       validateBehaviorControls(contactFormMeta, {
         config: {
-          action: 'https://example.com/submit',
           fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
         },
         slots: {
@@ -460,10 +457,9 @@ describe('story-179b8c06 — the generated stylesheet carries chrome, not source
         {
           id: 'get-in-touch',
           type: 'contact-form',
-          version: 4,
+          version: 5,
           slot: 'get-in-touch',
           config: {
-            action: 'https://example.com/submit',
             fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
           },
           slots: {
@@ -543,7 +539,6 @@ describe('story-179b8c06 — the relocated default look is an L2 preset', () => 
     expect(bound.sort()).toEqual(['email', 'message', 'submit', 'your-name'])
     // …so an instance that mounts it reports no control-binding violation.
     const config = {
-      action: 'https://example.com/submit',
       fields: fields.map((f) => ({ ...f, required: false })),
     }
     const violations = validateBehaviorInstance(contactFormMeta, {

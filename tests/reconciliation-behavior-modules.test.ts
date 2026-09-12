@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 
 import * as framework from '../packages/framework/src/index'
 import {
@@ -83,7 +84,6 @@ describe('story-179b8c06 — behavioural config validation', () => {
     ).toEqual([])
     expect(
       validateBehaviorConfig(contactFormMeta, {
-        action: 'https://example.com/lead',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       }),
     ).toEqual([])
@@ -112,11 +112,14 @@ describe('story-179b8c06 — behavioural config validation', () => {
     // Each case seeds exactly ONE defect and expects exactly the matching
     // field-scoped violation (nothing more, nothing less).
     const cases: Array<{ meta: BehaviorMeta; config: Record<string, unknown>; expected: string[] }> = [
-      // Missing required field (contact-form.action).
+      // Missing required field. This was `contact-form.action` until [[BUG-86]]
+      // deleted that key; `fields` is the module's other required setting and
+      // carries the case now. Distinct from the minItems case below: this one
+      // omits the key entirely, that one supplies it empty.
       {
         meta: contactFormMeta,
-        config: { fields: [{ name: 'email', label: 'Email', type: 'email' }] },
-        expected: ['config.action'],
+        config: {},
+        expected: ['config.fields'],
       },
       // Wrong type (carousel.autoplay must be boolean).
       { meta: carouselMeta, config: { autoplay: 'yes' }, expected: ['config.autoplay'] },
@@ -128,13 +131,13 @@ describe('story-179b8c06 — behavioural config validation', () => {
       // List outside its inclusive item-count bounds (contact-form.fields, minItems 1).
       {
         meta: contactFormMeta,
-        config: { action: 'https://example.com/lead', fields: [] },
+        config: { fields: [] },
         expected: ['config.fields'],
       },
       // Malformed list item — recurse into itemSchema (contact-form.fields[0].type off-enum).
       {
         meta: contactFormMeta,
-        config: { action: 'https://example.com/lead', fields: [{ name: 'x', label: 'y', type: 'BOGUS' }] },
+        config: { fields: [{ name: 'x', label: 'y', type: 'BOGUS' }] },
         expected: ['config.fields[0].type'],
       },
     ]
@@ -390,7 +393,6 @@ describe('story-179b8c06 — carousel autoplay/loop client behaviour', () => {
 // ════════════════════════════════════════════════════════════════════════════
 describe('story-179b8c06 — contact-form functional render + L1 controls', () => {
   const config = {
-    action: 'https://example.com/submit',
     fields: [
       { name: 'name', label: 'Your name', type: 'text', required: true },
       { name: 'email', label: 'Email', type: 'email', required: false },
@@ -416,7 +418,7 @@ describe('story-179b8c06 — contact-form functional render + L1 controls', () =
 
     // A real no-JS post form pointing at the configured (safe) endpoint.
     expect(html).toMatch(/<form[^>]*data-contact-form[^>]*method="post"/)
-    expect(html).toContain('action="https://example.com/submit"')
+    expect(html).toContain(`action="${LEAD_ACTION}"`)
 
     // One control per configured field, carrying the module's attribute bundle:
     // the right input type and required flag, and a `textarea` for the multi-line
@@ -493,9 +495,8 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
         {
           id: 'get-in-touch',
           type: 'contact-form',
-          version: 4,
+          version: 5,
           config: {
-            action: 'https://example.com/submit',
             fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
           },
           slots: {
@@ -589,8 +590,8 @@ describe('story-179b8c06 — isolation conformance dimension', () => {
   const contactDegenerate: ConformanceFixture = {
     label: 'contact-degenerate',
     props: {
-      version: 4,
-      config: { action: 'https://example.com/lead', fields: 'not-a-list' },
+      version: 5,
+      config: { fields: 'not-a-list' },
       slots: {},
     },
   }
@@ -652,7 +653,7 @@ describe('story-179b8c06 — full five-dimension conformance obligation set', ()
       'security',
       'x-browser',
     ]
-    for (const def of [getModule('carousel', 3), getModule('contact-form', 4)]) {
+    for (const def of [getModule('carousel', 3), getModule('contact-form', 5)]) {
       const conformance: BehaviorConformance = def.meta.conformance
       // The published contract enumerates exactly the five conformance
       // dimensions — the harness holds every behavior to the complete envelope.
@@ -672,7 +673,7 @@ describe('story-179b8c06 — Behavior* contract naming is atomic', () => {
     // Each name is bound to a real declaration here; the file would not compile
     // if any had failed to resolve after the rename.
     const meta: BehaviorMeta = getModule('carousel', 3).meta
-    const def: BehaviorDefinition = getModule('contact-form', 4)
+    const def: BehaviorDefinition = getModule('contact-form', 5)
     const fieldSpec: BehaviorConfigSpec = meta.config.autoplay
     const fieldType: BehaviorConfigType = fieldSpec.type
     const slotSpec: BehaviorSlotSpec = meta.slots.slide

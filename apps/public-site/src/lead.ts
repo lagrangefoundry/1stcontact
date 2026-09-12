@@ -1,6 +1,7 @@
 import {
   FORM_INSTANCE_FIELD,
   HONEYPOT_FIELD,
+  LEAD_PATH,
   RESERVED_FIELDS,
   TURNSTILE_FIELD,
 } from '../../../packages/framework/src/modules/contact-form/fields'
@@ -48,8 +49,18 @@ import { TURNSTILE_VERIFY_URL } from '../../../packages/framework/src/modules/co
  * siteverify budget.
  */
 
-/** The store-relative path the route grammar yields for this endpoint. */
-export const LEAD_PATH = 'api/lead'
+/**
+ * The store-relative path the route grammar yields for this endpoint.
+ *
+ * RE-EXPORTED, NOT DECLARED ([[BUG-86]]). The literal used to live here, and the
+ * form that has to post to it lives in `packages/framework` — so the address was
+ * spelled at one end of the seam and the module rendering it had no way to read
+ * it. It is stated once, beside the field names, for the reason that file gives:
+ * three parties must agree on these strings and none of them can see the others.
+ * The import direction is the one that already exists — this file reads the
+ * module's `fields.ts` for the honeypot's name.
+ */
+export { LEAD_PATH }
 
 /**
  * The largest body this endpoint will read, in bytes.

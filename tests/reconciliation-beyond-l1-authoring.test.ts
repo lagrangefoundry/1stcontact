@@ -1,3 +1,4 @@
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 /**
  * story-b3de4571 — authoring everything a site carries that is NOT its element
  * tree: its settings, the components on its pages, each page's search metadata,
@@ -117,7 +118,6 @@ const PALETTE = {
 }
 
 const FORM_CONFIG = {
-  action: '/api/lead',
   fields: [
     {
       name: 'email',
@@ -288,7 +288,9 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // item shape of a list), the seams it mounts at, the controls it may bind,
     // and whether it arrives with a look of its own.
     expect(typeof form.version).toBe('number')
-    expect(form.config.action.required).toBe(true)
+    // [[BUG-86]] deleted `action`; `fields` is the remaining required setting.
+    expect(form.config.action).toBeUndefined()
+    expect(form.config.fields.required).toBe(true)
     expect(form.config.fields.required).toBe(true)
     expect(form.config.fields.items.type.values).toContain('email')
     expect(Object.keys(form.slots)).toContain('form')
@@ -415,7 +417,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // the replaced words in it, so the write reached the page and not only the file.
     const { outDir } = await cmdRender(SLUG, { cwd })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
-    expect(html).toMatch(/<form[^>]+action="\/api\/lead"/)
+    expect(html).toMatch(new RegExp(`<form[^>]+action="${LEAD_ACTION}"`))
     expect(html).toMatch(/type="email"/)
     expect(html).toContain('<textarea')
     expect(html).toContain('How can we help?')
@@ -498,15 +500,17 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     const box = await consultant()
     const before = readFileSync(pagePath(), 'utf8')
 
-    // `action` is declared required by contact-form's OWN contract. A form with
-    // nowhere to send its enquiries must be refused at the field, not discovered
-    // at render — so this check runs ahead of the site's definition validator.
+    // `fields` is declared required by contact-form's OWN contract. A form that
+    // asks for nothing must be refused at the field, not discovered at render —
+    // so this check runs ahead of the site's definition validator. (This case
+    // named `action` until [[BUG-86]] deleted that key; `fields` is the
+    // module's remaining required setting and carries the case now.)
     const refused = await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
       slot: 'signup-form',
-      config: { fields: FORM_CONFIG.fields },
+      config: { submitLabel: 'Join' },
     })
     expect(refused).toContain('SCHEMA_INVALID')
 
@@ -524,11 +528,11 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
       '--slot',
       'signup-form',
       '--config',
-      JSON.stringify({ fields: FORM_CONFIG.fields }),
+      JSON.stringify({ submitLabel: 'Join' }),
     )
     expect(fromCli.ok).toBe(false)
     expect(fromCli.error!.code).toBe('SCHEMA_INVALID')
-    expect(fromCli.error!.message).toContain('action')
+    expect(fromCli.error!.message).toContain('fields')
     expect(fromCli.error!.message).toMatch(/required/i)
     expect(fromCli.error!.hint).toContain('behavior list')
 
@@ -559,7 +563,6 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     ).not.toContain('SCHEMA_INVALID')
     const config = readPage().modules[0].config
     expect(config.submitLabel).toBe('Get early access')
-    expect(config.action).toBe('/api/lead')
     expect(config.fields).toEqual(FORM_CONFIG.fields)
 
     // The merged result is re-checked against the contract before it is stored.
@@ -617,7 +620,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     expect(entry.type).toBe('contact-form')
     expect(typeof entry.version).toBe('number')
     expect(entry.slot).toBe('signup-form')
-    expect(entry.config).toMatchObject({ action: '/api/lead', submitLabel: 'Join the waitlist' })
+    expect(entry.config).toMatchObject({ submitLabel: 'Join the waitlist' })
     // Alongside the page's element map, not instead of it.
     expect(Array.isArray(map.segments)).toBe(true)
     expect(map.segments.length).toBeGreaterThan(0)
@@ -1122,7 +1125,6 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     })
     expect(readPage('home', viaCli).modules[0].config).toMatchObject({
       submitLabel: 'Get early access',
-      action: '/api/lead',
     })
     expect(JSON.stringify(readPage('home', viaCli).l1.root)).toContain('"name":"spare"')
     expect(readPage('about', viaCli).seoMeta).toEqual({

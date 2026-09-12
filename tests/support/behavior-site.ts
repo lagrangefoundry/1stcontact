@@ -25,7 +25,6 @@ export const CONTACT_FORM_FIELDS = [
 ]
 
 export const CONTACT_FORM_CONFIG = {
-  action: 'https://forms.example/contact',
   submitLabel: 'Send message',
   successMessage: 'Thanks — we will be in touch.',
   fields: CONTACT_FORM_FIELDS,

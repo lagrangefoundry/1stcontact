@@ -84,7 +84,6 @@ const SEEDED_ROOT: L1Node = {
 
 /** A component the surface can instantiate into the seeded seam. */
 const SIGNUP_CONFIG = {
-  action: '/api/lead',
   fields: [
     {
       name: 'email',

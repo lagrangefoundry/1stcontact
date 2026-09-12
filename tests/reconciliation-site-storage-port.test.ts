@@ -603,7 +603,7 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
     // a behaviour module, the workerd one does not — is untouched.
     const fields = [{ name: 'email', label: 'Email', type: 'email', required: true }] as const
     const html = ContactForm({
-      config: { action: '/api/forms/contact', fields },
+      config: { fields },
       slots: { form: contactFormPreset(fields) },
     } as unknown as BehaviorProps)
     expect(html).toMatch(/<form[^>]+method="post"/)

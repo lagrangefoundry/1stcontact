@@ -1,3 +1,4 @@
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 /**
  * REQ-130 — **everything a real site carries that is not the element tree**.
  *
@@ -202,7 +203,6 @@ describe('REQ-130 — settings are structured values, not strings', () => {
 // ── 2. component instantiation ───────────────────────────────────────────────
 
 const SIGNUP_CONFIG = {
-  action: '/api/lead',
   fields: [
     { name: 'email', label: 'Email address', labelMode: 'placeholder', type: 'email', required: true },
   ],
@@ -224,7 +224,10 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     expect(form).toBeDefined()
     // The contract, in the shape a caller needs to get the first call right:
     // which settings are required, and what a field entry accepts.
-    expect(form.config.action.required).toBe(true)
+    // `action` was the required setting named here until [[BUG-86]] deleted it:
+    // the endpoint is the module's own and is not offered to a caller at all.
+    expect(form.config.action).toBeUndefined()
+    expect(form.config.fields.required).toBe(true)
     expect(form.config.fields.items.type.values).toContain('email')
     expect(form.hasDefaultPresentation).toBe(true)
 
@@ -262,7 +265,6 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
     const instance = readPage().modules[0]
     expect(instance).toMatchObject({ id: 'signup', type: 'contact-form', slot: 'signup-form' })
-    expect(instance.config.action).toBe('/api/lead')
     // The presentation is real L1, not a placeholder: the field's control node
     // is what the module binds its attribute bundle to.
     expect(JSON.stringify(instance.slots.form)).toContain('"control":"email"')
@@ -271,7 +273,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     // is the sole `<form>` sink, so a rendered form means the instance mounted.
     const { outDir } = await cmdRender(SLUG, { cwd })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
-    expect(html).toMatch(/<form[^>]+action="\/api\/lead"/)
+    expect(html).toMatch(new RegExp(`<form[^>]+action="${LEAD_ACTION}"`))
     expect(html).toMatch(/type="email"/)
   }, 120000)
 
@@ -287,7 +289,9 @@ describe('REQ-130 — components are instantiated, never authored', () => {
       name: 'signup',
       behavior: 'contact-form',
       slot: 'signup-form',
-      config: { fields: SIGNUP_CONFIG.fields },
+      // Omits `fields`. This case supplied `action`-less config until
+      // [[BUG-86]]; `fields` is the module's remaining required setting.
+      config: { submitLabel: SIGNUP_CONFIG.submitLabel },
     })
     expect(answer).toContain('SCHEMA_INVALID')
     expect(readFileSync(pagePath(), 'utf8')).toBe(before)
@@ -304,7 +308,8 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     })
 
     // Merged, like a settings group: changing the button's words must not lose
-    // the endpoint the form posts to.
+    // the fields the form asks for. (It used to say "the endpoint the form posts
+    // to"; [[BUG-86]] removed that from config, so `fields` carries the case.)
     await box.run('configure_component', {
       page: 'home',
       name: 'signup',
@@ -312,7 +317,6 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     })
     const config = readPage().modules[0].config
     expect(config.submitLabel).toBe('Get early access')
-    expect(config.action).toBe('/api/lead')
     expect(config.fields).toHaveLength(1)
 
     // The page map is where a caller sees what is already there.

@@ -128,7 +128,7 @@ const contactInstance = (over: Record<string, unknown> = {}): Record<string, unk
   type: 'contact-form',
   version: latestModuleVersion('contact-form'),
   slot: 'form-0',
-  config: { action: '', fields: [{ name: 'email', label: 'Your email', type: 'email', required: false }] },
+  config: { fields: [{ name: 'email', label: 'Your email', type: 'email', required: false }] },
   ...over,
 })
 
@@ -423,7 +423,7 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
       label: 'mounted-contact-form',
       props: {
         version: latestModuleVersion('contact-form'),
-        config: { action: '/leads', fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
+        config: { fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
       },
     }
     const served = await serveOneModulePage('contact-form', fixture, { mountInL1: true })

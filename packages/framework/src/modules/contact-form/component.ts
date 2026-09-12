@@ -2,9 +2,8 @@ import type { L1Node } from '@1stcontact/site-schema'
 import { renderL1Fragment } from '../../l1/render'
 import type { BehaviorProps } from '../behavior'
 import { attr, escapeHtml } from '../html'
-import { assertSafeUrl } from '../safety'
 import { contactFormControls, controlId, type ContactFormField } from './controls'
-import { FIELD_TYPES, FORM_INSTANCE_FIELD, HONEYPOT_FIELD } from './fields'
+import { FIELD_TYPES, FORM_INSTANCE_FIELD, HONEYPOT_FIELD, LEAD_ACTION } from './fields'
 
 /**
  * `contact-form` behavior (REQ-85; made layout-agnostic by construction in
@@ -38,7 +37,6 @@ export function contactForm({
   instanceId = 'contact-form',
   edit = false,
 }: BehaviorProps = {}): string {
-  const action = typeof config.action === 'string' ? config.action : ''
   // Isolation (REQ-85): coerce the field schema defensively — a malformed entry is
   // dropped rather than throwing, keeping the page robust.
   const fields: ContactFormField[] = Array.isArray(config.fields)
@@ -106,9 +104,27 @@ export function contactForm({
    * not the channel, owns what "my behaviour is off" looks like — so it says so
    * here. `carousel` marks its slide `<li>` the same way.
    */
+  /*
+   * THE ENDPOINT IS THE MODULE'S OWN ([[BUG-86]]). It was
+   * `assertSafeUrl(config.action)` — an author's URL, vetted and emitted
+   * verbatim, which is how a root-relative `/api/lead` reached the browser and
+   * posted to the ORIGIN root instead of the channel root. Every other URL this
+   * renderer emits is reduced to a document-relative one (`relativizeUrl`,
+   * [[REQ-109]]) precisely so a snapshot is relocatable under any prefix; the
+   * form's action was the single sink that skipped it, so the form was the one
+   * reference on the page that did not survive being served under `/preview/…`
+   * or `/site/<key>/`.
+   *
+   * There is no author input left to vet: `LEAD_ACTION` is a constant this
+   * module owns and `fields.ts` states, so `assertSafeUrl` has nothing to
+   * decide and is gone with the config key it guarded.
+   *
+   * [[REQ-116]] IS UNCHANGED. The edit channel still emits neither `action` nor
+   * `method` — the site is deliberately non-functional there, and a channel that
+   * cannot submit must not advertise an endpoint.
+   */
   const formAttrs =
-    attr('action', edit ? undefined : assertSafeUrl(action, 'contact-form action')) +
-    attr('method', edit ? undefined : 'post')
+    attr('action', edit ? undefined : LEAD_ACTION) + attr('method', edit ? undefined : 'post')
 
   /*
    * The remaining invariant elements (DOC-25 §10.3), each marked
