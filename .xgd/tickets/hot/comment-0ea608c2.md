@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-87
 created_by: xgd
 created_at: '2026-09-12T20:49:52.292073+00:00'
-updated_at: '2026-09-12T21:58:39.530498+00:00'
+updated_at: '2026-09-12T22:10:21.711560+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,88 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="fd336965-945e-4990-828a-b57c046726f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:10:20.866221+00:00" -->
+#### Claude
+Let me look at the existing test suite for this area before I decide the test approach.
+
+I have what I need — no blocking questions. Let me record my decisions and scope the ticket.
+
+Ticket scoped. Now cutting the branch.
+
+Baseline is green (12 tests). Now the implementation.
+
+Now the implementation.
+
+Now the UAT.
+
+All 4 pass. Let me verify they're real evidence by checking they fail without the fix.
+
+Confirmed RED — three fail with `expected [] to have a length of 1`, exactly the silence. Restoring.
+
+Two failures. Let me confirm they're pre-existing and not mine.
+
+Both fail without my changes — pre-existing. Restoring and committing.
+
+Now the lock-and-merge step.
+
+The lock is held by another live session (BUG-89). I won't clear someone else's lock — let me wait for it.
+
+While that waits, let me re-verify the diff.
+
+Two things: I passed the whole ticket file including frontmatter. Fixing that first.
+
+Body clean. The lock has been released — proceeding with lock, merge, free_coded, clean.
+
+BUG-89 claimed 0.2.180 while I was merging. Re-bumping.
+
+Now verifying the merged state on `xgd-working`.
+
+Done. **BUG-87** is at `free_coded` on `xgd-working`, version `0.2.181`.
+
+## What I built
+
+Two reporters inside `captureLead` (`apps/control-app/src/lead.ts`), plus four touched lines at the decision points:
+
+| event | fires on | carries |
+|---|---|---|
+| `lead_not_captured` | `unknown_site`, `no_email` | `reason`, `site`, `form`, and for `no_email` also `submittedFields` |
+| `lead_asset_not_sent` | `already_sent`, `suppressed`, `no_address` | `reason`, `site`, `form`, `business`, `contact` |
+
+97 lines added to `lead.ts`, most of it the comment explaining why.
+
+## Decisions I made, since you asked me to
+
+**Logged where it's decided, not at the call site.** This is the one choice that changes the outcome rather than the style. `captureLead` has *two* callers — `public-site` over the service binding and the builder preview in-process at `router.ts:3216` — so a line written at either call site leaves the other silent. That's precisely the failure `identity.ts:918` documents after `denyAdmission` was filed from the same shape of bug, and its rule applies: deciding and recording are the same statement. One implementation, both callers covered by construction. It also means I left `public-site/src/lead.ts:462` alone entirely — once the record exists at the source, the discarded return value is harmless, and the minimal diff is the better one.
+
+**`not_offered` is not logged.** It's set on every submission to a form that promises nothing, i.e. most of them. Logging it would bury the three skips that mean something under a line per ordinary submission — and a log nobody can read is the state we're fixing.
+
+**`warn`, not `error`.** A refusal is a decision this code reached deliberately. The thrown path keeps its existing `lead_capture_failed` at `error`.
+
+**Field names, never field values.** `no_email` is almost always a form whose address field was authored without `type: 'email'`, and "which fields did this form actually send" is answered completely by the names. The values would answer it no better and would turn an operational log into a store of whatever strangers typed, expiring on Cloudflare's schedule rather than the business's. One UAT asserts the submitted values appear nowhere in the line.
+
+**Nothing new invented.** House `console.warn(JSON.stringify({ event, … }))` idiom, no helper, no module, no dependency — so EPIC-1 inherits a 15th call site to migrate rather than an abstraction to reconcile with. The visitor-facing acknowledgement is untouched and still frozen.
+
+## Tests
+
+`tests/test_UAT_FC_BUG-87_lead_outcome_logged.workers.test.ts` — 4 UATs driving `worker.fetch` inside workerd against real D1/R2 with the real `captureLead` behind the binding, reusing REQ-223's `seedFormSite`/`applySchema` rather than founding a second fixture.
+
+I checked they're real evidence: with the fix reverted, three fail with `expected [] to have a length of 1` — the silence itself. The fourth (accepted submission stays quiet) passes either way by design; it's the guard against `not_offered` noise.
+
+- Lead scope: **25 passed** (4 new + REQ-223's 12 + BUG-78's 9), re-verified after merge.
+- Full suite: **3805 passed, 2 failed** — `bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings`. Both fail identically with my changes stashed, so they're pre-existing and unrelated. I didn't touch them.
+- `tsc --noEmit` clean for control-app.
+
+## Two things worth knowing
+
+**A version race.** BUG-89 — another live session — claimed `0.2.180` while I held the merge lock, so the gate rejected my first `move-to-free-coded`. I re-bumped to `0.2.181`, recommitted, re-merged, and both SHAs are on the ticket. Nothing lost, but that session is actively landing work on `xgd-working` alongside this.
+
+**I did not clear anyone's lock.** BUG-89 held the merge lock when I first reached for it; I waited rather than forcing it.
+
+**REQ-233** (the Contacts-pane live-refresh ticket from earlier) is still at `draft`, untouched — separate ticket, separate work, and explicitly out of scope in BUG-87's body.
+
+`free_coded` is a resting state; promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
