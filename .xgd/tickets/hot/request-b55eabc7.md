@@ -14,6 +14,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-e883f22d
 ---
 
 # Adopt rolling session credentials — send the rotated cookie, migrate the sessions table
