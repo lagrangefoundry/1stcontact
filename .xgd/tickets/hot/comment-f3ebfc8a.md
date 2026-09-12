@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-12T23:28:15.841440+00:00'
+updated_at: '2026-09-12T23:39:22.651930+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -377,5 +377,40 @@ One edge case worth closing — a non-integer source width can duplicate a rung:
 <!-- xgd-chat role="user" ts="2026-09-12T23:28:15.683305+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="bbe82339-5fcf-41a1-9473-62cbe9b1aafa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T23:39:22.024274+00:00" -->
+#### Claude
+Now the merge back, per the branch protocol.
+
+Landed. REQ-222 is at `free_coded`, version 0.2.183, seven commits recorded.
+
+## What this session finished
+
+The prior turn had written the whole change set and was mid-verification when it timed out. Nothing was lost — the work was intact in the branch worktree, uncommitted. I picked it up at the last edit (the non-integer-source-width dedupe in `alternativeDeliveryWidthsFor`, which was in place), verified it, and landed it.
+
+## What shipped, against the two decided sections
+
+**`<picture>` with typed sources.** The ladder now encodes a WebP alternative alongside the source's own format, and the `<img>` sink wraps in `<picture>` only when there is a typed source to offer — so the `<img>` remains a real source-format fallback, and a `background-image`, which can negotiate nothing, is never handed a format the visitor may not read. An alternative with fewer than two landed rungs is dropped whole (a `<source>` a browser prefers and cannot usefully choose within is worse than none). An AVIF source is not offered WebP, because WebP is the larger file and the browser takes the first type it supports. AVIF stays out of v1 and `convert` never enters the editorial recipe vocabulary.
+
+**Latency first, as instructed.** The build is now plan → budget → bounded execute. Every picture is measured up front (`.info()` is documented free), the plan is refused *in the site's own terms* if it exceeds what one request can carry, and renditions run six in flight instead of one at a time. The plan subtracts what the rendition cache already holds, so a republish's denominator is honestly zero rather than a warning the client learns to ignore.
+
+**The publish lock, message and bar.** `POST /api/publish` grows a streaming form selected only by `Accept: text/event-stream`; every existing caller keeps the JSON envelope. The builder takes the lock around the publish *seam* — `publishAction` is genuinely untouched, still disabling its button and re-enabling in a `finally`. The block uses `role="status"` rather than `alert` and does not dim: a greyed-out builder mid-publish says *your site is broken* at the moment it is going live, so the cursor carries the signal instead.
+
+One thing the code settled beyond the body, which I recorded there before committing: **a failed publish is now reported.** Previously `publishAction` awaited with no catch, so a failure went to the console and the button just came back — indistinguishable from success. That is no longer acceptable once a publish can fail for a reason the client can act on, and can fail *after* the response committed `200`.
+
+## Platform ceiling — verified, not assumed
+
+The body asked for this before building. Paid plan is 10,000 subrequests per invocation; R2/KV/D1 bindings count; whether an Images transform counts is undocumented, so the budget assumes it does. At five subrequests per rendition the 1,200 cap lands at 6,000, leaving headroom for the rest of the publish. That admits ~90 full-ladder photographs — several times what a photo-heavy small-business site holds, so **two formats is comfortable rather than marginal**.
+
+## Tests
+
+- **Workers: 809/809 pass**, including the real Images binding actually encoding WebP and the SSE contract.
+- **Node: 3052 pass, 2 fail** — both pre-existing, confirmed identical on the xgd-working baseline (`bug32-webui-scope-rebrand`, `test_UAT_FC_BUG-67_backend_settings`). A third file (`req115-builder-shell`) failed only under full-suite parallel load and passes in isolation — the known dist-assets rebuild race.
+
+REQ-222's targeted suites: 91 node + 19 workers, all passing.
+
+The transform timings in the body remain estimates. The first real photo-heavy publish is still the measurement worth taking deliberately — what changed is that it is now bounded on three sides.
 
 <!-- xgd-chat-end -->
