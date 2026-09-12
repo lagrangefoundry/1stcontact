@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-228
 created_by: xgd
 created_at: '2026-09-11T22:31:26.099704+00:00'
-updated_at: '2026-09-12T00:06:01.475585+00:00'
+updated_at: '2026-09-12T00:07:09.208347+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,26 @@ Is this ticket complete?
 <!-- xgd-chat role="user" ts="2026-09-12T00:06:01.030514+00:00" -->
 #### You
 Is this ticket complete?
+
+<!-- xgd-turn id="3107d90b-6eef-4b73-b689-26b5d4a8d42d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:07:09.157119+00:00" -->
+#### Claude
+Yes — it's complete. I verified each step rather than recalling it:
+
+**Landed and verified**
+- Both SHAs are ancestors of `xgd-working`: `2e55130728` (the implementation, 11 files, +2291/−11) and `10a0ac7285` (version bump to 0.2.173).
+- Ticket is at `status=free_coded` with both commits and `version: 0.2.173` recorded — and that status can only have been set because the gate confirmed the merge had already landed.
+- Branch `free-REQ-228` and its worktree are gone; `xgd branch clean` released the lock.
+- The generated `ai-ticketing` shim is present in `xgd-working`'s `src/generated/`, so the Worker resolves the package here.
+- Working tree is clean of anything from this ticket (the four untracked entries are pre-existing noise: `.pnpm-store/`, `.xgd/_changes/`, a stray markdown file, a `.dev.vars~` backup).
+
+**Body is current.** The "Scope, as built (2026-09-11)" section was written after the implementation converged and describes what actually shipped — including the operator decision on Half A, the wider-than-pictures catalogue, the bounded listing, the single naming rule, and what was deliberately left out (`WriteTickets`, the seed/push door → BUG-84, `write_image` drawings).
+
+**One gap I just closed:** `story_points` was never set. It's now `5` — three surfaces, eleven files, three UAT suites. That affects nothing about the code; it's what the dispatch planner reads to size a reconcile bundle.
+
+**Tests:** 44 UATs across three suites, all passing. The 13 failures in the wider sweep were proven environmental — identical counts (13 failed / 92 passed) with my changes fully reverted and restored.
+
+The ticket is now parked at `free_coded`, which is the stable resting state. Nothing fires automatically. Promoting it to `ready_to_reconcile` is your call when you're happy with it.
 
 <!-- xgd-chat-end -->
