@@ -6,9 +6,9 @@ title: 'One picture catalogue: the Library is the catalogue, and being on the si
   is a mark on it'
 created_by: BUG-80
 created_at: '2026-09-11T22:15:59.242213+00:00'
-updated_at: '2026-09-11T23:49:47.506143+00:00'
+updated_at: '2026-09-12T00:06:58.894562+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.173
+  story_points: 5
 ---
 
 ## What this is
