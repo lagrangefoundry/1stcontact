@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:28:12.331760+00:00'
+updated_at: '2026-09-12T00:30:25.802041+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,53 @@ There's one deliberate carve-out: the `<label>` on the email field is an *invari
 <!-- xgd-chat role="user" ts="2026-09-12T00:28:12.076410+00:00" -->
 #### You
 ok yes please fix the data and then I would love to get 2b - I'm not sure if I understand how that could be automated exactly?
+
+<!-- xgd-turn id="98629a2c-f743-4692-9e38-ce30f14156fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:30:25.084621+00:00" -->
+#### Claude
+Good — let me unblock the site first, then build 2b properly. Starting with the data.
+
+**Data fixed.** Every stored pin now resolves. The original row is backed up at `.xgd/tmp/bug85/home-v1-backup.json` — I'll promote that to a committed test fixture when I build 2b, since it's the only surviving example of a real orphaned instance.
+
+What I changed in that one instance: `version` 1→2, dropped `sentMessage` and the never-declared `account` key, and added `sent` + `error` cards built from **your dialog's own paint** (paper fill, accent border, radius 16, 380px max, ink text at 15/22) rather than the preset's hardcoded `#ffffff`/radius-8 defaults. Your `sentMessage` wording carried into the `sent` card verbatim; `error` says *"That didn't send. Please check your connection and try again."* I verified it against `validateBehaviorConfig`/`validateBehaviorSlots` before writing. Restart the dev server if it's holding a cached page.
+
+---
+
+## How 2b automates — and the part that honestly can't
+
+The thing to be clear about first: **a migration cannot be derived from the data.** Look at what v1→v2 actually needs:
+
+| change | derivable? |
+|---|---|
+| drop `account` | yes — trivially |
+| `labelMode` default | yes — defaults already fill in |
+| `sentMessage` → `sent` slot | **partly** — the words carry; the card's design doesn't exist in v1 |
+| new `error` slot | **no** — zero source data; v1 had a hardcoded string in the component |
+
+So nothing can infer the migration. What *can* be automated is everything around it: giving it a declared home, applying it everywhere, and refusing to let a bump land without one.
+
+**1. Declare it beside the contract that changed.** A new optional field on `BehaviorMeta`, keyed by the version it *produces*:
+
+```ts
+migrations?: Record<number, (prev: BehaviorInstance) => BehaviorInstance>
+```
+
+`account-chrome` would carry `{ 2: v1ToV2 }`. The author writing the breaking change writes the migration in the same commit — they're the only one who knows what the old field meant. The L2 preset is what makes the hard rows tractable: `accountChromePreset()` already emits vetted `sent`/`error` cards, so `v1ToV2` is "take the preset's card, substitute the author's `sentMessage` words" — roughly the function I just ran by hand.
+
+**2. Apply it as an explicit pass over the `SiteStore` port.** `upgradeInstance` walks `stored.version + 1 … latestModuleVersion(type)`, applying each migration in turn (so a v1 instance can cross two bumps), then validates the result against the target contract and refuses to write if it doesn't pass. Wrapped in a `1c` verb, read-through-port/write-through-port exactly like `importSite` — so **the same code upgrades the file store and D1**, which is precisely the gap that caused this.
+
+I'd reject the tempting alternative of upgrading silently on read: the stored data stays stale forever, the bug becomes permanent and invisible, and every read pays for it.
+
+**3. The guard — two of them, and this is the real automation.**
+
+- **A pure CI check, no data required:** for every module in the catalog, every version from 1 to current must have a migration path to current. Bump `account-chrome` to 3 without declaring `migrations[3]` and the build fails *at bump time*. This is what converts "site goes dark next Tuesday" into "your commit doesn't compile."
+- **A store check:** a `1c` verb reporting any stored instance whose pin doesn't resolve — the audit I ran by hand at the top of this session, as a command. This one has to run against a **real** store, not repo fixtures; the fixture being green is exactly what hid your bug.
+
+The honest limit: (3) can force a migration to *exist*, but it can't verify the migration is *good*. That stays a UAT per bump — which is fine, because that's one test written by the person who already understands the change.
+
+---
+
+Before I cut the branch, one scoping call: **does the upgrade pass write, or only report?** My instinct is `1c modules upgrade --dry-run` by default, printing the diff per instance, with `--write` to commit it — a migration that silently rewrites live site data on first run is not something I'd want to ship without a look. Agree? And should the CI guard land as a blocking test now, given it'll fail immediately until `account-chrome`'s `migrations[2]` is written?
 
 <!-- xgd-chat-end -->
