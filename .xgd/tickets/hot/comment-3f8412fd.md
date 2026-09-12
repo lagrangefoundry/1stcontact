@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-90
 created_by: xgd
 created_at: '2026-09-12T22:00:54.939955+00:00'
-updated_at: '2026-09-12T22:13:20.893305+00:00'
+updated_at: '2026-09-12T22:14:22.707231+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,47 @@ I'll hold off coding until you've steered. Shall I record this diagnosis on BUG-
 <!-- xgd-chat role="user" ts="2026-09-12T22:13:20.838533+00:00" -->
 #### You
 Are you SURE there is an XGD SITE in 1st Contact? I know there is an xgd screenshot but a site? Really?
+
+<!-- xgd-turn id="3dbf4d6c-138d-4762-8732-32f3740fef95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:14:22.654027+00:00" -->
+#### Claude
+Fair challenge — let me re-check rather than trust the join.
+
+Yes — I'm sure, and it's a real site with real pages, not a screenshot. Let me pin down where it came from.
+
+Yes — confirmed, and it's a genuine site, not a screenshot. The evidence:
+
+```
+site_9a3dcd09b0e466386d991729bc7e7471 | biz_51a6… (1st Contact) | xgd | version 2
+  home.json        42197 bytes
+  whitepapers.json 19043 bytes
+```
+
+Two real page rows in `site_pages`. And its `home.json` is **byte-identical** to the XGD business's `home.json` (SQL equality on the two blobs returns 1).
+
+But my earlier guess at *why* was wrong. It's not an import or a deliberate reproduction — it's a leftover. The timeline says so:
+
+| When | What |
+|---|---|
+| 09-06 21:50 | **1st Contact** business created |
+| 09-06 23:25:57 → 23:26:01 | `1stcontact`, `gigabytealchemy`, `xgd` pushed into it — three sites, 4 seconds apart |
+| 09-10 17:15 | **XGD** business created |
+| 09-10 17:21 | `xgd` pushed into *that* |
+
+`db/dev-seed.sql:45-48` names the mechanism: no sites are seeded, and *"the `xgd` site lives in the file-backed store at `storage/sites/xgd/` and is restored [by `1c push`]"*. `storage/sites/` holds exactly those three directories — `1stcontact`, `gigabytealchemy`, `xgd` — in the pre-multi-tenant flat layout. So that 4-second burst was one sweep pushing all of `storage/sites/*` into the only business that existed at the time. Four days later the XGD business was created and `xgd` was pushed again, into its proper home. Nobody removed the first copy.
+
+So: deleting 1st Contact's `xgd` would make your symptom disappear today.
+
+**That would be the wrong conclusion to stop at, though** — and it sharpens the point you were making about `unnamed`.
+
+Your instinct was right, one step removed. `unnamed` isn't what's colliding in *this* instance (`xgd`/`xgd` is), but it's why the slug-carry bug is systemic rather than a one-off: **every newly provisioned business gets a site with the slug `unnamed`** (`STARTER_SLUG`, `identity.ts:869`). Your own data already has two — Felix Test and Lagrange Foundry — and switching between those two businesses reproduces the bug with no stale duplicate anywhere in sight. Once there are a handful of customers, nearly *every* pair of fresh businesses collides on `unnamed`, and `selectBusiness`'s `list.some(e => e.slug === currentSite)` will match on essentially every switch.
+
+So there are two independent things, and I'd keep them apart:
+
+1. **Stale data** — 1st Contact's `xgd` (and possibly `gigabytealchemy`) are pre-XGD-business leftovers. A cleanup, not a code change. Your call whether they go.
+2. **The bug** — carrying the selection across a business change on a per-business-unique name. `unnamed` guarantees it fires in production. This is what BUG-90 should be about, and it's unaffected by whether you clean up (1).
+
+My three questions from before collapse to one now, since the data answered the first: do you want the per-business memory fix alone, or the site selector alongside it? Given 1st Contact legitimately holds `1stcontact` and `gigabytealchemy`, without a selector you still can't reach one of them.
 
 <!-- xgd-chat-end -->
