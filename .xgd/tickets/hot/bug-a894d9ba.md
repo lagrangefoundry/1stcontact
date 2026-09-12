@@ -5,9 +5,9 @@ type: bug
 title: Switching business shows a same-named site from the wrong business
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T21:58:13.622062+00:00'
-updated_at: '2026-09-12T22:41:59.849115+00:00'
+updated_at: '2026-09-12T22:46:58.434022+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -120,3 +120,55 @@ store holding any sites — production holds one tenant, no sites and no users.
   site per business rather than globally.
 - Nothing enforces one-site-per-business; `1c push` can still add a second.
 - Renaming a business does not rename its site. That is the settings work.
+
+
+## What the migration actually did
+
+Applied to the local development store on 2026-09-12. Production was checked
+first and holds one tenant, no sites and no users, so nothing there was touched.
+The D1 and R2 state was copied aside before any write.
+
+- Deleted `site_9a3dcd09…` — 1st Contact's leftover `xgd` — with its 9 asset
+  rows and its 9 R2 objects and blob files. No blob it referenced was shared
+  with the XGD business's own copy, which was checked before the files went.
+- Provisioned **Gigabyte Alchemy** (`biz_eaf0e150…`) through
+  `POST /api/admin/businesses`, which is the one path onto `provisionBusiness`.
+  It returned `siteSlug: gigabytealchemy` — the new rule, confirmed end to end
+  against a running deployment rather than only in a suite.
+- Deleted the starter site that provisioning created (`site_66eaebd4…`, no
+  content), then moved the real `gigabytealchemy` site into the new business
+  with `UPDATE sites SET tenant_id`. Nothing else was written and no byte moved.
+- Renamed Lagrange Foundry's site `unnamed` to `lagrangefoundry` and Felix
+  Test's `unnamed` to `felixtest`.
+- Set each remaining site's `site.json` `id` to its slug and its
+  `config.businessName` to its business's name. Two taglines were still the
+  scaffold's placeholder and were rewritten with it (`xgd — built with 1st
+  Contact` became `XGD — …`, and Felix Test's `Unnamed — …` became `Felix Test
+  — …`). The two authored taglines — 1st Contact's and Lagrange Foundry's —
+  were left exactly as they were.
+
+The result, read back through the running builder: four businesses in the
+switcher, each with exactly one site, each site named after its business, no two
+slugs equal, and all four rendering different documents.
+
+| Business | Site | `site.json` id | `config.businessName` |
+| --- | --- | --- | --- |
+| 1st Contact | `1stcontact` | `1stcontact` | 1st Contact |
+| Gigabyte Alchemy | `gigabytealchemy` | `gigabytealchemy` | Gigabyte Alchemy |
+| Lagrange Foundry | `lagrangefoundry` | `lagrangefoundry` | Lagrange Foundry |
+| XGD | `xgd` | `xgd` | XGD |
+| Felix Test | `felixtest` | `felixtest` | Felix Test |
+
+### Left alone deliberately
+
+- `alpha` under `biz_uatwestheadme` — residue from suites that recreate it, and
+  renaming it could break a fixture that expects the name.
+- Alice's three seed businesses still have no site, which is what
+  `db/dev-seed.sql` intends.
+- The R2 audit objects under `audit/<business>/site-unnamed/…`. They record what
+  happened while the site was called `unnamed`, which is what an append-only log
+  is for; rewriting their paths would make the log claim a name the site did not
+  have at the time.
+- `gigabytealchemy`'s home page still carries `seoMeta.title: gigabytealchemy`,
+  so its rendered `<title>` reads `gigabytealchemy — Gigabyte Alchemy`. That is
+  page content rather than site identity and is the operator's to edit.
