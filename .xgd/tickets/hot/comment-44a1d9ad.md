@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:38:22.995088+00:00'
+updated_at: '2026-09-12T00:40:08.050341+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,77 @@ You did not understand or respond to the actually mechanism I proposed. You argu
 
 1) Users should not have to resign in frequently - lets call this interval I1 - I1 needs to be >24h but <3 years
 2) Users should not be signed out mid-session - if the user is actively using the site their access should be extended (not using your idea of extending the token lifetime!) Perhaps we preempt this situation by forcing resign-in on first use near token expiry
+
+<!-- xgd-turn id="b5f5bd24-9ce6-429e-8969-71307ef7546b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:40:08.001661+00:00" -->
+#### Claude
+You're right — you said mint a replacement, and I presented "extend in place" as though it were on the table. It isn't; rotation is what you described. Dropping it.
+
+Here's the design your two goals actually imply.
+
+## The load-bearing move: separate the clock from the bearer
+
+Two things are conflated in the current code, and the whole answer is pulling them apart:
+
+- **`expires_at`** — when this person must genuinely sign in again. This is your I1.
+- **the cookie value** — the bearer token proving they already did.
+
+Today those are one thing, which is why a short credential and an infrequent sign-in look like opposites. They aren't.
+
+**`expires_at` is set once at sign-in and never moved.** `created_at + I1`. That is goal 1, exactly and by construction — one email link per I1, no more.
+
+**The cookie value rotates** while the person is active. A rotation mints a fresh session id, carries `created_at`/`expires_at` forward unchanged, retires the old id, and sets the new cookie. It extends nothing. It replaces the bearer.
+
+So the renewal is continuous, the sign-in interval is fixed, and neither constrains the other.
+
+## Your pre-emption idea is the part that makes it work
+
+`expires_at` never moving means there *is* a hard wall once per I1, and goal 2 says nobody may hit it mid-task. Your answer is the right one, and it gives your 30 minutes a real job:
+
+> force re-sign-in on first use near token expiry
+
+Concretely: a request arriving after ≥ N minutes of silence is **the start of a visit**. At that moment — and only at that moment — check whether `expires_at - now < P`. If so, send them to sign-in *now*.
+
+This is cheap precisely because of when it fires. Someone who just opened the tab has no unsaved chat turn, no half-edited page, nothing in flight. They sign in a week or two early, at the moment it costs least, and walk away with a fresh I1.
+
+And the wall becomes unreachable mid-session: the only way to cross `expires_at` while working is a single continuous visit longer than P. With P measured in days, no human does that. Anyone who *doesn't* visit during the final P gets their re-auth on arrival — which is not mid-session either.
+
+So N is not a kill timer. It's the definition of "a visit just started", which is the one moment re-auth is free.
+
+## Same trigger, second use
+
+Rotate at visit start too. One concept, two jobs, and it puts the write cost at one per visit rather than one per request. Cap it with a ceiling — rotate at visit start, or after R hours of continuous activity, whichever comes first — so a marathon session still rolls.
+
+## What rotation buys, and it's the honest answer to "appropriate security"
+
+A retired session id presented after its grace window is **proof two parties hold the credential**. That is the only mechanism in any of this that can actually *detect* a stolen cookie rather than hope it expires. Response: kill every session in the family and force a real sign-in.
+
+That detection is what pays for a long I1. Note what it does *not* do: it doesn't bound theft on its own — a thief who steals and uses the cookie while the owner is dormant just becomes the owner. It catches the overlap, which is the common case.
+
+The grace window is not optional. The builder fires parallel requests; two in flight across a rotation would otherwise race each other out of the session and you'd have manufactured the exact mid-session denial this ticket exists to prevent. Retired ids resolve to their successor for ~60s, then become replay evidence.
+
+## Numbers
+
+**I1 has a ceiling you didn't know about: Chrome and Safari cap cookie `Max-Age` at 400 days** (RFC 6265bis). Your "<3 years" isn't reachable through a cookie at all — the browser silently truncates it. So:
+
+| | |
+|---|---|
+| **I1** | **365 days.** Inside the cap with room, and makes signing in an annual act. |
+| **P** (pre-empt window) | 14 days — several natural visits' worth of chances to catch someone early. |
+| **N** (visit gap) | your 30 minutes, unchanged. |
+| **R** (rotation ceiling) | 24h of continuous activity. |
+| **G** (grace) | 60s. |
+
+One implementation consequence: `last_seen_at` is currently written lazily at `touchAfterMs` = 1 hour and **read by nothing**. To detect a 30-minute gap it has to be fresher than the gap — say 5 minutes. That's a write per 5 min per active session instead of per hour. On D1 at our volume that's noise, but it's a real change and it's what finally gives that column a reader.
+
+## What I'd flag before building
+
+- **A year-long session on a device is a year-long session on a device.** Revocation is immediate (`admit` runs per request), but that's an operator action. `endSessionsForSubject` exists in the component and is only ever called from `setPersonStatus` — nothing exposes "sign out everywhere" to the person themselves. With I1 at a year, that stops being a nice-to-have.
+- **A 401 can still arrive mid-task** from replay-kill or operator revocation, even though scheduled re-auth can't. The client still needs to preserve state and retry rather than navigate away — that's BUG-52, and this design doesn't remove the need for it.
+- **The operator surface is unaffected.** Access mints its own JWT and challenges before our Worker runs; none of this reaches it. Still session-duration plus IdP choice.
+- **This is component work.** `resolveSession` in `@lagrangefoundry/auth-passwordless` is where all of it lands — upstream in `lagrange-framework`, with the numbers passed as config from `passwordlessFor`. `sessions.ts` currently overrides none of the component's defaults deliberately.
+
+Want me to write this into REQ-187 as a proposed design section — the clock/bearer split, pre-emption at visit start, the numbers with the 400-day constraint, and the three flags as open questions? It's still a conversation ticket, so I'd record it as a proposal rather than a decision.
 
 <!-- xgd-chat-end -->
