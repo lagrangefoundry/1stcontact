@@ -5,15 +5,23 @@ type: bug
 title: Switching business shows a same-named site from the wrong business
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T21:58:13.622062+00:00'
-updated_at: '2026-09-12T22:29:19.711727+00:00'
+updated_at: '2026-09-12T22:41:59.849115+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-3f8412fd
+  commits:
+  - working_sha: 95d3460bf36dab406e4432ae46ffc2aeacda2801
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: de5acab10cc4515b365ec997f0ba084a6cf247ad
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.182
 ---
 
 ## What happens
