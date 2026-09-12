@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T21:39:37.377739+00:00'
+updated_at: '2026-09-12T21:40:29.879729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -272,5 +272,19 @@ Which do you want?
 <!-- xgd-chat role="user" ts="2026-09-12T21:39:37.226836+00:00" -->
 #### You
 Please see REQ-231 - I think this is now complete, please can you close this ticket as legacy_done and point at REQ231
+
+<!-- xgd-turn id="978c001f-63e0-4edb-a2ce-b3c97554d769-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T21:40:29.171747+00:00" -->
+#### Claude
+Valid status, in use. Appending the closing note, then setting it.
+
+REQ-187 is `legacy_done`, with a closing section appended pointing at REQ-231 (and through it to lagrange-framework REQ-151, shipped in 0.0.235).
+
+I checked REQ-231 rather than taking it on trust — it's `ready_to_reconcile` with a commit, and it does cover what this ticket left open: `sessionTtlMs`, `rotateAfterMs`, the pre-emption window P, and sign-out-everywhere as a control a person can reach. The two residuals I'd flagged are carried there, not dropped.
+
+One thing deliberately left standing: BUG-52. Rotation removes the *scheduled* mid-session denial, but a 401 can still arrive from replay detection or from an operator withdrawing someone, so the client still needs to preserve state and retry. That's noted in the closing section.
+
+No code was written under REQ-187 — it was a conversation ticket throughout, which is why it closes `legacy_done` rather than `free_coded`.
 
 <!-- xgd-chat-end -->
