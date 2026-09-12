@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:50:15.598159+00:00'
+updated_at: '2026-09-12T23:31:39.259363+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1073,5 +1073,11 @@ Your `<picture>` decision is about **format** — serving WebP instead of JPEG. 
 So the decision as written gets WebP to half the pictures. The missing half is the hero backdrop — typically the biggest file on the page, and the reason background support was added to this ticket in the first place.
 
 Hence the ask: does the session extend WebP to backgrounds, accepting the mechanism it previously declined, or do backgrounds stay in their original format? That's a real call, and it isn't made anywhere yet.
+
+<!-- xgd-turn id="70188ce7-eb93-4e13-b5b7-3df42bd22c3a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T23:31:38.831802+00:00" -->
+#### You
+Please create another REQ to extend WebP to backgrounds
 
 <!-- xgd-chat-end -->
