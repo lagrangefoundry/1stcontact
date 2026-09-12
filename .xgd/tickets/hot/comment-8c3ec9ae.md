@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:30:25.802041+00:00'
+updated_at: '2026-09-12T00:39:54.689264+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,11 @@ The honest limit: (3) can force a migration to *exist*, but it can't verify the 
 ---
 
 Before I cut the branch, one scoping call: **does the upgrade pass write, or only report?** My instinct is `1c modules upgrade --dry-run` by default, printing the diff per instance, with `--write` to commit it — a migration that silently rewrites live site data on first run is not something I'd want to ship without a look. Agree? And should the CI guard land as a blocking test now, given it'll fail immediately until `account-chrome`'s `migrations[2]` is written?
+
+<!-- xgd-turn id="60e650e0-5cda-4e7a-a8fb-74b8bddc299d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:39:54.372946+00:00" -->
+#### You
+Agree go ahead
 
 <!-- xgd-chat-end -->
