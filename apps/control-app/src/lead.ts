@@ -420,6 +420,93 @@ async function deliverAsset(
   return null
 }
 
+/*
+ * WHAT THE LOG IS FOR, AND WHO READS IT.
+ *
+ * Every outcome below has always been computed correctly and then thrown away:
+ * the sole `public-site` caller awaits {@link captureLead} and discards what it
+ * returns, so a submission that wrote nothing left no row, no event and no line.
+ * The visitor was told it worked — rightly — and the operator had no way to find
+ * out otherwise, or to know there was anything to find. {@link LeadRefusal} has
+ * said "reaches a log; never a visitor" since it was written; this is the log.
+ *
+ * RECORDED WHERE IT IS DECIDED, which is why these live here and not at the call
+ * site. `denyAdmission` in `identity.ts` was filed from the same shape of bug —
+ * a silent refusal that locked an operator out of their own deployment with
+ * nothing in the running system saying why — and its rule is that deciding and
+ * recording are the same statement, so a reason cannot be computed without being
+ * reported. It binds harder here than it did there, because `captureLead` has
+ * TWO callers: `public-site` over the service binding, and the builder preview
+ * in-process (`router.ts`). A line written at either call site would leave the
+ * other silent, which is the exact failure the rule exists to prevent.
+ *
+ * THERE IS NO DISCLOSURE RISK, for the reason `identity.ts` gives: the visitor
+ * is told one frozen thing precisely BECAUSE they are unauthenticated and a
+ * response that varied by outcome would be an oracle for which site keys exist
+ * and who is already a contact. The operator reading the Worker's invocation log
+ * is not the visitor, and the log is ours.
+ *
+ * STRUCTURED, in the shape `identity.ts`, `router.ts` and `email-webhook.ts`
+ * already use — `console.warn(JSON.stringify({ event, … }))` — so these can be
+ * queried out of the invocation logs rather than grepped out of prose. `warn`
+ * and not `error` because none of this is a system failure: a refusal is a
+ * DECISION this function reached deliberately, and the thrown case already has
+ * its own `lead_capture_failed` at `error` in `public-site`.
+ */
+
+/**
+ * Say that a submission wrote nothing, and why.
+ *
+ * FIELD NAMES AND NEVER FIELD VALUES. `no_email` is almost always a form whose
+ * address field was authored without `type: 'email'`, and the question an
+ * operator needs answered is *which fields did this form actually send* — which
+ * the names answer completely. The values would answer it no better and would
+ * turn an operational log into a store of whatever a stranger typed into a text
+ * box, indexed by nothing and expiring on Cloudflare's schedule rather than on
+ * this business's.
+ */
+function reportRefusal(spec: LeadSubmission, reason: LeadRefusal): void {
+  console.warn(
+    JSON.stringify({
+      event: 'lead_not_captured',
+      reason,
+      site: spec.siteKey,
+      form: spec.instanceId,
+      ...(reason === 'no_email' ? { submittedFields: Object.keys(spec.fields).sort() } : {}),
+    }),
+  )
+}
+
+/**
+ * Say that a form promised a download and none left the building.
+ *
+ * NOT CALLED FOR `not_offered`, which is set on every submission to a form that
+ * never promised anything — most of them. A line per ordinary submission would
+ * bury the three skips that mean something, and a log nobody can read is the
+ * state this whole change is fixing.
+ *
+ * THE CONTACT IS NAMED BY ID. It is the handle that opens the person's pane,
+ * where the address already is; repeating the address here would put it in a
+ * second place for no diagnostic gain.
+ */
+function reportAssetSkipped(
+  spec: LeadSubmission,
+  businessId: string,
+  contactId: string,
+  reason: NonNullable<LeadOutcome['assetSkipped']>,
+): void {
+  console.warn(
+    JSON.stringify({
+      event: 'lead_asset_not_sent',
+      reason,
+      site: spec.siteKey,
+      form: spec.instanceId,
+      business: businessId,
+      contact: contactId,
+    }),
+  )
+}
+
 /**
  * Take one public form submission, end to end.
  *
@@ -434,7 +521,10 @@ export async function captureLead(
   deps: { send?: SendEmail } = {},
 ): Promise<LeadOutcome> {
   const site = await businessOfSite(env, spec.siteKey)
-  if (!site) return { accepted: false, reason: 'unknown_site' }
+  if (!site) {
+    reportRefusal(spec, 'unknown_site')
+    return { accepted: false, reason: 'unknown_site' }
+  }
   const scope: Scope = { businessId: site.businessId }
 
   const definition = await formDefinitionOf(
@@ -449,6 +539,7 @@ export async function captureLead(
   // nothing to send to, and inventing a contact from a name alone would put a
   // row in the CRM that no later submission could ever find again.
   if (email === '') {
+    reportRefusal(spec, 'no_email')
     return { accepted: false, reason: 'no_email', businessId: site.businessId }
   }
 
@@ -483,5 +574,7 @@ export async function captureLead(
     // none, so they get the adapter that records and cannot send.
     deps.send ?? mailerFor(env),
   )
-  return skipped ? { ...outcome, assetSkipped: skipped } : { ...outcome, assetSent: true }
+  if (!skipped) return { ...outcome, assetSent: true }
+  reportAssetSkipped(spec, site.businessId, contactId, skipped)
+  return { ...outcome, assetSkipped: skipped }
 }
