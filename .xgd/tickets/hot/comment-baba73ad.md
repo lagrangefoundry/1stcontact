@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T00:06:12.082330+00:00'
+updated_at: '2026-09-12T00:07:47.161963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -841,5 +841,33 @@ Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usa
 <!-- xgd-chat role="user" ts="2026-09-12T00:06:11.824579+00:00" -->
 #### You
 Do we need a ticket for 3?
+
+<!-- xgd-turn id="f97a256c-2b91-4ed2-9739-b863b6c492b4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:07:46.956063+00:00" -->
+#### Claude
+**No — and the code is already doing what you intended, for a reason nobody had written down.**
+
+## The "one Library item per picture" half is true by construction
+
+`tools/generate/src/publish/ladder.ts::buildImageLadder` returns `{manifest, derived}`, and `derived` is keyed by path **within the revision's `out/`** — never `assets/`. Its own comment gives the reason: *"a checkout restores what the site IS, and a delivery rendition is not part of that."*
+
+So renditions never enter the draft asset namespace that REQ-228's strong-form catalogue is a complete account of. The Library cannot fill with derived files. There was no conflict to resolve — only a definition to state, which I've now stated on the epic.
+
+## The `fields.image_ladder[]` half would be wrong, not just redundant
+
+A ladder isn't a property of a picture. It's a property of *(picture, revision)* — REQ-222 freezes each revision's renditions into that revision's own prefix, immutable. A mutable field on the catalogue ticket has no correct value to hold: stale the moment a second revision publishes, wrong the moment a recipe changes.
+
+**And I should correct my own reasoning from last turn.** I argued the field would bring renditions "inside the attachment record, which is what blob GC reads." That's not right — renditions aren't blobs in the material store (`t/<tenant>/blob/<sha256>`); they're revision bytes under the revision prefix, owned by that revision and disposed of with it. They're never orphans, so there's nothing for an attachment record to rescue. The conclusion I reached (let the two coexist, different lifetimes) survives; the supporting argument didn't.
+
+## The line, stated once
+
+**Catalogued = authored or received** — uploaded, generated, drawn, captured. **Not catalogued = derived at publish** from a catalogue item, content-addressed, owned by the revision that built it.
+
+That's the same line this epic already drew between editorial versions (the recipe — the client's business) and delivery renditions (a consequence of publishing the client should never see or be asked about).
+
+The only risk was ever that a later implementer would read "every asset is a catalogue item" literally and either flood the Library or quietly special-case the ladder with no record of why. REQ-228 has since landed `free_coded` and the separation held — so it's recorded on EPIC-1 as the reason it held rather than as work.
+
+Recorded on the epic. No ticket, no code.
 
 <!-- xgd-chat-end -->
