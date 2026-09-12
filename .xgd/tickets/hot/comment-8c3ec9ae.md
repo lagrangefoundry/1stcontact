@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:24:46.928783+00:00'
+updated_at: '2026-09-12T00:25:03.809036+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,31 @@ That sharpens my earlier recommendation: the guard can't just check the repo fix
 <!-- xgd-chat role="user" ts="2026-09-12T00:24:46.749822+00:00" -->
 #### You
 What is account-chrome?
+
+<!-- xgd-turn id="bfcec88a-d388-4180-b6e5-0fd5b6e19c7b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:25:03.133922+00:00" -->
+#### Claude
+It's the module that provides the two controls a site with accounts owes its visitor: **a way in, and a way to their own portal**. Introduced in REQ-200; the contract lives at `packages/framework/src/modules/account-chrome/meta.ts`.
+
+**What it renders** — four visitor states, all painted into the page at render time, with the serving Worker choosing which is current from the session cookie:
+
+| state | control |
+|---|---|
+| signed out | a Sign In button that opens a dialog |
+| signed in | a link to this site's account portal |
+| signed in *and* operates a business | additionally, a link to the builder |
+| dialog open | an email field + submit, POSTing to the site's sign-in endpoint |
+
+Plus, since BUG-76, two more slots: `sent` (the confirmation card) and `error` (the network-failure card).
+
+**Four design decisions worth knowing**, because they explain why it looks the way it does:
+
+- **It is not platform chrome.** The obvious build was the apex Worker painting a "Sign In" link into 1st Contact's own corner. DOC-40 §2.1 names that as a failure mode — a capability built for the platform that every customer needs too. Any customer site can have accounts; 1st Contact's is just the first.
+- **It's not on every site either.** Gated per site by `config.capabilities.accounts`, never derived. A login link on a brochure site is a dead end. (That gate is exactly why your bug hit one site and not seven.)
+- **It's a module rather than Worker markup so L1 owns placement and look.** Each state is a slot, so a site can put the portal link in the footer and Sign In in the header. It ships an L2 preset (`l2/account-chrome.ts`) so you don't have to author four subtrees just to get a Sign In link.
+- **It authenticates nothing and gates nothing.** It renders every state and lets the Worker pick. No published content varies by who's looking — the only verb is the address POST.
+
+There's one deliberate carve-out: the `<label>` on the email field is an *invariant* element, clipped to 1×1px and not bindable from L1 — an accessibility obligation, not taste. The visitor reads the prompt via `config.emailLabel` + `labelMode`. That invariant was mis-documented, which is what kicked off BUG-76 and the v2 bump your draft is now stranded behind.
 
 <!-- xgd-chat-end -->
