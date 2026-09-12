@@ -123,10 +123,21 @@ export {
 // side; the arithmetic is what the publish side imports.
 export {
   DELIVERY_WIDTHS,
+  DELIVERY_ALTERNATIVE_TYPE,
+  DELIVERY_SOURCE_TYPES,
+  alternativeDeliveryTypes,
+  alternativeDeliveryWidthsFor,
   deliveryWidthsFor,
   deliveryAssetName,
+  deliveryExtensionOfType,
+  deliveryTypeOfExtension,
   extensionOfAsset,
   isLadderedAsset,
   renditionPath,
 } from './l1/delivery'
-export type { ImageDelivery, ImageDeliveryManifest, ImageRendition } from './l1/delivery'
+export type {
+  ImageDelivery,
+  ImageDeliveryManifest,
+  ImageDeliverySource,
+  ImageRendition,
+} from './l1/delivery'

@@ -451,6 +451,29 @@ async function* postEventStream(path, body, failure, fetchImpl) {
     yield { kind: 'done' }
     return
   }
+  yield* readEventStream(res)
+}
+
+/**
+ * The `data: {json}` frames of an open response, and nothing else.
+ *
+ * EXTRACTED FROM {@link postEventStream} RATHER THAN COPIED ([[REQ-222]]), on
+ * exactly the grounds that function was extracted from the chat routes: the
+ * framing is the origin's own, and *"a second transcription of the
+ * split-on-blank-line parse is how a fix to one SSE route silently misses the
+ * other."* A publish stream is a fourth caller of the parse and a SECOND caller
+ * of the non-OK policy — chat renders a refusal as a sentence in the
+ * conversation, a publish has no conversation to put one in — so the parse is
+ * here, alone, and each caller keeps its own policy above it.
+ *
+ * IT IS SILENT ABOUT THE END OF THE STREAM, deliberately. Whether a stream that
+ * finished without saying so is a success or a failure is the CALLER's question
+ * and has different answers: a chat turn that stops is a turn that stopped, and a
+ * publish that stops is a publish whose outcome is unknown — which must be read
+ * as a failure, because the alternative is telling a client their site is live
+ * when it may not be.
+ */
+async function* readEventStream(res) {
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -476,6 +499,59 @@ export async function publishSite(slug, fetchImpl = fetch) {
   })
   if (!res.ok) throw new Error(`POST /api/publish → ${res.status}`)
   return res.json()
+}
+
+/**
+ * Publish, reporting how far through resizing the images it is ([[REQ-222]]).
+ *
+ * WHY THE STREAM EXISTS. A first publish of a photo-heavy site has to decode and
+ * re-encode every picture on it, which is minutes. A button that goes quiet for a
+ * minute reads as a hang, and a client who reloads mid-publish is a client who
+ * has learned not to trust the button — so the wait is explained while it happens
+ * rather than apologised for afterwards.
+ *
+ * ASKED FOR BY `Accept`, which is why {@link publishSite} above still exists and
+ * is untouched: the two are representations of one resource, and anything with no
+ * use for frames keeps getting the envelope.
+ *
+ * A STREAM THAT ENDS WITHOUT A TERMINAL FRAME IS A FAILURE, and this is the one
+ * contract in this file worth reading before changing anything. The response
+ * committed `200` before the first rendition was built, so a publish that failed
+ * midway cannot report itself as a status — it reports itself in the terminal
+ * frame's `ok`. Which means a DROPPED CONNECTION, having produced no terminal
+ * frame at all, must not be read as the success the status code claims. Telling a
+ * client their site is live when it is not is the worst outcome available here, so
+ * the absence of a verdict is treated as the failure it is.
+ *
+ * @param onProgress told `{total, done}` as the ladder builds. `total` is the
+ *   renditions that actually have to be BUILT — a republish finds them all cached
+ *   and reports zero, which is what lets the caller stay quiet.
+ */
+export async function streamPublish(slug, onProgress, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/publish'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+    body: JSON.stringify({ slug }),
+  })
+  // A REFUSAL BEFORE THE STREAM OPENS IS STILL AN ORDINARY STATUS, and it is the
+  // only failure here that has one — an invalid draft, a missing slug, a lapsed
+  // session. Read as JSON, because that is what the router answers with when it
+  // refuses before committing to a stream.
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => ({}))
+    throw new Error(parsed.error || `POST /api/publish → ${res.status}`)
+  }
+
+  let terminal = null
+  for await (const frame of readEventStream(res)) {
+    if (frame.kind === 'progress') onProgress?.(frame)
+    else if (frame.kind === 'done') terminal = frame
+  }
+  if (terminal === null) {
+    throw new Error('The publish stopped before it said whether it finished.')
+  }
+  if (terminal.ok !== true) throw new Error(terminal.error || 'the publish failed')
+  return terminal
 }
 
 /**

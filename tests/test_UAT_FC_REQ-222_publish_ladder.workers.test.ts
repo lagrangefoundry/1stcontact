@@ -142,19 +142,48 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
  * the ladder ever started passing a recipe here, this key would stop matching
  * and the sentinel below would stop being served.
  */
-async function cacheKeyFor(bytes: Uint8Array, width: number): Promise<string> {
+async function cacheKeyFor(bytes: Uint8Array, width: number, type = ''): Promise<string> {
   const source = await sha256Hex(bytes)
-  return await sha256Hex(new TextEncoder().encode(`${source}\n[]\n${width}`))
+  return await sha256Hex(new TextEncoder().encode(`${source}\n[]\n${width}\n${type}`))
 }
 
-/** The `srcset` the published home page carries. */
-function srcsetOf(html: string): Array<{ src: string; width: number }> {
-  const attr = /srcset="([^"]*)"/.exec(html)
-  expect(attr, 'the published page carries a srcset').not.toBeNull()
-  return attr![1].split(', ').map((candidate) => {
+/** One `srcset` list, parsed into its candidates. */
+function candidatesOf(attr: string): Array<{ src: string; width: number }> {
+  return attr.split(', ').map((candidate) => {
     const [src, descriptor] = candidate.split(' ')
     return { src, width: Number(descriptor.replace(/w$/, '')) }
   })
+}
+
+/**
+ * The `<img>`'s OWN `srcset` — the source-format ladder.
+ *
+ * NAMED PRECISELY BECAUSE THERE IS MORE THAN ONE NOW ([[REQ-222]] typed sources).
+ * A published `<picture>` carries a `srcset` per `<source>` as well as the
+ * `<img>`'s, and a helper that took the first one it found would have quietly
+ * become a helper about the WebP ladder — so every claim about "the conventional
+ * widths, capped at the source, with the original as the top rung" would have
+ * been silently retargeted at a different list.
+ */
+function srcsetOf(html: string): Array<{ src: string; width: number }> {
+  const img = /<img\b[^>]*>/.exec(html)
+  expect(img, 'the published page carries an img').not.toBeNull()
+  const attr = /srcset="([^"]*)"/.exec(img![0])
+  expect(attr, 'the img carries a srcset').not.toBeNull()
+  return candidatesOf(attr![1])
+}
+
+/** A typed `<source>`'s `srcset`, by media type, or null if there is none. */
+function sourceSrcsetOf(
+  html: string,
+  type: string,
+): Array<{ src: string; width: number }> | null {
+  for (const tag of html.matchAll(/<source\b[^>]*>/g)) {
+    if (!tag[0].includes(`type="${type}"`)) continue
+    const attr = /srcset="([^"]*)"/.exec(tag[0])
+    return attr === null ? null : candidatesOf(attr[1])
+  }
+  return null
 }
 
 describe('REQ-222 — the ladder a real publish builds', () => {
@@ -316,5 +345,106 @@ describe('REQ-222 — a deployment with no Images binding', () => {
     expect(await keysUnder(`${out}/assets/d/`)).toEqual([])
     // And the picture itself is still published, unchanged.
     expect(await env.SITES.get(`${out}/assets/hero.png`)).not.toBeNull()
+  })
+})
+
+/**
+ * REQ-222 — typed `<source>` elements, against the real Images binding.
+ *
+ * WHAT ONLY workerd CAN PROVE HERE, and it is the whole risk of format
+ * negotiation: **that the bytes behind a typed source really are that format.**
+ * A browser that takes a `type="image/webp"` source and finds a JPEG behind it
+ * does not fall back — it has already committed — so the picture simply does not
+ * paint, for every visitor whose browser reads WebP, which is nearly all of them.
+ * The node suite drives a fake that returns whatever it is told to; only the real
+ * binding can be caught labelling a re-encode it did not perform.
+ */
+describe('REQ-222 — typed sources, through the real binding', () => {
+  beforeAll(async () => {
+    await applySchema()
+  })
+
+  it('encodes the WebP source in WebP, and names it first', async () => {
+    const { store, slug } = await siteWithAPicture(await picture(1000, 500))
+    const result = await publishSite(store, slug, { ladder: realLadder() })
+    const siteKey = (await store.siteKey(slug))!
+    const out = publishedOutPrefix(siteKey, result.id)
+    const html = await (await env.SITES.get(`${out}/home.html`))!.text()
+
+    // WebP precedes the `<img>`, because the browser takes the first type it
+    // supports and never looks at the rest.
+    expect(html.indexOf('<source')).toBeLessThan(html.indexOf('<img'))
+    const webp = sourceSrcsetOf(html, 'image/webp')
+    expect(webp, 'the published page offers a WebP source').not.toBeNull()
+    // Including the source's own width, because an alternative format has no
+    // free top rung the way the original does.
+    expect(webp!.map((c) => c.width)).toEqual([320, 640, 960, 1000])
+
+    for (const candidate of webp!) {
+      const object = await env.SITES.get(`${out}/${candidate.src}`)
+      expect(object, `${candidate.src} was named but not written`).not.toBeNull()
+      const bytes = new Uint8Array(await object!.arrayBuffer())
+      // THE ASSERTION THE NODE SUITE CANNOT MAKE: these bytes really are a WebP.
+      // `RIFF....WEBP` is the container's own magic, read here rather than taken
+      // from a content type nobody set.
+      const magic = new TextDecoder().decode(bytes.slice(0, 4))
+      const form = new TextDecoder().decode(bytes.slice(8, 12))
+      expect(magic, candidate.src).toBe('RIFF')
+      expect(form, candidate.src).toBe('WEBP')
+    }
+  })
+
+  it('keeps the img on the source format, so the fallback is real', async () => {
+    // ITS OWN WIDTH, so the cache keys this publish derives are this publish's.
+    // The tenant's rendition prefix is shared by every test in the file, and one
+    // above plants a sentinel at a 1000px picture's 640 rung — reusing that width
+    // here would assert against the other test's fixture.
+    const { store, slug } = await siteWithAPicture(await picture(1300, 650))
+    const result = await publishSite(store, slug, { ladder: realLadder() })
+    const siteKey = (await store.siteKey(slug))!
+    const out = publishedOutPrefix(siteKey, result.id)
+    const html = await (await env.SITES.get(`${out}/home.html`))!.text()
+
+    // Every candidate in the `<img>`'s own ladder is still a PNG, decodable by
+    // the repository's PNG reader — which is what makes it a fallback rather
+    // than a second copy of the WebP ladder.
+    for (const candidate of srcsetOf(html)) {
+      expect(candidate.src.endsWith('.png'), candidate.src).toBe(true)
+      const object = await env.SITES.get(`${out}/${candidate.src}`)
+      const bytes = new Uint8Array(await object!.arrayBuffer())
+      expect(pngDimensions(bytes).width, candidate.src).toBe(candidate.width)
+    }
+  })
+
+  it('caches an alternative rendition at its own address, so a republish is free', async () => {
+    // THE FORMAT IS IN THE KEY. Two renders of one picture at one width in two
+    // codecs are two different files, and a key that omitted the format would
+    // serve whichever of them was encoded first for both — which is the
+    // JPEG-behind-a-WebP-source failure, arriving through the cache instead.
+    const bytes = await picture(1200, 600)
+    const { store, slug } = await siteWithAPicture(bytes)
+    await publishSite(store, slug, { ladder: realLadder() })
+
+    const sourceKey = `rendition/${TENANT}/${await cacheKeyFor(bytes, 640)}`
+    const webpKey = `rendition/${TENANT}/${await cacheKeyFor(bytes, 640, 'image/webp')}`
+    expect(sourceKey).not.toBe(webpKey)
+    expect(await env.BLOBS.get(sourceKey), 'the 640 PNG rung was cached').not.toBeNull()
+    expect(await env.BLOBS.get(webpKey), 'the 640 WebP rung was cached').not.toBeNull()
+
+    const cached = await env.BLOBS.get(webpKey)
+    const cachedBytes = new Uint8Array(await cached!.arrayBuffer())
+    expect(new TextDecoder().decode(cachedBytes.slice(8, 12))).toBe('WEBP')
+  })
+
+  it('gives a picture below the smallest step no picture element at all', async () => {
+    // The body's plainest promise: such a picture is served exactly as it is.
+    const { store, slug } = await siteWithAPicture(await picture(300, 150))
+    const result = await publishSite(store, slug, { ladder: realLadder() })
+    const siteKey = (await store.siteKey(slug))!
+    const out = publishedOutPrefix(siteKey, result.id)
+    const html = await (await env.SITES.get(`${out}/home.html`))!.text()
+    expect(html).not.toContain('<picture')
+    expect(html).not.toContain('<source')
+    expect(html).toContain('src="assets/hero.png"')
   })
 })

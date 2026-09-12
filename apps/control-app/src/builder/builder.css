@@ -2365,6 +2365,53 @@ body {
   border-top: 1px solid #d9a93a;
 }
 
+/* ── a publish is running ([[REQ-222]]) ───────────────────────────────────────
+   THE SAME `inert` BOUNDARY AS THE LAPSED-ACCOUNT BLOCK ABOVE, AND DELIBERATELY
+   NOT ITS APPEARANCE. That one dims because the surfaces beneath it are gone and
+   are not coming back; this one is a wait, and a builder greyed out mid-publish
+   says *your site is broken* at the exact moment it is going live. So nothing is
+   dimmed and nothing is greyscaled — the pane stays fully legible, which is also
+   what a client watching their own site be published would want to look at.
+
+   THE CURSOR IS THE WHOLE VISUAL SIGNAL, besides the banner. It is honest about
+   what has happened — the surfaces are still there, they are just not answering
+   yet — where a dim would overstate it. */
+
+.builder-shell--publishing .shell-tabs,
+.builder-shell--publishing .shell-panels {
+  cursor: progress;
+}
+
+/* The strip, in the same voice as every other reason the builder pauses. It sits
+   inside the content area like `--no-business`, so it is bounded from the panels
+   below rather than the header above. */
+.builder-banner--publishing {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  border-bottom: none;
+  border-top: 1px solid #d9a93a;
+}
+
+/* The bar takes the space the sentence does not, so its length means something
+   from across the room. `progress` is styled minimally on purpose: it is the one
+   control here whose native rendering is already the right idea on every
+   platform, and re-skinning it would be three vendor pseudo-elements' worth of
+   maintenance for no gain. */
+.builder-banner--publishing progress {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  height: 0.5rem;
+}
+
+/* A publish that did not work. The same strip in the same voice — this is one more
+   reason the builder paused, not a different KIND of thing — and it outlives its
+   own block on purpose, until the next attempt replaces it. */
+.builder-banner--publish-failed {
+  border-bottom: none;
+  border-top: 1px solid #d9a93a;
+}
+
 /* ── the session has ended ([[BUG-52]]) ───────────────────────────────────────
    TWO SHAPES, ONE VOICE. `.builder-session-notice` is the mid-session strip and
    looks exactly like the two banners above — a different colour would say this

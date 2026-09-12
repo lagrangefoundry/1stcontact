@@ -39,8 +39,10 @@ import {
 } from './dialog'
 import {
   deliveryAssetName,
+  DELIVERY_SOURCE_TYPES,
   type ImageDelivery,
   type ImageDeliveryManifest,
+  type ImageRendition,
 } from './delivery'
 import type {
   L1Action,
@@ -1707,9 +1709,22 @@ function deliveryFor(src: string, state: RenderState): ImageDelivery | undefined
  * the wrong place to find that out.
  */
 function srcsetAttr(delivery: ImageDelivery | undefined): string {
-  if (!delivery) return ''
+  return srcsetOf(delivery?.renditions)
+}
+
+/**
+ * REQ-222 — a `srcset` attribute over one ladder, or `''`.
+ *
+ * ONE FUNCTION FOR THE `<img>` AND FOR EVERY `<source>`, because they are the same
+ * attribute with the same list syntax and the same sinks. A second copy for the
+ * typed sources would be a second place for the scheme allowlist, the character
+ * allowlist and the two-candidate rule to drift — and the failure it would
+ * produce, a list the browser silently cannot parse, is invisible on the page.
+ */
+function srcsetOf(renditions: readonly ImageRendition[] | undefined): string {
+  if (!renditions) return ''
   const candidates: string[] = []
-  for (const rendition of delivery.renditions) {
+  for (const rendition of renditions) {
     const url = rendition.src.trim()
     if (!isSafeUrl(url) || !SRCSET_URL_ALLOWED.test(url)) continue
     if (!Number.isFinite(rendition.width) || rendition.width <= 0) continue
@@ -1717,6 +1732,44 @@ function srcsetAttr(delivery: ImageDelivery | undefined): string {
   }
   if (candidates.length < 2) return ''
   return ` srcset="${escapeHtml(candidates.join(', '))}"`
+}
+
+/**
+ * REQ-222 — the `<source>` elements that precede an `<img>`, in the manifest's
+ * own order.
+ *
+ * THE ORDER IS NOT THIS FUNCTION'S TO HOLD AN OPINION ABOUT. A browser takes the
+ * first `<source>` whose `type` it supports and never looks at the rest, so the
+ * list is emitted exactly as the publish recorded it — best first. Sorting or
+ * filtering here would be a second opinion about codec preference, held in the
+ * one place that cannot see which codecs the publish actually managed to encode.
+ *
+ * `type` IS ALLOWLISTED, NOT MERELY ESCAPED. It is a value the browser PARSES:
+ * an unrecognised one disqualifies the `<source>` silently, on every page, with
+ * nothing anywhere reporting why. Layer 2 does not trust Layer 1, and a manifest
+ * arrives from a publish that read bytes out of a bucket.
+ *
+ * A SOURCE WITH NOTHING TO CHOOSE BETWEEN IS DROPPED, on `srcsetOf`'s own
+ * two-candidate rule. It has no fallback of its own — the `<img>` carries the
+ * source format — so a `<source>` a browser prefers and then cannot choose
+ * usefully within is strictly worse than no `<source>` at all.
+ *
+ * `sizes` IS REPEATED ON EACH ONE, and that is required rather than redundant:
+ * candidate selection happens INSIDE the chosen `<source>`, so a `<source>` with
+ * no `sizes` sends the browser back to assuming the viewport and taking the top
+ * rung — which is the download this whole ticket exists to remove, reintroduced
+ * for exactly the visitors whose browsers are modern enough to prefer WebP.
+ */
+function pictureSources(delivery: ImageDelivery | undefined, sizesAttr: string): string {
+  if (!delivery?.sources) return ''
+  let html = ''
+  for (const source of delivery.sources) {
+    if (!DELIVERY_SOURCE_TYPES.has(source.type)) continue
+    const srcset = srcsetOf(source.renditions)
+    if (srcset === '') continue
+    html += `<source type="${escapeHtml(source.type)}"${srcset}${sizesAttr} />`
+  }
+  return html
 }
 
 /**
@@ -1795,6 +1848,16 @@ function nodeWidthAt(
  * browser and looks soft — the one outcome worth spending bytes to avoid. The
  * manifest's last entry is the source itself, so "nothing covers it" resolves to
  * the bytes that are already the authored URL and the page is unchanged.
+ *
+ * IT READS `renditions` AND NEVER `sources`, AND THAT IS A CORRECTNESS
+ * REQUIREMENT RATHER THAN AN OVERSIGHT. `renditions` is the source's own format
+ * throughout; `sources` holds the alternatives a `<picture>` lets the BROWSER
+ * choose between by declaring what it can read. A `background-image` declares
+ * nothing and negotiates nothing — a `url()` naming a WebP is simply a backdrop
+ * that does not paint for a visitor whose browser cannot read one, with no
+ * fallback and no way for the page to find out. Whoever widens this to prefer a
+ * smaller codec has to bring `image-set()` with them, which this ticket
+ * deliberately did not.
  */
 function backgroundRenditionFor(delivery: ImageDelivery, boxWidth: number): string {
   const target = boxWidth * BACKGROUND_DPR
@@ -2875,7 +2938,30 @@ function emitNode(
         delivery.width > 0 && delivery.height > 0
       const dims = intrinsic ? ` width="${num(delivery!.width)}" height="${num(delivery!.height)}"` : ''
       const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr}${dims} alt="${escapeHtml(node.alt)}" />`
-      html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
+      // REQ-222 — FORMAT NEGOTIATION, WHICH A STATIC PUBLISH CAN ONLY EXPRESS IN
+      // THE SHAPE OF WHAT IT EMITS. There is no request to vary on `Accept`
+      // against, so the choice has to be in the markup: the browser takes the
+      // first `<source>` whose `type` it supports, and the `<img>` — carrying the
+      // source's own format throughout — is the final fallback for a browser that
+      // supports none of them. A browser that understands neither `srcset` nor
+      // `<picture>` still gets exactly today's page from `src`.
+      //
+      // `display:contents` ON THE WRAPPER, on the same precedent as the `<a>`
+      // below it and for the same reason. A `<picture>` is an inline box by
+      // default, so without this it would become the flex or grid item its parent
+      // sizes and the `<img>`'s own rules — which is where every geometry and
+      // sizing declaration this renderer emits for the node lands — would apply
+      // one level inside the layout instead of in it. `contents` makes the wrapper
+      // generate no box at all, so the picture participates in its parent's layout
+      // exactly as the bare `<img>` did.
+      //
+      // AND WITH NO TYPED SOURCE THERE IS NO WRAPPER. A publish that encoded no
+      // alternative format, a WebP original that has no better one to offer, a
+      // deployment with no ladder, the draft channel: all of them emit the bare
+      // `<img>` that shipped before this existed, byte for byte.
+      const sources = pictureSources(delivery, sizesAttr)
+      const picture = sources === '' ? img : `<picture style="display:contents">${sources}${img}</picture>`
+      html = href ? `<a${linkAttrs} style="display:contents">${picture}</a>` : picture
       break
     }
     case 'slot': {

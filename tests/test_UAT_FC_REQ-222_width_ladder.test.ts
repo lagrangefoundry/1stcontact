@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   DELIVERY_WIDTHS,
+  alternativeDeliveryTypes,
+  alternativeDeliveryWidthsFor,
   deliveryAssetName,
   deliveryWidthsFor,
   isLadderedAsset,
@@ -11,6 +13,9 @@ import { validateL1, type L1Document, type L1Node } from '../packages/site-schem
 import {
   buildImageLadder,
   imageLadder,
+  LadderTooLargeError,
+  LADDER_CONCURRENCY,
+  LADDER_MAX_RENDITIONS,
   type ImageSizer,
 } from '../tools/generate/src/publish/ladder'
 import { publishSite } from '../tools/generate/src/publish/publish'
@@ -49,16 +54,31 @@ import { emptyPublished, publishInto, type PublishedFixture } from './fixtures/p
 
 const WIDTHS = [320, 1280]
 
-/** A sizer over a fixed source size that records everything asked of it. */
+/**
+ * A sizer over a fixed source size that records everything asked of it.
+ *
+ * THE TWO LADDERS ARE RECORDED SEPARATELY ([[REQ-222]] typed sources). `resized`
+ * is the SOURCE-FORMAT rungs and `encoded` is every alternative-format one, and
+ * keeping them apart is what lets a claim about one ladder stay a claim about
+ * that ladder — a single list would make "the conventional widths, capped at the
+ * source" unassertable the moment a second format doubled it.
+ */
 function fakeRenderer(
   size: { width: number; height: number } | null,
-  opts: { failAt?: number[] } = {},
-): ImageSizer & { resized: number[]; measured: number } {
-  const state = { resized: [] as number[], measured: 0 }
+  opts: { failAt?: number[]; failFormat?: string } = {},
+): ImageSizer & { resized: number[]; encoded: { width: number; type: string }[]; measured: number } {
+  const state = {
+    resized: [] as number[],
+    encoded: [] as { width: number; type: string }[],
+    measured: 0,
+  }
   return {
     ...state,
     get resized() {
       return state.resized
+    },
+    get encoded() {
+      return state.encoded
     },
     get measured() {
       return state.measured
@@ -67,14 +87,31 @@ function fakeRenderer(
       state.measured += 1
       return size
     },
-    resize: async (_bytes, _contentType, width) => {
-      state.resized.push(width)
+    resize: async (_bytes, _contentType, width, type) => {
+      if (type === undefined) state.resized.push(width)
+      else state.encoded.push({ width, type })
       if (opts.failAt?.includes(width)) return null
-      // The bytes are the width, so a test can tell one rendition from another
-      // without decoding anything.
-      return new TextEncoder().encode(`rendition-${width}`)
+      if (opts.failFormat !== undefined && type === opts.failFormat) return null
+      // The bytes are the width and the format, so a test can tell one rendition
+      // from another without decoding anything.
+      return new TextEncoder().encode(`rendition-${width}-${type ?? 'source'}`)
     },
-  } as ImageSizer & { resized: number[]; measured: number }
+  } as ImageSizer & {
+    resized: number[]
+    encoded: { width: number; type: string }[]
+    measured: number
+  }
+}
+
+/** Every rendition path a manifest entry names, across every format. */
+function namedRenditions(entry: {
+  renditions: readonly { src: string }[]
+  sources?: readonly { renditions: readonly { src: string }[] }[]
+}): string[] {
+  return [
+    ...entry.renditions.map((r) => r.src),
+    ...(entry.sources ?? []).flatMap((s) => s.renditions.map((r) => r.src)),
+  ].filter((src) => src.startsWith('assets/d/'))
 }
 
 /** Some bytes that are not any particular picture. */
@@ -345,9 +382,11 @@ describe('REQ-222 building the ladder', () => {
 
   it('writes every rendition it named, and names every rendition it wrote', async () => {
     const built = await buildImageLadder(jpeg(), fakeRenderer({ width: 1000, height: 500 }))
-    const named = built.manifest['hero.jpg'].renditions
-      .map((r) => r.src)
-      .filter((src) => src !== 'assets/hero.jpg')
+    // ACROSS EVERY FORMAT, not just the source's. A typed `<source>`'s candidates
+    // are chosen by the same browser through the same mechanism, so a WebP
+    // candidate the bucket does not hold is the same 404 — and it is the one a
+    // modern browser reaches for FIRST.
+    const named = namedRenditions(built.manifest['hero.jpg'])
     // A candidate the bucket does not hold is a 404 on the request the page
     // cannot recover from, so the two sets are asserted to be the same set.
     expect([...built.derived.keys()].sort()).toEqual([...named].sort())
@@ -795,5 +834,377 @@ describe('REQ-222 a background-placed picture reaches the ladder', () => {
     const painted = [...html.matchAll(/url\("(assets\/d\/[^"]+)"\)/g)].map((m) => m[1])
     expect(painted.length).toBeGreaterThan(0)
     for (const src of painted) expect(derived.has(src), src).toBe(true)
+  })
+})
+
+/**
+ * REQ-222 — `<picture>` with typed `<source>` elements.
+ *
+ * WHY THESE ARE WORTH WRITING, beyond "the attribute appeared":
+ *
+ *   - A `<source>` WITH THE WRONG BYTES paints NOTHING. A browser that takes a
+ *     `type="image/webp"` source and finds a JPEG behind it does not fall back —
+ *     it has already committed. So the one thing that must never happen is a
+ *     typed source whose renditions were not actually encoded in that type.
+ *   - A `<source>` WITH NO `sizes` is the whole ticket undone for exactly the
+ *     visitors modern enough to prefer WebP: selection happens inside the chosen
+ *     source, so without it the browser assumes the viewport and takes the top
+ *     rung.
+ *   - A WRAPPER THAT GENERATES A BOX moves the layout. Every geometry rule this
+ *     renderer emits lands on the `<img>`, so a `<picture>` that became the flex
+ *     item would apply them one level inside the layout instead of in it — and
+ *     nothing about the HTML would look wrong.
+ *   - A BACKGROUND THAT TOOK A WEBP is a backdrop that silently does not paint
+ *     for a visitor whose browser cannot read one, with no fallback and no way
+ *     for the page to find out.
+ */
+
+/** The manifest for a 2000px `hero.jpg` published with a WebP source as well. */
+const TYPED_MANIFEST = {
+  'hero.jpg': {
+    width: 2000,
+    height: 1000,
+    renditions: [
+      { src: 'assets/d/abc123-320.jpg', width: 320 },
+      { src: 'assets/d/abc123-640.jpg', width: 640 },
+      { src: 'assets/hero.jpg', width: 2000 },
+    ],
+    sources: [
+      {
+        type: 'image/webp',
+        renditions: [
+          { src: 'assets/d/abc123-320.webp', width: 320 },
+          { src: 'assets/d/abc123-640.webp', width: 640 },
+          { src: 'assets/d/abc123-2000.webp', width: 2000 },
+        ],
+      },
+    ],
+  },
+}
+
+describe('REQ-222 the sink emits a picture with typed sources', () => {
+  it('puts WebP first and leaves the original as the final fallback inside img', () => {
+    const html = renderImage({ src: '/assets/hero.jpg' }, { delivery: TYPED_MANIFEST })
+    // The browser takes the FIRST source whose type it supports, so order is the
+    // whole mechanism: WebP precedes the original, and a browser that reads
+    // neither still gets the picture it gets today from `src`.
+    expect(html.indexOf('<source')).toBeLessThan(html.indexOf('<img'))
+    expect(html).toContain('type="image/webp"')
+    // The img keeps the SOURCE-FORMAT ladder and its own src.
+    const img = /<img\b[^>]*>/.exec(html)![0]
+    expect(img).toContain('src="assets/hero.jpg"')
+    expect(img).toContain('assets/d/abc123-640.jpg 640w')
+    expect(img).not.toContain('.webp')
+  })
+
+  it('emits a bare img when the publish encoded no alternative format', () => {
+    // No typed source, no wrapper — byte-identical to what shipped before this
+    // existed, which is what a WebP original, a deployment with no ladder and
+    // the draft channel all get.
+    const html = renderImage({ src: '/assets/hero.jpg' }, { delivery: HERO_MANIFEST })
+    expect(html).not.toContain('<picture')
+    expect(html).not.toContain('<source')
+    expect(html).toContain('srcset=')
+  })
+
+  it('wraps in a picture that generates no box, so the layout is unchanged', () => {
+    // A `<picture>` is an inline box by default. Without `display:contents` it
+    // would become the flex or grid item the parent sizes, and every rule this
+    // renderer emits for the node — all of which land on the `<img>` — would
+    // apply one level inside the layout rather than in it.
+    const html = renderImage({ src: '/assets/hero.jpg' }, { delivery: TYPED_MANIFEST })
+    expect(html).toContain('<picture style="display:contents">')
+  })
+
+  it('repeats sizes on the source, because selection happens inside it', () => {
+    const html = renderImage(
+      {
+        src: '/assets/hero.jpg',
+        geometry: { keyframes: [{ at: 320, width: 300, height: 150, x: 0, y: 0 }] },
+      },
+      { delivery: TYPED_MANIFEST },
+    )
+    const source = /<source\b[^>]*>/.exec(html)![0]
+    const img = /<img\b[^>]*>/.exec(html)![0]
+    const sizesOf = (tag: string) => /sizes="([^"]*)"/.exec(tag)?.[1]
+    expect(sizesOf(source)).toBeDefined()
+    // The SAME conditions list: the box is the box whichever format fills it, and
+    // a source that understated it would send the browser back to assuming the
+    // viewport for exactly the visitors this saves the most bytes for.
+    expect(sizesOf(source)).toBe(sizesOf(img))
+  })
+
+  it('drops a source with nothing to choose between rather than offering it', () => {
+    // It has no fallback of its own — the `<img>` carries the source format — so
+    // a source a browser PREFERS and then cannot usefully choose within is
+    // strictly worse than no source at all.
+    const html = renderImage(
+      { src: '/assets/hero.jpg' },
+      {
+        delivery: {
+          'hero.jpg': {
+            ...TYPED_MANIFEST['hero.jpg'],
+            sources: [{ type: 'image/webp', renditions: [{ src: 'assets/d/x-320.webp', width: 320 }] }],
+          },
+        },
+      },
+    )
+    expect(html).not.toContain('<picture')
+    expect(html).not.toContain('image/webp')
+  })
+
+  it('refuses a type it does not recognise instead of escaping it', () => {
+    // `type` is PARSED by the browser, not merely displayed: an unrecognised one
+    // disqualifies the source silently, on every page, with nothing reporting
+    // why. Layer 2 does not trust Layer 1, and a manifest arrives from a publish
+    // that read bytes out of a bucket.
+    const html = renderImage(
+      { src: '/assets/hero.jpg' },
+      {
+        delivery: {
+          'hero.jpg': {
+            ...TYPED_MANIFEST['hero.jpg'],
+            sources: [
+              {
+                type: 'text/html',
+                renditions: [
+                  { src: 'assets/d/x-320.webp', width: 320 },
+                  { src: 'assets/d/x-640.webp', width: 640 },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    )
+    expect(html).not.toContain('<picture')
+    expect(html).not.toContain('text/html')
+  })
+
+  it('keeps a link wrapping the whole picture, and still generating no box', () => {
+    const html = renderImage(
+      { src: '/assets/hero.jpg', link: { href: 'https://example.com/' } },
+      { delivery: TYPED_MANIFEST },
+    )
+    expect(html.indexOf('<a')).toBeLessThan(html.indexOf('<picture'))
+    // Both wrappers generate no box, so an anchored picture lays out exactly as
+    // an anchored bare `<img>` did.
+    expect(html).toContain('<a href="https://example.com/" style="display:contents">')
+    expect(html).toContain('<picture style="display:contents">')
+  })
+
+  it('never paints a typed rendition as a background, whatever formats exist', () => {
+    // A `background-image` declares nothing and negotiates nothing, so a `url()`
+    // naming a WebP is a backdrop that does not paint at all for a visitor whose
+    // browser cannot read one — no fallback, and no way for the page to find out.
+    const css = renderBox(
+      { axes: { backgroundImageUrl: '/assets/hero.jpg' } },
+      { delivery: TYPED_MANIFEST },
+    )
+    expect(css).toContain('assets/d/abc123-')
+    expect(css).not.toContain('.webp')
+  })
+})
+
+describe('REQ-222 which formats a picture is offered in', () => {
+  it('offers a JPEG and a PNG WebP, and a WebP nothing', () => {
+    expect(alternativeDeliveryTypes('image/jpeg')).toEqual(['image/webp'])
+    expect(alternativeDeliveryTypes('image/png')).toEqual(['image/webp'])
+    // The `<img>` already carries the WebP ladder, so a source repeating it is a
+    // byte-for-byte duplicate for the browser to choose between identically.
+    expect(alternativeDeliveryTypes('image/webp')).toEqual([])
+  })
+
+  it('does not offer an AVIF source a larger WebP', () => {
+    // WebP is LARGER than AVIF at equivalent quality, so a WebP source ahead of
+    // an AVIF original is a pessimisation the browser cannot refuse — it takes
+    // the first type it supports, and it supports WebP.
+    expect(alternativeDeliveryTypes('image/avif')).toEqual([])
+  })
+
+  it('gives an alternative format the source width as an encoded rung', () => {
+    // The original IS the source format, so naming it in the `<img>`'s srcset
+    // costs no transform. In WebP there is no such free rung, and a ladder that
+    // stopped below the source would hand a wide box an upscaled rendition.
+    expect(alternativeDeliveryWidthsFor(1000)).toEqual([320, 640, 960, 1000])
+    expect(deliveryWidthsFor(1000)).toEqual([320, 640, 960])
+  })
+
+  it('gives a picture below the smallest step no alternative ladder either', () => {
+    // The body's plainest promise is that such a picture is served exactly as it
+    // is. A lone WebP rendition of a file that already fits every box it appears
+    // in is a transform, an R2 write and a second element for a few kilobytes.
+    expect(alternativeDeliveryWidthsFor(300)).toEqual([])
+  })
+})
+
+describe('REQ-222 the ladder builds both formats', () => {
+  const jpeg = (name = 'hero.jpg') => [{ name, bytes: SOURCE }]
+
+  it('encodes every alternative rung and records it in its own source', async () => {
+    const renderer = fakeRenderer({ width: 1000, height: 500 })
+    const built = await buildImageLadder(jpeg(), renderer)
+    // The source format, unchanged and still capped strictly below the source.
+    expect(renderer.resized).toEqual([320, 640, 960])
+    // And WebP, including the source's own width, because it has no free rung.
+    expect(renderer.encoded).toEqual([
+      { width: 320, type: 'image/webp' },
+      { width: 640, type: 'image/webp' },
+      { width: 960, type: 'image/webp' },
+      { width: 1000, type: 'image/webp' },
+    ])
+    const sources = built.manifest['hero.jpg'].sources!
+    expect(sources.map((s) => s.type)).toEqual(['image/webp'])
+    expect(sources[0].renditions.map((r) => r.width)).toEqual([320, 640, 960, 1000])
+    // Named for the alternative's OWN extension, so it can never collide with
+    // the source-format rendition at the same width.
+    for (const rendition of sources[0].renditions) {
+      expect(rendition.src.endsWith('.webp'), rendition.src).toBe(true)
+    }
+  })
+
+  it('drops an alternative format the renderer could not encode, and keeps the ladder', async () => {
+    const renderer = fakeRenderer({ width: 1000, height: 500 }, { failFormat: 'image/webp' })
+    const built = await buildImageLadder(jpeg(), renderer)
+    const entry = built.manifest['hero.jpg']
+    // The source-format ladder is untouched: a deployment whose binding cannot
+    // encode WebP publishes exactly the page it published before.
+    expect(entry.renditions.map((r) => r.width)).toEqual([320, 640, 960, 1000])
+    expect(entry.sources).toBeUndefined()
+    for (const path of built.derived.keys()) expect(path.endsWith('.webp')).toBe(false)
+  })
+
+  it('offers no alternative for a WebP original', async () => {
+    const built = await buildImageLadder(
+      [{ name: 'logo.webp', bytes: SOURCE }],
+      fakeRenderer({ width: 1000, height: 500 }),
+    )
+    expect(built.manifest['logo.webp'].sources).toBeUndefined()
+  })
+})
+
+describe('REQ-222 the publish is rationed to what one request can carry', () => {
+  /** `count` distinct pictures, each wide enough to earn a full ladder. */
+  const manyPictures = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      name: `photo${i}.jpg`,
+      // Distinct bytes, so each gets its own content address.
+      bytes: new TextEncoder().encode(`photograph number ${i}`),
+    }))
+
+  it('renders more than one rendition at a time', async () => {
+    // THE CLAIM IS ABOUT CONCURRENCY, so it is observed as concurrency: the
+    // sizer records how many calls are in flight at their peak. A sequential
+    // ladder makes wall-clock the SUM of every transform on the site, which is
+    // the one arrangement that turns a first publish into an open-ended wait.
+    let inFlight = 0
+    let peak = 0
+    const sizer: ImageSizer = {
+      measure: async () => ({ width: 1000, height: 500 }),
+      resize: async () => {
+        inFlight += 1
+        peak = Math.max(peak, inFlight)
+        await new Promise((r) => setTimeout(r, 1))
+        inFlight -= 1
+        return new TextEncoder().encode('bytes')
+      },
+    }
+    await buildImageLadder(manyPictures(4), sizer)
+    expect(peak).toBeGreaterThan(1)
+    // And bounded, so a large site does not open an unbounded number at once.
+    expect(peak).toBeLessThanOrEqual(LADDER_CONCURRENCY)
+  })
+
+  it('refuses a site over the ceiling, naming the site’s own facts', async () => {
+    // The failure this guards against is not slowness — it is a publish that
+    // dies most of the way through with a platform error naming nothing the
+    // client did. So it refuses in advance, in terms the client can act on.
+    const pictures = manyPictures(Math.ceil(LADDER_MAX_RENDITIONS / 10) + 1)
+    const err = await buildImageLadder(pictures, fakeRenderer({ width: 4000, height: 2000 })).catch(
+      (e) => e,
+    )
+    expect(err).toBeInstanceOf(LadderTooLargeError)
+    expect(err.message).toContain(String(pictures.length))
+    expect(err.message).toContain(String(LADDER_MAX_RENDITIONS))
+  })
+
+  it('leaves no revision at all when the ladder is over the ceiling', async () => {
+    // Upstream of `writeRevision`, so an over-budget publish leaves no revision,
+    // no history entry and no bytes — exactly as an invalid draft does. A publish
+    // that died halfway would leave a partial ladder, paid for, serving nothing.
+    const seed = siteSeed({
+      pages: { 'home.json': starterHomePage('over-budget') },
+      assets: Object.fromEntries(
+        manyPictures(Math.ceil(LADDER_MAX_RENDITIONS / 10) + 1).map((a) => [a.name, a.bytes]),
+      ),
+    })
+    const store = memorySiteStore()
+    store.seed(seed.slug, { siteJson: seed.siteJson, pages: seed.pages, assets: seed.assets })
+    const ladder = imageLadder(fakeRenderer({ width: 4000, height: 2000 }))
+    await expect(publishSite(store, seed.slug, { ladder })).rejects.toThrow(LadderTooLargeError)
+    expect(await store.revisions(seed.slug)).toEqual([])
+  })
+})
+
+describe('REQ-222 the publish reports how far through resizing it is', () => {
+  const jpeg = [{ name: 'hero.jpg', bytes: SOURCE }]
+
+  it('states a real total before the first transform, then counts up to it', async () => {
+    // DETERMINATE, NOT A SPINNER. A spinner is right for an unknown wait of
+    // seconds; for a wait of minutes it is the thing that reads as a hang, which
+    // is the failure the reporting exists to prevent.
+    const frames: { total: number; done: number }[] = []
+    const renderer = fakeRenderer({ width: 1000, height: 500 })
+    await buildImageLadder(jpeg, renderer, { onProgress: (p) => frames.push(p) })
+    // The first frame is the plan: a total, nothing done. The denominator is real
+    // because the ladder planned before it rendered.
+    expect(frames[0]).toEqual({ total: 7, done: 0 })
+    expect(frames[frames.length - 1]).toEqual({ total: 7, done: 7 })
+    // And it never goes backwards or past the total.
+    for (let i = 1; i < frames.length; i++) {
+      expect(frames[i].done).toBeGreaterThanOrEqual(frames[i - 1].done)
+      expect(frames[i].done).toBeLessThanOrEqual(frames[i].total)
+    }
+  })
+
+  it('reports a total of zero when every rendition is already held', async () => {
+    // WHICH IS WHAT LETS THE BUILDER STAY QUIET. A republish with nothing to
+    // build must not warn about resizing: a client shown that warning every time
+    // has been taught to ignore the one time it means something.
+    const renderer = fakeRenderer({ width: 1000, height: 500 })
+    const held: ImageSizer = { ...renderer, held: async () => true }
+    const frames: { total: number; done: number }[] = []
+    const built = await buildImageLadder(jpeg, held, { onProgress: (p) => frames.push(p) })
+    expect(frames[0]).toEqual({ total: 0, done: 0 })
+    // And the ladder is still complete — "nothing to build" is not "nothing to
+    // serve": the renditions exist, they just cost nothing this time.
+    expect(built.manifest['hero.jpg'].renditions.length).toBeGreaterThan(1)
+  })
+
+  it('counts everything as work where the sizer holds nothing', async () => {
+    // ABSENT `held` MEANS NOTHING IS FREE, which is the truthful answer for a
+    // deployment with nowhere to keep a rendition rather than a conservative one.
+    const renderer = fakeRenderer({ width: 1000, height: 500 })
+    expect(renderer.held).toBeUndefined()
+    const frames: { total: number; done: number }[] = []
+    await buildImageLadder(jpeg, renderer, { onProgress: (p) => frames.push(p) })
+    expect(frames[0].total).toBe(7)
+  })
+
+  it('does not report at all when the publish supplies no reporter', async () => {
+    // Progress is a property of the ROUTE, not of the publish: the Worker's route
+    // passes a reporter because it has a stream to write frames into, and
+    // `1c publish` has a terminal and no use for frames. So the CLI's publish is
+    // byte-identical to before.
+    const seed = siteSeed({
+      pages: { 'home.json': starterHomePage('quiet') },
+      assets: { 'hero.jpg': SOURCE },
+    })
+    const store = memorySiteStore()
+    store.seed(seed.slug, { siteJson: seed.siteJson, pages: seed.pages, assets: seed.assets })
+    const result = await publishSite(store, seed.slug, {
+      ladder: imageLadder(fakeRenderer({ width: 1000, height: 500 })),
+    })
+    expect(result.published).toBe(true)
   })
 })

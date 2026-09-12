@@ -49,13 +49,25 @@ function ladderSizer(renderer: NonNullable<ReturnType<typeof imageRendererFor>>)
         throw err
       }
     },
-    async resize(bytes: Uint8Array, contentType: string, width: number): Promise<Uint8Array | null> {
+    async resize(
+      bytes: Uint8Array,
+      contentType: string,
+      width: number,
+      type?: string,
+    ): Promise<Uint8Array | null> {
       try {
         // The empty recipe: this is the sizing pass and nothing else. `render`
         // applies `scale-down`, so a width at or above the source is a no-op
         // rather than an enlargement — belt and braces over the cap the ladder
         // has already applied.
-        const rendered = await renderer.render(bytes, contentType, [], { width })
+        //
+        // `type` RIDES THE SAME OPTIONS BAG AS `width` AND FOR THE SAME REASON:
+        // a delivery format is not an editorial operation, so it travels beside
+        // the recipe rather than inside it. There is no `convert` in the
+        // vocabulary and there must not be — a codec is not a question the client
+        // is asked, and one the assistant could name is one it would start
+        // hand-picking against this ladder.
+        const rendered = await renderer.render(bytes, contentType, [], { width, ...(type ? { type } : {}) })
         return rendered.bytes
       } catch (err) {
         // One rung that would not render drops out and the rest of the ladder
@@ -64,6 +76,28 @@ function ladderSizer(renderer: NonNullable<ReturnType<typeof imageRendererFor>>)
         throw err
       }
     },
+    // THE PREDICATE IS FORWARDED ONLY WHERE THE RENDERER HAS ONE, and the
+    // conditional spread is what carries "this deployment holds nothing" through
+    // as an ABSENT verb rather than as a `false` from a method that exists. The
+    // ladder reads absence as "nothing is free", which is the truth for an
+    // uncached deployment; a present `held` that always answered false would be
+    // the same behaviour stated less honestly, and would go on being wrong if a
+    // cache appeared later.
+    ...(renderer.held
+      ? {
+          held: async (bytes: Uint8Array, contentType: string, width: number, type?: string) => {
+            try {
+              return await renderer.held!(bytes, contentType, [], { width, ...(type ? { type } : {}) })
+            } catch (err) {
+              // A picture that cannot be asked about is counted as work. It is
+              // about to be counted as a failed rung anyway, and a denominator
+              // that is one too large costs a bar that finishes slightly early.
+              if (err instanceof UnrenderableImageError) return false
+              throw err
+            }
+          },
+        }
+      : {}),
   }
 }
 

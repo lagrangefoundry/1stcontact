@@ -264,6 +264,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
 
     app.panel.setSite('beta')
     ;(app.toolbar.get('publish') as HTMLButtonElement).click()
-    await vi.waitFor(() => expect(publish).toHaveBeenCalledWith('beta'))
+    // THE SECOND ARGUMENT IS [[REQ-222]]'s PROGRESS OBSERVER. This claim is about
+    // WHICH SITE the button publishes, and that is unchanged; the seam simply
+    // gained a way to report how far through resizing the pictures it is, so the
+    // arity is stated rather than left to make the claim fail.
+    await vi.waitFor(() => expect(publish).toHaveBeenCalledWith('beta', expect.any(Function)))
   })
 })
