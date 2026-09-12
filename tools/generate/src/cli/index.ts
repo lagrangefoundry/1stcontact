@@ -636,6 +636,11 @@ export async function run(argv: string[]): Promise<void> {
       }
       const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
         origin,
+        // BUG-84 — the operator's own `storage/references/` tree, which is the
+        // evidence this side's rights gate reads. Handed in rather than reached
+        // for inside `pushSite` so the push path stays free of `node:fs` and the
+        // same function serves a test against an in-memory store.
+        references: fsReferenceStore(ctxOf(global).cwd),
         // BUG-51 — only ever passed when typed. The far side refuses an import
         // that would replace builder changes, and this is the operator saying
         // they know what is there. A default would be the destructive default

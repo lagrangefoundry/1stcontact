@@ -18,6 +18,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pushSite } from '../tools/generate/src/cli/push'
 import { memorySiteStore } from '../tools/generate/src/store/memory-store'
+import { memoryReferenceStore } from '../tools/generate/src/store/memory-reference-store'
 
 const REPO_ROOT = join(__dirname, '..')
 
@@ -55,6 +56,7 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     })
     await pushSite(storeWithSite(), 'xgd', {
       origin: 'https://app.1stcontact.io',
+      references: memoryReferenceStore(),
       access: { clientId: 'abc.access', clientSecret: 's3cret' },
       fetch: impl,
     })
@@ -72,6 +74,7 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     const { impl, calls } = recordingFetch({ status: 200, body: '{"pages":1,"assets":0,"siteJson":true}' })
     await pushSite(storeWithSite(), 'xgd', {
       origin: 'https://app.1stcontact.io',
+      references: memoryReferenceStore(),
       access: { clientId: 'abc.access', clientSecret: 's3cret' },
       fetch: impl,
     })
@@ -87,12 +90,20 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     // 302 must arrive as itself and be NAMED — including how to get a credential.
     const { impl } = recordingFetch({ status: 302, body: '' })
     await expect(
-      pushSite(storeWithSite(), 'xgd', { origin: 'https://app.1stcontact.io', fetch: impl }),
+      pushSite(storeWithSite(), 'xgd', {
+        origin: 'https://app.1stcontact.io',
+        references: memoryReferenceStore(),
+        fetch: impl,
+      }),
     ).rejects.toThrow(/302/)
 
     const { impl: again } = recordingFetch({ status: 302, body: '' })
     await expect(
-      pushSite(storeWithSite(), 'xgd', { origin: 'https://app.1stcontact.io', fetch: again }),
+      pushSite(storeWithSite(), 'xgd', {
+        origin: 'https://app.1stcontact.io',
+        references: memoryReferenceStore(),
+        fetch: again,
+      }),
     ).rejects.toThrow(/CF_ACCESS_CLIENT_ID[\s\S]*CF_ACCESS_CLIENT_SECRET/)
   })
 
@@ -103,7 +114,11 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     // rather than one of them reporting "refused with 0: (no body)".
     const { impl } = recordingFetch({ status: 0, body: '' })
     await expect(
-      pushSite(storeWithSite(), 'xgd', { origin: 'https://app.1stcontact.io', fetch: impl }),
+      pushSite(storeWithSite(), 'xgd', {
+        origin: 'https://app.1stcontact.io',
+        references: memoryReferenceStore(),
+        fetch: impl,
+      }),
     ).rejects.toThrow(/login page[\s\S]*CF_ACCESS_CLIENT_ID/)
   })
 
@@ -112,7 +127,11 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     // reverts to the default, the 302 test passes only until a real Access
     // deployment answers with a followable redirect.
     const { impl, calls } = recordingFetch({ status: 200, body: '{"pages":1,"assets":0,"siteJson":true}' })
-    await pushSite(storeWithSite(), 'xgd', { origin: 'http://localhost:8788', fetch: impl })
+    await pushSite(storeWithSite(), 'xgd', {
+      origin: 'http://localhost:8788',
+      references: memoryReferenceStore(),
+      fetch: impl,
+    })
 
     expect(calls[0].init.redirect).toBe('manual')
   })
@@ -121,7 +140,11 @@ describe('BUG-36 — the publish credential is the one Access accepts', () => {
     // `wrangler dev` is not behind Access, and the ordinary local loop must not
     // acquire a credential requirement as a side effect of fixing production.
     const { impl, calls } = recordingFetch({ status: 200, body: '{"pages":1,"assets":0,"siteJson":true}' })
-    await pushSite(storeWithSite(), 'xgd', { origin: 'http://localhost:8788', fetch: impl })
+    await pushSite(storeWithSite(), 'xgd', {
+      origin: 'http://localhost:8788',
+      references: memoryReferenceStore(),
+      fetch: impl,
+    })
 
     const names = Object.keys(headersOf(calls[0].init)).map((n) => n.toLowerCase())
     expect(names).not.toContain('cf-access-client-id')

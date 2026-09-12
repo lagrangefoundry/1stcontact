@@ -61,6 +61,11 @@ import {
 } from '../../../tools/generate/src/cli/image-recipe'
 import { adoptCapture } from './capture-material'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
+import {
+  assertNotCaptureMirrored,
+  MirroredAssetError,
+} from '../../../tools/generate/src/store/asset-rights'
+import type { ReferenceStore } from '../../../tools/generate/src/store/reference-store'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import {
@@ -777,6 +782,16 @@ export interface RouterDeps {
    * be a double the poll-cadence claim could not be made against.
    */
   tickets?: (env: RouterEnv, scope: Scope, opts?: TicketStoreOptions) => Promise<TicketStore>
+  /**
+   * The tenant's capture bundles, for the import route's rights gate (BUG-84).
+   *
+   * Injectable for the reason the stores above are: a UAT that has to plant a
+   * capture in order to assert it is refused should plant one it wrote, not one
+   * a binding happened to hold. `null` means this deployment has nowhere for
+   * captures to live — see the import route on why that is an ordinary state
+   * and not a refusal.
+   */
+  references?: (env: RouterEnv, scope: Scope) => Promise<ReferenceStore | null>
   /**
    * The system knowledge base the chat session searches ([[REQ-158]]).
    *
@@ -1513,6 +1528,27 @@ async function routeUncached(
    */
   const identityEnv = env as unknown as IdentityEnv
 
+  /**
+   * This tenant's capture bundles, or `null` where they have nowhere to live.
+   *
+   * HOISTED TO THE TOP OF THE TABLE rather than built inside the one route that
+   * reads it, because the route it serves — `/api/import`, BUG-84's rights gate
+   * — sits ABOVE the three store openers, and a `const` declared below it is in
+   * its temporal dead zone. Put here it is declared before every route, which is
+   * where a thing every route may reach belongs anyway.
+   *
+   * NULL IS AN ORDINARY STATE, NOT A REFUSAL. `BLOBS` is where a capture's bytes
+   * go, so a deployment without it cannot be holding any — there is nothing to
+   * check against, and the gate has nothing to say. Turning that into a 503
+   * would refuse every push on a deployment that never had a capture to
+   * republish, which protects nobody from anything.
+   */
+  const openReferences = async (): Promise<ReferenceStore | null> => {
+    if (deps.references) return deps.references(env, requireScope())
+    if (!env.BLOBS) return null
+    return r2ReferenceStore({ DB: env.DB, BLOBS: env.BLOBS }).forTenant(requireScope().businessId)
+  }
+
   if (p === '/' || p === '/index.html') {
     return new Response(chromeHtml(), {
       status: 200,
@@ -1546,8 +1582,12 @@ async function routeUncached(
    * now true of the case it was always meant to describe.
    */
   if (p === '/api/import' && method === 'POST') {
+    // DECLARED OUTSIDE THE `try` so the catch below can name the site it was
+    // refusing (BUG-84). A refusal that does not say which slug it was about is
+    // half a message when the operator is pushing several.
+    let payload: SitePayload | null = null
     try {
-      const payload = (await readJsonBody(request)) as unknown as SitePayload
+      payload = (await readJsonBody(request)) as unknown as SitePayload
       if (!payload || typeof payload.slug !== 'string' || payload.slug === '') {
         return json(400, { error: 'slug is required' })
       }
@@ -1601,8 +1641,39 @@ async function routeUncached(
           force: 'Re-send with "force": true (1c push --force, bin/publish --force).',
         })
       }
-      await store.createDraft(payload.slug)
       const write = payloadToWrite(payload)
+      // BUG-84 — THE RIGHTS GATE THIS DOOR NEVER HAD.
+      //
+      // `promoteToSiteAsset` refuses to put a capture-sourced picture on a site,
+      // because doing so publishes third-party copyright under the client's own
+      // domain — [[DOC-38]] §5's "most damaging single action available in the
+      // system". It enforces that by reading `republishable` off the material's
+      // own record. THIS route has no record to read: a subresource mirrored
+      // into `storage/sites/<slug>/draft/assets/` by `1c repro` and copied up by
+      // `1c push` arrives as bare bytes under a bare name, so the gate had
+      // nothing to consult and the bytes went straight past it.
+      //
+      // SO IDENTITY IS THE BYTES. The copy destroys every other link back to the
+      // capture; the content hash is the only evidence it cannot erase. See
+      // `asset-rights.ts` for why the scan is the bundle's `assets/` prefix and
+      // why there is no override.
+      //
+      // ENFORCED HERE AS WELL AS IN `1c push`, not instead of it. The CLI checks
+      // the operator's own `storage/references/` tree and this checks the
+      // tenant's cloud bundles; neither sees the other's captures, and a request
+      // posted by hand never runs the CLI at all. The Worker is the writer, so
+      // the Worker enforces the rule.
+      //
+      // AFTER THE 409 AND BEFORE `createDraft`. After, because "you would
+      // replace work somebody did in the builder" is the question the operator
+      // has to answer first and `--force` is its answer. Before the draft is
+      // created, because a refusal must leave NOTHING behind — the same reason
+      // the 409 above refuses ahead of the write rather than rolling back after
+      // it. A slug that has never been imported does not come into existence
+      // because somebody tried to publish a picture they may not publish.
+      const references = await openReferences()
+      if (references) await assertNotCaptureMirrored(write.assets, references)
+      await store.createDraft(payload.slug)
       await store.write(payload.slug, write)
       return json(200, {
         pages: write.pages.length,
@@ -1615,6 +1686,25 @@ async function routeUncached(
       // the one place a missing business would be swallowed into a 500 instead
       // of reaching `index.ts` as the caller-level 403 it is.
       if (err instanceof NoBusinessError) throw err
+      // 403 AND NOT 400 (BUG-84). The request was well formed, the caller is
+      // who they say they are, and the payload is exactly what they meant to
+      // send — the answer is no. A 400 would read as "fix your request", which
+      // is advice this caller cannot act on: there is no re-formed push that
+      // makes somebody else's photograph publishable.
+      //
+      // AND NOT 409 EITHER, which this route already uses for BUG-51's "you
+      // would replace builder changes". That one is a question with an answer
+      // (`--force`); this one is a rule with none, and collapsing the two would
+      // make the reflex for the first reach for a flag that cannot help here.
+      if (err instanceof MirroredAssetError) {
+        return json(403, {
+          error: scrub(err.message),
+          slug: payload?.slug,
+          asset: err.asset,
+          bundle: err.bundle,
+          member: err.member,
+        })
+      }
       // Applied here too, though this route never touches a credential: a path
       // that scrubs and a path that does not is an invitation to add a third
       // that does not, and the cost when there is nothing to scrub is nil.

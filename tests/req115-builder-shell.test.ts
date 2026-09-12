@@ -33,7 +33,7 @@ import {
 // The chrome document is the Worker's since REQ-145.
 import { chromeHtml } from '../apps/control-app/src/chrome'
 import { readSitePayload } from '../tools/generate/src/cli/push'
-import { fsSiteStore } from '../tools/generate/src/store'
+import { fsSiteStore, memoryReferenceStore } from '../tools/generate/src/store'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -229,7 +229,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     // The site is pushed up first (REQ-145) rather than assumed present. This
     // Worker reads D1, not the operator's disk, so asserting against whatever
     // the local database happened to contain would be a test of leftover state.
-    const pushed = await readSitePayload(fsSiteStore({ cwd, root: 'sites' }), 'alpha')
+    const pushed = await readSitePayload(fsSiteStore({ cwd, root: 'sites' }), memoryReferenceStore(), 'alpha')
     const imported = await worker.fetch('/api/import', {
       method: 'POST',
       headers: { ...admitted, 'content-type': 'application/json' },
