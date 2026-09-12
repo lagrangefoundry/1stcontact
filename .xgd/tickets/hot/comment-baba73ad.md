@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:25:16.820272+00:00'
+updated_at: '2026-09-12T22:27:58.821159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -973,5 +973,47 @@ I filed nothing new and changed no child's status.
 <!-- xgd-chat role="user" ts="2026-09-12T22:25:16.135685+00:00" -->
 #### You
 Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="cacdb6c4-cb81-4011-a39f-c773ea8ad43b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:27:58.262118+00:00" -->
+#### Claude
+Nothing has moved on any child since the last pass — same statuses, same body sizes bar my own appends, no new transcript turns anywhere. One thing did change: **the epic itself is now `done`**. Let me do a targeted check for any standing question I haven't closed, rather than re-reading identical text.
+
+Found something material. Verified in code before writing it up.
+
+Third sweep. No child moved since the last pass — same statuses, no new transcript turns, bodies changed only by my own appends. But checking the *standing* open-question markers rather than just the deltas turned up something the last two passes missed.
+
+## The finding: REQ-222 carries two operator decisions with no code behind them
+
+Both were taken **after** the width ladder landed, written into the body as deliverables, and never built. I verified each in the code:
+
+**`<picture>` with typed `<source>`s.** The operator decided it plainly — two formats (source plus WebP), WebP first, original as fallback inside `<img>`. `render.ts` contains **zero** matches for `<picture>` or `<source>`; the sink still emits a bare `<img srcset>`. The `encodeAs`/`OUTPUT_FORMATS` in `image-edit.ts` are REQ-219's recipe format-*preservation*, not delivery negotiation.
+
+The sting is that the decision's own stated reason for being taken early was to avoid a retrofit: *"every test that asserts an `<img>` becomes a test that asserts an `<img>` wrapped in something."* Every UAT REQ-222 shipped asserts the `<img>`. The retrofit it was taken to avoid is now exactly what's in front of whoever picks it up.
+
+**The publish lock, message and progress bar.** `publishAction` (`builder/toolbar.js:235`) is unchanged — `btn.disabled = true`, await, re-enable in a `finally`, which is precisely the state the body describes as the problem. `blockEverything` has one caller, the AI-unavailable banner. And `buildImageLadder` walks assets and widths in a plain sequential loop with no ceiling or budget, so "minutes is the budget" has no mechanism behind it either.
+
+This is the same shape as REQ-219's unbuilt join that became REQ-229: a decision in a body, a ticket reading as finished, and nothing going red — because an unimplemented decision breaks no test. It's cheaper than that one (the ladder is correct and publishing works), but REQ-222 is `ready_to_reconcile`, so a reconciler will hit body language with no tests behind it and have to guess drift vs debt.
+
+I recorded which it is, and scoped the note carefully to what's genuinely outstanding — the ladder, `srcset`/`sizes`, background rules, `width`/`height`, `immutable` and format preservation all shipped and are covered.
+
+## Two stale headings corrected
+
+Both tickets are `ready_to_reconcile` and contradict themselves in reading order:
+
+- **REQ-221** — *"The plan question is… still open"* sits forty lines above *"The plan question is answered: the account is not Enterprise."* Restated the answer so it can't be missed.
+- **REQ-222** — *"Open — raised with the operator, not answered here"* still instructs *"do not start on the background-image or `<picture>` work before those come back."* All three came back; for two of them the instruction now reads backwards.
+
+## Your call
+
+**Whether the `<picture>` and publish-latency work reopens REQ-222 or becomes a follow-up.** I've recorded the gap but not filed anything. The `<picture>` half is the time-sensitive one — its cost grows with every UAT written against the current `<img>`.
+
+## Still open, unchanged
+
+1. **REQ-219 — description staleness.** No `description_status` value means *produced but no longer true*.
+2. **REQ-222 — the outbound-subrequest budget question.** Unverified, and it's what any latency rationing would be sized against.
+
+Also worth knowing: **the epic itself is now `done`** while all seven children sit at `ready_to_reconcile`.
 
 <!-- xgd-chat-end -->
