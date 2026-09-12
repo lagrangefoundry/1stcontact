@@ -6,9 +6,9 @@ title: 'Contacts pane: the detail keeps the previous business''s contact across 
   business switch'
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T21:53:21.763183+00:00'
-updated_at: '2026-09-12T22:08:40.619743+00:00'
+updated_at: '2026-09-12T22:08:44.284664+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.180
+  story_points: 2
 ---
 
 ## Symptom
