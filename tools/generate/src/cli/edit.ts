@@ -39,6 +39,7 @@ import {
 import type { JournalRecord } from '../store/journal-model'
 import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
+import { upgradeSiteModules } from '../store/upgrade-site'
 import { contentTypeOf } from '../store/content-type'
 import type { ImageLibrary, StoredImage } from './image-library'
 import type { GlobalOptions } from './options'
@@ -1653,6 +1654,61 @@ export async function editModuleRm(
     opts,
     { data: { removed: moduleId }, human: `Removed '${moduleId}' from page '${pageId}'.` },
     { op: 'component.remove', page: pageId, module: moduleId, label: `'${moduleId}'` },
+  )
+}
+
+/**
+ * [[BUG-85]] — carry every stale module instance in a site up to the current
+ * contract. Reports by default; `write` applies.
+ *
+ * ON THIS SURFACE rather than as a standalone script because it is a
+ * structured edit like any other: it reads through the store, it writes through
+ * the store, and it records what it did in the change journal. A repair that
+ * left no journal entry would be the one kind of change to a site that nobody
+ * could later find, which is the shape of the defect it exists to fix.
+ *
+ * THE JOURNAL ENTRY IS WRITTEN ONLY WHEN SOMETHING LANDED — `note` appends, and
+ * a dry run has nothing to append about.
+ */
+export async function editModuleUpgrade(
+  slug: string,
+  opts: EditOptions & { write?: boolean },
+): Promise<EditOutput> {
+  const report = await upgradeSiteModules(opts.store, slug, {
+    ...(opts.write === true ? { write: true } : {}),
+  })
+
+  const lines = report.pages.flatMap((page) =>
+    page.upgrades.map((u) => {
+      const dropped = [
+        ...u.droppedConfigKeys.map((k) => `config.${k}`),
+        ...u.droppedSlots.map((k) => `slots.${k}`),
+      ]
+      const tail = dropped.length === 0 ? '' : ` (dropped undeclared ${dropped.join(', ')})`
+      return `  ${page.name} ${u.id}: ${u.type} v${u.from} → v${u.to}${tail}`
+    }),
+  )
+
+  if (report.stale === 0) {
+    return { data: report, human: `Every module instance in '${slug}' is on the current contract.` }
+  }
+
+  const head = report.written
+    ? `Upgraded ${report.stale} module instance(s) in '${slug}':`
+    : `${report.stale} module instance(s) in '${slug}' are behind the current contract ` +
+      `(nothing written — re-run with --write to apply):`
+  const human = [head, ...lines].join('\n')
+
+  if (!report.written) return { data: report, human }
+
+  return note(
+    slug,
+    opts,
+    { data: report, human },
+    {
+      op: 'component.upgrade',
+      label: `${report.stale} instance(s) to the current contract`,
+    },
   )
 }
 

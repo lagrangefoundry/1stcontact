@@ -47,4 +47,11 @@ export const carouselMeta = {
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],
   },
+  /**
+   * [[BUG-85]] — nothing is stored below v3; see `contact-form`'s note for the
+   * audit this rests on. No `carousel` instance exists in either store at any
+   * version, so there is not even a current-version pin to migrate, let alone
+   * an older one.
+   */
+  migrationsFrom: 3,
 } as const satisfies BehaviorMeta

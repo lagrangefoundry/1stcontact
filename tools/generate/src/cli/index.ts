@@ -31,6 +31,7 @@ import {
   editModuleAdd,
   editModuleConfigure,
   editModuleRm,
+  editModuleUpgrade,
   editPageAdd,
   editPageGet,
   editPageList,
@@ -471,6 +472,7 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
 
 Behavior modules (REQ-130) — instantiating a vetted behaviour, never authoring one:
   1c behavior list
+  1c module upgrade <slug> [--write]
   1c module add <slug> <pageId> <moduleId> <type> [--slot <name>] [--config <json>] [--slots <json>]
     --slots is optional where L2 holds a default look for the behaviour; the result is
     ordinary L1, refined afterwards with 1c copy set or the AI surface's set_l1.
@@ -1627,6 +1629,12 @@ async function dispatchEdit(
   const slug = requireArg(rest[1], 'slug')
 
   if (command === 'module') {
+    // [[BUG-85]] — the one `module` sub that is about the whole site rather
+    // than one page, so it is answered ABOVE the `pageId` every other sub
+    // requires. Read-only unless `--write`: see `upgradeSiteModules`.
+    if (sub === 'upgrade') {
+      return editModuleUpgrade(slug, { ...opts, ...(flags.write === true ? { write: true } : {}) })
+    }
     const pageId = requireArg(rest[2], 'pageId')
     switch (sub) {
       case 'add':

@@ -157,7 +157,72 @@ export interface BehaviorMeta {
   controls?: Record<string, BehaviorControlSpec>
   /** Conformance obligations + isolation. */
   conformance: BehaviorConformance
+  /**
+   * [[BUG-85]] — how an instance stored at an OLDER version becomes a valid
+   * instance of this one, keyed by the version each migration PRODUCES.
+   *
+   * WHY THIS HAS TO EXIST AT ALL. {@link version} is bumped on a breaking
+   * contract change, and the catalog resolves an instance on `"<id>@<version>"`
+   * — so the moment a bump lands, every instance already stored on the old
+   * number stops resolving, and one orphaned instance fails the whole page it
+   * sits on. That is not a hypothetical: `account-chrome`'s v1 → v2 bump took
+   * 1st Contact's own site down, and the only copy that got migrated was the
+   * repo fixture, because a migration performed by editing files in the repo
+   * can only ever reach the fixtures.
+   *
+   * WHY IT IS DECLARED AND NOT DERIVED. A migration cannot be inferred from the
+   * data it migrates. v1 → v2 has to invent a `sent` card to hold words that
+   * were config, and an `error` card whose text lived in the component and was
+   * never stored anywhere at all. No amount of looking at a v1 instance
+   * produces those; only the author making the breaking change knows what the
+   * old shape meant. So the contract holds a function, written in the same
+   * commit as the bump, rather than a diff something clever reads.
+   *
+   * KEYED BY THE VERSION PRODUCED, so the key matches the `version` the
+   * instance ends up carrying, and a chain across two bumps reads as the
+   * sequence of numbers it passes through.
+   *
+   * ABSENT IS LEGAL ONLY AT VERSION 1. A module that has never been bumped has
+   * nothing to migrate from; every version above 1 needs the step that reaches
+   * it, and {@link ../modules/upgrade.migrationPathFor} is the guard that says
+   * so at bump time rather than leaving it to a dark site.
+   */
+  migrations?: Readonly<Record<number, BehaviorMigration>>
+  /**
+   * [[BUG-85]] — the oldest stored version this module can still carry
+   * forward. Versions below it are **declared extinct**: nothing is stored at
+   * them, so no migration into them is written or demanded.
+   *
+   * WHY AN EXPLICIT NUMBER AND NOT SILENCE. `contact-form` is at v4 and
+   * `carousel` at v3, and the contracts they were bumped from no longer exist
+   * anywhere. Writing migrations into v2 and v3 from memory would be inventing
+   * a transformation of data that is not in any store — untestable code whose
+   * only effect is to make the guard green. But merely *omitting* them is how
+   * `account-chrome` shipped its bump with no migration at all, so absence
+   * cannot be the way to say it either.
+   *
+   * This is the way to say it: a number, in the meta, that a reviewer sees.
+   * "Nothing is stored below v4" is a claim about the world, it is the claim
+   * that makes omitting those migrations safe, and `1c module upgrade` run
+   * against a real store is how anybody checks it.
+   *
+   * Defaults to 1 — a module says nothing and every version is live, which is
+   * the conservative reading and the one `account-chrome` needs.
+   */
+  migrationsFrom?: number
 }
+
+/**
+ * One step of a behavior's upgrade path: an instance at version N-1 in, the
+ * same instance as version N out.
+ *
+ * It receives and returns `config` + `slots` only — never `id`, `type` or
+ * `version`. Those are the instance's identity and its pin, and a migration
+ * that could change them could rename or retype somebody's module, which is a
+ * different act entirely from upgrading it. {@link upgradeInstance} sets the
+ * new `version` itself.
+ */
+export type BehaviorMigration = (prev: BehaviorInstance) => BehaviorInstance
 
 /** A behavior instance's presentation: an L1 subtree, or an array for a repeated slot. */
 export type BehaviorSlotValue = L1Node | L1Node[]

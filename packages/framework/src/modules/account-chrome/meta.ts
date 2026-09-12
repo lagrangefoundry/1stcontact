@@ -1,4 +1,5 @@
 import type { BehaviorMeta } from '../behavior'
+import { accountChromeV1ToV2 } from './migrate'
 
 /**
  * `account-chrome` ([[REQ-200]]) — the two controls a site with accounts owes
@@ -199,4 +200,12 @@ export const accountChromeMeta = {
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],
   },
+  /**
+   * [[BUG-85]] — the step that carries an instance stored at v1 up to this
+   * contract. Declared here, beside the version it produces, because the bump
+   * above and the migration below are one change and reviewing either without
+   * the other is how the v1 → v2 bump shipped without this and took 1st
+   * Contact's own site down.
+   */
+  migrations: { 2: accountChromeV1ToV2 },
 } as const satisfies BehaviorMeta
