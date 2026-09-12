@@ -6,7 +6,7 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T00:18:45.683241+00:00'
+updated_at: '2026-09-12T00:20:48.398751+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -49,6 +49,34 @@ placement from a later one.
 
 **A recipe change re-promotes to that recorded name.** The rendered bytes for the
 current recipe replace the bytes already at the name the site's pages reference.
+
+**Promotion itself writes the render, not the stored original.** [[REQ-219]]
+settled that *the recipe is applied at promotion, not at publish* — that is the
+heading the decision sits under — and promotion currently copies the attachment's
+bytes untouched. So a picture cropped in the Library and *then* put on the site
+arrives uncropped, by the same seam and with the same symptom. Promotion renders
+the material's current recipe and writes what comes out. For the overwhelming
+case — a file dropped on the overlay, promoted in the same second, with no recipe
+at all — the recipe is empty and there is nothing to render, so this costs
+nothing where nothing has been edited.
+
+**A recipe change the ASSISTANT makes re-promotes on the same terms.** The client's
+modal and `edit_image` are two producers of one fact — the recipe on the record —
+and [[REQ-228]] has just made the catalogue reachable by the assistant. A
+propagation that fired for one producer and not the other would be the same gap
+this ticket closes, re-opened on the surface the product leads with.
+
+**Where this deployment cannot render, the recipe still lands and nothing is
+re-promoted.** No `[images]` binding means no bytes to write, which is the state
+`rendered: false` already reports. The recipe is on the record and reaches the
+site the next time a deployment that can render touches it — the surface says the
+client is looking at the picture before the change, which is exactly what it
+already says.
+
+**What a re-promotion answers with.** Each recorded placement, the name it was
+written at, and whether the bytes were replaced — reported beside the row the
+edit returns, so a client's crop that did not reach their site says so on the
+turn it happens rather than in a picture somebody looks at next week.
 
 ## Replacement is explicit, and is not delete-then-add
 
@@ -253,3 +281,27 @@ operator's principle — *an edit replaces the existing photo, same name,
 everything* — is what item 1 extends rather than qualifies: the first promotion
 of an already-cropped photograph should put the cropped photograph on the site,
 for the same reason.
+
+## Test plan
+
+UATs in `tests/test_UAT_FC_REQ-229_recipe_reaches_the_site.workers.test.ts`,
+through `route()` against real D1, real R2 and the real `IMAGES` binding — the
+suite [[REQ-219]] established, for the reason it established it: a recipe
+asserted against a hand-written renderer proves the fake.
+
+**Asserted with `rotate`, deliberately.** Miniflare's local Images implementation
+honours `rotate`, `width` and `height` and silently drops trim and every colour
+adjustment, so a crop asserted in pixels here would pass against an uncropped
+picture. A quarter turn is a real transform the local renderer really performs
+and its result is checkable without trusting the renderer's own word — the
+picture's width and height swap.
+
+The happy paths:
+
+1. Promotion records the name it wrote, including the one `freeAssetName` renamed.
+2. A recipe change replaces the bytes at that name — same name, no second asset.
+3. Promotion applies a recipe the material already carried.
+4. A second promotion of the same material onto the same site replaces rather
+   than minting a new name.
+5. A recorded name that is no longer on the site reports and does not re-add it.
+6. `edit_image` propagates to the site by the same path the modal does.
