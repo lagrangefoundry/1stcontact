@@ -5,9 +5,9 @@ type: epic
 title: DNS checks and monitoring (start of monitoring and notification)
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:25.030239+00:00'
-updated_at: '2026-09-12T20:49:25.030239+00:00'
+updated_at: '2026-09-12T20:49:54.610298+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -126,3 +126,31 @@ applied to output rather than input.
 ## Children
 
 None yet.
+
+
+## Siblings
+
+The six epics scoped together in [[CHAT-48]]. Three are surfaces and three are
+capabilities, and the split is deliberate: a surface renders what a capability
+computes, and never computes it a second time.
+
+| Epic | | |
+| --- | --- | --- |
+| [[EPIC-4]] | Settings tab | business, site and subdomain (1stc.site) management |
+| [[EPIC-5]] | DNS management | nameservers, records, and AI tools |
+| [[EPIC-6]] | Registrar management | purchase, transfer, renewal |
+| [[EPIC-7]] | DNS checks and monitoring | the check/notify engine | ← **this epic**
+| [[EPIC-8]] | Monitoring tab | site health and site metrics |
+| [[EPIC-9]] | Billing and payments | Stripe, subscriptions, invoices |
+
+**Surfaces:** [[EPIC-4]], [[EPIC-8]], and [[EPIC-9]]'s (contested — see that
+ticket).
+**Capabilities:** [[EPIC-5]], [[EPIC-6]], [[EPIC-7]].
+
+**The one cross-epic interface** is the propagation suppression window:
+[[EPIC-5]] and [[EPIC-6]] tell [[EPIC-7]] *"I just changed this, expect it to be
+wrong until T"*. Specified by the writers, consumed by the checker. Nothing else
+crosses.
+
+**Also see** [[TODO-6]] — `1stc.site` housekeeping, whose PSL submission has a
+multi-week lead time and no shortcut, so it wants starting before any of this.
