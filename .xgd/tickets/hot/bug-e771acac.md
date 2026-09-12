@@ -6,9 +6,9 @@ title: 'Contacts pane: the detail keeps the previous business''s contact across 
   business switch'
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T21:53:21.763183+00:00'
-updated_at: '2026-09-12T22:08:44.284664+00:00'
+updated_at: '2026-09-12T22:08:58.118339+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -96,3 +96,5 @@ the pane emptied):
 - Contacts: the selection key is dropped, so nothing reports a row that is not
   in the list.
 - Library: the same claims for material.
+
+-
