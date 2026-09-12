@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:44:03.290774+00:00'
+updated_at: '2026-09-12T20:50:22.904456+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -528,5 +528,50 @@ Yes please create the epics. I think there are two more needed:
 6. Billing and payments - required for 3 it will provide a billing tab, stripe integration, subscription billing, invoices, payments (through stripe). billing and payment records
 
 Please create all 6 epics
+
+<!-- xgd-turn id="57192fac-2061-4235-bffd-62adc8d0e8d8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:50:21.622447+00:00" -->
+#### Claude
+Found something important before writing these — let me verify one more thing.
+
+Confirmed a real collision. Writing the epics now.
+
+Valid statuses are `draft|underway|done|ongoing` — creating with `draft`. (Two IDs got burned by the failed attempts; harmless, numbering just starts at EPIC-4.)
+
+Now cross-linking them with real IDs.
+
+All six created, cross-linked, and committed.
+
+| | Epic | |
+|---|---|---|
+| 1 | **EPIC-4** | Settings tab: business, site and subdomain (1stc.site) management |
+| 2 | **EPIC-5** | DNS management: nameservers, records, and AI tools |
+| 3 | **EPIC-6** | Registrar management: purchase, transfer, renewal |
+| 4 | **EPIC-7** | DNS checks and monitoring (start of monitoring and notification) |
+| 5 | **EPIC-8** | Monitoring tab: site health and site metrics |
+| 6 | **EPIC-9** | Billing and payments: Stripe, subscriptions, invoices |
+
+Plus **TODO-6** for the `1stc.site` housekeeping. (Numbering starts at 4 — two IDs got burned finding the valid epic status values, which are `draft|underway|done|ongoing`, not `open`.)
+
+Each carries your words as the opening quote, a principle, what exists today verified against the code, decisions with reasons, explicit boundaries against its siblings, and open questions. All are `draft`.
+
+## One thing I found that needs your call
+
+**A billing tab doesn't work, and it fails twice over.** Both are provable from code already in the repo:
+
+**It's account-scoped under a business-scoped strip.** `DOC-40` §2 is explicit — *"Account — the payer, and **not a tenant of its own**. One account may own several businesses."* The tab strip rule (`app.js:194-209`, REQ-179) is that every tab is business-scoped so the switcher applies to all of them. That's exactly why Account was kept *out* of the strip: it's *"the one surface that is not business-scoped, so a tab for it would be the single place where the shell's switcher is present and silently does not apply — and a control that is present and ignored reads as a bug."* Switch business, and the invoice list doesn't change.
+
+**It's blocked exactly when it's needed.** `app.js:270` records `DOC-42` §5: *"the tab strip is the entitled product… only what a grant buys goes."* A lapsed grant calls `blockTabs`. So the billing tab is blocked when the subscription lapses — the one moment someone needs billing, to pay and un-lapse. That's a deadlock that generates support mail from people actively trying to give you money.
+
+Recommendation in EPIC-9: billing lives in the **Account surface** (`openAccountSurface`, `business.js:253`), which is already in the header trailing slot, already account-scoped, and already stays live when tabs are blocked. It's a thin modal today and would need to grow — but in the direction it was designed for. I've left it as open question #2 rather than deciding it for you.
+
+Your other two epics both survive the same test: monitoring is business-scoped by `DOC-40` §2's own list (*"a website, a customer list, a calendar, payments, marketing, monitoring"*), and settings obviously is. Both are legitimate tabs.
+
+## Two smaller things worth knowing
+
+**"Payments" is overloaded.** `DOC-40` §2 gives *payments* to the business — meaning their customers paying *them*. EPIC-9 is the account paying *us*. Different scope, different Stripe objects, possibly different Stripe accounts. Worth reserving the word for the customer-facing one before both exist.
+
+**PSL has a lead time and no shortcut.** Acceptance takes weeks and browsers ship the list compiled into the binary, so adoption lags further. Worth submitting before the epics start, not alongside them — it's the only item here that can't be compressed later.
 
 <!-- xgd-chat-end -->
