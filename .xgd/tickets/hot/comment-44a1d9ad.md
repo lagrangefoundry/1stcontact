@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:55:00.723793+00:00'
+updated_at: '2026-09-12T00:55:58.169033+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -229,5 +229,11 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="300ce890-632f-4d14-9f9b-5eb3e70f9df6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:55:57.775960+00:00" -->
+#### You
+If this is complete, please move the ticket to legacy_done
 
 <!-- xgd-chat-end -->
