@@ -34,7 +34,9 @@ import {
   type RecipeStore,
   type RenderedImage,
 } from '../../../tools/generate/src/cli/image-recipe'
+import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { ImagesLike } from './heic'
+import { republishMaterial } from './material'
 import type { TicketStore } from './tickets'
 
 /**
@@ -269,6 +271,43 @@ export function materialRecipes(store: TicketStore): RecipeStore {
     },
     async write(uid: string, recipe: readonly EditOp[]): Promise<void> {
       await store.update({ uid, patch: { fields: { edits: [...recipe] } } })
+    },
+  }
+}
+
+/**
+ * The Library's recipes, with the step that carries a change to the site
+ * ([[REQ-229]]).
+ *
+ * **A DECORATOR, AND NOT A BRANCH INSIDE `materialRecipes`**, on the pattern
+ * {@link cachedRenderer} sets: that function stays the one thing that knows a
+ * recipe is a field on a record, and this stays the one thing that knows a
+ * material's bytes may also be sitting on a site. A deployment with no site
+ * store composes the bare port and every write is a record write, which is
+ * slower to notice and otherwise identical.
+ *
+ * **IT EXISTS SO `edit_image` AND THE CLIENT'S MODAL PROPAGATE ALIKE.** The two
+ * are producers of one fact — the recipe on the record — and [[REQ-228]] has
+ * just put the catalogue in the assistant's hands. A propagation that fired for
+ * the modal and not for the tool would re-open, on the surface the product leads
+ * with, exactly the gap [[REQ-229]] closes.
+ *
+ * **A PROPAGATION THAT FAILS DOES NOT UNDO THE EDIT.** {@link republishMaterial}
+ * answers per placement rather than throwing, and the port has nowhere to put an
+ * answer — so what a stale record costs here is a site left holding the previous
+ * bytes, reported in the draft's change journal by the replacement that did land
+ * and silent about the one that did not. The modal's route returns the whole
+ * report, because it has an envelope to put it in.
+ */
+export function republishingRecipes(
+  recipes: RecipeStore,
+  deps: { tickets: TicketStore; sites: TenantSiteStore; renderer: ImageRenderer },
+): RecipeStore {
+  return {
+    read: recipes.read,
+    async write(uid: string, recipe: readonly EditOp[]): Promise<void> {
+      await recipes.write(uid, recipe)
+      await republishMaterial(deps.tickets, deps.sites, uid, { renderer: deps.renderer })
     },
   }
 }
