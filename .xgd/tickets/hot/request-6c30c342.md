@@ -5,15 +5,20 @@ type: request
 title: Contacts pane shows contacts as they arrive, without a reload
 created_by: BUG-87
 created_at: '2026-09-12T21:39:16.088815+00:00'
-updated_at: '2026-09-12T21:59:24.536609+00:00'
+updated_at: '2026-09-12T22:01:25.552240+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f2d1aa6d
+  commits:
+  - working_sha: b0ad859b02229f78980ec5dc5113ea7402c8fcaf
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.179
 ---
 
 # The Contacts pane shows leads as they arrive
