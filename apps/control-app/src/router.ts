@@ -71,6 +71,9 @@ import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import {
   addContact,
+  CONTACT_CHANGE_POLL_MS,
+  contactChangeHead,
+  contactsChangedSince,
   InvalidContactError,
   InvalidPersonRecordError,
   openGrant,
@@ -81,6 +84,7 @@ import {
   setPersonRecord,
   setPersonStatus,
   UnknownPersonError,
+  windBack,
 } from './people'
 import {
   inviteDraft,
@@ -805,6 +809,15 @@ export interface RouterDeps {
    */
   tickets?: (env: RouterEnv, scope: Scope, opts?: TicketStoreOptions) => Promise<TicketStore>
   /**
+   * How often the Contacts change feed asks D1 what has moved ([[REQ-233]]).
+   *
+   * A CLOCK AND NOT DATA, on the grounds `tickets`' `opts` is injectable. The
+   * shipped cadence is {@link CONTACT_CHANGE_POLL_MS} and a suite that waited
+   * for it would spend seconds per assertion; the number that ships is checked
+   * where it is chosen rather than where it is inconvenient.
+   */
+  contactChangePollMs?: number
+  /**
    * The tenant's capture bundles, for the import route's rights gate (BUG-84).
    *
    * Injectable for the reason the stores above are: a UAT that has to plant a
@@ -1111,6 +1124,20 @@ export const PERSON_INVITE_PATH = '/api/people/invite'
  * other is still coming.
  */
 export const PERSON_MESSAGES_PATH = '/api/people/messages'
+
+/**
+ * The Contacts pane's change feed ([[REQ-233]]).
+ *
+ * UNDER `/api/people` AND NOT `/api/contacts`, because it is the same list this
+ * table's other six routes are about and a second noun for one population is how
+ * two surfaces start disagreeing about who is in it.
+ *
+ * A `GET` PRECISELY SO IT CAN BE AN `EventSource`, which is the argument
+ * `/api/material/changes` already makes: the browser then does the two parts of
+ * a subscription least worth writing twice — reconnect with backoff, and
+ * re-presenting the last `id:` it saw as `Last-Event-ID`.
+ */
+export const PERSON_CHANGES_PATH = '/api/people/changes'
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -2031,7 +2058,15 @@ async function routeUncached(
      */
     if (p === PEOPLE_PATH && method === 'GET') {
       const scope = requireScope()
+      // THE HEAD IS READ BEFORE THE LIST, AND THE ORDER IS THE WHOLE POINT
+      // ([[REQ-233]], on `/api/material`'s precedent). A write landing between
+      // the two is then in the page AND in the replay the subscription opens
+      // with — which patches a row the pane already drew, and is idempotent. The
+      // other order puts that write in NEITHER, which is a contact the tab never
+      // learns about: the exact failure this feed exists to remove.
+      const seq = await contactChangeHead(identityEnv, scope)
       return json(200, {
+        seq,
         people: await peopleOf(identityEnv, scope),
         canFulfil: ownsPlatformBusiness(identityEnv, deps.admission),
         canInvite: ownsBusiness(deps.admission, scope.businessId),
@@ -2100,6 +2135,38 @@ async function routeUncached(
       // is no separate scope check here that could disagree with the one the
       // read is actually performed under.
       return json(200, { messages: await messagesFor(await openTickets(), id) })
+    }
+
+    /**
+     * GET /api/people/changes — the Contacts pane, live ([[REQ-233]]).
+     *
+     * WHY A SUBSCRIPTION AND NOT A POLL, AND NOT A REFRESH. The writes this pane
+     * most needs to see are not made by this pane: a `contact-form` submission on
+     * the published site captures a lead through `captureLead`, and an operator
+     * sitting on the tab saw nothing at all until they reloaded — so the surface
+     * they use to CHECK that a form works reported a working capture path as a
+     * broken one. A second operator, a second tab, and an invite sent from
+     * anywhere else are the same shape.
+     *
+     * SCOPED BY THE SAME `requireScope()` THE LIST READ USES, and the read
+     * underneath it carries `WHERE tenant_id = ?` exactly as `peopleOf` does. A
+     * subscription is a read ([[DOC-8]] §6.6), and there is no cross-business
+     * form of this URL to construct.
+     *
+     * THE CURSOR IS THE CLIENT'S. `Last-Event-ID` — which a browser's
+     * `EventSource` re-presents automatically on reconnect — wins over `?since`,
+     * which seeds only the first connection. Neither present means "from now",
+     * which is the right answer for a subscriber that has read nothing.
+     */
+    if (p === PERSON_CHANGES_PATH && method === 'GET') {
+      const resumed = request.headers.get('last-event-id')
+      const since = resumed ?? url.searchParams.get('since')
+      return streamContactChanges(
+        identityEnv,
+        requireScope(),
+        since,
+        deps.contactChangePollMs ?? CONTACT_CHANGE_POLL_MS,
+      )
     }
 
     /**
@@ -3763,6 +3830,169 @@ function streamMaterialChanges(store: TicketStore, since: number | null): Respon
       'x-content-type-options': 'nosniff',
       // A change feed that a proxy answered from cache would be a tab watching a
       // recording of a conversation that has moved on.
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+/**
+ * The Contacts pane's people, as a live stream of changes ([[REQ-233]]).
+ *
+ * SAME WIRE FORMAT AS {@link streamMaterialChanges} — `id:` + `data:` + a blank
+ * line, a `ready` frame first carrying the cursor this connection opened at, and
+ * a `: ping` comment on an idle connection so nothing reaps it. Written as its
+ * own function rather than shared with that one because the two differ in the
+ * half that matters: material rides a ticket-store change LOG with a monotonic
+ * counter and a retention floor, and a contact is a `users` row whose cursor is
+ * a clock. Factoring the shell out would leave a parameterised thing whose
+ * parameters are precisely the interesting parts.
+ *
+ * IT POLLS D1 HERE SO THE TAB DOES NOT POLL THE ORIGIN. One connection per open
+ * pane asking a scoped, indexed question every couple of seconds is cheaper than
+ * the same tab issuing a full `/api/people` read on a timer — and it is the only
+ * shape in which a lead captured on the published site can reach an already-open
+ * pane at all.
+ *
+ * `delivered` IS THE WHOLE OF WHY A LOOKBACK IS AFFORDABLE. Each poll reads from
+ * {@link CONTACT_CHANGE_LOOKBACK_MS} BEFORE the cursor, because the cursor is a
+ * wall clock and two isolates do not agree to the millisecond — a row stamped
+ * just behind an already-advanced cursor would otherwise be a contact that never
+ * appears. Re-reading that window costs a scoped index scan; re-SENDING it every
+ * two seconds would rebuild every row on screen for ever, so what has already
+ * gone out is remembered by `(id → seq)` and skipped, and entries that fall out
+ * of the window are dropped.
+ *
+ * NOTHING IS HELD OPEN WITH `waitUntil`, on the grounds {@link streamMaterialChanges}
+ * states: a subscriber WRITES NOTHING, so when the client goes there is nothing
+ * left to finish.
+ *
+ * TEARDOWN IS THE PART THAT MATTERS. A timer reading D1 for nobody is the one
+ * way this feature can cost money while doing nothing, so it is reached both
+ * ways a client can leave: `cancel` when the stream is dropped, and a failed
+ * `enqueue` when the write is what discovers it.
+ */
+function streamContactChanges(
+  env: IdentityEnv,
+  scope: Scope,
+  since: string | null,
+  pollMs: number,
+): Response {
+  const encoder = new TextEncoder()
+
+  // HOISTED OUT OF `start` SO `cancel` CAN REACH IT. A client that simply drops
+  // the stream writes nothing and reads nothing, so without this the interval
+  // would keep reading D1 until the next heartbeat's `enqueue` happened to
+  // fail — up to {@link SSE_HEARTBEAT_MS} of polling for a reader that has gone.
+  let stop = (): void => {}
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // OMITTED `since` MEANS "FROM NOW", and the head is resolved here rather
+      // than left to the poll so the `ready` frame can state it. A cursor the
+      // client cannot see is a cursor it cannot resume from.
+      let cursor = since ?? (await contactChangeHead(env, scope))
+
+      let live = true
+      let timer: ReturnType<typeof setInterval> | null = null
+      let polling = false
+      let lastWrite = Date.now()
+      /** What has already gone out, by person, within the lookback window. */
+      const delivered = new Map<string, string>()
+
+      const teardown = (): void => {
+        if (!live) return
+        live = false
+        if (timer != null) clearInterval(timer)
+        timer = null
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client; closing it twice is not a failure
+          // worth reporting to nobody.
+        }
+      }
+
+      /** Write one frame, and treat a failure as the client having left. */
+      const write = (text: string): boolean => {
+        if (!live) return false
+        try {
+          controller.enqueue(encoder.encode(text))
+          lastWrite = Date.now()
+          return true
+        } catch {
+          teardown()
+          return false
+        }
+      }
+
+      const send = (seq: string, event: unknown): boolean =>
+        write(`id: ${seq}\ndata: ${JSON.stringify(event)}\n\n`)
+
+      stop = teardown
+
+      // The cursor, stated, before anything can move it. See the header.
+      if (!send(cursor, { kind: 'ready', seq: cursor })) return
+
+      const tick = async (): Promise<void> => {
+        // A POLL THAT OVERRUNS ITS INTERVAL MUST NOT STACK. D1 under load is the
+        // case, and two overlapping polls would both read the same window and
+        // both try to advance the same cursor.
+        if (polling || !live) return
+        polling = true
+        try {
+          const floor = windBack(cursor)
+          const changes = await contactsChangedSince(env, scope, floor)
+          const fresh = changes.filter((change) => delivered.get(change.person.id) !== change.seq)
+          for (const change of fresh) {
+            if (!send(change.seq, { kind: 'contact', ...change })) return
+            delivered.set(change.person.id, change.seq)
+          }
+          // ADVANCED PAST WHAT WAS READ, NOT PAST WHAT WAS SENT. The skipped rows
+          // are ones this connection already delivered, so leaving the cursor
+          // behind them would re-read the same window for ever.
+          //
+          // AND FORWARD ONLY. The window starts BEHIND the cursor, so a batch
+          // large enough to fill {@link CONTACT_CHANGE_LIMIT} entirely out of the
+          // lookback could otherwise end on a row older than where we already
+          // were — which would wind the cursor back, widen the window again, and
+          // read the same rows for ever.
+          const last = changes.at(-1)
+          if (last && last.seq > cursor) cursor = last.seq
+          // A remembered delivery older than the window can never be read again,
+          // so holding it would make an all-day subscription grow without bound.
+          for (const [id, seq] of delivered) if (seq < floor) delivered.delete(id)
+          if (Date.now() - lastWrite >= SSE_HEARTBEAT_MS) write(': ping\n\n')
+        } catch {
+          // A TRANSIENT READ FAILURE IS NOT THE END OF THE SUBSCRIPTION. The
+          // cursor has not moved, so the next tick reads the same window and the
+          // client loses nothing — and there is no operator-facing thing to say
+          // about one failed poll that the next one repairs.
+        } finally {
+          polling = false
+        }
+      }
+
+      timer = setInterval(() => void tick(), pollMs)
+      // A poll must never be the reason a runtime holds an isolate open.
+      if (typeof (timer as { unref?: () => void })?.unref === 'function') {
+        ;(timer as unknown as { unref: () => void }).unref()
+      }
+    },
+
+    cancel() {
+      // The other way a client leaves. `teardown` is idempotent, so whichever of
+      // the two arrives first is the one that does the work.
+      stop()
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+      // A change feed a proxy answered from cache would be a pane watching a
+      // recording of a list that has moved on.
       'cache-control': 'no-store',
     },
   })

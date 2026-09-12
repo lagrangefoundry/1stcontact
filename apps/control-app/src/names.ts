@@ -271,6 +271,18 @@ function trimmed(value: string | null | undefined): string | null {
  * that is decided. Marking a supersession as a real name change has to be an
  * explicit act; anything else and a typo fixed at the keyboard becomes a
  * searchable, displayable former name.
+ *
+ * AND A WRITE STAMPS THE PERSON, NOT JUST THE NAME ([[REQ-233]]). `users.updated_at`
+ * is the Contacts pane's change cursor — the one column that answers *did this
+ * row change* for every field the pane draws — and the name is one of the two
+ * fields an operator can actually edit. Without the stamp a rename is a change
+ * the live feed cannot see, so the pane holds the old name until somebody
+ * reloads: exactly the class of staleness the feed exists to remove.
+ *
+ * ONLY ON THE PATHS THAT ACTUALLY WRITE, which is what {@link touchPerson}'s two
+ * call sites below are. A no-op commit writes no history (above) and must not
+ * write a stamp either, or every focus-and-blur in the record pane would wake
+ * every open Contacts pane in the business.
  */
 export async function writeName(
   env: IdentityEnv,
@@ -295,6 +307,7 @@ export async function writeName(
     }
     if (!current) return null
     await supersede(env, userId, reason)
+    await touchPerson(env, userId)
     return null
   }
 
@@ -326,9 +339,31 @@ export async function writeName(
     )
     .run()
 
+  await touchPerson(env, userId, now)
+
   const written = await currentNameOf(env, userId)
   if (!written) throw new InvalidNameError('The name was not readable back.')
   return written
+}
+
+/**
+ * Say that this person's row changed, at the same moment the name did ([[REQ-233]]).
+ *
+ * A STAMP ON `users` FOR A WRITE TO `user_names`, and the indirection is the
+ * point: the Contacts pane renders a person, not a name row, so the question its
+ * change feed asks is *did this PERSON change*. One column answering that for
+ * every field the pane draws is what keeps the feed from having to know which
+ * tables a person is assembled from — `setPersonRecord` already stamps it for the
+ * same reason when it rewrites an address.
+ *
+ * THE NAME'S OWN `now` IS REUSED WHERE THERE IS ONE, so the stamp and the row it
+ * describes carry the same instant rather than two that a reader would have to
+ * reconcile.
+ */
+async function touchPerson(env: IdentityEnv, userId: string, at?: string): Promise<void> {
+  await env.DB.prepare('UPDATE users SET updated_at = ? WHERE id = ?')
+    .bind(at ?? new Date().toISOString(), userId)
+    .run()
 }
 
 /** Retire whichever row is current, recording why. */

@@ -94,6 +94,7 @@ import {
   provisionBusinessFor,
   revokeGrant,
   savePersonRecord,
+  subscribeContacts,
 } from './api.js'
 
 /**
@@ -658,6 +659,12 @@ export function createPeoplePanel(options = {}) {
     inviteDraft: fetchInviteDraft,
     invite: invitePeople,
     fulfil: provisionBusinessFor,
+    // OPTIONAL AT THE SEAM, AND THE PANEL CHECKS FOR IT ([[REQ-233]]). A suite
+    // that injects a transport to assert something else entirely should not have
+    // to supply a change feed it is not asking about — and a browser with no
+    // `EventSource` gets a closer that does nothing, so the tab degrades to
+    // exactly the redraw-when-we-wrote behaviour it had before.
+    subscribe: subscribeContacts,
     ...(options.transport ?? {}),
   }
 
@@ -693,6 +700,22 @@ export function createPeoplePanel(options = {}) {
    */
   const selected = new Set()
   const filter = { text: '', stage: '', access: '' }
+
+  /**
+   * The live change feed ([[REQ-233]]).
+   *
+   * ONE AT A TIME AND IT IS THE SCOPE'S. A business switch closes this one and
+   * opens another, because the new one is a feed over a DIFFERENT LIST — the same
+   * argument that makes a switch a clear-and-re-read rather than a patch. An
+   * event arriving from a closed feed is dropped rather than applied.
+   *
+   * IT EXISTS BECAUSE THE WRITES THIS PANE MOST NEEDS TO SEE ARE NOT ITS OWN. A
+   * lead captured by a `contact-form` on the published site, an invite sent from
+   * a second operator's browser, a stage moved in another tab: before this, every
+   * one of them was invisible until a reload — so the surface an operator uses to
+   * CHECK that their form works reported a working capture as a broken one.
+   */
+  let subscription = null
 
   const controls = el('div', 'builder-people__filter')
   const search = document.createElement('input')
@@ -1532,7 +1555,21 @@ export function createPeoplePanel(options = {}) {
     emptyDetail: emptyPane(),
   })
 
-  /** Re-read this business's people and redraw. */
+  /**
+   * Re-read this business's people and redraw.
+   *
+   * STILL HERE, AND STILL THE ANSWER TO THREE THINGS ([[REQ-233]]). The
+   * subscription replaced "redraw only when we wrote" for ordinary traffic, but
+   * it did not replace this: a business switch is a DIFFERENT LIST and is cleared
+   * and re-read rather than patched; a failed feed leaves this as the recovery;
+   * and every operator act still refreshes, because the answers those routes give
+   * carry more than the rows — `canInvite`, `canFulfil` and the bounce set are
+   * not on the change feed and never will be.
+   *
+   * IT ALSO RE-ARMS THE SUBSCRIPTION, from the cursor THIS read returned. That is
+   * what makes it a genuine recovery and not just a redraw: after it, what is on
+   * screen and what the feed will deliver describe the same moment.
+   */
   async function refresh() {
     const answer = await transport.list()
     all = Array.isArray(answer.people) ? answer.people : []
@@ -1552,7 +1589,103 @@ export function createPeoplePanel(options = {}) {
     add.hidden = !canInvite
     syncInvite()
     apply()
+    // THE CURSOR COMES FROM THE READ AND NOT FROM HERE. The origin answers with
+    // the position it was at BEFORE it listed, so a write that lands between the
+    // two is in the page AND in the replay — which patches a row we already drew,
+    // and is idempotent. Taking a cursor after the read would leave that write in
+    // neither, and the pane would never learn of it.
+    //
+    // A `seq` THAT IS NOT A STRING IS AN ORIGIN THAT DOES NOT OFFER A FEED, which
+    // is an ordinary state rather than a failure: the pane is the one it was
+    // before [[REQ-233]].
+    if (typeof answer.seq === 'string') await subscribe(answer.seq)
     return all
+  }
+
+  /**
+   * Open the change feed for this business, from `since` ([[REQ-233]]).
+   *
+   * CLOSE-THEN-OPEN, ALWAYS. Re-arming without closing would leave two feeds
+   * running, and after a business switch one of them would be the previous
+   * business's.
+   */
+  async function subscribe(since) {
+    unsubscribe()
+    if (!transport.subscribe) return
+    // CAPTURED, AND COMPARED ON EVERY EVENT. `subscription` is reassigned by the
+    // next `subscribe`, so an in-flight frame from the feed we just closed is
+    // recognised by the handle it was raised under rather than by a flag some
+    // other path has to remember to set.
+    const mine = { closed: false }
+    subscription = mine
+    const handle = transport.subscribe(since, (change) => {
+      if (mine.closed || subscription !== mine) return
+      applyChange(change)
+    })
+    mine.close = () => handle.close()
+  }
+
+  /** Close the feed, if one is open. Idempotent, and safe before the first open. */
+  function unsubscribe() {
+    if (!subscription) return
+    subscription.closed = true
+    subscription.close?.()
+    subscription = null
+  }
+
+  /**
+   * Apply one change to what is on screen ([[REQ-233]]).
+   *
+   * IT ENDS AT `apply()`, WHICH IS THE POINT. The arriving row goes into `all`
+   * and the existing filter decides whether it is drawn — so an operator narrowed
+   * to *Leads* sees an arriving lead and an operator narrowed to *Invited* does
+   * not see it appear and then vanish. Filtering on the way IN would make what is
+   * on screen depend on which facet happened to be set when the event arrived,
+   * and clearing the facet would then reveal a stale list.
+   *
+   * THE TICK SURVIVES, because `selected` is keyed by person id and nothing here
+   * touches it. The drop-the-absent rule stays in `refresh`, where the list it
+   * prunes against is a complete one: an event says who CHANGED and never who is
+   * gone, so pruning here would unselect everybody the feed did not just mention.
+   *
+   * NOTHING EXITS. This product has no path that deletes a contact — withdrawing
+   * access sets `status` and leaves the row, which the access facet shows — so a
+   * row that is in the list stays in it, and the origin has no `exit` to send.
+   */
+  function applyChange(change) {
+    if (!change || typeof change !== 'object') return
+    const person = change.person
+    if (!person || typeof person.id !== 'string' || person.id === '') return
+    const at = all.findIndex((row) => row.id === person.id)
+    if (at === -1) insertInOrder(person)
+    // PATCHED IN PLACE, NOT REPLACED. Same object, so anything holding this row —
+    // an open detail pane closes over one — keeps seeing the current values
+    // instead of a copy that stopped moving.
+    else Object.assign(all[at], person)
+    apply()
+  }
+
+  /**
+   * Put an arriving person where a re-read would have put them ([[REQ-233]]).
+   *
+   * `created_at ASC, id ASC` IS `peopleOf`'S OWN ORDER, mirrored here rather than
+   * assumed: a new contact does join at the end in practice, but binary-searching
+   * for the place is what makes "rows already on screen do not reorder around it"
+   * mechanically true rather than true of the common case. It also means the pane
+   * does not have to care that the ordering is `created_at` and not `updated_at`,
+   * which is the thing the feed is ordered by.
+   */
+  function insertInOrder(person) {
+    const key = (row) => `${row.createdAt ?? ''}|${row.id}`
+    const mine = key(person)
+    let lo = 0
+    let hi = all.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (key(all[mid]) <= mine) lo = mid + 1
+      else hi = mid
+    }
+    all.splice(lo, 0, person)
   }
 
   /**
@@ -1563,6 +1696,12 @@ export function createPeoplePanel(options = {}) {
    * one business's rows on screen while another's load.
    */
   function clear() {
+    // THE FEED GOES WITH THE ROWS ([[REQ-233]]). A subscription raised under the
+    // previous business is a read in the previous business's scope, and leaving
+    // it open across a switch would keep delivering the OLD business's contacts
+    // into a pane whose header names another. Closed here rather than in the
+    // host, so every caller of `clear` gets it.
+    unsubscribe()
     all = []
     canFulfil = false
     canInvite = false
@@ -1587,5 +1726,12 @@ export function createPeoplePanel(options = {}) {
     /** Both axes, as this panel derives them — one definition, not a copy. */
     stageOf,
     accessOf,
+    destroy() {
+      // BEFORE THE COMPONENT GOES ([[REQ-233]]). An open feed outliving the panel
+      // would deliver into a `listDetail` that has been torn down.
+      unsubscribe()
+      listDetail.destroy()
+      element.remove()
+    },
   }
 }

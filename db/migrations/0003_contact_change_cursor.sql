@@ -1,0 +1,18 @@
+-- [[REQ-233]] — the index the Contacts pane's change feed reads through.
+--
+-- WHY THERE IS A THIRD FILE AT ALL, on `0002`'s reasoning. `0001_baseline.sql`
+-- now declares this index, which is what a database created from scratch gets.
+-- The live database ran `0001` months ago and will never run it again — `wrangler
+-- d1 migrations apply` records what it has run — so editing the baseline reaches
+-- nothing already deployed. This file is the half that reaches it.
+--
+-- IT IS SAFE ON BOTH SHAPES, which is the property `0002`'s header says a
+-- migration set must have: `CREATE INDEX IF NOT EXISTS` is a no-op on a database
+-- the updated baseline already indexed, and creates it on the one that ran the
+-- old baseline. There is no data to copy and no table to rebuild.
+--
+-- WHAT IT IS FOR. The pane asks *who in this business has changed since <instant>*
+-- every couple of seconds per open tab. Scoped by business first, because every
+-- read of this table already is, and because the instant is only ever asked
+-- WITHIN a business.
+CREATE INDEX IF NOT EXISTS idx_users_tenant_updated ON users (tenant_id, updated_at);
