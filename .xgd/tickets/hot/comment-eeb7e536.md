@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:37:53.305224+00:00'
+updated_at: '2026-09-12T20:44:03.290774+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -517,5 +517,16 @@ Two notes on the boundaries:
 **Epic 4 is the only one that's a platform capability rather than a domain feature.** You called it "start of a monitoring and notification function", which is right — if it's built as DNS-specific it'll need rewriting the first time you want to monitor anything else. Worth building the target/check/notify shape generically even if DNS is the only checker for a while.
 
 Want me to create the four epics?
+
+<!-- xgd-turn id="57192fac-2061-4235-bffd-62adc8d0e8d8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:44:03.237780+00:00" -->
+#### You
+Yes please create the epics. I think there are two more needed:
+
+5. Monitoring tab - this is the home for 4 but it will contain much more including google metrics
+6. Billing and payments - required for 3 it will provide a billing tab, stripe integration, subscription billing, invoices, payments (through stripe). billing and payment records
+
+Please create all 6 epics
 
 <!-- xgd-chat-end -->
