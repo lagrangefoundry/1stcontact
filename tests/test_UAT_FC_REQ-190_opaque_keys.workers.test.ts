@@ -8,7 +8,6 @@ import { isOpaqueId, newId } from '../tools/generate/src/store/ids'
 import { publishSite } from '../tools/generate/src/publish/publish'
 import {
   provisionBusiness,
-  STARTER_SLUG,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
@@ -197,42 +196,52 @@ describe('REQ-190 — every primary key is opaque', () => {
 })
 
 describe('REQ-190 — the key is the address', () => {
-  it('test_UAT_FC_REQ-190_a_new_account_finds_its_one_site_visibly_unnamed', async () => {
-    // THE DEFAULT IS LEGIBLE AS A DEFAULT, which is the whole of what the word
-    // buys. `home` was the obvious candidate and is the wrong one: it reads as a
-    // decision somebody made, so nothing about it asks to be changed, and every
-    // account's one site would sit under a name that says nothing about the
-    // business it belongs to — the `acct_057f…` complaint in a friendlier font.
+  it('test_UAT_FC_BUG-90_a_new_account_finds_its_one_site_named_after_the_business', async () => {
+    // THIS TEST REVERSES A DECISION REQ-190 MADE DELIBERATELY, and the reversal
+    // is the whole of [[BUG-90]]. REQ-190 asserted here that the starter is
+    // called `unnamed` and that it is emphatically NOT the business's name — "the
+    // site is not the business, an account will own several, and a name asserted
+    // on the owner's behalf is one they never chose".
     //
-    // BOTH SURFACES SAY IT, because an operator meets the site twice. The slug
-    // is what the builder addresses and lists; `config.businessName` is prose
-    // and reaches the `<title>` of every rendered page. A starter that was
-    // provisional in one place and confident in the other would be worse than
-    // either.
+    // THE PREMISE WENT AWAY. An account owning several sites is what made the
+    // business's name the wrong name for any one of them; a business holds
+    // exactly one site, so there is no second site the name could be wrong for.
+    //
+    // AND THE FIXED WORD WAS A DEFECT. A slug is unique per business, so
+    // `unnamed` was the same name in every business at once — and the builder
+    // keeps the operator's selected slug across a business switch when the
+    // business being entered also holds it. One word for everybody made that
+    // carry fire on nearly every switch: change business, see the same site.
+    //
+    // BOTH SURFACES STILL SAY IT, because an operator meets the site twice. The
+    // slug is what the builder addresses and lists; `config.businessName` is
+    // prose and reaches the `<title>` of every rendered page.
     const fresh = await aBusiness('Coles Bakery')
-    expect(fresh.siteSlug).toBe('unnamed')
+    expect(fresh.siteSlug).toBe('colesbakery')
 
-    const site = (await fresh.store.readSiteJson('unnamed')) as {
+    const site = (await fresh.store.readSiteJson('colesbakery')) as {
       config?: { businessName?: string; tagline?: string }
     } | null
     expect(site, 'the starter site was not written').not.toBeNull()
-    expect(site!.config?.businessName).toBe('Unnamed')
-    expect(site!.config?.tagline).toContain('Unnamed')
 
-    // AND IT IS NOT THE BUSINESS NAME. Provisioning knows the account is called
-    // "Coles Bakery" and deliberately does not use it: the site is not the
-    // business, an account will own several, and a name asserted on the owner's
-    // behalf is one they never chose — the same objection as `home`, arrived at
-    // from the other direction.
-    expect(site!.config?.businessName).not.toContain('Coles')
+    // THE NAME VERBATIM IN PROSE, THE DERIVED FORM IN THE ADDRESS. That the two
+    // differ is the point of having both: an apostrophe and a space belong in a
+    // `<title>` and not in a slug.
+    expect(site!.config?.businessName).toBe('Coles Bakery')
+    expect(site!.config?.tagline).toContain('Coles Bakery')
 
-    // NOTHING RESERVES THE WORD. It is an ordinary attribute, so naming the site
-    // is the one UPDATE this ticket's worked example is built on, and the site
-    // is fully addressable under its new name immediately afterwards.
-    const key = (await fresh.store.siteKey('unnamed'))!
+    // NO SITE IS PROVISIONED UNDER THE OLD WORD any more — asserted over the
+    // store rather than over the constant, which no longer exists to compare to.
+    expect(await fresh.store.siteKey('unnamed')).toBeNull()
+    expect(await fresh.store.slugs()).toEqual(['colesbakery'])
+
+    // NOTHING RESERVES THE NAME. It is an ordinary attribute, so renaming the
+    // site is the one UPDATE this ticket's worked example is built on, and the
+    // site is fully addressable under its new name immediately afterwards.
+    const key = (await fresh.store.siteKey('colesbakery'))!
     await env.DB.prepare('UPDATE sites SET slug = ? WHERE id = ?').bind('bakery', key).run()
     expect(await fresh.store.siteKey('bakery')).toBe(key)
-    expect(await fresh.store.siteKey('unnamed')).toBeNull()
+    expect(await fresh.store.siteKey('colesbakery')).toBeNull()
   })
 
   it('test_UAT_FC_REQ-190_two_businesses_each_publish_a_site_called_home', async () => {
@@ -243,24 +252,27 @@ describe('REQ-190 — the key is the address', () => {
     // another business on the deployment already held it. Both businesses
     // publish it here, both are served, and each gets its own bytes.
     //
-    // THE WORD ITSELF IS NOT THE PROPERTY, which is why this reads the constant
-    // rather than a literal. What is being asserted is that EVERY account is
-    // provisioned under the SAME slug and no two collide — true of `home`, of
-    // `unnamed`, and of whatever the starter is next called.
-    const alice = await aBusiness('Alices Plumbing')
-    const bob = await aBusiness('Bobs Salon')
-    expect(alice.siteSlug).toBe(STARTER_SLUG)
-    expect(bob.siteSlug).toBe(STARTER_SLUG)
+    // THE TWO BUSINESSES ARE GIVEN THE SAME NAME ON PURPOSE ([[BUG-90]]). Under
+    // [[REQ-190]] every business shared one fixed starter slug, so this property
+    // was exercised by every pair of businesses in the suite; the site is named
+    // after its business now, so a shared slug has to be arranged — and it is
+    // still entirely legal, because two unrelated people may both call their
+    // business `Bakery` and neither can see that the other exists.
+    const alice = await aBusiness('Bakery')
+    const bob = await aBusiness('Bakery')
+    expect(alice.siteSlug).toBe('bakery')
+    expect(bob.siteSlug).toBe('bakery')
+    expect(alice.businessId).not.toBe(bob.businessId)
 
-    await fill(alice.store, STARTER_SLUG, 'Alices Plumbing')
-    await fill(bob.store, STARTER_SLUG, 'Bobs Salon')
+    await fill(alice.store, 'bakery', 'Alices Bakery')
+    await fill(bob.store, 'bakery', 'Bobs Bakery')
 
     // Neither publish refuses, and the second one is as ordinary as the first.
-    await publishSite(alice.store, STARTER_SLUG, { message: 'first' })
-    await publishSite(bob.store, STARTER_SLUG, { message: 'also first' })
+    await publishSite(alice.store, 'bakery', { message: 'first' })
+    await publishSite(bob.store, 'bakery', { message: 'also first' })
 
-    const aliceKey = (await alice.store.siteKey(STARTER_SLUG))!
-    const bobKey = (await bob.store.siteKey(STARTER_SLUG))!
+    const aliceKey = (await alice.store.siteKey('bakery'))!
+    const bobKey = (await bob.store.siteKey('bakery'))!
     expect(aliceKey).not.toBe(bobKey)
 
     // Each address serves ITS OWN site's bytes, and that is asserted against
@@ -287,14 +299,14 @@ describe('REQ-190 — the key is the address', () => {
     // existence check. A key that is already unguessable needs no second column,
     // and this is that claim: the value in the URL is the value the rows join on.
     const business = await aBusiness('One Column')
-    await fill(business.store, STARTER_SLUG, 'One Column')
-    await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
+    await fill(business.store, business.siteSlug, 'One Column')
+    await publishSite(business.store, business.siteSlug, { message: 'r1' })
 
-    const siteKey = (await business.store.siteKey(STARTER_SLUG))!
+    const siteKey = (await business.store.siteKey(business.siteSlug))!
     expect(await (await serve(`/site/${siteKey}/`)).status).toBe(200)
 
     const row = await env.DB.prepare('SELECT id FROM sites WHERE tenant_id = ? AND slug = ?')
-      .bind(business.businessId, STARTER_SLUG)
+      .bind(business.businessId, business.siteSlug)
       .first<{ id: string }>()
     expect(row?.id).toBe(siteKey)
 
@@ -315,12 +327,12 @@ describe('REQ-190 — the key is the address', () => {
     const alice = await aBusiness('Alice Iso')
     const bob = await aBusiness('Bob Iso')
 
-    expect(await alice.store.siteKey(STARTER_SLUG)).not.toBeNull()
-    expect(await bob.store.siteKey(STARTER_SLUG)).not.toBeNull()
-    expect(await alice.store.siteKeys()).toEqual([(await alice.store.siteKey(STARTER_SLUG))!])
+    expect(await alice.store.siteKey(alice.siteSlug)).not.toBeNull()
+    expect(await bob.store.siteKey(bob.siteSlug)).not.toBeNull()
+    expect(await alice.store.siteKeys()).toEqual([(await alice.store.siteKey(alice.siteSlug))!])
     // Bob's handle answers about Bob's `home`, never Alice's — the slug is the
     // same word in both, which is what makes this test say something.
-    expect(await bob.store.siteKey(STARTER_SLUG)).not.toBe(await alice.store.siteKey(STARTER_SLUG))
+    expect(await bob.store.siteKey(bob.siteSlug)).not.toBe(await alice.store.siteKey(alice.siteSlug))
   })
 })
 
@@ -330,9 +342,9 @@ describe('REQ-190 — names change and keys do not', () => {
     // and is *keyed* by a value with no relationship to what it is called. The
     // rename is one UPDATE and nothing else in the schema records the name.
     const business = await aBusiness('Before Ltd')
-    await fill(business.store, STARTER_SLUG, 'Before Ltd')
-    await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
-    const siteKey = (await business.store.siteKey(STARTER_SLUG))!
+    await fill(business.store, business.siteSlug, 'Before Ltd')
+    await publishSite(business.store, business.siteSlug, { message: 'r1' })
+    const siteKey = (await business.store.siteKey(business.siteSlug))!
     const objectsBefore = await keysUnder('')
 
     await env.DB.prepare('UPDATE tenants SET name = ? WHERE id = ?')
@@ -346,7 +358,7 @@ describe('REQ-190 — names change and keys do not', () => {
     expect(renamed?.id).toBe(business.businessId)
 
     // Everything still resolves, through the same key, from the same objects.
-    expect(await (await root().forTenant(business.businessId)).siteKey(STARTER_SLUG)).toBe(siteKey)
+    expect(await (await root().forTenant(business.businessId)).siteKey(business.siteSlug)).toBe(siteKey)
     expect(await (await serve(`/site/${siteKey}/`)).status).toBe(200)
     expect(await keysUnder('')).toEqual(objectsBefore)
   })
@@ -357,16 +369,16 @@ describe('REQ-190 — names change and keys do not', () => {
     // `site_assets`, `site_changes`, `site_revisions`, `published_sites` and
     // every R2 key the site owned; now it is one column and nothing else moves.
     const business = await aBusiness('Renamer')
-    await business.store.write(STARTER_SLUG, {
+    await business.store.write(business.siteSlug, {
       assets: [{ name: 'mark.svg', bytes: new TextEncoder().encode('<svg/>') }],
     })
-    await fill(business.store, STARTER_SLUG, 'Renamer')
-    await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
+    await fill(business.store, business.siteSlug, 'Renamer')
+    await publishSite(business.store, business.siteSlug, { message: 'r1' })
 
-    const siteKey = (await business.store.siteKey(STARTER_SLUG))!
+    const siteKey = (await business.store.siteKey(business.siteSlug))!
     const objectsBefore = await keysUnder('')
-    const pagesBefore = await business.store.readPages(STARTER_SLUG)
-    const revisionsBefore = await business.store.revisions(STARTER_SLUG)
+    const pagesBefore = await business.store.readPages(business.siteSlug)
+    const revisionsBefore = await business.store.revisions(business.siteSlug)
 
     await env.DB.prepare('UPDATE sites SET slug = ? WHERE id = ?').bind('shop', siteKey).run()
 
@@ -434,14 +446,14 @@ describe('REQ-190 — names change and keys do not', () => {
 
     // It is the destination's now, and reachable there under its own name.
     const destination = await root().forTenant(to.businessId)
-    expect(await destination.slugs()).toEqual(['shopfront', STARTER_SLUG])
+    expect(await destination.slugs()).toEqual([to.siteSlug, 'shopfront'].sort())
     expect(await destination.siteKey('shopfront')).toBe(siteKey)
     expect(await destination.listAssets('shopfront')).toEqual(['logo.svg'])
 
     // And it is NOT the origin's — which is the isolation half of the same move.
     const origin = await root().forTenant(from.businessId)
     expect(await origin.siteKey('shopfront')).toBeNull()
-    expect(await origin.slugs()).toEqual([STARTER_SLUG])
+    expect(await origin.slugs()).toEqual([from.siteSlug])
 
     // No row in another table was rewritten and no R2 object was copied.
     expect(await childRows()).toEqual(rowsBefore)
@@ -457,9 +469,14 @@ describe('REQ-190 — names change and keys do not', () => {
     // not address either. So a move that would give the destination two sites
     // called the same thing is refused by the DATABASE, not by a check a caller
     // could forget, and the site stays where it was.
-    const from = await aBusiness('Colliding Origin')
-    const to = await aBusiness('Colliding Destination')
-    const siteKey = (await from.store.siteKey(STARTER_SLUG))!
+    // BOTH ARE GIVEN ONE NAME, so both hold a site called `colliding` and the
+    // move below really does land on a taken slug. Under [[REQ-190]] every
+    // business shared the starter word and the collision arranged itself; since
+    // [[BUG-90]] the name is the business's, so two differently-named businesses
+    // would not collide and this test would pass while proving nothing.
+    const from = await aBusiness('Colliding')
+    const to = await aBusiness('Colliding')
+    const siteKey = (await from.store.siteKey(from.siteSlug))!
 
     await expect(
       env.DB.prepare('UPDATE sites SET tenant_id = ? WHERE id = ?')
@@ -467,8 +484,8 @@ describe('REQ-190 — names change and keys do not', () => {
         .run(),
     ).rejects.toThrow(/UNIQUE constraint failed/)
 
-    expect(await from.store.siteKey(STARTER_SLUG)).toBe(siteKey)
-    expect(await (await root().forTenant(to.businessId)).siteKey(STARTER_SLUG)).not.toBe(siteKey)
+    expect(await from.store.siteKey(from.siteSlug)).toBe(siteKey)
+    expect(await (await root().forTenant(to.businessId)).siteKey(to.siteSlug)).not.toBe(siteKey)
   })
 })
 
@@ -485,11 +502,11 @@ describe('REQ-190 — the object store follows the keys', () => {
     await business.store.write('second', {
       assets: [{ name: 'a.svg', bytes: new TextEncoder().encode('<svg/>') }],
     })
-    await business.store.write(STARTER_SLUG, {
+    await business.store.write(business.siteSlug, {
       assets: [{ name: 'b.svg', bytes: new TextEncoder().encode('<svg/>') }],
     })
-    await fill(business.store, STARTER_SLUG, 'Erasable')
-    await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
+    await fill(business.store, business.siteSlug, 'Erasable')
+    await publishSite(business.store, business.siteSlug, { message: 'r1' })
 
     const siteKeys = await business.store.siteKeys()
     expect(siteKeys).toHaveLength(2)
@@ -531,18 +548,18 @@ describe('REQ-190 — the object store follows the keys', () => {
     // site dropped by its own business leaves no row and no object behind, which
     // is the per-site half of the erasure obligation.
     const business = await aBusiness('Forgetful')
-    await business.store.write(STARTER_SLUG, {
+    await business.store.write(business.siteSlug, {
       assets: [{ name: 'x.svg', bytes: new TextEncoder().encode('<svg/>') }],
     })
-    await fill(business.store, STARTER_SLUG, 'Forgetful')
-    await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
-    const siteKey = (await business.store.siteKey(STARTER_SLUG))!
+    await fill(business.store, business.siteSlug, 'Forgetful')
+    await publishSite(business.store, business.siteSlug, { message: 'r1' })
+    const siteKey = (await business.store.siteKey(business.siteSlug))!
     expect(await keysUnder(`draft/${siteKey}/`)).not.toHaveLength(0)
     expect(await keysUnder(`sites/${siteKey}/`)).not.toHaveLength(0)
 
-    await business.store.forget(STARTER_SLUG)
+    await business.store.forget(business.siteSlug)
 
-    expect(await business.store.siteKey(STARTER_SLUG)).toBeNull()
+    expect(await business.store.siteKey(business.siteSlug)).toBeNull()
     expect(await keysUnder(`draft/${siteKey}/`)).toEqual([])
     expect(await keysUnder(`sites/${siteKey}/`)).toEqual([])
     for (const table of ['site_pages', 'site_assets', 'site_changes', 'site_revisions']) {
@@ -565,18 +582,18 @@ describe('REQ-190 — ordinal is not identity', () => {
     // the rule's "no integer sequence" does not reach them and this says so
     // before somebody finishes the sweep by hand.
     const business = await aBusiness('Ordinals')
-    await fill(business.store, STARTER_SLUG, 'Ordinals')
-    const first = await publishSite(business.store, STARTER_SLUG, { message: 'r1' })
-    await fill(business.store, STARTER_SLUG, 'Ordinals, again')
-    const second = await publishSite(business.store, STARTER_SLUG, { message: 'r2' })
+    await fill(business.store, business.siteSlug, 'Ordinals')
+    const first = await publishSite(business.store, business.siteSlug, { message: 'r1' })
+    await fill(business.store, business.siteSlug, 'Ordinals, again')
+    const second = await publishSite(business.store, business.siteSlug, { message: 'r2' })
 
     expect(first.id).toBe(1)
     expect(second.id).toBe(2)
-    expect((await business.store.revisions(STARTER_SLUG)).map((r) => r.id)).toEqual([1, 2])
+    expect((await business.store.revisions(business.siteSlug)).map((r) => r.id)).toEqual([1, 2])
 
-    const at = await business.store.appendChange(STARTER_SLUG, { kind: 'edit' } as never)
+    const at = await business.store.appendChange(business.siteSlug, { kind: 'edit' } as never)
     expect(at).toBeGreaterThan(0)
-    expect(await business.store.appendChange(STARTER_SLUG, { kind: 'edit' } as never)).toBe(at + 1)
+    expect(await business.store.appendChange(business.siteSlug, { kind: 'edit' } as never)).toBe(at + 1)
   })
 
   it('test_UAT_FC_REQ-190_the_id_prefix_is_a_reading_aid_and_nothing_branches_on_it', async () => {

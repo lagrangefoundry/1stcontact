@@ -7,7 +7,7 @@ import {
   admit,
   ensurePlatformOperator,
   type IdentityEnv,
-  STARTER_SLUG,
+  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { personByEmail } from './support/person'
 import { inviteAccount } from './support/invite-account'
@@ -306,10 +306,11 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     expect(grant?.granted_by).toBe(operator)
 
     // And something to edit, which is what makes the business usable rather than
-    // merely present. Called `home` — a word, not the business id ([[REQ-190]]):
-    // the starter slug was the id only to dodge the global published-slug claim,
-    // and there is no claim to dodge now.
-    expect(created.siteSlug).toBe(STARTER_SLUG)
+    // merely present. Named after the business ([[BUG-90]]): the slug was the
+    // business id under REQ-167 to dodge the global published-slug claim and a
+    // fixed word under [[REQ-190]] once there was no claim to dodge, and a fixed
+    // word is what made two businesses indistinguishable in the switcher.
+    expect(created.siteSlug).toBe(businessSiteName(created.name, created.businessId))
   })
 
   it('test_UAT_FC_REQ-180_creating_an_account_provisions_its_first_business', async () => {

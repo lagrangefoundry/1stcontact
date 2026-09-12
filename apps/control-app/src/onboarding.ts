@@ -39,12 +39,19 @@ import { currentNameOf } from './names'
 /**
  * What a business is called before its owner has been asked.
  *
- * VISIBLY PROVISIONAL, on `STARTER_SLUG`'s argument. The operator sees this in
+ * VISIBLY PROVISIONAL. The operator sees this in
  * the Contacts tab before the invitee ever renames it, so a name that reads as a
  * decision somebody made — "My business", "New site" — gives nobody a reason to
  * change it. `tenants.name` is an attribute and may change ([[REQ-190]]), which
  * is what makes getting it approximately right cost nothing and leaving it blank
  * cost something.
+ *
+ * IT IS A BUSINESS NAME AND NOT A SITE NAME, and the distinction matters more
+ * since [[BUG-90]] than it did when this was written. The site a business gets is
+ * named after the business now, so this word is no longer only seen in the
+ * Contacts tab — it derives the slug `unnamedbusiness` and reaches the builder.
+ * That is the onboarding question this bug deliberately leaves open: the fix is
+ * to ask, which is the settings work, not to reintroduce a fixed site name here.
  */
 export const UNNAMED_BUSINESS_NAME = 'Unnamed business'
 

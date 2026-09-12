@@ -7,7 +7,7 @@ import {
   admit,
   ensurePlatformOperator,
   STARTER_HEADING,
-  STARTER_SLUG,
+  businessSiteName,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { addContact, markInvited } from '../apps/control-app/src/people'
@@ -301,10 +301,15 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
     const contact = await aContact()
     expect((await accept(contact.token)).status).toBe(204)
 
-    const businessId = (await businessesOwnedBy(contact.accountId))[0].id
+    const business = (await businessesOwnedBy(contact.accountId))[0]
+    const businessId = business.id
+    // NAMED AFTER THE BUSINESS ([[BUG-90]]). The name is read back off the row
+    // rather than restated, so this asserts the derivation the shipped path
+    // performed and not a second copy of the rule.
+    const slug = businessSiteName(business.name, businessId)
     const store = await d1r2SiteStore(identityEnv()).forTenant(businessId)
-    expect(await store.hasDraft(STARTER_SLUG)).toBe(true)
-    const pages = await store.readPages(STARTER_SLUG)
+    expect(await store.hasDraft(slug)).toBe(true)
+    const pages = await store.readPages(slug)
     expect(pages.map((p) => p.name)).toEqual(['home.json'])
     expect(JSON.stringify(pages[0])).toContain(STARTER_HEADING)
   })
@@ -429,9 +434,14 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
     const nameless = await aContact()
     expect((await accept(nameless.token)).status).toBe(204)
     expect((await businessesOwnedBy(nameless.accountId))[0].name).toBe(UNNAMED_BUSINESS_NAME)
-    // Provisional rather than a decision somebody made, on `STARTER_SLUG`'s
-    // argument: a name that reads as settled gives nobody a reason to change it.
+    // Provisional rather than a decision somebody made: a name that reads as
+    // settled gives nobody a reason to change it. It is the BUSINESS's name, and
+    // since [[BUG-90]] the site takes its name from it — so a contact who signs
+    // up without a display name opens a builder onto `unnamedbusiness`. That is
+    // the onboarding question BUG-90 leaves open for the settings work; what it
+    // is not is a reason to give the site a fixed name of its own again.
     expect(UNNAMED_BUSINESS_NAME.toLowerCase()).toContain('unnamed')
+    expect(businessSiteName(UNNAMED_BUSINESS_NAME, 'biz_x')).toBe('unnamedbusiness')
   })
 
   it('test_UAT_FC_REQ-203_a_member_who_holds_nothing_is_still_refused', async () => {
@@ -464,7 +474,7 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
       id: contact.userId,
       account_id: contact.accountId,
     })
-    expect(made?.siteSlug).toBe(STARTER_SLUG)
+    expect(made?.siteSlug).toBe(businessSiteName(made!.name, made!.businessId))
     expect(await ensureOwnBusiness(identityEnv(), {
       id: contact.userId,
       account_id: contact.accountId,
