@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T23:31:39.259363+00:00'
+updated_at: '2026-09-12T23:33:31.908364+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1079,5 +1079,36 @@ Hence the ask: does the session extend WebP to backgrounds, accepting the mechan
 <!-- xgd-chat role="user" ts="2026-09-12T23:31:38.831802+00:00" -->
 #### You
 Please create another REQ to extend WebP to backgrounds
+
+<!-- xgd-turn id="70188ce7-eb93-4e13-b5b7-3df42bd22c3a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T23:33:31.525889+00:00" -->
+#### Claude
+REQ-234 created, but the epic link failed on a git lock. Let me check whether that lock is live before touching anything.
+
+The lock was transient and the link did land. Verifying the ticket itself.
+
+The link is staged but uncommitted — the tool's own commit died on the lock. Completing it so it doesn't get swept into something unrelated.
+
+**REQ-234** (`request-7573c2ab`) — *"A band's backdrop gets WebP too, which means `image-set()` after all"* — filed at `draft`, child of EPIC-1, `depends_on: [REQ-222]`.
+
+## What it argues
+
+The spine of the ticket is answering REQ-222's own rejection of `image-set()`, because that's the objection anyone picking this up will raise first. REQ-222 turned it down for widths on good grounds — L1 already emits a rule per breakpoint and knows the node's real width at each one, so `image-set()` would have been a second way to do something already done well.
+
+That reasoning is right and **doesn't carry over, because the job is different**. For format there is no first mechanism: a stylesheet can't vary on `Accept`, a breakpoint rule says nothing about what a browser can decode, and the publish is static by design. So `image-set()` isn't a second answer here — it's the only one. The ticket is explicit that widths stay with the per-breakpoint rules and `image-set()` must not grow a width vocabulary of its own, which would be the exact duplication REQ-222 refused.
+
+## The rest
+
+- **Verify support before building** — two questions, not one: `image-set()` itself, and the `type()` function inside it, which is newer and is what the ticket actually rests on. If `type()` isn't reliably available, say so and stop, because fallback-only is what we already ship.
+- **Fallback ordering is the safety property** — the plain `url()` rule stays and the `image-set()` rule follows it, so a browser that can't parse the declaration gets the picture rather than a blank band. A UAT should pin the order, not just the presence of both.
+- **It must land after REQ-222's latency work.** Every background rung gains a second rendition, on the most expensive file to transform. Adding that to an unrationed synchronous publish is the case that turns a first publish into an open-ended wait.
+- **`convert` stays out of the editorial vocabulary** — format is delivery, same side of the line REQ-222 drew for widths.
+
+## Two things to know
+
+The `xgd` link commit died on a transient git lock mid-create. The link itself landed (the epic now lists 8 children) but sat staged; I completed the commit so it couldn't get swept into something unrelated.
+
+**EPIC-1 is still `done`.** REQ-234 is a `draft` child of a closed epic, which is probably not the state you want — either the epic reopens or this stands on its own.
 
 <!-- xgd-chat-end -->
