@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:25:03.822998+00:00'
+updated_at: '2026-09-12T00:38:22.995088+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -86,5 +86,18 @@ What I'd suggest instead:
 ---
 
 Shall I write this up into the ticket body as a section — the three clocks, the rotation-vs-extend choice, the recommended numbers, and the SSE activity trap as a blocking question? I'd keep your 30-minute proposal in it as the stated starting position with my counter-argument next to it, rather than quietly replacing it.
+
+<!-- xgd-turn id="b5f5bd24-9ce6-429e-8969-71307ef7546b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:38:21.897950+00:00" -->
+#### You
+I never said extend the cookie, I said mint a short term extension.
+
+Look sign in is friction we want to minimize whilst keeping appropriate levels of security.
+
+You did not understand or respond to the actually mechanism I proposed. You argued against things I never suggested. But you understand more about token security than I do so let me pose it as a question rather than a solution. Here are my goals:
+
+1) Users should not have to resign in frequently - lets call this interval I1 - I1 needs to be >24h but <3 years
+2) Users should not be signed out mid-session - if the user is actively using the site their access should be extended (not using your idea of extending the token lifetime!) Perhaps we preempt this situation by forcing resign-in on first use near token expiry
 
 <!-- xgd-chat-end -->
