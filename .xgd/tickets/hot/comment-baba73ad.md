@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T00:13:02.542549+00:00'
+updated_at: '2026-09-12T00:20:03.308607+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -875,5 +875,46 @@ Recorded on the epic. No ticket, no code.
 <!-- xgd-chat role="user" ts="2026-09-12T00:13:01.491851+00:00" -->
 #### You
 Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="7e642ba0-e28b-41ca-9133-8f6527640f88-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:20:02.776450+00:00" -->
+#### Claude
+I'll work through the children one at a time. First, let me get the roster and figure out how transcripts are addressed.
+
+Now let me check what the bodies already record, so I don't duplicate answers that already landed.
+
+I have what I need. Writing the answers into REQ-229 — the one child with no epic-level answer pass, and the one the epic's headline promise now rests on.
+
+Reviewed all seven children — body, fields, and full chat transcript for each. All are local `request-*` uids; no foreign `ticket://` entries.
+
+## What I found
+
+A prior epic-level pass had already swept six of the seven — REQ-217, 218, 219, 220, 221, 222 each carry "Answered from EPIC-1" sections closing their investigation questions. I verified those against the code rather than trusting them, and they hold.
+
+**REQ-229 was the gap.** It's the only child with no epic answer pass, the only one still `draft`, and its last transcript turn — *"implement this, ask questions here"* — never got a reply: the generation failed on a monthly spend limit. So the questions were never asked.
+
+## What I answered, and where
+
+**REQ-229** — four things an implementer hits immediately, all verified in code:
+
+1. **The ticket is short one half.** It describes *promote, then crop*. `promoteToSiteAsset` (`material.ts:712`) reads the attachment's **original blob** and hands it to `editAssetAdd` — no renderer in its signature, and none of its three callers could supply one. So *crop, then promote* also puts the uncropped original on the site. Identical symptom, different door, unfixed by the ticket as written.
+2. **The recorded name must be per-site, and must not live in `placed_on`.** REQ-219 already decided re-promotion is driven by `placed_on`, which is a list of slugs — and `freeAssetName` resolves collisions per site, so one logo can be `logo.png` here and `logo-2.png` there. Folding a name into `placed_on` by changing its element shape fails *open*: `placedOn()` filters `typeof v === 'string'`, so every placed material would read as unplaced — which is the first-placement branch, producing the exact `logo-2.png` failure the ticket exists to prevent.
+3. **`editAssetAdd` throws `CONFLICT` on an existing name**, so re-promotion needs a replace sibling over `store.write`, not a flag on the add path.
+4. **`reviseRecipe` has neither the site store nor a bytes-producing renderer** — its only dep measures.
+
+**REQ-219, REQ-220, REQ-222** — none of them knew REQ-229 exists. Each carries a finding REQ-229 now owns, so I cross-referenced all three and corrected REQ-219's count of what's unbuilt (it says two halves; it's three). REQ-222 is `ready_to_reconcile` with a note that its *"the ladder needs nothing from the recipe"* claim is true, but doesn't yet mean the client's crop reaches their site.
+
+## Surfacing rather than guessing
+
+**1. REQ-219 — description staleness.** A crop changes what a picture shows, and the description body is what the KB indexes. `description_status` is `['ok','no_describer','no_text','unsupported','too_large','failed']` — every value is a reason a description *couldn't be produced*, none means *produced but no longer true*. Adding one widens every predicate over the field. The prior pass flagged it with "do not invent a value" and I agree — it's a schema-and-cost call, not a design one.
+
+**2. REQ-222 — whether an Images transform counts against the same outbound-subrequest budget as an R2 write.** Asserted from general platform knowledge, never confirmed or measured. It decides whether the publish concurrency guard is real or a formality. The ticket explicitly says not to trust a remembered list here, so I haven't.
+
+**3. REQ-229's scope — my call, your decision.** I recorded the first-promotion door as in scope, reasoning that REQ-219's *"the recipe is applied at promotion"* reads literally and the client can't tell the two failures apart. It does widen the ticket. Say if you'd rather it stayed narrow and the other door got its own ticket.
+
+**4. REQ-229 is unstarted**, and until it lands the epic's title breaks between its third and fourth verbs — *change* doesn't reach *publish*. It's the only thing standing between the six landed children and the promise.
+
+I filed nothing new.
 
 <!-- xgd-chat-end -->
