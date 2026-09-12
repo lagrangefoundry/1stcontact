@@ -5,7 +5,7 @@ type: epic
 title: 'Monitoring tab: site health and site metrics'
 created_by: CHAT-48
 created_at: '2026-09-12T20:49:29.096735+00:00'
-updated_at: '2026-09-12T20:49:56.055672+00:00'
+updated_at: '2026-09-12T21:01:41.072303+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -144,3 +144,18 @@ crosses.
 
 **Also see** [[TODO-6]] — `1stc.site` housekeeping, whose PSL submission has a
 multi-week lead time and no shortcut, so it wants starting before any of this.
+
+
+## Correction, 2026-09-12 — the contrast drawn with the billing epic was wrong
+
+The "Why this is legitimately a tab" section above ends *"Contrast the billing
+epic, which does not."* **Withdrawn.**
+
+[[EPIC-9]] turns out to need two surfaces, not one: a business-scoped tab where
+an owner configures what they charge their own customers, and the account-scoped
+User Portal where someone pays. The tab half satisfies the same [[REQ-179]] rule
+this epic satisfies, for the same reason. The contrast does not hold.
+
+What *is* still true, and is the reason this epic cites the rule at all, is that
+[[DOC-40]] §2 lists monitoring among the things a business owns — so this tab
+needs no argument beyond that.
