@@ -6,7 +6,7 @@ title: A capture-mirrored picture can reach a site's assets with no catalogue ti
   and no rights record
 created_by: BUG-80
 created_at: '2026-09-11T22:27:15.822174+00:00'
-updated_at: '2026-09-12T00:13:01.377239+00:00'
+updated_at: '2026-09-12T00:20:52.556602+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -239,3 +239,34 @@ One predicate, two call sites, two adapters of the one `ReferenceStore` port.
 - Cataloguing fonts, stylesheets and build output — REQ-228 Half B's.
 - The `AlchemistLabWithTech.png` row already in a dev deployment's `site_assets`
   is an operator cleanup, not a code change; the door it came through is shut.
+
+
+## Behaviour this adds, stated so it has evidence
+
+- **A refused import leaves nothing behind — not even an empty draft.** The gate
+  runs before `createDraft`, for the same reason BUG-51's 409 refuses ahead of
+  the write rather than rolling back after it: a slug that has never been
+  imported must not come into existence because somebody tried to publish a
+  picture they may not publish.
+- **Nothing is uploaded when the CLI refuses.** The check runs while reading the
+  draft, before the request is formed, so a refused push never puts a third
+  party's bytes into anyone else's storage on the way to being told no.
+- **The gate reads bytes, not names.** The same bytes under a different name are
+  refused; different bytes under the captured name are not. That is what makes
+  the rule survive the rename the copy into `draft/assets/` already performs.
+- **One business's captures never gate another's push.** The reference store is
+  bound per business by `forTenant` and the gate inherits that barrier rather
+  than re-enforcing it — one client's private material must not decide what a
+  different client may publish.
+- **`readSitePayload` now takes the reference store it checks against**, and
+  `PushOptions.references` is required rather than optional: an optional store is
+  a gate a caller can forget, and a forgotten gate looks exactly like a clean
+  push. A caller with no bundles passes one that lists none.
+
+## Known consequence, accepted
+
+`bin/publish` with no slugs named pushes every site in `storage/sites/`, so a
+checkout holding a `1c repro` reproduction will now stop at that site rather
+than publishing it. That is the bug being surfaced rather than a regression —
+the reproduction is a local framework-growth artifact and was never publishable
+— and the refusal names the file and the bundle it came from.
