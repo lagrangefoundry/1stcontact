@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-11T23:35:20.058332+00:00'
+updated_at: '2026-09-12T00:05:53.695006+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,18 @@ REQ-134 survives the move: one authored subtree, revealed on completion at any s
 1. The migration is repo-side only. `storage/sites/1stcontact/draft/pages/home.json` moved to v2 with `sent`/`error` from the preset, but the instance the original session authored lives in the live R2-backed store. It will fail validation against the new contract until someone adds those two slots there — a v1 instance no longer resolves in the registry.
 
 2. `packages/framework/src/modules/account-chrome/.claude/.cc-writes/` — an empty, untracked harness directory in your main checkout (dated Sep 9). It makes `test_UAT_FC_REQ_200_no_branch_on_which_site_or_business_it_renders_for` throw `EISDIR` there; it passes in the worktree. Nothing to do with this change, and I left it alone rather than deleting something the harness made. Say the word and I'll remove it, or harden that test to skip directories.
+
+<!-- xgd-turn id="35d865be-ff81-4053-8956-d5c6f9a673f8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:05:53.273694+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-76` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-76`
+- branch HEAD: `1f5abafb663f6497cfb76ccac2a6d93f89621731`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
