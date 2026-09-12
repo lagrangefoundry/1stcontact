@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-222
 created_by: xgd
 created_at: '2026-09-10T22:08:15.980090+00:00'
-updated_at: '2026-09-11T21:11:40.980685+00:00'
+updated_at: '2026-09-12T22:47:26.621582+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -215,5 +215,19 @@ Two things make it less bad than it reads, and one that doesn't:
 - But the *first* publish of a photo-heavy site is still paid in full, synchronously, and nothing batches, defers, or reports progress.
 
 So: one genuinely open item, not two. It's a follow-up rather than a defect in what landed — the ladder is correct, it's just front-loaded onto one request. Say the word and I'll file it; I haven't, since this session is scoped to REQ-222.
+
+<!-- xgd-turn id="6f043cd5-b148-485c-a2b6-5d3ab9663dac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:47:25.586889+00:00" -->
+#### You
+Two decided sections of this ticket's body were never built. Build both, under the free-coding protocol.
+
+**1. **`<picture>`** with typed **`<source>`**s.** The decision is already in the body under *"Answered by the operator, 2026-09-11 — *`<picture>`* with typed sources: yes"*. Two formats — the source's own plus WebP — WebP first because the browser takes the first `type` it supports, original as the final fallback inside `<img>`. AVIF is out of v1 and that is settled; do not re-litigate it. `convert` must not enter the editorial recipe vocabulary.
+
+**2. The publish lock, message and progress bar**, plus rationing the ladder to the latency budget. The decision is in the body under *"Operator decision, 2026-09-11: what a publish looks like while it runs"* and the section above it. `publishAction` (`builder/toolbar.js:235`) is untouched — still `btn.disabled = true`, await, re-enable in a `finally`. `blockEverything` is the mechanism to reuse, but its *meaning* is wrong as-is: REQ-173's block says "something is broken", a publish block says "something is working, please wait".
+
+**Land them together, latency first.** Typed sources double the ladder's transform count, which is exactly why the body says the latency question "is not a footnote". Shipping format negotiation onto an unrationed synchronous publish makes the problem it was costed against twice as bad.
+
+The body language already exists for both, so UATs should trace to those sections rather than new prose. Add language only for what the code settles beyond them.
 
 <!-- xgd-chat-end -->
