@@ -6,9 +6,9 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T00:38:34.408997+00:00'
+updated_at: '2026-09-12T19:29:43.358123+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -333,3 +333,56 @@ The happy paths:
    than minting a new name.
 5. A recorded name that is no longer on the site reports and does not re-add it.
 6. `edit_image` propagates to the site by the same path the modal does.
+
+
+---
+
+## Answered from EPIC-1, 2026-09-12: both scope calls stay
+
+The implementation asked *"say the word if either should come back out"* about
+the two widenings past this ticket's original two bullets. **Both stay**, and
+neither is a widening so much as the ticket's own sentence finished.
+
+### Promotion applying the recipe — stays, and was the epic's answer before it was yours
+
+This was recorded as in scope in §1 above, before the branch was cut, and the
+reasoning has not changed: [[REQ-219]] decided *"the recipe is applied at
+promotion, not at publish"*, and the first promotion is the most obvious thing
+that decision is about. Without it the gap has two doors and the client cannot
+tell them apart — *promote then crop* was fixed and *crop then promote* was not,
+with one symptom between them.
+
+The implementation's own argument is the better one and should be the one that
+survives here: `image-ladder.ts` carries a comment asserting it ladders *"bytes
+that promotion already produced by applying the recipe"*. Leaving promotion
+un-rendering would have left that comment false while every suite stayed green,
+which is precisely the failure mode [[REQ-222]]'s and [[REQ-220]]'s seams
+already demonstrated.
+
+**Keeping the renderer optional is right.** A deployment with no `[images]`
+binding promotes the original, which is the behaviour that predates recipes and
+the same answer `rendered: false` already gives the editor. Making it required
+would turn *"this deployment cannot crop"* into *"this deployment cannot publish
+a logo"* — a much larger claim than a missing binding supports.
+
+### The `edit_image` path — stays, and leaving it out would have been the bug
+
+The epic's principle is *one mechanism, in one place*. A propagation that fired
+for the modal and not for `edit_image` would mean the same operation, on the same
+record, reaches the site when a client does it and does not when the assistant
+does — a difference with no explanation a client could be given.
+
+And the timing makes it sharper than a symmetry argument: [[REQ-228]] has landed,
+so the assistant now reads the catalogue as tickets and can promote. The surface
+the product leads with is the one that would have silently not worked. Wrapping
+the library recipe port so both producers pass through one function is the same
+shape [[REQ-220]] used for its own write path — *a second producer of structured
+edits, never a second definition of one*.
+
+### One consequence worth stating plainly
+
+Because promotion now renders, **an unedited picture must pay no transform**.
+The empty-recipe short-circuit is not an optimisation — it is what keeps
+promotion's cost unchanged for the overwhelming majority of pictures, which have
+no recipe and never will. That is load-bearing for [[REQ-222]]'s publish-latency
+budget, which was costed before promotion rendered anything.
