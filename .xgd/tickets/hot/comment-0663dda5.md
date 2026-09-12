@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-89
 created_by: xgd
 created_at: '2026-09-12T21:58:45.370218+00:00'
-updated_at: '2026-09-12T22:11:55.558183+00:00'
+updated_at: '2026-09-12T22:14:05.055254+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,40 @@ One thing I did **not** do, and it's worth your call: the panels' `shell.storage
 <!-- xgd-chat role="user" ts="2026-09-12T22:11:55.460400+00:00" -->
 #### You
 Is this fix something that should be pushed back to lagrange framework?
+
+<!-- xgd-turn id="fc6705ad-ffd6-42dd-b063-3e29f3f0fac7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:14:04.888290+00:00" -->
+#### Claude
+Good question — let me check the upstream source rather than answer from the vendored copy.
+
+Partly, yes — **the affordance belongs upstream; the policy does not.** I checked the vendored copy against the framework source first: `components/webui/list-detail/js/src/*` is byte-identical to `apps/control-app/dist-assets/webui/webui-list-detail/src/*`, so what we're running *is* current upstream.
+
+**What should go upstream: a `clearDetail()` on the controller.**
+
+The documented controller (`components/webui/list-detail/js/README.md:76-88`) has `setItems`, `select`, `openTab`, `closeTab`, `getActiveTab` — and no way to say "nothing is open". My helper composes it from three calls, and leans on two behaviours that upstream neither documents nor tests:
+
+- `closeTab(activeKey)` in `no-tab` mode destroying the record and restoring `emptyDetail` — real (`detail.js:306-322`), but the only `no-tab` test upstream covers *replacement*, never *close* (`test_UAT_FC_REQ-23_detail_modes.test.js:10-33`).
+- `select(null)` clearing the selection without opening anything — real, unstated.
+
+So 1stcontact's tenant fix currently rests on incidental behaviour of a vendored component nobody upstream is holding still. That's the real argument, and it's enough on its own. The secondary one: a three-call idiom for "empty this pane" is exactly what hosts get wrong — it already happened twice in one codebase, in Contacts and the Library independently, each having written down the promise it then kept only for the list.
+
+**What must not go upstream: making `setItems()` clear the detail.**
+
+This is the tempting fix and it would be a bug. Both panels call `setItems()` with a *filtered* view — `people.js` `apply()` is `setItems(all.filter(matches))`, `library.js` is `setItems(visible())` over role/kind/text filters — on every keystroke and facet change. Auto-closing the detail when the open key left `items` would slam the open document shut the moment a search box excluded it. Detail lifetime has to stay independent of the visible set, and the primitive cannot tell a business switch from a filter. Only the host knows a switch happened, so "clear on switch" stays here.
+
+**Honest caveat on the cost/benefit:** grepping sanctum, francisconnect and lagrange-biz, nothing else mounts `mountListDetail` today — 1stcontact and the framework's own showcase demo are the only consumers. So this isn't "fix it for everyone", it's "pin the behaviour we now depend on, and stop the next host falling in the same hole."
+
+**What I'd file** (small, low priority, `lagrange-framework` — I checked, no existing ticket mentions `clearDetail`):
+- `clearDetail()` on the controller — closes every open detail (all tabs in `tab` mode, the single one in `no-tab`), clears the selection, shows `emptyDetail`. Upstream's call on the tab-mode semantics; that's the one genuine design question.
+- Tests pinning it in both modes, plus the currently-untested `no-tab` close → empty pane.
+- One line in the README's composition notes saying detail lifetime is independent of the item list — that sentence is the whole trap.
+- `PUBLIC-API.md` regenerates via `bin/project/check-boundaries --write`; it's an addition, so cheap.
+
+Then here, `detail-pane.js` collapses into `listDetail.clearDetail()` at both call sites and gets deleted. The route is a framework release plus `bin/install --lang js --component list-detail`, since the dependency is implicit — nothing in our `package.json` records it.
+
+I would not block BUG-89 on any of that: the fix as landed uses only public methods, is tested here, and stays correct either way.
+
+Want me to file that ticket in `lagrange-framework`? I've left BUG-89 alone for now — say the word and I'll also append this rationale to its body, since a reconciler will ask exactly why the fix is a local helper rather than a component change.
 
 <!-- xgd-chat-end -->
