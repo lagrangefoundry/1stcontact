@@ -5,10 +5,10 @@ type: bug
 title: Switching business shows a same-named site from the wrong business
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T21:58:13.622062+00:00'
-updated_at: '2026-09-12T22:46:58.434022+00:00'
+updated_at: '2026-09-12T23:28:26.530015+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
