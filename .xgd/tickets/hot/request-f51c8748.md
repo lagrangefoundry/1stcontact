@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-12T00:19:36.738650+00:00'
+updated_at: '2026-09-12T22:27:24.482774+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -638,3 +638,71 @@ ladder ladders the corrected ones, exactly as the body says. Recorded so a
 reviewer does not read *"nothing about the ladder needs to know a recipe
 exists"* as *"the client's crop reaches their site"* — the first is true now,
 the second is not true until REQ-229 lands.
+
+
+---
+
+## Noted from EPIC-1, 2026-09-12: two decided sections of this body have no code behind them
+
+This ticket is `ready_to_reconcile`. Its body now contains **two operator
+decisions that were made after the width ladder landed and were never built**,
+and nothing in the ticket says so. A reconciler comparing UATs to body language
+will find language with no tests behind it and have to guess whether that is
+drift or debt. It is debt, and this records which.
+
+**Verified against the code, not inferred:**
+
+### 1. `<picture>` with typed `<source>` elements — decided, not built
+
+*"Answered by the operator, 2026-09-11"* decides it plainly: **the sink emits
+`<picture>` with typed `<source>` elements**, two formats (the source's own plus
+WebP), WebP first because the browser takes the first `type` it supports, and the
+original as the final fallback inside `<img>`.
+
+`packages/framework/src/l1/render.ts` contains **no `<picture>` and no
+`<source>`** — zero matches. The sink still emits a bare `<img srcset>`, which is
+what the body's *earlier* section scoped and what actually shipped. `encodeAs` /
+`OUTPUT_FORMATS` exist only in `apps/control-app/src/image-edit.ts`, where they
+key a *recipe* render's output on its input type — that is [[REQ-219]]'s
+format-preservation, not delivery format negotiation.
+
+**This is the one the decision itself says is expensive to defer.** Its stated
+reason for deciding now rather than later was that adding a `type=`d source later
+*"means changing the element the sink produces… every test that asserts an `<img>`
+becomes a test that asserts an `<img>` wrapped in something."* Every UAT this
+ticket shipped asserts the `<img>`. The retrofit the decision was taken to avoid
+is now exactly the retrofit in front of whoever picks this up — the decision was
+recorded but not acted on, so it bought nothing.
+
+### 2. The publish lock, its message, and the progress bar — decided, not built
+
+*"Operator decision, 2026-09-11: what a publish looks like while it runs"* makes
+three things deliverables — the builder locks, a message explains, the bar is
+real — and says explicitly that the latency section *"makes 'the publish says what
+it is doing' a deliverable rather than a nicety."*
+
+`publishAction` (`builder/toolbar.js:235`) is **unchanged**: `btn.disabled =
+true`, `await publish(slug)`, re-enable in a `finally`. That is precisely the
+state the body describes as the problem. `blockEverything` has one caller
+(`app.js:254`), the AI-unavailable banner, and none for publishing.
+
+**And the ladder is not rationed.** `buildImageLadder` walks assets and widths in
+a plain sequential loop with no concurrency ceiling and no budget, so the
+"minutes is the budget" section has no mechanism behind it either.
+
+### Why this matters more than an ordinary gap
+
+**It is the same shape as [[REQ-219]]'s unbuilt join**, which became [[REQ-229]]:
+a decision written into a body, a ticket that reads as finished, and no suite
+anywhere going red — because a decision nobody implemented breaks no test. That
+one cost the epic its headline promise until it was found. This one is cheaper
+(nothing is *wrong*, the ladder is correct and the publish works) but it has the
+same failure mode: the body asserts behaviour the code does not have.
+
+**What is actually built and correct**, so this is not read as broader than it is:
+the width ladder at publish, `srcset` + a computed `sizes`, the background-image
+per-width rules, `width`/`height` stamping, `immutable` on content-addressed
+renditions, and format *preservation*. All of that shipped and is covered.
+
+**The scope call is the operator's** — whether these reopen this ticket or become
+a follow-up — and is surfaced rather than taken here.
