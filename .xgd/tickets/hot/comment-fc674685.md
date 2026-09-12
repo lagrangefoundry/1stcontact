@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-76
 created_by: xgd
 created_at: '2026-09-10T21:38:50.774404+00:00'
-updated_at: '2026-09-12T00:05:53.695006+00:00'
+updated_at: '2026-09-12T00:07:39.220747+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -161,5 +161,23 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="35d865be-ff81-4053-8956-d5c6f9a673f8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:07:39.042555+00:00" -->
+#### Claude
+Merge already landed and the ticket is `free_coded` with both SHAs. Only teardown is outstanding.
+
+Free-coding on BUG-76 is complete.
+
+**What was outstanding** — the merge had already landed (both SHAs are ancestors of `xgd-working`, ticket at `free_coded`, version `0.2.172`). The only unfinished step was teardown:
+
+- `xgd branch clean BUG-76` — worktree removed, branch deleted, merge lock released. `git worktree list` confirms `free-BUG-76` is gone.
+
+**Verification** — ran the five relevant UAT files in the foreground on `xgd-working`: 29 tests, all passing.
+
+One fix along the way: `test_UAT_FC_REQ_200_no_branch_on_which_site_or_business_it_renders_for` was failing with `EISDIR` in your main checkout. Cause was the empty untracked harness directory `packages/framework/src/modules/account-chrome/.claude/.cc-writes/` — the test does `readdirSync` over the module dir and `readFileSync` on each entry. I checked both directories were empty and removed them; the file now passes 12/12. Nothing tracked was touched, so no commit. If the harness recreates it, the durable fix is a `statSync().isFile()` guard in that loop — say the word and I'll land it on this ticket.
+
+**Recorded on the ticket** — appended an "As built" section: the two commits, the four UAT files, and the one outstanding item that is *not* fixable from this repo. The contract is now version 2, so any stored `account-chrome` instance still carrying `config.sentMessage` and lacking `sent`/`error` slots will no longer resolve. The committed `1stcontact` draft was migrated in the change; the instance the original session authored lives in the live R2-backed store and needs the same two slots added there — the same data repair defect 4b already calls for, on the same instance.
 
 <!-- xgd-chat-end -->
