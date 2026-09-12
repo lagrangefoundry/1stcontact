@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:39:54.689264+00:00'
+updated_at: '2026-09-12T01:01:31.965342+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -185,5 +185,80 @@ Before I cut the branch, one scoping call: **does the upgrade pass write, or onl
 <!-- xgd-chat role="user" ts="2026-09-12T00:39:54.372946+00:00" -->
 #### You
 Agree go ahead
+
+<!-- xgd-turn id="60e650e0-5cda-4e7a-a8fb-74b8bddc299d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T01:01:31.514695+00:00" -->
+#### Claude
+Scoping the ticket now with the full behaviour spec, so the UATs have language to trace to.
+
+Now the framework layer — `migrations` on the contract plus `upgradeInstance`.
+
+Adding the `migrations` field to the contract:
+
+Now the upgrade module:
+
+Now the `account-chrome` v1→v2 migration itself:
+
+Exporting the upgrade surface from both entries:
+
+Now the port-level pass over `SiteStore`:
+
+Clean. Now the CLI verb:
+
+Adding `editModuleUpgrade` to the edit surface, then wiring the CLI:
+
+Now wiring the CLI dispatch and usage text:
+
+Now the Worker route so the pass can reach D1 — the store that actually broke:
+
+Now the UATs. Starting with the guard and the instance-level behaviour:
+
+Guard is red exactly as expected — and broader than `account-chrome`: `contact-form` v2–4 and `carousel` v2–3 have no migrations either. Those are bumps whose old contracts are long gone, for versions nothing has ever been stored at. That needs an explicit declaration rather than a silent exemption:
+
+Now declaring the extinct versions on the two modules, with the evidence:
+
+Parity check: the migration reproduces the hand repair **exactly**, except one line — and that difference is instructive:
+
+Now the port-level and route UATs:
+
+Now the route UAT — how are router tests structured here?
+
+Now updating the ticket with the `migrationsFrom` behaviour, which the guard forced into existence:
+
+Now the full suite, to check nothing else regressed:
+
+Two of the four are mine. Fixing:
+
+Workers suite fully green. Verifying the CLI path end-to-end against the real filesystem store:
+
+Done — both parts landed. BUG-85 is `free_coded` at `efba90de`, merged into `xgd-working`.
+
+## Your site
+
+Fixed and verified earlier — every stored pin in D1 resolves. Restart the dev server if it's still holding a cached page.
+
+## 2b, as built
+
+**The migration can't be derived, so the design doesn't pretend it can.** `BehaviorMeta.migrations` holds a hand-written function keyed by the version it produces; `account-chrome` carries `{ 2: accountChromeV1ToV2 }`. Everything around it is automated:
+
+- **`upgradeInstance`** chains the steps, then validates against the target contract and **throws** if the result fails it. Undeclared keys are dropped *after* the migrations have read them (v1→v2 needs `sentMessage`) and every one is named in the report.
+- **`upgradeSiteModules`** runs port-to-port over `SiteStore`, read-only unless asked. Its default mode *is* the audit.
+- **`1c module upgrade <slug> [--write]`** drives the filesystem store; **`POST /api/modules/upgrade`** drives D1 from inside the Worker.
+- **`missingMigrations()`** is the guard — pure function of the catalog, so a bump without its migration goes red in the commit that does the bumping.
+
+**A strong result worth flagging:** running the new migration against the captured orphan reproduces my hand repair *byte for byte*, with exactly one difference — the error card's wording. The migration uses v1's actual hardcoded string (verified at `component.ts:123` in `9ff59758e8`), on the principle that an upgrade changes where words are authored, not what the visitor reads. Your site keeps the wording you approved, and because the migration only authors a card where none exists, re-running never clobbers it.
+
+## One thing I had to design that wasn't in the plan
+
+Landing the guard immediately showed it demands more than `account-chrome`'s missing step: `contact-form` v2–4 and `carousel` v2–3 have no migrations either. Writing those means inventing transformations of contracts that no longer exist, for data in no store — untestable code whose only effect is a green guard. But *omitting* them silently is exactly how this bug shipped.
+
+So I added **`migrationsFrom`**: the oldest version a module still migrates from, defaulting to 1. Below it, versions are *declared extinct* — a number a reviewer sees, carrying its evidence in the comment (last `contact-form` bump 2026-07-25, earliest cloud site 2026-09-06, audit found ten instances all at v4). A floor is a **claim about the world**, not an exemption, so an instance found below one is refused with its own message telling you to lower the number and write the steps.
+
+## Test state
+
+New: 35 assertions across five UATs. Full workers suite **759/759 green** (including the new route against real D1). Node suite: two failures I introduced and fixed (the origin-route probe and an unscrubbed error path caught by the REQ-146 boundary test — good catch by that test), plus `AC961`, the known dist-assets rebuild race that passes in isolation.
+
+Two pre-existing failures on `xgd-working` are untouched by this work — I confirmed both fail identically on the unmodified tree: `bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings`.
 
 <!-- xgd-chat-end -->
