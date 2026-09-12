@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T19:28:17.401071+00:00'
+updated_at: '2026-09-12T19:31:13.460987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -922,5 +922,50 @@ I filed nothing new.
 <!-- xgd-chat role="user" ts="2026-09-12T19:28:17.316454+00:00" -->
 #### You
 Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="2a089dce-8a1a-4803-ab8a-1975138d0310-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T19:31:12.370362+00:00" -->
+#### Claude
+Re-running the sweep — the roster and transcripts may have moved since.
+
+REQ-229 has moved — now `ready_to_reconcile` with new chat turns since my last read. Let me read what happened.
+
+The implementation matches all four answers exactly. The one new question is the implementer's scope check — answering it.
+
+One discrepancy between my recorded answer and what landed — worth resolving before reconciliation reads it as a gap.
+
+Re-swept all seven children. Roster unchanged; six had no new transcript turns and no body changes beyond my appends from the last pass. **REQ-229 moved** — it went `draft` → implemented → `ready_to_reconcile`, so the whole epic is now at that status.
+
+## REQ-229 landed, and it built the four answers exactly
+
+I verified each against the code rather than the summary:
+
+- **Promotion now renders** — `promoteToSiteAsset` takes an optional `ImageRenderer`, reads the recipe off the record, and `renderedBytes` short-circuits on an empty recipe or no binding.
+- **`placed_as`** is a separate declared field, a list of `{slug, name}`, with `placed_on` explicitly unioned rather than derived from it — so the fail-open hazard in `placedOn()` I flagged never comes into play.
+- **`editAssetReplace`** is a sibling of `editAssetAdd`, throwing `NOT_FOUND` rather than re-adding, over the same `store.write`.
+- **`reviseRecipe`** threads the site store and renderer.
+
+## The one new question, answered
+
+The implementer asked *"say the word if either should come back out"* about two widenings. **Both stay**, recorded on the ticket:
+
+- **Promotion applying the recipe** — the epic had already put this in scope last pass, and their own argument is better than mine: `image-ladder.ts` carries a comment asserting it ladders *"bytes that promotion already produced by applying the recipe"*. Leaving promotion un-rendering would have left that comment false with every suite green.
+- **The `edit_image` path** — REQ-228 has landed, so the assistant reads the catalogue and can promote. A propagation firing for the modal but not for `edit_image` would mean the same operation on the same record reaches the site for the client and not for the assistant.
+
+## One discrepancy I resolved rather than flagged
+
+My §4 asked that the `republishable` gate travel with the bytes on re-promotion. `republishMaterial` doesn't check it — and that's correct: `republishable` is derived only in `reviseRole`, never accepted from a caller, and `reviseRole` refuses narrowing to `reference` once `placed_on` is non-empty. A material with placements cannot have stopped being republishable. I recorded why, so reconciliation doesn't read the omission as an unbuilt requirement.
+
+## Still open — unchanged from last pass, no new information
+
+1. **REQ-219 — description staleness.** `description_status` has no value meaning *produced but no longer true*; adding one widens every predicate over the field.
+2. **REQ-222 — whether an Images transform counts against the same outbound-subrequest budget as an R2 write.** Unverified; decides whether the publish concurrency guard is real.
+
+## One observation, not a question
+
+`safeRecipe` swallows a parse failure and returns `[]`, so an unparseable `fields.edits` promotes the original silently — this ticket's headline symptom, via a catch block. I checked the reachability: both writers (`reviseRecipe` and `edit_image`) parse before writing, and the assistant's grants compose per-surface rather than through `instances.json`, so there's no granted path to a malformed value. It's defensive-only today. Mentioning it because it's a fail-open on the one invariant this ticket exists to hold, not because I think it needs action now.
+
+I filed nothing new and changed no child's status.
 
 <!-- xgd-chat-end -->
