@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T20:06:18.703967+00:00'
+updated_at: '2026-09-12T20:09:30.334445+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -236,5 +236,32 @@ POST /api/modules/upgrade  {"slug":"1stcontact","write":true}
 for `1stcontact`, `xgd`, `gigabytealchemy`, `alpha` and the two `unnamed` sites. Drop `"write":true` for a dry run first — read-only is the default. Your builder is running on 8788 right now, so I left it alone rather than mutating your store behind a live server.
 
 **2. The KB prose is rebuilt; the vector index isn't.** `kb/system/DOC-47.md` and `REF-behaviors.md` regenerated correctly, but `1c kb build`'s indexing step needs `CLOUDFLARE_API_TOKEN`. Until you re-run it with that set, retrieval still searches the old embeddings.
+
+<!-- xgd-turn id="0e949d5d-02f5-45ba-bfde-9f87ecc9ee78-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:09:30.117731+00:00" -->
+#### You
+I did:
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c assets  
+The system KB corpus and its index disagree, so this bundle would ship documents the assistant cannot retrieve.
+
+  STALE in the index (2) — ranked by vectors built from text they no longer have:
+    DOC-47
+    REF-behaviors
+
+Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order).
+((.venv-working) ) martin@nyx 1stcontact % bin/1c kb build
+index:  11 document(s), 2 embedded
+chunks: 352
+map:    5 territories, 17 access point(s), written by claude_code
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+And restarted wrangler. However, all my sites show me:
+
+Module not found in catalog: 'contact-form' v4. Known modules: contact-form@5, carousel@3, account-portal@1, account-chrome@2.
 
 <!-- xgd-chat-end -->
