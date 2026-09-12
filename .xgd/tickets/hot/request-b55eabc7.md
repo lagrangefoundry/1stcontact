@@ -6,10 +6,10 @@ title: Adopt rolling session credentials — send the rotated cookie, migrate th
   table
 created_by: REQ-151
 created_at: '2026-09-12T20:12:43.372086+00:00'
-updated_at: '2026-09-12T21:14:23.457247+00:00'
+updated_at: '2026-09-12T21:38:25.342303+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
