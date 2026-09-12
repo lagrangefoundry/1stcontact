@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 
 import { contactFormMeta } from '../packages/framework/src/index'
 import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
@@ -31,7 +32,6 @@ import { enhanceAllContactForms } from '../packages/framework/src/modules/contac
 
 // ── The instance under test: a real multi-field form dressed by a real L1 subtree
 const FORM_CONFIG = {
-  action: '',
   fields: [
     { name: 'your-name', label: 'Your name', type: 'text', required: true },
     { name: 'your-email', label: 'Email', type: 'email', required: true },
@@ -62,19 +62,30 @@ interface Mounted {
 }
 
 /**
- * SSR-render the real `contact-form` for `action`, mount it in a real document,
- * and attach the shipped client behaviour exactly as the browser would.
+ * SSR-render the real `contact-form`, mount it in a real document, and attach
+ * the shipped client behaviour exactly as the browser would.
+ *
+ * `action` OVERRIDES THE RENDERED ATTRIBUTE AFTER THE FACT ([[BUG-86]]). It used
+ * to be `config.action`, because the endpoint was an author's to supply; it no
+ * longer is — the module emits its own `LEAD_ACTION` and nothing in `config`
+ * reaches that sink. What these cases are actually about is `canEnhance`'s gate
+ * in `client.js`, which reads the attribute off the form it is handed, so the
+ * attribute is set here rather than configured. The subject is unchanged and the
+ * route to it is honest about where the value can now come from.
  */
-async function mountForm(action: string): Promise<Mounted> {
-  const html = ContactForm({ config: { ...FORM_CONFIG, action }, slots: { form: FORM_SLOT } })
+async function mountForm(action?: string): Promise<Mounted> {
+  const html = ContactForm({ config: FORM_CONFIG, slots: { form: FORM_SLOT } })
   const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`, {
     url: 'https://site.test/contact',
   })
   const document = dom.window.document
   const form = document.querySelector('form[data-contact-form]') as HTMLFormElement | null
   expect(form, 'the module rendered a real form element').not.toBeNull()
+  // The module's own endpoint is what it renders, whatever a caller wanted.
+  expect(form!.getAttribute('action')).toBe(LEAD_ACTION)
   // The no-JS baseline the enhancement must not cancel when it cannot complete.
   expect(form!.getAttribute('method')).toBe('post')
+  if (action !== undefined) form!.setAttribute('action', action)
 
   // `new FormData(form)` inside the client must build from THIS window's form.
   vi.stubGlobal('FormData', dom.window.FormData)
@@ -126,14 +137,14 @@ afterEach(() => {
 // ════════════════════════════════════════════════════════════════════════════
 describe('story-179b8c06 — a non-fetchable endpoint keeps its native submit', () => {
   it('test_UAT_AC877_non_fetchable_endpoint_keeps_the_native_submit', async () => {
-    // ── mailto: / tel: — permitted by the module's own safety check, unsendable
-    //    by fetch(). Both render, and both must decline enhancement silently. ──
+    // ── mailto: / tel: — unsendable by fetch(). A form carrying one must
+    //    decline enhancement silently and keep its native submit. ──
     for (const action of ['mailto:hello@example.test', 'tel:+441234567890']) {
       const fetchMock = fetchReturning({ ok: true, status: 200, json: async () => ({}) })
       const mounted = await mountForm(action)
       fillIn(mounted)
-      // The endpoint really did survive the module's safety check onto the form.
-      expect(mounted.form.getAttribute('action'), `${action} is a rendered endpoint`).toBe(action)
+      // The form really is carrying the endpoint whose scheme is under test.
+      expect(mounted.form.getAttribute('action'), `${action} is on the form`).toBe(action)
 
       const event = await submit(mounted)
 
@@ -224,7 +235,7 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
       expect(fetchMock, `${label} issues exactly one request`).toHaveBeenCalledTimes(1)
 
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-      expect(url, 'sent to the configured endpoint').toBe(action)
+      expect(url, 'sent to the endpoint on the form').toBe(action)
       expect(init.method).toBe('POST')
       expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
 
@@ -301,8 +312,9 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
     // [[REQ-223]] added the asset a public form promises — a key, a name and a
     // URL. None of them says anything about WHICH forms are enhanced, which is
     // the claim below and the reason this list is enumerated at all.
+    // [[BUG-86]] removed `action`, which strengthens the claim rather than
+    // weakening it: the endpoint is not expressible in config at all now.
     expect([...configFields].sort()).toEqual([
-      'action',
       'asset',
       'assetName',
       'assetUrl',

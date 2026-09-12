@@ -37,7 +37,7 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
     // which is about the layout modules that were stripped and not about the size
     // of the catalog.
     expect([...registry.keys()].sort()).toContain('carousel@3')
-    expect([...registry.keys()].sort()).toContain('contact-form@4')
+    expect([...registry.keys()].sort()).toContain('contact-form@5')
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {
       expect([...registry.keys()].some((k) => k.startsWith(`${gone}@`))).toBe(false)
       expect(() => getModule(gone, 1)).toThrow(/not found in catalog/)
@@ -120,7 +120,6 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
 // ════════════════════════════════════════════════════════════════════════════
 describe('STORY-82 — contact-form presentation via capability config + L1 slots', () => {
   const config = {
-    action: 'https://example.com/lead',
     fields: [
       { name: 'name', label: 'Your name', type: 'text', required: true },
       { name: 'email', label: 'Email', type: 'email', required: false },
@@ -136,8 +135,9 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     // config in the same sense `action` is — WHICH artifact the form is gated on
     // — and none of them bottoms out in a CSS value, which is the test that
     // separates config from a dial ([[DOC-25]] §2).
+    // [[BUG-86]] removed `action`: the endpoint is the module's own and was
+    // never an author's to supply. The remaining keys are all behavioural.
     expect(Object.keys(contactFormMeta.config).sort()).toEqual([
-      'action',
       'asset',
       'assetName',
       'assetUrl',

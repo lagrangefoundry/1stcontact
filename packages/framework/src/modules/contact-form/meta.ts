@@ -1,5 +1,6 @@
 import type { BehaviorMeta } from '../behavior'
 import { FIELD_TYPES } from './fields'
+import { contactFormV4ToV5 } from './migrate'
 
 /**
  * `contact-form` (reframed to a behavior by REQ-85; made layout-agnostic **by
@@ -25,11 +26,32 @@ import { FIELD_TYPES } from './fields'
  */
 export const contactFormMeta = {
   id: 'contact-form',
-  version: 4,
+  version: 5,
   kind: 'behavior',
   config: {
-    // Submission endpoint — the no-JS form action and the fetch() target.
-    action: { type: 'url', required: true },
+    /*
+     * THERE IS NO `action` HERE ANY MORE ([[BUG-86]]).
+     *
+     * It was `{ type: 'url', required: true }`, which made the submit target of
+     * this product's own lead capture a value somebody had to know and type.
+     * The generated reference the builder AI reads rendered the whole of it as
+     * "`action` — url; required": no default, no hint that the product has a
+     * lead endpoint, nothing that could tell an author the right answer. What
+     * that produced is on the record in [[BUG-86]] — a route that had never
+     * been built, a third party's API, and `https://example.com/enquiry`.
+     *
+     * THE ENDPOINT IS THE MODULE'S, NOT THE PAGE'S. It is emitted by
+     * `component.ts` from `LEAD_ACTION`, document-relative, and is correct on
+     * every channel with nothing configured per site. The author's freedom is
+     * unchanged where it belongs: the `form` slot, every `control` node and the
+     * whole L1 subtree are untouched by this. What went away is the ability to
+     * misconfigure the functionality, not the ability to design it.
+     *
+     * AND IT IS NOT A GENERAL WEB FORM. This module captures an email into the
+     * site's own contact list; a form that could post elsewhere would look like
+     * this product's capture and silently be none of it — no contact record, no
+     * asset delivery, no server-side honeypot, no Turnstile.
+     */
     // The field schema: { name, label, type, required } — see FIELD_TYPES.
     fields: {
       type: 'list',
@@ -147,4 +169,14 @@ export const contactFormMeta = {
    * says to lower this number.
    */
   migrationsFrom: 4,
+  /**
+   * The step into v5, declared beside the bump that needs it ([[BUG-85]]).
+   *
+   * It carries nothing, and `migrate.ts` explains at length why it is written
+   * down anyway: a declared step is the precondition for a bump, not a
+   * courtesy, and an identity function is how a bump says "nothing to carry"
+   * in a way that cannot be mistaken for the omission the guard exists to
+   * catch.
+   */
+  migrations: { 5: contactFormV4ToV5 },
 } as const satisfies BehaviorMeta

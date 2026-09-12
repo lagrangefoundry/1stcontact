@@ -15,6 +15,7 @@ import { CATALOG, getModule, latestModuleVersion } from '../packages/framework/s
 import { MODULE_CSS } from '../packages/framework/src/modules/module-assets'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import { contactFormProps, contactFormSeed } from './support/behavior-site'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 
 /**
  * REQ-148 — Astro is GONE from the render path, and the module render is one
@@ -105,7 +106,7 @@ describe('REQ-148 — the render path is Astro-free', () => {
       // Everything but the module root's opening tag, which the renderer stamps
       // the editor's hook onto.
       expect(html).toContain(direct.slice(direct.indexOf('>') + 1))
-      expect(html).toContain('action="https://forms.example/contact"')
+      expect(html).toContain(`action="${LEAD_ACTION}"`)
       // The invariant chrome is folded into theme.css, not inlined per instance.
       const themeCss = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
       expect(themeCss).toContain('.contact-form__label')
@@ -123,7 +124,6 @@ describe('REQ-148 — the render path is Astro-free', () => {
     const { Component } = getModule('contact-form', latestModuleVersion('contact-form')!)
     const html = Component({
       config: {
-        action: 'https://forms.example/x',
         submitLabel: 'Send',
         successMessage: '<script>window.__pwned=1</script>',
         fields: [
@@ -144,15 +144,24 @@ describe('REQ-148 — the render path is Astro-free', () => {
     expect(html).toContain('&quot;&gt;&lt;img src=x onerror=alert(1)&gt;')
   })
 
-  it('test_UAT_FC_REQ-148_an_unsafe_endpoint_is_refused_loud', () => {
-    // The other half of the same boundary, unchanged by the conversion: a
-    // `javascript:` action is not escaped into harmlessness, it is REFUSED
-    // (REQ-46). Failing loud is the contract the conformance security dimension
-    // credits, so the conversion must not have softened it into an escape.
+  it('test_UAT_FC_REQ-148_the_endpoint_takes_no_author_input_at_all', () => {
+    // This case proved that a `javascript:` ACTION was refused rather than
+    // escaped (REQ-46) — the conversion must not have softened a loud failure
+    // into a quiet escape. [[BUG-86]] retired the question by deleting the
+    // setting: there is no author-supplied endpoint to refuse, because the
+    // endpoint is a constant the module owns.
+    //
+    // The property that replaces it is stronger and is what this now asserts:
+    // NOTHING a caller puts in `config` reaches the action sink. A config that
+    // still carries the old key renders the module's own endpoint and not the
+    // caller's — the key is undeclared, so it is inert rather than honoured.
     const { Component } = getModule('contact-form', latestModuleVersion('contact-form')!)
-    expect(() =>
-      Component({ config: { action: 'javascript:alert(1)', fields: [] }, slots: {} }),
-    ).toThrow()
+    const html = Component({
+      config: { fields: [], action: 'javascript:alert(1)' },
+      slots: {},
+    })
+    expect(html).toContain(`action="${LEAD_ACTION}"`)
+    expect(html).not.toContain('javascript:')
   })
 
   it('test_UAT_FC_REQ-148_module_css_is_only_the_invariant_chrome', () => {

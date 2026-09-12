@@ -56,7 +56,7 @@ import { validateL1 } from '../packages/site-schema/src/index'
 function render(fields: Array<Record<string, unknown>>, instanceId = 'signup'): string {
   return contactForm({
     instanceId,
-    config: { action: '/api/lead', fields, submitLabel: 'Send' },
+    config: { fields, submitLabel: 'Send' },
     slots: {
       form: {
         kind: 'container',
@@ -73,7 +73,6 @@ describe('REQ-223 — the public form surface', () => {
     expect(FIELD_TYPES).toContain('checkbox')
     expect(
       validateBehaviorConfig(contactFormMeta, {
-        action: '/api/lead',
         fields: [{ name: 'list', label: 'Email me about new papers', type: 'checkbox' }],
       }),
     ).toEqual([])
@@ -135,7 +134,7 @@ describe('REQ-223 — the public form surface', () => {
     const html = contactForm({
       instanceId: 'signup',
       edit: true,
-      config: { action: '/api/lead', fields: [{ name: 'email', label: 'E', type: 'email' }] },
+      config: { fields: [{ name: 'email', label: 'E', type: 'email' }] },
       slots: { form: { kind: 'container', layout: 'stack', children: [] } },
     })
     expect(html).not.toContain('method="post"')

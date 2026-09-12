@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 
 /**
  * REQ-116 — **the edit render** (DOC-28 §5, §6): a third render channel producing
@@ -102,10 +103,9 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 4,
+      version: 5,
       slot: 'get-in-touch',
       config: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       slots: {
@@ -186,7 +186,7 @@ describe('REQ-116 — the edit render', () => {
 
     // The draft page works: a real link, a real endpoint, a real client bundle.
     expect(draftHtml).toContain('href="https://example.com/paper"')
-    expect(draftHtml).toContain('action="https://example.com/submit"')
+    expect(draftHtml).toContain(`action="${LEAD_ACTION}"`)
     expect(draftHtml).toContain('method="post"')
     expect(draftHtml).toContain('capabilities.js')
 
@@ -195,7 +195,7 @@ describe('REQ-116 — the edit render', () => {
     expect(editHtml).not.toMatch(/<a[^>]*\shref=/)
     expect(editHtml).not.toContain('target="_blank"')
     // No form action and no submit verb: nothing can leave the page.
-    expect(editHtml).not.toContain('action="https://example.com/submit"')
+    expect(editHtml).not.toContain(`action="${LEAD_ACTION}"`)
     expect(editHtml).not.toContain('method="post"')
     // No behaviour script is referenced, and none is written beside the page —
     // a bundle left in the directory is one stray <script> from working again.

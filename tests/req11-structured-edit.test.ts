@@ -79,7 +79,6 @@ function seedSurvivingModules(slug: string): void {
       variant: 'inline',
       dials: {},
       content: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
     },

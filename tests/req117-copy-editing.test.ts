@@ -80,10 +80,9 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 4,
+      version: 5,
       slot: 'get-in-touch',
       config: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       slots: {

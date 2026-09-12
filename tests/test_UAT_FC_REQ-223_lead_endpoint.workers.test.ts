@@ -468,7 +468,7 @@ describe('REQ-223 — POST /api/lead', () => {
     // every site that has ever carried a form.
     const form = contactForm({
       instanceId: 'served',
-      config: { action: '/api/lead', fields: [{ name: 'email', label: 'E', type: 'email' }] },
+      config: { fields: [{ name: 'email', label: 'E', type: 'email' }] },
       slots: { form: { kind: 'container', layout: 'stack', children: [] } },
     })
     const site = await seedFormSite({

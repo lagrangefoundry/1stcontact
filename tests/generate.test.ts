@@ -75,9 +75,8 @@ function seedSurvivingModules(slug: string): void {
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 4,
+      version: 5,
       config: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       slots: {

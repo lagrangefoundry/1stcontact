@@ -6625,10 +6625,9 @@
     {
       "id": "form-0",
       "type": "contact-form",
-      "version": 4,
+      "version": 5,
       "slot": "form-0",
       "config": {
-        "action": "https://api.gigabytefoundry.ai/contact",
         "fields": [
           {
             "name": "your-name",
@@ -7035,10 +7034,9 @@
     {
       "id": "form-1",
       "type": "contact-form",
-      "version": 4,
+      "version": 5,
       "slot": "form-1",
       "config": {
-        "action": "",
         "fields": [
           {
             "name": "your-email-address",

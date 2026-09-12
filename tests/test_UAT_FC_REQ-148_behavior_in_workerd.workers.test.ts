@@ -5,6 +5,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { applySchema } from './support/d1-site-factory'
 import { contactFormProps, contactFormSeed } from './support/behavior-site'
+import { LEAD_ACTION } from '../packages/framework/src/modules/contact-form/fields'
 
 /**
  * REQ-148 — a behavior module renders IN WORKERD.
@@ -77,7 +78,7 @@ describe('REQ-148 — behavior modules render in workerd', () => {
     // The module's own chrome, its behavioural attributes, and the L1 controls
     // mounted into its slot — all produced inside workerd.
     expect(html).toContain('data-fc-type="contact-form"')
-    expect(html).toContain('action="https://forms.example/contact"')
+    expect(html).toContain(`action="${LEAD_ACTION}"`)
     expect(html).toContain('method="post"')
     expect(html).toContain('<label class="contact-form__label"')
     expect(html).toContain('id="cf-message"')
@@ -112,7 +113,7 @@ describe('REQ-148 — behavior modules render in workerd', () => {
     expect(edit.status).toBe(200)
     const html = await edit.text()
     expect(html).toContain('data-contact-form')
-    expect(html).not.toContain('action="https://forms.example/contact"')
+    expect(html).not.toContain(`action="${LEAD_ACTION}"`)
     expect(html).not.toContain('method="post"')
   })
 })

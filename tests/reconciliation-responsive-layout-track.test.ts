@@ -198,10 +198,9 @@ describe('story-3569e1a4 — per-width layout mode + wrapping rows', () => {
             {
               id: 'signup',
               type: 'contact-form',
-              version: 4,
+              version: 5,
               slot: 'signup-form',
               config: {
-                action: '/api/lead',
                 submitLabel: 'Request access',
                 fields: [
                   { name: 'first_name', label: 'First name', type: 'text', required: true },

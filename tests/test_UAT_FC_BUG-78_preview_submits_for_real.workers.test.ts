@@ -217,9 +217,8 @@ describe('BUG-78 — the preview submits for real', () => {
               {
                 id: site.instanceId,
                 type: 'contact-form',
-                version: 4,
+                version: 5,
                 config: {
-                  action: '/api/lead',
                   submitLabel: 'The draft wording',
                   fields: [
                     { name: 'email', label: 'Your email', type: 'email', required: true },

@@ -35,9 +35,8 @@ function seedModules(cwd: string, slug: string): Array<{ id: string; type: strin
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 4,
+      version: 5,
       config: {
-        action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
       // REQ-96 — the form's presentation is an L1 subtree with a control leaf
