@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-12T23:06:23.955023+00:00'
+updated_at: '2026-09-12T23:13:14.197771+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -39,6 +39,7 @@ fields:
   version: 0.2.165
   story_points: 8
 ---
+
 
 
 ## The gap
@@ -921,6 +922,28 @@ they are just not answering yet.
 
 **The lock is released in a `finally`.** A client locked out of their own draft by
 a failure they cannot see has lost more than the publish.
+
+**A failed publish is reported, and that is not a nicety either.** Before this,
+`publishAction` awaited the publish with no catch — so a failure went to the
+browser console and the button simply came back, which is indistinguishable from
+a publish that worked. Two things make that no longer acceptable: a publish can
+now fail for a reason the client can *act on* (a site whose ladder is larger than
+one request can carry names exactly that), and it can fail after the response
+committed `200`, where the only verdict is in the terminal frame. Treating that
+verdict as a failure means **telling** the client. So the lock wrapper — the one
+place with somewhere to put a message — reports it, in the origin's own sentence
+rather than a substitute for it, as an `alert` rather than a `status`, and it
+**outlives the lock** so the client can actually read it. The next attempt clears
+it, because the previous failure and the current attempt on screen together reads
+as the current one having already failed. Nothing is rethrown: `publishAction` has
+no catch and no surface to report on, so a rethrow would be an unhandled rejection
+and nothing else.
+
+**Not every failure is post-commit, and the contract is only unusual where it has
+to be.** A malformed request — a missing slug — is refused before the response
+becomes a stream at all, so it keeps the ordinary status and the ordinary JSON
+envelope in both forms. That is what a client's own error handling reaches first.
+
 
 ### Still measurements rather than estimates
 
