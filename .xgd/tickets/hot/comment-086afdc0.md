@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T19:43:13.141307+00:00'
+updated_at: '2026-09-12T19:48:59.894118+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -151,5 +151,11 @@ These assertions encode the contract being removed, so they have to move. Let me
 Configs are clean. Now the assertions — let me re-run and see what's left.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="4ba2bb71-881f-4a2a-bb00-7c6fc0deddf8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T19:48:59.560435+00:00" -->
+#### You
+Please continue. Can you also update DOC-47 so we don't confuse ourselves going forward, please.
 
 <!-- xgd-chat-end -->
