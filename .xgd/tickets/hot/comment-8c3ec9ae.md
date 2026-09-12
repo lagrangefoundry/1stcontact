@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T00:22:23.440334+00:00'
+updated_at: '2026-09-12T00:23:41.364394+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,32 @@ Say the word and I'll cut the branch. I'll back up the D1 row before touching it
 <!-- xgd-chat role="user" ts="2026-09-12T00:22:22.960336+00:00" -->
 #### You
 Why did only this site break?
+
+<!-- xgd-turn id="8f325965-5fb9-4bc9-8499-6b5b8bce0286-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:23:41.271988+00:00" -->
+#### Claude
+Three things had to line up, and they only did here.
+
+**1. It's the only site that has an `account-chrome` instance at all.** The module is gated on `config.capabilities.accounts`, declared per site and never derived. Across all seven sites in D1, exactly one declares it:
+
+```
+1stcontact      caps= {'accounts': True}
+gigabytealchemy caps= None
+xgd             caps= None
+alpha           caps= None
+unnamed ×2      caps= None
+xgd (2nd)       caps= None
+```
+
+Everything else is a brochure site whose only module is `contact-form`, which BUG-76 didn't touch. The blast radius of an `account-chrome` bump is "every site with accounts" — a set with one member today.
+
+**2. `contact-form` has never been exposed to this, so it never demonstrated the hazard.** Its last bump (3→4) landed in `3d35dec430` on **2026-07-25**. The earliest site in D1 was created **2026-09-06** — six weeks later. Every stored `contact-form` instance was *born* at v4; there has never been a stored instance on an old `contact-form` pin. The bump that would have taught us this happened before there was any data to break.
+
+**3. The copy that got migrated was the one visible in the repo.** `0b5a32d465` did update `storage/sites/1stcontact/draft/pages/home.json` to v2 — +68 lines adding the `sent`/`error` slots. But that's the file-backed fixture, module `id: "chrome"`. Your draft is a different copy in a different store, module `id: "signin"`. The stored draft was last written `2026-09-11T02:14Z`; the bump landed ~21 hours later and never reached it.
+
+Point 3 is the one that generalises: **a migration done by editing files in the repo can only ever reach the fixtures.** As long as that's how a version bump migrates data, the live stores are structurally guaranteed to be missed — and the only reason this cost one site rather than all of them is point 1. The next bump to `contact-form` hits six.
+
+That sharpens my earlier recommendation: the guard can't just check the repo fixtures, it has to walk a real `SiteStore`. Ticket updated with the analysis.
 
 <!-- xgd-chat-end -->
