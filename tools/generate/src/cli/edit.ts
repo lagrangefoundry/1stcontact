@@ -2314,6 +2314,62 @@ export async function editAssetAdd(
   )
 }
 
+/**
+ * Replace the bytes of an asset that already exists, under the name it already
+ * has ([[REQ-229]]).
+ *
+ * WHY THIS IS NOT `editAssetAdd` WITH THE GUARD REMOVED. That function's whole
+ * promise is that it only ADDS — its collision branch exists because promoting a
+ * second `logo.png` over the first would silently change a picture that is live
+ * on the client's site. This is the one caller for which replacing is the
+ * *intent*: the client edited the picture whose bytes are already at this name,
+ * and an edit replaces the thing it edits. So the two are told apart by which
+ * function is called rather than by a flag, and neither surface can drift into
+ * the other's behaviour by accident.
+ *
+ * IT IS ONE OPERATION, NOT A REMOVE FOLLOWED BY AN ADD. Between those two there
+ * is a window in which the site's pages reference an asset that does not exist —
+ * a broken picture on the client's live draft, and a publish in that window
+ * renders a snapshot with a hole in it. The store's `write` puts bytes at a name
+ * and says nothing about what was there, which is exactly the primitive this
+ * needs and exactly the one `editAssetAdd` has to guard.
+ *
+ * A NAME THAT IS NOT THERE IS `NOT_FOUND`, AND IT IS NOT CREATED. Replacement is
+ * addressed at something; if an operator deleted the asset or a push overwrote
+ * the site, the caller's record of where the bytes went is stale, and quietly
+ * re-adding the picture would put back something somebody removed. It reports
+ * rather than repairs, and the caller decides what that means.
+ */
+export async function editAssetReplace(
+  slug: string,
+  name: string,
+  bytes: Uint8Array,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  if (!(await opts.store.listAssets(slug)).includes(name)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Asset file '${name}' is not in site '${slug}', so there is nothing to replace.`,
+      path: name,
+      hint: `List assets with '1c asset list ${slug}'.`,
+    })
+  }
+
+  await opts.store.write(slug, { assets: [{ name, bytes }] })
+  const asset: SiteAsset = {
+    id: name,
+    src: assetHandle(name),
+    kind: assetKind(name),
+    onDisk: true,
+  }
+  return note(
+    slug,
+    opts,
+    { data: { asset }, human: `Replaced asset '${name}' (${bytes.byteLength} bytes).` },
+    { op: 'asset.replace', label: name },
+  )
+}
+
 // ── generated assets (REQ-130) ───────────────────────────────────────────────
 //
 // `editAssetAdd` above copies a file the operator already has. This writes bytes

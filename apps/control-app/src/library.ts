@@ -32,6 +32,7 @@
 
 import type { CatalogueItem, LibraryDeps, PlacedItem } from '../../../tools/generate/src/cli/ai/library-core'
 import { LibraryRefusedError } from '../../../tools/generate/src/cli/ai/library-core'
+import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   listMaterial,
@@ -96,6 +97,17 @@ export function chatLibrary(
   tickets: TicketStore,
   sites: TenantSiteStore | null,
   slug: string,
+  /**
+   * The renderer, so a picture reaches the site AS IT CURRENTLY STANDS
+   * ([[REQ-229]], [[REQ-219]]).
+   *
+   * PASSED THROUGH RATHER THAN DECIDED HERE. `promoteToSiteAsset` applies the
+   * material's own recipe on the way across the bucket boundary; this surface's
+   * job is to hand it the one renderer the deployment composed, exactly as the
+   * fidelity and image surfaces are handed it, so the assistant's placement and
+   * the client's put the same bytes on the site.
+   */
+  renderer?: ImageRenderer,
 ): LibraryDeps {
   return {
     slug,
@@ -135,16 +147,21 @@ export function chatLibrary(
       // across the write and checking the gate against a stale copy.
       const item = await readMaterial(tickets, name)
       try {
-        const placed = await promoteToSiteAsset(tickets, sites, {
-          uid: item.uid,
-          slug,
-          // THE CLIENT'S OWN FILENAME BY DEFAULT, which is what the upload route
-          // passes and therefore what a file dropped on the conversation is
-          // already called on the site. A picture placed by the assistant and
-          // the same picture placed by the client should not land under two
-          // different names.
-          name: as && as.trim() !== '' ? as.trim() : item.filename,
-        })
+        const placed = await promoteToSiteAsset(
+          tickets,
+          sites,
+          {
+            uid: item.uid,
+            slug,
+            // THE CLIENT'S OWN FILENAME BY DEFAULT, which is what the upload
+            // route passes and therefore what a file dropped on the conversation
+            // is already called on the site. A picture placed by the assistant
+            // and the same picture placed by the client should not land under
+            // two different names.
+            name: as && as.trim() !== '' ? as.trim() : item.filename,
+          },
+          { renderer },
+        )
         return {
           asset: placed.name,
           size: placed.size,

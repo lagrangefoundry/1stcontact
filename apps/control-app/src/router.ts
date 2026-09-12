@@ -54,7 +54,7 @@ import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
-import { imageRendererFor, materialRecipes } from './image-edit'
+import { imageRendererFor, materialRecipes, republishingRecipes } from './image-edit'
 import {
   RecipeRefusedError,
   type ImageRenderer,
@@ -435,7 +435,18 @@ export function sessionPicturesFor(
   const pictures = sessionPictures(store, tickets, renderer)
   return (slug: string) => ({
     images: pictures(slug),
-    recipes: { library: materialRecipes(tickets) },
+    // WRAPPED, SO THE ASSISTANT'S CROP REACHES THE SITE ([[REQ-229]]). `edit_image`
+    // writes a recipe through this port and nothing else; the wrapper is what
+    // makes that write carry to the bytes the client's pages reference, by the
+    // same function the modal's route calls. Without it the assistant would be
+    // able to edit a picture and not to change it.
+    recipes: {
+      library: republishingRecipes(materialRecipes(tickets), {
+        tickets,
+        sites: store,
+        renderer,
+      }),
+    },
     renderer,
   })
 }
@@ -486,6 +497,11 @@ function chatHost(
       // the project corpus is the tenant's real D1 store either way.
       const system = await (deps.knowledge ?? systemKnowledge)(env)
       const knowledge = await sessionKnowledgeFor(env, scope, { system, tickets })
+      // ONE RENDERER PER HOST, composed where every other expensive thing is and
+      // handed to each surface that needs it ([[REQ-219]]). `null` where this
+      // deployment has no `[images]` binding, which is the same ordinary absence
+      // the fidelity and image surfaces already answer to.
+      const renderer = imageRendererFor(env, scope.businessId)
       return workerHost(
         env,
         store,
@@ -556,7 +572,12 @@ function chatHost(
         // BOTH STORES ARE ALREADY TENANT-BOUND, so the surface cannot address
         // another client's material and nothing below re-enforces a barrier it
         // could not reach around anyway.
-        (slug: string) => chatLibrary(tickets, store, slug),
+        //
+        // WITH THE RENDERER, so a picture the assistant places arrives as it
+        // currently stands ([[REQ-229]]). The same one every other surface on
+        // this host is composed from — the catalogue and the client's Library
+        // must not put different bytes on the site for the same material.
+        (slug: string) => chatLibrary(tickets, store, slug, renderer ?? undefined),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -1341,15 +1362,27 @@ async function placeOnSite(
   openTickets: () => Promise<TicketStore>,
   openStore: () => Promise<TenantSiteStore>,
   scrub: (message: string) => string,
+  /**
+   * The renderer, so what lands on the site is the picture as it stands
+   * ([[REQ-229]]).
+   *
+   * NULL IS ORDINARY AND IS NOT A FAILURE — a deployment with no `[images]`
+   * binding promotes the bytes it was given, which is what promotion meant
+   * before recipes existed. Both callers reach this by way of an upload or a
+   * role correction, neither of which has any business refusing over a
+   * capability the client never asked for.
+   */
+  renderer: ImageRenderer | null,
 ): Promise<Record<string, unknown>> {
   if (material.role !== 'site' || !slug) return { site_asset: null }
   const name = String(material.filename ?? '')
   try {
-    const placed = await promoteToSiteAsset(await openTickets(), await openStore(), {
-      uid: material.uid,
-      slug,
-      name,
-    })
+    const placed = await promoteToSiteAsset(
+      await openTickets(),
+      await openStore(),
+      { uid: material.uid, slug, name },
+      { ...(renderer ? { renderer } : {}) },
+    )
     return { site_asset: placed.name }
   } catch (err) {
     return {
@@ -1393,6 +1426,26 @@ async function theOneSite(openStore: () => Promise<TenantSiteStore>): Promise<st
     return slugs.length === 1 ? slugs[0] : undefined
   } catch {
     return undefined
+  }
+}
+
+/**
+ * This business's site store, or nothing at all ([[REQ-229]]).
+ *
+ * THE SAME SOFT READING `theOneSite` TAKES, for the same reason: the paths that
+ * want a site store here are paths whose primary act has already succeeded — a
+ * role corrected, a recipe accepted — and a deployment with no store, or a
+ * business with no site yet, has not done anything wrong. Spread into the deps
+ * object so "there is no store" is the ABSENCE of the key rather than a `null`
+ * every reader downstream has to narrow.
+ */
+async function siteStoreOrNone(
+  openStore: () => Promise<TenantSiteStore>,
+): Promise<{ sites?: TenantSiteStore }> {
+  try {
+    return { sites: await openStore() }
+  } catch {
+    return {}
   }
 }
 
@@ -2601,18 +2654,15 @@ async function routeUncached(
       const renderer = imageRendererFor(env, scope.businessId)
       return json(
         200,
-        await reviseRecipe(
-          store,
-          { uid: body.uid, recipe: body.recipe },
-          renderer
-            ? {
-                measure: async (uid: string) => {
-                  const file = await materialFile(store, uid)
-                  return renderer.measure(file.bytes, file.contentType)
-                },
-              }
-            : {},
-        ),
+        await reviseRecipe(store, { uid: body.uid, recipe: body.recipe }, {
+          ...(renderer ? { renderer } : {}),
+          // THE SITE STORE, SO THE EDIT REACHES THE SITE ([[REQ-229]]). Opened
+          // softly: a deployment or a business with no site is an ordinary thing
+          // to be, and a client editing a picture in their Library must not be
+          // refused because there is nowhere yet for the bytes to go. Absent, the
+          // recipe lands and `republished` is empty — which is also true.
+          ...(await siteStoreOrNone(openStore)),
+        }),
       )
     }
 
@@ -2632,6 +2682,7 @@ async function routeUncached(
         openTickets,
         openStore,
         scrub,
+        imageRendererFor(env, requireScope().businessId),
       )
       const row = placement.site_asset ? await readMaterial(tickets, revised.uid) : revised
       return json(200, { ...row, ...placement })
@@ -2721,6 +2772,7 @@ async function routeUncached(
           openTickets,
           openStore,
           scrub,
+          imageRendererFor(env, requireScope().businessId),
         )),
       })
     }
