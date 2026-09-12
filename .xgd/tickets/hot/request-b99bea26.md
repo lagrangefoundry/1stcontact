@@ -5,7 +5,7 @@ type: request
 title: 'The image modal: viewer, editable Library name, and the editing tools'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:53.431733+00:00'
-updated_at: '2026-09-11T22:30:24.286799+00:00'
+updated_at: '2026-09-12T00:19:24.810608+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -373,3 +373,24 @@ a drawing should become nameable here without anyone having to rediscover why.
 
 **The `materialUidFromUrl` scope defect recorded above is unaffected** and remains
 this ticket's to fix.
+
+
+---
+
+## Answered from EPIC-1, 2026-09-11: your investigation's finding 2 now has a ticket
+
+The investigation's second finding — *"editing the recipe in the Library changes
+the Library's picture and not the site's"*, which contradicts *"what the client
+is looking at after a commit is what will be published"* — was correct, was told
+the answer was in the ticket, and the answer **was** there at the design level
+and was never built. It is now [[REQ-229]] (`request-4b5c10e9`, `draft`).
+
+**Nothing in this ticket needs to change.** The body's line 44 is right that the
+mechanism is re-promotion rather than publish reading the material; it is simply
+not implemented yet, in `material.ts` rather than here. This editor writes a
+recipe, and a recipe is what REQ-229 makes reach the site.
+
+**What it means for reconciling this ticket:** REQ-220's own suite is green and
+correct, and the epic's promise is still false end-to-end until REQ-229 lands.
+That is a seam between tickets, not a defect in this one — recorded here so a
+reviewer meets it as a known gap rather than as a surprise.
