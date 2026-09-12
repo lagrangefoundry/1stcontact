@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-87
 created_by: xgd
 created_at: '2026-09-12T20:49:52.292073+00:00'
-updated_at: '2026-09-12T20:56:28.713276+00:00'
+updated_at: '2026-09-12T21:38:08.649850+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -48,5 +48,15 @@ Two things worth noting beyond your question:
 - **`lead.ts` throws away the outcome.** `apps/public-site/src/lead.ts:462` awaits `captureLead` but never inspects the returned `LeadOutcome` — `unknown_site` and `no_email` both return 200 with nothing written and nothing logged. Not what bit you here, but it's the failure mode that would make this genuinely invisible next time.
 
 I haven't changed anything. Which of these do you want on BUG-87 — the ordering/refresh UX, the discarded `LeadOutcome`, or the production config gap? (The last one may already be covered by BUG-84/`bug-d763b461`, which records the same 405.)
+
+<!-- xgd-turn id="c0dd1e4f-3aba-486a-a997-78073555b2fb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T21:38:08.451647+00:00" -->
+#### You
+**The Contacts pane doesn't self-refresh.** `refresh()` (`apps/control-app/src/builder/people.js:1536`) only runs on operator actions and pane entry. A lead captured by a form while the pane is already open never appears until you reload or switch tabs. m<-- please create a req for this
+
+**Production is not wired for this at all.** `1stcontact.io` returns 404 on `/` and 405 on `POST /api/lead` — `APEX_SITE_KEY` and `TURNSTILE_SITEKEY` are both `""` in `apps/public-site/wrangler.toml` (top-level *and* `[env.production.vars]`). The remote D1 is still at `0001_baseline` with no `accounts`/`user_emails`/`contact_events` tables and zero users. So a real beta signup on the live domain today captures nothing. <-- what does that mean - it has not been deployed to Clouodflare, is that what you mean?
+
+`lead.ts`** throws away the outcome.** `apps/public-site/src/lead.ts:462` awaits `captureLead` but never inspects the returned `LeadOutcome` — `unknown_site` and `no_email` both return 200 with nothing written and nothing logged. Not what bit you here, but it's the failure mode that would make this genuinely invisible next time. <-- what does this mean?
 
 <!-- xgd-chat-end -->
