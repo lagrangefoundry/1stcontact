@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-90
 created_by: xgd
 created_at: '2026-09-12T22:00:54.939955+00:00'
-updated_at: '2026-09-12T22:14:22.707231+00:00'
+updated_at: '2026-09-12T22:25:04.605711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -138,5 +138,15 @@ So there are two independent things, and I'd keep them apart:
 2. **The bug** — carrying the selection across a business change on a per-business-unique name. `unnamed` guarantees it fires in production. This is what BUG-90 should be about, and it's unaffected by whether you clean up (1).
 
 My three questions from before collapse to one now, since the data answered the first: do you want the per-business memory fix alone, or the site selector alongside it? Given 1st Contact legitimately holds `1stcontact` and `gigabytealchemy`, without a selector you still can't reach one of them.
+
+<!-- xgd-turn id="32263ec1-e3b2-4446-8c80-e92cbb3dab10-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:25:04.445978+00:00" -->
+#### You
+ok please delete the copy of the xgd site in 1stcontact. Can you crreate a gigabytealchemy business and put that site there and then delete the 1stcontact copy?
+
+Then lets fix the bug - for now there is one site per business and it should take the name of the business - can you update all our sites to fit that rule please?
+
+There is still an onboarding issue to figure out here, but we can come back to that with the settings work
 
 <!-- xgd-chat-end -->
