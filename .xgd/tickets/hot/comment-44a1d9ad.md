@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:43:07.227006+00:00'
+updated_at: '2026-09-12T00:46:04.003699+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -177,5 +177,29 @@ Want me to write this into REQ-187 as a proposed design section — the clock/be
 <!-- xgd-chat role="user" ts="2026-09-12T00:43:06.452466+00:00" -->
 #### You
 please write it up and create a ticket in lagrange-framework
+
+<!-- xgd-turn id="823732d3-734e-4714-9813-f408d6989b4c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:46:03.933983+00:00" -->
+#### Claude
+Landed in the right store. Now cleaning up the misfiled duplicate.
+
+Now the REQ-187 write-up, appended so the existing body is preserved.
+
+Both written.
+
+**REQ-187** (1stcontact) — appended `## Where the conversation got to (2026-09-11)`, original body intact. It records the clock/bearer split, rotation and what it does *and doesn't* buy, the visit-start trigger doing double duty (rotate + pre-empt), the numbers table, the 400-day browser cap as the thing that settles I1, and the three residual gaps (no customer-facing sign-out-everywhere, 401 can still land mid-task via replay-kill or revocation, level-2 recursion still open). Framed as a proposal — the ticket stays a conversation.
+
+**REQ-151** (lagrange-framework, `request-aad3ebb2`) — the component work. Beyond restating the mechanism it pins down three things the design discussion hadn't reached:
+
+- **Rotation has to be opt-in, and for a hard reason.** `resolveSession` would start returning a `Set-Cookie` the host is *obliged* to send. Every existing caller ignores it, because today there's nothing to ignore — so a host that upgrades without noticing rotates the server while the browser keeps presenting the retired id, signing its users out on a grace-window timer. `rotateAfterMs: null` by default.
+- **Schema:** `superseded_by` + `retired_at` (rotated rows are kept, not deleted — inside grace they resolve through, after it the same row *is* the replay evidence), and `origin_id` so killing a compromised family is one indexed DELETE.
+- **`applySchema` idempotency breaks.** It's `CREATE ... IF NOT EXISTS` throughout and safe to run twice; `ALTER TABLE ADD COLUMN` is not, and hosts call it on boot. Flagged as a constraint on the migration rather than left to be discovered.
+
+Also: `touchAfterMs` must be forced below `visitGapMs` — hourly last-seen writes can't evidence a 30-minute silence, and the failure mode is a feature that silently never fires.
+
+One correction worth flagging: `XGD_PROJECT_ROOT` is pinned to 1stcontact for this session, so my first `create` run from the lagrange-framework directory landed in the wrong store as REQ-230. I archived it and recreated with the var overridden. Nothing else was touched.
+
+No code was written — this stayed a design conversation, so no branch was cut.
 
 <!-- xgd-chat-end -->
