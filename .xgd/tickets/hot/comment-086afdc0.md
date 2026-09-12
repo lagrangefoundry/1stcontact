@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T19:48:59.894118+00:00'
+updated_at: '2026-09-12T20:06:18.703967+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -157,5 +157,84 @@ Configs are clean. Now the assertions — let me re-run and see what's left.
 <!-- xgd-chat role="user" ts="2026-09-12T19:48:59.560435+00:00" -->
 #### You
 Please continue. Can you also update DOC-47 so we don't confuse ourselves going forward, please.
+
+<!-- xgd-turn id="4ba2bb71-881f-4a2a-bb00-7c6fc0deddf8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:06:18.643158+00:00" -->
+#### Claude
+The full-suite run got OOM-killed (137). Let me run the affected files in smaller batches instead.
+
+Let me handle DOC-47 now, then continue the sweep.
+
+The `.xgd` stores are per-worktree, and a doc ticket is xgd-managed data. Let me apply it through the CLI instead of editing the file directly.
+
+DOC-47 is updated. Back to the sweep — let me find what still references the old contract.
+
+Let me verify that insertion bug didn't hit the other files.
+
+Now let me write the BUG-86 UATs.
+
+All 9 UATs pass. Now the full node suite, to see where the sweep stands against the 9-file baseline.
+
+From 145 failed files to 3. Let me check the contact-form one.
+
+Let me check whether those two are pre-existing by running them against the unmodified branch.
+
+Both pre-existing. Let me run the full node suite plus the workers suite, which I haven't exercised yet.
+
+Workers suite is fully green. Let me check whether the DOC-47 edit reached the branch worktree, since the KB artefacts are git-tracked.
+
+KB artefacts aren't git-tracked — they're build output. Let me verify the JSON I edited is still valid, then review the diff.
+
+Let me commit, then handle the stored data.
+
+There's a dedicated command that enforces a version bump. Let me bump and amend.
+
+The branch base was already at 0.2.176, so that wasn't a bump. Let me actually bump it.
+
+Protocol complete. Now the live store — those v4 instances will fail to resolve against the v5 catalog, so let me preview the upgrade.
+
+`1c` reads the file store, which I already updated. The D1 the builder actually serves is separate — let me check it.
+
+Five sites in the live builder store are on v4 and will now fail to resolve. Let me find how to run the upgrade against D1.
+
+There's a proper route for this — `POST /api/modules/upgrade`, which BUG-85 built to run through the real D1 store. Let me check if the builder is up.
+
+The builder is live on 8788. Let me run the read-only dry run against it.
+
+Access gates it even locally, so the live-store upgrade needs the operator's session. Let me rebuild the KB, which is local.
+
+Done. The AI's reference now reads `version 5` with no `action` setting at all — there's nothing left for it to get wrong.
+
+## What was wrong
+
+Three defects, and only one was data:
+
+1. **The renderer skipped relativisation for exactly one sink.** `relativizeUrl` reduces every URL the renderer emits to document-relative (REQ-109, so a snapshot is relocatable under any prefix) — link `href`, image `src`, CSS `url()`, `srcset`. The form's `action` was the one that bypassed it. So in the preview, served at `/b/<biz>/preview/<slug>/draft/`, every asset resolved correctly and the form alone posted to the origin root → no matching route in `control-app` → fell through to the asset binding → **404**.
+2. **`action` was `{ type: 'url', required: true }`**, and the whole of the guidance the builder AI got was `- action — url; required`.
+3. **DOC-47 told it to point the form away** — "the published site is read-only… there is no 1st Contact inbox behind the form yet". REQ-223 built the inbox and never updated DOC-47.
+
+## What changed
+
+`config.action` is deleted. The module emits `LEAD_ACTION` (`./api/lead`) itself — one constant correct on every surface with nothing configured per site, because a page slug is a single flat segment so a document's directory is always its channel root. That also closes BUG-78's finding 2: on a published non-apex site the resolved path now carries *that site's* key, so its leads stop landing in the apex tenant.
+
+`LEAD_PATH` moved down into the module's `fields.ts` beside the field names, on that file's own reasoning; `public-site` imports it. Removing a required key is breaking, so contact-form went to **v5** with a declared migration — BUG-85 makes that the precondition for a bump.
+
+Your design freedom is untouched: the `form` slot, every `control` node, the whole L1 subtree. Only the functionality stopped being authorable.
+
+**Tests:** 9 new UATs, including resolution against real document URLs for all three surfaces plus a counter-proof that the shipped root-relative value missed every prefixed one. Node suite 2990 passed with 2 failures that fail identically on unmodified `xgd-working`; workers suite 759 passed, fully green. The contract change rippled into ~25 existing test files — I updated each deliberately rather than mechanically, and two are worth flagging: REQ-148's "unsafe endpoint is refused loud" had no subject left, so I repurposed it to assert that nothing in `config` reaches the action sink at all; and BUG-28's enhancement-gate tests now set the action on the rendered form instead of configuring it, since the module can no longer emit a `mailto:`.
+
+Merged to `xgd-working`, ticket at `free_coded`, v0.2.177.
+
+## Two things still need you
+
+**1. Your live builder store is on v4 and will now fail to resolve.** Five sites in the local D1 still hold `version: 4` contact-form instances — against the v5 catalog that's the exact BUG-85 failure, an unresolvable instance taking the page down. `1c module upgrade` only reaches the file-backed store (already updated). The live store goes through the route BUG-85 built, but Cloudflare Access rejects it even on localhost, so it needs your session:
+
+```
+POST /api/modules/upgrade  {"slug":"1stcontact","write":true}
+```
+for `1stcontact`, `xgd`, `gigabytealchemy`, `alpha` and the two `unnamed` sites. Drop `"write":true` for a dry run first — read-only is the default. Your builder is running on 8788 right now, so I left it alone rather than mutating your store behind a live server.
+
+**2. The KB prose is rebuilt; the vector index isn't.** `kb/system/DOC-47.md` and `REF-behaviors.md` regenerated correctly, but `1c kb build`'s indexing step needs `CLOUDFLARE_API_TOKEN`. Until you re-run it with that set, retrieval still searches the old embeddings.
 
 <!-- xgd-chat-end -->
