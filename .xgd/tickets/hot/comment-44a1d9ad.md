@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:56:17.136491+00:00'
+updated_at: '2026-09-12T21:39:37.377739+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -266,5 +266,11 @@ Two ways forward — your call:
 - **Leave REQ-187 as the conversation it says it is**, and treat REQ-151 as the thing that moves first.
 
 Which do you want?
+
+<!-- xgd-turn id="978c001f-63e0-4edb-a2ce-b3c97554d769-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T21:39:37.226836+00:00" -->
+#### You
+Please see REQ-231 - I think this is now complete, please can you close this ticket as legacy_done and point at REQ231
 
 <!-- xgd-chat-end -->
