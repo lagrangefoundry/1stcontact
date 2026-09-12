@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T00:07:47.161963+00:00'
+updated_at: '2026-09-12T00:13:02.542549+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -869,5 +869,11 @@ That's the same line this epic already drew between editorial versions (the reci
 The only risk was ever that a later implementer would read "every asset is a catalogue item" literally and either flood the Library or quietly special-case the ladder with no record of why. REQ-228 has since landed `free_coded` and the separation held — so it's recorded on EPIC-1 as the reason it held rather than as work.
 
 Recorded on the epic. No ticket, no code.
+
+<!-- xgd-turn id="7e642ba0-e28b-41ca-9133-8f6527640f88-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:13:01.491851+00:00" -->
+#### You
+Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
 
 <!-- xgd-chat-end -->
