@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-187
 created_by: xgd
 created_at: '2026-09-12T00:21:09.732212+00:00'
-updated_at: '2026-09-12T00:40:08.050341+00:00'
+updated_at: '2026-09-12T00:43:07.227006+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,11 @@ One implementation consequence: `last_seen_at` is currently written lazily at `t
 - **This is component work.** `resolveSession` in `@lagrangefoundry/auth-passwordless` is where all of it lands — upstream in `lagrange-framework`, with the numbers passed as config from `passwordlessFor`. `sessions.ts` currently overrides none of the component's defaults deliberately.
 
 Want me to write this into REQ-187 as a proposed design section — the clock/bearer split, pre-emption at visit start, the numbers with the 400-day constraint, and the three flags as open questions? It's still a conversation ticket, so I'd record it as a proposal rather than a decision.
+
+<!-- xgd-turn id="823732d3-734e-4714-9813-f408d6989b4c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:43:06.452466+00:00" -->
+#### You
+please write it up and create a ticket in lagrange-framework
 
 <!-- xgd-chat-end -->
