@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-90
 created_by: xgd
 created_at: '2026-09-12T22:00:54.939955+00:00'
-updated_at: '2026-09-12T22:25:04.605711+00:00'
+updated_at: '2026-09-12T22:47:26.380484+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,114 @@ ok please delete the copy of the xgd site in 1stcontact. Can you crreate a gigab
 Then lets fix the bug - for now there is one site per business and it should take the name of the business - can you update all our sites to fit that rule please?
 
 There is still an onboarding issue to figure out here, but we can come back to that with the settings work
+
+<!-- xgd-turn id="32263ec1-e3b2-4446-8c80-e92cbb3dab10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:47:24.891942+00:00" -->
+#### Claude
+Good — that answers the selector question: one site per business, no selector, and the site takes the business's name. Let me scope this properly before touching anything.
+
+Before I touch any data, two things I need to pin down: which database you mean, and whether a cross-business move is actually safe.
+
+Production is empty — **1 tenant, 0 sites, 0 users**. So all the data work is local miniflare state only; no production risk. Good.
+
+And the move is safe: R2 keys are `draft/<siteId>/assets/…` — keyed by site id, not tenant or slug (`d1r2-store.ts:410`), and there are zero revisions anywhere. So both a move and a rename really are one-column `UPDATE`s.
+
+Two things to check before I write the ticket:
+
+The site's own content says **"Gigabyte Alchemy"** — so the rule is business name, lowercased, punctuation and spaces removed. That matches all three real sites (`1st Contact`→`1stcontact`, `XGD`→`xgd`, `Gigabyte Alchemy`→`gigabytealchemy`). Now scoping the ticket.
+
+Ticket scoped. Cutting the branch:
+
+`STARTER_SLUG` is asserted by six existing UAT suites — the behaviour change lands on all of them. Let me see how they build businesses before I choose the shape.
+
+This is the pivot point, and it's worth flagging: REQ-190 made a **deliberate** decision that the starter site is *not* named after the business, and pinned it with a UAT that asserts exactly that:
+
+```js
+expect(site!.config?.businessName).not.toContain('Coles')
+// "the site is not the business, an account will own several"
+```
+
+Your "one site per business" rule removes that premise, so BUG-90 supersedes it. I'll record the supersession on the ticket rather than silently flipping it. First the source change:
+
+Now replacing the block (lines 838–913) with the business-derived naming:
+
+Now the six existing UAT suites that pin the old rule:
+
+Now updating the four simpler suites:
+
+Now REQ-190 — the suite that pins the superseded decision:
+
+Now the four tests whose *subject* is the naming decision:
+
+Those tsc errors are pre-existing (missing workers types / generated files under that config). Let me run the actual suites:
+
+All 17 pass, including the two new BUG-90 tests. Now the other five suites:
+
+63 passing. Now a dedicated BUG-90 suite for the ticket's four behaviours, moving the derivation tests out of REQ-190 to avoid duplication:
+
+All 799 workers tests pass. Now the node suite:
+
+Two failures. Let me check whether they're mine — `1c assets` may have dirtied tracked files:
+
+Confirmed pre-existing — both fail identically on the pristine tree. Restoring my changes:
+
+Short SHAs — the gate wants 40-character ones:
+
+Code side is done and merged (`free_coded`, v0.2.182). Now the data migration. Backing up first:
+
+Access-sim is running. Let me mint a session for `martin@westhead.me` and use the real provisioning route:
+
+The dev server picked up the merged code — `siteSlug: "gigabytealchemy"` confirms the new rule end to end. Now the deletions:
+
+No surgical delete tool exists, so this is direct-to-store. Checking the R2 layout:
+
+All clear — no shared blobs. Running the migration:
+
+Now step 5 — bringing each `site.json` into line with its business:
+
+Data is exactly right. Verifying through the running app:
+
+zsh doesn't word-split by default — let me redo that:
+
+All four render distinct documents. Recording the outcome on the ticket:
+
+Both halves are done and verified.
+
+## The bug
+
+You were right that a name collision was behind it, and right that `unnamed` was implicated — just one step removed from where you pointed.
+
+`selectBusiness` carries the remembered slug across a business change whenever the business being entered also holds that slug (`app.js:1035`). Slugs are unique *per business*, so a match across businesses is a coincidence, not the same site. That rule is correct for a reload and wrong for a switch. What made it fire constantly is that every business provisioned got its site under one fixed word — so two businesses could not help colliding.
+
+**Fixed by the rule you set:** one site per business, named after the business — lowercased, non-alphanumerics removed (`1st Contact`→`1stcontact`, `Gigabyte Alchemy`→`gigabytealchemy`). `STARTER_SLUG`/`STARTER_NAME` are deleted, not kept as a fallback. A name that derives nothing falls back to the business id so provisioning always yields an addressable site.
+
+Commit `95d3460b` + version bump, merged to `xgd-working`, ticket at `free_coded`, branch cleaned. New suite `test_UAT_FC_BUG-90_site_named_after_business.workers.test.ts` (6 UATs). **799 workers tests and 3017 node tests pass**; the 2 node failures (`bug32-webui-scope-rebrand`, `BUG-67_backend_settings`) fail identically on a pristine checkout of the branch point — pre-existing, not mine.
+
+**One thing you should know I did:** this reverses a decision REQ-190 made deliberately and pinned with a UAT asserting the starter is `unnamed` and explicitly *not* the business's name — "an account will own several". Your one-site-per-business rule removes that premise, so I rewrote that test in place with the supersession recorded there rather than flipping it quietly.
+
+## The data
+
+Production was empty (1 tenant, 0 sites, 0 users), so this was local only. State backed up first.
+
+| Business | Site | Was |
+|---|---|---|
+| 1st Contact | `1stcontact` | unchanged |
+| Gigabyte Alchemy | `gigabytealchemy` | moved out of 1st Contact |
+| XGD | `xgd` | `businessName` was `xgd` → `XGD` |
+| Lagrange Foundry | `lagrangefoundry` | was `unnamed` |
+| Felix Test | `felixtest` | was `unnamed`/`Unnamed` |
+
+1st Contact's leftover `xgd` is gone (9 asset rows, 9 R2 objects, 9 blob files — no shared blobs, checked first). Gigabyte Alchemy was provisioned through the real `/api/admin/businesses` route, which returned `siteSlug: gigabytealchemy` — your running dev server had already picked up the new code, so that's the fix confirmed end to end, not just in a suite. Authored taglines (1st Contact's, Lagrange Foundry's) were left alone; only the two scaffold placeholders were rewritten.
+
+Verified live: four businesses in the switcher, one site each, no two slugs equal, all four rendering different documents. No restart needed.
+
+Three things I deliberately did not touch: `alpha`/`biz_uatwestheadme` (test residue that suites recreate), Alice's three seed businesses (dev-seed intends them siteless), and the R2 audit objects under `site-unnamed/` (append-only log of what happened when it *was* called that).
+
+## Left open, as you said
+
+The onboarding gap is now sharper, so it's worth naming for the settings work: a signup with no display name gets a business called "Unnamed business" — which now derives the site `unnamedbusiness`. The word moved from the site to the business rather than going away. The fix is to ask, not to give the site a fixed name again; I put that in a comment at `onboarding.ts` and a UAT pins it.
+
+Also latent: the slug carry itself is still in `selectBusiness`. With one site per business it can't pick the wrong row — a business's only site is also what the fallback would choose — so I left it rather than widening scope. It becomes live again the moment a business holds two sites, which is when the site selector lands; the fix then is to remember the selection per business rather than globally. That's recorded in the ticket's "Not in this ticket".
 
 <!-- xgd-chat-end -->
