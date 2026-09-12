@@ -5,7 +5,7 @@ type: request
 title: 'An edit is a recipe: the operation vocabulary, one renderer, and edit_image'
 created_by: EPIC-1
 created_at: '2026-09-10T21:50:34.465379+00:00'
-updated_at: '2026-09-11T22:10:36.590334+00:00'
+updated_at: '2026-09-12T00:19:13.306256+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -533,3 +533,32 @@ cost and transform-chain fit still select Images, and this is the renderer that
 landed. Only the HEIC sentence is wrong, and it is corrected here rather than
 removed so that reconciliation does not read the deletion as a change of mind. The
 plan question itself is the operator's and is open; it is recorded on [[REQ-221]].
+
+
+---
+
+## Update from EPIC-1, 2026-09-11: the unbuilt design now has a ticket, and it has a third half
+
+**"Neither half of the decided design exists in the code" is now [[REQ-229]]**
+(`request-4b5c10e9`, `draft`) — *"Promotion records the asset name, and a recipe
+change replaces those bytes in place."* It takes both halves this section names
+and carries the operator's principle for the naming question: *an edit replaces
+the existing photo, same name, everything*, so a re-promotion overwrites the
+recorded name rather than minting `logo-2.png`.
+
+**And the count above is wrong by one — there are three halves, not two.**
+`promoteToSiteAsset` (`material.ts:712`) reads the attachment's **original blob**
+and hands those bytes to `editAssetAdd`. It takes no renderer, has no parameter
+for one, and none of its three callers could supply one. So "the recipe is
+applied at promotion" — this body's own decision — is unbuilt for the **first**
+promotion as well as for the re-promotion:
+
+- *promote, then crop* — the recorded name is missing. Named above.
+- *crop, then promote* — the site gets the uncropped original. **Not named
+  above**, and the client cannot tell the two cases apart.
+
+Recorded in full on REQ-229, together with the two mechanical answers an
+implementer needs: the recorded name must be **per-site** (this body's own
+*"re-promotes to each, driven by `placed_on`"*) and must **not** be folded into
+`placed_on` by changing its element shape, because `placedOn()` filters
+`typeof v === 'string'` and would read every placed material as unplaced.
