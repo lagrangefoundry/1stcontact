@@ -5,9 +5,9 @@ type: request
 title: Contacts pane shows contacts as they arrive, without a reload
 created_by: BUG-87
 created_at: '2026-09-12T21:39:16.088815+00:00'
-updated_at: '2026-09-12T22:01:25.552240+00:00'
+updated_at: '2026-09-12T22:01:27.982659+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.179
+  story_points: 5
 ---
 
 # The Contacts pane shows leads as they arrive
