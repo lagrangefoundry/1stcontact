@@ -5,9 +5,9 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-12T22:38:40.923568+00:00'
+updated_at: '2026-09-12T23:06:23.955023+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -39,6 +39,7 @@ fields:
   version: 0.2.165
   story_points: 8
 ---
+
 
 ## The gap
 
@@ -719,3 +720,212 @@ latency** was answered *minutes is the budget* and is unbuilt.
 
 So the instruction should now read the opposite way for two of the three — the
 `<picture>` and latency work is not blocked on anything, it is outstanding.
+
+---
+
+## Built, 2026-09-12: typed sources and the publish that says what it is doing
+
+Both outstanding decisions are now implemented. **Latency first**, as the section
+above requires: typed sources double the ladder's arithmetic, so shipping format
+negotiation onto an unrationed synchronous publish would have doubled the problem
+it was costed against.
+
+Everything below is what the **code settles beyond the prose already here** — the
+decisions that had to be made to build it, recorded so a reconciler reads them as
+intent rather than as drift.
+
+### The platform ceiling, confirmed
+
+The body above asks for this before the concurrency ceiling or the budget is
+fixed. Checked against current documentation, 2026-09-12:
+
+- **A Worker on a paid plan may make 10,000 subrequests per invocation** by
+  default, raisable to 10 million through a `limits` setting. This is not the
+  1,000 that was assumed from memory — the cap was raised in February 2026. A
+  free-plan Worker keeps 50 external subrequests and 1,000 to Cloudflare
+  services.
+- **Bindings do count.** *"A subrequest is any request a Worker makes using the
+  Fetch API or to Cloudflare services like R2, KV, or D1."* So every rendition's
+  cache read, cache write and revision write each spend one.
+- **Whether an Images transform counts is not documented either way**, and
+  nothing documents a limit on transforms per request or on their concurrency.
+  `.info()` is documented as free. So the transform is **assumed to count**,
+  which is the conservative direction.
+
+**Which answers the question the section above said this number decides: two
+formats is comfortable, not marginal.** At four subrequests per rendition worst
+case, the budget admits about 2,000 renditions — roughly 150 full-ladder
+photographs, several times the 20–40 a photo-heavy small-business site holds. The
+guard is real and distant, which is the right shape for a guard: no ordinary
+client meets it, and a site that does is one a single request genuinely cannot
+carry.
+
+### `<picture>`: what the shape actually is
+
+**The `<img>` keeps the source-format ladder and every attribute it had.** The
+typed sources are added *before* it, inside a wrapper; the manifest's existing
+`renditions` list is untouched and still means the source's own format
+throughout. That is what keeps the `<img>` a real fallback rather than a
+degraded copy of one — and it is why every claim the width ladder already made
+survives unchanged.
+
+**No typed source means no wrapper.** A publish that encoded no alternative, a
+WebP original with nothing better to offer, a deployment with no ladder, the
+draft and edit channels: all emit the bare `<img>` that shipped before, byte for
+byte. So the `<picture>` appears exactly where it buys something.
+
+**The wrapper generates no box** — `<picture style="display:contents">`, on the
+precedent the `<a>` wrapper beside it already set. A `<picture>` is an inline box
+by default, so without this it would become the flex or grid item the parent
+sizes, and every geometry and sizing rule this renderer emits for the node —
+which all land on the `<img>` — would apply one level inside the layout instead
+of in it. `contents` makes the picture participate in its parent's layout exactly
+as the bare `<img>` did.
+
+**`sizes` is repeated on every `<source>`**, and that is required rather than
+redundant: candidate selection happens *inside* the chosen `<source>`, so a
+`<source>` without it sends the browser back to assuming the viewport and taking
+the top rung — the download this ticket exists to remove, reintroduced for
+exactly the visitors modern enough to prefer WebP.
+
+**A `<source>` with fewer than two candidates is dropped whole**, on the same
+two-candidate rule the `<img>`'s `srcset` already follows. It has no fallback of
+its own, so a `<source>` a browser prefers and then cannot usefully choose within
+is strictly worse than no `<source>` at all.
+
+**`type` is allowlisted, not merely escaped.** It is a value the browser *parses*,
+and an unrecognised one disqualifies the `<source>` silently, on every page, with
+nothing anywhere reporting why — the same failure mode a malformed `srcset` has.
+Layer 2 does not trust Layer 1.
+
+**An alternative format has no free top rung.** The original *is* the source
+format, so naming it in the `<img>`'s `srcset` costs no transform; in WebP every
+rung including the source's own width has to be encoded. So the alternative
+ladder is the conventional widths below the source **plus the source's own
+width** — a ladder that stopped below it would hand a wide box an upscaled
+rendition, which is the one error this ticket spends bytes to avoid.
+
+**A picture below the smallest step gains no `<picture>` either.** The body's
+plainest promise is that such a picture is served exactly as it is, and a lone
+WebP rendition of a file that already fits every box it appears in is a
+transform, an R2 write and a second element for a few kilobytes.
+
+**Which formats exist is decided by the source's own.** A PNG and a JPEG are
+offered WebP. A **WebP source is not offered itself** — the `<img>` already
+carries that ladder, so a `<source>` repeating it is a byte-for-byte duplicate to
+choose between identically. An **AVIF source is not offered WebP**, and this one
+looks like an omission and is not: WebP is *larger* than AVIF at equivalent
+quality, so a WebP `<source>` ahead of an AVIF original is a pessimisation the
+browser cannot refuse — it takes the first type it supports, and it supports
+WebP. Offering a worse picture first is worse than offering nothing.
+
+**A background image never reads the typed sources, and that is a correctness
+requirement rather than an oversight.** A `background-image` declares nothing and
+negotiates nothing, so a `url()` naming a WebP is simply a backdrop that does not
+paint for a visitor whose browser cannot read one — no fallback, and no way for
+the page to find out. Backgrounds keep reading the source-format ladder. Whoever
+widens this to prefer a smaller codec has to bring `image-set()` with them, which
+this ticket deliberately did not.
+
+**A re-encode is work even when nothing else is.** Asking for a JPEG's WebP at its
+own width has an empty recipe and no narrower width, and the renderer's
+"nothing is rendered for an unedited picture" short-circuit would have handed back
+the JPEG *labelled as the WebP the caller asked for*. That is the one failure here
+a browser cannot recover from: a `<source type="image/webp">` whose bytes are a
+JPEG paints nothing, for every visitor whose browser reads WebP.
+
+**And the delivery format travels beside the recipe, never inside it** — the same
+options bag the delivery width already travels in. There is no `convert`
+operation and there must not be one.
+
+### Rationing the ladder
+
+**Three phases, and the split is the latency answer**: measure and plan every
+picture, check the plan against what one request can carry, then render with a
+bounded number in flight.
+
+**Bounded concurrency, at six.** The number matters far less than the fact that it
+is not one: a sequential ladder makes wall-clock the *sum* of every transform on
+the site, which is the one arrangement that turns a first publish into an
+open-ended wait. Almost all of the available win is in the step from one to a
+handful. Six because it is the number of rungs, so one picture's source-format
+ladder is roughly one wave — a readable unit rather than a tuned one, and there is
+no measurement behind it because the platform documents no concurrency limit to
+tune against. **The measures run through the same pool**: they are free at the
+platform but still a round trip each, and a site's worth of them in series is the
+same silence the renders were.
+
+**The budget refuses before anything is written.** The check sits upstream of
+`writeRevision`, so an over-budget publish leaves no revision, no history entry
+and no bytes — exactly as an invalid draft does. A publish that died halfway would
+leave the opposite: a partial ladder, paid for, serving nothing. The refusal
+**names the site's own facts** — how many pictures, how many renditions, the
+ceiling — because the client can act on those and cannot act on a subrequest
+budget.
+
+**The denominator subtracts what is already held**, through one more optional verb
+on the image renderer: *does this rendition cost anything*. It is answered by the
+rendition cache — which is already the one thing that knows about storage — and
+from **one shared key derivation**, so the predicate cannot drift from the render
+it is asking about. **Absent means nothing is free**, which is the truthful answer
+for a deployment with nowhere to keep a rendition, not a conservative one. This is
+not the ladder learning about caching: it asks what a rendition costs, and where
+the answer comes from stays the adapter's business.
+
+### What a publish looks like while it runs
+
+**The streaming form is selected by `Accept: text/event-stream`, and nothing
+else.** That is the protocol's own word for asking for a different representation
+of the same resource, so every existing caller — `1c publish`, a UAT, anything
+that posts and reads JSON — is untouched and keeps the envelope it always got.
+
+**One function composes the success value for both forms**, so the terminal frame
+carries exactly the JSON form's body and the two cannot disagree about what a
+publish answered.
+
+**The frame parser was extracted rather than copied.** `api.js`'s own note says a
+second transcription of the split-on-blank-line parse is how a fix to one SSE
+route silently misses the other — so the parse now sits alone and each caller
+keeps its own policy above it. Chat renders a refusal as a sentence in the
+conversation; a publish has no conversation to put one in.
+
+**A stream that ends without a terminal frame is a failure**, on both sides. The
+response committed `200` before the first rendition was built, so a dropped
+connection would otherwise render as the success the status code claims — telling
+a client their site is live when it is not, which is the worst outcome available
+here.
+
+**The lock wraps the publish seam, so `publishAction` is genuinely untouched.**
+The section above names it as the site of the problem, and it is — but the fix
+does not belong in it: the action has no access to the shell and no opinion about
+what a publish costs. It still disables its button, awaits one promise and
+re-enables in a `finally`; what it awaits now happens to hold a lock and draw a
+bar. A host that injects a plain `publish` still works, reports no progress, and
+renders as a publish with nothing to resize — which is what it is.
+
+**The lock is taken for every publish; the message and the bar for almost none.**
+Locking answers the edit-during-publish question, which exists whatever a publish
+turns out to cost. The resizing sentence is about *work*, and the cache means a
+republish has none — so it is drawn only once the publish has reported how much it
+must actually build, and a total of zero draws nothing at all.
+
+**Same `inert`, different register — and this is the thing the section above says
+to get right.** `role="status"` rather than `alert`, because this is progress and
+`alert` is precisely wrong for it: a screen reader should reach it without the
+client's work being interrupted to announce that it is going well. And **nothing
+is dimmed**. The lapsed-account block dims because the surfaces beneath it are
+gone and are not coming back; a builder greyed out mid-publish says *your site is
+broken* at the exact moment it is going live. The cursor carries the signal
+instead, which is honest about what has happened — the surfaces are still there,
+they are just not answering yet.
+
+**The lock is released in a `finally`.** A client locked out of their own draft by
+a failure they cannot see has lost more than the publish.
+
+### Still measurements rather than estimates
+
+The transform timings in the section above remain **estimates**. The first real
+photo-heavy publish is the measurement, and it is still worth taking deliberately
+rather than discovering. What has changed is that it is now bounded on three
+sides — concurrency, a budget that refuses in advance, and a client who is told
+what is happening while it happens.
