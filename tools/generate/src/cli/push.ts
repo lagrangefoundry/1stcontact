@@ -1,3 +1,5 @@
+import { assertNotCaptureMirrored } from '../store/asset-rights'
+import type { ReferenceStore } from '../store/reference-store'
 import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 
 /**
@@ -73,22 +75,48 @@ export function fromBase64(text: string): Uint8Array {
   return bytes
 }
 
-/** Read one site's whole draft out of `store`. */
-export async function readSitePayload(store: SiteStore, slug: string): Promise<SitePayload> {
+/**
+ * Read one site's whole draft out of `store` — and refuse one it may not send.
+ *
+ * THE RIGHTS GATE LIVES HERE RATHER THAN IN {@link pushSite} (BUG-84) because
+ * this is where the raw bytes are. A gate one layer up would have to decode
+ * every asset back out of the base64 this function just encoded it into, which
+ * is a second pass over the largest thing in the payload to learn something that
+ * was in hand a line earlier.
+ *
+ * WHAT IT REFUSES: an asset whose bytes are byte-for-byte a subresource we
+ * mirrored from a captured page. `1c repro` copies a bundle's mirrored
+ * subresources into `storage/sites/<slug>/draft/assets/` so the reproduction
+ * renders from its own media, and everything in that directory is a site asset
+ * to this function — which is how a third party's photograph reached a client
+ * site with no rights record and no gate. See `asset-rights.ts`.
+ */
+export async function readSitePayload(
+  store: SiteStore,
+  references: ReferenceStore,
+  slug: string,
+): Promise<SitePayload> {
   if (!(await store.hasDraft(slug))) {
     throw new Error(`No draft for '${slug}' in the local store.`)
   }
   const pages: StoredPage[] = await store.readPages(slug)
   const names = await store.listAssets(slug)
   const assets: { name: string; base64: string }[] = []
+  const raw: { name: string; bytes: Uint8Array }[] = []
   for (const name of names) {
     const bytes = await store.readAsset(slug, name)
     // A name the listing produced but the store cannot read is a corrupt store,
     // not an empty asset — importing it as zero bytes would land a broken image
     // that looks deliberate.
     if (bytes === null) throw new Error(`Asset '${name}' is listed for '${slug}' but unreadable.`)
+    raw.push({ name, bytes })
     assets.push({ name, base64: toBase64(bytes) })
   }
+  // BEFORE THE PAYLOAD IS HANDED BACK, so a refused draft is never posted and no
+  // partial state is reachable. The far side enforces the same rule against the
+  // TENANT's bundles; this side is the only one that sees a capture taken on
+  // this laptop, which is the case that actually happened.
+  await assertNotCaptureMirrored(raw, references)
   return {
     slug,
     siteJson: await store.readSiteJson(slug),
@@ -136,6 +164,22 @@ export interface AccessServiceToken {
 export interface PushOptions {
   /** Where the builder Worker is, e.g. `http://localhost:8788`. */
   origin: string
+  /**
+   * The operator's capture bundles — the evidence this side's rights gate reads
+   * (BUG-84).
+   *
+   * REQUIRED, NOT OPTIONAL, AND THAT IS THE POINT. An optional store is a gate a
+   * caller can forget, and a forgotten gate looks exactly like a clean push. A
+   * caller with no bundles passes a store that lists none, which costs one empty
+   * listing and says so out loud.
+   *
+   * IT IS THE OPERATOR'S OWN TREE AND NOT THE TENANT'S. The far side checks the
+   * tenant's cloud bundles and this side checks the laptop's, because a capture
+   * taken by `1c capture` never reaches R2 and a bundle captured in the cloud
+   * never reaches this disk. Neither half sees the other's evidence, which is
+   * why both halves exist.
+   */
+  references: ReferenceStore
   /** Service-token credentials, for a deployment behind Access. */
   access?: AccessServiceToken
   /** Overwrite a target that holds builder changes. See {@link SitePayload.force}. */
@@ -149,7 +193,7 @@ export async function pushSite(
   slug: string,
   opts: PushOptions,
 ): Promise<PushResult> {
-  const payload = await readSitePayload(store, slug)
+  const payload = await readSitePayload(store, opts.references, slug)
   // Set only when asked, so an ordinary push sends a body with no `force` key at
   // all rather than one that says `false`. The wire then shows what was meant.
   if (opts.force === true) payload.force = true
