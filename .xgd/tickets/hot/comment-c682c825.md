@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-229
 created_by: xgd
 created_at: '2026-09-11T23:52:26.300424+00:00'
-updated_at: '2026-09-12T00:06:51.775044+00:00'
+updated_at: '2026-09-12T00:14:01.073520+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,15 @@ Agreed, and that's a cleaner argument than the one the ticket was carrying. Reco
 That's the same conclusion the ticket already required mechanically (replace-in-place, not delete-then-add, and `freeAssetName` bypassed on re-promotion) — it just now has the principle behind it rather than only the failure-mode argument.
 
 One consequence worth keeping visible, already in the body: because the name is a pointer rather than a version, a re-promotion that finds **nothing** at the recorded name reports instead of re-adding. If someone deleted the asset, silently putting it back would be the version mechanism sneaking in through the back door.
+
+<!-- xgd-turn id="581ad585-1cc9-4499-b7a3-6d682c3ae1a4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:14:01.023737+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
