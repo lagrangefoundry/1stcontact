@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-87
 created_by: xgd
 created_at: '2026-09-12T20:49:52.292073+00:00'
-updated_at: '2026-09-12T21:52:21.819296+00:00'
+updated_at: '2026-09-12T21:58:39.530498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -160,5 +160,15 @@ What I would *not* do now: build a logger abstraction, add a log sink, change an
 One thing worth flagging as genuinely EPIC-1's: a Worker invocation log is not somewhere an operator looks. For a lead that vanishes, the business arguably needs it surfaced *in the app*. That's a real gap and the right place for it is the epic, not here.
 
 Want me to scope this into BUG-87 and implement it? It's code, so it needs the ticket body written and a branch cut first.
+
+<!-- xgd-turn id="fd336965-945e-4990-828a-b57c046726f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T21:58:38.175613+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
