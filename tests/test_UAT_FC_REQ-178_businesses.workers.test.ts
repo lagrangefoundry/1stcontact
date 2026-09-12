@@ -4,7 +4,7 @@ import {
   admit,
   provisionBusiness,
   type IdentityEnv,
-  STARTER_SLUG,
+  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
@@ -282,10 +282,15 @@ describe('REQ-178 — provisioning a second business', () => {
     // And the pieces that are per-business by construction still differ, so the
     // comparison above is not passing because both sides are empty.
     expect(added.businessId).not.toBe(invited.businessId)
-    // THE STARTER SLUG IS A WORD ([[REQ-190]]) — the same word for both, which is
-    // exactly what the old global slug claim made impossible.
-    expect(added.siteSlug).toBe(STARTER_SLUG)
-    expect(invited.siteSlug).toBe(STARTER_SLUG)
+    // THE SITE IS NAMED AFTER THE BUSINESS ([[BUG-90]]) — the same name for both,
+    // because both businesses are called `By invite`. That two businesses may
+    // hold a site under one name is what the old global slug claim made
+    // impossible; what changed is WHY they share it. Under [[REQ-190]] every
+    // business shared one fixed word, which is the collision this bug was filed
+    // from; now they share a name only by sharing a name.
+    expect(added.siteSlug).toBe(businessSiteName('By invite', added.businessId))
+    expect(invited.siteSlug).toBe(businessSiteName('By invite', invited.businessId))
+    expect(added.siteSlug).toBe(invited.siteSlug)
   })
 
   it('test_UAT_FC_REQ-178_a_second_business_is_immediately_operable', async () => {
@@ -345,7 +350,7 @@ describe('REQ-178 — provisioning a second business', () => {
     const again = await inviteAccount(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
     expect(again.businessId).not.toBe(invited.businessId)
-    expect(again.siteSlug).toBe(STARTER_SLUG)
+    expect(again.siteSlug).toBe(businessSiteName(again.name!, again.businessId))
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)

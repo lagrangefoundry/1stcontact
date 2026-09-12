@@ -45,6 +45,13 @@ export interface SeededAccount {
   businessId: string
   /** The starter site's slug, when this call provisioned a business. */
   siteSlug: string | null
+  /**
+   * What the business is called — the name `businessSiteName` derives its site's
+   * name from ([[BUG-90]]). Returned because a suite that wants to assert the
+   * derivation otherwise has to restate the fallback chain below, and the two
+   * copies would drift the first time the fallback changed.
+   */
+  name: string | null
 }
 
 export interface AccountSeed {
@@ -92,7 +99,7 @@ export async function inviteAccount(
     .bind(user.id)
     .first<{ business_id: string }>()
   if (held) {
-    return { created: invited.created, user, businessId: held.business_id, siteSlug: null }
+    return { created: invited.created, user, businessId: held.business_id, siteSlug: null, name: null }
   }
 
   const business: BusinessResult = await provisionBusiness(env, {
@@ -109,5 +116,11 @@ export async function inviteAccount(
     grantedBy: seed.grantedBy,
     note: seed.note,
   })
-  return { created: invited.created, user, businessId: business.businessId, siteSlug: business.siteSlug }
+  return {
+    created: invited.created,
+    user,
+    businessId: business.businessId,
+    siteSlug: business.siteSlug,
+    name: business.name,
+  }
 }

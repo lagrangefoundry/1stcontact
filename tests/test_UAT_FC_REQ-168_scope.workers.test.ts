@@ -5,7 +5,7 @@ import {
   provisionBusiness,
   type Admission,
   type IdentityEnv,
-  STARTER_SLUG,
+  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import {
@@ -125,14 +125,17 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     // the other's — including the starter, which provisioning creates for both
     // and which would be the first thing to bleed through a shared handle.
     //
-    // BOTH STARTERS ARE CALLED `home`, and that is the sharper form of the same
-    // claim ([[REQ-190]]). The starter slug used to be the business id, so two
-    // businesses' sites could never collide by name and this assertion held
-    // partly by accident. A slug is unique only inside its business now, so two
-    // lists that both contain `home` and differ in everything else is the
-    // barrier being proved rather than a naming coincidence standing in for it.
-    expect(await listSites(a)).toEqual(['salon-only', STARTER_SLUG])
-    expect(await listSites(b)).toEqual(['studio-only', STARTER_SLUG])
+    // EACH STARTER IS NAMED AFTER ITS OWN BUSINESS ([[BUG-90]]), so the two
+    // lists are disjoint. That is weaker evidence than it was under [[REQ-190]],
+    // where both starters carried one fixed word and a shared name inside two
+    // separate lists was the barrier proving itself — and it is weaker on
+    // purpose, because that shared word is the collision BUG-90 was filed from.
+    // The same-name case is not lost, it moved: REQ-190's own UAT provisions two
+    // businesses under ONE name and asserts each still gets its own site.
+    expect(first.siteSlug).toBe(businessSiteName('Salon', first.businessId))
+    expect(second.siteSlug).toBe(businessSiteName('Studio', second.businessId))
+    expect(await listSites(a)).toEqual(['salon', 'salon-only'])
+    expect(await listSites(b)).toEqual(['studio', 'studio-only'])
   })
 
   /**
@@ -162,7 +165,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     // a 404 for a path with `/b/<id>` still on the front of it.
     expect(await listSites(scope, `/b/${second.businessId}`)).toEqual([
       'second-only',
-      STARTER_SLUG,
+      businessSiteName('Two', second.businessId),
     ])
   })
 
