@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:34:53.577576+00:00'
+updated_at: '2026-09-12T20:37:53.305224+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -474,5 +474,48 @@ I'd like to work off my list it is SOOO much easier to keep track of my naming r
 4. DNS checks and monitoring (start of a monitoring and notification function)
 
 Agreed?
+
+<!-- xgd-turn id="e8c2314d-09b5-4514-bc20-80750708cedb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:37:53.251257+00:00" -->
+#### Claude
+Good context — `DOC-45` already covers addressing and its §11 open decision #2 is *"which apex, and whether the product sells domains"*, which your purchase just closed. Let me write the TODO against that.
+
+Created **TODO-6** — *1stc.site housekeeping: PSL, reserved labels, allocation, registration hygiene*. It covers PSL submission (separated out because acceptance takes weeks and browsers bake the list into the binary, so there's no way to shorten it later), the four reserved-label groups, allocation/uniqueness, registration hygiene, and the redirect decision. It also notes that buying the domain closes `DOC-45` §11 open decision #2 by fact.
+
+Taking your corrections — accepted on 4 and 5, and yes to both AI and settings tab.
+
+**On dropping the state machine.** Agree, and I think you're right that the checks being cheap is what kills it. One thing survives, though, and it isn't state — it's a **target**. To check DNS you need to know what the records are *supposed* to be, otherwise monitoring can only report what is, not whether it's wrong. So: a declared target per domain, plus the suppression window you described. That's a config row and a timestamp, not a state machine, and it collapses your items 2–5 into "write the target, then let monitoring tell you when reality matches it."
+
+The suppression window is the one real interface between epics 2 and 3 and epic 4 — "I just changed this, expect wrong until T." Worth designing deliberately, because it's also what stops the first customer cutover from paging you at 2am.
+
+**On the pre-cutover gate — you're right, and it changes the design rather than deleting it.** A furniture restorer cannot confirm an MX record. So we don't ask them to:
+
+- **Preserve, don't confirm.** Sweep the live zone and copy every record we didn't create into the new zone automatically. Cloudflare's zone scan does some of this and misses DKIM selectors, which aren't enumerable — you have to probe known selector names per provider (`google`, `selector1`/`selector2` for Microsoft, `k1` for Mailchimp, and so on). Worth doing properly because a missing DKIM selector breaks mail silently, weeks later.
+- **Notify in their language, don't ask in ours.** "Your email is with Microsoft — I'll keep that working" is a sentence they can read. If it's wrong they'll say so, which is the only useful signal they can actually give.
+- **Verify after, by testing.** Re-resolve MX/SPF/DMARC post-propagation and compare against the pre-cutover snapshot. If it doesn't match, that's our problem, not a question for them.
+
+The snapshot still has to exist — it's what makes the automatic preservation and the after-check possible. It just stops being a screen.
+
+**Domain expiry** splits across two of your epics: the data (renewal date, card on file, registrar lock) sits in 3, the alerting sits in 4. Fine as long as 3 exposes the date rather than owning the nagging.
+
+## Agreed on the four epics
+
+Your naming, and everything I raised lands inside it:
+
+| Epic | Also absorbs |
+|---|---|
+| **1. Settings tab** — business/site/subdomain management | TODO-6's reserved labels + allocation; the status surface |
+| **2. DNS management** — third-party NS, management screens, AI tools | record preservation + snapshot; the NS-paste experience; the already-on-Cloudflare case |
+| **3. Registrar management** — purchase, transfer, billing reminders | ICANN registrant verification chase; expiry data |
+| **4. DNS checks and monitoring** | the target + suppression window; expiry alerting; `1stc.site` reputation |
+
+Two notes on the boundaries:
+
+**Transfer is bidirectional.** If "transfer flow" in epic 3 means transfer *in*, then transfer *out* — releasing the auth code on request, no questions — needs to be in there too. It's cheap to build and it's the thing that makes "we'll register it in your name" credible rather than a lock-in story.
+
+**Epic 4 is the only one that's a platform capability rather than a domain feature.** You called it "start of a monitoring and notification function", which is right — if it's built as DNS-specific it'll need rewriting the first time you want to monitor anything else. Worth building the target/check/notify shape generically even if DNS is the only checker for a while.
+
+Want me to create the four epics?
 
 <!-- xgd-chat-end -->
