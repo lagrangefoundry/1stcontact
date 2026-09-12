@@ -5,9 +5,9 @@ type: request
 title: Session renewal and mid-session denial — the start of a conversation
 created_by: xgd
 created_at: '2026-09-05T19:26:36.232349+00:00'
-updated_at: '2026-09-12T21:40:19.770805+00:00'
+updated_at: '2026-09-12T21:40:19.944157+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: legacy_done
 fields:
   priority: medium
@@ -206,3 +206,34 @@ which carries the component-side behaviour, the schema change it needs and the
 
 What stays here is the host's policy: the value of I1 and P, the redirect at visit
 start, and passing the configuration through `passwordlessFor`.
+
+
+---
+
+## Closed — the design was adopted (2026-09-12)
+
+Answered, and by something that shipped rather than by a decision recorded here.
+`@lagrangefoundry/auth-passwordless` separated the two clocks
+([[ticket://lagrangefoundry/lagrange-framework/REQ-151]], in 0.0.235), and
+**[[REQ-231]]** adopts it in this deployment: the rotated `setCookie` is carried
+out through `SignedIn` and onto the response, the `sessions` table is migrated,
+and the three numbers this ticket left open — `sessionTtlMs`, `rotateAfterMs` and
+the pre-emption window P — are chosen there.
+
+The two gaps this ticket flagged as residual are carried into REQ-231 rather than
+dropped: **sign-out-everywhere** as a control a person can actually reach, which a
+longer interval turns from a nicety into the mitigation for the abandoned-device
+cookie; and the pre-emption at visit start, without which the hard boundary still
+exists and somebody eventually meets it mid-task — which is this ticket's
+unacceptable case, stated in its own words.
+
+This ticket was a conversation and never held code. It closes `legacy_done`
+because what it was for — finding where the line sits between *never denied
+mid-session* and *rarely made to sign in* — was settled, not abandoned. The answer
+was that the two were never opposed; they only looked that way while one number
+was doing both jobs.
+
+[[BUG-52]] is unaffected and still stands on its own: a 401 can still arrive
+mid-task from replay detection or from an operator withdrawing somebody, and the
+client must preserve state and retry rather than navigate away. Rotation removes
+the *scheduled* denial, not every denial.
