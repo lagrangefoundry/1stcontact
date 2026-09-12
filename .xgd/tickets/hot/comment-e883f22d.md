@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-231
 created_by: xgd
 created_at: '2026-09-12T20:48:43.800054+00:00'
-updated_at: '2026-09-12T21:14:56.564416+00:00'
+updated_at: '2026-09-12T21:35:20.574923+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -95,5 +95,11 @@ Done. REQ-231 is at `free_coded`, commit `475f4724`, version `0.2.178`, merged i
 - **Three pre-existing full-suite failures are unrelated to this diff** and reproduce in isolation: `bug32-webui-scope-rebrand` (names `tests/test_UAT_FC_REQ-228_*` and `tools/generate/src/cli/assets.ts`), `BUG-67 backend settings` (a `gemini` config validator), and `req115-builder-shell` — that last one is the known `dist-assets` staging race, and passes alone.
 
 Full suite otherwise: 3772 passed. The 24 new UATs (15 workers, 9 node) all pass, as does the shipped conformance contract with its rotation cases against this deployment's migration.
+
+<!-- xgd-turn id="883f7351-9836-433c-a6ed-f52076d908e8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T21:35:20.266411+00:00" -->
+#### You
+Will existing sessions need to be reestablished?
 
 <!-- xgd-chat-end -->
