@@ -13,6 +13,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f2d1aa6d
 ---
 
 # The Contacts pane shows leads as they arrive
