@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-229
 created_by: xgd
 created_at: '2026-09-11T23:52:26.300424+00:00'
-updated_at: '2026-09-12T00:14:01.073520+00:00'
+updated_at: '2026-09-12T00:36:17.426182+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,62 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="581ad585-1cc9-4499-b7a3-6d682c3ae1a4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:36:16.879223+00:00" -->
+#### Claude
+Now let me record the behaviour language the implementation needs, then cut the branch.
+
+Now the core of `material.ts` — promotion and re-promotion:
+
+Now `recordPlacement` and the `placedAs` reader:
+
+Now `reviseRecipe`:
+
+Now the router and library wiring:
+
+Now the router: `placeOnSite`, the recipe route, `chatLibrary` and `sessionPicturesFor` wiring.
+
+Now the recipe route and the chat/library wiring:
+
+Now typecheck:
+
+Now the UAT file:
+
+Version bump and commit:
+
+Now lock, merge back, and gate the ticket:
+
+Done. REQ-229 is at `free_coded` on `xgd-working`.
+
+## What landed
+
+**Promotion records the name it wrote.** `promoteToSiteAsset` writes `fields.placed_as` — a list of `{ slug, name }` — in the same patch as `placed_on`. The name matters because `freeAssetName` may have renamed on collision, and without it a later edit has nothing to write back to.
+
+**Promotion writes the render, not the stored original.** REQ-219 decided the recipe applies *at promotion*; it never did. Upload → crop → place now arrives cropped. An unedited picture pays no transform (empty recipe short-circuits).
+
+**A recipe change re-promotes.** `republishMaterial` replaces the bytes at each recorded name via a new `editAssetReplace` — one operation, never remove-then-add, so there is no window where the page references a missing asset. `reviseRecipe` returns `republished: [{slug, name, replaced}]`.
+
+**The record tells the two doors apart.** No recorded name for a site → free name + add, as before. A recorded name → replace it, mint nothing. That also fixes the client who drags the same logo twice: one file, not `logo-2.png` with every page still on the original.
+
+**`edit_image` propagates too** — `republishingRecipes` wraps the library recipe port, so the assistant's crop and the client's reach the site by the same function.
+
+**A recorded name the site no longer holds reports and is not re-added** — `replaced: false` with the reason, per placement; the recipe still lands.
+
+## Two scope calls I made
+
+I widened past the ticket's two literal bullets, and added the language to the body first so the UATs trace:
+
+1. **Promotion applying the recipe.** Without it the invariant is false in one ordering and `image-ladder.ts`'s own comment ("bytes that promotion already produced by applying the recipe") is a lie.
+2. **The `edit_image` path.** REQ-228 just handed the assistant the catalogue; a propagation that fired only for the modal would re-open this gap on the surface the product leads with.
+
+Say the word if either should come back out.
+
+## Evidence
+
+6 UATs in `tests/test_UAT_FC_REQ-229_recipe_reaches_the_site.workers.test.ts`, through `route()` against real D1, R2 and the `IMAGES` binding. Asserted with `rotate` deliberately — Miniflare's local Images honours rotate/width/height and silently drops trim, so a crop asserted in pixels would pass against an uncropped picture; a quarter turn swaps the sides, which is checkable from the store's own bytes.
+
+Full workers project: 83 files, 750 tests, green. Node project: 2 pre-existing failures (`bug32-webui-scope-rebrand`, `BUG-67 backend settings`) — I verified both fail identically on a clean tree; neither touches this diff.
 
 <!-- xgd-chat-end -->
