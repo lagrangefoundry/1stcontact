@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-85
 created_by: xgd
 created_at: '2026-09-12T00:14:49.418413+00:00'
-updated_at: '2026-09-12T19:09:42.352581+00:00'
+updated_at: '2026-09-12T19:10:35.300532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -273,5 +273,30 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="28fd983f-bd2c-4de1-894e-f41b65135d7b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T19:10:34.975393+00:00" -->
+#### Claude
+Verifying the five UATs on the merged `xgd-working` tree before tearing the branch down:
+
+All 34 UAT assertions green on the merged tree. Tearing down the branch:
+
+Free-coding complete for BUG-85.
+
+**Final state:**
+
+| | |
+|---|---|
+| Ticket | `BUG-85` — status `free_coded` |
+| Commit | `efba90deab3082da7d0c81d7ac2a04b27a1694a9` |
+| Version | `0.2.176` |
+| Branch | `free-BUG-85` — merged into `xgd-working`, worktree removed, branch deleted, lock released |
+
+**What I did this turn:** confirmed the branch HEAD was an ancestor of `xgd-working` and the worktree was clean, re-ran all five UATs *on the merged tree* in the foreground (34 assertions — 30 Node, 4 workers against real D1, all green), then `xgd branch clean BUG-85`.
+
+The teardown is confirmed: `free-BUG-85` is gone from both `git branch --list` and the worktrees directory.
+
+One note on scope, unchanged from before: the two pre-existing `xgd-working` failures (`bug32-webui-scope-rebrand` and `test_UAT_FC_BUG-67_backend_settings`) are still red. I verified earlier that both fail identically on the unmodified tree, so they're outside this ticket — but they're there if you want them filed.
 
 <!-- xgd-chat-end -->
