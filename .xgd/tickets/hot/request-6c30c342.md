@@ -5,10 +5,10 @@ type: request
 title: Contacts pane shows contacts as they arrive, without a reload
 created_by: BUG-87
 created_at: '2026-09-12T21:39:16.088815+00:00'
-updated_at: '2026-09-12T21:39:16.088815+00:00'
+updated_at: '2026-09-12T21:46:18.069554+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   auto_merge_back: true
