@@ -6,16 +6,24 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T00:20:52.277407+00:00'
+updated_at: '2026-09-12T00:35:36.289053+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-34760bf1
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c682c825
+  commits:
+  - working_sha: f49aa3fe2e8c32e86c04add570489675ee321c80
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8fbe9709392155a7b532985b6460a94bc2b78adc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.175
 ---
 
 ## The gap
