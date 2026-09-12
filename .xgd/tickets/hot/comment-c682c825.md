@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-229
 created_by: xgd
 created_at: '2026-09-11T23:52:26.300424+00:00'
-updated_at: '2026-09-11T23:57:24.670539+00:00'
+updated_at: '2026-09-12T00:05:39.002205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -46,5 +46,15 @@ Let me just try to state the principle clearly: When I edit a photo, I expect th
 #### Claude
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="43328e80-bdca-42a9-a11d-b8fd9b6a4047-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T00:05:38.642265+00:00" -->
+#### You
+Let me just try to state the principle clearly:
+
+When I edit a photo, I expect the edit to replace the existing photo - same name, everything.
+
+When a photo is edited we actually retain the original and store the sequence of operations so nothing is lost here. Saving the photo under a different name after such an edit is layering version mechanism on version mechanisms. It is totally redundant.
 
 <!-- xgd-chat-end -->
