@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:50:22.904456+00:00'
+updated_at: '2026-09-12T20:51:43.322722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -573,5 +573,11 @@ Your other two epics both survive the same test: monitoring is business-scoped b
 **"Payments" is overloaded.** `DOC-40` §2 gives *payments* to the business — meaning their customers paying *them*. EPIC-9 is the account paying *us*. Different scope, different Stripe objects, possibly different Stripe accounts. Worth reserving the word for the customer-facing one before both exist.
 
 **PSL has a lead time and no shortcut.** Acceptance takes weeks and browsers ship the list compiled into the binary, so adoption lags further. Worth submitting before the epics start, not alongside them — it's the only item here that can't be compressed later.
+
+<!-- xgd-turn id="97771593-38f7-4a7e-a4ec-64c9a63e8d4d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:51:42.181151+00:00" -->
+#### You
+Valid statuses are `draft|underway|done|ongoing` — creating with `draft`. (Two IDs got burned by the failed attempts; harmless, numbering just starts at EPIC-4.) <-- please create an xgd bug to fix the AX (AI experience) - the ticket creation AI needs to be simple to use and well documented
 
 <!-- xgd-chat-end -->
