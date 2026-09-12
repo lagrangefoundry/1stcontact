@@ -6,9 +6,9 @@ title: Promotion records the asset name, and a recipe change replaces those byte
   in place
 created_by: EPIC-1
 created_at: '2026-09-11T22:46:15.066292+00:00'
-updated_at: '2026-09-12T00:35:40.946777+00:00'
+updated_at: '2026-09-12T00:35:59.415502+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -290,6 +290,25 @@ operator's principle — *an edit replaces the existing photo, same name,
 everything* — is what item 1 extends rather than qualifies: the first promotion
 of an already-cropped photograph should put the cropped photograph on the site,
 for the same reason.
+
+## How the record holds it
+
+`fields.placed_as` — a list of `{ slug, name }`, beside the `placed_on` that
+already exists. Both are written in one patch by the one function that performs a
+placement, so they cannot disagree about where a material went.
+
+**`placed_on` keeps its own meaning and is not derived from the new field.** It
+answers *which sites*, which is what the Library's pill, its `Used on` field, its
+"used on this site" filter and the catalogue's `placed` predicate all read, and
+none of them has anything to do with a filename. Deriving it would also erase
+every placement made before this ticket the first time such a material was put on
+another site — material with a slug and no recorded name is precisely the
+"no recorded asset name" state the design already has a reading for.
+
+`editAssetReplace` is the site store's new verb: bytes at an existing name, one
+operation, `NOT_FOUND` if the name is not there. It sits beside `editAssetAdd`
+rather than inside it, so neither surface can drift into the other's behaviour —
+one only adds, and the other only replaces.
 
 ## Test plan
 
