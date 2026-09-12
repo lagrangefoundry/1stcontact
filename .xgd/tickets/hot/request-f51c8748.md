@@ -5,7 +5,7 @@ type: request
 title: Publish builds the width ladder; the renderer emits srcset
 created_by: EPIC-1
 created_at: '2026-09-10T21:51:31.105525+00:00'
-updated_at: '2026-09-12T22:27:24.482774+00:00'
+updated_at: '2026-09-12T22:27:35.476095+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -706,3 +706,16 @@ renditions, and format *preservation*. All of that shipped and is covered.
 
 **The scope call is the operator's** — whether these reopen this ticket or become
 a follow-up — and is surfaced rather than taken here.
+
+
+### Stale heading: *"Open — raised with the operator, not answered here"*
+
+That section (and its closing instruction, *"do not start on the
+background-image or `<picture>` work before those come back"*) predates the
+operator's answers and is now misleading in both directions. All three came back:
+**background images** were widened in and built; **`<picture>` with typed
+sources** was answered *yes* and is unbuilt per the section above; **publish
+latency** was answered *minutes is the budget* and is unbuilt.
+
+So the instruction should now read the opposite way for two of the three — the
+`<picture>` and latency work is not blocked on anything, it is outstanding.
