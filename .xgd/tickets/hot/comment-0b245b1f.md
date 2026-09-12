@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-12T22:46:55.927265+00:00'
+updated_at: '2026-09-12T22:49:04.803744+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,58 @@ Ok lets start with the underlying data model - I think there is way more complex
 
 1) Lets store the business name exactly once and lets discuss the constraints - I think it needs to be unique within an account - but every account can have a business named "unnamed", for example
 2) We are not building for multi-site business today there is exactly one site in each business. At some point in a few years time, if there is demand we will generalize to multi-site businesses but not today, ok?
+
+<!-- xgd-turn id="1c60ea9e-0679-42f5-9c4e-80f34a934a49-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:49:04.398642+00:00" -->
+#### Claude
+Good — point 2 is the bigger simplification than it looks, and it's already half-landed. Here's what I found, and where I land.
+
+## Point 2 dissolves two of the epic's open questions
+
+BUG-90 (your commit from an hour ago) already made it true: *"A business holds exactly one site for now"*, and the site's slug is now derived from the business name at provision. Its comment even defers the naming question to here — *"That is the onboarding question this bug deliberately leaves open: the fix is to ask, which is the settings work."*
+
+So the epic's open questions 1 (label per site or per business?) and 2 (one page or page-per-site?) both stop being questions. One business, one site, one label. And **"site name" stops being a separate concept** — there is one name, and the site is called after it.
+
+## Point 1: `tenants.name` is the store, and the site's copy should die
+
+The duplication is a copy taken once and never synced. `createStarterSite` writes `starterSiteJson(slug, businessName)` at provision (`identity.ts:936`), and after that the two drift freely. The only reader of the copy I could find is `render.ts:162`, for the page `<title>`.
+
+So: **delete `config.businessName` from the stored site definition and make it a render-time input supplied from `tenants.name`.** That keeps the renderer a pure function of what it's given, removes the field from `packages/site-schema/src/schema.ts:924`, and means there is nothing to sync because there is no second copy. Blast radius is real but bounded: schema, `render.ts`, the publish path, and three constructors (`scaffold.ts:41`, `repro.ts:160`, `portal.ts:237`).
+
+The alternative — keep the field and have the settings API rewrite it on rename — is *more* complexity, not less: it adds a sync path, a divergence state, and a "is this draft stale" question. Not worth it.
+
+## What's irreducible: one name, three derivations, three different change semantics
+
+This is the part the settings API actually has to own, and it's now clear rather than tangled:
+
+| Derived thing | On rename | Why |
+|---|---|---|
+| **Site slug** (`sites.slug`) | **follows, silently** | The slug never leaves the builder — `public-url.ts` confirms the published address is `/site/<opaque-key>/`, not the slug. Nothing external references it, so a rename is one `UPDATE` with no consequences. Leaving it frozen would recreate exactly the "site named after the *old* business" confusion BUG-90 just fixed. |
+| **`1stc.site` label** | **does not follow** | It's on a van. Your epic already commits to old labels being retained and never re-issued. Renaming the business must *offer* a matching label, never take one. |
+| **Published pages** | **stale until republish** | The `<title>`, and worse, any body copy the assistant wrote that names the business. That second one can never be auto-synced — it's authored prose, not a derivation. |
+
+That last row is the reason I'd have the rename API return **a list of effects, not a boolean**: "slug moved to `colesbakery`; your `1stc.site` address still says `oldname` — want it changed?; 3 published pages still mention the old name." That's precisely the material the settings chat is for, and it makes the AI useful rather than decorative.
+
+## The uniqueness constraint — four things to settle
+
+`UNIQUE (owner_account_id, name)` on `tenants` is the shape. Four wrinkles:
+
+1. **The platform business is exempt for free.** `owner_account_id` is NULL for 1st Contact, and SQLite treats NULLs as distinct in a unique index. Convenient, but it's accidental — worth stating as a decision rather than letting it be a side effect.
+
+2. **The default name trips the constraint immediately.** `UNNAMED_BUSINESS_NAME = 'Unnamed business'` is a fixed string, so an account provisioning a *second* business collides on it. A constraint the system itself can trip is one that will get worked around. I'd add a discriminator at provision — "Unnamed business 2" — which also keeps the derived slugs distinct.
+
+3. **Exact-string uniqueness won't do the job it's for.** "Cole's Bakery" / "cole's bakery" / "Coles  Bakery" are three rows under an exact match, and the switcher shows three indistinguishable entries. I'd compare on a normalised form (case-folded, whitespace-collapsed) and store what they typed. Note this is *looser* than the slug derivation, which strips punctuation entirely — so "Coles Bakery" and "Cole's Bakery" would be allowed as two businesses that derive the same slug. That's harmless (different tenants, slug is per-business) but it should be a known fact, not a surprise.
+
+4. **The constraint does not deliver a clean switcher.** Grants span accounts — you can hold a grant on a business owned by someone else's account — so two identically-named businesses can still appear side by side in one person's switcher. Per-account uniqueness is worth having as data integrity, but it isn't the guarantee it might look like. If a clean switcher is the actual goal, that's a disambiguation-on-display problem, separately.
+
+## What I need from you before writing the REQs
+
+- **Delete `config.businessName` from the site definition, or keep it as a written-through cache?** I recommend delete.
+- **Does the slug follow a rename?** I recommend yes, silently — nothing external points at it.
+- **Discriminator on the default name at provision?** I recommend yes.
+- **Normalised comparison for uniqueness, or exact string?** I recommend normalised.
+
+Say yes/no to those four and I'll write the REQs. My instinct on the split is still two: one for the tab and the business-scoped settings chat role, one for the names API and its surface declaration — but with the model this much simpler, the second one is now genuinely small, so folding them into a single REQ is defensible if you'd rather.
 
 <!-- xgd-chat-end -->
