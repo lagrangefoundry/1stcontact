@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-48
 created_by: xgd
 created_at: '2026-09-09T17:14:38.134425+00:00'
-updated_at: '2026-09-12T20:12:51.786839+00:00'
+updated_at: '2026-09-12T20:34:53.577576+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -447,5 +447,32 @@ That changes what the settings tab *is*: a status-and-record surface (what's my 
 Your 5 maps onto that with 1 and 6 added and your 4 split by concern rather than by flavour.
 
 Say the word and I'll write this up as a DOC — the shape's settled enough now that it's worth having somewhere durable.
+
+<!-- xgd-turn id="e8c2314d-09b5-4514-bc20-80750708cedb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T20:34:53.153647+00:00" -->
+#### You
+**Item 4's two flavours aren't a DNS split.** You are essentially saying the same thing - when Cloudflare is the registra there are additional features and settings exposed. 
+
+**Item 5 isn't a peer of the others.** I have no idea what you are trying to say with that statement. I am making a list of the UX surfaces required. Its one of them.
+
+I'd suggest: **the AI drives these in conversation, and the settings tab is where the state is visible. <-- we need both**
+
+**A domain state machine.** Every one of items 2–5 ends in "…and then we wait and check". <-- I like that. That could be the start of our "monitoring" feature set. In fact maybe we don't need a state machine at all - the checks are cheap...maybe we have a regular DN S check - I guess we do need the ability to tell "monitoring" that the state has changed and will expected to be  wrong for [propagation interval]
+
+**The pre-cutover snapshot and email gate.** Before we touch anything: sweep their live MX, SPF, DMARC, DKIM selectors; show it back to them; get confirmation <-- our users are not going to be in a position to confirm anything here
+
+`1stc.site`** housekeeping**, now that you own it - please create a TODO ticket for this work
+
+Domain expiry management - 
+
+I'd like to work off my list it is SOOO much easier to keep track of my naming rather than yours so lets converge on a list. I think I need 4 Epics:
+
+1. A settings tab (not on your list) including business/site/ subdomain management (1stc.site) on setting page
+2. DNS management including setting thirparty nameservers, screens for required dns management - AI tools for dns management
+3. Registra management including purchase flow, transfer flow, billing reminders etc.
+4. DNS checks and monitoring (start of a monitoring and notification function)
+
+Agreed?
 
 <!-- xgd-chat-end -->
