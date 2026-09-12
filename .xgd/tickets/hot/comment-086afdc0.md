@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T00:53:54.476151+00:00'
+updated_at: '2026-09-12T00:56:39.941297+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,49 @@ My recommendation is **B**: A alone leaves a trap that has now sprung twice, and
 OK, so I am confused. I don't understand why this is "data". This feels like it should be figured out written once correctly, perhaps with parameters associated with the specific site and nailed in place. Are you telling me that we have to get the production AI to get this right every time or the form breaks?
 
 Maybe we need a guard, but I think the model for where these characters come from sounds broken
+
+<!-- xgd-turn id="7806f4bd-ab56-47c0-855f-4b6fb6bdd75c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T00:56:39.659547+00:00" -->
+#### Claude
+You're right to push on this, and the answer to your question is yes — that's exactly what the current model requires. Let me verify how these values actually get authored before I propose the fix.
+
+This changes the picture. Let me check one more thing — whether page slugs can nest, since that decides whether a relative action is always correct.
+
+You're right, and it's worse than I framed it. Let me record what I found.
+
+You're right — I mis-framed it as data. It's three defects, and the model is broken in the way you suspected.
+
+**1. There's a real renderer bug, and it's the actual cause of your 404.**
+
+`l1/render.ts` has `relativizeUrl` (line 157), which turns `/x` into `./x`. It exists for REQ-109 relocatability and carries BUG-30's RFC-3986 edge cases. Every URL sink in the renderer goes through it — link `href`, image `src`, CSS `url()`, `srcset` — **except the form action**, which `component.ts:110` emits verbatim through `assertSafeUrl` alone.
+
+So the action is the one reference on a rendered page that doesn't survive being served under a channel prefix. Every asset in the preview resolves fine; the form alone posts to the origin root. That's code, not data — and fixing it also closes BUG-78's cross-tenant leak, since `./api/lead` under `/site/<key>/` names that site instead of the apex.
+
+**2. To your question — yes, the AI has to get it right every time.** The entire guidance it gets is `- action — url; required` (`REF-behaviors.md:27`). No default, no hint the product has a lead endpoint, nothing saying the value must be relative.
+
+**3. And it's currently being told to get it wrong.** DOC-47 — live system knowledge — still says *"the published site is read-only… there is no 1st Contact inbox behind the form yet… that's an address you already have."* REQ-223 built that inbox and never updated DOC-47.
+
+The store reads exactly as that instruction predicts:
+
+| Value | Origin |
+|---|---|
+| `https://app.1stcontact.io/beta-apply` | AI-authored, never existed (BUG-78) |
+| `https://api.gigabytefoundry.ai/contact` | AI-authored external address, as DOC-47 directs |
+| `https://example.com/enquiry` | AI-authored placeholder |
+| `/api/lead` | **only ever typed by a human** — BUG-78's manual edit, and the xgd seed |
+
+A third-party action also silently loses everything REQ-223 built: no contact record, no asset delivery, no server-side honeypot, no Turnstile (the secret is ours). It looks like lead capture and isn't.
+
+**On your "parameters associated with the specific site" instinct** — it needs no parameter at all. Document-relative `api/lead` is correct for every site in every channel, because page slugs are one flat segment, so a document's directory is always its channel root. That's the same invariant `routes.ts` protects via `htmlFallbackFor`'s trailing-slash refusal and REQ-109 relies on for `theme.css`. Nailing it in place is strictly better than parameterising it.
+
+So the fix I'd propose, all under BUG-86:
+
+1. Route the action through `relativizeUrl` (needs exporting; currently module-private). Fixes the 404 and the leak.
+2. Make `action` optional, defaulting to the lead endpoint the component resolves itself — keeping an explicit escape hatch for a genuine third-party endpoint rather than making it the thing you fall into.
+3. Update DOC-47 to say the inbox exists, and rebuild the KB.
+4. Correct the four stored values.
+
+One judgment call I'd like your steer on before I cut the branch: **should the third-party escape hatch survive at all?** Keeping it means the failure mode that produced `https://example.com/enquiry` stays reachable, just no longer the default. Removing it makes the form always the product's lead capture, and a client needing an external endpoint becomes a new ticket with a real design. I lean toward keeping it — DOC-47's "a form that silently posts nowhere is the worst possible outcome" is still true, and an explicit opt-out is honest — but it's your product call.
 
 <!-- xgd-chat-end -->
