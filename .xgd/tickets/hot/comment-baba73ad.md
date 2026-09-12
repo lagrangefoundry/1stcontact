@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T22:49:59.482542+00:00'
+updated_at: '2026-09-12T22:50:15.598159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1061,5 +1061,17 @@ The body's *"Open — raised with the operator, not answered here"* section stil
 <!-- xgd-chat role="user" ts="2026-09-12T22:49:59.405396+00:00" -->
 #### You
 **There are two sinks, and the decision only names one.** I don't understand this paragraph. please give more context and fewer details.
+
+<!-- xgd-turn id="2485fbc6-e971-4e0f-8263-80ea9cb5e65b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T22:50:15.117410+00:00" -->
+#### Claude
+A photograph reaches a page two ways: as an `<img>` in the HTML, or as a CSS background behind a band. REQ-222 already serves both at the right **width** — `srcset` for the first, per-breakpoint CSS rules for the second.
+
+Your `<picture>` decision is about **format** — serving WebP instead of JPEG. But `<picture>` is an HTML mechanism. It has no reach into CSS backgrounds at all. CSS's only equivalent is `image-set()`, which this ticket already turned down once when it chose per-width rules instead.
+
+So the decision as written gets WebP to half the pictures. The missing half is the hero backdrop — typically the biggest file on the page, and the reason background support was added to this ticket in the first place.
+
+Hence the ask: does the session extend WebP to backgrounds, accepting the mechanism it previously declined, or do backgrounds stay in their original format? That's a real call, and it isn't made anywhere yet.
 
 <!-- xgd-chat-end -->
