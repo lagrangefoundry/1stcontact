@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-86
 created_by: xgd
 created_at: '2026-09-12T00:45:10.184557+00:00'
-updated_at: '2026-09-12T20:09:30.334445+00:00'
+updated_at: '2026-09-12T20:11:57.564313+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -263,5 +263,56 @@ map:    5 territories, 17 access point(s), written by claude_code
 And restarted wrangler. However, all my sites show me:
 
 Module not found in catalog: 'contact-form' v4. Known modules: contact-form@5, carousel@3, account-portal@1, account-chrome@2.
+
+<!-- xgd-turn id="0e949d5d-02f5-45ba-bfde-9f87ecc9ee78-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T20:11:56.160880+00:00" -->
+#### Claude
+KB's sorted. The remaining blocker is the live store. Let me find how local dev gets past Access.
+
+That explains it: their browser has a session cookie, my curl has neither that nor an Access token. Let me map the sites to their businesses so the fix covers all of them.
+
+Five sites across three businesses are affected. Let me correct the ticket, since the route — not the CLI — is what reaches the live store.
+
+That error is my change landing on your live store, and I gave you the wrong command for it.
+
+**`1c module upgrade` audits the file store, not the one the builder serves.** `1c` edits `storage/sites/`; your builder's sites live in the local D1 inside miniflare, which `1c` can't open. So it told me "Every module instance is on the current contract" for all three slugs while five sites in D1 were still pinned to v4. It was answering about a different copy of the site. BUG-85's own lesson — *a migration performed by editing files can only ever reach the fixtures* — applies to its own CLI driver.
+
+The driver that does reach it is the route BUG-85 built, running the same `upgradeSiteModules` through the store an edit lands through. It needs your browser, because a shell `curl` has neither an Access token nor your session cookie — your browser reaches the builder on the session, which is why the builder still loads for you.
+
+**In the devtools console, on any builder page.** Dry run first:
+
+```js
+const targets = [
+  ['biz_51a6746495c8057e886ff98d4208e6b9', '1stcontact'],
+  ['biz_51a6746495c8057e886ff98d4208e6b9', 'xgd'],
+  ['biz_51a6746495c8057e886ff98d4208e6b9', 'gigabytealchemy'],
+  ['biz_96fc32af73335ad5e315d58acc2d5c92', 'xgd'],
+  ['biz_5b101742d436573a04a2512fb7ecdbb5', 'unnamed'],
+]
+for (const [biz, slug] of targets) {
+  const r = await fetch(`/b/${biz}/api/modules/upgrade`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, write: false }),
+  })
+  console.log(biz, slug, r.status, await r.json())
+}
+```
+
+Each should report `contact-form v4 → v5 (dropped undeclared config.action)`. Then re-run with `write: true`.
+
+The business prefix matters: two of the affected slugs are both `xgd` in different businesses, and a bare slug resolves to whatever you're currently scoped to and would silently skip the other. `alpha` and `site_877dba…` carry no contact-form and need nothing.
+
+I audited the five from your D1 directly:
+
+| Business | Slug |
+|---|---|
+| `biz_51a6746…` | `1stcontact`, `xgd`, `gigabytealchemy` |
+| `biz_96fc32a…` | `xgd` |
+| `biz_5b10174…` | `unnamed` |
+
+I didn't run it myself: the route is gated, and the offline alternative means writing to SQLite files your running wrangler holds open, which is the corruption `1c reset` warns about. If you'd rather not do it by hand, stop wrangler and say so — I'll run it through the real `upgradePageModules` against the D1 and you can restart.
+
+Both the correction and the five-site audit are on BUG-86. I also recorded a gap I did **not** fix: nothing warns that the two stores have diverged. `1c module upgrade` reporting the file store clean reads as "this site is fine," and that's how I came to tell you the store was already upgraded. It probably wants either a "which store did I just audit" line or a refusal when the slug also exists in a visible D1 — but that's a separate defect, and building it inside a bug about a form's endpoint would make neither reviewable.
 
 <!-- xgd-chat-end -->
