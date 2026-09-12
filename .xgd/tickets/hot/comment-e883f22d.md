@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-231
 created_by: xgd
 created_at: '2026-09-12T20:48:43.800054+00:00'
-updated_at: '2026-09-12T21:35:20.574923+00:00'
+updated_at: '2026-09-12T21:36:27.920684+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -101,5 +101,31 @@ Full suite otherwise: 3772 passed. The 24 new UATs (15 workers, 9 node) all pass
 <!-- xgd-chat role="user" ts="2026-09-12T21:35:20.266411+00:00" -->
 #### You
 Will existing sessions need to be reestablished?
+
+<!-- xgd-turn id="883f7351-9836-433c-a6ed-f52076d908e8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-12T21:36:27.847818+00:00" -->
+#### Claude
+Short answer: **no — existing sessions survive and keep working, with one cohort exception.** Let me verify the deploy ordering before I give you the full picture, since that's where it could go wrong.
+
+No. Existing sessions survive the deploy and keep working — with one cohort that will be *offered* a sign-in earlier than before.
+
+**Why they survive**
+
+The cookie value is the `sessions` primary key, and `0002` carries it across verbatim: rename the table aside, recreate it from the component's own `CREATE TABLE`, copy the five columns both shapes have, backfill `origin_id = id` and `issued_at = created_at`. The browser goes on presenting the same value it always did and it resolves to the same person. `test_UAT_FC_REQ-231_a_pre_rotation_session_survives_and_becomes_its_own_chain` pins exactly that — the row survives, keeps its `expires_at`, and still resolves to its subject and email.
+
+The ordering that makes this safe is already in place: `bin/deploy.d/migrate/10-d1-site-store` applies migrations **before** the Worker is uploaded and aborts the deploy if they fail. That matters more than it did before — a rotating Worker against an unmigrated database is not a degradation but an outage, because `#rotate`'s INSERT names `issued_at` and `origin_id`. The hook is what stops that, and it already worked that way.
+
+On each person's first authenticated request after the deploy, their bearer is older than the 24-hour ceiling, so it rotates once and they get a fresh cookie. That is one extra write per person, not a re-authentication.
+
+**The one exception, and it is the feature rather than a cost**
+
+Existing sessions keep the `expires_at` they were minted with — under the **old 90-day** TTL. `startSession` writes that once and nothing moves it, so the 180-day interval applies only to sign-ins minted from now on. People get the longer interval on their *next* sign-in, not retroactively.
+
+Which means anyone whose session was minted more than ~76 days ago (90 − P) is already inside the 14-day pre-emption window, and will be sent to `/sign-in` at the start of their next visit. That is the deadline being moved to the moment it costs nothing rather than a lockout: it ends nothing, and somebody who backs out keeps working on the same cookie until their real deadline.
+
+So the honest summary is: nobody is signed out by the deploy; a tail of people near the end of their old 90-day window get asked to sign in at the start of a visit somewhat sooner than they otherwise would have, and come out the other side with a 180-day interval.
+
+**Sign-out is unaffected.** The other place that can trigger a rotation is `signOut`, which discards the `setCookie` — correctly, because it then ends the whole chain by `origin_id` and clears the cookie, so the credential it declined to send is deleted along with everything else.
 
 <!-- xgd-chat-end -->
