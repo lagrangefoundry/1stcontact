@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-89
 created_by: xgd
 created_at: '2026-09-12T21:58:45.370218+00:00'
-updated_at: '2026-09-12T22:09:11.822947+00:00'
+updated_at: '2026-09-12T22:11:55.558183+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,11 @@ Fixed and landed on `xgd-working` as `376f0063e9` — BUG-89 is now `free_coded`
 **Evidence.** 5 UATs in `tests/test_UAT_FC_BUG-89_detail_goes_with_the_business.test.ts`, mounted against the real installed components. I verified they are genuinely RED — all five fail with the two `clearDetail` calls removed. Regression scope green: 38 files / 346 tests covering every suite that mounts either panel, plus `tsc --noEmit` clean.
 
 One thing I did **not** do, and it's worth your call: the panels' `shell.storage` keys aren't per-business (`STORAGE_KEYS.people`), so split position, rail state and the expanded set are shared across businesses. None of that carries tenant *data*, so it isn't this bug — but if you want the panes to remember their shape per business, that's a separate ticket.
+
+<!-- xgd-turn id="fc6705ad-ffd6-42dd-b063-3e29f3f0fac7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:11:55.460400+00:00" -->
+#### You
+Is this fix something that should be pushed back to lagrange framework?
 
 <!-- xgd-chat-end -->
