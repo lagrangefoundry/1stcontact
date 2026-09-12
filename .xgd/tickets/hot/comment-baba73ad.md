@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-1
 created_by: xgd
 created_at: '2026-09-10T20:02:03.176351+00:00'
-updated_at: '2026-09-12T00:20:03.308607+00:00'
+updated_at: '2026-09-12T19:28:17.401071+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -916,5 +916,11 @@ A prior epic-level pass had already swept six of the seven — REQ-217, 218, 219
 **4. REQ-229 is unstarted**, and until it lands the epic's title breaks between its third and fourth verbs — *change* doesn't reach *publish*. It's the only thing standing between the six landed children and the promise.
 
 I filed nothing new.
+
+<!-- xgd-turn id="2a089dce-8a1a-4803-ab8a-1975138d0310-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T19:28:17.316454+00:00" -->
+#### You
+Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
 
 <!-- xgd-chat-end -->
