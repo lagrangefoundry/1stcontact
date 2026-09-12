@@ -129,4 +129,22 @@ export const contactFormMeta = {
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],
   },
+  /**
+   * [[BUG-85]] — nothing is stored below v4, so no migration into v2 or v3 is
+   * written.
+   *
+   * THE EVIDENCE, because this field is a claim about the world and a claim
+   * needs one. The 3 → 4 bump landed in `3d35dec430` on 2026-07-25. The
+   * earliest site in the cloud store was created 2026-09-06, six weeks later,
+   * so every instance there was born at v4; `0b5a32d465` and `3d35dec430`
+   * between them carried the file-backed fixtures. An audit of both stores
+   * while diagnosing BUG-85 found ten stored `contact-form` instances, all v4.
+   *
+   * This module has therefore never been through the failure BUG-85 is about,
+   * which is exactly why it never taught anyone the lesson `account-chrome`
+   * did. Re-run `1c module upgrade <slug>` against a real store to re-check the
+   * claim; if an older pin ever turns up, the upgrade refuses it by name and
+   * says to lower this number.
+   */
+  migrationsFrom: 4,
 } as const satisfies BehaviorMeta

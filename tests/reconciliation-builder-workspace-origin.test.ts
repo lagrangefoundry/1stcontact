@@ -291,6 +291,12 @@ describe('story-e674c60a builder origin', () => {
     // behaviour is meaningful; over this transport it would prove nothing.
     declared.delete('/api/import')
 
+    // [[BUG-85]] — `/api/modules/upgrade` is the same shape as `/api/import`:
+    // a write path whose whole subject is what lands in D1. Its own workerd
+    // suite drives it against real bindings and reads the stored page back;
+    // over this transport it would prove nothing about the thing under test.
+    declared.delete('/api/modules/upgrade')
+
     // The BUILD declares the rest. `/builder/`, `/webui/` and `/framework/` were
     // route literals until REQ-145 and are build artifacts now, reached by the
     // router falling through to the assets binding — so there is no `p === …` to

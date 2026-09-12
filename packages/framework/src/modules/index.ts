@@ -3,6 +3,15 @@ export { registry, getModule, latestModuleVersion } from './registry'
 // read the catalogue rather than render from it. `registry` above pulls every
 // component into the import graph; the projected reference needs none of them.
 export { CATALOG, catalog, getModuleMeta } from './catalog'
+export {
+  upgradeInstance,
+  upgradePageModules,
+  missingMigrations,
+  isCurrent,
+  MigrationResultInvalidError,
+} from './upgrade'
+export type { StoredInstance, UpgradedInstance, InstanceUpgrade } from './upgrade'
+
 export { getModuleCss, getModuleClientJs } from './styles'
 export { contactFormMeta } from './contact-form/meta'
 export { carouselMeta } from './carousel/meta'

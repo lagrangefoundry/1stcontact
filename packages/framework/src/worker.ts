@@ -40,6 +40,19 @@ export { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './modules/
 // through exactly the code Node runs.
 export { registry, getModule } from './modules/registry'
 
+// [[BUG-85]] — carrying stored instances across a contract version bump. In
+// the worker entry because the store that orphaned an instance was D1, and the
+// upgrade has to run where that store's bindings are.
+export {
+  upgradeInstance,
+  upgradePageModules,
+  missingMigrations,
+  isCurrent,
+  MigrationResultInvalidError,
+} from './modules/upgrade'
+export type { StoredInstance, UpgradedInstance, InstanceUpgrade } from './modules/upgrade'
+
+
 // [[REQ-200]] — the `account-chrome` state marker and the transform that selects
 // one, for the Worker that serves published bytes. Exported from the worker entry
 // because that Worker is exactly the caller: it rewrites the attribute the

@@ -35,6 +35,7 @@ import { captureLead, type LeadEnv as LeadIntakeEnv, type LeadSubmission } from 
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { SiteStore } from '../../../tools/generate/src/store/site-store'
+import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-site'
 import {
   openSession,
   streamPrompt,
@@ -2482,6 +2483,42 @@ async function routeUncached(
         published: result.published,
         url: siteKey === null ? null : publicSiteUrl(siteKey),
       })
+    }
+
+    /**
+     * POST /api/modules/upgrade — carry this site's stored module instances up
+     * to the current behavior contracts ([[BUG-85]]).
+     *
+     * THE WORKER DOES IT because the store that orphaned an instance was D1,
+     * and Node holds no D1 binding. The same reasoning `/api/import` states:
+     * the alternatives were hand-escaping site JSON into `wrangler d1 execute`
+     * or a third store adapter over the HTTP API, and both end with a second
+     * writer that can disagree about what a site is made of. Here the upgrade
+     * lands through exactly the store an edit lands through.
+     *
+     * REPORTING IS THE DEFAULT and `write` is opt-in, matching `1c module
+     * upgrade`. Both drivers call the same port-to-port function, so the dry
+     * run an operator reads locally is the dry run this route performs.
+     */
+    if (p === '/api/modules/upgrade' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.slug !== 'string' || body.slug === '') {
+        return json(400, { error: 'slug is required' })
+      }
+      try {
+        return json(
+          200,
+          await upgradeSiteModules(await openStore(), body.slug, {
+            ...(body.write === true ? { write: true } : {}),
+          }),
+        )
+      } catch (err) {
+        // A missing migration or a migration whose output fails its own
+        // contract is a defect in the catalog, not a bad request — 500 with the
+        // message, so the operator sees the sentence the framework wrote rather
+        // than a status code they have to go and interpret.
+        return json(500, { error: scrub(err instanceof Error ? err.message : String(err)) })
+      }
     }
 
     if (p === '/api/revisions' && method === 'GET') {

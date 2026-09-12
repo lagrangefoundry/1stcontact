@@ -1,0 +1,345 @@
+{
+  "config": {
+    "account": "https://app.1stcontact.io/account",
+    "businesses": "https://app.1stcontact.io/businesses",
+    "businessesLabel": "Your businesses",
+    "dismissLabel": "\u2715",
+    "emailLabel": "Please enter your email address",
+    "portal": "https://app.1stcontact.io/portal",
+    "portalLabel": "Go to your account",
+    "sentMessage": "Please check your email. If you are already a member we have just sent you a sign up link.",
+    "signIn": "https://app.1stcontact.io/sign-in",
+    "signInLabel": "Sign in",
+    "submitLabel": "Continue"
+  },
+  "id": "signin",
+  "slot": "account-chrome",
+  "slots": {
+    "businesses": {
+      "axes": {
+        "color": "#0f172b",
+        "fontSizePx": 15,
+        "fontWeight": 500
+      },
+      "control": "businesses",
+      "interaction": {
+        "focus": {
+          "ring": {
+            "color": "#0f172b",
+            "offsetPx": 2,
+            "widthPx": 2
+          }
+        },
+        "hover": {
+          "opacity": 0.7
+        },
+        "transition": {
+          "durationMs": 120,
+          "easing": "ease-out"
+        }
+      },
+      "kind": "control",
+      "padding": {
+        "bottomPx": 8,
+        "leftPx": 12,
+        "rightPx": 12,
+        "topPx": 8
+      },
+      "sizing": {
+        "width": {
+          "mode": "hug"
+        }
+      }
+    },
+    "dialog": {
+      "axes": {
+        "border": {
+          "color": {
+            "ref": "accent"
+          },
+          "widthPx": 1
+        },
+        "borderRadiusPx": 16,
+        "surfaceFill": {
+          "ref": "paper"
+        }
+      },
+      "children": [
+        {
+          "align": "center",
+          "children": [
+            {
+              "axes": {
+                "color": {
+                  "ref": "ink"
+                },
+                "fontSizePx": 15,
+                "fontWeight": 500,
+                "lineHeightPx": 22
+              },
+              "id": "dialog-label",
+              "kind": "text",
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "text": "Please enter your email address"
+            },
+            {
+              "axes": {
+                "color": {
+                  "ref": "muted"
+                },
+                "fontSizePx": 16,
+                "textAlign": "center"
+              },
+              "control": "dismiss",
+              "interaction": {
+                "focus": {
+                  "ring": {
+                    "color": {
+                      "ref": "accent"
+                    },
+                    "offsetPx": 2,
+                    "widthPx": 2
+                  }
+                },
+                "hover": {
+                  "opacity": 0.6
+                },
+                "transition": {
+                  "durationMs": 120,
+                  "easing": "ease-out"
+                }
+              },
+              "kind": "control",
+              "padding": {
+                "bottomPx": 2,
+                "leftPx": 6,
+                "rightPx": 0,
+                "topPx": 2
+              },
+              "sizing": {
+                "width": {
+                  "mode": "hug"
+                }
+              }
+            }
+          ],
+          "distribution": "between",
+          "gapPx": 12,
+          "id": "dialog-topbar",
+          "kind": "container",
+          "layout": "row",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          }
+        },
+        {
+          "axes": {
+            "border": {
+              "color": "#e5e7eb",
+              "widthPx": 1
+            },
+            "borderRadiusPx": 8,
+            "color": {
+              "ref": "muted"
+            },
+            "fontSizePx": 16,
+            "surfaceFill": "#ffffff"
+          },
+          "control": "email",
+          "interaction": {
+            "focus": {
+              "ring": {
+                "color": {
+                  "ref": "accent"
+                },
+                "offsetPx": 2,
+                "widthPx": 2
+              }
+            },
+            "hover": {
+              "border": {
+                "color": {
+                  "ref": "accent"
+                },
+                "widthPx": 1
+              }
+            },
+            "transition": {
+              "durationMs": 120,
+              "easing": "ease-out"
+            }
+          },
+          "kind": "control",
+          "padding": {
+            "bottomPx": 14,
+            "leftPx": 14,
+            "rightPx": 14,
+            "topPx": 14
+          },
+          "sizing": {
+            "height": {
+              "mode": "fixed",
+              "px": 52
+            },
+            "width": {
+              "mode": "fluid"
+            }
+          }
+        },
+        {
+          "axes": {
+            "border": {
+              "color": {
+                "ref": "accent"
+              },
+              "widthPx": 1.5
+            },
+            "borderRadiusPx": 8,
+            "color": {
+              "ref": "accent"
+            },
+            "fontSizePx": 15,
+            "fontWeight": 600,
+            "surfaceFill": {
+              "ref": "paper"
+            },
+            "textAlign": "center"
+          },
+          "control": "submit",
+          "interaction": {
+            "focus": {
+              "ring": {
+                "color": {
+                  "ref": "accent"
+                },
+                "offsetPx": 2,
+                "widthPx": 2
+              }
+            },
+            "hover": {
+              "motion": {
+                "offsetYPx": -1
+              },
+              "opacity": 0.92
+            },
+            "transition": {
+              "durationMs": 150,
+              "easing": "ease-out"
+            }
+          },
+          "kind": "control",
+          "padding": {
+            "bottomPx": 14,
+            "leftPx": 28,
+            "rightPx": 28,
+            "topPx": 14
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          }
+        }
+      ],
+      "gapPx": 12,
+      "kind": "container",
+      "layout": "stack",
+      "padding": {
+        "bottomPx": 24,
+        "leftPx": 24,
+        "rightPx": 24,
+        "topPx": 20
+      },
+      "sizing": {
+        "width": {
+          "maxPx": 380,
+          "mode": "fluid"
+        }
+      }
+    },
+    "signedIn": {
+      "axes": {
+        "color": "#0f172b",
+        "fontSizePx": 15,
+        "fontWeight": 500
+      },
+      "control": "portal",
+      "interaction": {
+        "focus": {
+          "ring": {
+            "color": "#0f172b",
+            "offsetPx": 2,
+            "widthPx": 2
+          }
+        },
+        "hover": {
+          "opacity": 0.7
+        },
+        "transition": {
+          "durationMs": 120,
+          "easing": "ease-out"
+        }
+      },
+      "kind": "control",
+      "padding": {
+        "bottomPx": 8,
+        "leftPx": 12,
+        "rightPx": 12,
+        "topPx": 8
+      },
+      "sizing": {
+        "width": {
+          "mode": "hug"
+        }
+      }
+    },
+    "signedOut": {
+      "axes": {
+        "color": {
+          "ref": "accent"
+        },
+        "fontSizePx": 15,
+        "fontWeight": 500
+      },
+      "control": "signIn",
+      "interaction": {
+        "focus": {
+          "ring": {
+            "color": {
+              "ref": "accent"
+            },
+            "offsetPx": 2,
+            "widthPx": 2
+          }
+        },
+        "hover": {
+          "opacity": 0.7
+        },
+        "transition": {
+          "durationMs": 120,
+          "easing": "ease-out"
+        }
+      },
+      "kind": "control",
+      "padding": {
+        "bottomPx": 8,
+        "leftPx": 12,
+        "rightPx": 12,
+        "topPx": 8
+      },
+      "sizing": {
+        "width": {
+          "mode": "hug"
+        }
+      }
+    }
+  },
+  "type": "account-chrome",
+  "version": 1
+}
