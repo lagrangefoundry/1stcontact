@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-12T22:28:58.532144+00:00'
+updated_at: '2026-09-12T22:46:55.927265+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,14 @@ But **settings are business-scoped, not site-scoped** — a business has several
 4. **Does renaming the business propagate to the site's `config.businessName`?** I'd say: **the API detects the divergence and reports it; it does not silently rewrite the site.** Rewriting touches the draft, which then needs publishing to be true in public — a hidden effect. Reporting it lets the AI say "your site still says the old name — want me to change it? It'll go live when you publish."
 
 If you're happy with those four recommendations (or tell me where I've got them wrong), I'll write the two REQs as children of this epic: **REQ-A — the Settings tab, two-pane, business-scoped settings chat role** and **REQ-B — the names settings API and its surface declaration**, with the dependency running B → A for the chat's tools but A standing up independently with the form path.
+
+<!-- xgd-turn id="1c60ea9e-0679-42f5-9c4e-80f34a934a49-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-12T22:46:55.262723+00:00" -->
+#### You
+Ok lets start with the underlying data model - I think there is way more complexity there than we need.
+
+1) Lets store the business name exactly once and lets discuss the constraints - I think it needs to be unique within an account - but every account can have a business named "unnamed", for example
+2) We are not building for multi-site business today there is exactly one site in each business. At some point in a few years time, if there is demand we will generalize to multi-site businesses but not today, ok?
 
 <!-- xgd-chat-end -->
