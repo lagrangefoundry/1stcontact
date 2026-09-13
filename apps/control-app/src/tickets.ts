@@ -14,6 +14,7 @@ import {
 } from './generated/knowledge'
 import { MESSAGE_STATUSES, QUEUED } from './messages'
 import { UnscopedError, type Scope } from './scope'
+import { ACCEPTANCE_SCHEMA, ACCEPTANCE_TYPE } from './acceptances'
 import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
 
 /**
@@ -572,6 +573,22 @@ export function productTypePack(): ProductTypePack {
      * mode [[DOC-40]] §2.1 rule 1 names, avoided by not building a second path.
      */
     [TEMPLATE_TYPE]: TEMPLATE_SCHEMA,
+
+    /**
+     * An acceptance document — [[REQ-240]] §3, [[DOC-40]] §2.1.
+     *
+     * REGISTERED HERE AND DEFINED IN `acceptances.ts`, for the reason the
+     * template above gives: the shape belongs beside the code that reads it
+     * back. What lives here is the fact that this platform's tickets come in
+     * this type at all.
+     *
+     * IT IS WHAT CLOSES THE PLATFORM-ONLY GAP IN THE TERMS. A version constant
+     * and a body string in the Worker serve exactly one document for exactly one
+     * business; a ticket in the tenant's own store gives a customer their own
+     * terms for their own contacts through this same declaration, with no second
+     * path and no platform branch.
+     */
+    [ACCEPTANCE_TYPE]: ACCEPTANCE_SCHEMA,
 
     [AWARENESS_REPORT_TYPE]: {
       fields: {

@@ -68,6 +68,7 @@ import { INVITED as PIPELINE_INVITED, LEAD as PIPELINE_LEAD } from './builder/pe
 // of the seam can reach it, and a literal written here would be a second answer
 // to what `contact.invited` is spelt like ([[REQ-195]]).
 import { CONTACT_CREATED, CONTACT_INVITED } from './builder/contact-events.js'
+import { acceptancesOf, type AcceptanceRecord } from './acceptances'
 import { contactEventInsert, eventsOf, provenanceOf, type ContactEvent } from './events'
 import type { IdentityEnv, UserEmailRow } from './identity'
 import {
@@ -263,6 +264,22 @@ export interface PersonDetail {
    * invented.
    */
   provenance: ContactEvent | null
+  /**
+   * What they have agreed to, asked for, or taken back ([[REQ-240]]).
+   *
+   * STATE, BESIDE THE HISTORY THAT EXPLAINS IT. The events are already here and
+   * carry every transition with the wording that evidenced it; what a reader
+   * cannot get from a capped, newest-first list is the CURRENT answer — "are
+   * they on the newsletter" is one row and should not be a fold over a timeline.
+   *
+   * IT TRAVELS WITH THE DETAIL RATHER THAN ON A ROUTE OF ITS OWN, for the reason
+   * the history does: the pane draws it in the same paint as the record, so a
+   * second endpoint would be a second round trip and a second surface to scope.
+   *
+   * A `request` KEY NEVER APPEARS HERE, because it holds no state. It is in the
+   * history, which is the only place it ever was.
+   */
+  acceptances: AcceptanceRecord[]
 }
 
 interface UserRecord extends JoinedName {
@@ -431,6 +448,7 @@ export async function personDetail(
   // a caller's memory ([[REQ-195]]).
   const events = await eventsOf(env, scope, personId)
   const provenance = await provenanceOf(env, scope, personId)
+  const acceptances = await acceptancesOf(env, scope, personId)
 
   return {
     person: toPerson(row, formerly),
@@ -445,6 +463,7 @@ export async function personDetail(
     grants,
     events,
     provenance,
+    acceptances,
   }
 }
 

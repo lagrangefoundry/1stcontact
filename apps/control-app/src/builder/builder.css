@@ -1775,6 +1775,46 @@ body {
   white-space: nowrap;
 }
 
+/* The agreements (REQ-240). The history's metrics exactly, because the two sit
+   one above the other in the same pane and a second scale would make one of them
+   look like a different kind of thing. */
+.builder-people__acceptances {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.builder-people__acceptance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--shell-muted);
+  min-width: 0;
+}
+
+/* What it is, in the pane's own foreground: the key is what the eye scans for.
+   The value and the stamp are the answer, and stay quiet. */
+.builder-people__acceptancekey {
+  color: var(--shell-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-people__acceptancevalue {
+  white-space: nowrap;
+}
+
+/* Pushed to the end with the history's stamps, so the two lists share one column
+   of dates down the pane. */
+.builder-people__acceptancewhen {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The history (REQ-195). Its metrics are `builder-people__empty`'s, because it
    reads as a quiet list of facts in the same pane and a second scale would make
    it look like a different kind of thing. No markers: the heading already says

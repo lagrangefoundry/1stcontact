@@ -231,8 +231,17 @@ describe('REQ-190 — one baseline', () => {
     // lookup are keyed reads with no secret to compare and no timing comparison
     // to get wrong. A host that keyed either on the address it was mailed to
     // would have made the address the credential.
+    //
+    // `user_acceptances` IS [[REQ-240]]'s, AND IS `contact_events`' CASE AGAIN
+    // FROM THE OTHER SIDE. What a contact has agreed to has a natural-looking
+    // composite too — the contact and the acceptance key — and that pair is
+    // genuinely unique, which is why it is a UNIQUE INDEX. It is not the KEY,
+    // because a key made of the thing being recorded is a key that has to be
+    // rewritten the day a business names its own acceptance, and every reference
+    // to the row would have to move with it.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
     expect(single.sort()).toEqual([
+      'id',
       'id',
       'id',
       'id',

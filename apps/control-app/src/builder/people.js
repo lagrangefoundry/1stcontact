@@ -83,6 +83,7 @@ import {
   stageOf,
 } from './people-axes.js'
 import { eventLabel } from './contact-events.js'
+import { acceptanceLabel } from './acceptances.js'
 import { clearDetail } from './detail-pane.js'
 import {
   addContact,
@@ -543,6 +544,30 @@ export function describeEvent(event) {
   const when = formatWhen(event?.occurredAt)
   const learned = formatWhen(event?.recordedAt)
   return { label: eventLabel(event?.kind), when, learned: learned === when ? null : learned }
+}
+
+/**
+ * One line of agreements: what it is, where they stand, and since when
+ * ([[REQ-240]]).
+ *
+ * THE VALUE IS A SENTENCE AND NOT A TICK. "Agreed" / "Withdrawn" says which way
+ * the last act went, which is the fact; a checkbox drawn here would read as a
+ * control the operator can press, and nothing in this round lets an operator
+ * change somebody else's mind for them.
+ *
+ * A KEY IT HAS NEVER SEEN STILL RENDERS, as the raw key, on `eventLabel`'s
+ * reasoning: the registry grows, and a row drawn blank is indistinguishable from
+ * a pane that failed to load.
+ *
+ * PURE AND EXPORTED, because the phrasing is the claim and it is provable
+ * without a DOM.
+ */
+export function describeAcceptance(record) {
+  return {
+    label: acceptanceLabel(record?.key),
+    value: record?.granted ? 'Agreed' : 'Withdrawn',
+    when: formatWhen(record?.setAt),
+  }
 }
 
 /**
@@ -1454,6 +1479,45 @@ export function createPeoplePanel(options = {}) {
     }
 
     /**
+     * WHAT THEY HAVE AGREED TO ([[REQ-240]]).
+     *
+     * CURRENT STATE, ABOVE THE HISTORY THAT EXPLAINS IT. Whether they are on the
+     * mailing list is one row and is read at a glance; how they came to be is
+     * the timeline below, which carries every transition and the wording each
+     * one was shown. A reader folding the timeline to work out the answer is a
+     * reader who will get it wrong the first time somebody changes their mind
+     * twice.
+     *
+     * ONLY WHAT THEY HAVE BEEN ASKED. A key with no row means nobody has put the
+     * question to this person, which is not the same fact as a refusal and must
+     * not be drawn as one — so the section lists their rows rather than the
+     * registry, and says so when there are none.
+     *
+     * NOT DRAWN AS CONTROLS. Every writer in this round is the contact's own act
+     * through a form or the portal; an operator toggling somebody else's consent
+     * is a different thing with a different record, and a switch here would
+     * imply this pane could do it.
+     */
+    const agreements = section(view, 'Agreements')
+    const held = Array.isArray(detail.acceptances) ? detail.acceptances : []
+    if (held.length === 0) {
+      agreements.append(
+        el('p', 'builder-people__empty', 'Nothing asked of them yet.'),
+      )
+    } else {
+      const rows = el('ul', 'builder-people__acceptances')
+      for (const record of held) {
+        const said = describeAcceptance(record)
+        const row = el('li', 'builder-people__acceptance')
+        row.append(el('span', 'builder-people__acceptancekey', said.label))
+        row.append(el('span', 'builder-people__acceptancevalue', said.value))
+        row.append(el('span', 'builder-people__acceptancewhen', said.when))
+        rows.append(row)
+      }
+      agreements.append(rows)
+    }
+
+    /**
      * WHAT HAS HAPPENED TO THEM ([[REQ-195]]).
      *
      * ONE SEQUENCE, NEWEST FIRST, AND NOT ONE LIST PER KIND. A message we sent,
@@ -1479,7 +1543,7 @@ export function createPeoplePanel(options = {}) {
      * its tail would be quietly wrong for exactly the contacts with the longest
      * histories.
      *
-     * LAST OF THE READ-ONLY SECTIONS, under the businesses. Everything above is
+     * LAST OF THE READ-ONLY SECTIONS, under the agreements. Everything above is
      * the current answer — who they are, where they can be reached, what they
      * run and hold — and this is how it came to be that answer. A log read
      * before the state it explains is a log read without the thing it is about.
