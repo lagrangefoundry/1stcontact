@@ -5,20 +5,19 @@ type: request
 title: The Settings tab, and the settings chat role
 created_by: EPIC-4
 created_at: '2026-09-13T21:18:15.497079+00:00'
-updated_at: '2026-09-13T22:01:03.296729+00:00'
+updated_at: '2026-09-13T22:06:34.439678+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: depends_on
 status: draft
 fields:
   priority: high
   depends_on:
-  - REQ-237
-  - REQ-238
+  - request-1e65c6db
+  - request-2ac88003
   epic_parent: epic-0728e1c5
   auto_merge_back: true
   needs_review: false
 ---
-
 
 ## What this is
 
