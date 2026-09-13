@@ -1,6 +1,6 @@
 import type { BehaviorMeta } from '../behavior'
 import { FIELD_TYPES, FORM_ACCEPTANCE_KEYS } from './fields'
-import { contactFormV4ToV5, contactFormV5ToV6 } from './migrate'
+import { contactFormV4ToV5, contactFormV5ToV6, contactFormV6ToV7 } from './migrate'
 
 /**
  * `contact-form` (reframed to a behavior by REQ-85; made layout-agnostic **by
@@ -26,7 +26,7 @@ import { contactFormV4ToV5, contactFormV5ToV6 } from './migrate'
  */
 export const contactFormMeta = {
   id: 'contact-form',
-  version: 6,
+  version: 7,
   kind: 'behavior',
   config: {
     /*
@@ -183,6 +183,48 @@ export const contactFormMeta = {
         url: { type: 'url', required: false },
       },
     },
+    /*
+     * WHICH MESSAGE THIS FORM SENDS ([[REQ-243]]).
+     *
+     * IT USED TO BE ONE HARDCODED TEMPLATE, AND IT FIRED ONLY ON AN ASSET. The
+     * receiver rendered `asset` and did so only when the form declared both a
+     * key and a URL, so a form whose whole deliverable is a place on a list —
+     * this product's own beta form — mailed nobody at all, and two forms on one
+     * site could not say different things.
+     *
+     * AN OPEN STRING AND NOT AN ENUM, WHICH IS THE REVERSAL. `templates.ts`
+     * closed the key set on the argument that *"an open vocabulary would let a
+     * template be authored under `sign-in` while the sender asks for `signin`,
+     * and the two would never meet"* — right about the failure and wrong about
+     * this case, because the copy a form sends is the BUSINESS's and no literal
+     * in this repository can enumerate what a business wrote. So the vocabulary
+     * is whatever that business's own store holds, and the property the closed
+     * set was protecting is kept by checking the name against those contents at
+     * PUBLISH: a typo is still a refusal at authoring time rather than a send
+     * that finds nothing while somebody waits for mail.
+     *
+     * ABSENT MEANS NO MAIL, AND IS AN ORDINARY CONFIGURATION. A form that only
+     * joins a mailing list captures the contact, records what the press
+     * asserted, and sends nothing — so absence is the honest way to say it,
+     * rather than a second key saying whether the first one counts.
+     *
+     * IT IS BEHAVIOURAL AND THE COPY IS NOT. What this names is WHICH message,
+     * which is a fact about the form; what the message SAYS is a ticket in the
+     * business's store, editable without a deploy ([[REQ-197]]).
+     *
+     * NOTHING HERE MAY NAME A SIGN-UP OR A SIGN-IN. `invite` mints a link that
+     * creates a member and `signin` mints a session; both are redeemable
+     * credentials with their own expiry and their own single use, and a public
+     * form a stranger can post to has no business sending either. The refusal
+     * cannot be a `values` list the way `acceptance`'s is — the ALLOWED set is
+     * a business's own store and is unknowable here — so it is a check at
+     * publish, and again at the send because a draft is never publish-validated
+     * and the builder's own preview submits against one. The capture path also
+     * mints no token of any kind, so a form that somehow reached the send under
+     * one of those keys would carry a link to an artifact and never a
+     * redeemable one; the refusal is what stops the message going at all.
+     */
+    template: { type: 'string', required: false },
     // Markdown shown in place of the form after a successful JSON submit.
     successMessage: { type: 'string', required: false },
     // The submit button's words. Behavioural copy, not styling — the button's
@@ -254,7 +296,7 @@ export const contactFormMeta = {
    */
   migrationsFrom: 4,
   /**
-   * The steps into v5 and v6, each declared beside the bump that needs it
+   * The steps into v5, v6 and v7, each declared beside the bump that needs it
    * ([[BUG-85]]) — a declared step is the PRECONDITION for a bump, not a
    * courtesy.
    *
@@ -266,6 +308,14 @@ export const contactFormMeta = {
    * one-item list, and an instance that promised nothing becomes one carrying
    * an empty one — and both readings exist in the stores, so both are
    * exercised rather than assumed.
+   *
+   * v7 is the same kind as v6 and for a sharper reason ([[REQ-243]]). Naming no
+   * template means sending no mail, so a v6 instance carried forward untouched
+   * would go quiet — and every gated download this product has ever delivered
+   * is a v6 instance carrying assets and no template. The step names `asset`
+   * for exactly those, which is the template they were already sending, and
+   * leaves an instance that promised nothing naming nothing, which is what it
+   * was already doing.
    */
-  migrations: { 5: contactFormV4ToV5, 6: contactFormV5ToV6 },
+  migrations: { 5: contactFormV4ToV5, 6: contactFormV5ToV6, 7: contactFormV6ToV7 },
 } as const satisfies BehaviorMeta

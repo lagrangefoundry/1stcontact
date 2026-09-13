@@ -89,16 +89,25 @@ describe('REQ-197 — the type', () => {
     await expect(
       store.create({ type: TEMPLATE_TYPE, title: 'No body', fields: good, body: '' }),
     ).rejects.toThrow()
-    // And the key is a closed vocabulary — an authoring typo is refused at the
-    // write rather than discovered by a lookup that finds nothing.
-    await expect(
-      store.create({
-        type: TEMPLATE_TYPE,
-        title: 'Wrong key',
-        fields: { ...good, template_key: 'sign-in' },
-        body: 'x',
-      }),
-    ).rejects.toThrow()
+    // THE KEY IS NO LONGER A CLOSED VOCABULARY ([[REQ-243]] §2), and this is the
+    // one assertion in this file that ticket reverses. It used to read *"an
+    // authoring typo is refused at the write rather than discovered by a lookup
+    // that finds nothing"*, which was right about the failure and wrong about
+    // the scope: the copy a capture form sends is the BUSINESS's, and no enum in
+    // this repository can enumerate what a business wrote for itself.
+    //
+    // THE PROTECTION MOVED RATHER THAN WENT. A typo is still a refusal at
+    // authoring time — it is caught at PUBLISH, against the store's actual
+    // contents, when a form names a key nobody wrote. What this line now pins is
+    // that the write no longer refuses one, so the two halves cannot both be
+    // relaxed by accident.
+    const authored = await store.create({
+      type: TEMPLATE_TYPE,
+      title: 'A business writes its own welcome',
+      fields: { ...good, template_key: 'welcome' },
+      body: 'x',
+    })
+    expect(authored.ticket.fields.template_key).toBe('welcome')
   })
 })
 

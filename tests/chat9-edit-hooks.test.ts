@@ -35,7 +35,7 @@ function seedModules(cwd: string, slug: string): Array<{ id: string; type: strin
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 6,
+      version: 7,
       config: {
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },

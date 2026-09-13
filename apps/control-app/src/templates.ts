@@ -35,16 +35,40 @@ import type { Ticket, TicketStore } from './tickets'
 export const TEMPLATE_TYPE = 'template'
 
 /**
- * The messages this platform sends, and therefore the templates that exist.
+ * The messages this PLATFORM sends, and therefore the templates every business
+ * starts with.
  *
- * A CLOSED SET RATHER THAN A FREE STRING, because the key is what a sender looks
- * up by: an open vocabulary would let a template be authored under `sign-in`
- * while the sender asks for `signin`, and the two would never meet. The failure
- * of a closed set is a refusal at authoring time; the failure of an open one is
- * a send that finds nothing at the moment somebody is waiting for mail.
+ * IT WAS THE WHOLE VOCABULARY AND IS NOW THE SEED SET ([[REQ-243]]). The
+ * argument for closing it was that the key is what a sender looks up by, so *"an
+ * open vocabulary would let a template be authored under `sign-in` while the
+ * sender asks for `signin`, and the two would never meet. The failure of a
+ * closed set is a refusal at authoring time; the failure of an open one is a
+ * send that finds nothing at the moment somebody is waiting for mail."*
+ *
+ * THE ARGUMENT WAS RIGHT ABOUT THE FAILURE AND WRONG ABOUT THE SCOPE. Two
+ * capture forms on one site plainly want different mail — a delivery on the
+ * whitepapers page, a welcome on the beta page — and no literal in this
+ * repository can enumerate the copy a business wrote for itself. So the key
+ * became a free string and the property the closed set was protecting moved to
+ * {@link templateKeysOf}, which answers *what does this business actually hold*
+ * from the store's own contents; a form naming something else is refused at
+ * publish, which is still authoring time.
+ *
+ * WHAT SURVIVES UNCHANGED is what these four keys MEAN. `invite` and `signin`
+ * are what the identity flows send, `asset` is what a gated download renders,
+ * and each is seeded into a business that has never had one. They are no longer
+ * the only keys; they are still their own.
  */
 export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed', 'asset'] as const
 
+/**
+ * One of the seeded system keys.
+ *
+ * A NARROWER TYPE THAN {@link templateFor} TAKES, deliberately. The identity
+ * flows send exactly one message each and naming it wrong is a bug this type
+ * catches at the compiler; a capture form's key is read out of a stored config
+ * and could be anything, so it arrives as a string and is checked at run time.
+ */
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
 
 /**
@@ -70,7 +94,12 @@ export type TemplateKey = (typeof TEMPLATE_KEYS)[number]
  */
 export const TEMPLATE_SCHEMA = {
   fields: {
-    template_key: { type: 'enum', enum: [...TEMPLATE_KEYS], required: true },
+    /*
+     * A FREE STRING SINCE [[REQ-243]], where it was `enum: TEMPLATE_KEYS`.
+     * A business authors the copy its own forms send, so the set of keys that
+     * may exist is the set of keys somebody wrote — see {@link TEMPLATE_KEYS}.
+     */
+    template_key: { type: 'string', required: true },
     subject: { type: 'string', required: true },
     placeholders: { type: 'list' },
     from: { type: 'string' },
@@ -340,7 +369,7 @@ export function renderCopy(
  * the next time one is asked for. That is the useful failure of the two: a
  * message type with no template cannot be sent at all.)
  */
-export async function templateFor(store: TicketStore, key: TemplateKey): Promise<Ticket> {
+export async function templateFor(store: TicketStore, key: string): Promise<Ticket> {
   const { tickets } = await store.query({
     predicate: `type=${TEMPLATE_TYPE} AND fields.template_key=${key}`,
     sort: '-created_at',
@@ -348,7 +377,11 @@ export async function templateFor(store: TicketStore, key: TemplateKey): Promise
   })
   if (tickets.length > 0) return tickets[0]
 
-  const seed = SEED_TEMPLATES[key]
+  // SEEDED ONLY FOR A KEY THIS PLATFORM DEFINES. A business's own key — the
+  // welcome its beta form sends — has no seed and cannot have one: nothing here
+  // knows what that message should say, and inventing copy would put words in a
+  // business's mouth at the moment a stranger is receiving them ([[REQ-243]]).
+  const seed = SEED_TEMPLATES[key as TemplateKey]
   if (!seed) throw new TemplateNotFoundError(key)
   const { ticket } = await store.create({
     type: TEMPLATE_TYPE,
@@ -362,6 +395,87 @@ export async function templateFor(store: TicketStore, key: TemplateKey): Promise
     body: seed.body,
   })
   return ticket
+}
+
+/**
+ * The keys the IDENTITY FLOWS own, and which a public capture form may never
+ * name ([[REQ-243]] §4).
+ *
+ * DERIVED FROM WHAT THEY DO, NOT FROM A LIST SOMEBODY MAINTAINS. `invite` mints
+ * a sign-up link that creates a member; `signin` mints a session. Both are
+ * redeemable credentials with their own expiry and their own single use, and
+ * both are sent from an authenticated act by somebody who already belongs to the
+ * business. A form on a page anybody can reach is the opposite of that in every
+ * respect, so it is refused the keys rather than trusted with them — [[BUG-86]]'s
+ * rule again, one surface further along: remove the ability to misconfigure
+ * rather than document the correct setting.
+ *
+ * `lapsed` IS NOT HERE, AND THE OMISSION IS THE POINT. Its call to action opens
+ * an account the reader already has; there is nothing to redeem. What this list
+ * names is credentials, not system templates in general — a form naming `lapsed`
+ * is merely strange, and strange is the author's business.
+ *
+ * IT LIVES HERE BECAUSE THIS IS WHERE THOSE KEYS ARE DEFINED. `invites.ts` and
+ * `sessions.ts` are the flows, and their keys are seeded in this file; the
+ * `contact-form` contract cannot hold the rule because the ALLOWED set is a
+ * business's own store, which `packages/framework` is upstream of and cannot see.
+ */
+export const CREDENTIAL_TEMPLATE_KEYS: readonly string[] = ['invite', 'signin']
+
+/**
+ * Every template key this business can actually send under, right now.
+ *
+ * THIS IS WHAT REPLACES THE CLOSED SET ([[REQ-243]] §2). `TEMPLATE_KEYS` used to
+ * be both the vocabulary and the check; opening the vocabulary would have left
+ * nothing checking, and *"a send that finds nothing at the moment somebody is
+ * waiting for mail"* is the failure the closed set existed to prevent. So the
+ * check reads the store instead of a literal, and a form is validated against it
+ * at publish — still a refusal at authoring time, now sourced from the truth.
+ *
+ * THE SEEDED KEYS ARE IN IT EVEN WHEN NOBODY HAS WRITTEN THEM. {@link templateFor}
+ * is seed-if-absent, so a business that has never been asked for its `asset`
+ * template will be given one the first time a download is delivered. Reporting
+ * those as missing would refuse a publish that is about to work perfectly.
+ *
+ * IT IS A SNAPSHOT AND IS READ ONCE PER PUBLISH. A site with six forms asks the
+ * same question six times, and the answer cannot change between them.
+ */
+export async function templateKeysOf(store: TicketStore): Promise<Set<string>> {
+  const { tickets } = await store.query({
+    predicate: `type=${TEMPLATE_TYPE}`,
+    sort: '-created_at',
+    limit: 'all',
+  })
+  const keys = new Set<string>(TEMPLATE_KEYS)
+  for (const ticket of tickets) {
+    const key = String(ticket.fields.template_key ?? '').trim()
+    if (key !== '') keys.add(key)
+  }
+  return keys
+}
+
+/**
+ * Why this business's capture forms may not send under `key`, or null if they may.
+ *
+ * A SENTENCE AND NOT A CODE, because both callers put it in front of a person.
+ * At publish it is the refusal the toolbar shows an author mid-edit; at the send
+ * it is a log line an operator reads while wondering where a mail went. A code
+ * would need a second table mapping it back to words, in two places.
+ *
+ * TWO REASONS AND THEY ARE DIFFERENT MISTAKES. A key nobody authored is a typo
+ * or a template not written yet, and the fix is in the business's own copy; a
+ * credential key is a thing this product will not do, and no amount of authoring
+ * changes that. Saying which one it is saves an author from writing an `invite`
+ * template and finding it still refused.
+ */
+export function captureTemplateRefusal(key: string, available: ReadonlySet<string>): string | null {
+  if (CREDENTIAL_TEMPLATE_KEYS.includes(key)) {
+    return `'${key}' is a sign-in or sign-up message and a public form cannot send one.`
+  }
+  if (!available.has(key)) {
+    return `this business has no '${key}' template. Write one, or name a template it holds.`
+  }
+  return null
 }
 
 /**

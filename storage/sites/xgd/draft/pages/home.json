@@ -10,7 +10,7 @@
     {
       "id": "signup",
       "type": "contact-form",
-      "version": 6,
+      "version": 7,
       "config": {
         "fields": [
           {

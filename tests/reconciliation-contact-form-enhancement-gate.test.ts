@@ -319,12 +319,15 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
     // [[REQ-242]] added `accepts` — the acceptances pressing the button asserts.
     // Behavioural in the same sense `assets` is, and equally silent about WHICH
     // forms are enhanced.
+    // [[REQ-243]] added `template` — which message a submission sends. Says
+    // nothing about WHICH forms are enhanced either.
     expect([...configFields].sort()).toEqual([
       'accepts',
       'assets',
       'fields',
       'submitLabel',
       'successMessage',
+      'template',
     ])
     for (const field of configFields) {
       expect(field, `config exposes no enhancement dial (${field})`).not.toMatch(

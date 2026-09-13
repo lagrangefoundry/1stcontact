@@ -22,7 +22,7 @@ import { throwsOnRender as ThrowsOnRender } from './fixtures/conformance/throws-
  */
 
 const carouselMeta = getModule('carousel', 3).meta
-const contactFormMeta = getModule('contact-form', 6).meta
+const contactFormMeta = getModule('contact-form', 7).meta
 
 // A test-only catalog entry whose core throws during SSR (non-isolated).
 const brokenIsolation = (id: string): BehaviorDefinition['meta'] => ({
@@ -46,7 +46,7 @@ const carouselDegenerate: ConformanceFixture = {
 const contactDegenerate: ConformanceFixture = {
   label: 'contact-degenerate',
   props: {
-    version: 6,
+    version: 7,
     config: { fields: 'not-a-list' },
     slots: {},
   },

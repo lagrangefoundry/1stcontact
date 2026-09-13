@@ -57,7 +57,13 @@ describe('REQ-241 — contact-form v5 → v6', () => {
     )
 
     // AC-5, first half — the SAME key, name and URL, as one item.
-    expect(instance.version).toBe(6)
+    //
+    // THE VERSION IS THE CATALOG'S CURRENT ONE AND NOT LITERALLY 6.
+    // `upgradeInstance` carries a stored instance all the way to the contract in
+    // force, so this number moves with every later bump — [[REQ-243]] is the
+    // first, and what AC-5 is about is the SHAPE below, which each step is
+    // required to leave intact.
+    expect(instance.version).toBe(latestModuleVersion('contact-form'))
     expect(instance.config.assets).toEqual([
       { key: 'whitepapers', name: 'both whitepapers', url: 'https://example.test/papers' },
     ])
@@ -73,9 +79,10 @@ describe('REQ-241 — contact-form v5 → v6', () => {
     expect(instance.config.assetUrl).toBeUndefined()
     expect(droppedConfigKeys).toEqual(['asset', 'assetName', 'assetUrl'])
 
-    // And the result is a valid v6 instance — which `upgradeInstance` already
-    // refuses to return otherwise, asserted here so the claim is visible.
-    expect(validateBehaviorConfig(getModuleMeta('contact-form', 6), instance.config)).toEqual([])
+    // And the result is valid against the CURRENT contract — which
+    // `upgradeInstance` already refuses to return otherwise, asserted here so
+    // the claim is visible.
+    expect(validateBehaviorConfig(getModuleMeta('contact-form', 7), instance.config)).toEqual([])
   })
 
   it('test_UAT_FC_REQ-241_a_stored_instance_promising_nothing_upgrades_to_an_empty_list', () => {
@@ -85,9 +92,9 @@ describe('REQ-241 — contact-form v5 → v6', () => {
     // gates nothing" said, rather than left to be inferred from silence. Both
     // readings exist in the stores — every `contact-form` in the repo's own
     // fixtures is this one — so both are exercised rather than assumed.
-    expect(instance.version).toBe(6)
+    expect(instance.version).toBe(latestModuleVersion('contact-form'))
     expect(instance.config.assets).toEqual([])
-    expect(validateBehaviorConfig(getModuleMeta('contact-form', 6), instance.config)).toEqual([])
+    expect(validateBehaviorConfig(getModuleMeta('contact-form', 7), instance.config)).toEqual([])
   })
 
   it('test_UAT_FC_REQ-241_a_half_declared_triple_is_carried_rather_than_discarded', () => {
@@ -98,7 +105,7 @@ describe('REQ-241 — contact-form v5 → v6', () => {
     // already decides, silently.
     const { instance } = upgradeInstance(storedV5({ asset: 'orphan', assetName: 'a paper' }))
     expect(instance.config.assets).toEqual([{ key: 'orphan', name: 'a paper' }])
-    expect(validateBehaviorConfig(getModuleMeta('contact-form', 6), instance.config)).toEqual([])
+    expect(validateBehaviorConfig(getModuleMeta('contact-form', 7), instance.config)).toEqual([])
   })
 
   it('test_UAT_FC_REQ-241_the_module_id_is_unchanged_and_the_bump_ships_its_step', () => {
@@ -108,7 +115,7 @@ describe('REQ-241 — contact-form v5 → v6', () => {
     // a rename would break every historical revision naming `contact-form`.
     // The generalization this ticket is about is capability, not spelling.
     expect(CATALOG.some((meta) => meta.id === 'contact-form')).toBe(true)
-    expect(latestModuleVersion('contact-form')).toBe(6)
+    expect(latestModuleVersion('contact-form')).toBe(7)
     expect(upgradeInstance(storedV5({})).instance.type).toBe('contact-form')
     // And the bump did not arrive without the step that reaches it.
     expect(missingMigrations()).toEqual([])

@@ -33,6 +33,7 @@
 
 import {
   ASSET_SENT,
+  EMAIL_SENT,
   FORM_SUBMITTED,
 } from './builder/contact-events.js'
 import {
@@ -56,12 +57,27 @@ import {
 } from './messages'
 import { addContact } from './people'
 import type { Scope } from './scope'
-import { copyOf, renderCopy, templateFor } from './templates'
+import {
+  CREDENTIAL_TEMPLATE_KEYS,
+  TemplateNotFoundError,
+  copyOf,
+  renderCopy,
+  templateFor,
+  type RenderedMessage,
+} from './templates'
 import { ticketStoreFor, type TicketStore, type TicketStoreEnv } from './tickets'
 import { d1r2SiteStore, UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 
-/** The template every asset delivery renders from. Spelled once. */
+/**
+ * The template a gated download rendered from BEFORE [[REQ-243]], and the one a
+ * `contact-form` migrated to v7 still names.
+ *
+ * IT IS NO LONGER WHAT THE RECEIVER READS. A form names its own message now, so
+ * this is a default in the module's migration and a seed in the business's store
+ * — not a decision this file makes. It is exported because the fixtures and the
+ * migration both spell it and one spelling is better than three.
+ */
 export const ASSET_TEMPLATE = 'asset'
 
 /** What a mail names an asset the form did not name. */
@@ -127,7 +143,42 @@ export interface LeadOutcome {
    * single `assetSent` boolean is precisely the shape that cannot answer it.
    */
   assets?: AssetOutcome[]
+  /**
+   * What became of the message a form promising NO assets sends ([[REQ-243]]).
+   *
+   * A SEPARATE MEMBER FROM `assets` BECAUSE IT IS A DIFFERENT THING. An entry in
+   * `assets` answers *did they get this artifact*; this answers *did the welcome
+   * go out*. Folding it into the list would need a fake key, and the key is the
+   * ledger handle — inventing one would put a delivery in the record for an
+   * artifact that does not exist.
+   *
+   * ABSENT WHENEVER THE FORM PROMISED AN ASSET, because the message it sends is
+   * then the delivery and `assets` already reports it, and absent for a form
+   * naming no template at all, because there was no message to become anything.
+   */
+  message?: MessageOutcome
 }
+
+/**
+ * Why a message this form would have sent did not go out.
+ *
+ * FIVE REASONS AND ONE VOCABULARY, shared by the per-asset outcomes and the
+ * message outcome so a reader does not have to learn which words apply where.
+ *
+ * THE LAST TWO ARE [[REQ-243]]'s AND SHOULD BE UNREACHABLE FROM A PUBLISHED
+ * SITE, because publish refuses both. They are reachable from a DRAFT — the
+ * builder's own preview submits against one and nothing validates it — which is
+ * exactly why the send checks as well as the publish, and exactly why they are
+ * reported rather than thrown.
+ */
+export type DeliverySkip =
+  | 'already_sent'
+  | 'suppressed'
+  | 'no_address'
+  /** The form names a template this business does not hold ([[REQ-243]] §2). */
+  | 'no_template'
+  /** The form names a sign-up or sign-in message ([[REQ-243]] §4). */
+  | 'reserved_template'
 
 /** What became of one promised asset on one submission. */
 export interface AssetOutcome {
@@ -136,7 +187,15 @@ export interface AssetOutcome {
   /** Whether this asset left the building for this submission. */
   sent: boolean
   /** Why it did not, when it did not. */
-  skipped?: 'already_sent' | 'suppressed' | 'no_address'
+  skipped?: DeliverySkip
+}
+
+/** What became of the one message a form with no assets sends. */
+export interface MessageOutcome {
+  /** Whether it left the building for this submission. */
+  sent: boolean
+  /** Why it did not, when it did not. */
+  skipped?: DeliverySkip
 }
 
 /**
@@ -183,6 +242,25 @@ export interface FormDefinition {
    * acceptance record is for is evidencing what was on the page that day.
    */
   accepts: Array<{ key: string; wording: string }>
+  /**
+   * The message this form sends, or `''` for a form that sends none
+   * ([[REQ-243]]).
+   *
+   * IT IS A KEY AND NOT COPY, and the difference is where each lives. This says
+   * WHICH message; what the message SAYS is a ticket in the business's own store,
+   * editable without a deploy — so two businesses may hold different words under
+   * one key and neither needs a branch here.
+   *
+   * `''` IS AN ORDINARY CONFIGURATION AND NOT A MISSING VALUE. A form that only
+   * joins a mailing list captures the contact, records what the press asserted,
+   * and mails nobody; naming no template is how it says so.
+   *
+   * READ FROM THE SERVED DEFINITION LIKE EVERYTHING ELSE HERE, which is the
+   * whole reason this lookup exists: a template key that arrived in the request
+   * would be a stranger choosing which of a business's messages to send to an
+   * address they typed.
+   */
+  template: string
 }
 
 /**
@@ -352,6 +430,7 @@ export async function formDefinitionOf(
         fields,
         assets: assetsIn(config),
         accepts: acceptsIn(config),
+        template: text(config, 'template'),
       }
     }
   }
@@ -620,49 +699,99 @@ function deliveryState(
   // AND IT APPLIES TO THE WHOLE SET, not to an item of it. A suppressed address
   // is sent none of the assets, because the rule is about the mailbox and the
   // set has nothing to do with it.
-  if (history.some((message) => message.status === BOUNCED || message.status === COMPLAINED)) {
-    return 'suppressed'
-  }
+  if (suppressed(history)) return 'suppressed'
   if (delivered.has(asset)) return 'already_sent'
   return 'send'
 }
 
 /**
- * Deliver the assets a form promised, each at most once, ever ([[REQ-223]] §5,
- * per-asset by [[REQ-241]]).
+ * Whether this address must not be written to again ([[REQ-223]] §5).
+ *
+ * ITS OWN FUNCTION SINCE [[REQ-243]], because a form that promises no artifacts
+ * has no asset to ask {@link deliveryState} about and must still be stopped. A
+ * second `some(...)` written beside the welcome path is the shape that lets a
+ * complaint be honoured for downloads and ignored for mailing lists, which is
+ * the one direction this rule must never drift in.
+ */
+function suppressed(history: readonly MessageRecord[]): boolean {
+  return history.some((message) => message.status === BOUNCED || message.status === COMPLAINED)
+}
+
+/**
+ * Deliver what a form promised — its artifacts, or its one message — each at
+ * most once, ever ([[REQ-223]] §5, per-asset by [[REQ-241]], per-template by
+ * [[REQ-243]]).
  *
  * AT MOST ONCE AND NOT A RATE LIMIT. A per-day cap still permits sustained
- * harassment; one message per address per asset bounds a victim's exposure to
+ * harassment; one message per address per thing bounds a victim's exposure to
  * the same single message any newsletter signup produces, which is the floor for
- * an email-gated asset. The cost is real — somebody who loses the mail cannot
- * re-request it — and the intended remedy is an operator re-send from the
- * contacts surface, which is a different, authenticated act. There is
- * deliberately no public re-send path.
+ * a form a stranger can post an address they do not own into. The cost is real —
+ * somebody who loses the mail cannot re-request it — and the intended remedy is
+ * an operator re-send from the contacts surface, which is a different,
+ * authenticated act. There is deliberately no public re-send path.
  *
- * PER ASSET, AND THAT IS THE WHOLE OF [[REQ-241]]'s DELIVERY CHANGE. A contact
- * who has had paper A and not paper B is sent B and is not sent A again, because
- * the ledger already keyed on the asset's key and the only thing missing was
- * asking the question once per item instead of once per form.
+ * PER ASSET, WHICH IS [[REQ-241]]'s DELIVERY CHANGE. A contact who has had paper
+ * A and not paper B is sent B and is not sent A again, because the ledger keys
+ * on the asset's key.
+ *
+ * AND PER TEMPLATE WHEN THERE IS NO ASSET, WHICH IS [[REQ-243]]'s. A form whose
+ * whole deliverable is a place on a list has no artifact to key on, and it needs
+ * a key or the cap does not exist — resubmitting the beta form with a stranger's
+ * address a thousand times is exactly the harassment the asset rule was written
+ * to bound. So the ledger handle is the TEMPLATE: this address has had this
+ * business's welcome, and will not have it twice. Two forms naming one welcome
+ * therefore send it once between them, which is what a welcome means.
  *
  * ONE MESSAGE PER ASSET, each naming its own artifact and linking at its own
  * URL. A single mail listing the set would be one record carrying one key, which
- * is exactly the ledger this change exists to widen — two artifacts would again
- * be one entry, and "which one did they take" would again be unanswerable.
+ * is exactly the ledger [[REQ-241]] widened.
+ *
+ * THE TEMPLATE IS RESOLVED ONCE, WHATEVER IT SENDS. Both shapes render the key
+ * the FORM named — that is the whole of [[REQ-243]] — from the business's own
+ * store, so two forms on one site send different mail with no branch here and no
+ * platform-only path.
  *
  * THE LEDGER IS THE MESSAGE RECORD, which is written `queued` BEFORE the
  * provider is called. A counter kept anywhere else could say "sent" for a
  * message that never left, or say nothing for one that did.
  */
-async function deliverAssets(
+async function deliverForm(
   env: LeadEnv,
   store: TicketStore,
   scope: Scope,
   contactId: string,
+  templateKey: string,
   assets: readonly { key: string; name: string; url: string }[],
   send: SendEmail,
-): Promise<AssetOutcome[]> {
+): Promise<{ assets: AssetOutcome[]; message?: MessageOutcome }> {
+  /** The same answer in whichever shape this form's outcome takes. */
+  const nothing = (skipped: DeliverySkip): { assets: AssetOutcome[]; message?: MessageOutcome } =>
+    assets.length > 0
+      ? { assets: assets.map((asset) => ({ key: asset.key, sent: false, skipped })) }
+      : { assets: [], message: { sent: false, skipped } }
+
+  // BEFORE ANYTHING IS READ, because it is a refusal about the FORM and not
+  // about the contact ([[REQ-243]] §4). Publish refuses a capture form naming a
+  // credential template, so reaching this line means a DRAFT — the builder's own
+  // preview, which nothing validates — and the answer is the same either way.
+  if (CREDENTIAL_TEMPLATE_KEYS.includes(templateKey)) return nothing('reserved_template')
+
   const primary = (await emailsOf(env, contactId)).find((row) => row.is_primary === 1)
-  if (!primary) return assets.map((asset) => ({ key: asset.key, sent: false, skipped: 'no_address' }))
+  if (!primary) return nothing('no_address')
+
+  // AFTER THE ADDRESS CHECK, because `templateFor` is seed-if-absent and would
+  // otherwise write a template ticket for a contact nothing can be sent to.
+  let template
+  try {
+    template = copyOf(await templateFor(store, templateKey))
+  } catch (err) {
+    // A KEY THE BUSINESS DOES NOT HOLD, reported and not thrown. Publish refuses
+    // it, so this is a draft again — and a preview that 500s tells the operator
+    // far less than a submission that captures the lead and says what was
+    // missing.
+    if (err instanceof TemplateNotFoundError) return nothing('no_template')
+    throw err
+  }
 
   const history = await messagesFor(store, contactId)
   // EVERY KEY ALREADY SENT TO, AND THE ONES SENT WITHIN THIS LOOP. The second
@@ -671,8 +800,51 @@ async function deliverAssets(
   const delivered = new Set(
     history.map((message) => message.asset).filter((key): key is string => key !== null),
   )
-  const template = copyOf(await templateFor(store, ASSET_TEMPLATE))
 
+  /** Queue, record and report one message. Shared so the two shapes cannot drift. */
+  const post = async (
+    outgoing: RenderedFor,
+  ): Promise<MessageRecord> =>
+    sendRecordedEmail(
+      store,
+      {
+        contactId,
+        addressId: primary.id,
+        templateKey: outgoing.rendered.templateKey,
+        templateUid: outgoing.rendered.templateUid,
+        subject: outgoing.rendered.subject,
+        from: outgoing.rendered.from?.trim() || mailFrom(env),
+        // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
+        // keeps, so a multi-recipient message is not expressible here either.
+        to: primary.email,
+        ...(outgoing.asset === null ? {} : { asset: outgoing.asset }),
+        body: outgoing.rendered.body,
+      },
+      send,
+    )
+
+  // ── The form promises nothing: one message, keyed on the template ──────────
+  if (assets.length === 0) {
+    if (suppressed(history)) return { assets: [], message: { sent: false, skipped: 'suppressed' } }
+    if (history.some((message) => message.asset === null && message.templateKey === templateKey)) {
+      return { assets: [], message: { sent: false, skipped: 'already_sent' } }
+    }
+    // NO VALUES, AND THAT IS THE TOKEN CONTRACT DOING ITS JOB ([[REQ-243]] §3).
+    // The capture path can supply the artifacts a form promised and nothing
+    // else, so a form promising none supplies none — and a template declaring
+    // `{{cta_url}}` is refused at render rather than sent with a dead button.
+    const rendered = renderCopy(template, {})
+    const message = await post({ rendered, asset: null })
+    await recordEvent(env, scope, {
+      contactId,
+      kind: EMAIL_SENT,
+      ref: message.uid,
+      detail: { template: rendered.templateKey, status: message.status },
+    })
+    return { assets: [], message: { sent: true } }
+  }
+
+  // ── The form promises artifacts: one message each ─────────────────────────
   const outcomes: AssetOutcome[] = []
   for (const asset of assets) {
     const state = deliveryState(history, delivered, asset.key)
@@ -681,23 +853,7 @@ async function deliverAssets(
       continue
     }
     const rendered = renderCopy(template, { cta_url: asset.url, asset_name: asset.name })
-    const message = await sendRecordedEmail(
-      store,
-      {
-        contactId,
-        addressId: primary.id,
-        templateKey: rendered.templateKey,
-        templateUid: rendered.templateUid,
-        subject: rendered.subject,
-        from: rendered.from?.trim() || mailFrom(env),
-        // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
-        // keeps, so a multi-recipient message is not expressible here either.
-        to: primary.email,
-        asset: asset.key,
-        body: rendered.body,
-      },
-      send,
-    )
+    const message = await post({ rendered, asset: asset.key })
     delivered.add(asset.key)
     // THE TIMELINE ENTRY IS WRITTEN WHATEVER THE PROVIDER SAID, for the reason the
     // invite moves its pipeline stage on the attempt: a refused send is still a
@@ -711,7 +867,13 @@ async function deliverAssets(
     })
     outcomes.push({ key: asset.key, sent: true })
   }
-  return outcomes
+  return { assets: outcomes }
+}
+
+/** One rendered message and the ledger key it is remembered by, if any. */
+interface RenderedFor {
+  rendered: RenderedMessage
+  asset: string | null
 }
 
 /*
@@ -793,7 +955,7 @@ function reportAssetSkipped(
   businessId: string,
   contactId: string,
   asset: string,
-  reason: NonNullable<AssetOutcome['skipped']>,
+  reason: DeliverySkip,
 ): void {
   console.warn(
     JSON.stringify({
@@ -804,6 +966,40 @@ function reportAssetSkipped(
       business: businessId,
       contact: contactId,
       asset,
+    }),
+  )
+}
+
+/**
+ * Say that a form named a message and it did not leave the building
+ * ([[REQ-243]]).
+ *
+ * ITS OWN LINE RATHER THAN `lead_asset_not_sent` WITH A BLANK ASSET. The two are
+ * different questions an operator asks — *why has nobody had the whitepaper* and
+ * *why is the beta list not getting its welcome* — and a query that has to filter
+ * one out of the other is a query nobody writes.
+ *
+ * IT NAMES THE TEMPLATE, which for the two [[REQ-243]] reasons is the whole
+ * diagnosis: `no_template` means this key is not in the business's store, and
+ * `reserved_template` means it never will be. Both are only reachable from a
+ * draft, because publish refuses them.
+ */
+function reportMessageSkipped(
+  spec: LeadSubmission,
+  businessId: string,
+  contactId: string,
+  template: string,
+  reason: DeliverySkip,
+): void {
+  console.warn(
+    JSON.stringify({
+      event: 'lead_message_not_sent',
+      reason,
+      site: spec.siteKey,
+      form: spec.instanceId,
+      business: businessId,
+      contact: contactId,
+      template,
     }),
   )
 }
@@ -898,26 +1094,42 @@ export async function captureLead(
     created: added.created,
     assets: [],
   }
-  // A FORM THAT PROMISES NOTHING TOUCHES NO STORE. The ticket store is opened to
+  // A FORM THAT SENDS NOTHING TOUCHES NO STORE. The ticket store is opened to
   // read the message ledger and the mail template, and a submission with nothing
-  // to deliver needs neither — which is most submissions.
+  // to send needs neither.
+  //
+  // WHAT DECIDES IT IS THE TEMPLATE AND NO LONGER THE ASSETS ([[REQ-243]]). The
+  // test used to be "does this form promise an artifact", which is why a form
+  // whose whole deliverable is a place on a list mailed nobody. It is now "does
+  // this form name a message", and a form promising artifacts necessarily names
+  // one — `contact-form` v7's migration is what makes that true of every gated
+  // download already in the stores.
   const promised = definition?.assets ?? []
-  if (promised.length === 0) return outcome
+  const templateKey = definition?.template ?? ''
+  if (templateKey === '') return outcome
 
   const store = await ticketStoreFor(env, scope)
-  const assets = await deliverAssets(
+  const sent = await deliverForm(
     env,
     store,
     scope,
     contactId,
+    templateKey,
     promised,
     // THE SENDER IS CHOSEN BY WHETHER THE DEPLOYMENT HOLDS A CREDENTIAL and by
     // nothing else ([[REQ-196]]): a development machine and a test runner have
     // none, so they get the adapter that records and cannot send.
     deps.send ?? mailerFor(env),
   )
-  for (const asset of assets) {
+  for (const asset of sent.assets) {
     if (asset.skipped) reportAssetSkipped(spec, site.businessId, contactId, asset.key, asset.skipped)
   }
-  return { ...outcome, assets }
+  if (sent.message?.skipped) {
+    reportMessageSkipped(spec, site.businessId, contactId, templateKey, sent.message.skipped)
+  }
+  return {
+    ...outcome,
+    assets: sent.assets,
+    ...(sent.message ? { message: sent.message } : {}),
+  }
 }

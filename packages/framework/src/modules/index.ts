@@ -79,6 +79,9 @@ export {
 // REQ-96 — `contact-form`'s attribute bundles (the module's half of the control
 // contract), exported so the repro pipeline and tests can resolve the same roster.
 export { contactFormControls, controlId } from './contact-form/controls'
+// [[REQ-243]] — the template a stored `contact-form` instance names.
+export { contactFormTemplateRefs, CONTACT_FORM_TEMPLATE_KEY } from './contact-form/templates'
+export type { ContactFormTemplateRef } from './contact-form/templates'
 export type { ContactFormField } from './contact-form/controls'
 export type {
   BehaviorMeta,
