@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:06:20.716425+00:00'
+updated_at: '2026-09-13T21:06:47.784203+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -248,5 +248,26 @@ One and two are people we've already identified, and the tracking comes free wit
 <!-- xgd-chat role="user" ts="2026-09-13T21:06:20.334875+00:00" -->
 #### You
 The server sees requests. It cannot see duration. That needs a beacon from the browser — heartbeats <-- v1 I can just live with knowing the timing of the accesses that is all I meant to imply - this hidden page will not have much content all I'm saying is I want to understand the timing of the clicks
+
+<!-- xgd-turn id="2469c015-9e2d-4cff-91b0-7cc6f64e288c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:06:47.724058+00:00" -->
+#### Claude
+That collapses most of it. No beacon, no client JS, no public write endpoint — the gated page is a `GET` like everything else `public-site` serves, so it needs no amendment to that Worker's character at all.
+
+What's left is server-side and small:
+
+- **`page.accessed`** — every arrival on the token-bearing page, one row each. `occurred_at` is the timing.
+- **`asset.downloaded`** — one per file actually fetched, naming which paper.
+
+Engagement is then a query over the gaps: they arrived at 09:14, took one paper at 09:15, came back Thursday and took the other. For a thin page whose only content is the download links, the access→download interval is the signal a dwell timer would have been approximating anyway — and it's a measured fact rather than a lower bound.
+
+The volume and retention concerns go with it. A handful of events per contact, not hundreds, so the timeline stays readable and nothing needs pruning.
+
+What survives from the last exchange is the config consequence: **the module's single `asset`/`assetName`/`assetUrl` triple has to become a set**, because two papers means two names, two links, two download events, and two entries in the at-most-once ledger.
+
+Still unanswered, and cheap: does "all user accesses in the event log" extend past the token-bearing page to signed-in surfaces like the portal — or is the gated page the whole of it for v1?
+
+That's acceptances, the three event types, and the access model settled. Want me to write EPIC-10's body up to here before we take on the email configuration and the module's config shape?
 
 <!-- xgd-chat-end -->
