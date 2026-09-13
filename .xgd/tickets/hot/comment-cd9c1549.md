@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:41:57.453994+00:00'
+updated_at: '2026-09-13T21:42:49.764689+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -424,5 +424,33 @@ The fact is there are different forms, they do different things and have differe
 3. Sign-in - existing users only.
 
 Lets complete the conversation before you create tickets otherwise I will get confused
+
+<!-- xgd-turn id="a56358a7-ae9a-480b-976c-ce252756aac2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:42:49.689620+00:00" -->
+#### Claude
+You're right, and the flag was the wrong shape. A capture form shouldn't be able to make a member *even in principle* — that's stronger than a boolean defaulted off, and it's the same argument BUG-86 made when it deleted `config.action`: removing the ability to misconfigure beats documenting the correct setting.
+
+Your three are also already how the codebase is built, which I should have noticed. Sign-in isn't a `contact-form` with a flag — it's `account-chrome` plus its own routes in `sign-in.ts`, with its own refusals. The precedent is set: **a form whose job is identity is not a capture form.** Sign-up should follow sign-in's shape, not contact-form's.
+
+So:
+
+| | What it does | Who it accepts | Acceptances |
+|---|---|---|---|
+| **Capture** — newsletter, beta, enquiry | unknown address → contact at `lead` | anyone | type 2 and 3; never type 1 |
+| **Sign-up** — invite today, self-serve later | contact → member | anyone (later); invitee (today) | type 1 required; type 2 optional, orthogonal |
+| **Sign-in** | authenticates | existing subjects only | none |
+
+Two things fall out of that which are worth having on the record.
+
+**T&C acceptance isn't a rule attached to sign-up — it *is* membership.** In the current model a member is a contact with `tos_accepted_at` set (`people-axes.js`: *"Signed up — accepted the terms — and may log in"*), and `terms.ts::acceptTerms` writes the version and the timestamp together and appends `member.signed_up`. So "sign-up requires T&C acceptance" isn't a constraint we're imposing; it's the definition of the transition. Your model and the code already agree.
+
+**Which makes the acceptance registry more foundational than I had it.** It isn't just for capture forms — sign-up needs it for the type-1 documents. And there's a real gap underneath: the `tos_version` column is per-contact-per-tenant and works fine, but the *document* is platform-only — `TERMS_VERSION` is a constant and `TERMS_TEXT` is hardcoded lorem ipsum in `terms.ts`. A customer's own sign-up needs that customer's own terms at that customer's own version. So the registry has to own the document, not just the acceptance of it.
+
+**What this deletes from the proposed split:** the "may become a member" config, and most of D — the email question shrinks back to *which template does a capture form send*, since sign-up and sign-in already have `invite` and `signin`.
+
+The scoping question I need before the tickets, because it changes the shape of the set: **you said sign-up is "today invite only, tomorrow self sign-up".** Is self-serve sign-up in this round, or is this round capture forms only — newsletter, beta, whitepapers — with self-serve sign-up a later requirement under the same epic?
+
+And is there anything else on the list before I write them? By my count what's left undiscussed is the acceptance registry's own details: who defines the keys, where the wording and the document version live, and what a business does to turn one on.
 
 <!-- xgd-chat-end -->
