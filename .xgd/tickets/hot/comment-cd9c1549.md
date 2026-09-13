@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:12:01.491409+00:00'
+updated_at: '2026-09-13T22:12:35.305244+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -587,5 +587,26 @@ One caveat worth knowing: `depends_on` isn't a field `xgd ticket query` can filt
 <!-- xgd-chat role="user" ts="2026-09-13T22:12:00.411493+00:00" -->
 #### You
 No I need the depends_on to be popuated - that's what we use
+
+<!-- xgd-turn id="ff9bf0ea-feed-4059-a489-f1f1f6f46ae9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:12:34.696181+00:00" -->
+#### Claude
+Found it — the convention is an explicit empty list, not an absent field. Existing tickets carry `depends_on: []`. Setting it on the two roots.
+
+`depends_on` is now populated on all six — my earlier grep was just looking in the wrong part of the fields block.
+
+| Ticket | `depends_on` |
+|---|---|
+| REQ-240 — acceptances | `[]` |
+| REQ-241 — asset set | `[]` |
+| REQ-242 — form sets acceptances | `[request-a4186018]` → REQ-240 |
+| REQ-243 — form chooses its email | `[request-41a9dc90]` → REQ-241 |
+| REQ-244 — gated page | `[request-41a9dc90, request-a0910456]` → REQ-241, REQ-243 |
+| REQ-245 — portal | `[request-a4186018]` → REQ-240 |
+
+The two roots were missing the field entirely rather than carrying an empty list — `--fields` at create time only writes keys you name, so passing no `depends_on` left it absent instead of empty. Worth knowing for next time: set it explicitly on roots too, since absent and `[]` aren't the same thing to whatever reads the frontier.
+
+Still outstanding from earlier, whenever you want them: EPIC-10's body is still `(new ticket)`, and the title rename to decide on.
 
 <!-- xgd-chat-end -->
