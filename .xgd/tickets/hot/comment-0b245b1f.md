@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:22:20.712323+00:00'
+updated_at: '2026-09-13T20:24:29.590591+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -156,5 +156,68 @@ ok let me talk about lifecycle:
 2. I feel like the slug in the URL may be redundant. It does allow a user to read the URL and know that the like is to that business/site but this URL is not for sharing and only every used during site development. I think we could safely remove the slug and simplify our story
 
 3. Separately the user needs to choose a 1stc.site subdomain (if they don't yet have a domain name) the subdomain must be unique over 1stc.site subdomains. (aside: And we need to restrict - inappropriate ones)
+
+<!-- xgd-turn id="a65d6961-239a-4213-8f79-37321d5122a1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T20:24:29.202791+00:00" -->
+#### Claude
+Three good simplifications. I agree with two outright, and the third I'd take in a narrower form than you've proposed — for a reason worth seeing.
+
+## 1. Lifecycle: agreed, and it exposes a latent bug we'd be about to trip
+
+"Internal, not a key, changeable at any time" is consistent with what we settled last turn — a `UNIQUE (owner_account_id, name)` constraint is not a key. Nothing references `tenants.name`; the tenant id stays the only address. The constraint stops two indistinguishable rows appearing in one account, and that's all it does.
+
+But there's a problem sitting in the code right now. `sessionIdFor(slug)` returns `` `site-${slug}` `` (`host-core.ts:427`), and since BUG-90 the slug is derived from the business name. The transcript lives in a ticket found by `fields.session_id`. So **the first time someone renames their business, the assistant's entire conversation is orphaned** — not deleted, just unreachable, replaced by an empty session. Nothing triggers it today because no rename path exists. The feature we're about to build is the trigger.
+
+That's independently decisive for point 2.
+
+## 2. The slug: you're right about what you're looking at, but it's two things
+
+- **(a) The store's addressing primitive.** Three store implementations (`d1r2-store` 82 refs, `memory-store` 53, `fs-store` 50), `edit.ts` (233), `router.ts` (93), the conformance harness, publish, preview, the whole CLI. And the local file store is genuinely multi-site and *not* tenanted — `storage/sites/` holds `1stcontact`, `gigabytealchemy` and `xgd` side by side, addressed by exactly this name. Removing it there isn't a simplification, it's a rewrite of the store contract.
+
+- **(b) A name the user sees, derived from the business name, in `/preview/<slug>/<channel>/`.** That's the redundancy you're pointing at, and it is real: `api.js` already carries the business separately in `businessScope`, so with one site per business the slug in that URL tells the reader nothing the scope doesn't already say.
+
+So my recommendation: **keep the column, sever it from the business name, stop showing it.** At provision it gets an opaque value rather than `businessSiteName(name)`. Then:
+
+- nothing derives from the business name any more except the label
+- "does the slug follow a rename?" — the question I put to you last turn — simply evaporates
+- the session id stops moving, so the conversation survives a rename
+- the preview URL stops leaking a name it has no reason to carry
+- the store contract, the CLI, the fs layout and the conformance harness are untouched
+
+This lands your simplification — the user never sees it, never chooses it, never renames it — for a one-line change at provision instead of a three-store refactor. It also finishes REQ-190's opaque-keys argument rather than contradicting it. The one thing I'd want to verify before writing it up is whether the builder chrome displays the slug anywhere today; `app.js` has 31 references and most look like addressing, but that needs a pass rather than an assumption.
+
+## 3. The subdomain — and the lifecycle question your point 3 raises
+
+Note how cleanly this inverts against the business name, which is worth stating explicitly in the docs the settings chat reads:
+
+| | Business name | `1stc.site` label |
+|---|---|---|
+| Visible to | the owner and us | the public |
+| Unique across | one account | **every label ever issued** |
+| Changing it | free, no consequence | old one retained, never re-issued |
+| Asked for | early and cheaply | deliberately |
+
+**When is it allocated?** Your epic cites DOC-45 §7 — assigned at provision from the slugified business name — but you've just said the user *chooses* it. Those conflict, and at provision the name is `Unnamed business`, so the auto-assigned label would be `unnamedbusiness`, which is worse than having none.
+
+I'd resolve it by moving the moment: **allocate the label at first publish, not at provision.** Before publish the site has no public address and needs none. At publish the user is asking to go live, so they are by definition ready to make the choice — which answers the epic's real objection (don't block someone on a choice they aren't ready for) without assigning them a name derived from a placeholder. It's also what keeps DOC-45 §4 safe: once the `/site/<key>/` path grammar is deleted, publishing without a label would produce an unreachable site, so requiring it at publish is the guard.
+
+**On restriction — three tiers, and only two of them can be mechanical:**
+
+1. **Syntactic** — DNS label rules: 1–63 chars, `a-z0-9-`, no leading/trailing hyphen, and refuse the `xn--` prefix so nobody hand-rolls a punycode lookalike. Mechanical.
+2. **Reserved** — `www`, `mail`, `api`, `admin`, `ns1`, `mx`, `_acme-challenge`, plus product-reserved `app`, `portal`, `support`, `1stcontact`. A list. This is TODO-6 §2's.
+3. **Inappropriate** — the hard one, and I'd split it rather than treat it as one list. **Impersonation refuses outright** (banks, government, us) because the harm lands on a third party immediately and there's no benefit of the doubt to give. For the slur/obscenity tail, a substring blocklist has the Scunthorpe problem and will eventually refuse a real furniture restorer's real business name — which for this product is a worse failure than briefly allowing something we later revoke, especially since we're already committed to retention and revocation.
+
+One rule I'd hold firmly: **the settings AI must not be the gate.** It would be judging its own user's request and can be talked out of a refusal. The list refuses; the AI's job is to explain the refusal and help find an alternative — which is exactly what the surface declaration's error prose is for, and why writing those refusals well is part of the API work rather than a doc afterthought.
+
+Tier 3 is TODO-6's to build; the initial REQs only need the seam it plugs into.
+
+## What I need before writing
+
+Last turn's four are still open (I'd now drop "does the slug follow a rename" — replaced by the opaque-slug proposal above), plus:
+
+- **Opaque slug at provision, or do you want to push on removing the column entirely?** I recommend opaque.
+- **Label at first publish, rather than at provision?** I recommend at publish.
+- **Is the label in the initial REQ scope at all,** or do the first REQs cover business name only and the label follows once TODO-6's PSL work is moving? Your scope note says "business, site and 1stc.site subdomain name" — but with the slug gone opaque there's no longer a "site name" to configure, so the initial scope may be just the business name plus the label's storage and uniqueness.
 
 <!-- xgd-chat-end -->
