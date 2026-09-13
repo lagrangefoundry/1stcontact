@@ -5,9 +5,9 @@ type: request
 title: 'User acceptances: the registry, the state, and the events'
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:10.006557+00:00'
-updated_at: '2026-09-13T22:01:10.006557+00:00'
+updated_at: '2026-09-13T22:12:20.521097+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: depends_on
 status: draft
 fields:
   priority: high
@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f55f0a3e
+  depends_on: []
 ---
 
 # User acceptances: the registry, the state, and the events
