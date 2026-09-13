@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T20:48:47.094726+00:00'
+updated_at: '2026-09-13T20:49:57.097681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -113,5 +113,44 @@ Lets talk about the acceptances
 4. I included access_to_whitepapers as an acceptance but its not really a state once you have been sent access to the whitepapers you've been sent them - this cannot be "revoked" because it is a statement about something that happened. Perhaps it should not have a boolean on the model, but just be an event (note: it could still have a user checkbox)
 
 So I get to the same three categories you did. I think we have acceptances and they are configured to be one of these three types - agree?
+
+<!-- xgd-turn id="c9152565-d788-4d4d-83bd-150baaaeb121-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T20:49:56.749222+00:00" -->
+#### Claude
+Yes — agreed on the three categories. Three refinements, and then two consequences your framing implies that aren't yet on the table.
+
+## Refinements
+
+**1. Category 1's state is a version, not a boolean.** "Cannot be changed" is true of the *user's* ability to revoke, but the document itself changes, and a new version has to be re-accepted. `terms.ts` already learned this the hard way and says so:
+
+> `tos_version IS NULL` would answer "has this person ever accepted anything", which is the same question only until the first time the terms change — and then it is silently the wrong one for everybody who accepted the old document.
+
+So category 1 is a **document acceptance**: state is *which version they accepted*, the boolean is derived (`accepted == current`), and when the document version bumps the whole contact list goes false at once and gets re-asked. If we model it as a plain immutable boolean we reintroduce exactly the bug the existing code fixed. It also means a category-1 acceptance definition has to reference a versioned document, which categories 2 and 3 don't.
+
+**2. `beta_inclusion` over-claims; your original `beta_asked` was right.** They asked to be in the beta. Whether they're *in* it is the business's decision, and lives in entitlements/pipeline. If the portal shows "Beta: on" the user reads it as "I'm in", which may be false. Keep the name at the ask — `beta_requested` — and let inclusion be a separate fact.
+
+**3. Category 3 has two events, and one of them already exists.** For whitepapers: `whitepapers.requested` is *their* act (the checkbox), `asset.sent` is *ours* (already written, already the at-most-once ledger). You're describing the second; the missing one is the first. Keeping them apart matters because they come apart in practice — they asked and we failed to send, or they asked twice and we sent once. So category 3 isn't "an event instead of state", it's "the record of the ask, with no state, whose fulfilment is a separate existing event."
+
+That also makes category 3 honest: it's a **request**, not an acceptance. I'd name the umbrella concept accordingly rather than calling a request an acceptance — cheap now, expensive later. But one registry for all three is clearly right, because the module config and the checkbox mapping want to be uniform across them.
+
+## Two consequences
+
+**The portal cannot do what you want it to do — by design.** `account-portal` is read-only by contract: its config has exactly one endpoint, the client issues `GET` and nothing else, and the module header states the reason — *"a portal that can grant itself access is not a portal."* Making category-2 acceptances user-editable there means deliberately opening that contract, which is a decision worth making explicitly rather than discovering during implementation.
+
+**And the portal is unreachable by most of the people who need it.** The portal is for members — signed in, terms accepted. A newsletter subscriber captured by a form is a `lead`, not a member, and cannot sign in at all. So they can never reach the portal to opt out. For marketing mail in an IE tenant that's not a nice-to-have: withdrawal has to be as easy as consent, without a login. Which means category 2 needs **two** surfaces:
+
+- the portal, for members;
+- a tokenised unsubscribe link in the mail footer, for everyone.
+
+There is no unsubscribe mechanism anywhere in the codebase today. I'd argue the link is the *primary* surface and the portal is the convenience, not the other way round — and note the shape is the same capability-URL question as the hidden whitepaper page, so the two probably want one answer.
+
+**Related, smaller:** an operator must be able to flip a category-2 acceptance when a contact phones up and asks. That means an acceptance change needs an **actor** — them, us, or the system. `contact_events` has no actor column (`id, contact_id, business_id, kind, occurred_at, recorded_at, ref, detail`), so it goes in `detail` or the table grows a column. Worth settling before we write events we can't attribute.
+
+## Where that leaves the registry
+
+An acceptance definition would carry, roughly: a key, a type (document / preference / request), the wording shown, and per-type extras — a document reference + version for type 1, portal visibility for type 2, a fulfilment action for type 3. Businesses pick from the system-defined set; custom keys later slot into the same registry.
+
+Does that match what you have in mind? If so the open questions left on acceptances are: whether we open the portal's read-only contract, and where the boolean projection actually lives — `users.fields` won't work, since "everyone in this business with newsletter = true" is the query that sends the newsletter and D1 can't index into a JSON column.
 
 <!-- xgd-chat-end -->
