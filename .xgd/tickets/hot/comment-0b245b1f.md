@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:12:09.453367+00:00'
+updated_at: '2026-09-13T21:13:15.157631+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -319,5 +319,60 @@ EPIC-4's "Old labels are retained and never re-issued" paragraph is now wrong tw
 <!-- xgd-chat role="user" ts="2026-09-13T21:12:09.113669+00:00" -->
 #### You
 ok can you propose the division of work between tickets?
+
+<!-- xgd-turn id="9cdc1892-a60b-4f79-9a05-4a1f19a579f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:13:14.542759+00:00" -->
+#### Claude
+Here's the split I'd propose. Four tickets, and three of the cut lines need justifying.
+
+| | Ticket | Owner | Depends on |
+|---|---|---|---|
+| **1** | **Retire the site slug** | standalone REQ — *not* an EPIC-4 child | — |
+| **2** | **The business name is stored once and may change** | EPIC-4 | 1 (soft) |
+| **3** | **The `1stc.site` hostname: chosen once, required to publish** | EPIC-4 | 1 |
+| **4** | **The Settings tab and the settings chat role** | EPIC-4 | 2, 3 |
+
+### 1. Retire the site slug
+
+Drops `sites.slug` and its unique index; the D1 port takes a site key, so every method stops opening with `siteIdOf(slug)`; `/preview/<key>/`; the file-backed tier untouched per §6's carve-out. Also re-keys `sessionIdFor` onto the site key, which closes the latent bug where a rename would orphan the assistant's whole conversation.
+
+**Why it isn't an EPIC-4 child.** It's DOC-45 §6 — addressing infrastructure with nothing to do with a settings surface. The publish path, EPIC-5, EPIC-6 and EPIC-7 all sit on it too, and filing it under the settings epic makes a shared prerequisite invisible to three epics that need to see it. **Sequenced first**, for §6's own reason: the window closes at the first customer, and everything below would otherwise be built on a token scheduled to disappear.
+
+### 2. The business name is stored once and may change
+
+`tenants.name` becomes the only store: `config.businessName` leaves the site definition and becomes a render-time input. Uniqueness on a normalised form per owning account, discriminator on `Unnamed business` at provision. The rename operation, returning **a list of effects rather than a boolean** — published pages stale until republish, page copy may still name the old business.
+
+Ships with its own entries in the settings surface declaration, prose included.
+
+### 3. The `1stc.site` hostname: chosen once, required to publish
+
+`site_domains` per DOC-45 §5. Global uniqueness on `host`, the reserved technical family, **no update path on `host`** — which is the falsifier §7 now carries. Publication gated on *"this business has at least one address"*, written over two address kinds with only the platform one implemented, so custom domains land as a row rather than as an edit to the check.
+
+Also ships its own surface entries — and this is where the prose earns its keep, because "this cannot be changed" has to reach the customer at the moment of choosing.
+
+**Why 2 and 3 are separate** despite both being "names": they share no data, no constraint and no lifecycle. One is internal, freely changeable and unique within an account; the other is public, final and unique across the world. The only thing they have in common is appearing on the same tab, which is ticket 4's problem.
+
+### 4. The Settings tab and the settings chat role
+
+Fourth `TABS` entry, two-pane split, the form path for the business name, and the read-and-status view of the hostname. Then the genuinely novel part: a **business-scoped session** — the project's first, since `sessionIdFor` and "one `SessionManager` per site" both assume a site today — and the project's **second role**, which means a new entry in `instances.json`, priming that carries no site line, and the grant that decides which settings operations the role can reach.
+
+**Why the tab and the role are one ticket:** a two-pane settings page whose right pane has no assistant isn't a shippable half. **Why this is where the estimate lives:** the browser work is a few hours; the business-scoped session and second role are where the unknowns are.
+
+---
+
+### The cut line I'd defend hardest
+
+**The AI-facing declarations live in the capability tickets, not in a ticket of their own.** You asked for "an API to change the names exposed to the AI with documentation", which reads naturally as one deliverable — but `roles.ts` argues against centralising it, and the argument is good:
+
+> a hand-written inventory of tools is precisely the text that is still describing last month's surface six weeks later, and it is worse than no inventory because the model believes it.
+
+If the prose for "rename the business" ships in a different ticket from the rename operation, they drift by construction. So each capability declares its own operations and writes its own refusals; ticket 4 owns only the role, the grant and the priming — the parts that are about *who is reading the manual*, not what's in it.
+
+### What's still unanswered
+
+Tickets 2 and 3 are writable now from what you've decided. The four sweep items I haven't heard back on all sit inside ticket 2 — delete `config.businessName`, normalised uniqueness, the default-name discriminator, and whether `sites.name` survives at all. If any of those go the other way it changes ticket 2's body, not this division.
+
+Say go and I'll write all four, plus the EPIC-4 correction retiring the "old labels are retained" paragraph.
 
 <!-- xgd-chat-end -->
