@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-236
 created_by: xgd
 created_at: '2026-09-13T22:14:19.809018+00:00'
-updated_at: '2026-09-13T22:44:43.464728+00:00'
+updated_at: '2026-09-13T22:45:10.423389+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,5 +45,14 @@ Now `lead.ts`, `builder.ts` local transport, and `host-core.ts` prose:
 Now let's run the full workers suite to see the damage:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="42260b89-cecb-47d8-8dec-76b5149dfb9e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:45:10.047016+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
