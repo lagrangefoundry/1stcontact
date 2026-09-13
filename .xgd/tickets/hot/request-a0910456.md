@@ -5,10 +5,10 @@ type: request
 title: A capture form chooses the email it sends
 created_by: EPIC-10
 created_at: '2026-09-13T22:02:21.394972+00:00'
-updated_at: '2026-09-13T22:03:19.908065+00:00'
+updated_at: '2026-09-13T23:07:54.355873+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   depends_on:
