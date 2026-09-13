@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:10:52.356498+00:00'
+updated_at: '2026-09-13T21:11:50.931208+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -278,5 +278,37 @@ User access is perhaps going beyond the scope of this epic but since we started 
 
 1. I want a log that captures every serverside (and possibly some client side) events
 2. I want the contact log to capture a high level abstraction of this e.g.: 5/32/2025 16:23- 17.28 user session Site tab (13mins) Marketing tab (23 mins) -When, what is the user doing? How are they spending their time?
+
+<!-- xgd-turn id="72183c4c-4e06-4d37-965b-35835d3e4da8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:11:50.457376+00:00" -->
+#### Claude
+Agreed it's past this epic's edge — but it's worth pinning the shape now, because one decision in it binds EPIC-10.
+
+## The two layers are genuinely two things
+
+You've described them correctly as separate, and they have to stay separate:
+
+**The raw layer** is every server-side event: high volume, includes unauthenticated traffic with no contact behind it at all, includes system and operator activity, and needs a retention limit. It cannot be `contact_events` — that table's `contact_id` is `NOT NULL` with a foreign key, so it structurally cannot hold a request by someone we haven't identified. Half of this already exists by accident: `observability` runs at `head_sampling_rate = 1`, and `lead.ts` already writes structured JSON into the invocation log precisely *"so these can be queried out of the invocation logs rather than grepped out of prose."* What's missing is that those expire on Cloudflare's schedule and can't be joined to a contact. The two candidates are a D1 table or Workers Analytics Engine — the latter is built for exactly this write-heavy, high-cardinality shape and keeps it out of D1's row budget.
+
+**The contact layer** gets the rollup: one row per session, not per request. `Site tab 13 min, Marketing tab 23 min` is one event. That keeps the timeline readable and keeps the spine what it already is — milestones.
+
+## The constraint that shapes it
+
+`contact_events` is immutable — there's an `ABORT` trigger on `UPDATE`. A session summary isn't complete until the session ends, so it can't be written live and then amended. It gets written **once, at close**, after the fact. The schema already anticipates this: `occurred_at` and `recorded_at` are separate columns, justified in the comment by exactly this case — the event happened then, we learned it now.
+
+Which means something has to *decide* a session has closed, on an inactivity timeout. There is no `scheduled` handler anywhere in this codebase today, so that's the first periodic job in the system — or it's done lazily, on next read, which avoids the cron at the cost of summaries that don't exist until someone looks.
+
+## Where the client signal becomes necessary after all
+
+"Which tab, for how long" is the part the server can't fully infer. It sees requests, and a quiet tab makes none. There's an accidental heartbeat already — the Contacts pane polls every two seconds while it's open — but that tells you about one pane, not the others. So "possibly some client side" is right: a lightweight *which surface am I on* signal is what turns request timestamps into the summary you described. That's the only client-side piece, and it's small.
+
+## What binds EPIC-10
+
+Whether `page.accessed` and `asset.downloaded` go straight into `contact_events`, or into the raw layer to be rolled up later.
+
+My recommendation is **straight in**, for v1. `asset.downloaded` is a milestone by any reading — it's the conversion — and there will be a handful per contact, not hundreds. Writing them as contact events now doesn't foreclose the two-layer system: when the raw layer arrives, these keep working and the rollup handles the noisy kinds it was built for.
+
+That's acceptances, the three types, the fulfilment chain, and the access model. The email configuration and the module's config shape are still open, and the asset-set change is now a known consequence. Shall I write EPIC-10's body up to here before we take those on — it's a lot to be holding only in the conversation.
 
 <!-- xgd-chat-end -->
