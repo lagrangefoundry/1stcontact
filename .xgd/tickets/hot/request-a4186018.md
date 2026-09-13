@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f55f0a3e
 ---
 
 # User acceptances: the registry, the state, and the events
