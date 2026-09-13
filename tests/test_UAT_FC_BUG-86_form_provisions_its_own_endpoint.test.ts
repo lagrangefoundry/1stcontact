@@ -132,7 +132,12 @@ describe('BUG-86 — the contact form provisions its own endpoint', () => {
     // bumped — and [[BUG-85]] makes a declared step the precondition for a bump,
     // because an instance pinned to a version the catalog no longer holds fails
     // to resolve and takes the page down with it.
-    expect(latestModuleVersion('contact-form')).toBe(5)
+    //
+    // WHAT THIS PINS IS THE STEP OUT OF v4, NOT THE NUMBER AT THE TOP. The tip
+    // has moved on since ([[REQ-241]] took it to v6), and a test that restated
+    // the current version would go red on every later bump while saying nothing
+    // about this one.
+    expect(latestModuleVersion('contact-form')).toBeGreaterThan(4)
     expect(contactFormMeta.migrations).toHaveProperty('5')
 
     const { instance, droppedConfigKeys } = upgradeInstance({
@@ -147,7 +152,8 @@ describe('BUG-86 — the contact form provisions its own endpoint', () => {
       slots: { form: contactFormPreset(FIELDS) },
     })
 
-    expect(instance.version).toBe(5)
+    // Carried all the way to the catalog's tip, across every step in between.
+    expect(instance.version).toBe(latestModuleVersion('contact-form'))
     expect(droppedConfigKeys).toContain('action')
     expect(instance.config).not.toHaveProperty('action')
     // Everything else survives: the upgrade takes the endpoint away and nothing

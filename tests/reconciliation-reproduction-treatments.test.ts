@@ -37,7 +37,7 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
     // which is about the layout modules that were stripped and not about the size
     // of the catalog.
     expect([...registry.keys()].sort()).toContain('carousel@3')
-    expect([...registry.keys()].sort()).toContain('contact-form@5')
+    expect([...registry.keys()].sort()).toContain('contact-form@6')
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {
       expect([...registry.keys()].some((k) => k.startsWith(`${gone}@`))).toBe(false)
       expect(() => getModule(gone, 1)).toThrow(/not found in catalog/)
@@ -130,17 +130,16 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     // (a) The behavior meta carries only behavioural/functional config — no
     // aesthetic dials (fieldLabels / submitInline / submitColor) remain — and its
     // whole presentation surface is the required `form` slot.
-    // [[REQ-223]] added three: the asset a public form promises, by stable key,
-    // by the name the message calls it, and by URL. Behavioural/integration
-    // config in the same sense `action` is — WHICH artifact the form is gated on
-    // — and none of them bottoms out in a CSS value, which is the test that
-    // separates config from a dial ([[DOC-25]] §2).
+    // [[REQ-223]] added the asset a public form promises — a stable key, the
+    // name the message calls it, and a URL — and [[REQ-241]] made it a LIST of
+    // those, because a form can gate more than one artifact. Behavioural/
+    // integration config in the same sense `action` is — WHICH artifacts the
+    // form is gated on — and none of it bottoms out in a CSS value, which is
+    // the test that separates config from a dial ([[DOC-25]] §2).
     // [[BUG-86]] removed `action`: the endpoint is the module's own and was
     // never an author's to supply. The remaining keys are all behavioural.
     expect(Object.keys(contactFormMeta.config).sort()).toEqual([
-      'asset',
-      'assetName',
-      'assetUrl',
+      'assets',
       'fields',
       'submitLabel',
       'successMessage',

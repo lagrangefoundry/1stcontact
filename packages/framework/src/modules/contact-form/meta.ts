@@ -1,6 +1,6 @@
 import type { BehaviorMeta } from '../behavior'
 import { FIELD_TYPES } from './fields'
-import { contactFormV4ToV5 } from './migrate'
+import { contactFormV4ToV5, contactFormV5ToV6 } from './migrate'
 
 /**
  * `contact-form` (reframed to a behavior by REQ-85; made layout-agnostic **by
@@ -26,7 +26,7 @@ import { contactFormV4ToV5 } from './migrate'
  */
 export const contactFormMeta = {
   id: 'contact-form',
-  version: 5,
+  version: 6,
   kind: 'behavior',
   config: {
     /*
@@ -76,29 +76,59 @@ export const contactFormMeta = {
       },
     },
     /*
-     * THE ASSET THIS FORM PROMISES ([[REQ-223]] §5), in three parts because
-     * `config` has no object type and a list of one would be a shape pretending
-     * to be a set.
+     * THE ASSETS THIS FORM PROMISES ([[REQ-223]] §5, made a SET by [[REQ-241]]).
      *
-     * BOTH OR NEITHER, AND THE RECEIVER ENFORCES IT. `asset` is the stable key
-     * the at-most-once ledger remembers a delivery by; `assetUrl` is what the
-     * message links to. A key with no URL is an asset nothing can deliver and a
-     * URL with no key is a delivery nothing can remember having made — so half a
-     * declaration is read as none rather than as a best effort.
+     * WHY A LIST AND NOT THREE STRINGS. It was `asset`/`assetName`/`assetUrl`,
+     * three siblings because `config` had no object type — and three siblings
+     * can say exactly one thing. The XGD whitepapers page promises "both
+     * papers" and could only be told about one of them, so "did they take both
+     * or one of them" was not a question the stored shape could express: one
+     * key, one URL, one ledger entry. A list of items is the shape that can
+     * hold the answer, and `itemSchema` is how `config` says "object" now.
      *
-     * IT IS BEHAVIOURAL AND NOT CONTENT. What the mail SAYS is a template in the
-     * business's own store, editable without a deploy; what this names is which
-     * artifact the form is gated on, which is a fact about the form.
+     * BOTH OR NEITHER, PER ITEM, AND THE RECEIVER ENFORCES IT. `key` is the
+     * stable handle the at-most-once ledger remembers a delivery by; `url` is
+     * what the message links to. A key with no URL is an asset nothing can
+     * deliver and a URL with no key is a delivery nothing can remember having
+     * made — so half an item is read as no item rather than as a best effort,
+     * and the other items on the same form are untouched by it. Nothing here is
+     * `required`, for that reason: the rule is a READING and not a refusal, and
+     * a validation error would turn one malformed item into a dead page.
+     *
+     * IT IS BEHAVIOURAL AND NOT CONTENT. What the mail SAYS is a template in
+     * the business's own store, editable without a deploy; what this names is
+     * which artifacts the form is gated on, which is a fact about the form.
      *
      * THE RECEIVER READS IT FROM THE PUBLISHED DEFINITION AND NEVER FROM THE
      * SUBMISSION. That is what stops a caller naming an asset — or a URL — of
      * their own by editing what their browser posts.
      */
-    asset: { type: 'string', required: false },
-    // What the message calls it. Prose, not an identifier — "both whitepapers".
-    assetName: { type: 'string', required: false },
-    // Where the artifact lives. Sent as the message's one call to action.
-    assetUrl: { type: 'url', required: false },
+    assets: {
+      type: 'list',
+      required: false,
+      // The same ceiling `fields` carries. A form gating more than eight
+      // artifacts is not a gated download; it is a library, and wants a page.
+      maxItems: 8,
+      itemSchema: {
+        // The stable ledger key. Never shown to anybody — it is the name the
+        // at-most-once rule remembers this artifact by for as long as the
+        // business exists, so it must not change when the prose does.
+        key: { type: 'string', required: false },
+        // What the message calls it. Prose, not an identifier — "the field
+        // guide". A set whose items share one name is a set nobody can tell
+        // apart in their inbox, which is most of the point of naming them.
+        name: { type: 'string', required: false },
+        /*
+         * Where the artifact lives, and for a set it is A PAGE RATHER THAN A
+         * FILE ([[REQ-241]] §2). With one asset the message could link straight
+         * at the artifact; a form promising several wants to land the reader
+         * somewhere that lists them. Nothing here enforces which — a URL is a
+         * URL — and the sender hands whatever is declared to the mail's one
+         * call to action.
+         */
+        url: { type: 'url', required: false },
+      },
+    },
     // Markdown shown in place of the form after a successful JSON submit.
     successMessage: { type: 'string', required: false },
     // The submit button's words. Behavioural copy, not styling — the button's
@@ -170,13 +200,18 @@ export const contactFormMeta = {
    */
   migrationsFrom: 4,
   /**
-   * The step into v5, declared beside the bump that needs it ([[BUG-85]]).
+   * The steps into v5 and v6, each declared beside the bump that needs it
+   * ([[BUG-85]]) — a declared step is the PRECONDITION for a bump, not a
+   * courtesy.
    *
-   * It carries nothing, and `migrate.ts` explains at length why it is written
-   * down anyway: a declared step is the precondition for a bump, not a
-   * courtesy, and an identity function is how a bump says "nothing to carry"
-   * in a way that cannot be mistaken for the omission the guard exists to
-   * catch.
+   * v5 carries nothing, and `migrate.ts` explains at length why it is written
+   * down anyway: an identity function is how a bump says "nothing to carry" in
+   * a way that cannot be mistaken for the omission the guard exists to catch.
+   *
+   * v6 is the other kind. It has real work — the asset triple becomes a
+   * one-item list, and an instance that promised nothing becomes one carrying
+   * an empty one — and both readings exist in the stores, so both are
+   * exercised rather than assumed.
    */
-  migrations: { 5: contactFormV4ToV5 },
+  migrations: { 5: contactFormV4ToV5, 6: contactFormV5ToV6 },
 } as const satisfies BehaviorMeta

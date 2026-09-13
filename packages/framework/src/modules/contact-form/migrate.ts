@@ -34,3 +34,64 @@ import type { BehaviorInstance } from '../behavior'
 export function contactFormV4ToV5(instance: BehaviorInstance): BehaviorInstance {
   return instance
 }
+
+/** One item of v6's `config.assets`, as the v5 triple becomes one. */
+interface AssetItem {
+  key?: string
+  name?: string
+  url?: string
+}
+
+/** A config value as a trimmed string, or `''` when it is not one. */
+function text(config: Record<string, unknown>, key: string): string {
+  const value = config[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
+ * `contact-form` v5 → v6 ([[REQ-241]]) — the asset a form promises becomes a set.
+ *
+ * WHAT v6 BROKE. v5 declared the asset as three sibling strings —
+ * `asset` (the ledger key), `assetName` (what the mail calls it) and
+ * `assetUrl` (where the artifact lives) — because `config` had no object type
+ * and a set of one would have been a shape pretending to be a set. Three
+ * siblings can say exactly one thing, and the page this product's own site
+ * gates on promises TWO whitepapers. v6 replaces them with `assets`, a list
+ * whose items carry the same three parts.
+ *
+ * WHAT THIS FUNCTION CARRIES, AND WHY IT IS NOT AN IDENTITY. Unlike v4 → v5,
+ * the old keys hold data the new contract still wants: an instance that
+ * declared an asset must come out declaring the SAME asset, under the same key,
+ * or the at-most-once ledger loses its handle on every delivery already made
+ * and the next submission mails it again. So the triple becomes a one-item
+ * list, verbatim.
+ *
+ * AND AN INSTANCE THAT PROMISED NOTHING COMES OUT PROMISING NOTHING — as an
+ * EMPTY LIST rather than as an absent key. Both readings exist in the stores
+ * (the two `xgd` forms and both `gigabytealchemy` forms carry no triple at
+ * all), and an empty list is the honest way to say "this form gates nothing":
+ * it is the same answer the receiver's loop reaches, written down.
+ *
+ * A HALF-DECLARATION IS CARRIED, NOT DISCARDED. A key with no URL was read as
+ * no asset at all under v5 and is read as no asset under v6 — the rule moved
+ * from the form to the item and did not change — so carrying it through
+ * preserves the behaviour exactly while leaving the author's half-finished
+ * intent where they left it. Discarding it here would be this migration
+ * deciding something the contract already decides, silently.
+ *
+ * THE OLD KEYS ARE NOT DELETED HERE. `upgradeInstance` drops every key the
+ * target contract does not declare and REPORTS each one in `droppedConfigKeys`,
+ * which is where an operator running the upgrade will see them go. Doing it
+ * again here would be a second implementation of that rule, free to disagree
+ * with the first.
+ */
+export function contactFormV5ToV6(instance: BehaviorInstance): BehaviorInstance {
+  const config = instance.config
+  const item: AssetItem = {
+    ...(text(config, 'asset') !== '' ? { key: text(config, 'asset') } : {}),
+    ...(text(config, 'assetName') !== '' ? { name: text(config, 'assetName') } : {}),
+    ...(text(config, 'assetUrl') !== '' ? { url: text(config, 'assetUrl') } : {}),
+  }
+  const assets = Object.keys(item).length > 0 ? [item] : []
+  return { ...instance, config: { ...config, assets } }
+}

@@ -40,7 +40,13 @@ import { isEmailShape } from './builder/email-shape.js'
 import { emailsOf, normaliseEmail, type IdentityEnv } from './identity'
 import type { MailEnv, SendEmail } from './mail'
 import { mailerFor, mailFrom } from './mail'
-import { BOUNCED, COMPLAINED, sendRecordedEmail, messagesFor } from './messages'
+import {
+  BOUNCED,
+  COMPLAINED,
+  sendRecordedEmail,
+  messagesFor,
+  type MessageRecord,
+} from './messages'
 import { addContact } from './people'
 import type { Scope } from './scope'
 import { copyOf, renderCopy, templateFor } from './templates'
@@ -104,10 +110,26 @@ export interface LeadOutcome {
   contactId?: string
   /** Whether this submission created the contact or found one already here. */
   created?: boolean
-  /** Whether an asset left the building for this submission. */
-  assetSent?: boolean
-  /** Why no asset was sent, when the form promised one. */
-  assetSkipped?: 'already_sent' | 'suppressed' | 'no_address' | 'not_offered'
+  /**
+   * What became of each asset the form promised, in declaration order
+   * ([[REQ-241]]). Empty for a form that promises nothing, and absent only when
+   * the submission was refused before any form was resolved.
+   *
+   * ONE ENTRY PER ASSET AND NOT A SUMMARY. "Did they take both papers or one of
+   * them" is the question this whole change exists to make expressible, and a
+   * single `assetSent` boolean is precisely the shape that cannot answer it.
+   */
+  assets?: AssetOutcome[]
+}
+
+/** What became of one promised asset on one submission. */
+export interface AssetOutcome {
+  /** The stable ledger key, as the published definition declares it. */
+  key: string
+  /** Whether this asset left the building for this submission. */
+  sent: boolean
+  /** Why it did not, when it did not. */
+  skipped?: 'already_sent' | 'suppressed' | 'no_address'
 }
 
 /**
@@ -125,8 +147,15 @@ export interface FormDefinition {
   submitLabel: string
   /** The declared field schema, by field name. */
   fields: Record<string, { label: string; type: string }>
-  /** The asset this form promises, when it promises one. */
-  asset?: { key: string; name: string; url: string }
+  /**
+   * The assets this form promises, in declaration order ([[REQ-241]]).
+   *
+   * ALWAYS PRESENT AND OFTEN EMPTY. A form that gates nothing has no assets,
+   * which is a list of none rather than an absent field — so every caller
+   * writes one loop and nobody writes the "does it promise anything" branch
+   * that used to sit in front of it.
+   */
+  assets: Array<{ key: string; name: string; url: string }>
 }
 
 /**
@@ -163,6 +192,35 @@ function instancesOf(page: Record<string, unknown>): Array<Record<string, unknow
 function text(config: Record<string, unknown>, key: string): string {
   const value = config[key]
   return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
+ * The assets one stored `contact-form` config declares ([[REQ-241]]).
+ *
+ * BOTH OR NEITHER, PER ITEM. A key with no URL is an asset nothing can deliver,
+ * and a URL with no key is a delivery nothing can remember having made — and the
+ * at-most-once rule is exactly a memory. Half an item is read as no item rather
+ * than as a best effort, and the reading is CONFINED TO THAT ITEM: the rest of
+ * the form's set is unaffected, because one author's half-finished line is not a
+ * reason to withhold the artifacts they finished.
+ *
+ * THE NAME HAS A FALLBACK AND THE OTHER TWO DO NOT. A message that cannot say
+ * what the recipient asked for is the one thing that makes an unsolicited-looking
+ * mail illegible, so an unnamed asset gets neutral words; a keyless or urlless
+ * one has nothing to send and nothing to remember, which no fallback can invent.
+ */
+function assetsIn(config: Record<string, unknown>): FormDefinition['assets'] {
+  const declared = Array.isArray(config.assets) ? config.assets : []
+  const assets: FormDefinition['assets'] = []
+  for (const entry of declared) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const item = entry as Record<string, unknown>
+    const key = text(item, 'key')
+    const url = text(item, 'url')
+    if (key === '' || url === '') continue
+    assets.push({ key, url, name: text(item, 'name') || UNNAMED_ASSET })
+  }
+  return assets
 }
 
 /**
@@ -228,19 +286,11 @@ export async function formDefinitionOf(
         if (name === '') continue
         fields[name] = { label: String(field.label ?? ''), type: String(field.type ?? 'text') }
       }
-      const key = text(config, 'asset')
-      const url = text(config, 'assetUrl')
       return {
         page: stored.name,
         submitLabel: text(config, 'submitLabel') || 'Send',
         fields,
-        // BOTH OR NEITHER. A key with no URL is an asset nothing can deliver, and
-        // a URL with no key is a delivery nothing can remember having made — and
-        // the at-most-once rule is exactly a memory. Half a declaration is
-        // treated as none rather than as a best effort.
-        ...(key !== '' && url !== ''
-          ? { asset: { key, url, name: text(config, 'assetName') || UNNAMED_ASSET } }
-          : {}),
+        assets: assetsIn(config),
       }
     }
   }
@@ -328,17 +378,30 @@ export function provenanceOfSubmission(
     form: spec.instanceId,
     fields: answers,
     ...(consent.length > 0 ? { consent } : {}),
-    ...(definition?.asset ? { asset: definition.asset.key } : {}),
+    // WHICH ARTIFACTS THIS FORM WAS GATED ON, by key and in declaration order
+    // ([[REQ-241]]). Recorded on the submission because it is a fact about the
+    // page they were served, which the delivery events cannot supply: an asset
+    // that was promised and skipped leaves no `asset.sent` row at all.
+    ...(definition && definition.assets.length > 0
+      ? { assets: definition.assets.map((asset) => asset.key) }
+      : {}),
   }
 }
 
-/** Whether this contact has already had `asset`, or must never be mailed again. */
-async function deliveryState(
-  store: TicketStore,
-  contactId: string,
+/**
+ * Whether this contact may be sent `asset`, given everything already sent to them.
+ *
+ * THE HISTORY IS READ ONCE AND PASSED IN ([[REQ-241]]). A form promising a set
+ * asks this question once per item, and re-reading every message the contact
+ * holds per item would be the same scan N times over for an answer that cannot
+ * have changed between them — a bounce arrives from a webhook, never from the
+ * middle of this loop.
+ */
+function deliveryState(
+  history: readonly MessageRecord[],
+  delivered: ReadonlySet<string>,
   asset: string,
-): Promise<'send' | 'already_sent' | 'suppressed'> {
-  const history = await messagesFor(store, contactId)
+): 'send' | 'already_sent' | 'suppressed' {
   // SUPPRESSION FIRST. An address that hard-bounced or reported us as spam is one
   // we must not write to whatever else is true of it, and checking the cheaper
   // condition first would let a first-time asset request mail a dead mailbox — or,
@@ -350,15 +413,20 @@ async function deliveryState(
   // domain, and a degraded domain's first casualty is sign-in links not arriving —
   // so abuse of a marketing form breaks the login, which is the whole reason the
   // suppression list is consulted before an address is mailed at all.
+  //
+  // AND IT APPLIES TO THE WHOLE SET, not to an item of it. A suppressed address
+  // is sent none of the assets, because the rule is about the mailbox and the
+  // set has nothing to do with it.
   if (history.some((message) => message.status === BOUNCED || message.status === COMPLAINED)) {
     return 'suppressed'
   }
-  if (history.some((message) => message.asset === asset)) return 'already_sent'
+  if (delivered.has(asset)) return 'already_sent'
   return 'send'
 }
 
 /**
- * Deliver the asset a form promised, at most once, ever ([[REQ-223]] §5).
+ * Deliver the assets a form promised, each at most once, ever ([[REQ-223]] §5,
+ * per-asset by [[REQ-241]]).
  *
  * AT MOST ONCE AND NOT A RATE LIMIT. A per-day cap still permits sustained
  * harassment; one message per address per asset bounds a victim's exposure to
@@ -368,56 +436,79 @@ async function deliveryState(
  * contacts surface, which is a different, authenticated act. There is
  * deliberately no public re-send path.
  *
+ * PER ASSET, AND THAT IS THE WHOLE OF [[REQ-241]]'s DELIVERY CHANGE. A contact
+ * who has had paper A and not paper B is sent B and is not sent A again, because
+ * the ledger already keyed on the asset's key and the only thing missing was
+ * asking the question once per item instead of once per form.
+ *
+ * ONE MESSAGE PER ASSET, each naming its own artifact and linking at its own
+ * URL. A single mail listing the set would be one record carrying one key, which
+ * is exactly the ledger this change exists to widen — two artifacts would again
+ * be one entry, and "which one did they take" would again be unanswerable.
+ *
  * THE LEDGER IS THE MESSAGE RECORD, which is written `queued` BEFORE the
  * provider is called. A counter kept anywhere else could say "sent" for a
  * message that never left, or say nothing for one that did.
  */
-async function deliverAsset(
+async function deliverAssets(
   env: LeadEnv,
   store: TicketStore,
   scope: Scope,
   contactId: string,
-  asset: { key: string; name: string; url: string },
+  assets: readonly { key: string; name: string; url: string }[],
   send: SendEmail,
-): Promise<LeadOutcome['assetSkipped'] | null> {
+): Promise<AssetOutcome[]> {
   const primary = (await emailsOf(env, contactId)).find((row) => row.is_primary === 1)
-  if (!primary) return 'no_address'
+  if (!primary) return assets.map((asset) => ({ key: asset.key, sent: false, skipped: 'no_address' }))
 
-  const state = await deliveryState(store, contactId, asset.key)
-  if (state !== 'send') return state
-
-  const rendered = renderCopy(copyOf(await templateFor(store, ASSET_TEMPLATE)), {
-    cta_url: asset.url,
-    asset_name: asset.name,
-  })
-  const message = await sendRecordedEmail(
-    store,
-    {
-      contactId,
-      addressId: primary.id,
-      templateKey: rendered.templateKey,
-      templateUid: rendered.templateUid,
-      subject: rendered.subject,
-      from: rendered.from?.trim() || mailFrom(env),
-      // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
-      // keeps, so a multi-recipient message is not expressible here either.
-      to: primary.email,
-      asset: asset.key,
-      body: rendered.body,
-    },
-    send,
+  const history = await messagesFor(store, contactId)
+  // EVERY KEY ALREADY SENT TO, AND THE ONES SENT WITHIN THIS LOOP. The second
+  // half matters for a form that names one key twice: the first item delivers,
+  // and the second is `already_sent` for the same reason a second submission is.
+  const delivered = new Set(
+    history.map((message) => message.asset).filter((key): key is string => key !== null),
   )
-  // THE TIMELINE ENTRY IS WRITTEN WHATEVER THE PROVIDER SAID, for the reason the
-  // invite moves its pipeline stage on the attempt: a refused send is still a
-  // send this business made, the record carries the failure, and an operator
-  // reading the history must see that it happened.
-  await recordEvent(env, scope, {
-    contactId,
-    kind: ASSET_SENT,
-    ref: message.uid,
-    detail: { asset: asset.key, name: asset.name, status: message.status },
-  })
-  return null
+  const template = copyOf(await templateFor(store, ASSET_TEMPLATE))
+
+  const outcomes: AssetOutcome[] = []
+  for (const asset of assets) {
+    const state = deliveryState(history, delivered, asset.key)
+    if (state !== 'send') {
+      outcomes.push({ key: asset.key, sent: false, skipped: state })
+      continue
+    }
+    const rendered = renderCopy(template, { cta_url: asset.url, asset_name: asset.name })
+    const message = await sendRecordedEmail(
+      store,
+      {
+        contactId,
+        addressId: primary.id,
+        templateKey: rendered.templateKey,
+        templateUid: rendered.templateUid,
+        subject: rendered.subject,
+        from: rendered.from?.trim() || mailFrom(env),
+        // ONE RECIPIENT, AND THE TYPE IS WHAT SAYS SO — the same shape the invite
+        // keeps, so a multi-recipient message is not expressible here either.
+        to: primary.email,
+        asset: asset.key,
+        body: rendered.body,
+      },
+      send,
+    )
+    delivered.add(asset.key)
+    // THE TIMELINE ENTRY IS WRITTEN WHATEVER THE PROVIDER SAID, for the reason the
+    // invite moves its pipeline stage on the attempt: a refused send is still a
+    // send this business made, the record carries the failure, and an operator
+    // reading the history must see that it happened.
+    await recordEvent(env, scope, {
+      contactId,
+      kind: ASSET_SENT,
+      ref: message.uid,
+      detail: { asset: asset.key, name: asset.name, status: message.status },
+    })
+    outcomes.push({ key: asset.key, sent: true })
+  }
+  return outcomes
 }
 
 /*
@@ -478,12 +569,17 @@ function reportRefusal(spec: LeadSubmission, reason: LeadRefusal): void {
 }
 
 /**
- * Say that a form promised a download and none left the building.
+ * Say that a form promised a download and it did not leave the building.
  *
- * NOT CALLED FOR `not_offered`, which is set on every submission to a form that
- * never promised anything — most of them. A line per ordinary submission would
- * bury the three skips that mean something, and a log nobody can read is the
- * state this whole change is fixing.
+ * ONE LINE PER SKIPPED ASSET, NAMING IT ([[REQ-241]]). A form promising a set
+ * can deliver one artifact and skip another on the same submission, so a line
+ * that did not say WHICH asset it was about would be unreadable exactly where
+ * the set makes it worth reading.
+ *
+ * NOTHING IS WRITTEN FOR A FORM THAT PROMISED NOTHING — most of them. There is
+ * no skipped asset to name, so there is no line, and a line per ordinary
+ * submission would bury the skips that mean something. A log nobody can read is
+ * the state this reporting exists to fix.
  *
  * THE CONTACT IS NAMED BY ID. It is the handle that opens the person's pane,
  * where the address already is; repeating the address here would put it in a
@@ -493,7 +589,8 @@ function reportAssetSkipped(
   spec: LeadSubmission,
   businessId: string,
   contactId: string,
-  reason: NonNullable<LeadOutcome['assetSkipped']>,
+  asset: string,
+  reason: NonNullable<AssetOutcome['skipped']>,
 ): void {
   console.warn(
     JSON.stringify({
@@ -503,6 +600,7 @@ function reportAssetSkipped(
       form: spec.instanceId,
       business: businessId,
       contact: contactId,
+      asset,
     }),
   )
 }
@@ -558,23 +656,28 @@ export async function captureLead(
     businessId: site.businessId,
     contactId,
     created: added.created,
-    assetSent: false,
+    assets: [],
   }
-  if (!definition?.asset) return { ...outcome, assetSkipped: 'not_offered' }
+  // A FORM THAT PROMISES NOTHING TOUCHES NO STORE. The ticket store is opened to
+  // read the message ledger and the mail template, and a submission with nothing
+  // to deliver needs neither — which is most submissions.
+  const promised = definition?.assets ?? []
+  if (promised.length === 0) return outcome
 
   const store = await ticketStoreFor(env, scope)
-  const skipped = await deliverAsset(
+  const assets = await deliverAssets(
     env,
     store,
     scope,
     contactId,
-    definition.asset,
+    promised,
     // THE SENDER IS CHOSEN BY WHETHER THE DEPLOYMENT HOLDS A CREDENTIAL and by
     // nothing else ([[REQ-196]]): a development machine and a test runner have
     // none, so they get the adapter that records and cannot send.
     deps.send ?? mailerFor(env),
   )
-  if (!skipped) return { ...outcome, assetSent: true }
-  reportAssetSkipped(spec, site.businessId, contactId, skipped)
-  return { ...outcome, assetSkipped: skipped }
+  for (const asset of assets) {
+    if (asset.skipped) reportAssetSkipped(spec, site.businessId, contactId, asset.key, asset.skipped)
+  }
+  return { ...outcome, assets }
 }

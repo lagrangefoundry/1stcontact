@@ -457,7 +457,7 @@ describe('story-179b8c06 — the generated stylesheet carries chrome, not source
         {
           id: 'get-in-touch',
           type: 'contact-form',
-          version: 5,
+          version: 6,
           slot: 'get-in-touch',
           config: {
             fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],

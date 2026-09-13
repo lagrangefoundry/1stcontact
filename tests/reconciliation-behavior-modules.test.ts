@@ -495,7 +495,7 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
         {
           id: 'get-in-touch',
           type: 'contact-form',
-          version: 5,
+          version: 6,
           config: {
             fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
           },
@@ -590,7 +590,7 @@ describe('story-179b8c06 — isolation conformance dimension', () => {
   const contactDegenerate: ConformanceFixture = {
     label: 'contact-degenerate',
     props: {
-      version: 5,
+      version: 6,
       config: { fields: 'not-a-list' },
       slots: {},
     },
@@ -653,7 +653,7 @@ describe('story-179b8c06 — full five-dimension conformance obligation set', ()
       'security',
       'x-browser',
     ]
-    for (const def of [getModule('carousel', 3), getModule('contact-form', 5)]) {
+    for (const def of [getModule('carousel', 3), getModule('contact-form', 6)]) {
       const conformance: BehaviorConformance = def.meta.conformance
       // The published contract enumerates exactly the five conformance
       // dimensions — the harness holds every behavior to the complete envelope.
@@ -673,7 +673,7 @@ describe('story-179b8c06 — Behavior* contract naming is atomic', () => {
     // Each name is bound to a real declaration here; the file would not compile
     // if any had failed to resolve after the rename.
     const meta: BehaviorMeta = getModule('carousel', 3).meta
-    const def: BehaviorDefinition = getModule('contact-form', 5)
+    const def: BehaviorDefinition = getModule('contact-form', 6)
     const fieldSpec: BehaviorConfigSpec = meta.config.autoplay
     const fieldType: BehaviorConfigType = fieldSpec.type
     const slotSpec: BehaviorSlotSpec = meta.slots.slide

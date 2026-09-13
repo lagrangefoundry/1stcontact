@@ -31,7 +31,18 @@ export interface SeedFormOptions {
   instanceId?: string
   fields?: SeedField[]
   submitLabel?: string
-  asset?: { key: string; name: string; url: string }
+  /** The assets the form promises, in declaration order ([[REQ-241]]). */
+  assets?: Array<{ key: string; name: string; url: string }>
+  /**
+   * Seed the instance as a PRE-[[REQ-241]] v5 carrying the old asset triple.
+   *
+   * WHY A FIXTURE CAN STILL WRITE A SHAPE THE CONTRACT NO LONGER DECLARES.
+   * `site_revisions` rows are immutable by design and `formDefinitionOf` reads
+   * module instances straight out of those frozen snapshots — so revisions in
+   * this shape exist and will keep existing, and the only way to prove the
+   * receiver still resolves one is to write one.
+   */
+  legacyAsset?: { key: string; name: string; url: string }
   /** Publish the definition. Off proves the unpublished-site fallback. */
   publish?: boolean
   /**
@@ -60,14 +71,19 @@ function pageWith(options: SeedFormOptions, instanceId: string): Record<string, 
       {
         id: instanceId,
         type: 'contact-form',
-        version: 5,
+        version: options.legacyAsset ? 5 : 6,
         config: {
           submitLabel: options.submitLabel ?? 'Send',
           fields: options.fields ?? [
             { name: 'email', label: 'Your email', type: 'email', required: true },
           ],
-          ...(options.asset
-            ? { asset: options.asset.key, assetName: options.asset.name, assetUrl: options.asset.url }
+          ...(options.assets ? { assets: options.assets } : {}),
+          ...(options.legacyAsset
+            ? {
+                asset: options.legacyAsset.key,
+                assetName: options.legacyAsset.name,
+                assetUrl: options.legacyAsset.url,
+              }
             : {}),
         },
         slots: {},

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   registry,
   getModule,
+  latestModuleVersion,
   validateBehaviorConfig,
   validateBehaviorSlots,
   validateBehaviorInstance,
@@ -57,7 +58,7 @@ describe('REQ-87 — behavior-module rename preserves the REQ-85 contract', () =
     }
     // Both real behavior modules specifically.
     expect(getModule('carousel', 3).meta.kind).toBe('behavior')
-    expect(getModule('contact-form', 5).meta.kind).toBe('behavior')
+    expect(getModule('contact-form', latestModuleVersion('contact-form')).meta.kind).toBe('behavior')
   })
 
   it('test_UAT_FC_REQ-87_discriminant_atomic_l1_slot_seam_renamed_in_site_schema', () => {
