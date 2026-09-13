@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:05:54.377388+00:00'
+updated_at: '2026-09-13T22:06:05.469958+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -540,5 +540,19 @@ Two loose ends: **EPIC-10's own body is still `(new ticket)`** — the design ra
 <!-- xgd-chat role="user" ts="2026-09-13T22:05:53.908498+00:00" -->
 #### You
 What was your new name?
+
+<!-- xgd-turn id="21c12417-d712-42db-a759-348bad36d34c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:06:04.588583+00:00" -->
+#### Claude
+**"Forms: capture, acceptances, and onboarding"**
+
+Reasoning at the time: it drops "email capture module" (too narrow — the epic now covers acceptances, which are a shared service the sign-up and sign-in flows also consume), and "onboarding" holds the door open for the survey-shaped forms you mentioned wanting later, so the epic can stay open past this round.
+
+Worth reconsidering one part of it now, though. After your correction about the three flows being genuinely separate, "onboarding" is slightly misleading — sign-up and sign-in aren't in this epic, and self-serve sign-up is explicitly out of scope. The epic is really *capture forms plus the acceptance layer they share with the identity flows*.
+
+So if you want something more honest to what's actually in it: **"Capture forms and user acceptances"** — or keep the forward-looking version if you'd rather the name carry the intent rather than the current contents.
+
+Which do you want, and shall I try the rename again?
 
 <!-- xgd-chat-end -->
