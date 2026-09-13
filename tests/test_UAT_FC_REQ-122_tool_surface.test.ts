@@ -75,7 +75,7 @@ function seedPage(cwd: string, slug: string): void {
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 6,
+      version: 7,
       slot: 'get-in-touch',
       config: {
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],

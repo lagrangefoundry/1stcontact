@@ -131,7 +131,7 @@ describe('module registry — surviving capability catalog', () => {
     // it deleted `config.action`, and [[REQ-241]] to v6 when the asset it
     // promises became a set.
     const catalog: Array<[string, number]> = [
-      ['contact-form', 6],
+      ['contact-form', 7],
       ['carousel', 3],
     ]
     for (const [id, version] of catalog) {

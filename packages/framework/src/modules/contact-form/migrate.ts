@@ -95,3 +95,41 @@ export function contactFormV5ToV6(instance: BehaviorInstance): BehaviorInstance 
   const assets = Object.keys(item).length > 0 ? [item] : []
   return { ...instance, config: { ...config, assets } }
 }
+
+/**
+ * `contact-form` v6 → v7 ([[REQ-243]]) — a form names the message it sends.
+ *
+ * WHAT v7 BROKE. Through v6 the receiver rendered ONE hardcoded template
+ * (`asset`) and rendered it only when the form declared an artifact. v7 makes
+ * the message a property of the form — `config.template` names it — and makes
+ * ABSENCE mean *send nothing*, which is what a form that only joins a mailing
+ * list should do.
+ *
+ * SO SILENCE IS A NEW MEANING FOR AN OLD SHAPE, AND THAT IS WHY THIS STEP IS NOT
+ * AN IDENTITY. Every gated download this product has ever delivered is a v6
+ * instance carrying assets and, necessarily, no `template` — there was no such
+ * key to carry. Read under v7's rule those forms name nothing and go quiet: an
+ * artifact somebody asked for silently never arriving, which is the exact
+ * failure `renderCopy`'s refusals exist to prevent, arriving through the door
+ * nobody was watching. The step names `asset` for them, which is the template
+ * they were already sending.
+ *
+ * A FORM THAT PROMISED NOTHING COMES OUT NAMING NOTHING, and that is not a
+ * default declining to be helpful — it is the same behaviour it already had. A
+ * v6 instance with no assets sent no mail, and an absent `template` is v7's way
+ * of saying so. Inventing a welcome for it would be this migration deciding
+ * what a business's copy says, which is the one thing it must not do.
+ *
+ * ANY NON-EMPTY LIST COUNTS, INCLUDING A HALF-FINISHED ITEM. The receiver reads
+ * an item missing its key or its URL as no item ([[REQ-241]]), so such a form
+ * delivers nothing under either version and the behaviour is preserved whichever
+ * way this goes. Naming the template anyway is the forgiving direction: the
+ * author's intent to gate a download is on the page, and completing the item
+ * later then simply works rather than failing for a second, invisible reason.
+ */
+export function contactFormV6ToV7(instance: BehaviorInstance): BehaviorInstance {
+  const declared = instance.config.assets
+  const gated = Array.isArray(declared) && declared.length > 0
+  if (!gated) return instance
+  return { ...instance, config: { ...instance.config, template: 'asset' } }
+}

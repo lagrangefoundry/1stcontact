@@ -52,6 +52,14 @@ export {
 } from './modules/upgrade'
 export type { StoredInstance, UpgradedInstance, InstanceUpgrade } from './modules/upgrade'
 
+// [[REQ-243]] — which message each `contact-form` on a page says it sends.
+// In the worker entry because the caller is `publishSite`, which has to refuse a
+// form naming a template the business does not hold; the module id and the
+// config key are the module's own, so a literal in `tools/generate` would be a
+// second answer to which module gates a download.
+export { contactFormTemplateRefs, CONTACT_FORM_TEMPLATE_KEY } from './modules/contact-form/templates'
+export type { ContactFormTemplateRef } from './modules/contact-form/templates'
+
 
 // [[REQ-200]] — the `account-chrome` state marker and the transform that selects
 // one, for the Worker that serves published bytes. Exported from the worker entry

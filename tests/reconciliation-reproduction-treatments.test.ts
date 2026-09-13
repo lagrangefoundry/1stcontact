@@ -37,7 +37,7 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
     // which is about the layout modules that were stripped and not about the size
     // of the catalog.
     expect([...registry.keys()].sort()).toContain('carousel@3')
-    expect([...registry.keys()].sort()).toContain('contact-form@6')
+    expect([...registry.keys()].sort()).toContain('contact-form@7')
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {
       expect([...registry.keys()].some((k) => k.startsWith(`${gone}@`))).toBe(false)
       expect(() => getModule(gone, 1)).toThrow(/not found in catalog/)
@@ -142,12 +142,18 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     // wording each was asserted under. Behavioural in exactly `assets`' sense
     // (a fact about what the form DOES) and, like it, bottoming out in no CSS
     // value. The remaining keys are all behavioural.
+    // [[REQ-243]] added `template` — WHICH of the business's messages a
+    // submission sends. Behavioural in the same sense again: a fact about what
+    // the form DOES, naming a key in the business's own ticket store, and
+    // bottoming out in no CSS value. The copy the key resolves to is a ticket
+    // and not config, which is exactly why the key can be one.
     expect(Object.keys(contactFormMeta.config).sort()).toEqual([
       'accepts',
       'assets',
       'fields',
       'submitLabel',
       'successMessage',
+      'template',
     ])
     for (const gone of ['fieldLabels', 'submitInline', 'submitColor', 'submitColour', 'submitTreatment']) {
       expect(Object.keys(contactFormMeta.config)).not.toContain(gone)

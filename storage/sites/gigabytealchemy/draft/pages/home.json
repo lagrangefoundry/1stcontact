@@ -6625,7 +6625,7 @@
     {
       "id": "form-0",
       "type": "contact-form",
-      "version": 6,
+      "version": 7,
       "config": {
         "fields": [
           {
@@ -7035,7 +7035,7 @@
     {
       "id": "form-1",
       "type": "contact-form",
-      "version": 6,
+      "version": 7,
       "config": {
         "fields": [
           {

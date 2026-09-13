@@ -220,7 +220,7 @@ describe('BUG-78 — the preview submits for real', () => {
               {
                 id: site.instanceId,
                 type: 'contact-form',
-                version: 6,
+                version: 7,
                 config: {
                   submitLabel: 'The draft wording',
                   fields: [
