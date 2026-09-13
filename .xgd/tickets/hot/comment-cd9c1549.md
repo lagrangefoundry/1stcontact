@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T20:59:15.722204+00:00'
+updated_at: '2026-09-13T21:00:02.721185+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -168,5 +168,35 @@ Does that match what you have in mind? If so the open questions left on acceptan
    We don't have unsubscribe because we dont have mailing list functionality yet - you are overanticipating. Lets focus on what we have.
    
    an operator must be able to flip a category-2 acceptance when a contact phones up and asks <-- we currently have no plans for telephone support again over anticipation
+
+<!-- xgd-turn id="7eb03108-c666-4d55-acc0-0af7686f3f89-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:00:02.499605+00:00" -->
+#### Claude
+Taking those corrections: the portal grows write capability deliberately — that's what it's for, and my framing of it as a contract violation was wrong. Unsubscribe and operator-initiated changes are both out of scope until there's a mailing list and a support channel to motivate them. The actor question dissolves with them: if every acceptance change is the contact's own act via a form or the portal, there's nothing to attribute yet.
+
+## `whitepapers_accessed`
+
+This is the substantive addition, and it settles something we left open.
+
+To record an access as a contact event we have to know *which contact* followed the link. A single unguessable URL to an R2 object can't tell us — everyone who gets the mail gets the same link. So the link is **per-contact**, and that answers the hidden-page question from earlier: it's a capability URL minted per contact per asset, and the attribution is the reason, not a bonus.
+
+That makes the hidden page a real route rather than a static published byte. Something has to resolve the token to a contact before serving — a `GET`, so it sits comfortably in `public-site`'s existing character.
+
+Three decisions fall out:
+
+**Does the link expire?** If it does, someone returning in six months has a dead link and no way back: delivery is at-most-once-ever and REQ-223 deliberately refuses a public re-send path. That cost is already accepted for the mail; extending it to the page makes it bite harder, because the page is the thing they actually came for. My inclination is no expiry — the token's value to an attacker is a whitepaper, and the tracking is worth more than the secrecy.
+
+**Page view, or download?** You said they go there and download the papers — plural. Those are two different facts, and the second is much the stronger signal: a page view says the link worked, a download says they took something, and with two papers it says *which*. I'd record both, with the asset in the detail of the download. Do you want that, or is arriving on the page enough?
+
+**Every access, or the first?** Events are facts, and "they came back three times" is a real sales signal. I'd record every one and let the funnel be a query over them rather than a storage decision — which is what the event spine is for.
+
+## Where it sits
+
+`whitepapers_accessed` isn't a fourth acceptance type. It's the fulfilment chain hanging off a type-3 request: the registry entry names the asset, and `requested → sent → accessed → downloaded` follows from it. The registry stays three types and doesn't need to know about the tail.
+
+Still open from before, and the one place I think we have to decide before design: **where the boolean projection lives.** `users.fields` is the obvious home and won't work — "everyone in this business with `newsletter` true" is the query that eventually sends a newsletter, and D1 can't index into a JSON column. That points at a table, which is a schema change. Worth settling now since it shapes everything else.
+
+Want me to write EPIC-10's body up to this point before we move on to the email and the module config?
 
 <!-- xgd-chat-end -->
