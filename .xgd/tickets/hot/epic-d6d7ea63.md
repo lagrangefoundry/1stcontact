@@ -5,7 +5,7 @@ type: epic
 title: Email capture module
 created_by: martin-github@westhead.me
 created_at: '2026-09-12T23:46:56.989430+00:00'
-updated_at: '2026-09-13T22:02:50.980581+00:00'
+updated_at: '2026-09-13T22:03:11.345164+00:00'
 completed_at: null
 last_field_updated: epic_children
 status: draft
@@ -18,6 +18,7 @@ fields:
   - request-921ba107
   - request-a0910456
   - request-7c513b4a
+  - request-37ac28bf
 ---
 
 (new ticket)
