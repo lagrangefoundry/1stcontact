@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:41:09.185725+00:00'
+updated_at: '2026-09-13T21:12:09.453367+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -313,5 +313,11 @@ One more simplification that falls out: §6 proposes the slug becomes `sites.nam
 6. Initial REQ scope = business name + `1stc.site` label, with no "site name" left in it?
 
 EPIC-4's "Old labels are retained and never re-issued" paragraph is now wrong twice over — there are no old labels at all. I'll record that as a correction section in the epic, matching the one already there from yesterday, when I write the REQs.
+
+<!-- xgd-turn id="9cdc1892-a60b-4f79-9a05-4a1f19a579f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:12:09.113669+00:00" -->
+#### You
+ok can you propose the division of work between tickets?
 
 <!-- xgd-chat-end -->
