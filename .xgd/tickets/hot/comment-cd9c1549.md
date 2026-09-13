@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:16:54.081245+00:00'
+updated_at: '2026-09-13T21:33:32.994826+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,15 @@ Six requirements. The split is by *what could be wrong independently* — each o
 5. **`contact-form` → `email-capture`?** You raised the module by that name and I flagged the rename early; we never settled it. It matters *now* because C and D are both config migrations, and doing them and then renaming is one migration too many. **Blocks the C/D ordering.**
 
 Settle 1 and I'll write A. Or say the word and I'll write all six bodies from the discussion so far and you can read them together.
+
+<!-- xgd-turn id="ebe009aa-389a-42cd-98ba-c61c6b187fa2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:33:32.653216+00:00" -->
+#### You
+1. Yes
+   2. ok
+   3. The final plan will be that a user signs up for a free trial (15min AI consultation) from the site - this is a sign-up link not a sign-in. Note sign in is already a public form. Not sure I understand this question.
+   4. No 
+   5. if this is a generic "form" module, I'm ok with the generalization we should change the EPIC name and probably keep it open beyond this round - I imagine some kind of onboarding form experience.
 
 <!-- xgd-chat-end -->
