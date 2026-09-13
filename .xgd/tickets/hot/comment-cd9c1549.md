@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:03:54.652812+00:00'
+updated_at: '2026-09-13T22:05:54.377388+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -534,5 +534,11 @@ The epic had no prior `epic_children`, so nothing was replaced.
 - **245** opens `account-portal`'s read-only contract for type 2 only, and makes type 1 and type 3 non-editable by virtue of their type rather than by markup.
 
 Two loose ends: **EPIC-10's own body is still `(new ticket)`** — the design rationale currently lives only in the children and in this conversation. And the title rename didn't hold, so it still reads "Email capture module". Want me to write the epic body, and try the rename again once we know what's re-stamping it?
+
+<!-- xgd-turn id="21c12417-d712-42db-a759-348bad36d34c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:05:53.908498+00:00" -->
+#### You
+What was your new name?
 
 <!-- xgd-chat-end -->
