@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-13T22:16:39.490753+00:00'
+updated_at: '2026-09-13T22:38:14.695625+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,11 @@ You were right — there's a real event log. It's `contact_events`, and REQ-235 
 Minor: §1 says all but `form.submitted` and `member.signed_up` are things the business did *to* a contact — `email.received` is inbound too, so it's three of nine, not two.
 
 Want me to correct §1 and re-open §3's cron-vs-lazy question in the body now that the cron exists?
+
+<!-- xgd-turn id="938b1885-43c2-46a2-b4c8-4f7cddddec55-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:38:14.617167+00:00" -->
+#### You
+Please also read EPIC-1 in lagrange framework
 
 <!-- xgd-chat-end -->
