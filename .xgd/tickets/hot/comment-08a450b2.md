@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-13T22:38:14.695625+00:00'
+updated_at: '2026-09-13T22:39:20.396167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,39 @@ Want me to correct §1 and re-open §3's cron-vs-lazy question in the body now t
 <!-- xgd-chat role="user" ts="2026-09-13T22:38:14.617167+00:00" -->
 #### You
 Please also read EPIC-1 in lagrange framework
+
+<!-- xgd-turn id="938b1885-43c2-46a2-b4c8-4f7cddddec55-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:39:19.727471+00:00" -->
+#### Claude
+Read it — `epic-e39c3b32`, "Logging: shared record contract vs per-project transport", 417 lines, revision 2 after BUG-87. It was written 2026-09-12, one day *before* REQ-235, and REQ-235 doesn't cite it anywhere. They collide on the part of REQ-235 that isn't built.
+
+## Where they agree
+
+EPIC-1 §7 explicitly puts the business-event lane **out of scope** and names `contact_events` / `site_changes` / `ticket_changes` / `ledger.ts` as already built — then adds that it is *a metrics source*, because anything contact-shaped is already a `SELECT … GROUP BY` per tenant. REQ-235 §4 (the session rollup row) sits squarely in that lane. No conflict; REQ-235 §4 is the kind of thing EPIC-1 assumed would keep happening.
+
+EPIC-1 §5 and §9 both make retention a first-class routing decision. REQ-235 §2's "retention limit from the first commit, with a pruned-through floor and a `reset`" is a *better* answer than EPIC-1 has anywhere, and should flow back.
+
+## Where they collide
+
+**1. EPIC-1 already answered REQ-235 §2's question, and with a mechanism REQ-235 never mentions.** REQ-235 frames the raw layer as a store choice (Analytics Engine vs D1, "decided in this ticket"). EPIC-1 §8.2 verified against `@cloudflare/workers-types` that a **Tail Worker** (`tail_consumers`) receives a `TraceItem` per invocation carrying `request.method/url/headers/cf`, `response.status`, `outcome`, `cpuTime`, `wallTime`, `logs[]` with severity, and `exceptions[]` — for *every* invocation including ones that threw, at zero call-site cost, covering `scheduled`, queues, email and JS-RPC. EPIC-1 calls this "the access log" and says it needs no change to the existing call sites. REQ-235 §2 as written sends someone to instrument routes by hand.
+
+**2. Analytics Engine is the wrong store for what REQ-235 needs, by EPIC-1's own finding.** EPIC-1 §8.3 records that AE is *adaptively sampled at volume* and its SQL API is account-scoped. REQ-235 §3 has to reconstruct exact session boundaries and §4 forbids storing a `duration_ms` on the grounds that it would "present a floor as a fact" — sessions inferred from sampled events do precisely that, one layer down. REQ-235's leaning toward AE is contradicted by the evidence in EPIC-1; its stated alternative (a bounded D1 table with the prune floor) is the one that survives.
+
+**3. REQ-235 §2 would invent the record schema EPIC-1 exists to own.** EPIC-1 §12 quotes BUG-87 deferring on purpose: *"a logging abstraction is EPIC-1's job in lagrange-framework, and inventing one here would create something that epic has to adopt or delete."* EPIC-1 §13 then commits to a versioned, machine-readable envelope with reserved `event` / `trace_id` / `tenant_id` / severity plus a two-language conformance corpus. A new raw event store in 1c with its own ad-hoc row shape is exactly the thing BUG-87 declined to create. REQ-235 needs to say which it is doing: consuming EPIC-1's envelope, or going first and obliging EPIC-1 to adopt what it lands.
+
+**4. REQ-235 has no redaction position.** EPIC-1 §2 warns specifically against "tenant PII sitting in a short-retention platform log", and §10 requires redaction before records reach the model, with `redact.ts` already in 1c. A raw store of every server-side request holds URLs, headers and IPs. REQ-235 §6 draws the anonymity boundary at *identification* but says nothing about what the rows carry.
+
+**5. REQ-235 answers one of EPIC-1's open questions.** EPIC-1 Q14.1 asks whether the diagnostic horizon is days or months. REQ-235 implies a third answer for its own layer: the raw events only need to live long enough to close a session — hours — because the durable artifact is the `contact_events` summary. That's a materially cheaper shape than R2-for-months and is worth recording against EPIC-1.
+
+## Minor factual note
+
+REQ-235 §1's "four modules already write structured JSON" undercounts: it's six — `identity.ts`, `sign-in.ts`, `email-webhook.ts`, `lead.ts`, `router.ts` (×3), `index.ts` — about eleven call sites. EPIC-1's figure of 92 `console.*` sites is the whole-repo count including `tools/generate`.
+
+---
+
+Combined with the two stale claims from the last pass (the cron exists; public-site has no `[observability]` at all), REQ-235 §1–§3 needs a real revision. My recommendation: **§2 stops being a store decision and becomes a Tail Worker + bounded D1 table with the prune floor, explicitly deferring the record envelope to EPIC-1**; §3's cron-vs-lazy question reopens as "a new caller of the existing 04:17 cron". §4 and §5 stand as written.
+
+Want me to make those edits to the ticket body, preserving the existing structure?
 
 <!-- xgd-chat-end -->
