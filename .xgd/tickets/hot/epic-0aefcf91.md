@@ -6,12 +6,14 @@ title: 'Contact activity log: every server-side event, and the session rollup on
   timeline'
 created_by: EPIC-10
 created_at: '2026-09-13T21:15:16.835381+00:00'
-updated_at: '2026-09-13T21:15:16.835381+00:00'
+updated_at: '2026-09-13T21:15:53.758040+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: epic_children
 status: draft
 fields:
   priority: medium
+  epic_children:
+  - request-8ef68c26
 ---
 
 ## What the client asked for
