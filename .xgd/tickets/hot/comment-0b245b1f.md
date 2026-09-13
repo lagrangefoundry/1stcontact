@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:13:15.157631+00:00'
+updated_at: '2026-09-13T21:15:21.465350+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -374,5 +374,11 @@ If the prose for "rename the business" ships in a different ticket from the rena
 Tickets 2 and 3 are writable now from what you've decided. The four sweep items I haven't heard back on all sit inside ticket 2 — delete `config.businessName`, normalised uniqueness, the default-name discriminator, and whether `sites.name` survives at all. If any of those go the other way it changes ticket 2's body, not this division.
 
 Say go and I'll write all four, plus the EPIC-4 correction retiring the "old labels are retained" paragraph.
+
+<!-- xgd-turn id="8555989d-699b-4083-bc7a-b96449e26546-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:15:20.365272+00:00" -->
+#### You
+Identify the child request/bug tickets needed to realize this epic's design. Create each one via `xgd ticket create --epic-parent <this epic's uid>`, and set depends_on between the new children to reflect build order. A child can live in a different registered project when that's where the work belongs — add `--project <name>` (or a `ticket://org/repo/` store reference) to the create call; --epic-parent works the same way whether the epic and the child are in the same project or not. If this epic already has epic_children, add further children incrementally (diff against the existing list) — do not replace what's already there.
 
 <!-- xgd-chat-end -->
