@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-243
 created_by: xgd
 created_at: '2026-09-13T23:00:39.181953+00:00'
-updated_at: '2026-09-13T23:30:44.187562+00:00'
+updated_at: '2026-09-13T23:36:23.298393+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,14 @@ Clean. Now let's run the existing regression scope:
 Now the node-side tests and the new UAT file:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="97946827-4aca-4ae5-b486-74468c51e151-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T23:36:22.476385+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
