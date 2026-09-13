@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-3db86587
 ---
 
 # A capture form sets acceptances
