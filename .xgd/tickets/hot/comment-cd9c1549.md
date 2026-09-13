@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:10:36.896588+00:00'
+updated_at: '2026-09-13T22:12:01.491409+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -581,5 +581,11 @@ Confirmed, still in place:
 240 and 241 carry none deliberately — they're the two roots, and they're what can start in parallel.
 
 One caveat worth knowing: `depends_on` isn't a field `xgd ticket query` can filter on — it rejects anything outside `body, created_at, id, result, status, title, type, uid, updated_at`. So the dependencies are stored and readable on each ticket, but you can't currently query the graph. Same shape as the `xgd ticket children` gap I hit earlier, where `--epic-parent` wrote the link correctly on both sides but that subcommand reported none.
+
+<!-- xgd-turn id="ff9bf0ea-feed-4059-a489-f1f1f6f46ae9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:12:00.411493+00:00" -->
+#### You
+No I need the depends_on to be popuated - that's what we use
 
 <!-- xgd-chat-end -->
