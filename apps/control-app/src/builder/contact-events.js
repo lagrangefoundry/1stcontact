@@ -62,6 +62,37 @@ export const FORM_SUBMITTED = 'form.submitted'
  */
 export const ASSET_SENT = 'asset.sent'
 
+/* ── Acceptances ([[REQ-240]]) ───────────────────────────────────────────── */
+
+/**
+ * They agreed to something: a document, or a standing preference switched on.
+ *
+ * ITS `detail` CARRIES THE WORDING THEY WERE SHOWN, always, and the document
+ * ticket where there was one. Wording reconstructed later — from today's form
+ * label, or today's copy — cannot evidence what was on the page that day, which
+ * is the only thing this row is for.
+ */
+export const ACCEPTANCE_GRANTED = 'acceptance.granted'
+
+/**
+ * They took a preference back.
+ *
+ * A SEPARATE KIND AND NOT A PAYLOAD ON THE ONE ABOVE, on the spine's own
+ * reasoning: an event is a fact that has already happened, and a timeline that
+ * records "changed" and makes the reader open the detail to find out WHICH WAY
+ * has lost the thing it was for. Grant, withdraw, grant is three legible rows.
+ */
+export const ACCEPTANCE_WITHDRAWN = 'acceptance.withdrawn'
+
+/**
+ * They asked for something — the whole of what a `request` acceptance is.
+ *
+ * ITS OWN KIND RATHER THAN A GRANT, because "agreed to the papers" is not what
+ * happened and is not what the timeline should say. There is no matching
+ * withdrawal, because there is nothing to take back.
+ */
+export const ACCEPTANCE_REQUESTED = 'acceptance.requested'
+
 /* ── Mail ────────────────────────────────────────────────────────────────── */
 
 /**
@@ -82,6 +113,9 @@ const LABELS = {
   [MEMBER_SIGNED_UP]: 'Signed up',
   [FORM_SUBMITTED]: 'Submitted a form',
   [ASSET_SENT]: 'Sent a download',
+  [ACCEPTANCE_GRANTED]: 'Agreed',
+  [ACCEPTANCE_WITHDRAWN]: 'Withdrew',
+  [ACCEPTANCE_REQUESTED]: 'Asked for',
   [EMAIL_SENT]: 'Email sent',
   [EMAIL_DELIVERED]: 'Email delivered',
   [EMAIL_BOUNCED]: 'Email bounced',
