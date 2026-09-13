@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:00:02.721185+00:00'
+updated_at: '2026-09-13T21:03:33.328723+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -198,5 +198,15 @@ Three decisions fall out:
 Still open from before, and the one place I think we have to decide before design: **where the boolean projection lives.** `users.fields` is the obvious home and won't work — "everyone in this business with `newsletter` true" is the query that eventually sends a newsletter, and D1 can't index into a JSON column. That points at a table, which is a schema change. Worth settling now since it shapes everything else.
 
 Want me to write EPIC-10's body up to this point before we move on to the email and the module config?
+
+<!-- xgd-turn id="fc25d876-98ad-4c3c-8f81-e416a95902bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:03:33.274613+00:00" -->
+#### You
+Do you want that, or is arriving on the page enough? <-- sorry we want everything - whether they accessed the page, how many times, how long they were there, whether they downloaded both papers or one of them the whole access pattern is really important
+
+`whitepapers_accessed` isn't a fourth acceptance type. It's the fulfilment chain hanging off a type-3 request: <--correct, but I think it needs to show up in the contact event log
+
+I actually think all user accesses need to show up in the event log - we want to know what the user is doing and how often etc
 
 <!-- xgd-chat-end -->
