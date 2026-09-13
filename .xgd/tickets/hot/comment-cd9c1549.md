@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:49:49.096189+00:00'
+updated_at: '2026-09-13T21:50:38.459344+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -460,5 +460,39 @@ And is there anything else on the list before I write them? By my count what's l
 Yes - sign-up/sign-in are a specific flows distinct from email capture they are so fundamental I am very comfortable with them being separate. Now the sign-up flow might ask if you want to join the mail list, and the sign-in flow might ask you to update your acceptance of the T&C so they are all related
 
 Self serve sign up is out of the current scope - just don't build anything that precludes it
+
+<!-- xgd-turn id="095d67fb-d217-4c60-9c53-1772db6e5613-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:50:37.269571+00:00" -->
+#### Claude
+Good — and "sign-up might ask about the mailing list, sign-in might ask you to re-accept the T&Cs" is the thing that settles the architecture: **the acceptance layer is a shared service that all three flows consume, and belongs to none of them.** That makes A genuinely standalone and genuinely first.
+
+That re-ask mechanism already exists, in platform-only form: `needsAcceptance()` compares the contact's version against the current one, and `guardTerms` interposes the interstitial after `admit`. A version bump already flips the whole contact list to "owes an acceptance". What's missing is that it's hardcoded to one document.
+
+## Not precluding self-serve sign-up
+
+Concretely, that's one design constraint worth writing into A as a testable property: **the acceptance write is a service function with no route and no flow baked into it.** If recording an acceptance is only reachable from inside the builder's authenticated `guardTerms` path, a public sign-up can never call it. A UAT can assert it's callable without a builder session.
+
+Worth noting the data model already doesn't preclude it: membership is `tos_accepted_at`, not "an operator pressed invite", and `people-axes.js` explicitly says all four combinations occur including *"a member who was never invited"*. So nothing has to be undone later — only not newly baked in.
+
+## The registry's remaining details — my proposals
+
+**Keys are system-defined, in one module with no imports.** The house pattern: `contact-events.js`, `people-axes.js` and `fields.ts` all exist because one definition has to be readable from both sides of a seam. Each entry carries key, type, and default wording. Custom per-business keys later slot into the same registry.
+
+**An acceptance definition is a ticket in the business's own store** — the same treatment templates get, for the same reason. `templates.ts` already argues it: copy that must change without a deploy lives in the tenant's ticket store, and *"the newest ticket carrying the key wins, and the record of what was sent last month still points at the ticket that said it."*
+
+That last clause is exactly the property a versioned T&C needs, and it gives a better answer than a version string: **the document is a ticket, and an acceptance record names the ticket uid it accepted.** "What did they agree to" resolves to immutable stored text rather than a number someone has to map back to a document. `templates.ts` has already proved the pattern works — every message record carries `templateUid` for precisely this.
+
+It also fixes the platform-only gap in one move: a customer's sign-up gets that customer's terms because the ticket is in that customer's store, with no second code path.
+
+**Wording**, therefore: a checkbox's is its form label (already captured today), an implied acceptance's is in the module config, and a type-1's is the document ticket itself. The record stores what was shown — the literal wording, or the uid that holds it.
+
+## The final set
+
+**In this round:** A (registry, state, events) → B (capture forms set acceptances) and C (asset becomes a set) in parallel → D (which template a capture form sends) → E (gated page and access tracking). F (portal shows and changes type-2) any time after A.
+
+**Named as out of scope, not precluded:** self-serve sign-up; the sign-in flow re-asking on a version bump; enquiry forms.
+
+If that matches, I'll write all six bodies now and you can read them as a set.
 
 <!-- xgd-chat-end -->
