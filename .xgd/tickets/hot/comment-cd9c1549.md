@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T00:23:37.292261+00:00'
+updated_at: '2026-09-13T20:48:47.094726+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -101,5 +101,17 @@ T/F handles none of the second cleanly: an unticked box today is not the same fa
 **8. One module or two?** CLAUDE.md is explicit that a new behavior module is the last resort. Everything you've described is config on the existing one. I'd extend `contact-form` rather than author an `email-capture` — though the name is already slightly wrong (it captures a lead, it doesn't contact anyone), so a rename is worth deciding deliberately now rather than letting a second module accrete.
 
 Tell me where you land on these — particularly 1, 5 and 6 — and I'll write the design.
+
+<!-- xgd-turn id="c9152565-d788-4d4d-83bd-150baaaeb121-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T20:48:46.057208+00:00" -->
+#### You
+Lets talk about the acceptances 
+1. The boolean represents current state but we also have the contact event log that registers all changes - I think together these are good
+2. Our different acceptances can be configured as revocable or not - the first two are not - they cannot be changed
+3. Some acceptances can be changed by the user (newsletter opt-in) such an acceptance should appear on the user portal automatically and allow the user to change it - I think beat_inclusion can reasonably be in this list
+4. I included access_to_whitepapers as an acceptance but its not really a state once you have been sent access to the whitepapers you've been sent them - this cannot be "revoked" because it is a statement about something that happened. Perhaps it should not have a boolean on the model, but just be an event (note: it could still have a user checkbox)
+
+So I get to the same three categories you did. I think we have acceptances and they are configured to be one of these three types - agree?
 
 <!-- xgd-chat-end -->
