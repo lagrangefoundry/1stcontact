@@ -5,9 +5,9 @@ type: request
 title: 'User acceptances: the registry, the state, and the events'
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:10.006557+00:00'
-updated_at: '2026-09-13T22:15:50.276240+00:00'
+updated_at: '2026-09-13T22:25:22.808362+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -155,3 +155,59 @@ including *"a member who was never invited"*.
    proving a later self-serve sign-up is not precluded.
 8. A business's acceptance definitions are read from ITS OWN ticket store; two businesses
    with the same key resolve to their own documents, with no platform-only branch.
+
+## 9. What this round builds, and the refusals that come with it
+
+The layer, and no flow. A definition (a ticket), a state row, an event per transition,
+and one write function. Nothing in this round asks a contact anything — the surfaces that
+will (sign-up, the portal, a capture form) are their own tickets, and this is what they
+call.
+
+**The write refuses rather than guesses.** Each refusal is a fact about the model rather
+than a validation preference, and each is asserted:
+
+- **No wording, no transition.** §5 puts the wording on the event because wording
+  reconstructed later cannot evidence what was on the page that day. A transition recorded
+  without it could never be evidenced, so it is refused rather than defaulted — a default
+  would be this layer inventing what somebody read.
+- **A document acceptance cannot be withdrawn by the contact** (§2, type 1). Un-agreeing to
+  terms already acted under is not a state this system can represent honestly; `terms.ts`
+  already records the same position about declining, which is why the account is simply
+  never entered.
+- **A request cannot be withdrawn** (§2, type 3), because there is nothing to take back.
+- **A type 1 must name its document, and nothing else may.** Without a uid "what did they
+  agree to" has no answer; with one on a preference, the row would imply a preference was
+  versioned, which §3 says it is not.
+- **An undeclared key is refused.** Unlike an event `kind` — unconstrained precisely so the
+  set can grow without a migration — an acceptance key decides how the write behaves, so a
+  key nobody declared is a write nobody designed. Custom per-business keys (§7) arrive by
+  being added to the registry, not by being spelt at a call site.
+- **A contact in another business is not written to.** Both inserts derive `business_id`
+  from the contact's own row, and a caller that names a business gets a refusal as well —
+  the same answer an id that never existed gets.
+
+**A document is seeded if the business has none**, on `templates.ts`'s seed-if-absent
+precedent and for its reason: the first sign-up must not fail for want of copy nobody knew
+they had to write. The seeded text is a placeholder, business-neutral, and it lives in a
+ticket — so supplying the real words is authoring rather than a deploy, which is the whole
+point of §3.
+
+**The state is readable where a contact is read.** §1 names "cannot show it on the contact"
+as one of the defects, so the current answer travels with the contact detail — beside the
+history rather than folded out of it — and the detail pane draws an `Agreements` section
+above the timeline. It lists only what the contact has actually been asked: a key with no
+row means nobody put the question, which is not the same fact as a refusal and must not be
+drawn as one. Nothing there is a control; every writer in this round is the contact's own
+act (§7).
+
+**The terms gate keeps its own columns this round.** `users.tos_version` /
+`tos_accepted_at` still record membership and still drive `guardTerms`, exactly as §6 says
+("membership is `tos_accepted_at`"). Migrating that writer onto this layer is the same
+move as migrating the capture form's `consent[]` blobs, and belongs with the surface that
+changes — not here.
+
+**One guardrail moves.** `test_UAT_FC_REQ-190_baseline` enumerates every table's primary
+key to prove none is a value somebody chose; the new table is one more opaque `id`, so the
+enumeration grows by one. The (contact, key) pair is a UNIQUE INDEX and deliberately not
+the key — a key made of the thing being recorded has to be rewritten the day a business
+names its own acceptance.
