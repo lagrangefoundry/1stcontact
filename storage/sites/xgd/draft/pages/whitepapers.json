@@ -10,8 +10,7 @@
     {
       "id": "signup",
       "type": "contact-form",
-      "version": 5,
-      "slot": "signup-form",
+      "version": 6,
       "config": {
         "fields": [
           {
@@ -23,7 +22,8 @@
           }
         ],
         "submitLabel": "Send me both papers",
-        "successMessage": "On their way — check your inbox."
+        "successMessage": "On their way — check your inbox.",
+        "assets": []
       },
       "slots": {
         "form": {
@@ -174,7 +174,8 @@
             }
           ]
         }
-      }
+      },
+      "slot": "signup-form"
     }
   ],
   "l1": {

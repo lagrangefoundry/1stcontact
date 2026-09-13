@@ -190,7 +190,7 @@ describe('REQ-104 — responsive layout track + wrapping rows', () => {
             {
               id: 'signup',
               type: 'contact-form',
-              version: 5,
+              version: 6,
               slot: 'signup-form',
               config: {
                 submitLabel: 'Request access',

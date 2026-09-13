@@ -6625,8 +6625,7 @@
     {
       "id": "form-0",
       "type": "contact-form",
-      "version": 5,
-      "slot": "form-0",
+      "version": 6,
       "config": {
         "fields": [
           {
@@ -6651,7 +6650,8 @@
             "required": false
           }
         ],
-        "submitLabel": "Send message"
+        "submitLabel": "Send message",
+        "assets": []
       },
       "slots": {
         "form": {
@@ -7029,13 +7029,13 @@
             }
           ]
         }
-      }
+      },
+      "slot": "form-0"
     },
     {
       "id": "form-1",
       "type": "contact-form",
-      "version": 5,
-      "slot": "form-1",
+      "version": 6,
       "config": {
         "fields": [
           {
@@ -7046,7 +7046,8 @@
             "required": false
           }
         ],
-        "submitLabel": "Subscribe"
+        "submitLabel": "Subscribe",
+        "assets": []
       },
       "slots": {
         "form": {
@@ -7276,7 +7277,8 @@
             }
           ]
         }
-      }
+      },
+      "slot": "form-1"
     }
   ]
 }

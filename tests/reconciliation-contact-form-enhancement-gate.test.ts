@@ -310,14 +310,14 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
     // would be an escape hatch the behavioural config may not express.
     const configFields = Object.keys(contactFormMeta.config)
     // [[REQ-223]] added the asset a public form promises — a key, a name and a
-    // URL. None of them says anything about WHICH forms are enhanced, which is
-    // the claim below and the reason this list is enumerated at all.
+    // URL — and [[REQ-241]] made it a LIST of those, so the three siblings are
+    // one `assets` field. None of them says anything about WHICH forms are
+    // enhanced, which is the claim below and the reason this list is enumerated
+    // at all.
     // [[BUG-86]] removed `action`, which strengthens the claim rather than
     // weakening it: the endpoint is not expressible in config at all now.
     expect([...configFields].sort()).toEqual([
-      'asset',
-      'assetName',
-      'assetUrl',
+      'assets',
       'fields',
       'submitLabel',
       'successMessage',

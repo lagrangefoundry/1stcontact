@@ -77,7 +77,7 @@ beforeAll(async () => {
 
 describe('REQ-223 — asset delivery', () => {
   it('test_UAT_FC_REQ-223_an_asset_is_delivered_exactly_once_per_address', async () => {
-    const site = await seedFormSite({ tenantId: TENANT, asset: ASSET })
+    const site = await seedFormSite({ tenantId: TENANT, assets: [ASSET] })
     const mailer = capturingMailer()
     const submit = () =>
       captureLead(
@@ -92,13 +92,12 @@ describe('REQ-223 — asset delivery', () => {
 
     const first = await submit()
     expect(first.accepted).toBe(true)
-    expect(first.assetSent).toBe(true)
+    expect(first.assets).toEqual([{ key: ASSET.key, sent: true }])
 
     const second = await submit()
     // AC-11 — the second request is accepted and delivers nothing.
     expect(second.accepted).toBe(true)
-    expect(second.assetSent).toBe(false)
-    expect(second.assetSkipped).toBe('already_sent')
+    expect(second.assets).toEqual([{ key: ASSET.key, sent: false, skipped: 'already_sent' }])
 
     // AC-11 asserted where it can be asserted: the record of what was sent.
     const records = await messagesOf(first.contactId as string)
@@ -135,7 +134,7 @@ describe('REQ-223 — asset delivery', () => {
   ])(
     'test_UAT_FC_REQ-223_a_%s_address_is_never_written_to_again',
     async (label, suppressing) => {
-      const site = await seedFormSite({ tenantId: TENANT, asset: ASSET })
+      const site = await seedFormSite({ tenantId: TENANT, assets: [ASSET] })
       const mailer = capturingMailer()
       const address = `${label}@example.com`
       const first = await captureLead(
@@ -157,7 +156,7 @@ describe('REQ-223 — asset delivery', () => {
       // A different asset, so `already_sent` cannot be what refuses it.
       const other = await seedFormSite({
         tenantId: TENANT,
-        asset: { key: `guide-${label}`, name: 'the guide', url: 'https://example.test/guide' },
+        assets: [{ key: `guide-${label}`, name: 'the guide', url: 'https://example.test/guide' }],
       })
       const again = await captureLead(
         leadEnv(),
@@ -172,8 +171,9 @@ describe('REQ-223 — asset delivery', () => {
       // AC-12 — the capture still happens; the send does not.
       expect(again.accepted).toBe(true)
       expect(again.contactId).toBe(contactId)
-      expect(again.assetSent).toBe(false)
-      expect(again.assetSkipped).toBe('suppressed')
+      expect(again.assets).toEqual([
+        { key: `guide-${label}`, sent: false, skipped: 'suppressed' },
+      ])
       expect(mailer.sent).toHaveLength(1)
     },
   )
@@ -194,7 +194,7 @@ describe('REQ-223 — asset delivery', () => {
    * one through the real path catches it.
    */
   it('test_UAT_FC_REQ-223_a_provider_complaint_suppresses_the_address', async () => {
-    const site = await seedFormSite({ tenantId: TENANT, asset: ASSET })
+    const site = await seedFormSite({ tenantId: TENANT, assets: [ASSET] })
     const mailer = capturingMailer()
     const first = await captureLead(
       leadEnv(),
@@ -241,7 +241,7 @@ describe('REQ-223 — asset delivery', () => {
     // AC-12 — and the endpoint now refuses to write to that address again.
     const other = await seedFormSite({
       tenantId: TENANT,
-      asset: { key: 'guide-complaint', name: 'the guide', url: 'https://example.test/guide' },
+      assets: [{ key: 'guide-complaint', name: 'the guide', url: 'https://example.test/guide' }],
     })
     const again = await captureLead(
       leadEnv(),
@@ -252,7 +252,7 @@ describe('REQ-223 — asset delivery', () => {
       },
       { send: mailer.send },
     )
-    expect(again.assetSkipped).toBe('suppressed')
+    expect(again.assets).toEqual([{ key: 'guide-complaint', sent: false, skipped: 'suppressed' }])
     expect(mailer.sent).toHaveLength(1)
   })
 
@@ -269,7 +269,7 @@ describe('REQ-223 — asset delivery', () => {
       { send: mailer.send },
     )
     expect(outcome.accepted).toBe(true)
-    expect(outcome.assetSkipped).toBe('not_offered')
+    expect(outcome.assets).toEqual([])
     expect(mailer.sent).toHaveLength(0)
   })
 

@@ -128,9 +128,10 @@ describe('module registry — surviving capability catalog', () => {
     // Post-pivot the catalog holds only the two vetted behavior modules;
     // REQ-96 (controls replace module-painted leaves) bumped both again:
     // contact-form v4 and carousel v3. [[BUG-86]] took contact-form to v5 when
-    // it deleted `config.action`.
+    // it deleted `config.action`, and [[REQ-241]] to v6 when the asset it
+    // promises became a set.
     const catalog: Array<[string, number]> = [
-      ['contact-form', 5],
+      ['contact-form', 6],
       ['carousel', 3],
     ]
     for (const [id, version] of catalog) {

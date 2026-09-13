@@ -225,7 +225,7 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
     // is told it worked and no second copy goes.
     const site = await seedFormSite({
       tenantId: TENANT,
-      asset: { key: 'paper', name: 'The paper', url: 'https://bug87.test/paper.pdf' },
+      assets: [{ key: 'paper', name: 'The paper', url: 'https://bug87.test/paper.pdf' }],
     })
     const path = `/site/${site.siteKey}/api/lead`
     const fields = submission(site.instanceId, { email: 'asset@example.com' })
@@ -249,6 +249,9 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
       site: site.siteKey,
       form: site.instanceId,
       business: TENANT,
+      // Named, because a form promising a set can skip one asset and deliver
+      // another on the same submission ([[REQ-241]]).
+      asset: 'paper',
     })
     // Named by id, so the line opens the person's pane without repeating the
     // address into a second place.
@@ -258,8 +261,9 @@ describe('BUG-87 — a lead outcome that writes nothing reaches the log', () => 
 
   it('test_UAT_FC_BUG-87_an_ordinary_accepted_submission_is_quiet', async () => {
     // The common case: a form that promises no asset, submitted correctly. It
-    // carries `assetSkipped: 'not_offered'`, which is not news — and quiet is
-    // what makes the three lines above worth reading.
+    // carries an EMPTY asset list, so there is no skipped asset to name and no
+    // line to write — and quiet is what makes the three lines above worth
+    // reading.
     const site = await seedFormSite({ tenantId: TENANT })
 
     const response = await send(
