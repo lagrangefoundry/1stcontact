@@ -5,9 +5,9 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-13T21:17:45.731357+00:00'
+updated_at: '2026-09-13T22:00:45.130262+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 ## What this is
 
@@ -84,6 +85,44 @@ a wrong refusal the day they land. The question the publish path asks is *does
 this business have at least one address*, over a list that has two kinds and one
 implementation today.
 
+## Two operations: check, and claim
+
+The experience is a domain registrar's, and that is the design target rather than
+a loose analogy. **You type a name, you press return, and you are told "already
+taken" or "yes, you can have it."** Then you take it.
+
+So the surface is two operations, not one:
+
+- **`check`** — is this hostname available? No side effect, repeatable, cheap,
+  and safe to call as fast as somebody can type. It is what the field on the
+  settings pane calls on every return press.
+- **`claim`** — take it. Final, and the only operation with a consequence.
+
+**The split is what makes the assistant useful rather than decorative.** A
+customer whose first six choices are gone is exactly who needs help, and the
+assistant can only help if it can *check* — propose `colesbakery`, find it taken,
+propose `colesbakerydublin` and `bakerybycole`, and come back with three that are
+actually free. Without a check operation it can only guess, and a suggestion that
+turns out to be taken is worse than no suggestion.
+
+**Both operations stand alone.** The pane calls them directly; the assistant
+calls the same two. Neither path is a wrapper around the other, and nothing about
+the direct route requires a conversation to have happened. That is [[REQ-239]]'s
+rule — one API, two callers — and this is the ticket where it does the most work.
+
+### Check is not a promise, and claim is the authority
+
+Two customers can check `alice` in the same second and both be told yes. The
+unique index on `host` decides it, and the loser is refused at `claim` — *"that
+one went while you were deciding"* — rather than being handed a duplicate. A
+check that reserved anything would be a hold on a finite public namespace with no
+expiry, obtainable by typing.
+
+**Exposing the check is not an information leak**, and [[DOC-45]] §5 already
+disposed of the objection: an existence oracle matters when the value is one a
+business would not otherwise disclose, and *"a public address exists in order to
+be publicly resolvable"*. DNS gives this away for free to anyone who asks.
+
 ## Behaviour
 
 - **`site_domains` per [[DOC-45]] §5** — opaque primary key, `site_id` naming the
@@ -130,7 +169,8 @@ commit, and a refusal has to offer somewhere to go next rather than just say no.
 
 **The assistant is not the gate.** It would be judging its own user's request and
 can be argued out of a refusal. The list refuses; the assistant explains the
-refusal and helps find an alternative.
+refusal and helps find an alternative — which, with `check` in its hands, means
+proposing names that are actually free rather than sympathising.
 
 ## Falsifiers
 
@@ -138,3 +178,6 @@ refusal and helps find an alternative.
 - Any path that updates `site_domains.host` in place.
 - A publish check that names the `1stc.site` hostname rather than asking whether
   any address exists.
+- An availability check that reserves anything, or a claim that trusts an earlier
+  check instead of the unique index.
+- A route to claiming a hostname that exists only inside a conversation.
