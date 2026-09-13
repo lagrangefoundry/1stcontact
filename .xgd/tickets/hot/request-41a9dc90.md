@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-dec7ed9a
 ---
 
 # The asset a form promises becomes a set
