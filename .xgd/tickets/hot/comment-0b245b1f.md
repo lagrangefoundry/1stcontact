@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:39:23.099551+00:00'
+updated_at: '2026-09-13T20:41:09.185725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -274,5 +274,44 @@ Give me a yes/no sweep and I'll write them, and fold the epic correction in at t
 Hmm - lets simplify - for now lets make hostname decisions final - if they are open to arbitrary change and cannot be recycled people could go through dozens of good names.
 
 Longer term we could charge for a namechange, a one off fee, not much money but enough to add friction.
+
+<!-- xgd-turn id="6e2d33bc-bf25-481b-88f2-1384a3eb5511-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T20:41:09.126678+00:00" -->
+#### Claude
+DOC-45 §6 turns out to matter here — and it means I was too conservative with you last turn. Let me fix the doc first.
+
+DOC-45 §7 now says the label is final. I recorded the reasoning as you gave it — free swaps plus recycling lets one business walk the good-name namespace — and recorded the fee-gated change as *future intent, explicitly not scope*, noting that §5's `site_domains` table already carries `status`, so it lands later as a new row and a status flip rather than a schema change. The falsifier gained a second clause: **any path that updates `site_domains.host` in place**. §11 item 5 dissolved.
+
+I added one consequence you didn't state but that follows: finality decides *how the choice is asked*, not just what's stored. A permanent name, entered as free text, by a low-tech customer, is a permanent typo. Whatever asks for it has to show the whole host — `alice.1stc.site`, not a label field — and say it can't be changed, at the moment of choosing.
+
+The punt on obscenity gets a sharper edge from this, worth noting but not blocking: if the owner can't change their name, a name we later want gone can only be revoked by us. That's an operator action, not self-service.
+
+## I was wrong about the slug last turn
+
+I told you removing it was a three-store rewrite and recommended an opaque slug instead. **DOC-45 §6 already proposes removing it**, with a better-informed argument than mine, and it explicitly carves out the tier I was worried about:
+
+> **The file-backed tier keeps directory names.** `storage/sites/xgd/` is git-tracked, single-user, has no tenant and nothing to collide with […] That is a directory name in a filesystem, not a slug in a schema. […] **the rule is about the multi-tenant database.**
+
+So `fs-store`, `edit.ts` and the CLI — the bulk of the 500-odd references I counted — are out of scope by design. What changes is the D1 port, where §6 observes that every method already opens with `siteIdOf(slug)` and immediately unwinds it. Your instinct last turn matched the recorded design; my caution was the thing that was off.
+
+**And there's a deadline in it:**
+
+> The window is open now and closes on the first customer. […] both hold one tenant, no users and no sites, so it is still a wipe-and-reapply that costs nothing. After a real customer exists the same change is a create-copy-drop-rename on every child table.
+
+DOC-45's own Order of work puts §6 **first**, for a reason that lands directly on us: *"the host work would otherwise be built on a token scheduled to disappear."* That's exactly what we're about to build. So I'd now recommend the slug removal comes **before or with** the label work rather than after — it's cheaper now than it will ever be again, and doing the label first means building it on the token.
+
+One more simplification that falls out: §6 proposes the slug becomes `sites.name`, "the human label the builder lists sites by". With one site per business there is no list to label. So `sites.name` may not need to exist at all.
+
+## Outstanding sweep
+
+1. Delete `config.businessName` from the stored site definition, making it a render-time input from `tenants.name`? *(yes)*
+2. **Remove the slug per DOC-45 §6, and sequence it first** — correcting what I told you last turn. *(yes)*
+3. Does `sites.name` need to exist at all, given one site per business? *(I suspect not)*
+4. Discriminator on `Unnamed business` at provision? *(yes)*
+5. Business-name uniqueness on a normalised form rather than exact string? *(yes)*
+6. Initial REQ scope = business name + `1stc.site` label, with no "site name" left in it?
+
+EPIC-4's "Old labels are retained and never re-issued" paragraph is now wrong twice over — there are no old labels at all. I'll record that as a correction section in the epic, matching the one already there from yesterday, when I write the REQs.
 
 <!-- xgd-chat-end -->
