@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-242
 created_by: xgd
 created_at: '2026-09-13T22:11:26.790709+00:00'
-updated_at: '2026-09-13T22:16:17.112161+00:00'
+updated_at: '2026-09-13T22:37:18.693586+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,15 @@ REQ-242 §4 is *"the submission writes acceptance state and acceptance events th
 5. **AC7's deletion** — `consent[]` comes out of `provenanceOfSubmission` entirely, per CLAUDE.md's no-legacy rule; the `contact-events.js` doc comment on `FORM_SUBMITTED` gets its consent sentence corrected in the same commit.
 
 Which of (a)/(b)/(c) for REQ-240?
+
+<!-- xgd-turn id="18c534e2-b4a7-42c4-8ed7-6b30fed7ec2e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:37:15.664168+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
