@@ -5,10 +5,10 @@ type: request
 title: A capture form sets acceptances
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:59.672692+00:00'
-updated_at: '2026-09-13T22:55:18.776398+00:00'
+updated_at: '2026-09-13T23:06:34.480168+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   depends_on:
@@ -17,6 +17,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-3db86587
+  commits:
+  - working_sha: 250e1fefec1fea0925ba6ae8ccd48921158bb375
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.187
 ---
 
 # A capture form sets acceptances
