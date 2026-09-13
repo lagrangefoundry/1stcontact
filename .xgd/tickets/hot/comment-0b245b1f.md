@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:35:10.616782+00:00'
+updated_at: '2026-09-13T21:36:12.613300+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -421,5 +421,97 @@ And one place where **REQ-239 pushes back on the epic**: the epic says Settings 
 <!-- xgd-chat role="user" ts="2026-09-13T21:35:10.255944+00:00" -->
 #### You
 I'm sorry these are details that I just don't understand the consequences of. Can you rephrase each question to tell me what it means for the product architecture/future modularity or user experience
+
+<!-- xgd-turn id="e023fe1a-2335-473b-a932-6c98b6d4f757-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:36:12.168008+00:00" -->
+#### Claude
+No apology needed — these were phrased as implementation choices when what you need is the consequence. Here they are again, ordered by how much the answer matters.
+
+---
+
+## 1. Delete the site's short name, or just make it meaningless? *(the only irreversible one)*
+
+Every site has a short internal name like `colesbakery`, used to look it up. Nothing public uses it — it appears only in the preview URL you see while building. So it's a **second way to identify a site**, alongside the real ID.
+
+Two ways to name one thing is where bugs breed, and we found one already: because the short name is derived from the business name, renaming a business would silently move the customer's assistant session and **lose their entire chat history**. Not delete it visibly — replace it with an empty conversation.
+
+- **Delete it:** the whole category of bug goes. A site has one identity.
+- **Make it meaningless:** smaller change today, but a redundant identifier stays in the system permanently, and anyone reading the code in two years has to work out which of the two to trust.
+
+**The timing is the real stake.** The database currently holds no customers. Deleting the column now is a wipe-and-reload that costs nothing. After the first real customer it becomes a careful data migration across seven tables. DOC-45 wrote this down as *"the window is open now and closes on the first customer."*
+
+**My recommendation: delete, now.** It's the one decision on this list that gets meaningfully more expensive if you defer it.
+
+---
+
+## 2. Should the website store its own copy of the business name?
+
+Today the business name is written into the site's data when the site is created, and never updated. Rename your business and **your website still shows the old name in the browser tab.**
+
+- **One copy:** the name lives in one place, the site reads it when it's built. Rename, republish, correct everywhere.
+- **Two copies:** we write code to copy it across on every rename, and accept a state where the record and the website disagree.
+
+**The architectural stake is the pattern, not this one field.** Everything else a site displays is coming: phone number, address, opening hours, logo. If the answer is "the site is generated from the business's data", they all inherit it for free. If it's "the site keeps its own copy", every future setting arrives with its own sync bug to write and its own way to drift.
+
+**Cost:** the site's file format changes, so everything reading or writing a site definition needs a pass. Bounded, but real.
+
+**My recommendation: one copy.** You're choosing the rule for every setting after this one.
+
+---
+
+## 3. Type in a box, or ask the assistant?
+
+To change your business name — do you edit a text field, or converse with the AI?
+
+The epic argued Settings is a place you *read*, with the assistant doing the work. **That's right for the hostname**: permanent, public, one shot, genuinely deserves a conversation that makes sure the customer understands before committing.
+
+**It's wrong for the business name.** It's a typo fix. Making someone talk to an AI to correct a typo is worse than a text box, and it's the friction this product exists to remove.
+
+The thing that makes "both" safe: **one API, two ways in.** The box and the assistant call the same operation, so the box can't allow something the assistant would refuse. This also matches what you originally asked for — an API "exposed to the settings chat role" implies the API stands on its own with chat as one consumer.
+
+**My recommendation: box for the business name, assistant for the hostname.**
+
+---
+
+## 4. Should a second business be allowed to be born broken?
+
+New businesses are called "Unnamed business" until renamed. We're adding a rule that one account can't hold two businesses with the same name.
+
+So if someone creates a second business before renaming the first, **they get refused for a name we chose on their behalf** — an error for something they didn't do.
+
+The fix is to call the second one "Unnamed business 2".
+
+**My recommendation: yes.** A rule the system itself can trip is a rule people learn to work around.
+
+---
+
+## 5. Is "Cole's Bakery" the same name as "cole's bakery"?
+
+When we check for a duplicate, do we compare exactly, or ignore capitals and extra spaces?
+
+- **Exactly:** those count as different, so a customer ends up with **two entries in their business switcher that look identical and can't be told apart** — which is the precise thing the rule was added to prevent.
+- **Ignoring case and spacing:** they count as the same, and the second is refused with an explanation.
+
+One limitation either way: this only works within one account. Someone with access to two businesses owned by *different* people can still see two identical names. That's a display problem, solved separately.
+
+**My recommendation: ignore case and spacing.**
+
+---
+
+## 6. Should a site have a name of its own?
+
+Separate from the business's name. Today one business has exactly one site, so a site's own name would always just be a second copy of the business's name.
+
+It only starts to mean anything if a business has several sites — "the bakery site" and "the wedding cakes site".
+
+- **Leave it out:** nothing changes. Add it in a few years alongside the site selector, as one small database change.
+- **Put it in now:** a field nothing displays and nobody sets, which will probably be the wrong shape by the time it's needed.
+
+**My recommendation: leave it out** — it matches your own "generalise in a few years if there's demand".
+
+---
+
+None of these block each other. Answer the ones you have a view on and I'll take the recommendation on the rest.
 
 <!-- xgd-chat-end -->
