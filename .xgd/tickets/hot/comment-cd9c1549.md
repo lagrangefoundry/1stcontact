@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:14:01.782458+00:00'
+updated_at: '2026-09-13T21:16:54.081245+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -318,5 +318,45 @@ That's acceptances, the three types, the fulfilment chain, and the access model.
 Can you create an EPIC for the contacts event log with this as the first requirement please
 
 Then can you propose the division of work for your tickets
+
+<!-- xgd-turn id="08a8779e-b567-4b21-b737-e74704ed99ed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:16:54.008029+00:00" -->
+#### Claude
+Creating the epic and its first requirement.
+
+Created:
+
+- **EPIC-11** — *Contact activity log: every server-side event, and the session rollup on the timeline*
+- **REQ-235** — *The activity log: a raw server-side event store, and session summaries on the contact timeline*, parented to it
+
+The link is set on both sides (`epic_parent` / `epic_children`); `xgd ticket children` reports none, which looks like that subcommand reading a different relation than `--epic-parent` writes — worth a look sometime, not now.
+
+## Proposed division of EPIC-10
+
+Six requirements. The split is by *what could be wrong independently* — each one has its own failure mode and its own acceptance criteria.
+
+| # | Requirement | Why it's its own ticket |
+|---|---|---|
+| **A** | **Acceptances: the registry, the state, and the events** — three types, system-defined keys, which a business uses, where the boolean projection lives, the three event kinds, wording captured as evidence | The foundation. Everything else reads it. Its failure mode is "we recorded consent we cannot query or evidence" — entirely separate from anything about forms |
+| **B** | **The form sets acceptances** — module config for implied-on-submit `{key, wording}` and checkbox→acceptance mapping; `captureLead` writes real state and events instead of the opaque `consent[]` blob | Depends on A, and is where the existing provenance blob gets promoted to state. Fails independently: A can be right while the form maps the wrong key |
+| **C** | **The asset becomes a set** — `asset`/`assetName`/`assetUrl` → a set of assets; per-asset at-most-once; module v5→v6 migration | Pure module-config change with a stored-instance migration. No dependency on A or B, so it can run in parallel |
+| **D** | **The configurable email** — which template a form sends, welcome-only with no asset, and whether a public form may send a sign-in link | Depends on C (the mail names a set, not a file). Carries the two policy decisions below |
+| **E** | **The gated page and access tracking** — per-contact capability link, the `GET` route, `page.accessed` and `asset.downloaded` per paper | Depends on C and D. This is the commercial signal and the largest single piece |
+| **F** | **The portal shows and changes type-2 acceptances** — opens `account-portal`'s read-only contract deliberately | Depends on A only. Independent of the whole form/mail/page chain, so it can go any time after A |
+
+**Ordering.** A → B and C in parallel → D → E. F any time after A.
+
+**Where the value lands first.** A+B gives lawful basis and a queryable consent state, which is the thing currently missing outright. C+D+E is the whitepaper funnel, which is the thing with commercial signal. If you want one before the other, I'd take A+B first — it's foundational, and E is the biggest.
+
+## Decisions still open, and what each blocks
+
+1. **Where the acceptance boolean lives.** A table, I think — "everyone in this business with `newsletter` true" is the query that eventually sends a newsletter, and D1 cannot index into a JSON column, so `users.fields` won't do. **Blocks A.**
+2. **`TEMPLATE_KEYS` is a closed set** (`invite|signin|lapsed|asset`) for a stated reason: an open key lets a template be authored under `sign-in` while the sender asks `signin`, and they never meet. Different forms on one site plainly want different mail. Either the set opens with publish-time validation, or per-form copy lives elsewhere. **Blocks D.**
+3. **May a public form send a sign-in link?** In this model that *is* an invite — there's already a verb. Deliberate for the 1st Contact beta form, must never happen by accident on a customer's newsletter signup. **Blocks D.**
+4. **Does the capability link expire?** No expiry is my inclination: at-most-once delivery plus no public re-send means an expired link is a dead end, and the token protects a whitepaper. **Blocks E, mildly.**
+5. **`contact-form` → `email-capture`?** You raised the module by that name and I flagged the rename early; we never settled it. It matters *now* because C and D are both config migrations, and doing them and then renaming is one migration too many. **Blocks the C/D ordering.**
+
+Settle 1 and I'll write A. Or say the word and I'll write all six bodies from the discussion so far and you can read them together.
 
 <!-- xgd-chat-end -->
