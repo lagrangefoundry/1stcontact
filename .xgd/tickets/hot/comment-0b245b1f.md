@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T22:07:07.357878+00:00'
+updated_at: '2026-09-13T22:10:02.170311+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -609,5 +609,11 @@ Metadata fixed and question 4 recorded.
 **Whether to rename `config.businessName`.** It's the trap that sent this design the wrong way for three turns — the name says "copy of the business record", the meaning is "the name this site gives the business". Renaming costs a schema line, one render line, three constructors and three files on disk, while three sites exist rather than three thousand. Leaving it means the next person to design against this data hits the same trap and proposes the fix you just rejected.
 
 That's the only decision left before these are ready to implement.
+
+<!-- xgd-turn id="2feea045-c34d-4c50-82ec-8313a98ee978-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:10:01.772950+00:00" -->
+#### You
+Did you populate the ticket dependencies?
 
 <!-- xgd-chat-end -->
