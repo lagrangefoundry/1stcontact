@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:36:12.613300+00:00'
+updated_at: '2026-09-13T21:58:21.243880+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -513,5 +513,16 @@ It only starts to mean anything if a business has several sites — "the bakery 
 ---
 
 None of these block each other. Answer the ones you have a view on and I'll take the recommendation on the rest.
+
+<!-- xgd-turn id="3bc5c3b2-6913-43eb-bc0b-07117cc6cb17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:58:20.831977+00:00" -->
+#### You
+1. Sure delete it
+   2. This depends what you mean, I think the website should be composed of standalone characters if my website has the title of my business foo and I later change my business to be called bar, I do not expect the website to be automatically updated. I need to do that there are so many implications for appearance that site changes need to be explicit particularly something as important as the main title. So if you're talking about the user facing name, I do not want it to be automatically updated. If you're talking about some other site representation of the business name then please explain what you're referring to.
+   3. OK, this one is important and seems to have got lost in the noise of all the details my goal here is to have (1) a settings page where changes can be made to the settings this includes the business name it is displayed as a field that can be edited when clicked on (2) an API that allows the AI to do the same changes. I think the documentation takes the philosophy of the site a little bit too far, there are some things that it is just easier to do directly than through discursive communication. On the other hand I want the AI to have the ability to do it if the user asks. The experience of choosing the subdomain name will be very like the experience of choosing a main name in a domain name interface. There will be a user UI where you type in the name you press return and it says already taken OR yes you can have it. The AI has an API to this same face and can suggest names and check whether they have been taken, so it could hopefully come up with new ideas that were still available. However I still want the basic API to be available. 
+   
+   5. Ignore capitalization and spacing
+   6. Not today
 
 <!-- xgd-chat-end -->
