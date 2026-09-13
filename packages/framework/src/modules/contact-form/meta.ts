@@ -1,5 +1,5 @@
 import type { BehaviorMeta } from '../behavior'
-import { FIELD_TYPES } from './fields'
+import { FIELD_TYPES, FORM_ACCEPTANCE_KEYS } from './fields'
 import { contactFormV4ToV5, contactFormV5ToV6 } from './migrate'
 
 /**
@@ -73,6 +73,60 @@ export const contactFormMeta = {
         // that drifts is whichever one the next type is not added to.
         type: { type: 'enum', required: true, values: FIELD_TYPES },
         required: { type: 'boolean', required: false, default: false },
+        /*
+         * WHICH ACCEPTANCE THIS BOX IS ([[REQ-242]] §2, explicit).
+         *
+         * WITHOUT IT A CHECKBOX IS LINKED TO NOTHING BUT ITS OWN LABEL. That
+         * was the state this closes: the answer and its wording reached one
+         * event's `detail` as a blob nothing read back, so there was no way to
+         * say that THIS box is the newsletter and no way to ask who is on it.
+         * Named, the tick writes queryable state and the label travels as the
+         * evidence — and the label is still the label, unchanged.
+         *
+         * THE CLOSED SET IS THE REFUSAL ([[REQ-242]] §3). It omits every
+         * document key, so no configuration of a capture form can accept terms
+         * or produce a member; that is a property of the contract rather than a
+         * flag somebody has to leave alone.
+         *
+         * READ ONLY ON A `checkbox`, because a tick is the only answer a box
+         * gives that means yes-or-no. A mapping on a text field would be this
+         * module inventing what typing something into a box consents to, so the
+         * receiver does not read one.
+         */
+        acceptance: { type: 'enum', required: false, values: FORM_ACCEPTANCE_KEYS },
+      },
+    },
+    /*
+     * THE ACCEPTANCES PRESSING THE BUTTON ASSERTS ([[REQ-242]] §2, implied).
+     *
+     * WHY IT IS NOT A LIST OF KEYS. "Pressing the button means you accepted the
+     * terms" is only true if the page said so beside the button, so an implied
+     * acceptance carries the wording it was asserted under and carries it as a
+     * REQUIRED field. One with no wording is evidence-free — the transition
+     * could never be shown to have been agreed to by anybody — so it is refused
+     * at validation rather than recorded as though it meant something. The
+     * refusal names the KEY and not the position (`itemKey`), because the author
+     * was declaring an acceptance and not a list entry.
+     *
+     * THE WORDING IS THE EVIDENCE RECORD AND NOT THE RENDERED SENTENCE, exactly
+     * as a field's `label` is: `labelMode: 'visible'` leaves the words to be
+     * authored as an L1 text run, and this is the same seam. The vetted default
+     * presentation (`l2/contact-form.ts`) does emit a run per entry above the
+     * submit control, so a form instantiated from config alone says on the page
+     * what it records — but an author who replaces that subtree owns keeping the
+     * two in step, as they already do for every visible label.
+     *
+     * THE SAME CEILING `fields` AND `assets` CARRY. A form asserting more than
+     * eight things on one press is not a consent surface anybody read.
+     */
+    accepts: {
+      type: 'list',
+      required: false,
+      maxItems: 8,
+      itemKey: 'key',
+      itemSchema: {
+        key: { type: 'enum', required: true, values: FORM_ACCEPTANCE_KEYS },
+        wording: { type: 'string', required: true },
       },
     },
     /*

@@ -7,7 +7,10 @@ import type { Env as PublicEnv } from '../apps/public-site/src/index'
 import { captureLead } from '../apps/control-app/src/lead'
 import type { LeadEnv as ControlEnv } from '../apps/control-app/src/lead'
 import { eventsOf } from '../apps/control-app/src/events'
-import { FORM_SUBMITTED } from '../apps/control-app/src/builder/contact-events.js'
+import {
+  ACCEPTANCE_GRANTED,
+  FORM_SUBMITTED,
+} from '../apps/control-app/src/builder/contact-events.js'
 import {
   FORM_INSTANCE_FIELD,
   TURNSTILE_FIELD,
@@ -222,7 +225,15 @@ describe('BUG-78 — the preview submits for real', () => {
                   submitLabel: 'The draft wording',
                   fields: [
                     { name: 'email', label: 'Your email', type: 'email', required: true },
-                    { name: 'list', label: 'The draft consent sentence', type: 'checkbox' },
+                    {
+                      name: 'list',
+                      label: 'The draft consent sentence',
+                      type: 'checkbox',
+                      // [[REQ-242]] — the wording now reaches the ACCEPTANCE, so
+                      // naming the box is what makes this test's claim assertable
+                      // at all after `consent[]` went away.
+                      acceptance: 'newsletter',
+                    },
                   ],
                 },
                 slots: {},
@@ -246,9 +257,20 @@ describe('BUG-78 — the preview submits for real', () => {
 
     const detail = await provenanceFor(TENANT, 'draftwording@example.com')
     expect(detail.submitLabel).toBe('The draft wording')
-    expect(detail.consent).toEqual([
-      { field: 'list', wording: 'The draft consent sentence', answer: true },
-    ])
+
+    // THE WORDING, WHERE IT LIVES NOW ([[REQ-242]] §4). `consent[]` is gone from
+    // the submission's detail; a named box writes an acceptance carrying the
+    // label it was shown under. The claim is unchanged and is sharper: the
+    // published revision's box names no acceptance at all, so an acceptance
+    // recorded under the DRAFT's sentence could only have come from the draft.
+    const rows = await rowsFor(TENANT, 'draftwording@example.com')
+    const events = await eventsOf(controlEnv(), { businessId: TENANT }, rows[0].id)
+    const granted = events.filter((e) => e.kind === ACCEPTANCE_GRANTED)
+    expect(granted).toHaveLength(1)
+    expect(granted[0].detail).toMatchObject({
+      key: 'newsletter',
+      wording: 'The draft consent sentence',
+    })
   })
 
   /**

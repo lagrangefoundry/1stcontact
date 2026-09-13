@@ -50,6 +50,24 @@ export interface BehaviorConfigSpec {
   maxItems?: number
   /** Per-item field contract for a `list` of objects (recursed to any depth). */
   itemSchema?: Record<string, BehaviorConfigSpec>
+  /**
+   * Which item field IDENTIFIES an item of this `list`, for the error paths a
+   * violation inside it is reported under ([[REQ-242]] §5 AC-4).
+   *
+   * `config.accepts[1].wording is missing` names the position and the author
+   * does not think in positions — they think in the acceptance they were
+   * declaring. `config.accepts[newsletter].wording` names the thing, and the
+   * failure is actionable without counting list entries. The framework already
+   * has the notion that a list item has a handle of its own (`perItemOf`
+   * resolves a control's name from its item's `name`); this is the same fact,
+   * spelt for the validator.
+   *
+   * OPT-IN, AND ABSENT MEANS THE INDEX. A list whose items have no author-facing
+   * handle — or whose handle is itself the thing that is wrong — has nothing
+   * better to be identified by than where it sits, and an identifier invented
+   * from a missing value would be worse than the position it replaced.
+   */
+  itemKey?: string
   /** Value applied when the field is omitted (documents the core's fallback). */
   default?: boolean | number | string
 }
@@ -307,8 +325,38 @@ export interface BehaviorValidationError {
   message: string
 }
 
+/**
+ * Whether a config value counts as absent.
+ *
+ * A STRING OF NOTHING BUT SPACES IS ABSENT ([[REQ-242]] §5 AC-4). `''` has always
+ * counted and `'   '` did not, which is a distinction no author makes and no
+ * reader benefits from: a required label, wording or URL whose whole content is
+ * whitespace supplies nothing, and being told so at the write is the only place
+ * it is cheap to fix. The alternative is what this closes — a value the contract
+ * accepts and every consumer then has to trim and skip, silently, at the moment
+ * somebody is relying on it.
+ */
 function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === ''
+  if (value === undefined || value === null) return true
+  return typeof value === 'string' && value.trim() === ''
+}
+
+/**
+ * How one item of a `list` is named in the paths its violations are reported
+ * under: its {@link BehaviorConfigSpec.itemKey} value when the declaration names
+ * one and the item actually carries a usable string there, and its position
+ * otherwise ([[REQ-242]]).
+ *
+ * THE FALLBACK IS THE WHOLE OF THE SAFETY. An item whose handle is missing,
+ * blank or not a string is exactly the item whose handle is one of the things
+ * being reported — so identifying it by that value would produce
+ * `accepts[undefined].wording`, which names nothing and is worse than the index
+ * it replaced.
+ */
+function itemHandle(spec: BehaviorConfigSpec, item: unknown, index: number): string {
+  if (spec.itemKey === undefined) return String(index)
+  const handle = (item as Record<string, unknown> | null)?.[spec.itemKey]
+  return typeof handle === 'string' && handle !== '' ? handle : String(index)
 }
 
 /** Validate one config value against its field spec, appending any violations. */
@@ -360,9 +408,10 @@ function validateConfigField(
         errors.push({ field: path, message: `config '${path}' allows at most ${spec.maxItems} item(s)` })
       if (spec.itemSchema) {
         value.forEach((item, i) => {
+          const at = itemHandle(spec, item, i)
           for (const [name, sub] of Object.entries(spec.itemSchema!)) {
             validateConfigField(
-              `${path}[${i}].${name}`,
+              `${path}[${at}].${name}`,
               sub,
               (item as Record<string, unknown> | null)?.[name],
               errors,

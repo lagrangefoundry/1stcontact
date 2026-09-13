@@ -45,9 +45,17 @@ export const MEMBER_SIGNED_UP = 'member.signed_up'
  *
  * ITS `detail` CARRIES WHAT THE COLUMNS CANNOT ([[REQ-223]] §4): which site and
  * page the submission came from, which form instance, what its submit button
- * said, the other fields the visitor filled in, and the consent wording they
- * were shown. That is unreconstructable later, and for an IE tenant it is what
- * evidences consent.
+ * said, and the fields the visitor filled in. That is unreconstructable later.
+ *
+ * IT NO LONGER CARRIES A `consent[]` BLOB ([[REQ-242]] §4). What a tick box
+ * meant used to live here as `[{field, wording, answer}]` — good evidence and no
+ * state, which nothing read back and which could not answer "who is on the
+ * newsletter". A box named with an acceptance key now writes a real acceptance
+ * instead ({@link ACCEPTANCE_GRANTED} / {@link ACCEPTANCE_WITHDRAWN}, with the
+ * same wording on it), and the blob is gone rather than kept beside it. Rows
+ * written before that change still hold theirs — the table is immutable by
+ * trigger and a timeline renders from `kind`, never from `detail`, so an old
+ * shape costs a reader nothing.
  */
 export const FORM_SUBMITTED = 'form.submitted'
 

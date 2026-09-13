@@ -67,6 +67,7 @@ const DEFAULTS = {
 export function contactFormPreset(
   fields: readonly ContactFormPresetField[],
   opts: ContactFormPresetOptions = {},
+  impliedWording: readonly string[] = [],
 ): L1Node {
   const o = { ...DEFAULTS, ...opts }
   const children: L1Node[] = []
@@ -151,6 +152,29 @@ export function contactFormPreset(
         { kind: 'text', text: field.label, axes: { color: o.color, fontSizePx: 14, fontWeight: 500 } },
         control,
       ],
+    })
+  }
+
+  /*
+   * THE IMPLIED WORDING, ABOVE THE BUTTON IT IS IMPLIED BY ([[REQ-242]] §2).
+   *
+   * `config.accepts` records what a press asserts, and that record is only TRUE
+   * if the page said so beside the button. The wording is stored rather than
+   * rendered — the same seam a `visible` field label sits on — so a preset that
+   * did not put it on the page would produce, from configuration alone, a form
+   * recording a consent nobody was shown. Emitting it is what makes the default
+   * look honest rather than merely complete.
+   *
+   * SMALL AND BEFORE THE BUTTON, because it is the sentence the press is read
+   * against and reads as a condition rather than as a field. Ordinary L1 like
+   * everything else here: an author edits, moves or replaces it, and owns
+   * keeping it in step with the config if they do.
+   */
+  for (const wording of impliedWording) {
+    children.push({
+      kind: 'text',
+      text: wording,
+      axes: { color: o.color, fontSizePx: 13, fontWeight: 400 },
     })
   }
 

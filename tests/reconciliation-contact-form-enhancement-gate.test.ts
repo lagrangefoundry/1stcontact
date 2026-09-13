@@ -316,7 +316,11 @@ describe('story-179b8c06 — a fetchable endpoint is enhanced exactly as before'
     // at all.
     // [[BUG-86]] removed `action`, which strengthens the claim rather than
     // weakening it: the endpoint is not expressible in config at all now.
+    // [[REQ-242]] added `accepts` — the acceptances pressing the button asserts.
+    // Behavioural in the same sense `assets` is, and equally silent about WHICH
+    // forms are enhanced.
     expect([...configFields].sort()).toEqual([
+      'accepts',
       'assets',
       'fields',
       'submitLabel',
