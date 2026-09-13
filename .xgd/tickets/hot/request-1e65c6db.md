@@ -5,9 +5,9 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-13T21:17:12.597808+00:00'
+updated_at: '2026-09-13T22:00:20.419268+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   needs_review: false
 ---
 
+
 ## What this is
 
 The business name is stored in **one** place, `tenants.name`, and the customer
@@ -25,33 +26,59 @@ may change it whenever they like.
 
 ## What is wrong today
 
-It is stored twice. `createStarterSite` writes the business's name into the site
-definition at provision — `starterSiteJson(slug, businessName)`,
-`apps/control-app/src/identity.ts:936` — and `render.ts:162` reads it back out of
-`site.config.businessName` for the page `<title>`. That copy is taken once and
-never synchronised, so the two are free to diverge from the first rename onward,
-and nothing anywhere notices.
+**There is no rename path at all.** `tenants.name` can change in principle —
+[[REQ-190]] settled that the id is the key and the name an attribute — and
+nothing anywhere offers it. Onboarding names a business `Unnamed business`
+([[BUG-90]] defers asking for a real one to "the settings work", which is this),
+and the customer has no way to correct it.
 
-There is also no rename path at all. `tenants.name` can change in principle
-([[REQ-190]]: the id is the key, the name is an attribute) and nothing offers it.
+**And when it does change, nothing says what is now out of date.** That is the
+second half of this ticket and the more interesting one.
 
-## The decision
+## Two names that are allowed to differ
 
-**`tenants.name` is the store. The site definition stops carrying a copy.**
+There are two strings holding a business's name, and it is tempting — it was
+tempting for three turns of [[EPIC-4]]'s design discussion — to read them as
+duplicated state to be collapsed. They are not.
 
-`config.businessName` leaves the stored site definition — dropped from
-`packages/site-schema/src/schema.ts:924` — and becomes a **render-time input**
-supplied by the caller from `tenants.name`. The renderer stays a pure function of
-what it is handed; what changes is where the caller gets one of its arguments.
+| | What it is | How it changes |
+| --- | --- | --- |
+| `tenants.name` | What the business **is called**. The record. Stored exactly once, never rendered onto a site. | Freely, at any time, no consequence |
+| `site.config.businessName` | What the **site says**. Authored content. | Only by an explicit site edit |
 
-The alternative — keep the field and have this API write through to it on every
-rename — was rejected for being *more* complexity rather than less: it adds a
-sync path, a divergence state, and a "is this draft stale" question, to preserve
-a second copy whose only reader is a page title.
+`site.config.businessName` has exactly one reader —
+`tools/generate/src/render/render.ts:162` — where it is the fallback for a page's
+HTML `<title>` when `seoMeta.title` is absent. It is not the visible name on the
+page: the headline, the wordmark and every sentence naming the business are page
+content, and nothing here touches them.
 
-Known callers that construct the field and will supply it instead:
-`tools/generate/src/cli/scaffold.ts:41`, `tools/generate/src/cli/repro.ts:160`,
-`apps/control-app/src/portal.ts:237`.
+Look at what it sits beside in `siteConfigSchema`
+(`packages/site-schema/src/schema.ts:923`): `tagline`, `contact.email`,
+`contact.phone`, `contact.address`. That is a set of *things the site says about
+the business*, every one of them authored. Reading one member of that set as a
+cache of a database column, and the rest as content, is the error.
+
+### So a rename does not touch the site
+
+**A site change is always explicit.** Appearance has implications a rename cannot
+anticipate, and the page title is among the most consequential strings on a site
+— it is what a search result shows. A business renamed from `Foo` to `Bar` may
+well want the site to follow, and it may equally be mid-rebrand, trading under
+both, or correcting an internal label that was never the trading name. The
+product does not get to assume.
+
+What was missing was never a synchroniser. It is that **nothing tells the
+customer the two have diverged**, which is what the effects report below supplies.
+
+### The field is misnamed, which is what caused the confusion
+
+`businessName` reads as "a copy of the business's name". It means "the name this
+site gives the business". Renaming it — to say that it is the site's own title
+text — is a site-definition format change touching the schema, `render.ts` and
+three constructors (`scaffold.ts:41`, `repro.ts:160`, `portal.ts:237`), plus the
+three `site.json` files under `storage/sites/`. Small, and it removes a trap that
+has already cost one design discussion. **Open: whether to do it here or leave
+the name and document it.**
 
 ## The name is internal, and it is not a key
 
@@ -105,13 +132,19 @@ to be able to say which is which.
 
 ### Renaming
 
-- **A rename reports its effects, and does not answer a boolean.** The caller —
-  the form or the assistant — receives what changed and what is now out of date:
-  - the site's published pages still carry the old name in their `<title>` and
-    will until the site is published again;
+- **A rename reports its effects, and does not answer a boolean.** This is the
+  whole of how a change that deliberately propagates to nothing stays safe: the
+  caller — the form or the assistant — is told what is now inconsistent, and
+  decides what to do about it.
+  - the site still calls the business by its old name in `config.businessName`,
+    and will go on doing so until somebody edits the site. **Not "until the next
+    publish"** — publishing re-renders what the site says, and what it says has
+    not changed;
   - page copy may *name* the business in prose the assistant wrote, which is
-    authored text and can never be synchronised — it can only be found and
-    rewritten.
+    authored text and can only be found and rewritten.
+  - **Each of these is an offer, never an action.** The report is what lets the
+    assistant say *"your site still calls you Foo — shall I change that too?"*
+    and the settings pane show it as a thing to look at.
 - **A rename publishes nothing.** Publication has its own meaning and its own
   moment; making a rename publish as a side effect would push a draft live that
   the customer never asked to release.
