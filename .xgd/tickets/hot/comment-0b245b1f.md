@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:33:49.269176+00:00'
+updated_at: '2026-09-13T20:36:15.888299+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -229,5 +229,42 @@ Your epic cites DOC-45 §7 — assigned at provision from the slugified business
 I think they should be able to change the hostname but only to another one that hasn't yet been taken and doing so relinquishes the original
 
 Lets punt on the obscenity question for now.
+
+<!-- xgd-turn id="7ae4186f-e1f2-4fe6-be0f-750f9c187b04-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T20:36:15.596281+00:00" -->
+#### Claude
+Two things there: DOC-45 needs editing, and one of them reverses a decision the epic currently argues for. Let me read §7 first.
+
+DOC-45 §7 is rewritten — it now says the label is customer-chosen, that publication is the gate (`1stc.site` label **or** custom domain **or** both), and that changing relinquishes the original. I kept the doc's shape: the old rule and both arguments that held it up are recorded under "What this replaces, and why", because tickets cite §7 and a silent reversal would leave them pointing at something that no longer exists. The falsifier flipped too — it was "a provisioned site with no address", which is now the ordinary case; it's "a published site with no host mapping".
+
+I also settled §11 item 4 (per business, one at a time — reopens when a business holds two sites) and opened two new items for what §7 deliberately doesn't say.
+
+## This reverses the epic, and you should see it
+
+EPIC-4's body currently argues the opposite:
+
+> **Old labels are retained and never re-issued.** A customer who put `alice.1stc.site` on a van and then renames needs the old one to keep working, and re-issuing it to someone else would hand over whatever inbound links and reputation the previous holder built.
+
+Your rule kills the first half outright — one label at a time, no alias, the van is stale. That's a real simplification (no redirect layer, no multi-label holding, no "which one is primary") and I think it's the right trade at this stage.
+
+But the second half is separable and you haven't ruled on it. "Only to another one that **hasn't yet been taken**" is ambiguous exactly there: does a relinquished label go back in the pool, or is it retired? **I'd retire it.** It's one status value instead of deleting a row, and it's the difference between `alice` becoming available to a stranger who then receives the van's traffic, versus simply being gone. Cheapest possible insurance against the only genuinely bad outcome in this design.
+
+## One new seam this creates
+
+"To go live they need a 1stc.site hostname OR a custom domain OR both" makes `publish` refuse when a business has no address — and the custom-domain half belongs to EPIC-5/6. So the check wants writing now as *"does this business have at least one address?"* over a list with two possible kinds, of which only one is implemented today. Written as `if (!label) refuse`, it becomes a wrong refusal the day custom domains land.
+
+## Outstanding, so I can write the REQs
+
+Sweeping up what's still open — several are from earlier turns you moved past:
+
+1. Delete `config.businessName` from the stored site definition, making it a render-time input from `tenants.name`? *(I recommend yes)*
+2. Opaque slug at provision — keep the column, sever it from the business name, never show it? *(I recommend yes; the alternative is a three-store rewrite)*
+3. Discriminator on `Unnamed business` at provision, so an account's second business doesn't trip the uniqueness constraint? *(yes)*
+4. Business-name uniqueness compared on a normalised form — case-folded, whitespace-collapsed — rather than exact string? *(yes)*
+5. Relinquished label retired rather than returned to the pool? *(yes)*
+6. Is the label in the initial REQ scope, or do the first REQs cover the business name only? With the slug going opaque there's no "site name" left to configure, so scope 1 is really *business name + label*.
+
+Give me a yes/no sweep and I'll write them, and fold the epic correction in at the same time.
 
 <!-- xgd-chat-end -->
