@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:03:33.328723+00:00'
+updated_at: '2026-09-13T21:04:36.859656+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -208,5 +208,39 @@ Do you want that, or is arriving on the page enough? <-- sorry we want everythin
 `whitepapers_accessed` isn't a fourth acceptance type. It's the fulfilment chain hanging off a type-3 request: <--correct, but I think it needs to show up in the contact event log
 
 I actually think all user accesses need to show up in the event log - we want to know what the user is doing and how often etc
+
+<!-- xgd-turn id="fc25d876-98ad-4c3c-8f81-e416a95902bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:04:36.555274+00:00" -->
+#### Claude
+Understood — the whole access pattern, not a single flag.
+
+**This isn't a reversal of the opens/clicks decision.** `email-webhook.ts` rejected those as *"a privacy cost with no beta value"* — a value test, not a prohibition. Whitepaper access has obvious value; it's the conversion signal. Worth noting it also stays cheaper in privacy terms than click tracking ever was: we're recording arrival on our own page rather than intercepting a redirect, and we get the same signal without the tracker.
+
+## What "how long they were there" forces
+
+The server sees requests. It cannot see duration. That needs a beacon from the browser — heartbeats, or a `pagehide`/`visibilitychange` send — which has three consequences:
+
+- **The gated page stops being static bytes.** It needs client JS and an endpoint to post to, which in this architecture means it's a behavior module with a `client.js`, the same shape as `contact-form` and `account-chrome`.
+- **That endpoint is a public write endpoint**, so it inherits everything REQ-223 hardened: the token identifies the contact, nothing caller-asserted names a contact, rate limited, frozen acknowledgement.
+- **Duration is always a lower bound.** A closed laptop sends nothing. So store the beacons as events and derive the time, rather than storing a single `duration_ms` that reads as a measured fact when it's a floor. The event spine already has the right instinct here — facts in, derivation on read.
+
+## The config consequence
+
+"Whether they downloaded both papers or one of them" means each paper is separately identified and separately downloadable, with its own event. The current config is a single asset — `asset` / `assetName` / `assetUrl`, a triple that exists because `config` has no object type. One form, one download, one at-most-once ledger entry.
+
+That shape can't express two papers, so it has to become a **set** of assets, each with a key and a name. That's a bigger change to the module config than anything else we've discussed, and it ripples: the at-most-once ledger becomes per-asset rather than per-form, `deliveryState` keys on the asset already so that part survives, and the mail names a page rather than a file.
+
+## Volume, and one thing to decide
+
+The spine holds nine kinds today, all milestones — created, invited, submitted, sent, delivered. Page views and heartbeats are a different volume class, and a contact's timeline that renders one row per event becomes unreadable with four hundred beacons between two meaningful facts. I'd still keep one table — `kind` is deliberately unconstrained and this is what that was for — and make folding a presentation problem for the timeline rather than splitting the spine before there's volume to justify it. Retention is the related open question: `contact_events` has no pruning today, and analytics events are the first thing that accumulates without bound.
+
+**The one thing I need from you:** when you say all user accesses, which of these do you mean?
+
+1. The token-bearing gated page — identified by the link itself.
+2. Signed-in surfaces: the portal, member pages — identified by session.
+3. Any page on a published site visited by someone who is a known contact.
+
+One and two are people we've already identified, and the tracking comes free with the token or the session. Three is different in kind: it needs a cookie or pixel tying anonymous browsing back to an identity, which is where the real privacy cost lands and where this stops being a feature and starts being a tracking platform. I read "user" as one and two — but it's the difference between a contained piece of work and a much larger one, so I'd rather ask.
 
 <!-- xgd-chat-end -->
