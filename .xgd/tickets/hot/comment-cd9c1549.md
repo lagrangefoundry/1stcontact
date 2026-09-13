@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:33:32.994826+00:00'
+updated_at: '2026-09-13T21:35:02.026584+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -368,5 +368,41 @@ Settle 1 and I'll write A. Or say the word and I'll write all six bodies from th
    3. The final plan will be that a user signs up for a free trial (15min AI consultation) from the site - this is a sign-up link not a sign-in. Note sign in is already a public form. Not sure I understand this question.
    4. No 
    5. if this is a generic "form" module, I'm ok with the generalization we should change the EPIC name and probably keep it open beyond this round - I imagine some kind of onboarding form experience.
+
+<!-- xgd-turn id="ebe009aa-389a-42cd-98ba-c61c6b187fa2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:35:01.946647+00:00" -->
+#### Claude
+Taken: acceptances get a table (1), the template key set opens with publish-time validation that the named template exists (2), asset links don't expire (4). EPIC-10 is renamed **"Forms: capture, acceptances, and onboarding"** — say the word if you'd rather it read differently.
+
+## On question 3 — my fault, badly asked
+
+You're right that sign-in is already a public form. But I checked what it actually does, and it has a deliberate limit:
+
+`sign-in.ts::issue` resolves the address to an existing subject and mails a link **only if one exists** — `if (subjectId)`. A stranger gets the identical acknowledgement and no mail. That's on purpose: a response that differed would be a membership oracle. So the public sign-in form can authenticate someone we already know, and **cannot create anybody.**
+
+Which means your free-trial funnel needs something that doesn't exist yet: a stranger fills in a form and receives a link that makes them a member. That's sign-**up**, exactly as you said, and it is precisely the thing sign-in refuses to do.
+
+The good news is the verb already exists — it's the invite. `markInvited` moves the pipeline, `contact.invited` records it, and the `invite` template carries a redeemable `{{cta_url}}` (REQ-202). Today an operator presses it. The trial form needs the same act, self-initiated. So the question I was fumbling toward is just:
+
+> **Does filling in this form entitle you to become a member?**
+
+Yes for the free-trial form; no for a plumber's newsletter signup. Per-form config, defaulted off. (The consultation booking itself is a calendar and stops outside this epic — the form's job ends at "they're a member".)
+
+**And this is where your answer to 4 has to split.** "No expiry" is right for an asset link: it protects a whitepaper, and with at-most-once delivery and no public re-send, an expired one is a dead end. A sign-up link is a **credential** — it creates a member — so it expires and is single-use, which is what `login_tokens` already does. Two different kinds of link, two different rules. Worth stating explicitly in the tickets so nobody later reads "capability links don't expire" as covering both.
+
+## On question 5 — generalize the epic, but not the module id
+
+Agreed on the direction. One finding that changes the answer, though: **the module's `id` must stay `contact-form`.**
+
+`upgradeInstance` carries `type` through unchanged — the migration machinery moves versions *within* a module id and has no expression for renaming one. And the deeper problem is that published revisions are frozen: `site_revisions` rows are never updated, and `formDefinitionOf` reads module instances straight out of those R2 snapshots to resolve what a submitter was actually served. Renaming the id would either break every historical revision that references `contact-form`, or require the registry to keep answering to the old name — which is the legacy-alias mode CLAUDE.md forbids outright.
+
+So the generalization is real but it's about *capability*, not spelling. The module grows an asset set, acceptance mapping, template selection and later survey-shaped fields, and keeps the id it was born with. The epic name carries the broader intent; the registry key stays put. That also unblocks the C/D ordering — no rename migration to sequence around.
+
+## Where that leaves it
+
+Every blocker on A is cleared. D's two decisions are now settled bar one detail: whether "may become a member" is a boolean on the form or falls out of which template it sends — I'd make it explicit config rather than implied by copy, so the entitlement isn't something an operator can grant by editing words.
+
+Shall I write A now, or all six bodies together so you can read them as a set?
 
 <!-- xgd-chat-end -->
