@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T20:49:57.097681+00:00'
+updated_at: '2026-09-13T20:59:15.722204+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -152,5 +152,21 @@ There is no unsubscribe mechanism anywhere in the codebase today. I'd argue the 
 An acceptance definition would carry, roughly: a key, a type (document / preference / request), the wording shown, and per-type extras — a document reference + version for type 1, portal visibility for type 2, a fulfilment action for type 3. Businesses pick from the system-defined set; custom keys later slot into the same registry.
 
 Does that match what you have in mind? If so the open questions left on acceptances are: whether we open the portal's read-only contract, and where the boolean projection actually lives — `users.fields` won't work, since "everyone in this business with newsletter = true" is the query that sends the newsletter and D1 can't index into a JSON column.
+
+<!-- xgd-turn id="7eb03108-c666-4d55-acc0-0af7686f3f89-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T20:59:15.617682+00:00" -->
+#### You
+1. Agreed
+   2. Agree
+   3. There is a third event - perhaps the most important - whitepapers_accessed - the link we send is to a page they have to go there and download the papers - we need to track that
+   
+   On the portal, we disagree. The portal cannot be read only that makes no sense. It is created to allow these things, it will also support managing the users subscriptions and so on.
+   
+   The user has to sign in to get to the portal yes. Users can also unsubscribe with the unsubscribe link in every email. That does not mean the user portal does not also give them that option.
+   
+   We don't have unsubscribe because we dont have mailing list functionality yet - you are overanticipating. Lets focus on what we have.
+   
+   an operator must be able to flip a category-2 acceptance when a contact phones up and asks <-- we currently have no plans for telephone support again over anticipation
 
 <!-- xgd-chat-end -->
