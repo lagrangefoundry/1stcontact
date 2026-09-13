@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:06:05.469958+00:00'
+updated_at: '2026-09-13T22:10:05.547083+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -554,5 +554,11 @@ Worth reconsidering one part of it now, though. After your correction about the 
 So if you want something more honest to what's actually in it: **"Capture forms and user acceptances"** — or keep the forward-looking version if you'd rather the name carry the intent rather than the current contents.
 
 Which do you want, and shall I try the rename again?
+
+<!-- xgd-turn id="97532309-d1fa-43ff-9d72-7eb6063ff3c9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:10:05.212988+00:00" -->
+#### You
+Did you populate the ticket dependencies?
 
 <!-- xgd-chat-end -->
