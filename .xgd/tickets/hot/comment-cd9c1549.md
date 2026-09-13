@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:42:49.764689+00:00'
+updated_at: '2026-09-13T21:49:49.096189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -452,5 +452,13 @@ Two things fall out of that which are worth having on the record.
 The scoping question I need before the tickets, because it changes the shape of the set: **you said sign-up is "today invite only, tomorrow self sign-up".** Is self-serve sign-up in this round, or is this round capture forms only — newsletter, beta, whitepapers — with self-serve sign-up a later requirement under the same epic?
 
 And is there anything else on the list before I write them? By my count what's left undiscussed is the acceptance registry's own details: who defines the keys, where the wording and the document version live, and what a business does to turn one on.
+
+<!-- xgd-turn id="095d67fb-d217-4c60-9c53-1772db6e5613-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:49:48.064492+00:00" -->
+#### You
+Yes - sign-up/sign-in are a specific flows distinct from email capture they are so fundamental I am very comfortable with them being separate. Now the sign-up flow might ask if you want to join the mail list, and the sign-in flow might ask you to update your acceptance of the T&C so they are all related
+
+Self serve sign up is out of the current scope - just don't build anything that precludes it
 
 <!-- xgd-chat-end -->
