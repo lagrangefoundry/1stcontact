@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T22:01:39.087581+00:00'
+updated_at: '2026-09-13T22:05:28.754761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -571,5 +571,13 @@ All four tickets and the epic updated. What your answers changed:
 The consequence of leaving it: the next person to design against this data — human or AI — hits the same trap I did, and the obvious "fix" they'll propose is the one you just rejected. The consequence of changing it: a file-format change while there are three sites in existence rather than three thousand, and a short window where old and new spellings both exist.
 
 I'd change it, for the same reason as the slug: it's cheap now and it isn't later.
+
+<!-- xgd-turn id="a2e8c54f-cd5c-4ce5-95d6-45b63e02dd96-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T22:05:28.361922+00:00" -->
+#### You
+on 4 - I thought we covered that earlier - if Unnamed exists then the new business should be Unnamed-1 if unnamed-1 exists then 2...
+
+get the metadata correct
 
 <!-- xgd-chat-end -->
