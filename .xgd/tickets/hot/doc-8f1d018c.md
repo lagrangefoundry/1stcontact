@@ -5,13 +5,14 @@ type: doc
 title: 'Site addressing: what URL reaches a site, and what a name is allowed to mean'
 created_by: CHAT-40
 created_at: '2026-09-06T18:54:28.856907+00:00'
-updated_at: '2026-09-13T20:35:38.789228+00:00'
+updated_at: '2026-09-13T20:40:40.179855+00:00'
 completed_at: null
 last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
 ---
+
 
 
 # Site addressing: what URL reaches a site, and what a name is allowed to mean
@@ -264,16 +265,31 @@ to make reachable. That check is what makes §4 safe: once the path grammar is
 deleted a published site with no host mapping is unreachable, so the requirement
 belongs at the moment of publication rather than at the moment of provision.
 
-**A label may be changed, to any label not already taken, and the change
-relinquishes the original.** A business holds one at a time; taking a second
-means giving up the first.
+**A label is final.** It is chosen once and does not change. The alternative was
+examined and rejected: if a label can be swapped freely and the old one recycled,
+one business can walk through dozens of good names in an afternoon, and
+`1stc.site` is a first-come namespace that only ever gets smaller. Because
+nothing is relinquished, nothing is re-issued, and the question of what becomes
+of a label somebody gave up does not arise.
+
+A change path is expected eventually, gated by a **one-off fee** — small, priced
+for friction rather than for revenue. §5's table already carries `status`, so it
+arrives as a new row and a status flip rather than as a schema change. It is not
+in scope and nothing should be built in anticipation of it.
+
+**Finality decides how the choice is asked, not just what is stored.** A
+permanent name, entered as free text, by the low-tech customer this product is
+for, is a permanent typo waiting to happen. Whatever asks for it must show the
+whole host as it will be — `alice.1stc.site`, not a label field — and must say
+that it cannot be changed, at the moment of choosing rather than afterwards.
 
 Labels that could impersonate the platform or a service are reserved (`www`,
 `app`, `api`, `mail`, `admin`, and the rest of that family). Whether anything
 beyond that family is refused is deliberately not settled here — see §11 item 6.
 
-**Falsifier:** a published site with no host mapping. A *provisioned* site with
-no address is ordinary, and under the superseded rule below it was the falsifier.
+**Falsifier:** a published site with no host mapping; or any path that updates
+`site_domains.host` in place. A *provisioned* site with no address is ordinary,
+and under the superseded rule below it was the falsifier.
 
 ### What this replaces, and why
 
@@ -365,12 +381,12 @@ one.
    two do not conflict today because a business holds exactly one site
    ([[BUG-90]]). This reopens the day a business holds two, which is the day the
    site selector lands and not before.
-5. **Does a relinquished label return to the pool, or is it retired?** §7 says
-   changing a label relinquishes the original and that a new one must not be
-   *already taken*; it does not say which of those two things "taken" means. The
-   choice is one status value either way, and it decides whether someone who
-   painted `alice.1stc.site` on a van and then moved to `alicebakery.1stc.site`
-   can have `alice` issued to a stranger who then receives their traffic.
+5. ~~**Does a relinquished label return to the pool, or is it retired?**~~
+   **Dissolved by §7's finality.** Nothing is relinquished, so nothing can be
+   recycled, and the van keeps working because the label never moves. The
+   question returns the day the fee-gated change path does, and the answer it
+   will want then is *retired* — the superseded label stays held by the business
+   that gave it up, or a stranger inherits their traffic.
 6. **What is refused beyond the reserved technical family.** Impersonation of a
    bank, a government or this platform harms a third party immediately and has
    no benefit of the doubt to give. The obscenity tail is a different problem —
