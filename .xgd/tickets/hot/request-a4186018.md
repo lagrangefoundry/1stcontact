@@ -5,10 +5,10 @@ type: request
 title: 'User acceptances: the registry, the state, and the events'
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:10.006557+00:00'
-updated_at: '2026-09-13T22:25:22.808362+00:00'
+updated_at: '2026-09-13T22:30:36.566621+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-d6d7ea63
@@ -16,6 +16,11 @@ fields:
   needs_review: false
   chat_comment: comment-f55f0a3e
   depends_on: []
+  commits:
+  - working_sha: 2272ca739e1a75cb59813c8fae8545feaedc5db5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.185
 ---
 
 # User acceptances: the registry, the state, and the events
