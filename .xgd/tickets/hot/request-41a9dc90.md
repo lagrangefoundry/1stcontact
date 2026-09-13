@@ -5,10 +5,10 @@ type: request
 title: The asset a capture form promises becomes a set
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:33.766551+00:00'
-updated_at: '2026-09-13T22:34:48.037957+00:00'
+updated_at: '2026-09-13T22:37:09.981342+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
