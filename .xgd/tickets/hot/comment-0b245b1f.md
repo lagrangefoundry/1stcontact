@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:58:21.243880+00:00'
+updated_at: '2026-09-13T22:01:39.087581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -524,5 +524,52 @@ None of these block each other. Answer the ones you have a view on and I'll take
    
    5. Ignore capitalization and spacing
    6. Not today
+
+<!-- xgd-turn id="3bc5c3b2-6913-43eb-bc0b-07117cc6cb17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:01:38.528600+00:00" -->
+#### Claude
+Question 2 is the one I under-explained. Let me check exactly what that field does before answering.
+
+Confirmed — and you're right, I was pointing at the wrong thing. Let me be exact about what that field is.
+
+**It is not the name on your website.** Your headline, your wordmark, your footer, any sentence naming the business — all authored page content. Nothing in this work touches a word of it. Renaming your business will never rewrite your site's visible text.
+
+`config.businessName` has exactly **one** reader in the whole codebase (`render.ts:162`), and it does one thing: it's the fallback for the HTML `<title>` — the browser tab text and the heading in a Google result — used only when a page hasn't been given an explicit SEO title.
+
+So your principle holds, and it changes my recommendation: **that field stays, and a rename must not touch it.**
+
+What's actually defective is its *name*. Calling it `businessName` makes it read as a duplicate of the business record, which is what sent me down the wrong path for three turns. It isn't a duplicate — look at what it sits beside in `siteConfig`: `tagline`, `contact.email`, `contact.phone`, `contact.address`. That's a set of **things the site says about the business**, all authored, all explicit. The business record is a different thing: what *we* know the business is called.
+
+The right model, which I think is what you've been saying all along:
+
+| | What it is | Changes how |
+|---|---|---|
+| `tenants.name` | What the business is called. The record. Stored once. **Never rendered onto the site.** | Freely, any time, no consequence |
+| `siteConfig` (`businessName`, `tagline`, `contact…`) | What the **site says**. Authored content. | Only by an explicit site edit |
+
+They usually agree. They're allowed not to. What was missing isn't a sync — it's that **nothing tells you they've diverged**, which is exactly the effects report already in REQ-237: rename the business, and it tells you your site still says the old name and offers to change it as a separate, explicit edit you confirm.
+
+Let me update the tickets.
+
+All four tickets and the epic updated. What your answers changed:
+
+**REQ-237** — the "store it once, delete the site's copy" decision is withdrawn and replaced with the two-names model above. A rename now explicitly propagates to *nothing*, and the effects report is what makes that safe: the caller is told what's inconsistent and each item is an **offer, never an action** — "your site still calls you Foo, shall I change that too?" I also corrected a bullet that said the site's title would be stale "until the next publish"; under your rule it's stale until somebody edits the site, because publishing re-renders what the site says and what it says hasn't changed.
+
+**REQ-238** — now two operations, `check` and `claim`. The registrar experience you described is the design target, not an analogy. The important bit is why `check` has to be a first-class operation rather than an internal step of claiming: **it's what makes the assistant useful rather than decorative.** A customer whose first six choices are gone is exactly who needs help, and the assistant can only help if it can test its own suggestions before offering them. I also recorded that `check` reserves nothing — two people can be told "available" at once, and the loser finds out at `claim` — because a check that held a name would be a permanent lock on a public namespace obtainable by typing.
+
+**REQ-239 and EPIC-4** — the "record-and-status surface, not a workshop" framing is withdrawn as a general rule, with your reasoning recorded: some things are easier done directly than through discursive communication. Settings are editable fields; the assistant is a second caller of the same API; neither is a fallback for the other.
+
+**REQ-236** unchanged — delete the slug, confirmed.
+
+## Two left
+
+**A. You skipped question 4.** New businesses are born called "Unnamed business". We're adding a rule that one account can't hold two businesses with the same name — so someone who creates a second business before renaming the first gets refused, **for a name we chose on their behalf.** The fix is to call the second one "Unnamed business 2". Any reason not to?
+
+**B. A new small one, from your answer to 2.** The field is called `businessName`, which reads as "a copy of the business's name" — that's what misled me for three turns. It actually means "the name this site gives the business". Renaming it to say so is a small change (the schema, one render line, three constructors, three files on disk).
+
+The consequence of leaving it: the next person to design against this data — human or AI — hits the same trap I did, and the obvious "fix" they'll propose is the one you just rejected. The consequence of changing it: a file-format change while there are three sites in existence rather than three thousand, and a short window where old and new spellings both exist.
+
+I'd change it, for the same reason as the slug: it's cheap now and it isn't later.
 
 <!-- xgd-chat-end -->
