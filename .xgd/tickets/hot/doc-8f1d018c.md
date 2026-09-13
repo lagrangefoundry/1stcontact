@@ -5,13 +5,14 @@ type: doc
 title: 'Site addressing: what URL reaches a site, and what a name is allowed to mean'
 created_by: CHAT-40
 created_at: '2026-09-06T18:54:28.856907+00:00'
-updated_at: '2026-09-06T18:54:28.856907+00:00'
+updated_at: '2026-09-13T20:35:38.789228+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: open
 fields:
   doc_kind: architecture
 ---
+
 
 # Site addressing: what URL reaches a site, and what a name is allowed to mean
 
@@ -250,21 +251,51 @@ still a wipe-and-reapply that costs nothing. After a real customer exists the
 same change is a create-copy-drop-rename on every child table. **The argument for
 doing it now is stronger than the argument for the change itself.**
 
-## 7. Every site has an address from the moment it exists
+## 7. A site's address is chosen, and publication is what requires one
 
-A platform label is **assigned at provision**, not chosen before the customer has
-anything. Slugified business name, a short discriminator on collision, freely
-changeable afterwards — the ordinary signup-name flow.
+**A platform label is chosen by the customer, never assigned at provision.** A
+business holds at most one `1stc.site` label at a time. Choosing it may take
+them a while, and nothing hurries it: until a site is published it has no public
+address and needs none.
 
-The reasoning is [[REQ-190]]'s `unnamed` reasoning: the default must exist and
-must visibly ask to be changed, rather than blocking the customer on a choice
-they are not ready to make. It is also what makes §4 safe — if a site could exist
-with no host mapping, deleting the path grammar would leave it unreachable.
+**Publication is the gate.** To go live a business needs a `1stc.site` label, a
+custom domain, or both — at least one address, or there is nothing for `publish`
+to make reachable. That check is what makes §4 safe: once the path grammar is
+deleted a published site with no host mapping is unreachable, so the requirement
+belongs at the moment of publication rather than at the moment of provision.
+
+**A label may be changed, to any label not already taken, and the change
+relinquishes the original.** A business holds one at a time; taking a second
+means giving up the first.
 
 Labels that could impersonate the platform or a service are reserved (`www`,
-`app`, `api`, `mail`, `admin`, and the rest of that family).
+`app`, `api`, `mail`, `admin`, and the rest of that family). Whether anything
+beyond that family is refused is deliberately not settled here — see §11 item 6.
 
-**Falsifier:** a provisioned site with no address.
+**Falsifier:** a published site with no host mapping. A *provisioned* site with
+no address is ordinary, and under the superseded rule below it was the falsifier.
+
+### What this replaces, and why
+
+This section used to say the opposite: a label **assigned at provision**,
+slugified from the business name, with a short discriminator on collision. Two
+arguments held it up, and both fail against the lifecycle.
+
+The first was [[REQ-190]]'s `unnamed` reasoning — a default must exist and must
+visibly ask to be changed, rather than blocking a customer on a choice they are
+not ready to make. But the name it would slugify is `Unnamed business`
+([[BUG-90]]), so the assigned default is `unnamedbusiness`: not a name that asks
+to be changed, but a name that says nothing, handed to someone who never asked
+for it, in the one namespace on this product that is global, public and
+first-come. That argument is still right about the *business* name, which is
+internal, freely changeable and costs nothing to get approximately right. It is
+wrong about a public address, which is the one name here that other people come
+to rely on.
+
+The second was §4's safety — a site that could exist with no host mapping would
+be unreachable once the path grammar went. Provision does not have to carry
+that; publication carries it, and publication is the moment the customer is by
+definition ready to choose, because they are asking to go live.
 
 ## 8. Platform detection is not a property we defend
 
@@ -329,10 +360,22 @@ one.
 2. **Which apex** (§9), and whether the product sells domains.
 3. **Whether form B is a frozen snapshot or a live draft render** (§2).
    Recommendation: frozen, for the three reasons given there.
-4. **Whether the platform label is per site or per business.** §3 says a host
-   names a site, which implies per site; a business with several sites then holds
-   several labels. Cheap either way, but it should be said once rather than
-   discovered.
+4. ~~**Whether the platform label is per site or per business.**~~ **Settled:
+   per business, one at a time** (§7). §3 still says a host names a site, and the
+   two do not conflict today because a business holds exactly one site
+   ([[BUG-90]]). This reopens the day a business holds two, which is the day the
+   site selector lands and not before.
+5. **Does a relinquished label return to the pool, or is it retired?** §7 says
+   changing a label relinquishes the original and that a new one must not be
+   *already taken*; it does not say which of those two things "taken" means. The
+   choice is one status value either way, and it decides whether someone who
+   painted `alice.1stc.site` on a van and then moved to `alicebakery.1stc.site`
+   can have `alice` issued to a stranger who then receives their traffic.
+6. **What is refused beyond the reserved technical family.** Impersonation of a
+   bank, a government or this platform harms a third party immediately and has
+   no benefit of the doubt to give. The obscenity tail is a different problem —
+   a substring blocklist eventually refuses a real business its real name — and
+   is deliberately deferred rather than answered badly.
 
 ## 12. What this supersedes
 
