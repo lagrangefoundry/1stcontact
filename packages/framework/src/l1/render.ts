@@ -39,6 +39,8 @@ import {
 } from './dialog'
 import {
   deliveryAssetName,
+  deliveryTypeOfExtension,
+  extensionOfAsset,
   DELIVERY_SOURCE_TYPES,
   type ImageDelivery,
   type ImageDeliveryManifest,
@@ -593,10 +595,18 @@ function maskDecls(m: L1Mask): string[] {
  * `bgSrc` REPLACES `backgroundImageUrl` AND NOTHING ELSE. It arrives from a
  * manifest, so it passes {@link cssUrl} exactly as an authored URL does — the
  * sole `url()` sink stays sole.
+ *
+ * REQ-234 — `bgImage` REPLACES THE PICTURE LAYER'S VALUE AND ONLY ITS VALUE, so
+ * the same stack can be restated with the backdrop as an `image-set()` instead of
+ * a `url()`. It is applied only where a layer would have been painted anyway —
+ * `cssUrl` still decides WHETHER there is a picture layer, and this only decides
+ * what that one layer says — so an alternative format can never conjure a
+ * backdrop that the plain declaration does not also have.
  */
 function surfaceBgLayers(
   a: L1SurfaceAxes,
   bgSrc?: string,
+  bgImage?: string,
 ): { layers: BgLayer[]; hasImage: boolean } {
   const layers: BgLayer[] = []
   if (a.overlay) {
@@ -612,12 +622,51 @@ function surfaceBgLayers(
   if (bgUrl) {
     // BUG-13 — a section/band background image fills its box (cover, centered, no
     // tiling) — the faithful default for a hero/section backdrop.
-    layers.push({ image: bgUrl, size: 'cover', position: 'center', repeat: 'no-repeat' })
+    layers.push({ image: bgImage ?? bgUrl, size: 'cover', position: 'center', repeat: 'no-repeat' })
   }
   return { layers, hasImage: bgUrl !== null }
 }
 
-function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean; bgSrc?: string } = {}): string[] {
+/**
+ * REQ-234 — the `background-image` declaration(s) for one surface's layer stack:
+ * the plain one, and — when a better format exists for the backdrop — the same
+ * stack again with the picture layer as an `image-set()`.
+ *
+ * TWO DECLARATIONS IN THIS ORDER, AND THE ORDER IS THE WHOLE FALLBACK. CSS drops
+ * a declaration it cannot parse and keeps the last one it could, so a browser
+ * that does not understand `image-set()` — or understands it but not the `type()`
+ * inside it — is left holding the plain `url()` that precedes it and paints
+ * exactly the backdrop it paints today. That is the ordinary cascade and it wants
+ * no `@supports` and no cleverness; what it does want is for the two never to be
+ * emitted the other way round, which is why they are produced here rather than
+ * assembled by each caller.
+ *
+ * THE STACK IS ASKED FOR TWICE RATHER THAN PATCHED ONCE. A scrim, a texture and a
+ * wash sit above the backdrop in a positional list, and an override that rebuilt
+ * that list by hand would be a second opinion about it — the first breakpoint at
+ * which the two disagreed would silently drop the client's scrim. Both lists come
+ * out of {@link surfaceBgLayers}, so there is exactly one author of the stack and
+ * the second call differs from the first in one layer's value.
+ */
+function bgImageDecls(
+  a: L1SurfaceAxes,
+  bgSrc: string | undefined,
+  imageSet: string | null,
+): string[] {
+  const { layers, hasImage } = surfaceBgLayers(a, bgSrc)
+  if (layers.length === 0) return []
+  const out = [`background-image: ${layers.map((l) => l.image).join(', ')}`]
+  if (hasImage && imageSet !== null) {
+    const { layers: set } = surfaceBgLayers(a, bgSrc, imageSet)
+    out.push(`background-image: ${set.map((l) => l.image).join(', ')}`)
+  }
+  return out
+}
+
+function surfaceDecls(
+  a: L1SurfaceAxes,
+  opts: { fill?: boolean; bgSrc?: string; bgImageSet?: string } = {},
+): string[] {
   const out: string[] = []
   if (opts.fill !== false) {
     const fill = cssColor(a.surfaceFill)
@@ -626,7 +675,7 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean; bgSrc?: string }
   if (px(a.borderRadiusPx)) out.push(`border-radius: ${px(a.borderRadiusPx)}`)
   if (a.opacity !== undefined) out.push(`opacity: ${a.opacity}`)
   const { layers: bgLayers, hasImage: bgUrl } = surfaceBgLayers(a, opts.bgSrc)
-  if (bgLayers.length) out.push(`background-image: ${bgLayers.map((l) => l.image).join(', ')}`)
+  out.push(...bgImageDecls(a, opts.bgSrc, opts.bgImageSet ?? null))
   // The sizing triple is *positional* — one value per layer, in layer order — so a
   // tiled pattern and a `cover` backdrop can coexist on one box. A surface with no
   // pattern has at most one layer that cares, so it keeps emitting the single
@@ -1777,11 +1826,15 @@ function pictureSources(delivery: ImageDelivery | undefined, sizesAttr: string):
  *
  * WHY A BACKGROUND NEEDS ONE AND AN `<img>` DOES NOT. A `srcset` hands the
  * browser the candidates and the browser applies its own device's ratio, exactly
- * and for free. A `background-image` has no such list — `image-set()` is the CSS
- * equivalent and is deliberately not used here (per-width rules ride the
- * per-breakpoint machinery L1 already emits, rather than introducing a second
- * mechanism) — so the renderer must choose one rendition per breakpoint, for a
- * screen it cannot see.
+ * and for free. A `background-image` has no such list, so the renderer must
+ * choose one rendition per breakpoint, for a screen it cannot see.
+ *
+ * AND REQ-234 DOES NOT CHANGE THAT. `image-set()` now carries the FORMAT choice
+ * into these rules, and it deliberately carries nothing else: no `x` descriptors,
+ * no second width vocabulary. Width still comes from the per-breakpoint rules
+ * keyed to the geometry keyframes, because that is the choice L1 can make from
+ * what it knows; two mechanisms choosing width would be exactly the duplication
+ * REQ-222 refused.
  *
  * TWO, BECAUSE UNDER-FETCHING IS THE UNRECOVERABLE ERROR. Nearly every phone and
  * laptop this ladder matters most on reports 2 or more; choosing 1 would serve a
@@ -1841,28 +1894,82 @@ function nodeWidthAt(
 }
 
 /**
- * REQ-222 — which rendition of `delivery` a box `boxWidth` px wide should paint.
+ * REQ-222 — which rung of one ladder a box `boxWidth` px wide should paint.
  *
- * SMALLEST THAT STILL COVERS, and the original when nothing does. A background
+ * SMALLEST THAT STILL COVERS, and the widest rung when nothing does. A background
  * is painted `cover`, so a rendition narrower than the box is upscaled by the
  * browser and looks soft — the one outcome worth spending bytes to avoid. The
- * manifest's last entry is the source itself, so "nothing covers it" resolves to
- * the bytes that are already the authored URL and the page is unchanged.
+ * source-format ladder's last entry is the source itself, so "nothing covers it"
+ * resolves to the bytes that are already the authored URL and the page is
+ * unchanged.
  *
- * IT READS `renditions` AND NEVER `sources`, AND THAT IS A CORRECTNESS
- * REQUIREMENT RATHER THAN AN OVERSIGHT. `renditions` is the source's own format
- * throughout; `sources` holds the alternatives a `<picture>` lets the BROWSER
- * choose between by declaring what it can read. A `background-image` declares
- * nothing and negotiates nothing — a `url()` naming a WebP is simply a backdrop
- * that does not paint for a visitor whose browser cannot read one, with no
- * fallback and no way for the page to find out. Whoever widens this to prefer a
- * smaller codec has to bring `image-set()` with them, which this ticket
- * deliberately did not.
+ * REQ-234 — ONE LADDER, NOT ONE MANIFEST ENTRY, so the same choice can be made
+ * inside an alternative format's rungs. It used to read `renditions` and never
+ * `sources`, because a bare `url()` naming a WebP is a backdrop that does not
+ * paint for a visitor who cannot read one — no fallback, no way for the page to
+ * find out. `image-set()` is what supplies that missing fallback, so the rule can
+ * now be stated at the level it always belonged: pick the narrowest rung that
+ * covers the box, out of whichever ladder is being offered.
  */
-function backgroundRenditionFor(delivery: ImageDelivery, boxWidth: number): string {
+function backgroundRenditionFor(
+  renditions: readonly ImageRendition[],
+  boxWidth: number,
+): string | null {
+  if (renditions.length === 0) return null
   const target = boxWidth * BACKGROUND_DPR
-  const covering = delivery.renditions.find((r) => r.width >= target)
-  return (covering ?? delivery.renditions[delivery.renditions.length - 1]).src
+  const covering = renditions.find((r) => r.width >= target)
+  return (covering ?? renditions[renditions.length - 1]).src
+}
+
+/**
+ * REQ-234 — the CSS `image-set()` that offers a backdrop in a better format, or
+ * null when there is nothing to choose between.
+ *
+ * `image-set()` IS THE ONLY MECHANISM CSS HAS, and that is why it enters here
+ * after REQ-222 turned it down for width. A stylesheet cannot vary on `Accept`, a
+ * per-breakpoint rule says nothing about what a browser can decode, and the
+ * publish is static by design — so for FORMAT there is no first mechanism for
+ * this to be a second one of. `<picture>` is an HTML element and has no reach
+ * into a `background-image` declaration.
+ *
+ * ORDER IS THE MECHANISM AND IT IS NOT THIS FUNCTION'S TO HOLD AN OPINION ABOUT.
+ * A browser takes the first option whose `type()` it supports, so the candidates
+ * are emitted exactly as the caller composed them from the manifest's own
+ * best-first order, with the source's own format last as the in-set fallback.
+ * Sorting or filtering by preference here would be a second opinion about codecs,
+ * held in the one place that cannot see which the publish managed to encode.
+ *
+ * THE SOURCE'S OWN FORMAT IS THE LAST OPTION AND MAY BE UNTYPED. An option
+ * without `type()` is always supported, so it is the right shape for a fallback
+ * whose media type this renderer could not derive from the asset's extension. An
+ * option whose type is NOT in {@link DELIVERY_SOURCE_TYPES} is dropped instead —
+ * silently retyping an alternative as always-supported would offer a browser a
+ * format it may not read, which is the failure `image-set()` is here to remove.
+ *
+ * FEWER THAN TWO OPTIONS EMITS NOTHING, on the same rule `srcsetOf` follows. A
+ * one-option `image-set()` names the file the plain declaration already names and
+ * asks every browser to parse a function to arrive back at it.
+ *
+ * EVERY URL GOES THROUGH {@link cssUrl}, so the sole `url()` sink stays sole and
+ * a manifest that arrived from a bucket cannot become CSS syntax.
+ */
+function backgroundImageSet(
+  candidates: readonly { src: string | null; type?: string }[],
+): string | null {
+  const options: string[] = []
+  for (const candidate of candidates) {
+    if (candidate.src === null) continue
+    const url = cssUrl(candidate.src)
+    if (url === null) continue
+    if (candidate.type === undefined) {
+      options.push(url)
+      continue
+    }
+    if (!DELIVERY_SOURCE_TYPES.has(candidate.type)) continue
+    options.push(`${url} type("${candidate.type}")`)
+  }
+  if (options.length < 2) return null
+  return `image-set(${options.join(', ')})`
 }
 
 /**
@@ -1876,11 +1983,24 @@ function backgroundRenditionFor(delivery: ImageDelivery, boxWidth: number): stri
  * that costs the most. The ladder is a property of the picture, not of the tag
  * that happens to place it.
  *
- * PER-WIDTH RULES, NOT `image-set()`. L1 already emits a rule per breakpoint and
- * the widths the rules are keyed to are the same widths the geometry keyframes
- * describe — which is what makes the choice principled rather than guessed, the
- * same property that lets `sizes` be computed on the `<img>` side. `image-set()`
- * would be a second mechanism with its own support story for the same job.
+ * PER-WIDTH RULES FOR WIDTH, `image-set()` FOR FORMAT, AND THE SPLIT IS EXACT.
+ * L1 already emits a rule per breakpoint and the widths those rules are keyed to
+ * are the same widths the geometry keyframes describe — which is what makes the
+ * WIDTH choice principled rather than guessed, the same property that lets
+ * `sizes` be computed on the `<img>` side. For width, `image-set()` would have
+ * been a second mechanism for a job already done well, and REQ-222 refused it on
+ * exactly those terms.
+ *
+ * REQ-234 — FOR FORMAT THERE IS NO FIRST MECHANISM. A stylesheet cannot vary on
+ * `Accept`, a per-breakpoint rule says nothing about what a browser can decode,
+ * and the publish is static by design, so `image-set()` with `type()` is not a
+ * second answer here — it is the only one. It enters INSIDE these rules, for
+ * format alone, and carries no width vocabulary of its own.
+ *
+ * THE RULE COUNT DOES NOT GROW; THE DECLARATION DOES. An override is still
+ * emitted only where the choice actually changes — now the whole choice, format
+ * included, so two ladders whose rungs did not both land still cannot silently
+ * share one rule.
  *
  * THE BASE RULE TAKES THE SMALLEST RUNG, because the base rule is what a
  * viewport BELOW the ladder gets — the narrowest screen, on the worst connection,
@@ -1909,34 +2029,58 @@ function surfaceLadderDecls(
     return surfaceDecls(a, opts)
   }
 
-  // A CHOSEN RENDITION THAT WILL NOT PASS THE `url()` SINK FALLS BACK TO THE
-  // AUTHORED URL, and this is the one place the fallback matters: a rejected
-  // candidate would otherwise leave the layer out entirely, which does not serve
-  // a smaller picture — it silently removes the client's backdrop.
   const authored = a.backgroundImageUrl as string
-  const choiceAt = (vw: number): string => {
-    const src = backgroundRenditionFor(delivery, nodeWidthAt(geometry, sizing, state.column, vw) ?? vw)
-    return cssUrl(src) === null ? authored : src
+  // REQ-234 — the media type the ASSET'S OWN extension means, for the `image-set()`
+  // fallback option. Null is an ordinary answer (an extension this renderer has no
+  // type for) and produces an untyped option, which is always supported — exactly
+  // what a last-resort fallback wants to be.
+  const assetName = deliveryAssetName(authored)
+  const ownType = assetName === null ? null : deliveryTypeOfExtension(extensionOfAsset(assetName))
+
+  const choiceAt = (vw: number): { url: string; set: string | null } => {
+    const box = nodeWidthAt(geometry, sizing, state.column, vw) ?? vw
+    const own = backgroundRenditionFor(delivery.renditions, box)
+    // A CHOSEN RENDITION THAT WILL NOT PASS THE `url()` SINK FALLS BACK TO THE
+    // AUTHORED URL, and this is the one place the fallback matters: a rejected
+    // candidate would otherwise leave the layer out entirely, which does not serve
+    // a smaller picture — it silently removes the client's backdrop.
+    const url = own === null || cssUrl(own) === null ? authored : own
+    const set = backgroundImageSet([
+      // The alternatives first, in the manifest's own best-first order, each
+      // choosing a rung out of its OWN ladder at the same box width...
+      ...(delivery.sources ?? []).map((source) => ({
+        src: backgroundRenditionFor(source.renditions, box),
+        type: source.type,
+      })),
+      // ...and the source's own format last, as the option inside the set that a
+      // browser reading none of the alternatives lands on.
+      { src: url, ...(ownType === null ? {} : { type: ownType }) },
+    ])
+    return { url, set }
   }
 
   const base = choiceAt(ladder[0])
   let previous = base
   for (const w of ladder.slice(1)) {
-    const src = choiceAt(w)
-    if (src === previous) continue
-    previous = src
-    const { layers } = surfaceBgLayers(a, src)
-    if (!layers.length) continue
+    const choice = choiceAt(w)
+    if (choice.url === previous.url && choice.set === previous.set) continue
+    previous = choice
+    const decls = bgImageDecls(a, choice.url, choice.set)
+    if (decls.length === 0) continue
     state.rules.push({
       media: `(min-width: ${num(w)}px)`,
       selector,
       // ONLY `background-image` is restated. The sizing triple is positional over
       // the same layer list, which this override does not change, so restating it
       // would be repetition that could fall out of step.
-      decls: [`background-image: ${layers.map((l) => l.image).join(', ')}`],
+      decls,
     })
   }
-  return surfaceDecls(a, { ...opts, bgSrc: base })
+  return surfaceDecls(a, {
+    ...opts,
+    bgSrc: base.url,
+    ...(base.set === null ? {} : { bgImageSet: base.set }),
+  })
 }
 
 /**

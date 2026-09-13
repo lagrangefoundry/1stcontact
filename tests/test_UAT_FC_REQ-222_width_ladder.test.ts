@@ -614,7 +614,8 @@ describe('REQ-222 a background image gets the same ladder as an img', () => {
     // A 1280px band at 2× wants 2560px, which only the source covers.
     expect(css).toContain('@media (min-width: 1280px)')
     expect(css).toContain('url("assets/band.jpg")')
-    // ...and it is a `background-image` override, not an `image-set()`.
+    // ...and with no alternative format in this manifest there is nothing for
+    // [[REQ-234]]'s `image-set()` to offer, so the override is a plain `url()`.
     expect(css).not.toContain('image-set(')
   })
 
@@ -993,16 +994,24 @@ describe('REQ-222 the sink emits a picture with typed sources', () => {
     expect(html).toContain('<picture style="display:contents">')
   })
 
-  it('never paints a typed rendition as a background, whatever formats exist', () => {
-    // A `background-image` declares nothing and negotiates nothing, so a `url()`
-    // naming a WebP is a backdrop that does not paint at all for a visitor whose
-    // browser cannot read one — no fallback, and no way for the page to find out.
+  it('never paints a typed rendition as a background without a fallback beside it', () => {
+    // A `background-image` declares nothing and negotiates nothing, so a BARE
+    // `url()` naming a WebP is a backdrop that does not paint at all for a visitor
+    // whose browser cannot read one — and no way for the page to find out.
+    //
+    // [[REQ-234]] SUPERSEDES THE SHAPE OF THIS CLAIM, NOT THE CLAIM. It supplies
+    // the fallback CSS was missing — `image-set()` with `type()` — so a typed
+    // rendition may now be OFFERED as a backdrop. What still may not happen is the
+    // thing this test was always about: it may never be the whole declaration.
     const css = renderBox(
       { axes: { backgroundImageUrl: '/assets/hero.jpg' } },
       { delivery: TYPED_MANIFEST },
     )
     expect(css).toContain('assets/d/abc123-')
-    expect(css).not.toContain('.webp')
+    // Every declaration that is NOT an `image-set()` — the bare `url()` ones — is
+    // what a browser with no `image-set()` is left holding.
+    const bare = css.split(';').filter((d) => !d.includes('image-set('))
+    expect(bare.join(';')).not.toContain('.webp')
   })
 })
 
