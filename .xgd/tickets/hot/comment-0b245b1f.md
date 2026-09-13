@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:24:29.590591+00:00'
+updated_at: '2026-09-13T20:33:49.269176+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,15 @@ Last turn's four are still open (I'd now drop "does the slug follow a rename" �
 - **Opaque slug at provision, or do you want to push on removing the column entirely?** I recommend opaque.
 - **Label at first publish, rather than at provision?** I recommend at publish.
 - **Is the label in the initial REQ scope at all,** or do the first REQs cover business name only and the label follows once TODO-6's PSL work is moving? Your scope note says "business, site and 1stc.site subdomain name" — but with the slug gone opaque there's no longer a "site name" to configure, so the initial scope may be just the business name plus the label's storage and uniqueness.
+
+<!-- xgd-turn id="7ae4186f-e1f2-4fe6-be0f-750f9c187b04-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T20:33:48.364273+00:00" -->
+#### You
+Your epic cites DOC-45 §7 — assigned at provision from the slugified business name — but you've just said the user *chooses* it. <-- DOC-45 is wrong (please change it). This has to be user chosen and it may take them some time. It is a dependency on publication. To go live they either need a 1stc.site hostname OR a custom domain OR both.
+
+I think they should be able to change the hostname but only to another one that hasn't yet been taken and doing so relinquishes the original
+
+Lets punt on the obscenity question for now.
 
 <!-- xgd-chat-end -->
