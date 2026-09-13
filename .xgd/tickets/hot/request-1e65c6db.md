@@ -5,9 +5,9 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-13T22:06:28.562070+00:00'
+updated_at: '2026-09-13T22:06:46.582944+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 ## What this is
 
@@ -120,9 +121,20 @@ to be able to say which is which.
 - **Provisioning a second business under one account does not collide on the
   default.** `UNNAMED_BUSINESS_NAME` is the fixed string `'Unnamed business'`
   (`apps/control-app/src/onboarding.ts`), so an account's second provision would
-  trip the constraint above on a name the system chose for them. A discriminator
-  is appended at provision. A constraint that the system itself can trip is a
-  constraint that gets worked around.
+  otherwise trip the constraint above on a name the system chose for them — an
+  error for something the customer did not do. A constraint the system itself can
+  trip is a constraint that gets worked around.
+- **The scheme is the base name, then `-1`, `-2`, and so on, first free wins.**
+  The first business an account provisions is `Unnamed business`. If that name is
+  taken the next is `Unnamed business-1`; if that is taken too, `Unnamed
+  business-2`, and upward until one is free. The search is against the same
+  normalised comparison the constraint uses, so it cannot propose a name the
+  constraint will then refuse.
+- **The suffix is not a count and nothing may read it as one.** It is whatever
+  number was free at the time. An account that provisions three businesses and
+  renames the middle one leaves a gap, and the gap is filled by the next
+  provision — so `Unnamed business-2` does not mean "the third business" and
+  never did.
 - The word stays visibly provisional, which is [[REQ-190]]'s argument and is
   still right *for this name*: it costs nothing to change, so getting it
   approximately right costs nothing and leaving it blank costs something.
