@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:06:47.784203+00:00'
+updated_at: '2026-09-13T21:10:52.356498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -269,5 +269,14 @@ What survives from the last exchange is the config consequence: **the module's s
 Still unanswered, and cheap: does "all user accesses in the event log" extend past the token-bearing page to signed-in surfaces like the portal — or is the gated page the whole of it for v1?
 
 That's acceptances, the three event types, and the access model settled. Want me to write EPIC-10's body up to here before we take on the email configuration and the module's config shape?
+
+<!-- xgd-turn id="72183c4c-4e06-4d37-965b-35835d3e4da8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:10:51.883308+00:00" -->
+#### You
+User access is perhaps going beyond the scope of this epic but since we started the discussion...
+
+1. I want a log that captures every serverside (and possibly some client side) events
+2. I want the contact log to capture a high level abstraction of this e.g.: 5/32/2025 16:23- 17.28 user session Site tab (13mins) Marketing tab (23 mins) -When, what is the user doing? How are they spending their time?
 
 <!-- xgd-chat-end -->
