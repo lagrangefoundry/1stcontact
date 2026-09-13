@@ -5,10 +5,10 @@ type: request
 title: 'User acceptances: the registry, the state, and the events'
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:10.006557+00:00'
-updated_at: '2026-09-13T22:30:47.081034+00:00'
+updated_at: '2026-09-13T22:33:31.337561+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-d6d7ea63
