@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:50:38.459344+00:00'
+updated_at: '2026-09-13T21:59:44.159566+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -494,5 +494,11 @@ It also fixes the platform-only gap in one move: a customer's sign-up gets that 
 **Named as out of scope, not precluded:** self-serve sign-up; the sign-in flow re-asking on a version bump; enquiry forms.
 
 If that matches, I'll write all six bodies now and you can read them as a set.
+
+<!-- xgd-turn id="842ff82c-3cac-4180-b605-5eb7e6a928d8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:59:44.063261+00:00" -->
+#### You
+Identify the child request/bug tickets needed to realize this epic's design. Create each one via `xgd ticket create --epic-parent <this epic's uid>`, and set depends_on between the new children to reflect build order. A child can live in a different registered project when that's where the work belongs — add `--project <name>` (or a `ticket://org/repo/` store reference) to the create call; --epic-parent works the same way whether the epic and the child are in the same project or not. If this epic already has epic_children, add further children incrementally (diff against the existing list) — do not replace what's already there.
 
 <!-- xgd-chat-end -->
