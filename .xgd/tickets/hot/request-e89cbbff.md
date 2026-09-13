@@ -5,9 +5,9 @@ type: request
 title: The Settings tab, and the settings chat role
 created_by: EPIC-4
 created_at: '2026-09-13T21:18:15.497079+00:00'
-updated_at: '2026-09-13T21:18:15.497079+00:00'
+updated_at: '2026-09-13T22:01:03.296729+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
+
 
 ## What this is
 
@@ -43,23 +44,40 @@ with a role of its own that can reach the settings API.
 
 ## The two panes
 
-Left: the settings. Business name ([[REQ-237]]) and the `1stc.site` hostname
-([[REQ-238]]) — what it is, and for a business that has not chosen one yet, that
-it is needed before the site can go live.
+Left: the settings, as **fields that can be edited in place** — click one, change
+it, done. Business name ([[REQ-237]]) and the `1stc.site` hostname ([[REQ-238]]),
+the latter behaving as a registrar's field does: type, press return, told taken
+or available, then claim.
 
-Right: the assistant.
+Right: the assistant, holding an API to those same operations.
 
-**The left pane edits the simple strings directly, and the assistant owns
-anything with consequences.** [[EPIC-4]] argues Settings is *"a record-and-status
-surface, not a workshop"* and that the conversational path is primary, and that
-is right for the hostname — a final, public, first-come choice that deserves a
-conversation. It is wrong for the business name: making somebody converse to fix
-a typo in their own business name is the friction this product exists to remove.
+### Editing directly is the primary path, not a concession
 
-**Both paths call the same API.** The form and the assistant's tool reach the
-same operation, so the checks, the propagation and the effects report cannot
-diverge between the two. A second write path with its own validation is how the
-two halves of one surface end up disagreeing about what is allowed.
+[[EPIC-4]] argues Settings is *"a record-and-status surface, not a workshop"* and
+that the conversational path is primary, from [[DOC-46]]'s position that the
+client is not operating a tool. **That is taken too far here, and the correction
+is recorded in the epic.** Some things are simply easier done directly than
+through discursive communication, and correcting a typo in your own business name
+is the clearest possible example: a text field is better than a conversation, and
+a product that insists on the conversation has added the friction it exists to
+remove.
+
+The conversational path is not demoted — the assistant can do everything the pane
+can, whenever the customer would rather ask. What changes is that neither is a
+fallback for the other.
+
+### One API, two callers
+
+**The pane and the assistant call the same operations.** Not the pane calling the
+assistant, and not the assistant driving the pane — both are ordinary callers of
+[[REQ-237]]'s and [[REQ-238]]'s surface.
+
+This is the rule that keeps the two honest. A second write path with its own
+validation is how one half of a surface ends up permitting what the other refuses
+— and here that would mean a name the field accepts and the assistant rejects,
+with no way for the customer to tell which is right. It is also what your own
+framing asks for: an API *exposed to* the settings chat role is an API that
+stands on its own, with the chat as one of its consumers.
 
 ## The settings role
 
@@ -113,5 +131,6 @@ are; the browser work above is a few hours and this is not.
 
 - A settings write that reaches the store without passing through the same
   operation the assistant calls.
+- A setting that can only be changed by asking the assistant.
 - A settings session that has to name a site.
 - A tab label as a literal outside `config.js`.
