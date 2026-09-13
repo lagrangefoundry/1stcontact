@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:35:02.026584+00:00'
+updated_at: '2026-09-13T21:41:57.453994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -404,5 +404,25 @@ So the generalization is real but it's about *capability*, not spelling. The mod
 Every blocker on A is cleared. D's two decisions are now settled bar one detail: whether "may become a member" is a boolean on the form or falls out of which template it sends — I'd make it explicit config rather than implied by copy, so the entitlement isn't something an operator can grant by editing words.
 
 Shall I write A now, or all six bodies together so you can read them as a set?
+
+<!-- xgd-turn id="a56358a7-ae9a-480b-976c-ce252756aac2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:41:57.402041+00:00" -->
+#### You
+o the question I was fumbling toward is just:
+
+> **Does filling in this form entitle you to become a member?**
+
+Yes for the free-trial form; no for a plumber's newsletter signup. Per-form config, defaulted off.
+
+That sounds like a complicated way of seeing things.
+
+The fact is there are different forms, they do different things and have different constraints. These forms are so fundamental I am not too worried about needing to generalize between them but there are comonalities we have:
+
+1. Newsletter, beta test, enquiry (we have not discussed the last one - not in scope for today) - these are non-member activities, unseen email which becomes a contact
+2. Sign-up - today invite only, tomorrow self sign up makes you a member, requires T&C acceptance - newsletter optional (and orthogonal)
+3. Sign-in - existing users only.
+
+Lets complete the conversation before you create tickets otherwise I will get confused
 
 <!-- xgd-chat-end -->
