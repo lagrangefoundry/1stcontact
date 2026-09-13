@@ -5,10 +5,10 @@ type: request
 title: The asset a capture form promises becomes a set
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:33.766551+00:00'
-updated_at: '2026-09-13T22:29:32.340454+00:00'
+updated_at: '2026-09-13T22:34:43.277014+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
@@ -16,8 +16,15 @@ fields:
   needs_review: false
   chat_comment: comment-dec7ed9a
   depends_on: []
+  commits:
+  - working_sha: 815c0883b082e3627be05f95fc5a0968cfd0db71
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5dabe99c918a9af5f680e7bcf8684bddd538aa77
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.186
 ---
-
 
 # The asset a form promises becomes a set
 
