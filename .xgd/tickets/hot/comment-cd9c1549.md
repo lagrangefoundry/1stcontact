@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:11:50.931208+00:00'
+updated_at: '2026-09-13T21:14:01.782458+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -310,5 +310,13 @@ Whether `page.accessed` and `asset.downloaded` go straight into `contact_events`
 My recommendation is **straight in**, for v1. `asset.downloaded` is a milestone by any reading — it's the conversion — and there will be a handful per contact, not hundreds. Writing them as contact events now doesn't foreclose the two-layer system: when the raw layer arrives, these keep working and the rollup handles the noisy kinds it was built for.
 
 That's acceptances, the three types, the fulfilment chain, and the access model. The email configuration and the module's config shape are still open, and the asset-set change is now a known consequence. Shall I write EPIC-10's body up to here before we take those on — it's a lot to be holding only in the conversation.
+
+<!-- xgd-turn id="08a8779e-b567-4b21-b737-e74704ed99ed-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:14:01.566902+00:00" -->
+#### You
+Can you create an EPIC for the contacts event log with this as the first requirement please
+
+Then can you propose the division of work for your tickets
 
 <!-- xgd-chat-end -->
