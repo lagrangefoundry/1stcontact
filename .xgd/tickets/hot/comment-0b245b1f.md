@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:15:21.465350+00:00'
+updated_at: '2026-09-13T21:19:27.577612+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -380,5 +380,40 @@ Say go and I'll write all four, plus the EPIC-4 correction retiring the "old lab
 <!-- xgd-chat role="user" ts="2026-09-13T21:15:20.365272+00:00" -->
 #### You
 Identify the child request/bug tickets needed to realize this epic's design. Create each one via `xgd ticket create --epic-parent <this epic's uid>`, and set depends_on between the new children to reflect build order. A child can live in a different registered project when that's where the work belongs — add `--project <name>` (or a `ticket://org/repo/` store reference) to the create call; --epic-parent works the same way whether the epic and the child are in the same project or not. If this epic already has epic_children, add further children incrementally (diff against the existing list) — do not replace what's already there.
+
+<!-- xgd-turn id="8555989d-699b-4083-bc7a-b96449e26546-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T21:19:27.331478+00:00" -->
+#### Claude
+No existing children, and `depends_on` is a list of human IDs in `fields`. Creating them now.
+
+Now the epic — its children list and the decisions this discussion reversed.
+
+Four tickets created and wired.
+
+| | | Depends on |
+|---|---|---|
+| **REQ-236** | Retire the site slug: the D1 store addresses a site by its key | — |
+| **REQ-237** | The business name is stored once, and may change at any time | REQ-236 |
+| **REQ-238** | The `1stc.site` hostname: chosen once, and required before publishing | REQ-236 |
+| **REQ-239** | The Settings tab, and the settings chat role | REQ-237, REQ-238 |
+
+`epic_children` holds 237, 238 and 239.
+
+**REQ-236 is not an epic child, deliberately** — that's a departure from your instruction's literal form, so flagging it. It's DOC-45 §6, and the publish path plus EPIC-5/6/7 all sit on it; filing a shared prerequisite under one epic hides it from the other three. The other children depend on it, so the build order is still expressed. Say the word and I'll reparent it.
+
+**EPIC-4 updated.** Children table with the rationale for each cut line, plus a `## Correction, 2026-09-13` section in the style of the existing one. It withdraws "the label is assigned, never demanded up front", withdraws "old labels are retained and never re-issued" (there are no old labels now), withdraws scope item 3's multi-site premise, settles all three open questions, and corrects the "What exists today, verified" section — which said the business name lives in `tenants.name` without mentioning the second copy in the site definition. Original body untouched; the correction supersedes rather than rewrites.
+
+## Calls I made that you never explicitly answered
+
+All five are written into the ticket bodies as decisions, so overturning any of them is a body edit rather than a rethink:
+
+- `config.businessName` leaves the stored site definition, becoming a render-time input (REQ-237)
+- The slug goes entirely rather than becoming opaque (REQ-236)
+- `sites.name` is not created at all — there's no list to label (REQ-236, with the reasoning and the one-migration cost of adding it later)
+- A discriminator on `Unnamed business` at provision (REQ-237)
+- Uniqueness compared case-folded and whitespace-collapsed (REQ-237)
+
+And one place where **REQ-239 pushes back on the epic**: the epic says Settings is "a record-and-status surface, not a workshop", which reads as chat-only. REQ-239 has the left pane editing the business name directly, with the assistant owning the hostname — on the grounds that making someone converse to fix a typo in their own business name is the friction we're removing. Both paths call the same API, so the checks can't diverge. If you'd rather it were strictly chat-only, that's REQ-239's body.
 
 <!-- xgd-chat-end -->
