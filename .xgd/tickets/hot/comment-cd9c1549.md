@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:04:36.859656+00:00'
+updated_at: '2026-09-13T21:06:20.716425+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -242,5 +242,11 @@ The spine holds nine kinds today, all milestones — created, invited, submitted
 3. Any page on a published site visited by someone who is a known contact.
 
 One and two are people we've already identified, and the tracking comes free with the token or the session. Three is different in kind: it needs a cookie or pixel tying anonymous browsing back to an identity, which is where the real privacy cost lands and where this stops being a feature and starts being a tracking platform. I read "user" as one and two — but it's the difference between a contained piece of work and a much larger one, so I'd rather ask.
+
+<!-- xgd-turn id="2469c015-9e2d-4cff-91b0-7cc6f64e288c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:06:20.334875+00:00" -->
+#### You
+The server sees requests. It cannot see duration. That needs a beacon from the browser — heartbeats <-- v1 I can just live with knowing the timing of the accesses that is all I meant to imply - this hidden page will not have much content all I'm saying is I want to understand the timing of the clicks
 
 <!-- xgd-chat-end -->
