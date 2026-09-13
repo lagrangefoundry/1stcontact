@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T20:36:15.888299+00:00'
+updated_at: '2026-09-13T20:39:23.099551+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -266,5 +266,13 @@ Sweeping up what's still open — several are from earlier turns you moved past:
 6. Is the label in the initial REQ scope, or do the first REQs cover the business name only? With the slug going opaque there's no "site name" left to configure, so scope 1 is really *business name + label*.
 
 Give me a yes/no sweep and I'll write them, and fold the epic correction in at the same time.
+
+<!-- xgd-turn id="6e2d33bc-bf25-481b-88f2-1384a3eb5511-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T20:39:22.955778+00:00" -->
+#### You
+Hmm - lets simplify - for now lets make hostname decisions final - if they are open to arbitrary change and cannot be recycled people could go through dozens of good names.
+
+Longer term we could charge for a namechange, a one off fee, not much money but enough to add friction.
 
 <!-- xgd-chat-end -->
