@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T21:19:27.577612+00:00'
+updated_at: '2026-09-13T21:35:10.616782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -415,5 +415,11 @@ All five are written into the ticket bodies as decisions, so overturning any of 
 - Uniqueness compared case-folded and whitespace-collapsed (REQ-237)
 
 And one place where **REQ-239 pushes back on the epic**: the epic says Settings is "a record-and-status surface, not a workshop", which reads as chat-only. REQ-239 has the left pane editing the business name directly, with the assistant owning the hostname — on the grounds that making someone converse to fix a typo in their own business name is the friction we're removing. Both paths call the same API, so the checks can't diverge. If you'd rather it were strictly chat-only, that's REQ-239's body.
+
+<!-- xgd-turn id="e023fe1a-2335-473b-a932-6c98b6d4f757-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T21:35:10.255944+00:00" -->
+#### You
+I'm sorry these are details that I just don't understand the consequences of. Can you rephrase each question to tell me what it means for the product architecture/future modularity or user experience
 
 <!-- xgd-chat-end -->
