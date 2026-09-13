@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:10:05.547083+00:00'
+updated_at: '2026-09-13T22:10:36.896588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -560,5 +560,26 @@ Which do you want, and shall I try the rename again?
 <!-- xgd-chat role="user" ts="2026-09-13T22:10:05.212988+00:00" -->
 #### You
 Did you populate the ticket dependencies?
+
+<!-- xgd-turn id="97532309-d1fa-43ff-9d72-7eb6063ff3c9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:10:34.858830+00:00" -->
+#### Claude
+Yes — set at create time and verified. Let me re-check them live, since something re-stamped the epic title and I'd rather confirm than assert.
+
+Confirmed, still in place:
+
+| Ticket | `depends_on` | Resolves to |
+|---|---|---|
+| REQ-240 — acceptances | *(none)* | root |
+| REQ-241 — asset set | *(none)* | root |
+| REQ-242 — form sets acceptances | `request-a4186018` | REQ-240 |
+| REQ-243 — form chooses its email | `request-41a9dc90` | REQ-241 |
+| REQ-244 — gated page | `request-41a9dc90`, `request-a0910456` | REQ-241, REQ-243 |
+| REQ-245 — portal | `request-a4186018` | REQ-240 |
+
+240 and 241 carry none deliberately — they're the two roots, and they're what can start in parallel.
+
+One caveat worth knowing: `depends_on` isn't a field `xgd ticket query` can filter on — it rejects anything outside `body, created_at, id, result, status, title, type, uid, updated_at`. So the dependencies are stored and readable on each ticket, but you can't currently query the graph. Same shape as the `xgd ticket children` gap I hit earlier, where `--epic-parent` wrote the link correctly on both sides but that subcommand reported none.
 
 <!-- xgd-chat-end -->
