@@ -128,3 +128,34 @@ export const RESERVED_FIELDS: readonly string[] = [
 export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'checkbox'] as const
 
 export type ContactFormFieldType = (typeof FIELD_TYPES)[number]
+
+/**
+ * The acceptances a PUBLIC CAPTURE FORM may set ([[REQ-242]] §3).
+ *
+ * A POLICY OF THIS MODULE AND NOT A SECOND COPY OF THE REGISTRY. What an
+ * acceptance key exists and how it behaves is `builder/acceptances.js`'s answer
+ * and only ever will be. What THIS list answers is a different question the
+ * registry has no business holding: which of those keys a form on a page
+ * anybody can reach is allowed to assert. Two facts, and the module owns the
+ * second one because [[BUG-86]]'s reasoning says it must — removing the ability
+ * to misconfigure beats documenting the correct setting, and the only place a
+ * config value can be made structurally unauthorable is the contract.
+ *
+ * SO A TYPE 1 (DOCUMENT) KEY IS ABSENT, AND THAT IS THE WHOLE POINT. A capture
+ * form takes an unknown address and produces a contact at `pipeline_stage =
+ * 'lead'`; becoming a member is `tos_accepted_at` and is the sign-up flow's
+ * business, with its own route and its own refusals. A `values` list that
+ * omitted nothing would leave every deployment one config edit away from
+ * granting membership from a form a stranger can post to.
+ *
+ * IT IS HERE RATHER THAN IMPORTED because the framework cannot depend on an
+ * app: the registry lives in `control-app` (it has to be readable from a
+ * browser panel), and `packages/framework` is upstream of it. What keeps the
+ * three spellings honest is not an import but a UAT at the seam, plus the
+ * receiver's own guard — `lead.ts` asks the registry whether a key it read from
+ * a stored config is declared and settable before recording anything under it,
+ * so drift is refused at the write rather than silently written.
+ */
+export const FORM_ACCEPTANCE_KEYS = ['newsletter', 'beta_requested', 'whitepapers'] as const
+
+export type FormAcceptanceKey = (typeof FORM_ACCEPTANCE_KEYS)[number]

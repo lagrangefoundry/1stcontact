@@ -204,7 +204,10 @@ describe('REQ-223 — POST /api/lead', () => {
     expect(stage?.s).toBe('lead')
 
     // AC-6 — the provenance: which site, which page, which form, what the button
-    // said, what else they typed, and the wording the tick box carried.
+    // said, and what else they typed — the tick box included, because this form
+    // names no acceptance on it and an unnamed box is an ordinary answer
+    // ([[REQ-242]] §4). The `consent[]` blob this used to assert is gone: a NAMED
+    // box writes acceptance state instead, which is REQ-242's own UATs' subject.
     const events = await eventsOf(
       { DB: env.DB as D1Database } as ControlEnv,
       { businessId: TENANT },
@@ -216,10 +219,11 @@ describe('REQ-223 — POST /api/lead', () => {
     expect(submitted?.detail.page).toBe('home.json')
     expect(submitted?.detail.form).toBe(site.instanceId)
     expect(submitted?.detail.submitLabel).toBe('Send me both papers')
-    expect(submitted?.detail.fields).toMatchObject({ building: 'a small catering site' })
-    expect(submitted?.detail.consent).toEqual([
-      { field: 'list', wording: 'Email me occasionally about new papers', answer: true },
-    ])
+    expect(submitted?.detail.fields).toMatchObject({
+      building: 'a small catering site',
+      list: 'yes',
+    })
+    expect(submitted?.detail.consent).toBeUndefined()
   })
 
   it('test_UAT_FC_REQ-223_the_same_address_twice_is_one_contact', async () => {

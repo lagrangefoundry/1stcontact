@@ -24,6 +24,8 @@ export interface SeedField {
   label: string
   type: 'text' | 'email' | 'tel' | 'textarea' | 'checkbox'
   required?: boolean
+  /** Which acceptance this box is, when it is one ([[REQ-242]]). */
+  acceptance?: string
 }
 
 export interface SeedFormOptions {
@@ -33,6 +35,15 @@ export interface SeedFormOptions {
   submitLabel?: string
   /** The assets the form promises, in declaration order ([[REQ-241]]). */
   assets?: Array<{ key: string; name: string; url: string }>
+  /**
+   * The acceptances pressing the button asserts ([[REQ-242]]).
+   *
+   * `wording` IS OPTIONAL HERE AND REQUIRED BY THE CONTRACT, deliberately: a
+   * fixture has to be able to write the shape the contract refuses, because the
+   * revisions `formDefinitionOf` reads are immutable and one written before the
+   * refusal existed is the case the receiver's own reading has to survive.
+   */
+  accepts?: Array<{ key: string; wording?: string }>
   /**
    * Seed the instance as a PRE-[[REQ-241]] v5 carrying the old asset triple.
    *
@@ -78,6 +89,7 @@ function pageWith(options: SeedFormOptions, instanceId: string): Record<string, 
             { name: 'email', label: 'Your email', type: 'email', required: true },
           ],
           ...(options.assets ? { assets: options.assets } : {}),
+          ...(options.accepts ? { accepts: options.accepts } : {}),
           ...(options.legacyAsset
             ? {
                 asset: options.legacyAsset.key,

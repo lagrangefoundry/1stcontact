@@ -137,8 +137,13 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     // form is gated on — and none of it bottoms out in a CSS value, which is
     // the test that separates config from a dial ([[DOC-25]] §2).
     // [[BUG-86]] removed `action`: the endpoint is the module's own and was
-    // never an author's to supply. The remaining keys are all behavioural.
+    // never an author's to supply.
+    // [[REQ-242]] added `accepts` — which acceptances a press asserts, and the
+    // wording each was asserted under. Behavioural in exactly `assets`' sense
+    // (a fact about what the form DOES) and, like it, bottoming out in no CSS
+    // value. The remaining keys are all behavioural.
     expect(Object.keys(contactFormMeta.config).sort()).toEqual([
+      'accepts',
       'assets',
       'fields',
       'submitLabel',

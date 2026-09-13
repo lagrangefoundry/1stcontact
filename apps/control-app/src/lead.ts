@@ -35,6 +35,13 @@ import {
   ASSET_SENT,
   FORM_SUBMITTED,
 } from './builder/contact-events.js'
+import {
+  holdsState,
+  isAcceptanceKey,
+  isRevocable,
+  needsDocument,
+} from './builder/acceptances.js'
+import { acceptancesOf, recordAcceptance } from './acceptances'
 import { recordEvent } from './events'
 import { isEmailShape } from './builder/email-shape.js'
 import { emailsOf, normaliseEmail, type IdentityEnv } from './identity'
@@ -145,8 +152,15 @@ export interface FormDefinition {
   page: string
   /** What the submit button said. */
   submitLabel: string
-  /** The declared field schema, by field name. */
-  fields: Record<string, { label: string; type: string }>
+  /**
+   * The declared field schema, by field name.
+   *
+   * `acceptance` IS WHAT MAKES A TICK BOX MEAN SOMETHING ([[REQ-242]] §2). Named,
+   * the box's answer becomes queryable state under that key and its label travels
+   * as the wording that evidences it; unnamed, it is an ordinary answer and
+   * reaches the submission's provenance like any other.
+   */
+  fields: Record<string, { label: string; type: string; acceptance?: string }>
   /**
    * The assets this form promises, in declaration order ([[REQ-241]]).
    *
@@ -156,6 +170,19 @@ export interface FormDefinition {
    * that used to sit in front of it.
    */
   assets: Array<{ key: string; name: string; url: string }>
+  /**
+   * The acceptances PRESSING THE BUTTON asserts, in declaration order
+   * ([[REQ-242]] §2, implied).
+   *
+   * ALWAYS PRESENT AND USUALLY EMPTY, on `assets`' reasoning: one loop, no
+   * "does it assert anything" branch in front of it.
+   *
+   * THE WORDING IS READ FROM HERE AND NEVER FROM THE SUBMISSION, which is the
+   * whole reason this lookup exists. A sentence that arrived in the request is a
+   * sentence the visitor's browser could have rewritten, and the one thing an
+   * acceptance record is for is evidencing what was on the page that day.
+   */
+  accepts: Array<{ key: string; wording: string }>
 }
 
 /**
@@ -224,6 +251,34 @@ function assetsIn(config: Record<string, unknown>): FormDefinition['assets'] {
 }
 
 /**
+ * The implied acceptances one stored `contact-form` config declares
+ * ([[REQ-242]] §2).
+ *
+ * BOTH OR NEITHER, PER ITEM, AS `assetsIn` READS — and unlike `assets`, the
+ * contract also REFUSES half an item at the write (`accepts[].wording` is
+ * required). Both are wanted, and they are not the same guarantee: the refusal
+ * stops one being authored, and this reading stops one already sitting in a
+ * frozen revision from being recorded as though it meant something. An
+ * acceptance with no wording could never be shown to have been agreed to by
+ * anybody, so recording it would put an unevidenced consent in the CRM — worse
+ * than not recording it at all, which is the reverse of the trade `assetsIn`
+ * makes for an artifact somebody is waiting for.
+ */
+function acceptsIn(config: Record<string, unknown>): FormDefinition['accepts'] {
+  const declared = Array.isArray(config.accepts) ? config.accepts : []
+  const accepts: FormDefinition['accepts'] = []
+  for (const entry of declared) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const item = entry as Record<string, unknown>
+    const key = text(item, 'key')
+    const wording = text(item, 'wording')
+    if (key === '' || wording === '') continue
+    accepts.push({ key, wording })
+  }
+  return accepts
+}
+
+/**
  * Read one `contact-form` instance out of THE RENDERING THE SUBMITTER WAS SERVED.
  *
  * THE RULE IS "READ THE DEFINITION FROM THE SNAPSHOT THEY ACTUALLY SAW", and
@@ -284,13 +339,19 @@ export async function formDefinitionOf(
         const field = entry as Record<string, unknown>
         const name = String(field.name ?? '')
         if (name === '') continue
-        fields[name] = { label: String(field.label ?? ''), type: String(field.type ?? 'text') }
+        const acceptance = typeof field.acceptance === 'string' ? field.acceptance.trim() : ''
+        fields[name] = {
+          label: String(field.label ?? ''),
+          type: String(field.type ?? 'text'),
+          ...(acceptance === '' ? {} : { acceptance }),
+        }
       }
       return {
         page: stored.name,
         submitLabel: text(config, 'submitLabel') || 'Send',
         fields,
         assets: assetsIn(config),
+        accepts: acceptsIn(config),
       }
     }
   }
@@ -328,34 +389,51 @@ export function addressIn(
  *
  * IT IS THE POINT OF THE EVENT AND NOT AN EXTRA. The `users` row says a person
  * exists; nothing on it says which page they were reading, what the button they
- * pressed said, what they typed into "What are you building?", or what sentence
- * they were shown above the tick box. None of that is reconstructable later, and
- * the last of them is what evidences consent.
+ * pressed said, or what they typed into "What are you building?". None of that
+ * is reconstructable later.
+ *
+ * THERE IS NO `consent[]` HERE ANY MORE ([[REQ-242]] §4). It was
+ * `[{field, wording, answer}]` per declared checkbox, and it was good evidence
+ * and no state: nothing read it back, and a box linked to nothing but its own
+ * label could not answer "who is on the newsletter". A named box now writes a
+ * real acceptance — state, plus an `acceptance.granted` / `acceptance.withdrawn`
+ * row carrying the same wording — and the blob is REPLACED rather than kept
+ * alongside it, because two records of one fact are two answers free to drift.
+ *
+ * A BOX NOBODY NAMED IS AN ORDINARY ANSWER, and is in the bag below. That is
+ * what stops the replacement losing anything: the platform cannot know what an
+ * unmapped box means, so there is no state to write, but its answer is still
+ * something the visitor said and still belongs in the provenance.
  */
 export function provenanceOfSubmission(
   spec: LeadSubmission,
   definition: FormDefinition | null,
   email: string,
 ): Record<string, unknown> {
-  const consent: Array<{ field: string; wording: string; answer: boolean }> = []
   const answers: Record<string, string> = {}
   const declared = definition?.fields ?? {}
+  /** A box whose answer is state now, and must not also be an answer here. */
+  const isAcceptance = (name: string): boolean => {
+    const field = declared[name]
+    return field?.type === 'checkbox' && field.acceptance !== undefined
+  }
 
   for (const [name, value] of Object.entries(spec.fields)) {
-    const spec2 = declared[name]
-    if (spec2?.type === 'checkbox') continue
+    if (isAcceptance(name)) continue
     // The address is on the row and on the address table; repeating it in the
     // bag would be a third copy of one fact with nothing keeping them equal.
     if (normaliseEmail(value) === email && email !== '') continue
     answers[name] = value
   }
 
-  // EVERY DECLARED CHECKBOX, TICKED OR NOT. An unticked box submits nothing at
-  // all, so a consent record built only from what arrived would be silent
-  // exactly where "they were asked and said no" is the fact worth having.
-  for (const [name, spec2] of Object.entries(declared)) {
-    if (spec2.type !== 'checkbox') continue
-    consent.push({ field: name, wording: spec2.label, answer: (spec.fields[name] ?? '') !== '' })
+  // EVERY DECLARED UNNAMED CHECKBOX, TICKED OR NOT — the one thing the deleted
+  // `consent[]` was right about, kept. An unticked box submits nothing at all,
+  // so a record built only from what arrived is silent exactly where "they were
+  // asked and said no" is the fact worth having. A NAMED box's no is recorded as
+  // state instead, which is strictly better; an unnamed one has only this.
+  for (const [name, field] of Object.entries(declared)) {
+    if (field.type !== 'checkbox' || isAcceptance(name)) continue
+    answers[name] = spec.fields[name] ?? ''
   }
 
   return {
@@ -377,7 +455,6 @@ export function provenanceOfSubmission(
     ...(definition ? { page: definition.page, submitLabel: definition.submitLabel } : {}),
     form: spec.instanceId,
     fields: answers,
-    ...(consent.length > 0 ? { consent } : {}),
     // WHICH ARTIFACTS THIS FORM WAS GATED ON, by key and in declaration order
     // ([[REQ-241]]). Recorded on the submission because it is a fact about the
     // page they were served, which the delivery events cannot supply: an asset
@@ -385,6 +462,132 @@ export function provenanceOfSubmission(
     ...(definition && definition.assets.length > 0
       ? { assets: definition.assets.map((asset) => asset.key) }
       : {}),
+  }
+}
+
+/** One acceptance a submission asserts, before anything already held is consulted. */
+interface AcceptanceIntent {
+  key: string
+  /** Which way. A tick is yes; an unticked named box is a recorded no. */
+  granted: boolean
+  /** The wording it was asserted under — a box's label, or the config's sentence. */
+  wording: string
+}
+
+/**
+ * What this submission says about acceptances, read off the SERVED DEFINITION
+ * ([[REQ-242]] §2).
+ *
+ * TWO WAYS AND ONE LIST. An explicit tick box carries its own label as the
+ * wording; an implied acceptance carries the sentence the press was asserted
+ * under. Both end as the same kind of fact, so both are resolved here and the
+ * writer below has one shape to deal with.
+ *
+ * A NAMED BOX'S `no` IS A FACT AND IS IN THE LIST. An unticked box submits
+ * nothing at all, so a list built from what arrived would be silent exactly where
+ * "they were asked and said no" is the thing worth recording — which is the
+ * insight the deleted `consent[]` blob was built on and the one part of it that
+ * survives intact.
+ *
+ * EXPLICIT OUTRANKS IMPLIED on a key both name. A tick box is the visitor's own
+ * answer; an implied acceptance is the author's assertion about a press. When a
+ * form manages to say both about one key, the visitor's answer is the honest
+ * witness — so fields are walked first and the first mention of a key wins.
+ */
+function acceptanceIntents(
+  spec: LeadSubmission,
+  definition: FormDefinition | null,
+): AcceptanceIntent[] {
+  const intents: AcceptanceIntent[] = []
+  const claimed = new Set<string>()
+  const add = (intent: AcceptanceIntent): void => {
+    if (claimed.has(intent.key)) return
+    claimed.add(intent.key)
+    intents.push(intent)
+  }
+
+  for (const [name, field] of Object.entries(definition?.fields ?? {})) {
+    // READ ONLY ON A `checkbox`. A mapping on a text field would be this module
+    // inventing what typing something into a box consents to, and the contract
+    // says as much beside the declaration.
+    if (field.type !== 'checkbox' || field.acceptance === undefined) continue
+    add({
+      key: field.acceptance,
+      granted: (spec.fields[name] ?? '') !== '',
+      wording: field.label,
+    })
+  }
+  for (const entry of definition?.accepts ?? []) {
+    add({ key: entry.key, granted: true, wording: entry.wording })
+  }
+  return intents
+}
+
+/**
+ * Record what this submission accepted, revoked, or asked for ([[REQ-242]] §4).
+ *
+ * THE STATE IS THE POINT AND THE EVENT COMES WITH IT. `recordAcceptance` writes
+ * both in one batch, so "who is on the newsletter" is an indexed query rather
+ * than a scan of every form submission's `detail`, and the wording they were
+ * shown is on the row that says which way it went.
+ *
+ * IT ASKS WHAT THEY ALREADY HOLD, ONCE, AND WRITES ONLY WHAT CHANGES. A second
+ * submission by an address already on the list must not append a second
+ * `acceptance.granted` — the state is the same and nothing happened, so a row
+ * saying it did would make the history lie about how many times they agreed. One
+ * they do NOT hold is written, which is why this is a diff and not a skip: a
+ * returning contact ticking a new box is the ordinary case.
+ *
+ * A `request` HAS NO STATE AND IS THEREFORE ALWAYS RECORDED. "They asked for the
+ * papers" is a thing that happened, and asking twice is two facts; the
+ * at-most-once rule that stops them being SENT twice is the message ledger's and
+ * is deliberately somewhere else.
+ *
+ * THE GUARD IS DEFENCE IN DEPTH BEHIND THE CONTRACT. `config`'s enum makes a
+ * document key unauthorable, but the definition is read out of a frozen revision
+ * that may predate the enum, so a key the registry does not declare — or one it
+ * declares as a document — is dropped and reported rather than written. That is
+ * the §3 rule stated where the write happens: no submission to a public form can
+ * accept terms or produce a member.
+ *
+ * NOTHING HERE CAN LOSE THE LEAD. Every intent is filtered into a shape
+ * `recordAcceptance` accepts before it is called, so the contact and the
+ * submission event — already written by the time we get here — are never undone
+ * by a misconfigured box.
+ */
+async function recordAcceptances(
+  env: LeadEnv,
+  scope: Scope,
+  spec: LeadSubmission,
+  definition: FormDefinition | null,
+  contactId: string,
+): Promise<void> {
+  const intents = acceptanceIntents(spec, definition)
+  if (intents.length === 0) return
+
+  const held = new Map(
+    (await acceptancesOf(env, scope, contactId)).map((record) => [record.key, record]),
+  )
+  for (const intent of intents) {
+    if (!isAcceptanceKey(intent.key) || needsDocument(intent.key)) {
+      reportAcceptanceSkipped(spec, scope.businessId, contactId, intent.key, 'not_settable')
+      continue
+    }
+    // AN UNTICKED BOX ON SOMETHING THERE IS NOTHING TO TAKE BACK RECORDS NOTHING.
+    // A request they did not make did not happen, and a document acceptance is
+    // not the contact's to revoke — so there is no "no" to store, which is a
+    // fact about those types rather than a submission we failed to handle.
+    if (!intent.granted && !isRevocable(intent.key)) continue
+    const current = held.get(intent.key)
+    if (holdsState(intent.key) && current?.granted === intent.granted) continue
+    await recordAcceptance(env, {
+      contactId,
+      key: intent.key,
+      granted: intent.granted,
+      wording: intent.wording,
+      businessId: scope.businessId,
+      ...(spec.submittedAt ? { occurredAt: spec.submittedAt } : {}),
+    })
   }
 }
 
@@ -606,6 +809,36 @@ function reportAssetSkipped(
 }
 
 /**
+ * Say that a form named an acceptance the write path will not set ([[REQ-242]]).
+ *
+ * THE ONLY WAY TO REACH THIS IS A STORED DEFINITION THE CONTRACT WOULD REFUSE —
+ * a revision frozen before the enum existed, or one written by something other
+ * than the edit path. It is therefore exactly the case that must not be silent:
+ * the author believes the box means something, the page says so, and nothing is
+ * recorded. `reason` is the class rather than the sentence, because a log line is
+ * queried and not read as prose.
+ */
+function reportAcceptanceSkipped(
+  spec: LeadSubmission,
+  businessId: string,
+  contactId: string,
+  key: string,
+  reason: 'not_settable',
+): void {
+  console.warn(
+    JSON.stringify({
+      event: 'lead_acceptance_not_recorded',
+      reason,
+      site: spec.siteKey,
+      form: spec.instanceId,
+      business: businessId,
+      contact: contactId,
+      acceptance: key,
+    }),
+  )
+}
+
+/**
  * Take one public form submission, end to end.
  *
  * THE ORDER IS THE SAFETY PROPERTY. The site is resolved before a store handle
@@ -650,6 +883,13 @@ export async function captureLead(
     ...(spec.submittedAt ? { occurredAt: spec.submittedAt } : {}),
     detail: provenanceOfSubmission(spec, definition, email),
   })
+
+  // AFTER THE SUBMISSION EVENT AND BEFORE ANY DELIVERY ([[REQ-242]]). The press
+  // is what asserts an acceptance, so the timeline reads "submitted a form" and
+  // then what that press agreed to; a download is a CONSEQUENCE of the press and
+  // comes after. It also runs for a form that promises nothing, which is most of
+  // them — the early return below is about assets and nothing else.
+  await recordAcceptances(env, scope, spec, definition, contactId)
 
   const outcome: LeadOutcome = {
     accepted: true,

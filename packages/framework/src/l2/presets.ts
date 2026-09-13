@@ -25,6 +25,14 @@ const PRESETS: Record<string, SlotPresetBuilder> = {
   'contact-form': (config) => ({
     form: contactFormPreset(
       (Array.isArray(config.fields) ? config.fields : []) as ContactFormPresetField[],
+      {},
+      // [[REQ-242]] — the sentences a press asserts, so a form instantiated from
+      // config alone SAYS on the page what it records. A malformed entry is
+      // skipped rather than rendered as `undefined`; the contract refuses one at
+      // the write, and a preset is not the place to re-refuse it.
+      (Array.isArray(config.accepts) ? config.accepts : [])
+        .map((entry) => (entry as { wording?: unknown } | null)?.wording)
+        .filter((wording): wording is string => typeof wording === 'string' && wording !== ''),
     ) as L1Node,
   }),
   // [[REQ-200]] — four slots, and none of them derived from `config`: the chrome's
