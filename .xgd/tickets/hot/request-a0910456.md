@@ -5,9 +5,9 @@ type: request
 title: A capture form chooses the email it sends
 created_by: EPIC-10
 created_at: '2026-09-13T22:02:21.394972+00:00'
-updated_at: '2026-09-13T22:02:21.394972+00:00'
+updated_at: '2026-09-13T22:03:19.908065+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -63,7 +63,7 @@ tokens are the ones the capture path can supply: the gated page's link, and what
 calls the artifacts it promised.
 
 **`{{cta_url}}` for a capture form is the gated page** — the per-contact link from
-[[REQ-243]] — and not an artifact URL. With a set of assets there is no single file to
+[[REQ-244]] — and not an artifact URL. With a set of assets there is no single file to
 link to, and the page is the thing that lists them.
 
 ## 4. What this does not touch
