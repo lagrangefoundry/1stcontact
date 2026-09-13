@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T22:10:02.170311+00:00'
+updated_at: '2026-09-13T22:10:22.695634+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -615,5 +615,27 @@ That's the only decision left before these are ready to implement.
 <!-- xgd-chat role="user" ts="2026-09-13T22:10:01.772950+00:00" -->
 #### You
 Did you populate the ticket dependencies?
+
+<!-- xgd-turn id="2feea045-c34d-4c50-82ec-8313a98ee978-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:10:21.853894+00:00" -->
+#### Claude
+Yes — on all three children, and I corrected the format one message ago. Re-reading from disk to confirm rather than restating:
+
+Populated, and verified on disk:
+
+```
+REQ-236  Retire the site slug                    (no deps — the root)
+  ├─ REQ-237  Business name stored once          depends_on: [request-03519106]
+  └─ REQ-238  1stc.site hostname                 depends_on: [request-03519106]
+        └─ REQ-239  Settings tab + chat role     depends_on: [request-1e65c6db,
+                                                               request-2ac88003]
+```
+
+REQ-236 carries no `depends_on` deliberately — it's the root of the chain, and DOC-45 §6 says it has to go first while the database has no customers in it.
+
+One thing worth re-flagging, since it's the part most likely to bite: **I got the format wrong initially and fixed it last message.** I'd written human IDs (`REQ-236`), but the dispatcher resolves each entry with `ticketing.get(entry)` and falls back to treating unrecognised entries as commit SHAs. Human IDs would most likely have failed to gate — the tickets would have appeared unblocked and could have been picked up in the wrong order, which for REQ-236 specifically is the failure that costs the most, since its whole argument is "do this before anything else is built on it."
+
+`epic_children` on EPIC-4 holds the three children (`request-1e65c6db`, `request-2ac88003`, `request-e89cbbff`). REQ-236 is intentionally outside it — it's a shared prerequisite for the publish path and EPIC-5/6/7 as well, and burying it under this epic would hide it from them. The `depends_on` edges still carry the ordering, so nothing is lost by it not being a child.
 
 <!-- xgd-chat-end -->
