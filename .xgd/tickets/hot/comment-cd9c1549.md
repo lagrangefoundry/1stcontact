@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T21:59:44.159566+00:00'
+updated_at: '2026-09-13T22:03:54.652812+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -500,5 +500,39 @@ If that matches, I'll write all six bodies now and you can read them as a set.
 <!-- xgd-chat role="user" ts="2026-09-13T21:59:44.063261+00:00" -->
 #### You
 Identify the child request/bug tickets needed to realize this epic's design. Create each one via `xgd ticket create --epic-parent <this epic's uid>`, and set depends_on between the new children to reflect build order. A child can live in a different registered project when that's where the work belongs — add `--project <name>` (or a `ticket://org/repo/` store reference) to the create call; --epic-parent works the same way whether the epic and the child are in the same project or not. If this epic already has epic_children, add further children incrementally (diff against the existing list) — do not replace what's already there.
+
+<!-- xgd-turn id="842ff82c-3cac-4180-b605-5eb7e6a928d8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:03:54.532017+00:00" -->
+#### Claude
+The rename didn't stick — `last_field_updated: title` with a timestamp from a minute ago shows something re-stamped it back to "Email capture module", most likely the chat session's own binding via `chat_comment`. Not worth fighting; flagging it rather than looping.
+
+Creating the six children now.
+
+Six children created under EPIC-10, all parented, `depends_on` set:
+
+| Ticket | Title | Depends on |
+|---|---|---|
+| **REQ-240** | User acceptances: the registry, the state, and the events | — |
+| **REQ-241** | The asset a capture form promises becomes a set | — |
+| **REQ-242** | A capture form sets acceptances | REQ-240 |
+| **REQ-243** | A capture form chooses the email it sends | REQ-241 |
+| **REQ-244** | The gated page: a per-contact link, and what they did with it | REQ-241, REQ-243 |
+| **REQ-245** | The portal shows and changes a contact's preferences | REQ-240 |
+
+Build order: **240** and **241** have no dependencies and can run in parallel. **242** and **245** unblock off 240; **243** off 241; **244** is last, needing both the asset set and the template choice.
+
+The epic had no prior `epic_children`, so nothing was replaced.
+
+**What I wrote into the bodies from the conversation**, so you can check I didn't drift:
+
+- **240** carries the three types, the derived-not-stored boolean for type 1 with the `terms.ts` quote behind it, `beta_requested` rather than `beta_inclusion`, the document-as-a-ticket decision with the `templateUid` precedent, the table rather than `users.fields`, and the "service with no route baked in" constraint that keeps self-serve sign-up open. Custom keys, unsubscribe and operator edits are named as out of scope.
+- **241** records that the module id stays `contact-form`, with the two reasons — `upgradeInstance` carries `type` through, and frozen revisions are read by `formDefinitionOf`.
+- **242** makes "a capture form cannot make a member" structural rather than a flag, on BUG-86's reasoning, and replaces the `consent[]` blob rather than keeping it alongside.
+- **243** opens `TEMPLATE_KEYS` and moves the check to publish-time validation, keeping the property the closed set was protecting.
+- **244** separates the two link kinds explicitly: the asset link never expires, a sign-up link is a credential and does. It also draws the EPIC-11 boundary — these events go straight into `contact_events`.
+- **245** opens `account-portal`'s read-only contract for type 2 only, and makes type 1 and type 3 non-editable by virtue of their type rather than by markup.
+
+Two loose ends: **EPIC-10's own body is still `(new ticket)`** — the design rationale currently lives only in the children and in this conversation. And the title rename didn't hold, so it still reads "Email capture module". Want me to write the epic body, and try the rename again once we know what's re-stamping it?
 
 <!-- xgd-chat-end -->
