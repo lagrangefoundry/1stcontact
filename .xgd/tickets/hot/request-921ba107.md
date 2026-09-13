@@ -5,10 +5,10 @@ type: request
 title: A capture form sets acceptances
 created_by: EPIC-10
 created_at: '2026-09-13T22:01:59.672692+00:00'
-updated_at: '2026-09-13T22:01:59.672692+00:00'
+updated_at: '2026-09-13T22:44:19.736846+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   depends_on:
