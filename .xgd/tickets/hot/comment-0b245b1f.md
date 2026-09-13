@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-12T22:49:04.803744+00:00'
+updated_at: '2026-09-13T20:22:20.712323+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,17 @@ That last row is the reason I'd have the rename API return **a list of effects, 
 - **Normalised comparison for uniqueness, or exact string?** I recommend normalised.
 
 Say yes/no to those four and I'll write the REQs. My instinct on the split is still two: one for the tab and the business-scoped settings chat role, one for the names API and its surface declaration — but with the model this much simpler, the second one is now genuinely small, so folding them into a single REQ is defensible if you'd rather.
+
+<!-- xgd-turn id="a65d6961-239a-4213-8f79-37321d5122a1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-13T20:22:20.649485+00:00" -->
+#### You
+ok let me talk about lifecycle:
+
+1. I imaging provisioning a new account with an Unnamed business. One of the onboarding jobs of the user will be to rename the business. However this is not final - the business name is purely internal (and per our design rules cannot be a db key) the user is allowed to change the business name at any time
+
+2. I feel like the slug in the URL may be redundant. It does allow a user to read the URL and know that the like is to that business/site but this URL is not for sharing and only every used during site development. I think we could safely remove the slug and simplify our story
+
+3. Separately the user needs to choose a 1stc.site subdomain (if they don't yet have a domain name) the subdomain must be unique over 1stc.site subdomains. (aside: And we need to restrict - inappropriate ones)
 
 <!-- xgd-chat-end -->
