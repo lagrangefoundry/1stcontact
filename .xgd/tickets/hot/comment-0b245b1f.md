@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-13T22:05:28.754761+00:00'
+updated_at: '2026-09-13T22:07:07.357878+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -579,5 +579,35 @@ I'd change it, for the same reason as the slug: it's cheap now and it isn't late
 on 4 - I thought we covered that earlier - if Unnamed exists then the new business should be Unnamed-1 if unnamed-1 exists then 2...
 
 get the metadata correct
+
+<!-- xgd-turn id="a2e8c54f-cd5c-4ce5-95d6-45b63e02dd96-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-13T22:07:07.077443+00:00" -->
+#### Claude
+`depends_on` takes **UIDs**, not human IDs — the dispatcher resolves entries with `ticketing.get(entry)` and the shared grammar documents these as uid-list fields. Mine are human IDs. Fixing those, plus the discriminator scheme.
+
+Metadata fixed and question 4 recorded.
+
+**`depends_on` was wrong on all three children.** I'd written human IDs (`REQ-236`); the field takes **UIDs**. The dispatcher's gating resolves each entry with `ticketing.get(entry)` and treats anything else as a SHA, and the shared reference grammar types `depends_on` as a uid-list field. Left as-is, the dependency gating would likely have failed to resolve and these would have looked unblocked. Now:
+
+| | Status | Parent | Depends on |
+|---|---|---|---|
+| REQ-236 | draft | — | — |
+| REQ-237 | draft | EPIC-4 | `request-03519106` |
+| REQ-238 | draft | EPIC-4 | `request-03519106` |
+| REQ-239 | draft | EPIC-4 | `request-1e65c6db`, `request-2ac88003` |
+
+`epic_children` holds the three. `priority: high` on all four. `created_by` resolved to EPIC-4 from this session, which matches how the sibling epic's tickets came out.
+
+**Question 4** is in REQ-237 as you specified: base name, then `-1`, `-2`, upward until one is free. Two things I made explicit so they're testable:
+
+- the search runs against **the same normalised comparison the constraint uses**, so it can't propose a name the constraint then refuses — otherwise the two halves drift and provisioning fails on its own suggestion;
+- **the suffix is not a count.** An account that provisions three and renames the middle one leaves a gap, and the next provision fills it. So `Unnamed business-2` doesn't mean "the third business", and nothing may read it that way.
+
+## Still open
+
+**Whether to rename `config.businessName`.** It's the trap that sent this design the wrong way for three turns — the name says "copy of the business record", the meaning is "the name this site gives the business". Renaming costs a schema line, one render line, three constructors and three files on disk, while three sites exist rather than three thousand. Leaving it means the next person to design against this data hits the same trap and proposes the fix you just rejected.
+
+That's the only decision left before these are ready to implement.
 
 <!-- xgd-chat-end -->
