@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-13T22:12:35.305244+00:00'
+updated_at: '2026-09-14T03:38:39.513302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -608,5 +608,13 @@ Found it — the convention is an explicit empty list, not an absent field. Exis
 The two roots were missing the field entirely rather than carrying an empty list — `--fields` at create time only writes keys you name, so passing no `depends_on` left it absent instead of empty. Worth knowing for next time: set it explicitly on roots too, since absent and `[]` aren't the same thing to whatever reads the frontier.
 
 Still outstanding from earlier, whenever you want them: EPIC-10's body is still `(new ticket)`, and the title rename to decide on.
+
+<!-- xgd-turn id="6882405f-f4b6-4d1e-9e94-7445db4dd608-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T03:38:38.427455+00:00" -->
+#### You
+ok all the tickets are implemented - you should create an EPIC ticket body capturing the work.
+
+Then how do I test it - should all the forms in the existing sites now work?
 
 <!-- xgd-chat-end -->
