@@ -6,10 +6,10 @@ title: Decoded pixels are byte-identical to the recorded witness of the previous
   in both runtimes
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:04:49.803876+00:00'
-updated_at: '2026-09-14T05:04:49.803876+00:00'
+updated_at: '2026-09-14T05:16:33.866738+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
