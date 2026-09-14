@@ -5,16 +5,21 @@ type: request
 title: A file keeps a usable name, and is served as what it is
 created_by: EPIC-10
 created_at: '2026-09-14T20:28:41.237519+00:00'
-updated_at: '2026-09-14T21:08:01.851957+00:00'
+updated_at: '2026-09-14T21:10:51.599995+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-d6d7ea63
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-673ed807
+  commits:
+  - working_sha: 5d86989316ca69788cdebc117bffa209edbf0c36
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.199
 ---
 
 # A file keeps a usable name, and is served as what it is
