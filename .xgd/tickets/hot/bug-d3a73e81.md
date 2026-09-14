@@ -6,10 +6,10 @@ title: 'Site builder: a stored module pinned to an older contract version dark-s
   the preview'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T03:58:02.986258+00:00'
-updated_at: '2026-09-14T04:03:31.103944+00:00'
+updated_at: '2026-09-14T04:03:37.842820+00:00'
 completed_at: null
 last_field_updated: status
-status: draft
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
