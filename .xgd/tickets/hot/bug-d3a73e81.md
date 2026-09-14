@@ -6,9 +6,9 @@ title: 'Site builder: a stored module pinned to an older contract version dark-s
   the preview'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T03:58:02.986258+00:00'
-updated_at: '2026-09-14T04:14:45.275471+00:00'
+updated_at: '2026-09-14T04:14:49.866786+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.197
+  story_points: 3
 ---
 
 ## Symptom
