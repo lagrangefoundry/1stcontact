@@ -6,10 +6,10 @@ title: 1c crop clamps a box that over-reaches the image rather than failing, and
   exactly that window's pixels
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:06:03.551657+00:00'
-updated_at: '2026-09-14T05:06:03.551657+00:00'
+updated_at: '2026-09-14T05:16:32.485797+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
