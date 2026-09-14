@@ -209,6 +209,35 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
       if (select && id) select.value = id
       return current
     },
+    /**
+     * Say that a business is called something else now ([[REQ-239]]).
+     *
+     * THE CHROME CATCHING UP WITH A RECORD, exactly as {@link set} is the chrome
+     * catching up with a selection — it fires nothing and decides nothing. The
+     * Settings pane is where a name is changed, and a switcher still showing the
+     * old one would be the product disagreeing with itself on a single screen,
+     * in the one place the customer has just proved they are looking.
+     *
+     * IT RE-DERIVES THE LABEL RATHER THAN WRITING THE NAME IN. The lapsed suffix
+     * is part of what an entry says, and a rename must not be able to drop it —
+     * so this updates the record and asks {@link labelOf} again, which is the
+     * same function that drew it in the first place.
+     *
+     * A BUSINESS THIS SWITCHER DOES NOT HOLD IS IGNORED. Nothing on screen claims
+     * to be about it, so there is nothing to correct.
+     */
+    rename(id, name) {
+      const entry = businesses.find((b) => b.id === id)
+      if (!entry) return
+      entry.name = name
+      if (select) {
+        const option = [...select.options].find((o) => o.value === id)
+        if (option) option.textContent = labelOf(entry)
+        return
+      }
+      const only = element.querySelector('.builder-business__name')
+      if (only) only.textContent = labelOf(entry)
+    },
     destroy() {
       element.remove()
     },
