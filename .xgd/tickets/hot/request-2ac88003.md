@@ -5,7 +5,7 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-14T03:49:36.250324+00:00'
+updated_at: '2026-09-14T03:50:03.532997+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -296,3 +296,14 @@ The asymmetry [[TODO-6]] §2 states is the reason to err long: *"a label wrongly
 refused is a mild annoyance, a label wrongly granted is unrecoverable once someone
 is using it as their business address"* — and finality makes the second half
 literally true rather than rhetorical.
+
+
+### Update: the pane's hostname field is parked, not pending
+
+Question 4's gap has been decided by the operator: **parked pending a UX
+discussion** — see [[EPIC-4]], "Parked, 2026-09-13 — the hostname field's UX".
+This ticket is unaffected and is not blocked by it. Ship the record, `check`,
+`claim`, revocation, the publish gate and the surface declaration; build **no**
+pane field and open no ticket for one. The declaration's prose still carries the
+*"this is the whole host and it cannot be changed"* language, because the
+assistant is a real caller today and needs it.
