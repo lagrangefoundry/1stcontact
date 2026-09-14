@@ -6,9 +6,9 @@ title: 'Reference bundle storage: a capture bundle is addressed through a storag
   contract, on the laptop or in the cloud'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:47:56.716212+00:00'
-updated_at: '2026-09-14T04:47:56.716212+00:00'
+updated_at: '2026-09-14T04:50:42.856702+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-8e1807f6
@@ -117,22 +117,25 @@ is formalized now, in this session, rather than left open:
   The landed code returns "absent" rather than erroring, because a bundle
   predating a member is the ordinary case — [[REQ-48]], [[REQ-83]] and [[REQ-93]]
   each added one — while the capture record is the single member a bundle cannot
-  be without and its absence is refused by name. Formalized as AC-ABSENT.
+  be without and its absence is refused by name. Formalized as AC-1768, with the
+  width-keyed case — an unshot ladder width reading absent so a size-aware
+  comparison fails loudly rather than falling back to the desktop shot — as
+  AC-1774.
 - **A rewritten member replaces rather than accumulates** (decided at
   reconciliation, 2026-09-13): intent is silent, but `refold` rewriting `l1.json`
   and `forms.json` in place against a bundle it did not create is only correct if
-  the store replaces. Formalized as AC-REPLACE.
+  the store replaces. Formalized as AC-1769.
 - **A store lists only bundles that hold something** (decided at reconciliation,
   2026-09-13): intent gives `list()` with no semantics. The landed code makes
   taking a handle total and free — a capture's first act is to write into a
   bundle that does not exist — so merely asking for a handle must not conjure one
   into the listing, and on the operator's tree a loose file at the references
-  root and a bare host directory are not bundles. Formalized as AC-LISTING.
+  root and a bare host directory are not bundles. Formalized as AC-1770.
 - **Member keys are sorted and forward-slashed on every backing** (decided at
   reconciliation, 2026-09-13): the intent's "NO PATHS" principle implies it but
   never states it. A member key is a key, not a path, and it must not vary with
   the host's separator or two backings would enumerate the same bundle
-  differently. Formalized as AC-ENUMERATE.
+  differently. Formalized as AC-1771.
 
 No contradiction between intent and code was found for this plan item.
 
