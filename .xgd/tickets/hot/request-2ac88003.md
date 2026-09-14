@@ -5,7 +5,7 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-14T03:41:02.605099+00:00'
+updated_at: '2026-09-14T03:49:36.250324+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -273,3 +273,26 @@ collision, freely changeable"*, with old labels retained as redirects. All of
 that was withdrawn by [[EPIC-4]]'s Correction of 2026-09-13 and by the rewrite of
 [[DOC-45]] §7. Build against this ticket, not against [[TODO-6]] §3. The squatting
 concern in that section survives the rewrite and is not addressed here.
+
+
+### Correction to the Behaviour section: the reserved list is [[TODO-6]] §2's
+
+The Behaviour section above names `www`, `app`, `api`, `mail`, `admin`, `ns1`,
+`mx`, `_acme-challenge`, `portal`, `support`, `1stcontact`. **That is a sample,
+and building it as the specification would be a bug.** [[TODO-6]] §2 holds the
+actual list in four groups — infrastructure, protocol and validation, platform
+identity, impersonation and abuse — and it is longer in every group: `smtp`,
+`imap`, `ns2`, `cdn`, `static`, `assets`, `dashboard`, `status`, `staging`,
+`dev`, `test`, `localhost`, `_dmarc`, `_domainkey`, `autodiscover`, `autoconfig`,
+`1stc`, `firstcontact`, `help`, `billing`, `account`, `accounts`, `login`,
+`signin`, `secure`, `verify`, `payment`.
+
+Build the first three groups, **keeping them separate in code**, because they
+change for different reasons and a single flat array loses that. The fourth group
+is not a static list and is not built — [[DOC-45]] §11 item 6 defers it, and
+revocation is what carries it meanwhile.
+
+The asymmetry [[TODO-6]] §2 states is the reason to err long: *"a label wrongly
+refused is a mild annoyance, a label wrongly granted is unrecoverable once someone
+is using it as their business address"* — and finality makes the second half
+literally true rather than rhetorical.
