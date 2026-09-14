@@ -5,10 +5,10 @@ type: request
 title: The Settings tab, and the settings chat role
 created_by: EPIC-4
 created_at: '2026-09-13T21:18:15.497079+00:00'
-updated_at: '2026-09-14T03:31:53.408962+00:00'
+updated_at: '2026-09-14T03:54:23.160992+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   depends_on:
