@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-236
 created_by: xgd
 created_at: '2026-09-13T22:14:19.809018+00:00'
-updated_at: '2026-09-14T00:55:50.813232+00:00'
+updated_at: '2026-09-14T01:08:29.398185+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -200,5 +200,41 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="20bb8bb2-1a7b-4323-9ec1-d24f1e27f03e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T01:08:27.976097+00:00" -->
+#### Claude
+Now `publishWith` and the call sites.
+
+Now update the ticket body's migration reference and note the merge-integration fix.
+
+Done. REQ-236 is at `free_coded`.
+
+## What happened this session
+
+The prior session had left an in-progress, conflict-resolved-but-uncommitted merge of `free-REQ-236` into `xgd-working`. I finished it:
+
+**Merge-integration work (new in this session):**
+
+1. **Migration renumbered `0004` → `0005`.** REQ-240 landed its own `0004_user_acceptances.sql` on `xgd-working` while REQ-236 was on a branch. `wrangler d1 migrations apply` orders by filename, so two files sharing a number is an ordering nobody declared. Free to fix — neither had been applied to a shared database. The fixture's migration list and `0001_baseline.sql`'s pointer follow.
+
+2. **REQ-243's publish-gate suite adapted.** It was the one genuinely broken thing the merge produced: it posted `slug` to `/api/import` and `/api/publish`, and shared one tenant across its six cases. Both are gone under REQ-236 — the route resolves the receiving business's single site, so the suite now takes a business per case and publishes the key the import minted.
+
+3. Version bumped `0.2.189 → 0.2.190`; ticket body's Migration section updated for the renumber.
+
+**Test results, honestly:**
+
+- **workers project: 96 files / 851 tests, all passing.** This is where every store, route and provisioning behaviour under this ticket lives.
+- **node project: 12 failures, none from this diff.** Eight are one cause — `node_modules/` in this checkout is behind the committed `pnpm-lock.yaml`, so `checkInstall` refuses to run `1c` commands and the cross-gate, l1-fold, size-aware-diff and build-deploy-smoke suites fail on the preflight message rather than on their subject. The other four are pre-existing and unrelated: `bug32` names `tools/generate/src/cli/assets.ts`, `REQ-174` trips on an untracked `What_1st_Contact_is,_and_how_to_say_it.md` at the repo root, `REQ-183` hits `EISDIR` because `packages/framework/src/modules/` now contains directories, and `BUG-67`'s gemini-settings case. `pnpm-lock.yaml` is not in this merge.
+
+I did not run `pnpm install` to clear the drift — it wants to purge `node_modules` entirely (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR`), which is a destructive change to your environment for a condition that predates this ticket. Worth doing when you're ready.
+
+**Two things for you:**
+
+- `.pnpm-store/` is untracked and not gitignored — `git add -A` swept 15,498 of its files into the index before I caught it. Also untracked at root: `What_1st_Contact_is,_and_how_to_say_it.md` and `apps/control-app/.dev.vars~`.
+- `fields.commits` carries both the branch commit and the merge commit. The merge's `-m 1` diff contains the integration work above, which the branch commit alone does not; `drop_commits_subsumed_by_later_merge` (BUG-1317) will keep the merge and drop the subsumed branch commit at reconcile time.
+
+Branch merged and torn down, lock released. The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
