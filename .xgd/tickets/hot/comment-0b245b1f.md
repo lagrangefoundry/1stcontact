@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-14T03:46:47.557152+00:00'
+updated_at: '2026-09-14T03:50:21.271553+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -685,5 +685,47 @@ All three children reviewed — body, fields, and full chat transcript. All loca
 ok - can you update TODO-6 and DOC-45
 
 I don't really know what you mean by an orphaned field - sounds like its not getting built - that's fine lets put a pin in it. We need to discuss the UX its not trivial.
+
+<!-- xgd-turn id="08849523-1750-401b-ae01-fff82fabd596-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T03:50:20.128523+00:00" -->
+#### Claude
+Both docs need work. Starting with DOC-45.
+
+Now §7 — finality creates a revocation obligation the section never names.
+
+Now TODO-6 — §3 is the stale one.
+
+One overclaim to fix: I wrote that REQ-238 carries all four reserved groups, but its Behaviour section only lists a short sample.
+
+Now REQ-238 needs to point at the authoritative list rather than its own sample.
+
+Recording the pin on EPIC-4 so it doesn't evaporate.
+
+Done. Four tickets updated, all committed through `xgd`.
+
+## DOC-45
+
+**§4 Sequencing — corrected.** It said deleting `/site/<key>/` was *"an acceptance criterion of the custom-host work, not a separate ticket"*, gated on §6. §6 has landed (REQ-236), but the real gate turned out to be elsewhere: host→site resolution needs TODO-6 §5's wildcard DNS and `*.1stc.site` cert, which are operator items with no code path. So it's separate work, and the interval where a claimed hostname doesn't yet resolve while `/site/<key>/` still serves is now written down as intended rather than looking like a bug.
+
+**§7 — revocation added.** The section argued finality at length and never named its consequence: if an owner can't change their own label, a label that has to go can only go by our hand. Now states operator-only, status flip never an update to `host`, active filter on every read, never re-issued.
+
+**§5** — `status` was in the schema sketch doing nothing. Now says what it carries, and the falsifier gained *a read path that resolves a host without filtering on `status`*.
+
+**§11 item 1** — flagged that it's about `sites.name` and has been misread as covering `tenants.name`, which went the opposite way in REQ-237.
+
+**Order of work** — §6 struck as done, and TODO-6's operator items promoted to their own numbered step, since §1's lead time means they want starting before the label work, not after.
+
+## TODO-6
+
+**§3 rewritten.** It described assignment-at-provision, slugified defaults, discriminators and old-labels-as-redirects — all withdrawn. What survives: global uniqueness (now load-bearing, since the index is what decides the race between two people typing the same name), and squatting, which finality makes worse and which **nothing addresses**. Superseded text kept at the end.
+
+**§2** — revocation is now built rather than merely required, and I had to correct myself here: I first wrote that REQ-238 carries all four reserved groups. It doesn't — its Behaviour section names a sample of eleven. §2 now says explicitly that its own four groups are the specification, and REQ-238 has a matching correction listing the ~27 labels its sample omits (`smtp`, `_dmarc`, `billing`, `login`, …). Building the sample as the spec would have granted those to whoever asked first.
+
+**§5** — flagged that two hygiene items are now on the critical path.
+
+## The pin
+
+"Orphaned field" was poor shorthand — I meant: REQ-238 will ship a working `check`/`claim` with nothing in the UI calling it, and no ticket owns building that. Parked on EPIC-4 with why it isn't trivial: it's the only irreversible act in the product with no undo and no support path, typed as free text by the customer DOC-46 describes, and REQ-239's *click-a-value, type, press return* idiom is exactly wrong for it. REQ-238 is marked unblocked by the pin — it ships the record and the declaration's prose, and builds no field.
 
 <!-- xgd-chat-end -->
