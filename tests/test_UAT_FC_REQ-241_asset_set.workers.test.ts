@@ -51,6 +51,19 @@ function leadEnv(): LeadEnv {
   } as LeadEnv
 }
 
+/**
+ * The gated-page link a delivery mail carries ([[REQ-244]]).
+ *
+ * READ OUT OF THE BODY rather than reconstructed from the grant table, because
+ * what has to be true is that the RECIPIENT can reach the page — a token asserted
+ * from the database would pass even if the mail carried something else.
+ */
+function gateLinkIn(body: string): string {
+  const match = /https:\/\/[^\s"'<>]*\/api\/download\/[A-Za-z0-9_]+/.exec(body)
+  if (!match) throw new Error(`no gate link in: ${body}`)
+  return match[0]
+}
+
 /** The messages this business holds for a contact, newest first. */
 async function messagesOf(contactId: string) {
   const store = await ticketStoreFor(leadEnv(), { businessId: TENANT })
@@ -84,14 +97,27 @@ describe('REQ-241 — a form promises a set of assets', () => {
     const records = await messagesOf(outcome.contactId as string)
     const byKey = new Map(records.map((message) => [message.asset, message]))
     expect([...byKey.keys()].sort()).toEqual([PAPER_A.key, PAPER_B.key])
+    // THE LINK IS THE GATED PAGE SINCE [[REQ-244]], AND IS THE SAME IN BOTH.
+    // This assertion used to read `toContain(paper.url)` — its own link, straight
+    // at the paper — and REQ-244 §2 supersedes that: one link per contact per
+    // form is what makes *who followed it* answerable at all, and §7 AC1 says it
+    // opens a page listing the SET. What still separates the two messages is what
+    // actually has to: the name in the words, and the asset key in the ledger.
+    const links = new Set<string>()
     for (const paper of [PAPER_A, PAPER_B]) {
       const message = byKey.get(paper.key)!
       expect(message.to).toBe('both@example.com')
-      // SEPARATELY IDENTIFIED: its own link and its own words, not the set's.
-      expect(message.body).toContain(paper.url)
       expect(message.body).toContain(paper.name)
-      expect(message.body).not.toContain(paper === PAPER_A ? PAPER_B.url : PAPER_A.url)
+      expect(message.body).not.toContain(paper === PAPER_A ? PAPER_B.name : PAPER_A.name)
+      // The authored artifact URL is NOT in the mail: it is behind the gate.
+      expect(message.body).not.toContain(paper.url)
+      const link = gateLinkIn(message.body)
+      expect(link).toMatch(
+        new RegExp(`^https://1stcontact\\.io/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}$`),
+      )
+      links.add(link)
     }
+    expect(links.size).toBe(1)
     expect(mailer.sent).toHaveLength(2)
 
     // …and the contact's own history says both happened, separately recorded.

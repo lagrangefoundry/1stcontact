@@ -97,6 +97,16 @@ export interface SeedFormOptions extends SeedForm {
    * needs a revision whose rendered output actually carries a form.
    */
   outHtml?: string
+  /**
+   * Further objects the published revision holds, by store key ([[REQ-244]]).
+   *
+   * WHAT A GATED ARTIFACT ACTUALLY IS. §5 says the bytes are site assets — the
+   * site's own published output — so proving the gate serves one needs a
+   * revision that really contains it. The real papers do not exist yet, so this
+   * is the fixture the ticket asks for rather than a stand-in for the serving
+   * path itself: what comes back is what R2 stored.
+   */
+  outFiles?: Record<string, string>
 }
 
 export interface SeededSite {
@@ -189,6 +199,7 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
         source: { siteJson, pages: [{ name: 'home.json', page }], assets: [] },
         out: new Map([
           ['index.html', options.outHtml ?? '<!doctype html><title>Home</title>'],
+          ...Object.entries(options.outFiles ?? {}),
         ]),
       },
     )

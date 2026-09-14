@@ -106,15 +106,30 @@ describe('REQ-223 — the internal seam', () => {
   it('test_UAT_FC_REQ-223_public_site_binds_the_named_entrypoint_in_both_environments', () => {
     const toml = read('apps/public-site/wrangler.toml')
 
-    // `entrypoint = "LeadIntake"` is the whole point: a service binding without
-    // it targets the default handler, which is an HTTP path by another name.
+    // `entrypoint = "…"` is the whole point: a service binding without it targets
+    // the default handler, which is an HTTP path by another name. So the claim is
+    // about EVERY service binding this Worker declares and not only this
+    // ticket's — [[REQ-244]] added a second (`ASSET_GATE` → `AssetGate`), and a
+    // third arriving without an entrypoint is exactly what this must catch.
     const services = [...toml.matchAll(/\[\[(?:env\.production\.)?services\]\]([\s\S]*?)(?=\n\[|$)/g)]
-    expect(services).toHaveLength(2)
     for (const [, block] of services) {
-      expect(block).toMatch(/binding\s*=\s*"LEAD_INTAKE"/)
       expect(block).toMatch(/service\s*=\s*"1stcontact-control-app"/)
-      expect(block).toMatch(/entrypoint\s*=\s*"LeadIntake"/)
+      expect(block).toMatch(/entrypoint\s*=\s*"\w+"/)
     }
+
+    // …and each one is declared on BOTH sides, because a named environment
+    // inherits no bindings. Counted per binding rather than in total, so adding
+    // one does not silently satisfy a number.
+    for (const binding of ['LEAD_INTAKE', 'ASSET_GATE']) {
+      const declared = services.filter(([, block]) => block.includes(`"${binding}"`))
+      expect(declared, `${binding} is not declared in both environments`).toHaveLength(2)
+    }
+    expect(services.find(([, b]) => b.includes('"LEAD_INTAKE"'))?.[1]).toMatch(
+      /entrypoint\s*=\s*"LeadIntake"/,
+    )
+    expect(services.find(([, b]) => b.includes('"ASSET_GATE"'))?.[1]).toMatch(
+      /entrypoint\s*=\s*"AssetGate"/,
+    )
 
     // The rate limiter is declared on both sides too. It uses `name` rather than
     // `binding`, so the generic inheritance check below cannot see it — which is

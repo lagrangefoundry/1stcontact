@@ -105,8 +105,15 @@ describe('REQ-223 — asset delivery', () => {
     expect(forAsset).toHaveLength(1)
     expect(forAsset[0].to).toBe('once@example.com')
     expect(forAsset[0].status).toBe('sent')
-    // The content is ours end to end — our template, our link, our sender.
-    expect(forAsset[0].body).toContain(ASSET.url)
+    // The content is ours end to end — our template, our link, our sender. The
+    // link is the GATED PAGE since [[REQ-244]] and no longer the artifact itself:
+    // a link straight at the paper is the same for everybody who was sent it, so
+    // it cannot say who followed it. The artifact is one click further on, behind
+    // a token minted for this contact.
+    expect(forAsset[0].body).toMatch(
+      new RegExp(`https://1stcontact\\.io/site/${site.siteKey}/api/download/gate_[0-9a-f]{32}`),
+    )
+    expect(forAsset[0].body).not.toContain(ASSET.url)
     expect(forAsset[0].body).toContain(ASSET.name)
     expect(forAsset[0].from).toBe('1st Contact <no-reply@req223.test>')
     // ONE RECIPIENT PER MESSAGE, which is what the port's own shape enforces.

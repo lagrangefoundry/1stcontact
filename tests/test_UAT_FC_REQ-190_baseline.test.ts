@@ -239,8 +239,17 @@ describe('REQ-190 — one baseline', () => {
     // because a key made of the thing being recorded is a key that has to be
     // rewritten the day a business names its own acceptance, and every reference
     // to the row would have to move with it.
+    //
+    // `asset_grants` IS [[REQ-244]]'s, AND IS THE SAME ARGUMENT A THIRD TIME.
+    // The natural-looking composite is the contact, the site and the form, and
+    // that triple really is unique for a live grant — which is why it is a
+    // partial UNIQUE INDEX. It is not the KEY, and here the reason is sharper
+    // than tidiness: the key IS the token in the URL, so a key made of the row's
+    // own data would be a link anybody holding a site key and a form id could
+    // construct.
     const single = [...ddl.matchAll(/^\s*(\w+)\s+TEXT PRIMARY KEY/gm)].map((m) => m[1])
     expect(single.sort()).toEqual([
+      'id',
       'id',
       'id',
       'id',

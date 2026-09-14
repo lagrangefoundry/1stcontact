@@ -70,6 +70,41 @@ export const FORM_SUBMITTED = 'form.submitted'
  */
 export const ASSET_SENT = 'asset.sent'
 
+/* ── The gated page ([[REQ-244]]) ────────────────────────────────────────── */
+
+/**
+ * They opened the page the mail's link points at.
+ *
+ * EVERY ARRIVAL, NOT ONLY THE FIRST. *"They came back on Thursday"* is a real
+ * signal and this spine is built to hold facts rather than a deduplicated
+ * summary — three visits are three rows, exactly as three submissions are three
+ * {@link FORM_SUBMITTED}s.
+ *
+ * ITS `detail` NAMES THE SITE, THE FORM AND WHAT THE PAGE OFFERED THEM, which is
+ * what makes an arrival that took nothing legible: the artifacts were listed and
+ * none was fetched, and no {@link ASSET_DOWNLOADED} row could ever say so.
+ *
+ * THE SERVER TIMESTAMPS IT AND THERE IS NO DWELL TIMER. For a thin page whose
+ * only content is the download links, the interval between this row and the next
+ * IS the engagement signal a timer would have been approximating — and it is a
+ * measured fact rather than a lower bound. Nothing stores a duration.
+ */
+export const PAGE_ACCESSED = 'page.accessed'
+
+/**
+ * They took one of the artifacts.
+ *
+ * THE CONVERSION, AND THE ONE THING THAT SAYS WHICH PAPER THEY WANTED. One row
+ * per artifact actually fetched, naming it — so a contact who took the second
+ * paper and not the first is distinguishable from one who took both, which with
+ * a set is the whole question.
+ *
+ * IT IS NOT THE MIRROR OF {@link ASSET_SENT}. That one says WE sent it; this one
+ * says THEY came and got it, and the gap between the two is exactly the thing
+ * neither could report on its own.
+ */
+export const ASSET_DOWNLOADED = 'asset.downloaded'
+
 /* ── Acceptances ([[REQ-240]]) ───────────────────────────────────────────── */
 
 /**
@@ -121,6 +156,8 @@ const LABELS = {
   [MEMBER_SIGNED_UP]: 'Signed up',
   [FORM_SUBMITTED]: 'Submitted a form',
   [ASSET_SENT]: 'Sent a download',
+  [PAGE_ACCESSED]: 'Opened their downloads',
+  [ASSET_DOWNLOADED]: 'Took a download',
   [ACCEPTANCE_GRANTED]: 'Agreed',
   [ACCEPTANCE_WITHDRAWN]: 'Withdrew',
   [ACCEPTANCE_REQUESTED]: 'Asked for',

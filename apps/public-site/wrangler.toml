@@ -82,6 +82,27 @@ binding = "LEAD_INTAKE"
 service = "1stcontact-control-app"
 entrypoint = "LeadIntake"
 
+# THE DOWNLOAD GATE'S RECORD, and it is not a URL either ([[REQ-244]]).
+#
+# `GET /api/download/<token>` arrives here and the RECORD it implies belongs to
+# control-app: `recordEvent` is the one definition of how a fact enters a
+# contact's history, and a second implementation in this Worker would be two
+# answers to that question, free to drift.
+#
+# ITS OWN ENTRYPOINT AND NOT `LeadIntake`. A gate is not lead intake, and a
+# binding whose name does not describe what it reaches is one somebody eventually
+# uses for a third thing. Same `service`, same reasoning as above: a named
+# `WorkerEntrypoint` is reachable over this binding and no URL reaches it at all.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings. Omitting the repeat is not a silent degradation: `gate.ts`
+# answers the ordinary 404 when the binding is absent, rather than serving a paper
+# whose arrival nothing recorded.
+[[services]]
+binding = "ASSET_GATE"
+service = "1stcontact-control-app"
+entrypoint = "AssetGate"
+
 # Cloudflare's own rate limiter, keyed on the site and the source IP — the two
 # things a caller cannot vary ([[REQ-223]] §6). Everything in a submission's body
 # is caller-chosen and worthless as a key.
@@ -145,6 +166,12 @@ database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
 binding = "LEAD_INTAKE"
 service = "1stcontact-control-app"
 entrypoint = "LeadIntake"
+
+# See the top-level block: restated rather than inherited, on purpose ([[REQ-244]]).
+[[env.production.services]]
+binding = "ASSET_GATE"
+service = "1stcontact-control-app"
+entrypoint = "AssetGate"
 
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-223]]).
 [[env.production.unsafe.bindings]]

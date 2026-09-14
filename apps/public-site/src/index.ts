@@ -6,6 +6,7 @@ import {
   applyTurnstileSitekey,
 } from '../../../packages/framework/src/modules/contact-form/turnstile'
 import { contentTypeFor } from './content-type'
+import { gateTarget, handleGate, notFound, type GateEnv } from './gate'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import { parseRoute, type Route } from './routes'
 import {
@@ -38,6 +39,14 @@ import { D1SiteStore, type SiteStore } from './site-store'
  * changed, every other method on every other path still answers `405`, and a UAT
  * holds it there. See `lead.ts`.
  *
+ * AND IT GIVES ONE THING BACK PER CONTACT ([[REQ-244]]). `GET /api/download/…`
+ * is a page listing the artifacts one form promised, reached by an unguessable
+ * per-contact token, plus the artifacts themselves. It is a `GET`, so it amends
+ * the character above not at all — and it is matched BEFORE the edge cache is
+ * consulted, because a page minted for one person must never be stored in a cache
+ * every visitor shares. `HEAD` is deliberately not matched: arriving is a recorded
+ * fact and a prefetch is not an arrival. See `gate.ts`.
+ *
  * PUBLISHED SITES ARE PUBLIC, AND THAT IS UNCHANGED ([[REQ-200]]). What changed
  * is narrower than it sounds: this Worker now reads a session cookie **to choose
  * which of `account-chrome`'s states to render**, and for nothing else. No page
@@ -47,7 +56,7 @@ import { D1SiteStore, type SiteStore } from './site-store'
  * as it was published.
  */
 
-export interface Env extends LeadEnv {
+export interface Env extends LeadEnv, GateEnv {
   /** The bucket the control-app publishes rendered revisions to. */
   SITES: R2Bucket
   /** The database holding the revision log — which revision is live (REQ-149). */
@@ -126,6 +135,30 @@ export default {
         status: 405,
         headers: { 'content-type': 'text/plain; charset=utf-8', allow: 'GET, HEAD' },
       })
+    }
+
+    /*
+     * THE GATED PAGE, BEFORE THE CACHE IS CONSULTED ([[REQ-244]]).
+     *
+     * Ordered rather than routed for one reason: what comes back is minted for
+     * ONE contact, and the block below stores every 200 in the cache every
+     * visitor shares. Answering here means there is no path by which a gated
+     * response can reach it — a property of the ordering, not of a header
+     * somebody has to remember to set.
+     *
+     * `GET` ONLY. A `HEAD` falls through to the ordinary serving path and meets
+     * the ordinary 404, because arriving is a recorded fact and a prefetcher's
+     * probe is not an arrival.
+     */
+    if (request.method === 'GET') {
+      const gate = gateTarget(new URL(request.url).pathname, env.APEX_SITE_KEY)
+      if (gate) {
+        return await handleGate(request, gate, {
+          env,
+          store: new D1SiteStore(env.DB),
+          bucket: env.SITES,
+        })
+      }
     }
 
     const cookie: SessionCookieConfig = {
@@ -370,11 +403,4 @@ function respond(request: Request, body: string, headers: Headers): Response {
     return new Response(null, { status: 200, headers })
   }
   return new Response(body, { status: 200, headers })
-}
-
-function notFound(): Response {
-  return new Response('Not Found', {
-    status: 404,
-    headers: { 'content-type': 'text/plain; charset=utf-8' },
-  })
 }
