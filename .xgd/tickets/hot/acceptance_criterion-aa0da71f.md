@@ -6,10 +6,10 @@ title: A document uploaded mid-conversation is known by name on the next turn, w
   no map rebuild in between
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:21.007340+00:00'
-updated_at: '2026-09-14T06:28:21.007340+00:00'
+updated_at: '2026-09-14T06:52:07.897103+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
