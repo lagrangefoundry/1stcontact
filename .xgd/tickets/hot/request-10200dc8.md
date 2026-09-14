@@ -5,9 +5,9 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-14T22:20:10.286969+00:00'
+updated_at: '2026-09-14T22:35:46.211922+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-209f66e9
 ---
+
 
 # Every page is reachable from the control bar, and an unlinked one says so
 
@@ -96,3 +97,76 @@ change from this one.
 8. A page with no title is listed by something an operator can recognise rather than by an
    empty row.
 9. The order pages are listed in is stable between openings.
+## 6. What "outside the navigation" turned out to mean
+
+§1 states the rule as *"no entry in the site's `navigation` settings names its path"*, and
+the code does not bear that out. All three site definitions in `storage/sites/` carry
+`nav: {pattern: 'top-tabs', entries: []}`, and nothing reads `site.nav` at render time at
+all: navigation on these sites is authored as ordinary L1 links — `link: {href}`, a role any
+subtree may take. A control deriving its mark from `nav.entries` alone would mark every page
+of every existing site, and a mark that is on everything is a mark on nothing.
+
+**So the derivation is what §1 actually means — *nothing can reach it* — with nav entries
+counted as one way in among others.** A page is **reachable** when a reader could arrive at
+it: the home page is, because the channel root serves it; any other page is when a page
+already reachable links to it, or when a `nav` entry names it. Nav is site-wide chrome rather
+than one page's content, so an entry naming a page reaches it from everywhere, which is why
+it counts as a link from the front door.
+
+**It is reachability and not an incoming-link count.** Two pages that link only to each other
+are linked and still unreachable, and a control calling them reachable would be answering a
+question nobody asked.
+
+**A link resolves the way the renderer serves it.** A bare fragment addresses the document it
+sits in; a scheme or protocol-relative authority is somebody else's to serve; `''` and
+`index` are the home page's own aliases; an extensionless path is the sibling `.html`
+(REQ-113); query and fragment are stripped before comparison. The scan errs toward
+*reachable*: anything at an `href` key counts, because a link we failed to see would mark a
+reachable page unreachable — the control telling the operator something false about their own
+site — while a string we counted that was never a link merely withholds a mark.
+
+The mark's wording follows the derivation: an unreachable page is listed as
+`<name> — unreachable`, and a reachable one carries no mark.
+
+## 7. Where the answer comes from
+
+**`editPageList` carries it.** The listing already returned every page; it now returns
+`reachable` per row, derived beside the definition it reads. The assistant's `list_pages` and
+the builder read the same field from the same derivation, so the chrome and the conversation
+cannot form two opinions about which pages are strandable.
+
+**A new read endpoint, `GET /api/pages?site=`**, is a thin transport over it — the shape
+`/api/assets` and `/api/palette` already have. Read-only, with no write beside it: §4 stands,
+and nothing here adds a navigation entry, removes one, or offers to. A request naming no site
+is refused with a 400 naming `site`, like its neighbours, and it joins the origin's
+no-store-coverage and `site`-not-`slug` wire contracts.
+
+**The control moves the document, it does not re-derive the pane.** The pane composes its URL
+from what the *outgoing* document held ([[REQ-215]]), so asking it to re-derive would compose
+the page being left. Choosing a page points the displayed frame at the new one — which is
+exactly what following a link inside the render does — and everything downstream follows the
+arrival through machinery that already handles that: the carry adopts the new page, the idle
+channel is re-pointed at it behind the visible one, and the control reads it back.
+
+**The pane says where it is going; the document says where it is.** Navigation is not
+instant, so for as long as it takes, the frame still holds the page being left. The control
+names the page it was asked for until a document arrives, and the document takes the answer
+back the instant there is one — otherwise choosing a page would answer the operator with the
+page they just chose to leave and correct itself a moment later.
+
+**The listing is re-taken on every document the pane shows**, which is what makes §5.6 true
+without a reload: the assistant's write reloads the render, and the listing is read with it.
+A failed listing keeps the last answer rather than emptying the control.
+
+## 8. Further acceptance criteria
+
+10. A page the home page cannot reach, directly or through other pages, is marked; the home
+    page itself never is.
+11. A page named only by a `navigation` entry is reachable.
+12. A link is followed to the page the renderer would serve for it, and a link to another
+    host reaches nothing of ours.
+13. The listing states each page's reach per row, and reaches the builder over the wire; a
+    request naming no site is refused.
+14. Choosing a page names it immediately and keeps naming it until the page arrives.
+15. The control sits in the same position in View and in Edit, so flipping channel does not
+    move it out from under the pointer that just used it.
