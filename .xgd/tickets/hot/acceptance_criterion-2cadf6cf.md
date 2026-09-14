@@ -6,10 +6,10 @@ title: '1c crop is an offline verb: it is never gated and it crops on a tree wit
   nothing installed'
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:19:19.068119+00:00'
-updated_at: '2026-09-14T05:19:19.068119+00:00'
+updated_at: '2026-09-14T05:28:13.415759+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
