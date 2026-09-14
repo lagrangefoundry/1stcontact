@@ -5,9 +5,9 @@ type: request
 title: Every page is reachable from the control bar, and an unlinked one says so
 created_by: EPIC-10
 created_at: '2026-09-14T21:35:41.787381+00:00'
-updated_at: '2026-09-14T21:35:41.787381+00:00'
+updated_at: '2026-09-14T22:13:41.784017+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -95,5 +95,3 @@ change from this one.
 8. A page with no title is listed by something an operator can recognise rather than by an
    empty row.
 9. The order pages are listed in is stable between openings.
-10. An email page created under [[REQ-247]] is reachable through this control, and is marked as
-    outside the navigation like any other unlinked page.
