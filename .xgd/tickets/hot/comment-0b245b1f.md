@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-4
 created_by: xgd
 created_at: '2026-09-12T22:26:31.983715+00:00'
-updated_at: '2026-09-14T03:37:24.407180+00:00'
+updated_at: '2026-09-14T03:41:34.446651+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -643,5 +643,39 @@ One thing worth re-flagging, since it's the part most likely to bite: **I got th
 <!-- xgd-chat role="user" ts="2026-09-14T03:37:23.291024+00:00" -->
 #### You
 Please review every ticket in this epic's epic_children for unanswered questions: read each child's chat transcript (its chat_transcript comment) and current body/fields — a foreign entry (a `ticket://org/repo/id` reference, or `org/repo/id` alias) is read the same way, e.g. `xgd ticket get ticket://org/repo/id`. Where you have enough context from this epic's design conversation to answer a question confidently, update that child ticket directly (e.g. via `xgd ticket update <uid or ticket://org/repo/id> --stdin`) — do not change the child's own status or otherwise act as if you were the child's session. Where you are not confident you can answer correctly, surface the question here in this chat instead of guessing.
+
+<!-- xgd-turn id="97827d53-e292-4904-8b56-1d9a16c40c42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T03:41:33.626347+00:00" -->
+#### Claude
+I'll start by reading the epic and its children.
+
+All three children reviewed — body, fields, and full chat transcript. All local uids; no foreign `ticket://` entries.
+
+## Where each child stands
+
+| | Status | Open questions |
+|---|---|---|
+| **REQ-237** business name | `ready_to_reconcile` | None. Its one body-level `Open:` — whether to rename `config.businessName` — is answered in its own Implementation section: the field keeps its name, and the trap is corrected with a schema doc comment plus the surface `overview`, both UAT-checked. |
+| **REQ-238** `1stc.site` hostname | `draft` | **Four, all waiting.** Answered on the ticket — see below. |
+| **REQ-239** Settings tab | `free_coded` | None asked. Two decisions flagged, both already settled the same way by REQ-237. |
+
+## REQ-238 — answered on the ticket
+
+**1. Serving-by-host: out of scope.** Confirmed, but **one premise in the question is wrong** and I corrected it rather than endorsing it: `apps/public-site` *does* have a D1 binding (`wrangler.toml:53`, `index.ts:63`, `D1SiteStore(env.DB)` at `index.ts:158`). What actually blocks host resolution is TODO-6 §5's wildcard DNS record and `*.1stc.site` certificate — unstarted `[op]` items — plus §1's PSL submission with a lead time that cannot be shortened. Until those exist, resolution is code that cannot work, and DOC-45 §4 says the path grammar *"cannot simply go"* while it is the only address that resolves.
+
+**The publish gate stays in this ticket.** *"Publication is the gate"* is REQ-238's own language. The consequence the session named is real but smaller than it framed it: a business must claim a hostname before publishing, and that hostname won't resolve yet — but `/site/<key>/` still serves, so the published site is reachable. One extra step, not a broken publish path.
+
+**2. Revocation: yes, all of it.** TODO-6 §2 is unambiguous — *"Revocation must exist from day one... the only alternative to revocation is leaving it up."* Finality is what creates the need. So: the `status` column, **every read filtered to `active`** (the filter is where a revoked host stops resolving; the column alone is decoration), never re-issued, and the operator flip. The flip is not a new auth surface — `platformAdminSeed` (`identity.ts:967`) already exists. This extends the Behaviour section, which named revocation only as a consequence, and I said so explicitly on the ticket.
+
+**3. Row names the site, one-at-a-time per business.** Confirmed — it matches the epic's 2026-09-13 Correction exactly.
+
+**4. No UI in REQ-238.** Confirmed.
+
+## Two things for you
+
+**The hostname field is now orphaned.** REQ-239 built the Settings pane and deliberately left the field out — *"REQ-238 is still draft; there is no operation to call and nothing true to render"* — with the pane written as a list of sections so the field would be a cheap append. REQ-239 is now `free_coded` and parked, so when REQ-238 lands **nothing owns building it**. Either append it to REQ-239 as a further commit, or a new ticket. That's your call, and I told REQ-238's session not to create one.
+
+**TODO-6 §3 is stale and will mislead whoever builds this.** It still describes allocation under the superseded DOC-45 §7 — assigned at provision from the slugified business name, discriminator on collision, freely changeable, old labels retained as redirects. All withdrawn by the epic's Correction. I noted on REQ-238 to build against the ticket rather than §3, but TODO-6 itself is an operator ticket and I haven't touched it. The squatting concern in that section survives the rewrite and is addressed nowhere.
 
 <!-- xgd-chat-end -->
