@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-237
 created_by: xgd
 created_at: '2026-09-14T01:50:06.776735+00:00'
-updated_at: '2026-09-14T03:02:42.907964+00:00'
+updated_at: '2026-09-14T03:03:22.675632+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -156,5 +156,27 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="3d4555db-a91d-43f4-abed-9aee21b2fcd0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T03:03:22.007780+00:00" -->
+#### Claude
+Let me check the current state — I completed this in the previous turn, so let me verify nothing has changed.
+
+REQ-237 is already complete from the previous turn. Let me confirm the tests still pass on the current tip.
+
+This is already done — I completed it in the previous turn, and nothing has changed since. I re-verified rather than redoing the work:
+
+- **Status:** `free_coded`
+- **`fields.commits`:** all three SHAs (`dc192d05e3`, `b7e9c4db08`, `105070e305`), each confirmed an ancestor of `xgd-working`
+- **`fields.version`:** `0.2.193`, **`story_points`:** 8
+- **Branch and worktree:** `free-REQ-237` deleted, worktree removed, lock released
+- **Tests:** 43 UATs passing on the current tip, plus REQ-178's adjusted assertions
+
+Every protocol step is recorded: ticket scoped with behaviour description before coding, branch cut, UATs named `test_UAT_FC_REQ-237_*`, commits tagged `[FREE-CODED]`, status and fields set. The renumber decision (`0006` → `0007`, after REQ-244's migration landed first) was appended to the ticket body so the UATs covering it trace to ticket language rather than surfacing as drift at reconciliation.
+
+Nothing is left to do on REQ-237. If you meant a different ticket, or you want me to take it forward to `ready_to_reconcile`, say which and I'll pick it up.
+
+One thing worth repeating from last turn, since it's still true and still yours to decide: `xgd-working` carries 12 unrelated test failures I did not introduce — 5 from `node_modules/` being behind the committed `pnpm-lock.yaml` (a root `pnpm install` clears those), 2 from stray untracked paths (`What_1st_Contact_is,_and_how_to_say_it.md` at the root, and a `.claude` directory under `packages/framework/src/modules/` that trips a `readdirSync` loop), and 2 pre-existing on the baseline before my merge. I left all of them alone.
 
 <!-- xgd-chat-end -->
