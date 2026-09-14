@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:24:30.815365+00:00'
+updated_at: '2026-09-14T21:25:44.274074+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1159,5 +1159,59 @@ So the consultant can read tickets and cannot write them. Documentation alone wo
 <!-- xgd-chat role="user" ts="2026-09-14T21:24:29.866187+00:00" -->
 #### You
 Sorry, please continue
+
+<!-- xgd-turn id="3875cd18-819c-42cc-8fa6-4ac2cf1c79f4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T21:25:43.240310+00:00" -->
+#### Claude
+Checked the ticket-store claim, and it needs one correction — it changes what this is.
+
+## Ticket access: it's a grant gap, not a docs gap
+
+The bridge exports **both** groups (`ai-ticketing/src/toolbox.js`):
+
+```js
+export const READ_GROUP  = 'ReadTickets'   // get, query, comments, backlinks, history
+export const WRITE_GROUP = 'WriteTickets'  // create, update, append_body, comment
+```
+
+`ai.ts`'s `sessionTicketSurface` grants only the read half:
+
+```ts
+granted: bridge.instanceConfig({ groups: [bridge.READ_GROUP] })
+```
+
+So the consultant can read tickets and cannot create one. Documentation alone wouldn't have let it author a template — it would have hit a refusal.
+
+**But under your design it doesn't need write access.** If templates appear as pages, creating one is `add_page` with an email kind, on the l1 surface the consultant already holds. The ticket surface stays read-only — which looks deliberate, and I'd keep it that way rather than open ticket-write to a role that talks to clients.
+
+That also makes the error message concrete rather than vague. Not *"go create a ticket"* — which it couldn't act on — but *"no template named `whitepapre` in this business. This site has: `asset`. Create one with `add_page`, kind `email`."* Actionable with tools it holds.
+
+## Styling: yes, reduced L1 — with one requirement
+
+Agreed, and for exactly your reason: a second HTML/CSS editing mode for the AI is the expensive mistake. The honest framing is **one L1, two render targets** — web and email. The *reduction* is which axes an email page offers; the *work* is an email renderer that emits tables and inline styles instead of a stylesheet.
+
+I won't undersell that renderer — palette refs have to resolve to literal hex, `fontFamily` needs a real fallback stack because web fonts won't load, and layout collapses to tables. It's bounded and well-trodden, but it isn't free.
+
+The requirement I'd put in the ticket: **the reduced axis set must be declared data, not prose.** If "which axes are allowed in an email" lives in a doc, the AI will put a `box-shadow` in an email and find out from a recipient — the same failure as `template`'s meaning living in a `/* */` comment, and the same one `invariantPresentation` was added to stop. Declared, it projects into the tool manual automatically and `set_l1` refuses what the renderer can't emit. "Expandable later" then means adding entries to a declaration, not writing code.
+
+## Validation instead of a picker: agreed, and it's strictly better
+
+Your version fails at the moment of the act rather than at publish, and it keeps REQ-243's protection intact — an unknown key is still a refusal, so a typo can't quietly mint `whitepapre`. Keep the publish-time check as a backstop: a draft is never publish-validated, and the builder's own preview submits against one.
+
+## One ambiguity worth settling before I write it
+
+"Add the email templates to the list of pages" has two readings, and they cost very differently.
+
+Your live data already shows why. Message records carry `template_uid` — I read `template_uid: "template-210a989d"` out of your dev DB earlier — and those point at template **tickets**. `templateFor` is newest-wins across tickets sharing a key, deliberately, so that *"rewriting the copy wholesale need not destroy the ticket REQ-198's records already point at."*
+
+- **Stored as pages** (rows in `site_pages`): breaks that provenance chain and needs a migration of every historical message record.
+- **Listed and edited as pages, still ticket-backed**: keeps `template_uid`, keeps newest-wins, keeps copy editable without a code deploy — and the AI still gets the surface for free, because `list_pages`/`add_page`/`set_l1` don't care what's behind them.
+
+I'd go with the second. The cost is one real asymmetry: `add_page` on an email kind writes a ticket rather than a `site_pages` row, and that has to be visible in the code rather than hidden behind a shared name.
+
+---
+
+Confirm that last one and I'll write up the two tickets — the page shortcut with the not-in-navigation marker, and templates-as-pages with the email render target, the declared axis subset, and configure-time validation.
 
 <!-- xgd-chat-end -->
