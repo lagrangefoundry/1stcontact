@@ -6,9 +6,9 @@ title: The platform records client material as one of three named kinds, and the
   vocabulary carries conversations and attached files
 created_by: xgd
 created_at: '2026-09-02T00:30:09.776619+00:00'
-updated_at: '2026-09-10T02:22:19.664385+00:00'
+updated_at: '2026-09-14T08:57:59.596727+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e07c589b
@@ -34,11 +34,18 @@ record of each can be created through an account-scoped store:
   bytes attached to any of the above are described by that component's own record rather than a local
   approximation of it.
 
+The conversation kinds are taken from the component that reads them rather than transcribed: every
+field that component declares is carried through unaltered. The platform may add fields of its own on
+top of that shape, and adds exactly one — `kb_cursor` on `chat`, the session's change-feed boundary,
+which is a property of a conversation and so lives on the conversation's own ticket.
+
 None of the three material kinds requires a lifecycle status: a material, a reference or a brief is
 created without naming one and is accepted.
 
 ## Verification
 
 Enumerate the kinds the store validates against and confirm each of the names above is present.
-Then create a record of each material kind through an account-scoped store without supplying a
-status, and confirm each is accepted.
+Confirm each conversation kind carries the component's own schema unaltered — every field the
+component declares is present and unchanged — and that the only field the platform adds to `chat`
+beyond that shape is `kb_cursor`. Then create a record of each material kind through an
+account-scoped store without supplying a status, and confirm each is accepted.
