@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T18:35:27.873064+00:00'
+updated_at: '2026-09-14T18:38:37.419188+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -739,5 +739,60 @@ Want me to configure it? It needs a ticket of its own, and it's blocked on the p
 <!-- xgd-chat role="user" ts="2026-09-14T18:35:27.498153+00:00" -->
 #### You
 No I want the production AI to do it
+
+<!-- xgd-turn id="962a3ab0-8090-4c92-824d-092f0dd2343c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T18:38:36.995710+00:00" -->
+#### Claude
+Right — the point is whether the builder agent can do it, not whether I can. Let me check what its tool surface actually exposes.
+
+Understood — I looked at whether the builder agent *can*, not whether I can. Short answer: it has the hand but not the eyes.
+
+## It can make the change
+
+`configure_component` (`tools/generate/src/cli/ai/l1-surface.json`) is exactly right: partial `config`, validated against the module's declared schema. Setting `template` and `assets` on the `signup` instance would pass validation and land in the draft. Mechanically, nothing is missing.
+
+## It cannot know what to set
+
+`list_behaviors` is how the agent learns a component's settings. Its own description promises *"what those settings accept, so the first attempt is the one that works."* The projection behind it, `editBehaviorList` (`tools/generate/src/cli/edit.ts:1443`), emits only `type`, `required`, `values`, `items` — and `BehaviorConfigSpec` (`packages/framework/src/modules/behavior.ts:40`) has no description field at all, so there is nothing else to project.
+
+What the production AI sees for the field that is causing your silence, in full:
+
+```json
+"template": { "type": "string", "required": false }
+```
+
+Every load-bearing fact is in `/* */` comments in `meta.ts` that no model ever reads:
+
+- **absence means send nothing** — the entire reason your form is silent
+- the value must name a template in *this business's* store, not a global one
+- `asset` is a seeded key that already exists and would just work
+- `invite`/`signin` are refused, at publish and again at send
+- an `assets` item missing `key` or `url` is silently read as *no item*
+
+So an agent asked "why isn't my whitepaper email arriving?" is looking at an optional string with no stated meaning. Best case it guesses `"asset"`. Plausible case it writes `template: "whitepaper"`, publish refuses with a template-not-found, and it cannot recover — because:
+
+## No surface exposes email templates at all
+
+The six surfaces are `l1`, `library`, `settings`, `image`, `ledger`, `fidelity`. Zero operations across all of them mention mail. The production AI cannot list templates, cannot read what the message says, cannot author one, and cannot diagnose `no_template`. `template: "asset"` would work only by the luck of `asset` being one of four seeded platform keys — any business-specific copy is unreachable to it.
+
+There's precedent sitting one field over in the same interface. `invariantPresentation` (`behavior.ts:~128`) exists *because* an AI reading a component's reference "concluded the component was broken, filed a false defect against it, and wrote a duplicate of the line into the page." Same failure mode, same cause — explanation left in a comment where only humans see it. The fix there was to project it as a string.
+
+## The assets half
+
+- `add_asset` takes "a path on the operator's own machine" — not a conversation upload, and in production workerd there's no such disk. The client-file route is `library`'s "put one of the client's files on the site."
+- A PDF stores fine (`assetKind` → `'other'`, not a refusal), but `MIME` (`tools/generate/src/store/content-type.ts`) has no `.pdf` entry, so it serves as `application/octet-stream`. Survivable for a gated download — the mail links to `/api/download/<grantId>`, never the raw file — but it's the same drift that table's header warns about and that REQ-218 already had to fix once for `.gif`/`.avif`.
+
+## What I'd do
+
+Three changes, in dependency order:
+
+1. Add `description` to `BehaviorConfigSpec` and project it in `editBehaviorList`. Author it for `template` and `assets` first — that alone turns this from unguessable into obvious.
+2. Decide whether the AI gets a templates surface. Without one it can name a message it cannot show you, which is a worse failure than not naming one.
+3. Add `.pdf` to the MIME table.
+
+(1) is small and fixes the reported symptom. (2) is a real scope call — it's a new surface, and it's the difference between the agent configuring the form and the agent *finishing* the job.
+
+This is all outside EPIC-10 as scoped. Want me to write it up as a ticket, and if so, all three or just (1)?
 
 <!-- xgd-chat-end -->
