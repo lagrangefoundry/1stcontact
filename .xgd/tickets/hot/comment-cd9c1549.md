@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T03:47:03.723652+00:00'
+updated_at: '2026-09-14T17:59:36.479938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -666,5 +666,11 @@ Two things that will bite if you skip them:
 - **`publishSite` refuses** a form naming a template the business's store doesn't hold, and refuses `invite`/`signin` outright. That refusal is the feature — a typo is caught at publish rather than becoming a silent non-send.
 
 Worth deciding: do you want me to configure the `xgd` whitepapers form for real (two assets, a template, `whitepapers` as an implied acceptance) as the first live exercise of the whole chain? That would be a new ticket, and the papers themselves are currently ticket bodies rather than PDFs, so there's a sourcing question in it.
+
+<!-- xgd-turn id="d70dd0b9-1f12-4c3d-9bc9-4f560fd1101c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T17:59:36.407886+00:00" -->
+#### You
+ok so all the tickets have been implemented but I am not getting an email (even to spam) when I sign up for the whitepaper? Is that form configured correctly?
 
 <!-- xgd-chat-end -->
