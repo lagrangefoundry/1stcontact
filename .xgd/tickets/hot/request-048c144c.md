@@ -5,9 +5,9 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-14T21:31:04.642575+00:00'
+updated_at: '2026-09-14T21:35:50.435891+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: depends_on
 status: draft
 fields:
   priority: medium
@@ -15,6 +15,8 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5b9685d2
+  depends_on:
+  - request-10200dc8
 ---
 
 # An email a form sends is a page of the site
