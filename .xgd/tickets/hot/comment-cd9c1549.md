@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:31:22.249570+00:00'
+updated_at: '2026-09-14T21:34:52.650518+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1257,5 +1257,11 @@ Past sends need no migration — I checked, and `template_uid` is written and ne
 ## Still outstanding
 
 The **page shortcut** ticket — the `Page` select beside `Panel`, with the not-in-navigation marker — isn't written. You said "yes, I like that model" but asked for *the* REQ singular, so I didn't create a second one unasked. Say the word and it's a small, self-contained ticket; it's also the thing that would let you reach these email pages once they exist, so the two are more coupled now than when I proposed them.
+
+<!-- xgd-turn id="82cf071e-0da1-4294-93db-ca3573616e86-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T21:34:52.563566+00:00" -->
+#### You
+please add a req for that too - I can't test any of this without that
 
 <!-- xgd-chat-end -->
