@@ -5,9 +5,9 @@ type: request
 title: 'The gated page: a per-contact link, and what they did with it'
 created_by: EPIC-10
 created_at: '2026-09-13T22:02:50.801812+00:00'
-updated_at: '2026-09-13T22:02:50.801812+00:00'
+updated_at: '2026-09-14T01:55:02.292412+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -112,3 +112,101 @@ CORS constrains nobody.
    timestamps, and no duration is stored as a measurement.
 8. `public-site` still answers `405` to every method and path outside the one [[REQ-223]]
    opened; the additions here are `GET` only.
+
+
+## 8. How it is built
+
+### 8.1 The grant is a table of its own, and not `login_tokens`
+
+`asset_grants` — an opaque `gate_…` key ([[REQ-190]]), the contact, the site, the
+form instance, `created_at`, `revoked_at`. `business_id` is DERIVED from the
+contact by `INSERT … SELECT … FROM users`, exactly as `contact_events` and
+`user_acceptances` derive theirs, so a grant cannot be filed under a business its
+contact does not belong to.
+
+**One live grant per (contact, site, form)**, enforced by a partial unique index
+over `revoked_at IS NULL`. A second submission reuses the link rather than
+minting a second one — the page is the same page and two tokens for it would be
+two answers to §2's "who is this".
+
+It is NOT built on `login_tokens`, for §2's reason: that table's rows expire and
+are single-use, and these must do neither.
+
+### 8.2 The mail's link is the gate, and both mails carry the same one
+
+[[REQ-243]] §3 made `{{cta_url}}` whatever the capture path supplies. It supplied
+the authored `assets[].url`; it now supplies
+`https://1stcontact.io/site/<siteKey>/api/download/<token>` — the page, not the
+paper.
+
+**This supersedes [[REQ-241]]'s "its own link and its own words".** A form
+promising two papers still sends two mails, each naming its own paper through
+`{{asset_name}}` and each recorded under its own ledger key — that half of
+REQ-241 is untouched, and it is what keeps *"did they take both or one"*
+answerable. What changes is that both mails link at the one page, because §7 AC1
+says the link opens a page listing the SET. Per-asset links would be per-asset
+pages, and a set listed on none of them.
+
+The grant is minted **lazily, at the first asset that will actually be sent**, so
+a suppressed or already-delivered address leaves no grant nobody holds a link to.
+
+### 8.3 The page lists what the form promises NOW
+
+The grant names the form, not a frozen list of keys. The gate reads the live
+published definition through the same `formDefinitionOf` the capture path uses,
+so there is one answer to *what does this form promise* rather than a
+denormalised copy free to drift. A republish that changes the papers changes what
+the page offers, and the link keeps working — which is the better failure than a
+link to a paper that is no longer published.
+
+### 8.4 The bytes: a site asset when the URL is site-relative, a redirect when it is not
+
+§5 says the bytes are site assets. `assets[].url` is still a free `url` an author
+types, and every one in the stores today is external — so:
+
+- **A site-relative URL** (`papers/brief.pdf`) is resolved THROUGH `parseRoute`,
+  the same grammar every published byte goes through, and streamed out of the
+  site's live revision in R2. No second parser, so no second opinion about
+  traversal or percent-encoding.
+- **An absolute URL** is answered `302`. It is operator-authored and never
+  caller-supplied, so it is not an open redirect; refusing it instead would break
+  every form already in the stores for no visitor's benefit.
+
+`asset.downloaded` is recorded BEFORE either, so a byte that was served is a byte
+that was recorded.
+
+### 8.5 The seam is a second entrypoint, not a second route
+
+`AssetGate` on `control-app`, bound as `ASSET_GATE`, beside `LeadIntake` and for
+[[REQ-223]] §3.2's reason: a path is something a request can name, and a named
+`WorkerEntrypoint` has no URL at all. Its own class rather than two more methods
+on `LeadIntake`, because a gate is not lead intake and a binding whose name lies
+is a binding somebody eventually uses for a third thing.
+
+It returns DATA — what to list, and where one paper is — and `public-site` serves
+the bytes, because `public-site` is already the Worker that serves bytes and an
+R2 body does not want to cross a service binding.
+
+**Absent binding is a refusal**, and the same one everything else gets.
+
+### 8.6 The refusal is the ordinary 404
+
+`notFound()` moves into `public-site/src/gate.ts` and `index.ts` imports it, so
+there is one spelling and the gate's refusal is byte-identical to the 404 any
+unknown path gets — not merely identical to the other two gate refusals. A caller
+cannot learn that a gate path is a gate path.
+
+### 8.7 GET only, and never cached
+
+The gate is matched on `GET` before the edge-cache lookup, so a per-contact page
+can never be stored in a cache every visitor shares. `HEAD` is deliberately not
+matched: it would record an arrival for a request that displays nothing, and
+prefetchers send it. Both the page and the bytes carry `private, no-store`; the
+page carries `noindex` as a meta and as `x-robots-tag`.
+
+### 8.8 Revocation has no operator surface yet
+
+AC5 requires a revoked token to be refused, so the column and the refusal are
+built and proved. `revokeGrant` is exported and enforced at the gate; nothing
+calls it. The surface belongs with contact erasure ([[DOC-37]]), which does not
+exist — building a button here would be guessing at that design.
