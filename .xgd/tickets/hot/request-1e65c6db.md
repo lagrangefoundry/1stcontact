@@ -5,9 +5,9 @@ type: request
 title: The business name is stored once, and may change at any time
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:12.597808+00:00'
-updated_at: '2026-09-14T02:41:27.894261+00:00'
+updated_at: '2026-09-14T02:41:32.475666+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -28,6 +28,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.193
+  story_points: 8
 ---
 
 ## What this is
