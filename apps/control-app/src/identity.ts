@@ -9,6 +9,10 @@ import { contactEventInsert } from './events'
 // The stage value from the module that names it, never a literal — see the
 // same import in `people.ts` ([[DOC-44]] §3, [[REQ-188]]).
 import { INVITED as PIPELINE_INVITED } from './builder/people-axes.js'
+// THE NAME RULE, FROM THE MODULE THAT OWNS IT ([[REQ-237]]). `business.ts`
+// imports only `IdentityEnv`'s TYPE back from here, so this is one-way at
+// runtime and the comparison has exactly one spelling.
+import { requireFreeBusinessName } from './business'
 
 /**
  * Identity, accounts and entitlement (REQ-167) — [[DOC-40]].
@@ -774,8 +778,6 @@ export async function provisionBusiness(
 ): Promise<BusinessResult> {
   const accountId = (spec.accountId ?? '').trim()
   if (accountId === '') throw new Error('A business needs an account to belong to.')
-  const name = spec.name.trim()
-  if (name === '') throw new Error('A business needs a name.')
 
   // THE ACCOUNT IS READ BACK BEFORE ANYTHING IS WRITTEN ([[REQ-194]]). A business
   // whose `owner_account_id` names no row is a business with no payer, and
@@ -783,6 +785,18 @@ export async function provisionBusiness(
   // so the missing owner is invisible until somebody tries to bill it.
   const account = await accountById(env, accountId)
   if (!account) throw new Error('No such account.')
+
+  // THE NAME IS TIDIED AND CHECKED IN ONE CALL ([[REQ-237]]), against the account
+  // that is about to own it. A name this account already holds is REFUSED here
+  // rather than suffixed: the caller typed it, and storing `Cole's Bakery-1` for
+  // somebody who asked for `Cole's Bakery` would be a lie about what happened.
+  // A name the PRODUCT chose — onboarding's default — comes through
+  // `availableBusinessName` before it ever reaches this call, so the one
+  // constraint the system could trip on its own, it cannot.
+  //
+  // AFTER THE ACCOUNT READ, because the refusal names the sibling business that
+  // holds the name and an account that does not exist holds none.
+  const name = await requireFreeBusinessName(env, accountId, spec.name)
 
   // EVERY PERSON ON THE ACCOUNT, NOT THE FIRST ONE. v1 has exactly one, so this
   // is one membership — and it is written this way so that the second person an

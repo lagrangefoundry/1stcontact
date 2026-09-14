@@ -234,9 +234,15 @@ describe('REQ-178 — provisioning a second business', () => {
       grantedBy: 'operator',
       note: 'first',
     })
+    // A DIFFERENT NAME, AND [[REQ-237]] IS WHY. A business name is unique within
+    // its owning account now — two rows one account's switcher could not tell
+    // apart is the thing that constraint exists to prevent — so the second
+    // business provisioned onto this account cannot reuse the first one's name.
+    // The claim is unaffected: the name is an INPUT to both paths rather than
+    // part of the shape they write, and it is asserted separately below.
     const added = await provisionBusiness(identityEnv(), {
       accountId: invited.user.account_id,
-      name: 'By invite',
+      name: 'By hand',
       plan: 'pro',
       endsAt: null,
       grantedBy: 'operator',
@@ -244,9 +250,9 @@ describe('REQ-178 — provisioning a second business', () => {
     })
 
     const shapeOf = async (accountId: string) => {
-      const tenant = await env.DB.prepare('SELECT name, status FROM tenants WHERE id = ?')
+      const tenant = await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
         .bind(accountId)
-        .first<{ name: string; status: string }>()
+        .first<{ status: string }>()
       const membership = await env.DB.prepare(
         'SELECT user_id, role, status FROM memberships WHERE business_id = ?',
       )
@@ -281,14 +287,18 @@ describe('REQ-178 — provisioning a second business', () => {
     // And the pieces that are per-business by construction still differ, so the
     // comparison above is not passing because both sides are empty.
     expect(added.businessId).not.toBe(invited.businessId)
-    // AND EACH HOLDS ITS OWN SITE, UNDER ITS OWN KEY ([[REQ-236]]). Both
-    // businesses are called `By invite`, and under [[BUG-90]] that meant both
-    // sites carried the same derived name — legal, because a slug was unique only
-    // inside its business, but still a name two businesses shared. Nothing is
-    // derived now, so the two keys differ for the same reason any two minted
-    // values do, and the shared business name reaches neither.
+    // EACH NAME IS STORED AS IT WAS GIVEN, which is the half the shape
+    // comparison above no longer covers ([[REQ-237]]).
+    expect(added.name).toBe('By hand')
+    expect(invited.name).toBe('By invite')
+    // AND EACH HOLDS ITS OWN SITE, UNDER ITS OWN KEY ([[REQ-236]]). Under
+    // [[BUG-90]] a site carried a name derived from its business's, so the
+    // business's name reached the site's address. Nothing is derived now, so the
+    // two keys differ for the same reason any two minted values do, and neither
+    // business's name reaches either of them.
     expect(added.siteKey).not.toBe(invited.siteKey)
     expect(added.siteKey).not.toContain('byinvite')
+    expect(added.siteKey).not.toContain('byhand')
     expect(invited.siteKey).not.toContain('byinvite')
   })
 

@@ -75,6 +75,12 @@ const MIGRATIONS = [
   // two files sharing a number is an ordering nobody declared. Renumbering is
   // free here because neither had been applied to a database anyone shares.
   () => import('../../db/migrations/0005_retire_site_slug.sql?raw'),
+  // [[REQ-237]] — a business name is unique within the account that owns it.
+  // Applied here for the same reason as every file above: `wrangler d1
+  // migrations apply` runs it against every database this product has, and a
+  // fixture that skipped it would let a suite write two rows the real database
+  // would refuse.
+  () => import('../../db/migrations/0006_business_name_unique.sql?raw'),
 ]
 
 /**
@@ -164,17 +170,23 @@ export async function applySchema(): Promise<void> {
 }
 
 /**
- * Whether `sites` already has the shape the last migration leaves it in.
+ * Whether the database already holds what the LAST migration leaves behind.
  *
- * `kind` IS THE MARKER BECAUSE `0005` — THE LAST FILE IN THE LIST — IS WHAT ADDS IT, so its presence means
- * every statement in the list has run. `PRAGMA table_info` answers on a database
- * with no such table at all — an empty result, not an error — which is what lets
- * one query serve both "already migrated" and "nothing here yet".
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS. It used to ask for
+ * `sites.kind`, which `0005` adds; once `0006` existed, a database at `0005`
+ * would have answered "at head" and skipped it silently. `sqlite_master` answers
+ * on a database with no such table at all — an empty result, not an error —
+ * which is what lets one query serve both "already migrated" and "nothing here
+ * yet", exactly as `PRAGMA table_info` did.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const columns = await DB.prepare('PRAGMA table_info(sites)').all<{ name: string }>()
-  return (columns.results ?? []).some((column) => column.name === 'kind')
+  const row = await DB.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+  )
+    .bind('idx_tenants_owner_name')
+    .first<{ name: string }>()
+  return row !== null
 }
 
 /** The tenant every fixture belongs to unless a test names another. */

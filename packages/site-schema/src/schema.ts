@@ -921,6 +921,29 @@ export const siteCapabilitiesSchema = z.object({
 
 /** Business profile, contact, and integration config. */
 export const siteConfigSchema = z.object({
+  /**
+   * WHAT THIS SITE CALLS THE BUSINESS — authored content, not a copy of a record
+   * ([[REQ-237]]).
+   *
+   * The name reads as *"the business's name, cached here"* and it is not that.
+   * `tenants.name` is what the business IS CALLED; this is what the SITE SAYS,
+   * and the two are allowed to differ — a business mid-rebrand trades under both,
+   * and a business correcting an internal label was never trading under the old
+   * one at all. Renaming the business deliberately does not touch this; it
+   * reports the divergence and leaves the decision to the customer.
+   *
+   * It sits beside `tagline` and `contact.…` for that reason: every member of
+   * this object is a thing the site says about the business, changed only by an
+   * explicit site edit. Its one reader is `render.ts`, where it is the fallback
+   * suffix for a page's `<title>` when `seoMeta.title` is absent — so it is not
+   * the visible name on the page either. The headline, the wordmark and every
+   * sentence naming the business are page content.
+   *
+   * THE FIELD KEEPS ITS NAME. Renaming it to say what it means would be a
+   * site-definition format change reaching every stored definition in every
+   * deployment, for a naming improvement — so it is documented here instead,
+   * where anyone about to read it as a cache will meet the correction.
+   */
   businessName: z.string(),
   /** [[REQ-200]] — what this site HAS. See {@link siteCapabilitiesSchema}. */
   capabilities: siteCapabilitiesSchema.optional(),

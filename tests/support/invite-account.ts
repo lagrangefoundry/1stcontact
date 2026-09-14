@@ -6,6 +6,7 @@ import {
   type UserRow,
 } from '../../apps/control-app/src/identity'
 import { addContact } from '../../apps/control-app/src/people'
+import { availableBusinessName } from '../../apps/control-app/src/business'
 
 /**
  * A 1st Contact ACCOUNT, seeded for a suite that needs one to exist.
@@ -109,7 +110,19 @@ export async function inviteAccount(
     // The address is a fallback LABEL for the business, not a claim on the grant
     // ([[REQ-191]]): `provisionBusiness` takes no address any more, because a
     // grant names its subject by key.
-    name: seed.accountName ?? user.email ?? seed.email,
+    //
+    // THROUGH `availableBusinessName` ([[REQ-237]]), because this helper CHOOSES
+    // the label rather than being told it. A business name is unique within its
+    // owning account now, and the one path that can collide here is the
+    // re-invite repair — the same account, seeded twice, under a name no suite
+    // asked for twice. A name the PRODUCT picks must never be the thing that
+    // fails, which is what that function is for; a name a customer TYPES is
+    // refused instead, and `provisionBusiness` is where that happens.
+    name: await availableBusinessName(
+      env,
+      user.account_id,
+      seed.accountName ?? user.email ?? seed.email,
+    ),
     plan: seed.plan,
     startsAt: seed.startsAt,
     endsAt: seed.endsAt,
