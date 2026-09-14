@@ -6,10 +6,10 @@ title: A turn's stream announces each write where it happened, and a turn that w
   nothing announces nothing
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T07:52:37.950089+00:00'
-updated_at: '2026-09-14T07:52:37.950089+00:00'
+updated_at: '2026-09-14T08:05:45.533153+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
