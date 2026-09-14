@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:30:46.721130+00:00'
+updated_at: '2026-09-14T20:41:19.883597+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -947,5 +947,25 @@ Verified: zero `?` left in R2, zero `%3F` left in any page, and the config URL n
 2. **`content_type` is still `application/octet-stream`** on both PDFs. I left it — that's REQ-246's job, and patching the row here is exactly the per-site patching you asked me not to do.
 
 None of this changes the reason you aren't getting mail. That's still the missing `template` field on the form — one line, unaffected by any of the above.
+
+<!-- xgd-turn id="f2f645e0-f510-4e5e-b01c-229e7b13e8f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T20:41:18.435420+00:00" -->
+#### You
+Please correct the other filename
+
+Then there's more, there are a couple of gaps here that need discussion: 
+(1) the design of the "hidden" page
+(2) the email content
+
+The design of (1) should be done on the site tab, the difficulty is that because this is a "hidden" page, there is no navigation that takes us there...perhaps every page (including ones that are navagable) should have a short cut link in the control bar - Where the View, Edit and Colors buttons are.
+
+The expected design for (2) is a new "Outgoing" tab. Email templates are expected to be stored in tickets. This should be a standard 1 + 2 pane tab -> a n item list on the left that opens a pair of panes, the email template as a ticket on the left and the chat on the right.
+
+This tab will be where templates for emails are created and edited, it is also where email list content will be created.
+
+Metadata on which flow a template is associated with should be kept in the front matter of the ticket.
+
+Lets discuss this design before you create any tickets
 
 <!-- xgd-chat-end -->
