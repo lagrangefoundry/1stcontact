@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T17:59:36.479938+00:00'
+updated_at: '2026-09-14T18:02:32.932956+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -672,5 +672,66 @@ Worth deciding: do you want me to configure the `xgd` whitepapers form for real 
 <!-- xgd-chat role="user" ts="2026-09-14T17:59:36.407886+00:00" -->
 #### You
 ok so all the tickets have been implemented but I am not getting an email (even to spam) when I sign up for the whitepaper? Is that form configured correctly?
+
+<!-- xgd-turn id="d70dd0b9-1f12-4c3d-9bc9-4f560fd1101c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T18:02:32.091081+00:00" -->
+#### Claude
+I'll check the actual config rather than rely on what I found before — things may have moved.
+
+No — it's not configured, and it never has been. The whitepaper form captures the email and deliberately stops there.
+
+## What the config actually says
+
+`storage/sites/xgd/draft/pages/whitepapers.json`, instance `signup`, v7:
+
+```json
+"config": {
+  "fields": [ { "name": "email", … } ],
+  "submitLabel": "Send me both papers",
+  "successMessage": "On their way — check your inbox.",
+  "assets": []
+}
+```
+
+No `template`, and `assets` is empty. In `apps/control-app/src/lead.ts:1134` that is the end of the road:
+
+```ts
+const templateKey = definition?.template ?? ''
+if (templateKey === '') return outcome
+```
+
+An absent template means *send nothing* — that's REQ-243's deliberate meaning, so a newsletter signup that only joins a list mails nobody. The form never reaches the mail path at all.
+
+The home waitlist form is in the same state (`assets: []`, no template).
+
+## Why the migration didn't fix it
+
+`contactFormV6ToV7` (`packages/framework/src/modules/contact-form/migrate.ts:130`) only names `asset` for instances that *already carried* an artifact — that's the forgiving step for every gated download that existed before v7. Neither xgd form ever had one: `assets: []` came out of the v5→v6 step because there was no `asset`/`assetUrl` to convert. So "Send me both papers" has been a button that promises two papers and delivers nothing since the day it was written — before this epic and after it. The epic made the promise *expressible*; it didn't author it.
+
+Supporting evidence: `storage/sites/xgd/draft/assets/` holds five fonts and four SVGs. The papers don't exist as files anywhere — they're still ticket bodies, as I flagged last session.
+
+**Your email should still be in the contact list.** Capture runs before any of this; it's the mail that's absent, not the lead.
+
+## To make it actually send
+
+1. **Source the two PDFs** and add them as site assets. This is the real blocker, not the config.
+2. Set on the `signup` instance:
+   ```json
+   "template": "asset",
+   "assets": [
+     { "key": "wall",      "name": "the paper title", "url": "/assets/….pdf" },
+     { "key": "governor",  "name": "the paper title", "url": "/assets/….pdf" }
+   ]
+   ```
+   `asset` is a seeded key (`templates.ts:62`), so nothing needs authoring — `templateFor` seeds it on first use, and it already declares `{{asset_name}}` and `{{cta_url}}`.
+3. **Publish.** The receiver reads the published snapshot, never the draft, so nothing you change reaches a visitor until then.
+
+Two things I couldn't verify from here, worth knowing before you test again:
+
+- **`RESEND_API_KEY` on the deployment.** `mailerFor` (`apps/control-app/src/mail.ts:474`) falls back to a *capturing* mailer that logs to console when the key is empty — so a correctly configured form still sends nothing, silently, if the secret isn't set. `MAIL_FROM` is set in `wrangler.toml` for both envs; the key is a secret I can't read.
+- **Production D1.** `wrangler d1 list` fails auth in this session, so everything above is read from the repo's file-backed store. If the live whitepapers page is a separately published D1 revision, it's an *older* snapshot than this — which reaches the same conclusion by a shorter route.
+
+Want me to configure it? It needs a ticket of its own, and it's blocked on the papers existing as files — so the useful first step is deciding where those come from.
 
 <!-- xgd-chat-end -->
