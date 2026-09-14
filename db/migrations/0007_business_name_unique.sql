@@ -4,6 +4,12 @@
 -- baseline has been applied to the local and the remote database and
 -- `wrangler d1 migrations apply` records what it has run, so an edit reaches
 -- neither. Same reasoning as `0005`.
+--
+-- NUMBERED `0007` AND NOT `0006`. It was written as `0006` and [[REQ-244]]'s
+-- `0006_asset_grants.sql` landed first; `wrangler d1 migrations apply` orders by
+-- filename, so two files sharing a number is an ordering nobody declared — the
+-- same correction `0005` records making. Renumbering is free because this file
+-- had not been applied to a database anyone shares.
 
 -- THE CONSTRAINT IS PER OWNING ACCOUNT, NEVER GLOBAL. Two accounts may each hold
 -- a business called `Unnamed business`; one account may not hold two, because the

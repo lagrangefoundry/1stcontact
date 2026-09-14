@@ -79,8 +79,8 @@ const MIGRATIONS = [
   // Applied here for the same reason as every file above: `wrangler d1
   // migrations apply` runs it against every database this product has, and a
   // fixture that skipped it would let a suite write two rows the real database
-  // would refuse.
-  () => import('../../db/migrations/0006_business_name_unique.sql?raw'),
+  // would refuse. LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0007_business_name_unique.sql?raw'),
 ]
 
 /**
@@ -172,9 +172,11 @@ export async function applySchema(): Promise<void> {
 /**
  * Whether the database already holds what the LAST migration leaves behind.
  *
- * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS. It used to ask for
- * `sites.kind`, which `0005` adds; once `0006` existed, a database at `0005`
- * would have answered "at head" and skipped it silently. `sqlite_master` answers
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0007`'s
+ * index. It used to ask for `sites.kind`, which `0005` adds; once anything came
+ * after `0005`, a database at `0005` would have answered "at head" and skipped
+ * the rest silently. So this marker MOVES WITH THE LIST: a migration appended
+ * below without moving it re-opens exactly that hole. `sqlite_master` answers
  * on a database with no such table at all — an empty result, not an error —
  * which is what lets one query serve both "already migrated" and "nothing here
  * yet", exactly as `PRAGMA table_info` did.

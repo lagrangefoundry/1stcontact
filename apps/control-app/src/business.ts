@@ -31,7 +31,7 @@
  *
  * THE COMPARISON IS NORMALISED AND THE STORED NAME IS NOT FOLDED. What the
  * customer typed is what is stored and shown, case and all; what is COMPARED is
- * {@link businessNameKey}. `0006_business_name_unique.sql` carries the same rule
+ * {@link businessNameKey}. `0007_business_name_unique.sql` carries the same rule
  * as an index and is deliberately the weaker of the two — see that file.
  */
 
@@ -123,7 +123,7 @@ export class BusinessNameTakenError extends Error {
  * paste, a double space between two words. Doing it at the door rather than at
  * the comparison is what leaves {@link businessNameKey} with only case to fold,
  * which in turn is what lets a SQLite index carry the same rule (see
- * `0006_business_name_unique.sql`).
+ * `0007_business_name_unique.sql`).
  */
 export function normaliseBusinessName(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim()
@@ -148,7 +148,7 @@ export function businessNameKey(name: string): string {
  * decision rather than left to be discovered. `tenants.owner_account_id` is NULL
  * for 1st Contact and for nothing else, so answering "no siblings" here is what
  * makes the platform business uncollidable — the same answer
- * `0006_business_name_unique.sql` gives by treating NULLs as distinct, written
+ * `0007_business_name_unique.sql` gives by treating NULLs as distinct, written
  * once on each side so neither can drift into being the only one that knows.
  */
 export async function businessesOwnedBy(
