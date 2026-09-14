@@ -197,7 +197,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-121 the copy-edit modal', () => {
     host?: Element,
   ): Promise<{ modal: Element; editor: { destroy(): void } }> {
     const editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       ...(host ? { host } : {}),
     })
@@ -227,7 +227,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-121 the copy-edit modal', () => {
     // override would be invisible to it.
     const root = document.createElement('div')
     document.body.append(root)
-    const app = mountBuilder(root, { sites: [{ slug: 'acme', latest: null }] }) as unknown as {
+    const app = mountBuilder(root, { sites: [{ site: 'acme', latest: null }] }) as unknown as {
       shell: { element: HTMLElement; getTokens(): Record<string, string> }
       destroy(): void
     }

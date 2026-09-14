@@ -341,7 +341,7 @@ export function readBackground(element) {
  * Rewrite every `url(...)` against the document it came from.
  *
  * The preview and the builder are the same origin but NOT the same base URL —
- * the render is served under `/preview/<slug>/<channel>/`, so a relative asset
+ * the render is served under `/preview/<siteKey>/<channel>/`, so a relative asset
  * handle that resolves there resolves to nothing here. Absolutising against the
  * source document is what makes a copied declaration mean the same thing in the
  * parent, and it is the only edit made to any value on the way across.

@@ -345,7 +345,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     const loaded = (await (
       await fetch(
         new URL(
-          `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: address })}`,
+          `/api/copy?${new URLSearchParams({ site: 'acme', page: pageId, path: address })}`,
           builder.url,
         ),
       )
@@ -375,7 +375,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     try {
       display()
       editor = mountEditor(document, {
-        slug: 'acme',
+        site: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
@@ -420,7 +420,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       await fetch(
         new URL(
           `/api/copy?${new URLSearchParams({
-            slug: 'acme',
+            site: 'acme',
             page: pageId,
             path: NOTHING_TO_EDIT_PATH,
           })}`,
@@ -441,7 +441,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     try {
       display()
       editor = mountEditor(document, {
-        slug: 'acme',
+        site: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       deadEndElement().dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
@@ -472,7 +472,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
         const open = async (): Promise<{ modal: Element; editor: { destroy(): void } }> => {
           display()
           const editor = mountEditor(document, {
-            slug: 'acme',
+            site: 'acme',
             bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
           })
           deadEndElement().dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
@@ -527,7 +527,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     // Building the form reads; reading writes nothing and re-renders nothing.
     const res = await fetch(
       new URL(
-        `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: '0.0.0' })}`,
+        `/api/copy?${new URLSearchParams({ site: 'acme', page: pageId, path: '0.0.0' })}`,
         builder.url,
       ),
     )
@@ -546,7 +546,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       try {
         display()
         editor = mountEditor(document, {
-          slug: 'acme',
+          site: 'acme',
           bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
         })
         elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
@@ -597,7 +597,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     let editor: { destroy(): void } | undefined
     try {
       editor = mountEditor(document, {
-        slug: 'acme',
+        site: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
@@ -633,7 +633,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       (await (
         await fetch(
           new URL(
-            `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: address })}`,
+            `/api/copy?${new URLSearchParams({ site: 'acme', page: pageId, path: address })}`,
             builder.url,
           ),
         )
@@ -642,7 +642,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       fetch(new URL('/api/copy', builder.url), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug: 'acme', page: pageId, path: address, values }),
+        body: JSON.stringify({ site: 'acme', page: pageId, path: address, values }),
       })
 
     const served = await servedEdit()
@@ -717,7 +717,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     try {
       display({ from: served })
       editor = mountEditor(document, {
-        slug: 'acme',
+        site: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       const clickRegion = (address: string): void =>

@@ -469,7 +469,7 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // caller cannot assert its way past it.
     const tickets = await ticketStoreFor(routerEnv(), scopeOf())
     const sites = await storeFor(routerEnv(), scopeOf())
-    await sites.createDraft('gate')
+    const gate = await sites.createDraft()
 
     const { ticket } = await tickets.create({
       type: 'material',
@@ -492,11 +492,11 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     })
 
     await expect(
-      promoteToSiteAsset(tickets, sites, { uid: ticket.uid, slug: 'gate', name: 'hero.jpg' }),
+      promoteToSiteAsset(tickets, sites, { uid: ticket.uid, slug: gate, name: 'hero.jpg' }),
     ).rejects.toBeInstanceOf(NotRepublishableError)
     // And nothing landed: refusing after writing the bytes would be no refusal at
     // all, because the asset would already be servable.
-    expect(await sites.listAssets('gate')).toEqual([])
+    expect(await sites.listAssets(gate)).toEqual([])
   })
 
   it('UAT_FC_REQ-163 promoting the client’s own upload COPIES the bytes into the site store', async () => {
@@ -512,8 +512,11 @@ describe('REQ-163 — the crash property and the asset gate', () => {
     // definition to register into — which every provisioned site has, because
     // `createStarterSite` writes the scaffold immediately after `createDraft`.
     const seed = siteSeed({ slug: 'promo' })
-    await sites.createDraft(seed.slug)
-    await sites.write(seed.slug, {
+    // THE KEY THE STORE MINTS ([[REQ-236]]). `seed.slug` still names the
+    // fixture's CONTENT — it reaches `site.json` — and the store is addressed by
+    // the key it hands back.
+    const promo = await sites.createDraft()
+    await sites.write(promo, {
       siteJson: seed.siteJson,
       pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
     })
@@ -539,12 +542,12 @@ describe('REQ-163 — the crash property and the asset gate', () => {
 
     const promoted = await promoteToSiteAsset(tickets, sites, {
       uid: ticket.uid,
-      slug: seed.slug,
+      slug: promo,
       name: 'kitchen.jpg',
     })
     expect(promoted.name).toBe('kitchen.jpg')
-    expect(await sites.listAssets(seed.slug)).toEqual(['kitchen.jpg'])
-    const read = await sites.readAsset(seed.slug, 'kitchen.jpg')
+    expect(await sites.listAssets(promo)).toEqual(['kitchen.jpg'])
+    const read = await sites.readAsset(promo, 'kitchen.jpg')
     expect(new TextDecoder().decode(read as Uint8Array)).toBe('their own photograph')
   })
 })

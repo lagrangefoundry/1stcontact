@@ -42,7 +42,7 @@ if (!WEBUI_INSTALLED) console.warn(`REQ-222 publish-lock suite skipped: ${WEBUI_
 const repo = (...parts: string[]) => path.resolve(__dirname, '..', ...parts)
 const CSS = readFileSync(repo('apps/control-app/src/builder/builder.css'), 'utf8')
 
-const SITES = [{ slug: 'bakery', latest: 1 }]
+const SITES = [{ site: 'bakery', latest: 1 }]
 
 function memoryStorage() {
   const map = new Map<string, string>()

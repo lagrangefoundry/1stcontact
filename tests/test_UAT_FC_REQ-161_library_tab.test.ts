@@ -183,7 +183,7 @@ const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
 describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — the tab is the shared components, configured', () => {
   it('test_UAT_FC_REQ-161_a_library_tab_sits_beside_the_site_and_is_split_over_list_detail', async () => {
     const app = mountBuilder(root, {
-      sites: [{ slug: 'alpha', latest: 1 }],
+      sites: [{ site: 'alpha', latest: 1 }],
       storage: memoryStorage(),
       chatTransport: {
         openSession: async () => ({ sessionId: 's', turns: [], ready: true }),

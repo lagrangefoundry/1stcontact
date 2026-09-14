@@ -129,12 +129,12 @@ describe('BUG-52 — a refusal is no longer a default', () => {
         answers({ person: { email: 'a@b.c' }, businesses: [{ id: 'biz_1' }] }) as never,
       ),
       status: await fetchAiStatus(answers({ ai: true }) as never),
-      sites: await fetchSites(answers([{ slug: 'bakery', latest: 1 }]) as never),
+      sites: await fetchSites(answers([{ site: 'bakery', latest: 1 }]) as never),
     }))
     expect(result.businesses.person).toEqual({ email: 'a@b.c' })
     expect(result.businesses.businesses).toHaveLength(1)
     expect(result.status).toEqual({ ai: true, message: null })
-    expect(result.sites).toEqual([{ slug: 'bakery', latest: 1 }])
+    expect(result.sites).toEqual([{ site: 'bakery', latest: 1 }])
     expect(seen).toEqual([])
   })
 
@@ -211,7 +211,7 @@ describe('BUG-52 — a refused load draws the reason, not a blank page', () => {
  * nothing would be worse than a reported gap.
  */
 describe.skipIf(!WEBUI_INSTALLED)('BUG-52 — a session that lapses under a working builder', () => {
-  const SITES = [{ slug: 'bakery', latest: 1 }]
+  const SITES = [{ site: 'bakery', latest: 1 }]
 
   function memoryStorage() {
     const map = new Map<string, string>()

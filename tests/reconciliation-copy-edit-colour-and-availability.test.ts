@@ -820,7 +820,7 @@ describe('story-37a3921b — a region’s colour, and the controls it cannot hon
     // The same answer through the builder origin — one derivation, two ways in.
     await withOrigin(cwd, async (builder) => {
       for (const region of regions.filter((r) => r.slug === 'acme' && r.page === 'home')) {
-        const query = new URLSearchParams({ slug: region.slug, page: region.page, path: region.path })
+        const query = new URLSearchParams({ site: region.slug, page: region.page, path: region.path })
         if (region.module) query.set('module', region.module)
         if (region.slot) query.set('slot', region.slot)
         const body = (await (

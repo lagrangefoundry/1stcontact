@@ -65,7 +65,7 @@ function memoryStorage() {
 /** Markdown whose rendering is unmistakable in the DOM. */
 const MARKDOWN = 'Gold on **cream**, with a\n\n- narrow counter\n- and a long descender\n'
 
-const SITES = [{ slug: 'alpha', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: 1 }]
 
 function chatTransport(turns: Array<{ role: string; markdown: string }>, fail = false) {
   return {

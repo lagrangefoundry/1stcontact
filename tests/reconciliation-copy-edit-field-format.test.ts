@@ -294,7 +294,7 @@ describe('story-37a3921b — declaring what a closed list of images holds', () =
         [A_COPY, copy],
       ] as const) {
         const body = (await (
-          await fetch(new URL(`/api/copy?slug=acme&page=home&path=${addr}`, builder.url))
+          await fetch(new URL(`/api/copy?site=acme&page=home&path=${addr}`, builder.url))
         ).json()) as Record<string, unknown>
         expect(body.fields, addr).toEqual(cliRead.data!.fields)
       }

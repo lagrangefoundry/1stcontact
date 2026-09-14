@@ -151,37 +151,50 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
   // ── AC-4: the tenant is the barrier ───────────────────────────────────────
 
   it('UAT_FC_REQ-143 a handle for one tenant cannot read or write another tenant s site', async () => {
-    const slug = nextSlug('shared-slug')
     const a = await tenantStore('tenant-a')
     const b = await tenantStore('tenant-b')
 
-    await a.createDraft(slug)
-    await a.write(slug, {
+    const mine = await a.createDraft()
+    await a.write(mine, {
       siteJson: { config: { businessName: "A's site" } },
       pages: [{ name: 'home.json', page: { id: 'home', slug: 'home', title: 'A', modules: [] } }],
     })
 
-    // The same slug in both accounts is not a collision — a site is an object
-    // INSIDE a tenant (DOC-10 §4.1), so `home` may exist once per account.
-    expect(await b.hasDraft(slug)).toBe(false)
-    expect(await b.readSiteJson(slug)).toBeNull()
-    expect(await b.readPages(slug)).toEqual([])
-    expect(await b.slugs()).not.toContain(slug)
+    // B HOLDS A'S KEY AND IT BUYS NOTHING ([[REQ-236]]). This is the assertion
+    // the barrier now rests on: since `sites.slug` went, a verb takes the key
+    // straight from its caller, so the only thing standing between B and A's
+    // rows is that every statement compares the tenant. `mine` is handed over
+    // here precisely because a test that could not produce it would be proving
+    // unguessability rather than isolation — and a key is the PUBLIC published
+    // address, so unguessability is not what this has to hold.
+    expect(await b.hasDraft(mine)).toBe(false)
+    expect(await b.readSiteJson(mine)).toBeNull()
+    expect(await b.readPages(mine)).toEqual([])
+    expect(await b.listAssets(mine)).toEqual([])
+    expect(await b.revisions(mine)).toEqual([])
+    expect(await b.siteKeys()).not.toContain(mine)
 
     // B cannot write into it either — from B's handle the site does not exist,
     // so the write is refused rather than silently landing in A's rows.
     await expect(
-      b.write(slug, { siteJson: { config: { businessName: 'B took it' } } }),
+      b.write(mine, { siteJson: { config: { businessName: 'B took it' } } }),
     ).rejects.toThrow()
 
-    // B making its own site of the same name leaves A's untouched.
-    await b.createDraft(slug)
-    await b.write(slug, { siteJson: { config: { businessName: "B's site" } } })
-    expect(await a.readSiteJson(slug)).toMatchObject({ config: { businessName: "A's site" } })
-    expect(await b.readSiteJson(slug)).toMatchObject({ config: { businessName: "B's site" } })
+    // Nor may B drop it, which is the one verb whose damage would be silent:
+    // `forget` answers nothing, so a missing ownership check would read as a
+    // successful delete of somebody else's site.
+    await b.forget(mine)
+    expect(await a.hasDraft(mine)).toBe(true)
 
-    await a.forget(slug)
-    await b.forget(slug)
+    // B making its own site leaves A's untouched.
+    const theirs = await b.createDraft()
+    await b.write(theirs, { siteJson: { config: { businessName: "B's site" } } })
+    expect(theirs).not.toBe(mine)
+    expect(await a.readSiteJson(mine)).toMatchObject({ config: { businessName: "A's site" } })
+    expect(await b.readSiteJson(theirs)).toMatchObject({ config: { businessName: "B's site" } })
+
+    await a.forget(mine)
+    await b.forget(theirs)
   })
 
   it('UAT_FC_REQ-143 an unknown or inactive tenant is a typed error, never a silent default', async () => {
@@ -251,8 +264,11 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
     // rebuilt the layout by hand would prove only that someone copied it right
     // once.
     const { SITES } = storeEnv()
-    const siteId = await store.siteKey(slug)
-    expect(siteId).not.toBeNull()
+    // THE FIXTURE'S `slug` IS THE KEY ([[REQ-236]]) — `makeD1Site` returns what
+    // `createDraft` minted, so there is nothing left to ask the store for. The
+    // layout is still not rebuilt by hand from a tenant and a name, which is the
+    // discipline the paragraph above is about.
+    const siteId = slug
     const object = await SITES.get(`draft/${siteId}/assets/mark.svg`)
     expect(object).not.toBeNull()
     expect(object!.httpMetadata?.contentType).toBe('image/svg+xml')
@@ -303,13 +319,13 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
       const source = memorySiteStore()
       source.seed(importSlug, { siteJson: parts.siteJson, pages: parts.pages })
 
-      await store.createDraft(importSlug)
-      const summary = await importSite(source, store, importSlug)
+      const target = await store.createDraft()
+      const summary = await importSite(source, store, importSlug, target)
       expect(summary.siteJson).toBe(true)
       expect(summary.pages.sort()).toEqual(Object.keys(parts.pages).sort())
 
       const fromSource = await source.loadDraft(importSlug)
-      const fromD1 = await store.loadDraft(importSlug)
+      const fromD1 = await store.loadDraft(target)
       expect(fromD1).not.toBeNull()
       expect(fromD1!.result.ok, `${slug} assembled from D1`).toBe(true)
 
@@ -321,13 +337,16 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
       const strip = (r: unknown): unknown => {
         const value = (r as { ok: true; value: Record<string, unknown> }).value
         // `sourceDir` is descriptive and names its own store by design — it is
-        // documented as read by nothing at request time.
-        const { sourceDir: _drop, ...rest } = value
+        // documented as read by nothing at request time. So is `slug`, and since
+        // [[REQ-236]] the two stores genuinely disagree about it: the source
+        // knows a directory name, the destination knows the key it minted. That
+        // difference is the change, not a drift between the two definitions.
+        const { sourceDir: _drop, slug: _name, ...rest } = value
         return rest
       }
       expect(strip(fromD1!.result)).toEqual(strip(fromSource!.result))
 
-      await store.forget(importSlug)
+      await store.forget(target)
     }
   })
 
@@ -342,10 +361,10 @@ describe('REQ-143 — the D1/R2 SiteStore', () => {
     // sites would be able to resurrect a deliberately deleted one.
     await expect(importSite(source, store, seed.slug)).rejects.toThrow(/does not exist/)
 
-    await store.createDraft(seed.slug)
-    await importSite(source, store, seed.slug)
-    expect((await store.readPages(seed.slug)).map((p) => p.name)).toEqual(['home.json'])
-    await store.forget(seed.slug)
+    const target = await store.createDraft()
+    await importSite(source, store, seed.slug, target)
+    expect((await store.readPages(target)).map((p) => p.name)).toEqual(['home.json'])
+    await store.forget(target)
   })
 
   // ── The edit surface itself, through D1 ───────────────────────────────────

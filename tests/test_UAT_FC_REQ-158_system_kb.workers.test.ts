@@ -207,8 +207,15 @@ const quotesToolResult =
   (req: ModelRequest): WireEvent[] =>
     says(`${prefix}\n\n${JSON.stringify(req.messages)}`)(req)
 
-async function seedSite(slug: string, deps: RouterDeps): Promise<void> {
-  const seed = siteSeed({ slug })
+/**
+ * Push a starter site in and hand back the KEY it landed on ([[REQ-236]]).
+ *
+ * The payload's `slug` names the SOURCE — the directory the push came from — and
+ * the destination is whatever site the receiving business holds, so the key has
+ * to come back in the reply for the caller to address it.
+ */
+async function seedSite(name: string, deps: RouterDeps): Promise<string> {
+  const seed = siteSeed({ slug: name })
   const res = await post(
     '/api/import',
     {
@@ -223,6 +230,7 @@ async function seedSite(slug: string, deps: RouterDeps): Promise<void> {
     deps,
   )
   expect(res.status).toBe(200)
+  return ((await res.json()) as { site: string }).site
 }
 
 beforeAll(async () => {
@@ -240,10 +248,9 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     // THE ACCEPTANCE CRITERION THAT MATTERS. Everything else in this ticket is
     // the mechanism that makes this sentence true.
     const deps: RouterDeps = { knowledge: fixtureRuntime }
-    const slug = nextSlug('kb')
-    await seedSite(slug, deps)
+    const slug = await seedSite(nextSlug('kb'), deps)
 
-    const opened = await post('/api/ai/session', { slug }, deps)
+    const opened = await post('/api/ai/session', { site: slug }, deps)
     expect(opened.status).toBe(200)
     const session = (await opened.json()) as { sessionId: string }
 
@@ -289,11 +296,10 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
 
   it('test_UAT_FC_REQ-158_priming_puts_the_map_in_the_session_and_not_the_pile', async () => {
     const deps: RouterDeps = { knowledge: fixtureRuntime }
-    const slug = nextSlug('prime')
-    await seedSite(slug, deps)
+    const slug = await seedSite(nextSlug('prime'), deps)
 
     const session = (await (
-      await post('/api/ai/session', { slug }, deps)
+      await post('/api/ai/session', { site: slug }, deps)
     ).json()) as { sessionId: string }
 
     const client = scriptedClient([says('Noted.')])
@@ -324,10 +330,9 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     // literal here — which is what will make a per-tenant KB safe to add later
     // without revisiting this wiring.
     const deps: RouterDeps = { knowledge: fixtureRuntime }
-    const slug = nextSlug('grant')
-    await seedSite(slug, deps)
+    const slug = await seedSite(nextSlug('grant'), deps)
     const session = (await (
-      await post('/api/ai/session', { slug }, deps)
+      await post('/api/ai/session', { site: slug }, deps)
     ).json()) as { sessionId: string }
 
     const client = scriptedClient([says('Noted.')])
@@ -370,11 +375,10 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     // `1c assets` writes `export const KB = null` when nothing has been built, so
     // this is the ordinary path rather than an error path.
     const deps: RouterDeps = { knowledge: async () => null }
-    const slug = nextSlug('nokb')
-    await seedSite(slug, deps)
+    const slug = await seedSite(nextSlug('nokb'), deps)
 
     const session = (await (
-      await post('/api/ai/session', { slug }, deps)
+      await post('/api/ai/session', { site: slug }, deps)
     ).json()) as { sessionId: string }
 
     const client = scriptedClient([says('I had a look.')])

@@ -16,7 +16,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
-const SITES = [{ slug: 'alpha', latest: null }, { slug: 'beta', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: null }, { site: 'beta', latest: 1 }]
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 let createChatPanel: (opts?: Record<string, unknown>) => never

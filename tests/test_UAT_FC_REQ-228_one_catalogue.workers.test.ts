@@ -103,7 +103,8 @@ async function upload(
   const form = new FormData()
   form.append('file', new File([file.bytes as unknown as BlobPart], file.name, { type: file.type }))
   form.append('role', file.role ?? 'site')
-  if (file.slug) form.append('slug', file.slug)
+  // `site`, NOT `slug` ([[REQ-236]]) — the overlay sends the open site's KEY.
+  if (file.slug) form.append('site', file.slug)
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(),

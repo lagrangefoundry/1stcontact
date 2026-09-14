@@ -264,7 +264,11 @@ describe('REQ-119 request-time draft and edit renders', () => {
       path.join(REPO, 'apps/control-app/src/builder/api.js'),
       'utf8',
     )
-    expect(api).toContain('`/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`')
+    // THE PARAMETER IS `site` ([[REQ-236]]) and the URL's SHAPE is what this AC
+    // protects — one path segment for the site, one for the channel, built in
+    // one place. What travels in the first segment became a key; how it is built
+    // did not change, which is the claim.
+    expect(api).toContain('`/preview/${encodeURIComponent(site)}/${encodeURIComponent(channel)}/`')
 
     const app = fs.readFileSync(path.join(REPO, 'apps/control-app/src/builder/app.js'), 'utf8')
     // [[REQ-215]] — still exactly two channel URLs, built the same way from the

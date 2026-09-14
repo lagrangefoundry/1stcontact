@@ -11,7 +11,6 @@ import {
   PRIMARY_EMAIL_SQL,
   provisionBusiness,
   STARTER_HEADING,
-  businessSiteName,
   USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
@@ -276,29 +275,31 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     // create-site flow that does not exist yet.
     const result = await inviteAccount(identityEnv(), { email: anEmail(), endsAt: null })
 
-    const { results } = await env.DB.prepare('SELECT slug FROM sites WHERE tenant_id = ?')
+    // READ BY `id`, BECAUSE THERE IS NO SECOND COLUMN TO READ ([[REQ-236]]).
+    // This used to select `slug` and compare it to what provisioning reported;
+    // the site's key IS what provisioning reports now, so the row's own primary
+    // key is the thing to compare.
+    const { results } = await env.DB.prepare('SELECT id FROM sites WHERE tenant_id = ?')
       .bind(result.businessId)
-      .all<{ slug: string }>()
-    expect((results ?? []).map((r) => r.slug)).toEqual([result.siteSlug])
+      .all<{ id: string }>()
+    expect((results ?? []).map((r) => r.id)).toEqual([result.siteKey])
 
     const page = await env.DB.prepare(
       'SELECT p.page FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
-        'WHERE s.tenant_id = ? AND s.slug = ? AND p.name = ?',
+        'WHERE s.tenant_id = ? AND s.id = ? AND p.name = ?',
     )
-      .bind(result.businessId, result.siteSlug, 'home.json')
+      .bind(result.businessId, result.siteKey, 'home.json')
       .first<{ page: string }>()
     expect(page?.page).toContain(STARTER_HEADING)
 
-    // THE SLUG IS THE BUSINESS'S NAME ([[BUG-90]]). It used to be the account id,
-    // and that was a collision property rather than a naming preference:
-    // `published_sites` claimed a slug GLOBALLY, so one starter name shared by
-    // everybody would have been refused for the second account that published,
-    // for a reason its owner could do nothing about. The published address is
-    // the site's own key now and the slug is unique only inside the business, so
-    // it can be a plain name. [[REQ-190]] made that name one fixed word for
-    // everybody; this bug made it the business's own, because one fixed word is
-    // a collision in the one place a slug is still compared across businesses.
-    expect(result.siteSlug).toBe(businessSiteName(result.name, result.businessId))
+    // AND THE ADDRESS SAYS NOTHING ABOUT THE BUSINESS ([[REQ-236]]). [[REQ-190]]
+    // gave every starter site one fixed word, `unnamed`; [[BUG-90]] replaced that
+    // with the business's own name, because one fixed word collided in the one
+    // place a slug was still compared across businesses. REQ-236 removes the
+    // comparison instead of the collision — a key is minted, so there is no name
+    // to share and nothing a rename could move.
+    expect(result.siteKey).not.toContain('unnamed')
+    expect(result.siteKey).not.toContain(result.name.toLowerCase().replace(/[^a-z0-9]/g, ''))
   })
 
   it('test_UAT_FC_REQ-167_the_account_id_is_opaque_and_not_a_function_of_the_invite', async () => {

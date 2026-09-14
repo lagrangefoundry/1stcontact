@@ -51,13 +51,15 @@ const call = (path: string, init?: RequestInit): Promise<Response> =>
 async function seedSite(tenantId = TENANT) {
   const seed = siteSeed({ slug: nextSlug('bug37') })
   const store = await tenantStore(tenantId)
-  await store.createDraft(seed.slug)
-  await store.write(seed.slug, {
+  // `site` IS THE KEY `createDraft` MINTED ([[REQ-236]]) — the store has no
+  // other name for it, and it is what every verb below is addressed with.
+  const site = await store.createDraft()
+  await store.write(site, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
     assets: Object.entries(seed.assets).map(([name, bytes]) => ({ name, bytes })),
   })
-  return { seed, store }
+  return { seed, store, site }
 }
 
 /**
@@ -96,10 +98,10 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
 
   it('test_UAT_FC_BUG-37_an_unchanged_draft_is_assembled_once', async () => {
     // AC-1. The fix itself: two reads at the same version cost one assemble.
-    const { seed, store } = await seedSite()
+    const { seed, store, site } = await seedSite()
 
-    const first = await store.loadDraft(seed.slug)
-    const second = await store.loadDraft(seed.slug)
+    const first = await store.loadDraft(site)
+    const second = await store.loadDraft(site)
 
     expect(first?.result.ok).toBe(true)
     expect(second?.result.ok).toBe(true)
@@ -113,14 +115,14 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
     // AC-2, and the one that matters most: the memo must never outlive the
     // definition it describes. Every draft mutation bumps `version`, which is
     // what the memo is checked against.
-    const { seed, store } = await seedSite()
+    const { seed, store, site } = await seedSite()
 
-    const before = await store.loadDraft(seed.slug)
+    const before = await store.loadDraft(site)
     expect(before?.result.ok).toBe(true)
 
-    await store.write(seed.slug, { pages: pagesMarked(seed, 'renamed-by-uat') })
+    await store.write(site, { pages: pagesMarked(seed, 'renamed-by-uat') })
 
-    const after = await store.loadDraft(seed.slug)
+    const after = await store.loadDraft(site)
     expect(after!.result).not.toBe(before!.result)
     expect(after!.stamp).not.toBe(before!.stamp)
     expect(dumpOf(after!.result)).toContain('renamed-by-uat')
@@ -132,39 +134,42 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
     // for the next request — or for `bin/publish` writing from a laptop. The
     // version is re-read from D1 every time, so the writer's identity is
     // irrelevant, which is exactly the property being pinned.
-    const { seed, store } = await seedSite()
+    const { seed, store, site } = await seedSite()
 
-    const before = await store.loadDraft(seed.slug)
+    const before = await store.loadDraft(site)
     expect(before?.result.ok).toBe(true)
 
     const other = await d1r2SiteStore(storeEnv()).forTenant(TENANT)
-    await other.write(seed.slug, { pages: pagesMarked(seed, 'written-elsewhere') })
+    await other.write(site, { pages: pagesMarked(seed, 'written-elsewhere') })
 
-    const after = await store.loadDraft(seed.slug)
+    const after = await store.loadDraft(site)
     expect(after!.result).not.toBe(before!.result)
     expect(dumpOf(after!.result)).toContain('written-elsewhere')
   })
 
   it('test_UAT_FC_BUG-37_the_memo_does_not_leak_across_tenants', async () => {
-    // AC-4. The key is `(tenantId, slug)`, and two accounts may hold the same
-    // slug. Sharing an entry between them would be a cross-tenant read — the
-    // one failure this cache could cause that is worse than being slow.
-    const slug = nextSlug('bug37-shared')
+    // AC-4. The memo is keyed by the site's own key, which since [[REQ-236]] is
+    // the only name a site has — so two accounts cannot even reach for the same
+    // entry by naming their sites alike. What this still proves is the property
+    // the bug was about: two sites seeded identically, one per tenant, do not
+    // share an assembled value.
+    const sites: Record<string, string> = {}
     for (const [tenantId, marker] of [
       ['bug37-a', 'tenant-a-content'],
       ['bug37-b', 'tenant-b-content'],
     ]) {
       const store = await tenantStore(tenantId)
-      const seed = siteSeed({ slug })
-      await store.createDraft(slug)
-      await store.write(slug, {
+      const seed = siteSeed({ slug: nextSlug('bug37-shared') })
+      const site = await store.createDraft()
+      sites[tenantId] = site
+      await store.write(site, {
         siteJson: seed.siteJson,
         pages: pagesMarked(seed, marker),
       })
     }
 
-    const a = await (await tenantStore('bug37-a')).loadDraft(slug)
-    const b = await (await tenantStore('bug37-b')).loadDraft(slug)
+    const a = await (await tenantStore('bug37-a')).loadDraft(sites['bug37-a'])
+    const b = await (await tenantStore('bug37-b')).loadDraft(sites['bug37-b'])
 
     expect(dumpOf(a!.result)).toContain('tenant-a-content')
     expect(dumpOf(b!.result)).toContain('tenant-b-content')
@@ -175,21 +180,21 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
     // AC-5. A recreated site starts at version 0 again, so an entry left behind
     // could be matched by a version comparison that is — correctly — only about
     // writes. `forget` drops it, and a `loadDraft` that finds no row drops it too.
-    const { seed, store } = await seedSite()
-    const before = await store.loadDraft(seed.slug)
+    const { seed, store, site } = await seedSite()
+    const before = await store.loadDraft(site)
     expect(before?.result.ok).toBe(true)
 
-    await store.forget(seed.slug)
-    expect(await store.loadDraft(seed.slug)).toBeNull()
+    await store.forget(site)
+    expect(await store.loadDraft(site)).toBeNull()
 
-    await store.createDraft(seed.slug)
+    const recreatedSite = await store.createDraft()
     const recreated = siteSeed({ slug: seed.slug })
-    await store.write(seed.slug, {
+    await store.write(recreatedSite, {
       siteJson: recreated.siteJson,
       pages: pagesMarked(recreated, 'recreated-site'),
     })
 
-    const after = await store.loadDraft(seed.slug)
+    const after = await store.loadDraft(recreatedSite)
     expect(after!.result).not.toBe(before!.result)
     expect(dumpOf(after!.result)).toContain('recreated-site')
   })
@@ -200,21 +205,21 @@ describe('BUG-37 — the assembled draft is memoised per isolate', () => {
     // were keyed on anything that a save does not move: the operator edits, the
     // iframe reloads, and the reload must show the edit rather than the render
     // that preceded it.
-    const { seed, store } = await seedSite()
+    const { seed, store, site } = await seedSite()
 
-    const first = await call(`/preview/${seed.slug}/edit/`)
+    const first = await call(`/preview/${site}/edit/`)
     expect(first.status).toBe(200)
     const beforeHtml = await first.text()
 
     // A second request at the same version: the memo's hit path, and it must
     // still be a byte-identical answer rather than a differently-assembled one.
-    const second = await call(`/preview/${seed.slug}/edit/`)
+    const second = await call(`/preview/${site}/edit/`)
     expect(second.status).toBe(200)
     expect(await second.text()).toBe(beforeHtml)
 
-    await store.write(seed.slug, { pages: pagesMarked(seed, 'saved-by-uat') })
+    await store.write(site, { pages: pagesMarked(seed, 'saved-by-uat') })
 
-    const third = await call(`/preview/${seed.slug}/edit/`)
+    const third = await call(`/preview/${site}/edit/`)
     expect(third.status).toBe(200)
     const afterHtml = await third.text()
     expect(afterHtml).not.toBe(beforeHtml)

@@ -41,9 +41,22 @@ import { calls, says, scriptedClient } from './support/scripted-model-client'
  * protocol change breaks one place.
  */
 
-const TENANT = 'req146'
+/**
+ * ONE BUSINESS PER CASE ([[REQ-236]]).
+ *
+ * These cases used to share the tenant `req146` and give themselves private
+ * sites by importing a distinct `nextSlug()`, because a push NAMED its
+ * destination. `/api/import` resolves the receiving business's single site now,
+ * so a shared tenant is a shared site — and the first case's AI turn journals a
+ * change, which makes every later case's import a 409. A business per case
+ * restores the isolation the slug used to provide, and it is also what keeps one
+ * case's conversation out of the next one's: a session is keyed on the site, and
+ * two cases sharing a site would share a transcript.
+ */
+let businessSeq = 0
+const nextBusiness = (): string => `req146-${(businessSeq += 1)}`
 
-function workerEnv(overrides: Partial<Env> = {}): Env {
+function workerEnv(tenant: string, overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB,
     SITES: env.SITES,
@@ -53,7 +66,7 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
     // required because a control-app deployment whose material has nowhere to go
     // is misconfigured, and that refusal is deliberate (`tickets.ts`).
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: TENANT,
+    TENANT_ID: tenant,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
     ACCESS_AUD: '',
@@ -69,14 +82,25 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
   }
 }
 
-const call = (path: string, init?: RequestInit, overrides?: Partial<Env>): Promise<Response> =>
+const call = (
+  tenant: string,
+  path: string,
+  init?: RequestInit,
+  overrides?: Partial<Env>,
+): Promise<Response> =>
   worker.fetch(
     new Request(`https://app.example/${path.replace(/^\//, '')}`, init),
-    workerEnv(overrides),
+    workerEnv(tenant, overrides),
   )
 
-const post = (path: string, body: unknown, overrides?: Partial<Env>): Promise<Response> =>
+const post = (
+  tenant: string,
+  path: string,
+  body: unknown,
+  overrides?: Partial<Env>,
+): Promise<Response> =>
   call(
+    tenant,
     path,
     {
       method: 'POST',
@@ -104,18 +128,23 @@ async function frames(response: Response): Promise<{ kind: string; content?: str
  * one that drifted from the validator would fail as "this draft does not
  * validate", which is a test asserting its own mistake.
  */
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
-  const res = await post('/api/import', {
+async function seedSite(tenant: string, name: string): Promise<string> {
+  const seed = siteSeed({ slug: name })
+  const res = await post(tenant, '/api/import', {
+    // `slug` NAMES THE SOURCE ([[REQ-236]]) — the directory the push came from —
+    // and the destination is whatever site this business holds. The key comes
+    // back in the reply, because it is the only way the caller can address what
+    // it just wrote.
     slug: seed.slug,
     siteJson: seed.siteJson as Record<string, unknown>,
-    pages: Object.entries(seed.pages).map(([name, page]) => ({
-      name,
+    pages: Object.entries(seed.pages).map(([name_, page]) => ({
+      name: name_,
       page: page as Record<string, unknown>,
     })),
     assets: [] as { name: string; base64: string }[],
   })
   expect(res.status).toBe(200)
+  return ((await res.json()) as { site: string }).site
 }
 
 beforeAll(async () => {
@@ -132,16 +161,16 @@ describe('REQ-146 — the AI host runs in workerd', () => {
   it('test_UAT_FC_REQ-146_a_turn_runs_in_workerd_and_its_edit_lands_in_the_store', async () => {
     // AC1. The whole loop, in a Worker: open a session, take a turn that calls a
     // tool, and find the change in D1 — not in a fixture, not on a disk.
-    const slug = nextSlug('turn')
-    await seedSite(slug)
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('turn'))
 
-    const opened = await post('/api/ai/session', { slug })
+    const opened = await post(tenant, '/api/ai/session', { site: slug })
     expect(opened.status).toBe(200)
     const session = (await opened.json()) as { sessionId: string; ready: boolean }
     expect(session.ready).toBe(true)
 
-    const before = await post('/api/copy', {
-      slug,
+    const before = await post(tenant, '/api/copy', {
+      site: slug,
       page: 'home',
       path: '0.0',
       values: {},
@@ -157,7 +186,7 @@ describe('REQ-146 — the AI host runs in workerd', () => {
       ]),
     )
 
-    const turn = await post('/api/ai/prompt', {
+    const turn = await post(tenant, '/api/ai/prompt', {
       sessionId: session.sessionId,
       text: 'What pages does this site have?',
     })
@@ -178,15 +207,15 @@ describe('REQ-146 — the AI host runs in workerd', () => {
   it('test_UAT_FC_REQ-146_reloading_resumes_the_sites_conversation', async () => {
     // AC2. A reload is a fresh isolate as far as the panel is concerned: the
     // transcript has to come back from R2, not from anything held in memory.
-    const slug = nextSlug('resume')
-    await seedSite(slug)
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('resume'))
 
-    const first = (await (await post('/api/ai/session', { slug })).json()) as {
+    const first = (await (await post(tenant, '/api/ai/session', { site: slug })).json()) as {
       sessionId: string
     }
     setModelClient(scriptedClient([says('The first thing I said.')]))
     await frames(
-      await post('/api/ai/prompt', { sessionId: first.sessionId, text: 'Hello.' }),
+      await post(tenant, '/api/ai/prompt', { sessionId: first.sessionId, text: 'Hello.' }),
     )
 
     // Everything cached is dropped — this is the reload.
@@ -194,7 +223,7 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     resetChatHost()
     setModelClient(null)
 
-    const again = (await (await post('/api/ai/session', { slug })).json()) as {
+    const again = (await (await post(tenant, '/api/ai/session', { site: slug })).json()) as {
       sessionId: string
       turns: { role: string; markdown: string }[]
     }
@@ -214,29 +243,35 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // from a request. It is now a `chat` ticket, so there is no key to reason
     // about at all — the R2 prefix that used to hold it is empty, and the only
     // R2 the AI writes is the audit trail, still outside `draft/`.
-    const slug = nextSlug('keys')
-    await seedSite(slug)
-    const opened = (await (await post('/api/ai/session', { slug })).json()) as {
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('keys'))
+    const opened = (await (await post(tenant, '/api/ai/session', { site: slug })).json()) as {
       sessionId: string
     }
-    setModelClient(scriptedClient([says('Stored.')]))
-    await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi.' }))
+    // A TOOL CALL, NOT JUST A REPLY, because the audit assertion below is about
+    // what the AI WRITES to R2 and a turn that only talks writes nothing. This
+    // case used to script a bare `says` and still find audit objects — they
+    // belonged to earlier cases, which shared this one's tenant until [[REQ-236]]
+    // gave each case its own business. The leak flattered the assertion; making
+    // the turn auditable is what the case always meant.
+    setModelClient(scriptedClient([calls('list_pages', {}), says('Stored.')]))
+    await frames(await post(tenant, '/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi.' }))
 
     // The old home is gone, not merely unreferenced.
-    const transcripts = await env.SITES.list({ prefix: `chat/${TENANT}/` })
+    const transcripts = await env.SITES.list({ prefix: `chat/${tenant}/` })
     expect(transcripts.objects).toEqual([])
 
     // What the AI does still put in R2 is the audit, and it is outside `draft/`.
-    const audit = await env.SITES.list({ prefix: `audit/${TENANT}/` })
+    const audit = await env.SITES.list({ prefix: `audit/${tenant}/` })
     expect(audit.objects.length).toBeGreaterThan(0)
     for (const object of audit.objects) {
       expect(object.key.startsWith('draft/')).toBe(false)
     }
 
     // The one prefix a URL can reach is the site store's, and neither is under it.
-    const preview = await call(`/preview/${slug}/draft/`)
+    const preview = await call(tenant, `/preview/${slug}/draft/`)
     expect(preview.status).not.toBe(500)
-    const asSite = await call(`/preview/chat%2F${TENANT}/draft/`)
+    const asSite = await call(tenant, `/preview/chat%2F${tenant}/draft/`)
     expect([404, 500]).toContain(asSite.status)
   })
 
@@ -244,20 +279,20 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // AC3. The audit is written durably BEFORE the response completes, so it
     // outlives the isolate that produced it — which is the only sense in which
     // an audit trail is one.
-    const slug = nextSlug('audit')
-    await seedSite(slug)
-    const opened = (await (await post('/api/ai/session', { slug })).json()) as {
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('audit'))
+    const opened = (await (await post(tenant, '/api/ai/session', { site: slug })).json()) as {
       sessionId: string
     }
 
     setModelClient(scriptedClient([calls('list_pages', {}), says('Done.')]))
-    await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Look.' }))
+    await frames(await post(tenant, '/api/ai/prompt', { sessionId: opened.sessionId, text: 'Look.' }))
 
     // Read back from R2 with everything in memory dropped — the restart.
     resetAiHost()
     resetChatHost()
 
-    const listed = await env.SITES.list({ prefix: `audit/${TENANT}/${opened.sessionId}/` })
+    const listed = await env.SITES.list({ prefix: `audit/${tenant}/${opened.sessionId}/` })
     expect(listed.objects.length).toBeGreaterThan(0)
 
     const first = await env.SITES.get(listed.objects[0].key)
@@ -275,6 +310,7 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // buys is that two flushes cannot lose each other's entries — a fold would,
     // and an audit that drops records under load reads as evidence while being
     // wrong.
+    const tenant = nextBusiness()
     const session = 'site-concurrent'
     const line = (op: string, ts: string) =>
       ({
@@ -289,11 +325,11 @@ describe('REQ-146 — the AI host runs in workerd', () => {
       }) as never
 
     await Promise.all([
-      flushAudit(env.SITES, TENANT, session, [line('a', '2026-01-01T00:00:00.000Z')]),
-      flushAudit(env.SITES, TENANT, session, [line('b', '2026-01-01T00:00:01.000Z')]),
+      flushAudit(env.SITES, tenant, session, [line('a', '2026-01-01T00:00:00.000Z')]),
+      flushAudit(env.SITES, tenant, session, [line('b', '2026-01-01T00:00:01.000Z')]),
     ])
 
-    const listed = await env.SITES.list({ prefix: `audit/${TENANT}/${session}/` })
+    const listed = await env.SITES.list({ prefix: `audit/${tenant}/${session}/` })
     expect(listed.objects).toHaveLength(2)
   })
 
@@ -301,11 +337,11 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // AC4. The key is a bearer credential for a paid API. It must not travel to
     // the client in an answer, in an envelope, or in the message a failure
     // produces.
-    const slug = nextSlug('secret')
-    await seedSite(slug)
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('secret'))
     const key = 'sk-ant-do-not-leak-me'
 
-    const opened = await post('/api/ai/session', { slug }, { ANTHROPIC_API_KEY: key })
+    const opened = await post(tenant, '/api/ai/session', { site: slug }, { ANTHROPIC_API_KEY: key })
     const openedBody = await opened.text()
     expect(openedBody).not.toContain(key)
 
@@ -321,6 +357,7 @@ describe('REQ-146 — the AI host runs in workerd', () => {
       },
     })
     const turn = await post(
+      tenant,
       '/api/ai/prompt',
       { sessionId, text: 'Go.' },
       { ANTHROPIC_API_KEY: key },
@@ -333,9 +370,9 @@ describe('REQ-146 — the AI host runs in workerd', () => {
   it('test_UAT_FC_REQ-146_a_missing_key_costs_a_turn_and_not_the_conversation', async () => {
     // The panel shows the history AND the reason it is frozen. Those are
     // independent failures and reporting them together is the whole point.
-    const slug = nextSlug('nokey')
-    await seedSite(slug)
-    const opened = await post('/api/ai/session', { slug }, { ANTHROPIC_API_KEY: undefined })
+    const tenant = nextBusiness()
+    const slug = await seedSite(tenant, nextSlug('nokey'))
+    const opened = await post(tenant, '/api/ai/session', { site: slug }, { ANTHROPIC_API_KEY: undefined })
     expect(opened.status).toBe(200)
     const session = (await opened.json()) as {
       sessionId: string
@@ -376,7 +413,8 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     // raises on `load` — it does not come back as an empty conversation, which
     // is the failure that would let `attach` start a new one over the top of a
     // real transcript it merely failed to find.
-    const archive = sessionArchive(await ticketStoreFor(workerEnv(), { businessId: TENANT }))
+    const tenant = nextBusiness()
+    const archive = sessionArchive(await ticketStoreFor(workerEnv(tenant), { businessId: tenant }))
     expect(await archive.list()).not.toContain('site-absent')
     await expect(archive.load('site-absent')).rejects.toThrow()
   })

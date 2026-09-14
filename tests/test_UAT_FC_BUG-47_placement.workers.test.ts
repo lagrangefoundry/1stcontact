@@ -17,7 +17,8 @@ import { bytesOf } from './support/material-fixtures'
  * and the very next screen said they had.
  *
  * `site_slug` held WHICH SITE WAS OPEN WHEN THE FILE ARRIVED, because the
- * overlay sends the open site's slug with every upload — it is an instruction to
+ * overlay sends the open site's key with every upload ([[REQ-236]] renamed the
+ * field from `slug`) — it is an instruction to
  * the promotion, conditional on the role. Three consumers read it as WHERE THE
  * BYTES ARE: the pill, the `Used on` field, and the "used on this site" filter.
  * The gate itself was never wrong — `promoteToSiteAsset` refuses anything that is
@@ -79,18 +80,18 @@ function deps(): RouterDeps {
 /**
  * One dropped file, through the real route.
  *
- * `slug` IS ALWAYS SENT, which is the point. The overlay has the open site and
- * passes it with every upload whichever area was chosen — so a suite that only
- * sent it for `site` uploads could not reproduce this bug at all.
+ * `site` IS ALWAYS SENT, which is the point. The overlay has the open site and
+ * passes its key with every upload whichever area was chosen — so a suite that
+ * only sent it for `site` uploads could not reproduce this bug at all.
  */
 async function upload(
   tenant: string,
-  file: { bytes: Uint8Array; name: string; type: string; role: string; slug: string },
+  file: { bytes: Uint8Array; name: string; type: string; role: string; site: string },
 ): Promise<Record<string, unknown>> {
   const form = new FormData()
   form.append('file', new File([file.bytes as unknown as BlobPart], file.name, { type: file.type }))
   form.append('role', file.role)
-  form.append('slug', file.slug)
+  form.append('site', file.site)
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
     routerEnv(tenant),
@@ -131,7 +132,7 @@ describe('BUG-47 — placement is where the bytes went', () => {
       name: 'positioning.md',
       type: 'text/markdown',
       role: 'reference',
-      slug: site.slug,
+      site: site.slug,
     })
 
     // Nothing was put on the site, and the row says nothing was.
@@ -148,7 +149,7 @@ describe('BUG-47 — placement is where the bytes went', () => {
       name: 'wordmark.svg',
       type: 'image/svg+xml',
       role: 'site',
-      slug: site.slug,
+      site: site.slug,
     })
 
     expect(uploaded.site_asset).toBe('wordmark.svg')
@@ -171,7 +172,7 @@ describe('BUG-47 — placement is where the bytes went', () => {
       role: 'site',
       // A site of this tenant's that does not exist. The client's file survives;
       // the promotion does not.
-      slug: 'bug47-no-such-site',
+      site: 'bug47-no-such-site',
     })
 
     expect(uploaded.site_asset).toBeNull()
@@ -197,7 +198,7 @@ describe('BUG-47 — placement is where the bytes went', () => {
       name: 'logo.svg',
       type: 'image/svg+xml',
       role: 'site',
-      slug: first.slug,
+      site: first.slug,
     })
     const uid = String(uploaded.uid)
 

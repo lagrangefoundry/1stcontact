@@ -412,7 +412,7 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: SLUG,
+        site: SLUG,
         page: 'home',
         path: HEADLINE_PATH,
         values: { text: 'I rewrote this myself.' },

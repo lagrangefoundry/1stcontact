@@ -37,8 +37,8 @@ import * as pageState from '../packages/framework/src/l1/page-state'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const SITES = [
-  { slug: 'acme', latest: null },
-  { slug: 'other', latest: null },
+  { site: 'acme', latest: null },
+  { site: 'other', latest: null },
 ]
 
 function memoryStorage(): Storage {

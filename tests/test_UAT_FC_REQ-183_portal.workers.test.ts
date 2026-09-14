@@ -131,12 +131,23 @@ async function lapse(businessId: string): Promise<void> {
  */
 async function authorPortalIn(businessId: string, heading: string): Promise<void> {
   const store = await storeFor(workerEnv(), { businessId })
-  await store.createDraft(PORTAL_SLUG)
+  // KIND `portal`, NOT THE SLUG `portal` ([[REQ-236]]). The authored portal used
+  // to be found under a reserved name a customer could have collided with by
+  // calling their own site `portal`; it is a minted key with a `kind` beside it
+  // now, and `siteKeys('portal')` is what the route asks.
+  //
+  // AND THE EXISTING ONE IS REUSED, WHICH IS THE CALLER'S JOB NOW. `createDraft`
+  // used to insert-or-ignore on the name, so authoring a business's portal twice
+  // rewrote the one row; it mints unconditionally now, so a second call would
+  // leave the business holding TWO portals and the route serving whichever sorted
+  // first. Asking `siteKeys` before creating is the guard BUG-51's return value
+  // used to be, and it is what `router.ts` itself does before scaffolding a site.
+  const portal = (await store.siteKeys('portal'))[0] ?? (await store.createDraft('portal'))
   const page = portalHomePage(BUSINESSES_PATH) as {
     modules: Array<{ slots: { body: { children: Array<{ text?: string }> } } }>
   }
   page.modules[0].slots.body.children[0].text = heading
-  await store.write(PORTAL_SLUG, {
+  await store.write(portal, {
     siteJson: portalSiteJson(),
     pages: [{ name: 'home.json', page: page as unknown as Record<string, unknown> }],
     assets: [],

@@ -100,6 +100,14 @@ CREATE TABLE IF NOT EXISTS tenants (
 -- name at most one site inside the business that owns it, or the builder could
 -- not address one. Across businesses it means nothing, which is what lets two
 -- businesses each own — and each publish — a site called `home`.
+--
+-- BOTH THE COLUMN AND THAT INDEX ARE RETIRED BY `0005_retire_site_slug.sql`
+-- ([[REQ-236]]), which also adds the `kind` column the portal is found by. This
+-- file is left declaring them because it has been applied and cannot be
+-- unapplied; read the two files together for the shape a database actually has.
+-- The paragraph above is the argument REQ-190 made, and what REQ-236 answered is
+-- that a site addressed by its key needs no second name for the builder to
+-- address it by at all.
 CREATE TABLE IF NOT EXISTS sites (
   id         TEXT PRIMARY KEY,
   tenant_id  TEXT NOT NULL,

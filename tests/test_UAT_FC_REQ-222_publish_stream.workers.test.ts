@@ -57,15 +57,15 @@ async function draft(): Promise<string> {
   const platform = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
   await platform.createTenant({ id: TENANT, name: TENANT, status: 'active' })
   const store = await platform.forTenant(TENANT)
-  const slug = nextSlug('req222stream')
-  const seed = siteSeed({ slug })
-  await store.createDraft(slug)
-  await store.write(slug, {
+  const seed = siteSeed({ slug: nextSlug('req222stream') })
+  // The key the store minted, which since [[REQ-236]] is the only name it has.
+  const site = await store.createDraft()
+  await store.write(site, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
     assets: [],
   })
-  return slug
+  return site
 }
 
 /** Every `data:` frame of a response, parsed. */
@@ -78,11 +78,11 @@ async function framesOf(res: Response): Promise<Record<string, unknown>[]> {
     .map((frame) => JSON.parse(frame.slice(5).trim()))
 }
 
-const publish = (slug: string, accept?: string): Promise<Response> =>
+const publish = (site: string, accept?: string): Promise<Response> =>
   call('/api/publish', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(accept ? { accept } : {}) },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ site }),
   })
 
 describe('REQ-222 — the publish route streams when it is asked to', () => {
@@ -91,8 +91,8 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
   })
 
   it('answers an event stream, ending in a terminal frame that says it worked', async () => {
-    const slug = await draft()
-    const res = await publish(slug, 'text/event-stream')
+    const site = await draft()
+    const res = await publish(site, 'text/event-stream')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/event-stream')
     // A publish a proxy answered from cache would be a button reporting the LAST
@@ -117,8 +117,8 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
   it('answers the same publish as JSON when nothing asked for frames', async () => {
     // THE WHOLE ARGUMENT FOR SELECTING ON `Accept`: every existing caller — `1c
     // publish`, a UAT, anything that posts and reads JSON — is untouched.
-    const slug = await draft()
-    const res = await publish(slug)
+    const site = await draft()
+    const res = await publish(site)
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('application/json')
     const body = (await res.json()) as Record<string, unknown>
@@ -161,7 +161,7 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
     expect(res.headers.get('content-type')).toContain('application/json')
   })
 
-  it('refuses a missing slug the same way in both forms', async () => {
+  it('refuses a missing site the same way in both forms', async () => {
     for (const accept of [undefined, 'text/event-stream']) {
       const res = await call('/api/publish', {
         method: 'POST',
@@ -169,7 +169,7 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
         body: JSON.stringify({}),
       })
       expect(res.status).toBe(400)
-      expect((await res.json() as Record<string, unknown>).error).toContain('slug')
+      expect((await res.json() as Record<string, unknown>).error).toContain('site')
     }
   })
 
@@ -177,8 +177,8 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
     // A site with no pictures reports a total of zero, which is what lets the
     // builder stay quiet — a republish that warned about resizing would train the
     // client to ignore the one case where it matters.
-    const slug = await draft()
-    const frames = await framesOf(await publish(slug, 'text/event-stream'))
+    const site = await draft()
+    const frames = await framesOf(await publish(site, 'text/event-stream'))
     for (const frame of frames.filter((f) => f.kind === 'progress')) {
       expect(frame.total).toBe(0)
     }

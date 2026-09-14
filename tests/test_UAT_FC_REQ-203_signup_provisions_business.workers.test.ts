@@ -7,7 +7,6 @@ import {
   admit,
   ensurePlatformOperator,
   STARTER_HEADING,
-  businessSiteName,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { addContact, markInvited } from '../apps/control-app/src/people'
@@ -303,11 +302,15 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
 
     const business = (await businessesOwnedBy(contact.accountId))[0]
     const businessId = business.id
-    // NAMED AFTER THE BUSINESS ([[BUG-90]]). The name is read back off the row
-    // rather than restated, so this asserts the derivation the shipped path
-    // performed and not a second copy of the rule.
-    const slug = businessSiteName(business.name, businessId)
+    // ASKED OF THE STORE RATHER THAN DERIVED ([[REQ-236]]). This used to restate
+    // BUG-90's rule — recompute the site's name from the business's — which made
+    // the assertion a second copy of the derivation. There is no derivation now,
+    // so the question is the one that was always meant: what site did the shipped
+    // path actually leave this business holding?
     const store = await d1r2SiteStore(identityEnv()).forTenant(businessId)
+    const keys = await store.siteKeys('site')
+    expect(keys).toHaveLength(1)
+    const slug = keys[0]!
     expect(await store.hasDraft(slug)).toBe(true)
     const pages = await store.readPages(slug)
     expect(pages.map((p) => p.name)).toEqual(['home.json'])
@@ -435,13 +438,13 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
     expect((await accept(nameless.token)).status).toBe(204)
     expect((await businessesOwnedBy(nameless.accountId))[0].name).toBe(UNNAMED_BUSINESS_NAME)
     // Provisional rather than a decision somebody made: a name that reads as
-    // settled gives nobody a reason to change it. It is the BUSINESS's name, and
-    // since [[BUG-90]] the site takes its name from it — so a contact who signs
-    // up without a display name opens a builder onto `unnamedbusiness`. That is
-    // the onboarding question BUG-90 leaves open for the settings work; what it
-    // is not is a reason to give the site a fixed name of its own again.
+    // settled gives nobody a reason to change it. It is the BUSINESS's name and
+    // it is the ONLY place the word appears ([[REQ-236]]): [[BUG-90]] had the
+    // site take its name from the business, so a contact who signed up without a
+    // display name opened a builder onto `unnamedbusiness`. The site is addressed
+    // by a minted key now, so the provisional name stays where it belongs — on
+    // the business, where changing it is a rename and not a re-address.
     expect(UNNAMED_BUSINESS_NAME.toLowerCase()).toContain('unnamed')
-    expect(businessSiteName(UNNAMED_BUSINESS_NAME, 'biz_x')).toBe('unnamedbusiness')
   })
 
   it('test_UAT_FC_REQ-203_a_member_who_holds_nothing_is_still_refused', async () => {
@@ -474,7 +477,9 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
       id: contact.userId,
       account_id: contact.accountId,
     })
-    expect(made?.siteSlug).toBe(businessSiteName(made!.name, made!.businessId))
+    // A KEY, AND ONE THE NAME DID NOT PRODUCE ([[REQ-236]]).
+    expect(made?.siteKey).toBeTruthy()
+    expect(made!.siteKey).not.toContain('unnamed')
     expect(await ensureOwnBusiness(identityEnv(), {
       id: contact.userId,
       account_id: contact.accountId,

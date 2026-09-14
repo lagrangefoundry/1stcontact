@@ -80,15 +80,22 @@ describe('REQ-223 — the internal seam', () => {
     expect([...router.matchAll(/'\/api\/lead'/g)]).toHaveLength(1)
     expect(router).toMatch(/preview\[3\] \?\? '\/'\) === '\/api\/lead'/)
     // And it is GATED exactly as every other builder route is: the site key comes
-    // from the slug through the operator's own store, never from the body, so a
-    // submission cannot name a tenant; and only the draft channel answers, so the
-    // published one still goes to `public-site` where the real endpoint lives.
+    // out of the URL and is CHECKED against the operator's own store, never taken
+    // from the body, so a submission cannot name a tenant; and only the draft
+    // channel answers, so the published one still goes to `public-site` where the
+    // real endpoint lives.
+    //
+    // THE CHECK USED TO BE A LOOKUP ([[REQ-236]]). It was `store.siteKey(slug)` —
+    // turning a chosen name into a key, and refusing when the name named nothing
+    // in this business. There is no name to turn, so the same gate is
+    // `store.hasDraft(site)`: the key is refused unless this business holds it,
+    // which is the identical claim over the identical scoping.
     // (What the route DOES is `test_UAT_FC_BUG-78_preview_submits_for_real`'s
     // subject, against real bindings; this is the routing claim alone.)
     const leadRoute = /=== '\/api\/lead'\) \{([\s\S]*?)\n      \}/.exec(router)?.[1] ?? ''
     expect(leadRoute, 'the preview lead route was not found to check its gate').not.toBe('')
     expect(leadRoute).toMatch(/if \(channel !== 'draft'\) return text\(404/)
-    expect(leadRoute).toMatch(/await store\.siteKey\(slug\)/)
+    expect(leadRoute).toMatch(/await store\.hasDraft\(site\)/)
     expect(leadRoute).toMatch(/await openStore\(\)/)
     // AC-14 — and the `fetch` handler, which is the only thing in this Worker a
     // URL can reach at all, never mentions it. The doorway is the binding; there

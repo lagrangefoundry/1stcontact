@@ -4,7 +4,7 @@ import controlApp from '../apps/control-app/src/index'
 import type { Env as ControlEnv } from '../apps/control-app/src/index'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { TEMPLATE_TYPE } from '../apps/control-app/src/templates'
-import { applySchema } from './support/d1-site-factory'
+import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 
 /**
@@ -53,14 +53,26 @@ import { nextSlug, siteSeed } from './support/site-seed'
  *     publishes to find out, which is the toolbar lying about how much is wrong.
  */
 
-const TENANT = 'req243-publish'
+/**
+ * ONE BUSINESS PER CASE ([[REQ-236]]).
+ *
+ * Every case here used to share the tenant `req243-publish` and tell its sites
+ * apart by the name it imported under. A payload cannot name one any more —
+ * `/api/import` resolves the receiving business's single site — so cases sharing
+ * a tenant would be successive writes to one site, and the second publish in
+ * this file would be refused for a reason that has nothing to do with templates.
+ * A fresh business per case restores the isolation the shared tenant used to
+ * provide, and the template a case writes is written into that case's own store.
+ */
+let businessSeq = 0
+const nextBusiness = (): string => `req243-publish-${(businessSeq += 1)}`
 
-function controlEnv(): ControlEnv {
+function controlEnv(tenant: string): ControlEnv {
   return {
     DB: env.DB,
     SITES: env.SITES,
     BLOBS: env.BLOBS,
-    TENANT_ID: TENANT,
+    TENANT_ID: tenant,
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
     ACCESS_AUD: '',
@@ -74,8 +86,11 @@ function controlEnv(): ControlEnv {
   } as unknown as ControlEnv
 }
 
-const call = (path: string, init?: RequestInit): Promise<Response> =>
-  controlApp.fetch(new Request(`https://app.example/${path.replace(/^\//, '')}`, init), controlEnv())
+const call = (tenant: string, path: string, init?: RequestInit): Promise<Response> =>
+  controlApp.fetch(
+    new Request(`https://app.example/${path.replace(/^\//, '')}`, init),
+    controlEnv(tenant),
+  )
 
 /**
  * One `contact-form`, in the shape a page carries it.
@@ -118,8 +133,10 @@ interface PublishRefusal {
  * its own mistake rather than the gate.
  */
 async function publishWith(
+  tenant: string,
   forms: Array<Record<string, unknown>>,
 ): Promise<{ status: number; body: PublishRefusal }> {
+  await ensureTenant(tenant)
   const seed = siteSeed({ slug: nextSlug('req243pub') })
   const scaffolded = seed.pages['home.json'] as Record<string, unknown>
   const l1 = scaffolded.l1 as { root: { children: unknown[] } }
@@ -140,10 +157,13 @@ async function publishWith(
       },
     },
   }
-  const imported = await call('/api/import', {
+  const imported = await call(tenant, '/api/import', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
+      // `slug` NAMES THE SOURCE, not the destination ([[REQ-236]]) — what this
+      // site is called on the laptop it came from. The route resolves its own
+      // target: the receiving business's single site, minted on the way in.
       slug: seed.slug,
       siteJson: seed.siteJson,
       pages: [{ name: 'home.json', page: home }],
@@ -151,11 +171,13 @@ async function publishWith(
     }),
   })
   expect(imported.status, await imported.clone().text()).toBe(200)
+  // THE KEY THE IMPORT LANDED ON, which is the only handle a publish has.
+  const { site } = (await imported.json()) as { site: string }
 
-  const res = await call('/api/publish', {
+  const res = await call(tenant, '/api/publish', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug: seed.slug, message: 'go' }),
+    body: JSON.stringify({ site, message: 'go' }),
   })
   return { status: res.status, body: (await res.json()) as PublishRefusal }
 }
@@ -171,7 +193,9 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    * missing key.
    */
   it('test_UAT_FC_REQ-243_publishing_a_form_naming_an_unwritten_template_is_refused', async () => {
-    const { status, body } = await publishWith([form('beta-form', 'never-written')])
+    const { status, body } = await publishWith(nextBusiness(), [
+      form('beta-form', 'never-written'),
+    ])
 
     // THE AUTHOR'S ERROR, reported the way every other invalid draft is — so the
     // toolbar that already renders path-pointed validation errors renders this
@@ -198,9 +222,11 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    * that writing the template is what changes the answer.
    */
   it('test_UAT_FC_REQ-243_a_template_the_business_wrote_publishes', async () => {
+    const tenant = nextBusiness()
+    await ensureTenant(tenant)
     const store = await ticketStoreFor(
       { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
-      { businessId: TENANT },
+      { businessId: tenant },
     )
     await store.create({
       type: TEMPLATE_TYPE,
@@ -209,7 +235,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
       body: '<p>You are on the list.</p>',
     })
 
-    const { status, body } = await publishWith([form('beta-form', 'beta-welcome')])
+    const { status, body } = await publishWith(tenant, [form('beta-form', 'beta-welcome')])
     expect(status, JSON.stringify(body)).toBe(200)
   })
 
@@ -222,7 +248,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    * perfectly — a refusal with no failure behind it, which is the worst kind.
    */
   it('test_UAT_FC_REQ-243_a_seeded_system_key_is_not_reported_missing', async () => {
-    const { status } = await publishWith([form('gate', 'asset')])
+    const { status } = await publishWith(nextBusiness(), [form('gate', 'asset')])
     expect(status).toBe(200)
   })
 
@@ -237,7 +263,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    */
   it('test_UAT_FC_REQ-243_a_credential_template_is_refused_as_forbidden_not_as_missing', async () => {
     for (const key of ['invite', 'signin']) {
-      const { status, body } = await publishWith([form('signup-form', key)])
+      const { status, body } = await publishWith(nextBusiness(), [form('signup-form', key)])
       expect(status).toBe(400)
       const [error] = body.errors!
       expect(error.message).toContain('signup-form')
@@ -256,7 +282,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    * value rather than the honest way to say "this one sends nothing".
    */
   it('test_UAT_FC_REQ-243_a_form_naming_no_template_publishes', async () => {
-    const { status, body } = await publishWith([form('quiet-form')])
+    const { status, body } = await publishWith(nextBusiness(), [form('quiet-form')])
     expect(status, JSON.stringify(body)).toBe(200)
   })
 
@@ -268,7 +294,7 @@ describe('REQ-243 — publishing checks the templates its forms name', () => {
    * stopped at the first would make the toolbar understate how much is wrong.
    */
   it('test_UAT_FC_REQ-243_every_form_naming_a_bad_template_is_reported_at_once', async () => {
-    const { status, body } = await publishWith([
+    const { status, body } = await publishWith(nextBusiness(), [
       form('first-form', 'not-a-template'),
       form('second-form', 'signin'),
     ])

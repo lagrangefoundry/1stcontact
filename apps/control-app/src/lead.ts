@@ -264,7 +264,7 @@ export interface FormDefinition {
 }
 
 /**
- * The business and slug a site key names.
+ * The business a site key belongs to.
  *
  * IT READS `sites` DIRECTLY AND IS NOT A HOLE IN THE TENANT BARRIER. A site key
  * is 128 random bits and is the site's PUBLIC ADDRESS — `public-site` already
@@ -277,13 +277,17 @@ export interface FormDefinition {
 export async function businessOfSite(
   env: LeadEnv,
   siteKey: string,
-): Promise<{ businessId: string; slug: string } | null> {
+): Promise<{ businessId: string } | null> {
   if (siteKey === '') return null
-  const row = await env.DB.prepare('SELECT tenant_id, slug FROM sites WHERE id = ?')
+  // THE BUSINESS IS THE WHOLE ANSWER NOW ([[REQ-236]]). It used to hand back the
+  // slug as well, because the store addressed a site by one and every caller
+  // below needed it. The store takes the key — which the caller already holds —
+  // so the only thing left to learn here is the one thing the URL cannot carry.
+  const row = await env.DB.prepare('SELECT tenant_id FROM sites WHERE id = ?')
     .bind(siteKey)
-    .first<{ tenant_id: string; slug: string }>()
+    .first<{ tenant_id: string }>()
   if (!row) return null
-  return { businessId: row.tenant_id, slug: row.slug }
+  return { businessId: row.tenant_id }
 }
 
 /** One page's module list, defensively narrowed out of a stored definition. */
@@ -383,7 +387,7 @@ function acceptsIn(config: Record<string, unknown>): FormDefinition['accepts'] {
 export async function formDefinitionOf(
   env: LeadEnv,
   businessId: string,
-  slug: string,
+  site: string,
   instanceId: string,
   channel: LeadChannel = 'published',
 ): Promise<FormDefinition | null> {
@@ -397,11 +401,11 @@ export async function formDefinitionOf(
   }
   let pages
   if (channel === 'draft') {
-    pages = await store.readPages(slug)
+    pages = await store.readPages(site)
   } else {
-    const live = liveRevisionOf(await store.revisions(slug))
+    const live = liveRevisionOf(await store.revisions(site))
     if (live === null) return null
-    const snapshot = await store.readRevision(slug, live)
+    const snapshot = await store.readRevision(site, live)
     if (!snapshot) return null
     pages = snapshot.pages
   }
@@ -1057,7 +1061,7 @@ export async function captureLead(
   const definition = await formDefinitionOf(
     env,
     site.businessId,
-    site.slug,
+    spec.siteKey,
     spec.instanceId,
     spec.channel ?? 'published',
   )

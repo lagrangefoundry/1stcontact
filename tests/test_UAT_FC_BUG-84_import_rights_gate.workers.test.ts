@@ -132,8 +132,11 @@ describe('BUG-84 — the import route gates on rights', () => {
     // A refusal must leave NOTHING behind — not the picture, and not even the
     // empty draft `createDraft` would otherwise have brought into existence on
     // the way past. Both are asked of the routes the builder itself reads: the
-    // site list, and the preview the iframe loads. A slug appearing in either
-    // would mean a push that was refused had still changed the deployment.
+    // site list, and the preview the iframe loads. A site appearing in either
+    // would mean a push that was refused had still changed the deployment —
+    // which since [[REQ-236]] is asserted as "this business holds no site at
+    // all", because a refused push must not even mint the key it would have
+    // written to.
     const scope = await business('bug84-nothing')
     await captureInto(scope.businessId, { 'hero.jpg': PHOTO })
 
@@ -142,8 +145,8 @@ describe('BUG-84 — the import route gates on rights', () => {
     )
 
     const listed = await route(new Request(`${ORIGIN}/api/sites`), routerEnv(), scope, {})
-    const sites = (await listed.json()) as { slug: string }[]
-    expect(sites.map((s) => s.slug)).not.toContain('blocked')
+    const sites = (await listed.json()) as { site: string }[]
+    expect(sites).toEqual([])
 
     const asset = await route(
       new Request(`${ORIGIN}/preview/blocked/draft/assets/hero.jpg`),
@@ -163,10 +166,14 @@ describe('BUG-84 — the import route gates on rights', () => {
 
     const res = await importSite(scope, 'clean-site', [{ name: 'logo.png', bytes: OWN }])
     expect(res.status).toBe(200)
-    expect((await res.json()) as Record<string, unknown>).toMatchObject({ assets: 1 })
+    const landed = (await res.json()) as { assets: number; site: string }
+    expect(landed).toMatchObject({ assets: 1 })
 
+    // THE PREVIEW IS ADDRESSED BY THE KEY THE PUSH LANDED ON ([[REQ-236]]).
+    // `clean-site` named the source directory, and the preview URL's first
+    // segment is the site's own key.
     const asset = await route(
-      new Request(`${ORIGIN}/preview/clean-site/draft/assets/logo.png`),
+      new Request(`${ORIGIN}/preview/${landed.site}/draft/assets/logo.png`),
       routerEnv(),
       scope,
       {},

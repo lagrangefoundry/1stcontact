@@ -62,7 +62,7 @@ if (loaded) {
     // resizing the pictures a first publish is. The non-streaming `publishSite`
     // is still exported and still used by anything with no use for frames; this
     // is the representation a browser wants, asked for by `Accept`.
-    publish: (slug, onProgress) => streamPublish(slug, onProgress),
+    publish: (site, onProgress) => streamPublish(site, onProgress),
     /**
      * ONE OBJECT, because these are one contract: every module in it is served
      * from `packages/` (and, for the measuring script, from the one place the

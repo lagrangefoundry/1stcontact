@@ -36,7 +36,7 @@ if (!WEBUI_INSTALLED) console.warn(`REQ-173 banner suite skipped: ${WEBUI_SKIP_R
 const repo = (...parts: string[]) => path.resolve(__dirname, '..', ...parts)
 const CSS = readFileSync(repo('apps/control-app/src/builder/builder.css'), 'utf8')
 
-const SITES = [{ slug: 'bakery', latest: 1 }]
+const SITES = [{ site: 'bakery', latest: 1 }]
 const REASON =
   'This builder has no Anthropic API key, so nothing that needs the assistant can run.'
 

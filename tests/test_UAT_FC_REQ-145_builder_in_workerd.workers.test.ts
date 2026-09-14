@@ -21,12 +21,25 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * resolves eagerly. Both failed here first.
  */
 
+/**
+ * ONE BUSINESS PER CASE ([[REQ-236]]).
+ *
+ * Every case here used to share the tenant `req145` and give itself a private
+ * site by pushing a distinct `nextSlug()`, because a payload NAMED its
+ * destination. The route resolves the receiving business's single site now, so a
+ * shared tenant is a shared site — and one case's palette edit journals a change
+ * that makes the next case's import a 409. Separate businesses restore the
+ * isolation the slug used to provide.
+ */
+let businessSeq = 0
+const nextBusiness = (): string => `req145-${(businessSeq += 1)}`
+
 /** The bindings the Worker declares, as `wrangler.toml` declares them. */
-function workerEnv(overrides: Partial<Env> = {}): Env {
+function workerEnv(tenant: string, overrides: Partial<Env> = {}): Env {
   return {
     DB: env.DB,
     SITES: env.SITES,
-    TENANT_ID: 'req145',
+    TENANT_ID: tenant,
     // The loopback dev server: Access is unconfigured, so the gate would refuse
     // every request. See `index.ts` on why this cannot open a deployed Worker.
     ACCESS_DEV_OPEN: '1',
@@ -46,8 +59,16 @@ function workerEnv(overrides: Partial<Env> = {}): Env {
   }
 }
 
-const call = (path: string, init?: RequestInit, overrides?: Partial<Env>): Promise<Response> =>
-  worker.fetch(new Request(`https://app.example/${path.replace(/^\//, '')}`, init), workerEnv(overrides))
+const call = (
+  tenant: string,
+  path: string,
+  init?: RequestInit,
+  overrides?: Partial<Env>,
+): Promise<Response> =>
+  worker.fetch(
+    new Request(`https://app.example/${path.replace(/^\//, '')}`, init),
+    workerEnv(tenant, overrides),
+  )
 
 /**
  * A site made only of L1 — the boundary this ticket delivers up to (REQ-148).
@@ -71,12 +92,30 @@ function pureL1Site(slug = nextSlug()) {
   }
 }
 
-async function importSitePayload(payload: ReturnType<typeof pureL1Site>): Promise<Response> {
-  return call('/api/import', {
+async function importSitePayload(
+  tenant: string,
+  payload: ReturnType<typeof pureL1Site>,
+): Promise<Response> {
+  return call(tenant, '/api/import', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   })
+}
+
+/**
+ * Push a site in and hand back the KEY it landed on ([[REQ-236]]).
+ *
+ * The payload's own `slug` still travels — it names the SOURCE, the directory on
+ * the operator's machine the push came from — and means nothing to the store.
+ */
+async function importAndKey(
+  tenant: string,
+  payload: ReturnType<typeof pureL1Site>,
+): Promise<string> {
+  const response = await importSitePayload(tenant, payload)
+  expect(response.status).toBe(200)
+  return ((await response.json()) as { site: string }).site
 }
 
 describe('REQ-145 — the builder runs in workerd', () => {
@@ -90,23 +129,22 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // definition. `theme.css` is asserted too, because it is where the
     // precompiled module chrome lands — the file that could not be composed at
     // all while `getModuleCss()` read `.astro` sources off a filesystem.
-    const site = pureL1Site()
-    const slug = site.slug
-    expect((await importSitePayload(site)).status).toBe(200)
+    const tenant = nextBusiness()
+    const slug = await importAndKey(tenant, pureL1Site())
 
-    const draft = await call(`/preview/${slug}/draft/`)
+    const draft = await call(tenant, `/preview/${slug}/draft/`)
     expect(draft.status).toBe(200)
     expect(draft.headers.get('content-type')).toContain('text/html')
     const html = await draft.text()
     expect(html).toContain('theme.css')
 
-    const css = await call(`/preview/${slug}/draft/theme.css`)
+    const css = await call(tenant, `/preview/${slug}/draft/theme.css`)
     expect(css.status).toBe(200)
     expect((await css.text()).length).toBeGreaterThan(0)
 
     // The edit channel is the same render in its other mode, and it must differ:
     // it stamps addresses the editor resolves clicks against.
-    const edit = await call(`/preview/${slug}/edit/`)
+    const edit = await call(tenant, `/preview/${slug}/edit/`)
     expect(edit.status).toBe(200)
     expect(await edit.text()).not.toBe(html)
   })
@@ -114,35 +152,35 @@ describe('REQ-145 — the builder runs in workerd', () => {
   it('test_UAT_FC_REQ-145_the_site_listing_comes_from_the_store', async () => {
     // AC-1's "lists sites". The listing is the store's own answer rather than a
     // directory read, which is what makes it true in a runtime with no directory.
-    const site = pureL1Site()
-    const slug = site.slug
-    await importSitePayload(site)
+    const tenant = nextBusiness()
+    const slug = await importAndKey(tenant, pureL1Site())
 
-    const res = await call('/api/sites')
+    const res = await call(tenant, '/api/sites')
     expect(res.status).toBe(200)
-    const sites = (await res.json()) as { slug: string; latest: number | null }[]
-    expect(sites.map((s) => s.slug)).toContain(slug)
+    // THE LISTING NAMES SITES BY KEY ([[REQ-236]]) — `site`, not `slug`, because
+    // there is no second name for it to report.
+    const sites = (await res.json()) as { site: string; latest: number | null }[]
+    expect(sites.map((s) => s.site)).toContain(slug)
     // `latest` is null because this store holds no revisions. Saying so is
     // better than implying one; minting them is REQ-149.
-    expect(sites.find((s) => s.slug === slug)?.latest).toBeNull()
+    expect(sites.find((s) => s.site === slug)?.latest).toBeNull()
   })
 
   it('test_UAT_FC_REQ-145_an_edit_through_the_worker_lands_in_the_store', async () => {
     // AC-2. The assertion that matters is the READ-BACK: the response could be
     // composed without writing anything, so the palette is re-fetched through a
     // second request, which resolves the definition out of D1 again.
-    const site = pureL1Site()
-    const slug = site.slug
-    await importSitePayload(site)
+    const tenant = nextBusiness()
+    const slug = await importAndKey(tenant, pureL1Site())
 
-    const wrote = await call('/api/palette', {
+    const wrote = await call(tenant, '/api/palette', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'add', name: 'accent', value: '#123456' }),
+      body: JSON.stringify({ site: slug, op: 'add', name: 'accent', value: '#123456' }),
     })
     expect(wrote.status).toBe(200)
 
-    const read = await call(`/api/palette?slug=${slug}`)
+    const read = await call(tenant, `/api/palette?site=${slug}`)
     const palette = (await read.json()) as { entries: { name: string; value: string }[] }
     expect(palette.entries).toContainEqual(expect.objectContaining({ name: 'accent', value: '#123456' }))
   })
@@ -151,14 +189,13 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // The op vocabulary is closed. A 400 rather than a 500, because the client
     // is a second producer of edits and a malformed one deserves to be told so
     // rather than shown "the builder broke".
-    const site = pureL1Site()
-    const slug = site.slug
-    await importSitePayload(site)
+    const tenant = nextBusiness()
+    const slug = await importAndKey(tenant, pureL1Site())
 
-    const res = await call('/api/palette', {
+    const res = await call(tenant, '/api/palette', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'nonsense', name: 'x' }),
+      body: JSON.stringify({ site: slug, op: 'nonsense', name: 'x' }),
     })
     expect(res.status).toBe(400)
     expect((await res.json()) as { error: string }).toMatchObject({
@@ -169,16 +206,21 @@ describe('REQ-145 — the builder runs in workerd', () => {
   it('test_UAT_FC_REQ-145_importing_the_same_site_twice_is_idempotent', async () => {
     // AC-7. `bin/publish` is run after every local edit, so re-import is the
     // ordinary case rather than the exceptional one.
+    const tenant = nextBusiness()
     const site = pureL1Site()
-    const slug = site.slug
-    const first = await importSitePayload(site)
-    const second = await importSitePayload(site)
+    const first = await importSitePayload(tenant, site)
+    const second = await importSitePayload(tenant, site)
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
-    expect(await second.json()).toEqual(await first.json())
+    // THE SAME REPLY, INCLUDING THE SAME `site` KEY ([[REQ-236]]) — the second
+    // push resolves the business's existing site rather than minting another,
+    // which is what "idempotent" has to mean once the payload stops naming a
+    // destination.
+    const body = (await first.json()) as { site: string }
+    expect(await second.json()).toEqual(body)
 
-    const sites = (await (await call('/api/sites')).json()) as { slug: string }[]
-    expect(sites.filter((s) => s.slug === slug)).toHaveLength(1)
+    const sites = (await (await call(tenant, '/api/sites')).json()) as { site: string }[]
+    expect(sites.filter((s) => s.site === body.site)).toHaveLength(1)
   })
 
   it('test_UAT_FC_REQ-145_every_response_is_uncacheable_including_refusals', async () => {
@@ -187,8 +229,9 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // 404 as well as on a success, because the hole it closes opened exactly
     // there: `json()` carried its own headers and never carried this one, so
     // `/api/sites` was cacheable and a new site could stay invisible.
+    const tenant = nextBusiness()
     for (const path of ['/', '/api/sites', '/api/publish', '/nothing-here']) {
-      const res = await call(path, path === '/api/publish' ? { method: 'POST' } : undefined)
+      const res = await call(tenant, path, path === '/api/publish' ? { method: 'POST' } : undefined)
       expect(res.headers.get('cache-control'), path).toBe('no-store, must-revalidate')
     }
   })
@@ -211,11 +254,12 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // anyone — the Access gate lives in `fetch`, and bytes that never enter
     // `fetch` are never gated. So an asset must arrive by FALLING THROUGH this
     // router, and an unauthenticated one must be refused.
-    const asset = await call('/builder/main.js')
+    const tenant = nextBusiness()
+    const asset = await call(tenant, '/builder/main.js')
     expect(asset.status).toBe(200)
     expect(await asset.text()).toBe('asset:/builder/main.js')
 
-    const refused = await call('/builder/main.js', undefined, {
+    const refused = await call(tenant, '/builder/main.js', undefined, {
       ACCESS_DEV_OPEN: '',
       ACCESS_TEAM_DOMAIN: 'example.cloudflareaccess.com',
       ACCESS_AUD: 'aud-tag',
@@ -228,7 +272,8 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // The dev bypass is two conditions, and dropping either must deny. Without
     // ACCESS_DEV_OPEN an unconfigured gate answers 503, exactly as REQ-147 left
     // it — the var is what says "this is loopback", not what disables the gate.
-    const res = await call('/api/sites', undefined, { ACCESS_DEV_OPEN: '' })
+    const tenant = nextBusiness()
+    const res = await call(tenant, '/api/sites', undefined, { ACCESS_DEV_OPEN: '' })
     expect(res.status).toBe(503)
     expect(await res.text()).toContain('Access is not configured')
   })
@@ -237,8 +282,57 @@ describe('REQ-145 — the builder runs in workerd', () => {
     // A deployment that cannot name its tenant serves nothing, and says which
     // key is missing. Defaulting to a well-known name would let a misconfigured
     // Worker read and WRITE into whichever tenant happened to carry it.
-    const res = await call('/api/sites', undefined, { TENANT_ID: '' })
+    const tenant = nextBusiness()
+    const res = await call(tenant, '/api/sites', undefined, { TENANT_ID: '' })
     expect(res.status).toBe(503)
     expect(await res.text()).toContain('TENANT_ID')
+  })
+  it('test_UAT_FC_REQ-236_every_builder_route_that_names_a_site_names_it_site', async () => {
+    // THE WIRE VOCABULARY, ASSERTED AS A CONTRACT RATHER THAN LEFT TO THE ROUTES
+    // THAT HAPPEN TO BE EXERCISED ELSEWHERE ([[REQ-236]]). Each of these carried
+    // a parameter called `slug` and the value it carried is a KEY now, so the
+    // name had to move with it — a wire that still said `slug` would be a word
+    // the store no longer uses, kept alive by every client that reads it.
+    //
+    // BOTH DIRECTIONS, because only the pair is evidence. That `site` is accepted
+    // says the rename landed; that `slug` is REFUSED says nothing is quietly
+    // reading the old key as a fallback, which is exactly the half-migrated state
+    // this ticket must not leave behind.
+    const tenant = nextBusiness()
+    const site = await importAndKey(tenant, pureL1Site())
+
+    // The site list answers with `site`, and that value is what everything below
+    // is addressed by — so the vocabulary is checked from the reply inwards.
+    const listed = (await (await call(tenant, '/api/sites')).json()) as { site: string }[]
+    expect(listed.map((entry) => entry.site)).toEqual([site])
+
+    for (const path of ['/api/assets', '/api/revisions', '/api/palette']) {
+      expect((await call(tenant, `${path}?site=${site}`)).status, `${path} with site`).toBe(200)
+      const refused = await call(tenant, `${path}?slug=${site}`)
+      expect(refused.status, `${path} with slug`).toBe(400)
+      expect((await refused.json<{ error: string }>()).error, path).toContain('site')
+    }
+
+    const jsonPost = (path: string, body: unknown) =>
+      call(tenant, path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+    for (const [path, extra] of [
+      ['/api/publish', { message: 'named by key' }],
+      ['/api/ai/session', {}],
+      ['/api/palette', { op: 'add', name: 'accent', value: '#123456' }],
+    ] as [string, Record<string, unknown>][]) {
+      // The `slug` form is refused BEFORE anything is written, which is what lets
+      // the accepted form below run against an untouched site.
+      const refused = await jsonPost(path, { slug: site, ...extra })
+      expect(refused.status, `${path} with slug`).toBe(400)
+      expect((await refused.json<{ error: string }>()).error, path).toContain('site')
+      // And `site` gets past the parameter check. What each route then DOES is
+      // its own suite's subject; all this asserts is that the name was read.
+      expect((await jsonPost(path, { site, ...extra })).status, `${path} with site`).not.toBe(400)
+    }
   })
 })

@@ -59,7 +59,10 @@ async function importSeed(): Promise<string> {
     workerEnv(),
   )
   expect(res.status).toBe(200)
-  return seed.slug
+  // THE KEY, NOT `seed.slug` ([[REQ-236]]). The payload's name says where the
+  // push came from; the destination is this business's own site, and the reply
+  // carries the key it landed on.
+  return ((await res.json()) as { site: string }).site
 }
 
 describe('REQ-148 — behavior modules render in workerd', () => {

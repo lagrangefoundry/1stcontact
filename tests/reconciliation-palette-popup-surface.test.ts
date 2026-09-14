@@ -412,7 +412,7 @@ describe('story-4300366a the palette popup', () => {
 
   /** Open the real popup against the real origin, hosted in this test's host. */
   const open = (slug: string, extra: Record<string, unknown> = {}) =>
-    openPalettePopup({ host, slug, transport, shadeHex, ...extra }) as Promise<{
+    openPalettePopup({ host, site: slug, transport, shadeHex, ...extra }) as Promise<{
       ref: string
       shade?: number
     } | null>
@@ -522,12 +522,16 @@ describe('story-4300366a the palette popup', () => {
     const answer = open(slug)
     await settled(host)
 
-    // No swatches, and in their place an invitation that NAMES THE SITE, says it
-    // has no colours yet, and asks for one.
+    // No swatches, and in their place an invitation that says the site has no
+    // colours yet and asks for one.
+    //
+    // IT USED TO NAME THE SITE AND MUST NOT ([[REQ-236]]). A site is addressed by
+    // a minted key; putting one in a sentence an operator reads is noise, so the
+    // invitation says `This site` and the name is nowhere in it.
     expect(swatchesIn(host)).toHaveLength(0)
     const empty = host.querySelector('.builder-palette__empty')!.textContent!
-    expect(empty).toContain(slug)
-    expect(empty).toMatch(/no colors yet/i)
+    expect(empty).not.toContain(slug)
+    expect(empty).toMatch(/this site has no colors yet/i)
     expect(empty).toMatch(/add one/i)
 
     // NO ERROR REGION. An empty palette is a legitimate state; reporting it as a
@@ -940,7 +944,7 @@ describe('story-4300366a the palette popup', () => {
     const root = document.createElement('div')
     document.body.append(root)
     const app = mountBuilder(root, {
-      sites: [{ slug: wsSlug, latest: null }],
+      sites: [{ site: wsSlug, latest: null }],
       storage: memoryStorage(),
       shadeHex,
       paletteTransport: transport,
@@ -1152,7 +1156,7 @@ describe('story-4300366a the palette popup', () => {
 
     // AND THE REFUSAL IS THE STORE'S, NOT THE SURFACE'S. Posted directly, exactly
     // as a tab left open while the site changed underneath it would post.
-    const stale = await post({ slug, op: 'add', name: 'primary', value: '#123456' })
+    const stale = await post({ site: slug, op: 'add', name: 'primary', value: '#123456' })
     expect(stale.status).toBe(400)
     expect(((await stale.json()) as { code?: string }).code).toBe('CONFLICT')
   })
@@ -1213,7 +1217,7 @@ describe('story-4300366a the palette popup', () => {
     // the way at all, the removal is refused there too — and the refusal names the
     // same count.
     const captured = draftBytes(cwd, slug)
-    const refused = await post({ slug, op: 'rm', name: 'brand' })
+    const refused = await post({ site: slug, op: 'rm', name: 'brand' })
     expect(refused.status).toBe(400)
     const body = (await refused.json()) as { code?: string; message?: string }
     expect(body.code).toBe('CONFLICT')
@@ -1324,8 +1328,8 @@ describe('story-4300366a the palette popup', () => {
     document.body.append(root)
     const app = mountBuilder(root, {
       sites: [
-        { slug, latest: null },
-        { slug: other, latest: null },
+        { site: slug, latest: null },
+        { site: other, latest: null },
       ],
       storage: memoryStorage(),
       shadeHex,

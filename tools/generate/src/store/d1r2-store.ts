@@ -51,16 +51,22 @@ import { StoreConflictError } from './site-store'
  * THE BARRIER MOVED ONE LEVEL IN AND DID NOT WEAKEN ([[REQ-190]]). The child
  * tables no longer carry `tenant_id` — a site's own row is the only place its
  * business is recorded, which is what makes moving a site an UPDATE of one
- * column rather than a five-table rewrite plus an object copy. What the handle
- * resolves is slug -> `sites.id`, under `WHERE tenant_id = ?`, and every verb
- * below goes through that resolution. A site key is 128 random bits and is
- * obtainable ONLY through that business-scoped lookup, so the property is the
- * same one stated about a key instead of about a filter: reaching another
- * business's rows needs a value this handle cannot produce.
+ * column rather than a five-table rewrite plus an object copy.
+ *
+ * AND THE HANDLE STOPPED TRANSLATING ([[REQ-236]]). It used to resolve
+ * slug -> `sites.id` under `WHERE tenant_id = ?`, so the same lookup did two
+ * jobs: it undid a name, and it enforced the business. `sites.slug` is gone, so
+ * the first job has nothing to do — a caller holds the key — and the second is
+ * spelled out where it belongs, as `WHERE id = ? AND tenant_id = ?` on every
+ * `sites` read and as the {@link OWNED} subquery on every child read. The
+ * property is unchanged and one round-trip cheaper to state: a key this business
+ * does not own selects nothing, which is the same answer a key nothing owns
+ * gets.
  *
  * IT IS A REVISION STORE NOW (REQ-149). Metadata is D1 rows (`site_revisions`);
  * the frozen definition and the rendered output are R2 objects under
- * `sites/<slug>/rev/<NNNN>/`, which is the layout `public-site` already reads.
+ * `sites/<siteKey>/rev/<NNNN>/`, which is the layout `public-site` already
+ * reads.
  * There is NO manifest object any more: D1 is the only record, and the live
  * revision is derived as the highest id rather than stored anywhere (DOC-12 §4).
  *
@@ -73,12 +79,33 @@ import { StoreConflictError } from './site-store'
  * slug a key: a *chosen* name doing a key's job.
  *
  * So the address is `/site/<siteId>/` — the same unguessable value the joins
- * use, which is what makes one column enough. The slug becomes what the rule
- * says it is: an attribute, unique inside its own business, free to change. The
- * claim table and its refusal are DELETED rather than relaxed, because with an
- * opaque address there is nothing left to claim. Per-business hostnames (DOC-12
- * §9) remain the readable answer and remain purely additive.
+ * use, which is what makes one column enough. The claim table and its refusal
+ * are DELETED rather than relaxed, because with an opaque address there is
+ * nothing left to claim. Per-business hostnames ([[DOC-45]] §5) remain the
+ * readable answer and remain purely additive.
+ *
+ * AND THE SLUG ITSELF IS GONE ([[REQ-236]]). REQ-190 left it as an attribute
+ * with a unique index — which is a key doing its job in a smaller room — and
+ * every verb here opened by spending a lookup undoing it. [[DOC-45]] §6 is the
+ * argument: the slug had two jobs, a URL-safe addressing token (which is the
+ * key) and a human label for a site list (which does not exist, because a
+ * business holds one site). Neither survives, so neither does the column.
  */
+
+/**
+ * What a site IS to this deployment, as the schema's `kind` column records it.
+ *
+ * A CLOSED ENUM THE CODE DECLARES, WHICH IS WHY IT IS NOT A SLUG WEARING A HAT
+ * ([[REQ-236]]). Nobody types it, nothing displays it, and it addresses nothing
+ * on its own — a site is still named by its key alone, and `kind` only narrows
+ * {@link TenantSiteStore.siteKeys} when a caller is asking for a particular one.
+ *
+ * WHAT IT REPLACES. `/account` serves a portal a business may author into its
+ * own store ([[REQ-183]]), and that portal was found under the reserved slug
+ * `portal` — a magic name a customer could have collided with by calling their
+ * own site `portal`, and one with nowhere to live once the column went.
+ */
+export type SiteKind = 'site' | 'portal'
 
 /** The two bindings this adapter needs, named as the Workers declare them. */
 export interface SiteStoreEnv {
@@ -149,58 +176,50 @@ export interface SiteStoreRoot {
 
 /** A {@link SiteStore} bound to one tenant, plus the verbs that make a site exist. */
 export interface TenantSiteStore extends SiteStore {
-  /** Which account this handle can see. Never inferred from a slug. */
+  /** Which account this handle can see. Never inferred from a site key. */
   readonly tenantId: string
   /**
-   * Make an empty draft exist, so `write` has something to write to.
+   * Mint an empty site and hand back its key, so `write` has something to write
+   * to.
    *
    * The port has no create verb because no *command* creates a site — `1c new`
    * does, and it is `commands.ts`'s. This is the adapter's own admin surface,
    * the counterpart of the in-memory adapter's `seed`.
    *
-   * RETURNS WHETHER IT CREATED ONE (BUG-51). The insert is `INSERT OR IGNORE`,
-   * so this has always been safe on a slug that exists — and every caller then
-   * followed it with a `write` that was not, which is how a starter scaffold
-   * came to replace a built site. The information needed to stop that was
-   * already here and was being thrown away. A caller that only wants to seed an
-   * empty site now has one call to branch on, rather than a read-then-write it
-   * has to remember to perform.
-   */
-  createDraft(slug: string): Promise<boolean>
-  /**
-   * The site's KEY, or `null` when this business holds no site by that slug.
+   * IT RETURNS THE KEY, AND IT ALWAYS CREATES ([[REQ-236]]). It used to take a
+   * slug, insert-or-ignore on it, and answer whether it had created anything —
+   * a shape only a name makes possible. With the key minted here there is
+   * nothing for a second call to collide WITH, so every call is a new site and
+   * the answer a caller needs is which one.
    *
-   * The one place a caller may learn a site's id, and the reason the barrier
-   * still holds after the child tables stopped carrying a business ([[REQ-190]]):
-   * the lookup is scoped to this handle's tenant, so a key for another
-   * business's site is not something any caller can obtain from here.
-   *
-   * Callers need it because the key is the PUBLIC ADDRESS — `/site/<siteId>/` —
-   * so anything building a published URL asks for it rather than passing the
-   * slug it happens to hold.
+   * WHERE BUG-51's GUARD WENT. "Do not scaffold over a site that already
+   * exists" used to be this verb's return value. It is now the caller's own
+   * question, asked of {@link siteKeys} — which sees every site this business
+   * holds rather than only a collision on one name — and answered before this is
+   * called at all.
    */
-  siteKey(slug: string): Promise<string | null>
+  createDraft(kind?: SiteKind): Promise<string>
   /** Drop a site and its assets entirely, so `hasDraft` goes back to false. */
-  forget(slug: string): Promise<void>
-  /** The slugs this tenant holds a draft for, sorted. */
-  slugs(): Promise<string[]>
+  forget(siteKey: string): Promise<void>
   /**
-   * Every site key this business owns — the erasure enumeration ([[REQ-190]]).
+   * Every site key this business owns, sorted — and the ONLY way to learn one.
    *
-   * WHAT IT IS FOR. A site's objects live under `draft/<siteId>/` and
-   * `sites/<siteId>/rev/…`, with no business in either prefix, which is what
-   * makes moving a site copy nothing. The cost of that is that a business's
-   * objects are no longer under one prefix, so the [[DOC-37]] erasure path
-   * cannot be a single sweep: it reads these keys and deletes under each, then
-   * deletes the prefixes that ARE business-owned — `t/<tenant>/blob/`,
-   * `t/<tenant>/ref/` and `kb/<tenant>/`, where blobs and knowledge belong to
-   * the business rather than to any site.
+   * THE BUSINESS-SCOPED ENUMERATION THE BARRIER RESTS ON. A site key is 128
+   * random bits; with `siteKey(slug)` deleted ([[REQ-236]]) this is the one
+   * statement that hands one out, and it carries `WHERE tenant_id = ?`. So a key
+   * for another business's site is not something any caller can obtain from
+   * here — which is the same property REQ-190 stated about the slug lookup,
+   * moved to the verb that replaced it.
    *
-   * Separate from {@link slugs} deliberately. A slug is what the operator calls
-   * a site and is the wrong thing to build a key from; this returns what the
-   * keys are actually made of, and nothing displays it.
+   * `kind` NARROWS IT AND OMITTING IT MEANS EVERYTHING, which is not a default
+   * chosen for convenience. The [[DOC-37]] erasure path reads these keys to
+   * delete under `draft/<siteKey>/` and `sites/<siteKey>/rev/…` — prefixes with
+   * no business in them, which is what makes a move copy nothing — and an
+   * erasure that skipped a business's portal would leave its bytes behind.
+   * Callers asking "which site is the customer's" pass `'site'`; callers asking
+   * "everything this business owns" pass nothing.
    */
-  siteKeys(): Promise<string[]>
+  siteKeys(kind?: SiteKind): Promise<string[]>
 }
 
 /**
@@ -240,8 +259,8 @@ export interface TenantSiteStore extends SiteStore {
  * THE KEY USED TO BE `(tenantId, slug)` and is now `sites.id` ([[REQ-190]]),
  * which removes the composition rather than changing it: a site key is globally
  * unique by construction, so there is no pair to join and no separator to get
- * wrong. It also survives a rename and a move, which the old key could not — a
- * memo keyed by a name would have gone stale the moment the name changed.
+ * wrong. It also survives a move between businesses, which the old key could
+ * not — and there is no longer a name for it to survive a rename of.
  */
 const ASSEMBLED = new Map<string, { version: number; result: LoadResult }>()
 
@@ -374,53 +393,80 @@ export function d1r2SiteStore(env: SiteStoreEnv): SiteStoreRoot {
   }
 }
 /**
- * Every verb below resolves its site through `tenantId`. That is not a
- * convention a reader has to trust: the value is captured here, once, no verb
- * takes a tenant argument, and the ONLY way a site key enters this closure is
- * {@link siteIdOf}, whose WHERE clause carries it.
+ * Every verb below scopes its site by `tenantId`. That is not a convention a
+ * reader has to trust: the value is captured here, once, no verb takes a tenant
+ * argument, and every statement that touches a site row or a child row names it.
  *
- * WHAT REPLACED "TENANT IN EVERY QUERY" ([[REQ-190]]). Every statement used to
- * filter `tenant_id = ? AND slug = ?`, which put the business in twenty-two
- * places and the site's *name* in twenty-two more. Now one lookup turns the
- * slug into the site's key and the rest of the SQL names only that. The
- * isolation argument is unchanged in strength and shorter to make: a key is 128
- * random bits, it is minted by `createDraft` and read by `siteIdOf`, and both
- * are inside a business-scoped statement.
+ * WHAT REPLACED "TENANT IN EVERY QUERY" ([[REQ-190]], then [[REQ-236]]). Every
+ * statement used to filter `tenant_id = ? AND slug = ?`, which put the business
+ * in twenty-two places and the site's *name* in twenty-two more. REQ-190 turned
+ * the name into a key behind one lookup; REQ-236 removed the name, and with it
+ * the lookup — so what is left is the key the caller already holds and the
+ * business it must belong to, in the same statement.
  *
- * THE PRICE IS ONE ROUND-TRIP, AND IT IS NOT MEMOISED. `sites` is reached by a
- * unique index, so the lookup is the cheapest read D1 does — and a memo would
- * have to be invalidated by `createDraft` and `forget`, which is exactly the
- * kind of cache whose staleness reads as data belonging to a site that no longer
- * exists. The one hot path, `loadDraft`, resolves the row it already had to read
- * and passes the key down, so it costs nothing there.
+ * A KEY IS NOT A CAPABILITY HERE, which is the distinction this file gets wrong
+ * if it is read quickly. 128 random bits are unguessable, but unguessable is not
+ * unforgeable: keys are the PUBLIC published address and travel in URLs, logs
+ * and support tickets. So no verb takes one on trust — {@link OWNED} and
+ * `WHERE id = ? AND tenant_id = ?` make a key from another business select
+ * nothing, and the only statement that ever HANDS a key out
+ * ({@link TenantSiteStore.siteKeys}) is itself business-scoped.
+ *
+ * AND IT COSTS ONE ROUND-TRIP FEWER THAN IT USED TO. The slug lookup was a
+ * separate read before every child query; the check that replaced it is a
+ * subquery inside the child query. `sites` is reached by its primary key either
+ * way.
  */
 function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
   const { DB, SITES } = env
 
   /**
-   * The R2 prefix holding one site's draft: `draft/<siteId>/`.
+   * The R2 prefix holding one site's draft: `draft/<siteKey>/`.
    *
    * NO BUSINESS IN IT, and that is what makes a move copy nothing ([[REQ-190]]).
    * It used to be `draft/<tenant>/<slug>/`, so a site carried both the name it
    * might be renamed away from and the business it might be moved out of, in
    * every object key it owned. Erasure ([[DOC-37]]) reaches these objects by
-   * enumerating the business's site ids and deleting under each — see
+   * enumerating the business's site keys and deleting under each — see
    * {@link TenantSiteStore.siteKeys} — rather than by one prefix sweep.
    */
-  const draftPrefix = (siteId: string): string => `draft/${siteId}/`
+  const draftPrefix = (siteKey: string): string => `draft/${siteKey}/`
 
   /** The R2 key for one draft asset. */
-  const assetKey = (siteId: string, name: string): string =>
-    `${draftPrefix(siteId)}assets/${name}`
+  const assetKey = (siteKey: string, name: string): string =>
+    `${draftPrefix(siteKey)}assets/${name}`
 
   /**
-   * The site row, keyed by the slug this business knows it as.
+   * The clause every child-table read is scoped by — the business barrier,
+   * spelled as a subquery rather than as a preceding lookup ([[REQ-236]]).
    *
-   * `id` comes back with it because almost every caller needs both, and reading
-   * them separately would be two round-trips for one row.
+   * WHY IT IS NOT SIMPLY `site_id = ?`. Before REQ-236 a verb took a slug and
+   * spent a lookup turning it into a key, and that lookup's `WHERE tenant_id = ?`
+   * was where the barrier actually lived. The translation is gone — a caller
+   * holds the key — but the barrier cannot go with it: the key now ARRIVES from
+   * the caller, so a query that trusted it would read across businesses the
+   * moment one leaked.
+   *
+   * SO THE CHECK MOVED INTO THE SAME STATEMENT, which costs one round-trip
+   * fewer than the lookup it replaces rather than one more. `sites` is reached
+   * by its primary key inside the subquery and the tenant is compared on the row
+   * it finds, so a key belonging to another business selects nothing and the
+   * outer query returns nothing — the same answer as a key that does not exist,
+   * which is the only answer that discloses nothing.
+   *
+   * Binds two values, in this order: the site key, then the tenant.
+   */
+  const OWNED = 'site_id = (SELECT id FROM sites WHERE id = ? AND tenant_id = ?)'
+
+  /**
+   * The site row, by key, under this handle's business.
+   *
+   * The tenant comparison is the point of the statement now that the key is the
+   * caller's: a key this business does not own reads back `null`, exactly as a
+   * key nothing owns does.
    */
   const siteRow = (
-    slug: string,
+    siteKey: string,
   ): Promise<{
     id: string
     site_json: string | null
@@ -428,33 +474,33 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     counter: number
   } | null> =>
     DB.prepare(
-      'SELECT id, site_json, version, counter FROM sites WHERE tenant_id = ? AND slug = ?',
+      'SELECT id, site_json, version, counter FROM sites WHERE id = ? AND tenant_id = ?',
     )
-      .bind(tenantId, slug)
+      .bind(siteKey, tenantId)
       .first<{ id: string; site_json: string | null; version: number; counter: number }>()
 
-  /** The site's key alone — the business-scoped lookup the barrier rests on. */
-  const siteIdOf = async (slug: string): Promise<string | null> => {
-    const row = await DB.prepare('SELECT id FROM sites WHERE tenant_id = ? AND slug = ?')
-      .bind(tenantId, slug)
+  /** True when this business owns the site this key names. */
+  const owns = async (siteKey: string): Promise<boolean> => {
+    const row = await DB.prepare('SELECT id FROM sites WHERE id = ? AND tenant_id = ?')
+      .bind(siteKey, tenantId)
       .first<{ id: string }>()
-    return row?.id ?? null
+    return row !== null
   }
 
-  const assetNames = async (siteId: string): Promise<string[]> => {
+  const assetNames = async (siteKey: string): Promise<string[]> => {
     const { results } = await DB.prepare(
-      'SELECT name FROM site_assets WHERE site_id = ? ORDER BY name',
+      `SELECT name FROM site_assets WHERE ${OWNED} ORDER BY name`,
     )
-      .bind(siteId)
+      .bind(siteKey, tenantId)
       .all<{ name: string }>()
     return (results ?? []).map((r) => r.name)
   }
 
-  const readPagesOf = async (siteId: string): Promise<StoredPage[]> => {
+  const readPagesOf = async (siteKey: string): Promise<StoredPage[]> => {
     const { results } = await DB.prepare(
-      'SELECT name, page FROM site_pages WHERE site_id = ? ORDER BY name',
+      `SELECT name, page FROM site_pages WHERE ${OWNED} ORDER BY name`,
     )
-      .bind(siteId)
+      .bind(siteKey, tenantId)
       .all<{ name: string; page: string }>()
     return (results ?? []).map((r) => ({
       name: r.name,
@@ -465,101 +511,94 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
   return {
     tenantId,
 
-    async siteKey(slug) {
-      return siteIdOf(slug)
-    },
-
-    async createDraft(slug) {
+    async createDraft(kind: SiteKind = 'site') {
       const now = new Date().toISOString()
       // THE KEY IS MINTED HERE, which is why `newId` had to move down into the
       // store ([[REQ-190]]): a site comes into existence at this statement and
       // nowhere else, so this is the only place its key can be decided.
       //
-      // `meta.changes` IS THE ANSWER, and it is D1's own count of rows the
-      // statement wrote — 1 when the insert landed, 0 when `OR IGNORE` swallowed
-      // it. Reading the row back instead would be a second round-trip and a
-      // race: another writer could create the site between the check and the
-      // insert, and the caller would be told it created something it did not.
+      // AND IT IS HANDED BACK, WHICH IS THE WHOLE SHAPE OF THE VERB NOW
+      // ([[REQ-236]]). It used to take a slug and answer whether it had created
+      // anything, because the caller already held the name it would address the
+      // site by and `INSERT OR IGNORE` made a second call a no-op. With no slug
+      // there is nothing to insert-or-ignore ON: every call creates a site, and
+      // the caller cannot address the one it just made unless this returns its
+      // key.
       //
-      // `OR IGNORE` STILL SWALLOWS THE DUPLICATE, but the constraint it fires on
-      // is now `idx_sites_tenant_slug` rather than the primary key. That is the
-      // same promise made about the right thing: a business may hold one site
-      // per slug, and the id it would have been given is discarded unused.
-      const { meta } = await DB.prepare(
-        'INSERT OR IGNORE INTO sites ' +
-          '(id, tenant_id, slug, site_json, version, counter, created_at, updated_at) ' +
+      // WHAT REPLACES THE IDEMPOTENCE (BUG-51). "Do not scaffold over a site
+      // that exists" was expressed as `createDraft`'s return value; it is now
+      // expressed where it is actually meant — the caller asks
+      // {@link TenantSiteStore.siteKeys} whether this business already holds one
+      // and creates only when it does not. That is a stronger guard than the one
+      // it replaces, which could only see a collision on the one NAME it
+      // happened to pass.
+      const id = newId('site')
+      await DB.prepare(
+        'INSERT INTO sites ' +
+          '(id, tenant_id, kind, site_json, version, counter, created_at, updated_at) ' +
           'VALUES (?, ?, ?, NULL, 0, 0, ?, ?)',
       )
-        .bind(newId('site'), tenantId, slug, now, now)
+        .bind(id, tenantId, kind, now, now)
         .run()
-      return meta.changes > 0
+      return id
     },
 
-    async forget(slug) {
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return
-      // BUG-37 — the memo goes first. A site recreated under the same slug is a
-      // NEW key now, so a stale entry could not be mistaken for it the way it
-      // could when the memo was keyed by name — but the entry would still leak,
-      // and dropping it is the same one line.
-      ASSEMBLED.delete(siteId)
+    async forget(siteKey) {
+      if (!(await owns(siteKey))) return
+      // BUG-37 — the memo goes first. A site recreated in this business is a NEW
+      // key, so a stale entry could not be mistaken for it the way it could when
+      // the memo was keyed by name — but the entry would still leak, and
+      // dropping it is the same one line.
+      ASSEMBLED.delete(siteKey)
       // R2 first: an orphaned object is invisible and costs storage, whereas an
       // asset row pointing at bytes that are already gone would read back as a
       // present asset with no content.
-      for (const key of await listKeys(SITES, draftPrefix(siteId))) await SITES.delete(key)
+      for (const key of await listKeys(SITES, draftPrefix(siteKey))) await SITES.delete(key)
       // The child tables cascade from `sites` (see the baseline), but D1 only
       // enforces that with foreign keys on, so they are deleted explicitly rather
       // than assumed.
-      const published = await listKeys(SITES, `${PUBLISHED_ROOT}/${siteId}/`)
+      const published = await listKeys(SITES, `${PUBLISHED_ROOT}/${siteKey}/`)
       for (const key of published) await SITES.delete(key)
       await DB.batch([
-        DB.prepare('DELETE FROM site_changes WHERE site_id = ?').bind(siteId),
-        DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteId),
-        DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteId),
-        DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteId),
+        DB.prepare('DELETE FROM site_changes WHERE site_id = ?').bind(siteKey),
+        DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteKey),
+        DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteKey),
+        DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteKey),
         // Scoped to this tenant as well as to the key, so the statement reads as
         // what it is: a handle may only drop a site of its own business, even
         // holding a key it could not otherwise have obtained.
-        DB.prepare('DELETE FROM sites WHERE id = ? AND tenant_id = ?').bind(siteId, tenantId),
+        DB.prepare('DELETE FROM sites WHERE id = ? AND tenant_id = ?').bind(siteKey, tenantId),
       ])
     },
 
-    async slugs() {
-      const { results } = await DB.prepare(
-        'SELECT slug FROM sites WHERE tenant_id = ? ORDER BY slug',
-      )
-        .bind(tenantId)
-        .all<{ slug: string }>()
-      return (results ?? []).map((r) => r.slug)
-    },
-
-    async siteKeys() {
-      const { results } = await DB.prepare(
-        'SELECT id FROM sites WHERE tenant_id = ? ORDER BY id',
-      )
-        .bind(tenantId)
-        .all<{ id: string }>()
+    async siteKeys(kind) {
+      const { results } =
+        kind === undefined
+          ? await DB.prepare('SELECT id FROM sites WHERE tenant_id = ? ORDER BY id')
+              .bind(tenantId)
+              .all<{ id: string }>()
+          : await DB.prepare('SELECT id FROM sites WHERE tenant_id = ? AND kind = ? ORDER BY id')
+              .bind(tenantId, kind)
+              .all<{ id: string }>()
       return (results ?? []).map((r) => r.id)
     },
 
-    async hasDraft(slug) {
-      return (await siteIdOf(slug)) !== null
+    async hasDraft(site) {
+      return owns(site)
     },
 
-    async readSiteJson(slug) {
-      const row = await siteRow(slug)
+    async readSiteJson(site) {
+      const row = await siteRow(site)
       return row?.site_json ? decode<Record<string, unknown>>(row.site_json) : null
     },
 
-    async readPages(slug) {
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return []
-      return readPagesOf(siteId)
+    async readPages(site) {
+      return readPagesOf(site)
     },
 
-    async write(slug, change: SiteWrite) {
-      const row = await siteRow(slug)
-      if (!row) throw new Error(`No site '${slug}' in this store.`)
+    async write(site, change: SiteWrite) {
+      const row = await siteRow(site)
+      if (!row) throw new Error(`No site '${site}' in this store.`)
       const siteId = row.id
 
       // NOTE what is deliberately NOT here: a version check against `row`. It
@@ -642,8 +681,8 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         statements.push(
           DB.prepare(
             'INSERT INTO sites ' +
-              '(id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at) ' +
-              'SELECT id, tenant_id, slug, site_json, version, counter, base_revision, created_at, updated_at ' +
+              '(id, tenant_id, kind, site_json, version, counter, base_revision, created_at, updated_at) ' +
+              'SELECT id, tenant_id, kind, site_json, version, counter, base_revision, created_at, updated_at ' +
               'FROM sites WHERE id = ? AND version <> ?',
           ).bind(siteId, change.expect),
         )
@@ -663,27 +702,21 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
           // The guard fired (or something else did while a guard was in play).
           // Either way the transaction rolled back, and the honest report is the
           // version the site actually holds now.
-          const current = await siteRow(slug)
-          throw new StoreConflictError(slug, change.expect, current?.version ?? null)
+          const current = await siteRow(site)
+          throw new StoreConflictError(site, change.expect, current?.version ?? null)
         }
         throw err
       }
     },
 
-    async listAssets(slug) {
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return []
-      return assetNames(siteId)
+    async listAssets(site) {
+      return assetNames(site)
     },
 
-    async readAsset(slug, name) {
+    async readAsset(site, name) {
       if (isUnsafeName(name)) return null
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return null
-      const row = await DB.prepare(
-        'SELECT r2_key FROM site_assets WHERE site_id = ? AND name = ?',
-      )
-        .bind(siteId, name)
+      const row = await DB.prepare(`SELECT r2_key FROM site_assets WHERE ${OWNED} AND name = ?`)
+        .bind(site, tenantId, name)
         .first<{ r2_key: string }>()
       if (!row) return null
       const object = await SITES.get(row.r2_key)
@@ -691,12 +724,12 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return new Uint8Array(await object.arrayBuffer())
     },
 
-    async counter(slug) {
-      return (await siteRow(slug))?.counter ?? 0
+    async counter(site) {
+      return (await siteRow(site))?.counter ?? 0
     },
 
-    async appendChange(slug, entry) {
-      const row = await siteRow(slug)
+    async appendChange(site, entry) {
+      const row = await siteRow(site)
       // Journalling never fails a write (see `journal.ts`): a site this store
       // does not hold reports the counter unmoved rather than throwing.
       if (!row) return 0
@@ -720,8 +753,8 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return at
     },
 
-    async changesSince(slug, since): Promise<ChangeSlice> {
-      const row = await siteRow(slug)
+    async changesSince(site, since): Promise<ChangeSlice> {
+      const row = await siteRow(site)
       const counter = row?.counter ?? 0
       const from =
         typeof since === 'number' && Number.isFinite(since) ? Math.max(0, Math.trunc(since)) : 0
@@ -740,28 +773,25 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
     // -- revisions (REQ-149) -------------------------------------------------
 
-    async revisions(slug): Promise<RevisionEntry[]> {
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return []
+    async revisions(site): Promise<RevisionEntry[]> {
       const { results } = await DB.prepare(
         'SELECT id, published_at, published_by, message, based_on, changes, sha ' +
-          'FROM site_revisions WHERE site_id = ? ORDER BY id',
+          `FROM site_revisions WHERE ${OWNED} ORDER BY id`,
       )
-        .bind(siteId)
+        .bind(site, tenantId)
         .all<RevisionRow>()
       return (results ?? []).map(rowToRevision)
     },
 
-    async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
-      // THE SITE'S KEY IS RESOLVED FIRST, before a single byte is written, and it
-      // is what every key below is built from. There is no claim to make any more
-      // ([[REQ-190]]): the published address IS this key, so no other business
-      // can be publishing to it and there is nothing to be refused.
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) throw new Error(`No site '${slug}' in this store.`)
+    async writeRevision(site, entry: RevisionEntry, content: RevisionContent) {
+      // OWNERSHIP IS PROVEN FIRST, before a single byte is written, and the key
+      // every object below is built from is the caller's own. There is no claim
+      // to make any more ([[REQ-190]]): the published address IS this key, so no
+      // other business can be publishing to it and there is nothing to refuse.
+      if (!(await owns(site))) throw new Error(`No site '${site}' in this store.`)
 
-      const source = publishedSourcePrefix(siteId, entry.id)
-      const out = publishedOutPrefix(siteId, entry.id)
+      const source = publishedSourcePrefix(site, entry.id)
+      const out = publishedOutPrefix(site, entry.id)
 
       // `source/` travels with `out/`, so what lands is a complete DOC-12
       // revision rather than only its render. D1 holds the MUTABLE draft; this is
@@ -814,7 +844,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
         .bind(
-          siteId,
+          site,
           entry.id,
           entry.publishedAt,
           entry.by,
@@ -826,20 +856,16 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         .run()
     },
 
-    async readRevision(slug, id): Promise<StoredSnapshot | null> {
-      const siteId = await siteIdOf(slug)
-      if (siteId === null) return null
-      const row = await DB.prepare(
-        'SELECT id FROM site_revisions WHERE site_id = ? AND id = ?',
-      )
-        .bind(siteId, id)
+    async readRevision(site, id): Promise<StoredSnapshot | null> {
+      const row = await DB.prepare(`SELECT id FROM site_revisions WHERE ${OWNED} AND id = ?`)
+        .bind(site, tenantId, id)
         .first<{ id: number }>()
       // The ROW vouches for the revision, never the bucket's key space. An
       // interrupted publish can leave objects behind; without a row they are
       // unreachable rather than quietly readable as a revision nobody finished.
       if (!row) return null
 
-      const prefix = publishedSourcePrefix(siteId, id)
+      const prefix = publishedSourcePrefix(site, id)
       const siteJsonObject = await SITES.get(`${prefix}/site.json`)
       const siteJson = siteJsonObject
         ? decode<Record<string, unknown>>(await siteJsonObject.text())
@@ -870,27 +896,25 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return { siteJson, pages, assets }
     },
 
-    async draftBase(slug) {
-      const row = await DB.prepare(
-        'SELECT base_revision FROM sites WHERE tenant_id = ? AND slug = ?',
-      )
-        .bind(tenantId, slug)
+    async draftBase(site) {
+      const row = await DB.prepare('SELECT base_revision FROM sites WHERE id = ? AND tenant_id = ?')
+        .bind(site, tenantId)
         .first<{ base_revision: number | null }>()
       return row?.base_revision ?? null
     },
 
-    async setDraftBase(slug, id) {
-      await DB.prepare('UPDATE sites SET base_revision = ? WHERE tenant_id = ? AND slug = ?')
-        .bind(id, tenantId, slug)
+    async setDraftBase(site, id) {
+      await DB.prepare('UPDATE sites SET base_revision = ? WHERE id = ? AND tenant_id = ?')
+        .bind(id, site, tenantId)
         .run()
     },
 
-    async version(slug) {
-      return (await siteRow(slug))?.version ?? null
+    async version(site) {
+      return (await siteRow(site))?.version ?? null
     },
 
-    async loadDraft(slug): Promise<DraftSnapshot | null> {
-      const row = await siteRow(slug)
+    async loadDraft(site): Promise<DraftSnapshot | null> {
+      const row = await siteRow(site)
       if (!row) return null
 
       // BUG-37 — the memo, checked against the version this request just read.
@@ -899,7 +923,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
       const pages = await readPagesOf(row.id)
       const result = assembleSite({
-        slug,
+        slug: site,
         // Descriptive only — no request-time path reads it (see `LoadedSite`).
         sourceDir: `d1:${row.id}/draft`,
         base: row.site_json ? decode<Record<string, unknown>>(row.site_json) : {},

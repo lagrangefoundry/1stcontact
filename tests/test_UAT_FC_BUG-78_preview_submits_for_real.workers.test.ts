@@ -51,7 +51,7 @@ import { seedFormSite } from './support/lead-site'
  *     testing is usually the one they just changed, and often one no revision
  *     has ever contained;
  *   - *a body field that can name a tenant or waive the challenge* — the site
- *     key comes from the slug through the store, and `identified` is set in code
+ *     key IS the site ([[REQ-236]]), and `identified` is set in code
  *     at one call site, never read off a request;
  *   - *the public endpoint quietly widened* — the seam that lets the preview skip
  *     Turnstile must leave an anonymous caller on `public-site` challenged
@@ -132,7 +132,7 @@ describe('BUG-78 — the preview submits for real', () => {
     const site = await seedFormSite({ tenantId: TENANT, publish: false })
 
     const response = await route(
-      previewPost(site.slug, 'draft', {
+      previewPost(site.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'Preview@Example.com',
       }),
@@ -159,7 +159,7 @@ describe('BUG-78 — the preview submits for real', () => {
     const site = await seedFormSite({ tenantId: TENANT, publish: false })
 
     await route(
-      previewPost(site.slug, 'draft', {
+      previewPost(site.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'marked@example.com',
       }),
@@ -208,8 +208,8 @@ describe('BUG-78 — the preview submits for real', () => {
     // The operator edits the draft. Nothing is published, so the live revision
     // still carries the wording above.
     const store = await d1r2SiteStore(env as unknown as SiteStoreEnv).forTenant(TENANT)
-    await store.write(site.slug, {
-      siteJson: { name: site.slug, config: { businessName: 'Fixture' } },
+    await store.write(site.siteKey, {
+      siteJson: { name: site.siteKey, config: { businessName: 'Fixture' } },
       pages: [
         {
           name: 'home.json',
@@ -246,7 +246,7 @@ describe('BUG-78 — the preview submits for real', () => {
     })
 
     await route(
-      previewPost(site.slug, 'draft', {
+      previewPost(site.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'draftwording@example.com',
         list: 'yes',
@@ -285,7 +285,7 @@ describe('BUG-78 — the preview submits for real', () => {
     })
 
     await route(
-      previewPost(site.slug, 'draft', {
+      previewPost(site.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'unpublished@example.com',
       }),
@@ -310,7 +310,7 @@ describe('BUG-78 — the preview submits for real', () => {
     const theirs = await seedFormSite({ tenantId: 'bug78-other', publish: false })
 
     await route(
-      previewPost(mine.slug, 'draft', {
+      previewPost(mine.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: mine.instanceId,
         email: 'steered@example.com',
         siteKey: theirs.siteKey,
@@ -320,7 +320,7 @@ describe('BUG-78 — the preview submits for real', () => {
       scopeOf(),
     )
 
-    // It landed in the slug's business and nowhere else.
+    // It landed in the site's own business and nowhere else.
     expect(await rowsFor(TENANT, 'steered@example.com')).toHaveLength(1)
     expect(await rowsFor('bug78-other', 'steered@example.com')).toHaveLength(0)
 
@@ -337,7 +337,7 @@ describe('BUG-78 — the preview submits for real', () => {
     const site = await seedFormSite({ tenantId: TENANT, publish: false })
 
     const response = await route(
-      previewPost(site.slug, 'edit', {
+      previewPost(site.siteKey, 'edit', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'editmode@example.com',
       }),
@@ -359,7 +359,7 @@ describe('BUG-78 — the preview submits for real', () => {
     const site = await seedFormSite({ tenantId: TENANT, publish: false })
 
     const response = await route(
-      previewPost(site.slug, 'draft', {
+      previewPost(site.siteKey, 'draft', {
         [FORM_INSTANCE_FIELD]: site.instanceId,
         email: 'notoken@example.com',
       }),

@@ -24,8 +24,8 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const SITES = [
-  { slug: 'alpha', latest: null },
-  { slug: 'beta', latest: 1 },
+  { site: 'alpha', latest: null },
+  { site: 'beta', latest: 1 },
 ]
 
 /**

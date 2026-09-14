@@ -242,7 +242,7 @@ describe('REQ-132 the image picker', () => {
   async function openAt(address: string): Promise<Element> {
     display()
     editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
     })
     const el = document.querySelector(`[${L1_EDIT_PATH_ATTR}="${address}"]`)

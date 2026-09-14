@@ -291,7 +291,7 @@ function openLinksAway(cell) {
 }
 
 /**
- * Where a row's bytes are, as a list of site slugs (BUG-47).
+ * Where a row's bytes are, as a list of site keys (BUG-47).
  *
  * TOLERANT OF ABSENCE, so a row that predates `placed_on` — or one the origin
  * has not filled in — reads as "placed nowhere" rather than as a third state
@@ -567,7 +567,7 @@ export function createLibraryPanel(options = {}) {
       rights: row.rights,
       republishable: row.republishable,
       // JOINED, BECAUSE THE FIELD IS A LIST. `mountFields` reads a scalar, and
-      // `placed_on` holds one slug in v1 and several when a business may hold
+      // `placed_on` holds one site key in v1 and several when a business may hold
       // several sites — so the list is rendered as one, and an unplaced
       // material shows nothing rather than an empty bracket. Labelled `Placed
       // on` rather than `Used on` (REQ-181): it says where the bytes went, and

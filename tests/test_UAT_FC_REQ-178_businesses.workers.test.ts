@@ -4,7 +4,6 @@ import {
   admit,
   provisionBusiness,
   type IdentityEnv,
-  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import { applySchema } from './support/d1-site-factory'
@@ -282,15 +281,15 @@ describe('REQ-178 — provisioning a second business', () => {
     // And the pieces that are per-business by construction still differ, so the
     // comparison above is not passing because both sides are empty.
     expect(added.businessId).not.toBe(invited.businessId)
-    // THE SITE IS NAMED AFTER THE BUSINESS ([[BUG-90]]) — the same name for both,
-    // because both businesses are called `By invite`. That two businesses may
-    // hold a site under one name is what the old global slug claim made
-    // impossible; what changed is WHY they share it. Under [[REQ-190]] every
-    // business shared one fixed word, which is the collision this bug was filed
-    // from; now they share a name only by sharing a name.
-    expect(added.siteSlug).toBe(businessSiteName('By invite', added.businessId))
-    expect(invited.siteSlug).toBe(businessSiteName('By invite', invited.businessId))
-    expect(added.siteSlug).toBe(invited.siteSlug)
+    // AND EACH HOLDS ITS OWN SITE, UNDER ITS OWN KEY ([[REQ-236]]). Both
+    // businesses are called `By invite`, and under [[BUG-90]] that meant both
+    // sites carried the same derived name — legal, because a slug was unique only
+    // inside its business, but still a name two businesses shared. Nothing is
+    // derived now, so the two keys differ for the same reason any two minted
+    // values do, and the shared business name reaches neither.
+    expect(added.siteKey).not.toBe(invited.siteKey)
+    expect(added.siteKey).not.toContain('byinvite')
+    expect(invited.siteKey).not.toContain('byinvite')
   })
 
   it('test_UAT_FC_REQ-178_a_second_business_is_immediately_operable', async () => {
@@ -315,9 +314,9 @@ describe('REQ-178 — provisioning a second business', () => {
 
     const page = await env.DB.prepare(
       'SELECT p.name FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
-        'WHERE s.tenant_id = ? AND s.slug = ?',
+        'WHERE s.tenant_id = ? AND s.id = ?',
     )
-      .bind(added.businessId, added.siteSlug)
+      .bind(added.businessId, added.siteKey)
       .first<{ name: string }>()
     expect(page?.name).toBe('home.json')
   })
@@ -350,7 +349,10 @@ describe('REQ-178 — provisioning a second business', () => {
     const again = await inviteAccount(identityEnv(), { email, endsAt: null })
     expect(again.created, 'the person was created a second time').toBe(false)
     expect(again.businessId).not.toBe(invited.businessId)
-    expect(again.siteSlug).toBe(businessSiteName(again.name!, again.businessId))
+    // THE REPAIR PROVISIONS A WHOLE BUSINESS, SITE INCLUDED ([[REQ-236]]) — a
+    // fresh key, belonging to the new business and to no other.
+    expect(again.siteKey).toBeTruthy()
+    expect(again.siteKey).not.toBe(invited.siteKey)
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)

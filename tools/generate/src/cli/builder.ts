@@ -79,7 +79,6 @@ export interface BuilderHandle {
 function localTenantStore(ctx: StoreContext, store: SiteStore): TenantSiteStore {
   return Object.assign(Object.create(Object.getPrototypeOf(store) as object) as object, store, {
     tenantId: 'local',
-    slugs: async () => cmdList({ cwd: ctx.cwd, sandbox: ctx.root === 'sandbox' }).map((s) => s.slug),
     createDraft: async () => {
       // `1c new` creates a site; this handle is opened over one that exists.
       throw new Error('The local builder transport does not create sites — use `1c new`.')
@@ -87,16 +86,18 @@ function localTenantStore(ctx: StoreContext, store: SiteStore): TenantSiteStore 
     forget: async () => {
       throw new Error('The local builder transport does not delete sites — use the filesystem.')
     },
-    // THE SLUG IS THE KEY HERE, and that is not a stub ([[REQ-190]]). In the
-    // cloud a site has an opaque key because it must survive a rename and a move
-    // between businesses; on the filesystem the site IS the directory
-    // `storage/sites/<slug>/`, there are no businesses to move between, and a
-    // rename is `mv`. So the local transport answers with the only identifier it
-    // has, which is also exactly the value this transport has always used.
-    siteKey: async (slug: string) =>
-      cmdList({ cwd: ctx.cwd, sandbox: ctx.root === 'sandbox' }).some((s) => s.slug === slug)
-        ? slug
-        : null,
+    // THE DIRECTORY NAME IS THE KEY HERE, and that is not a stub ([[REQ-190]],
+    // [[REQ-236]]). In the cloud a site has an opaque key because it must
+    // survive a move between businesses and because a chosen name may not be a
+    // key ([[DOC-45]] §6); on the filesystem the site IS the directory
+    // `storage/sites/<slug>/`, there are no businesses to move between, there is
+    // no tenant to be unique within, and a rename is `mv`. So the local
+    // transport answers with the only identifier it has, which is also exactly
+    // the value this transport has always used.
+    //
+    // `kind` IS IGNORED, AND HAS NOTHING TO NARROW. The portal is a cloud
+    // surface — `/account` is `control-app`'s route — and the file-backed tier
+    // holds only what the operator authored under `storage/sites/`.
     siteKeys: async () =>
       cmdList({ cwd: ctx.cwd, sandbox: ctx.root === 'sandbox' }).map((s) => s.slug),
   }) as TenantSiteStore

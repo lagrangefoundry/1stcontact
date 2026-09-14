@@ -26,6 +26,18 @@ import type { SiteStore, StoredAsset, StoredPage } from '../store/site-store'
 
 /** One site's whole draft, as it crosses the wire. */
 export interface SitePayload {
+  /**
+   * What the site is called in the LOCAL store it came from — a directory under
+   * `storage/sites/`.
+   *
+   * IT NAMES THE SOURCE AND ADDRESSES NOTHING ([[REQ-236]]). It used to be the
+   * far side's target too, because the cloud store addressed a site by a slug.
+   * It cannot be: a D1 site is named by a key the store mints, and this side has
+   * never seen one. So `/api/import` resolves its own target — the receiving
+   * business's site, created when it holds none — and what this field is still
+   * for is the sentence a refusal has to say back to the operator, which has to
+   * name the site they typed rather than one they have never seen.
+   */
   slug: string
   /** `site.json`, or null when the site holds none. */
   siteJson: Record<string, unknown> | null
@@ -53,8 +65,15 @@ export interface PushResult {
   slug: string
   pages: string[]
   assets: string[]
-  /** What the far side reported writing, so a mismatch is visible here. */
-  landed: { pages: number; assets: number; siteJson: boolean }
+  /**
+   * What the far side reported writing, so a mismatch is visible here.
+   *
+   * `site` IS THE DESTINATION'S OWN NAME FOR WHAT LANDED ([[REQ-236]]) — the key
+   * its store minted, which is also the site's public address. It is reported
+   * rather than inferred because this side cannot compute it: the payload's
+   * `slug` names a local directory and the two vocabularies no longer meet.
+   */
+  landed: { site?: string; pages: number; assets: number; siteJson: boolean }
 }
 
 function toBase64(bytes: Uint8Array): string {

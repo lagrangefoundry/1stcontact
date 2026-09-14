@@ -53,8 +53,8 @@ function editBetaHeadline(cwd: string, text: string): void {
 
 /** The listing the workspace is mounted over — `alpha` first, so it opens there. */
 const SITES = [
-  { slug: 'alpha', latest: null },
-  { slug: 'beta', latest: null },
+  { site: 'alpha', latest: null },
+  { site: 'beta', latest: null },
 ]
 
 if (!WEBUI_INSTALLED) console.warn(`story-e674c60a mounted suites: ${WEBUI_SKIP_REASON}`)
@@ -102,7 +102,7 @@ let previewUrl: (slug: string, channel: string) => string
 let publishSite: (slug: string, fetchImpl?: typeof fetch) => Promise<{ id: number }>
 let fetchSites: (
   fetchImpl?: typeof fetch,
-) => Promise<Array<{ slug: string; latest: number | null }>>
+) => Promise<Array<{ site: string; latest: number | null }>>
 
 describe('story-e674c60a workspace mounted over its origin', () => {
   let cwd: string
@@ -242,7 +242,7 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     const res = await get('/api/publish', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: 'beta', message: 'from the workspace' }),
+      body: JSON.stringify({ site: 'beta', message: 'from the workspace' }),
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ id: 1 })
@@ -344,7 +344,7 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     // Non-vacuity: the store is genuinely non-empty and holds more than one site,
     // so "exactly" below has something to be wrong about.
     expect(inStore()).toEqual(['alpha', 'beta'])
-    expect((await fetchSites(originFetch)).map((s) => s.slug).sort()).toEqual(inStore())
+    expect((await fetchSites(originFetch)).map((s) => s.site).sort()).toEqual(inStore())
 
     // A site created AFTER the origin started is listed too. A hardcoded list, a
     // boot-time snapshot, or a filter that drops sites without revisions (only
@@ -354,7 +354,7 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     expect(inStore()).toEqual(['alpha', 'beta', 'gamma'])
 
     const listing = await fetchSites(originFetch)
-    expect(listing.map((s) => s.slug).sort()).toEqual(inStore())
+    expect(listing.map((s) => s.site).sort()).toEqual(inStore())
 
     if (!WEBUI_INSTALLED) {
       unverified('the SELECTOR built from that listing (the chrome needs the components)')

@@ -417,7 +417,7 @@ describe('REQ-118 image selection over the builder origin', () => {
     // SAME `/api/copy` call a copy segment uses, carrying the picker's options —
     // so a picker costs no extra round trip and cannot show options that
     // disagree with what the write path will accept.
-    const body = (await (await get(`/api/copy?slug=acme&page=${pageId}&path=${addr}`)).json()) as {
+    const body = (await (await get(`/api/copy?site=acme&page=${pageId}&path=${addr}`)).json()) as {
       kind: string
       fields: Field[]
       values: Record<string, string>
@@ -435,7 +435,7 @@ describe('REQ-118 image selection over the builder origin', () => {
     const res = await fetch(new URL('/api/copy', builder.url), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: 'acme', page: pageId, path: addr, values: { src: BETA } }),
+      body: JSON.stringify({ site: 'acme', page: pageId, path: addr, values: { src: BETA } }),
     })
     expect(res.status).toBe(200)
     expect((await res.json()).changed).toEqual(['src'])
@@ -455,7 +455,7 @@ describe('REQ-118 image selection over the builder origin', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: 'acme',
+        site: 'acme',
         page: pageId,
         path: addr,
         values: { src: '/assets/ghost.png' },
@@ -471,7 +471,7 @@ describe('REQ-118 image selection over the builder origin', () => {
     // AC7 at the origin — the listing is a route of its own, so the asset browser
     // mode (DOC-28 §9.2) reaches the same store the picker does without going
     // anywhere near a segment or a modal.
-    const res = await get('/api/assets?slug=acme')
+    const res = await get('/api/assets?site=acme')
     expect(res.status).toBe(200)
     const { assets } = (await res.json()) as { assets: Array<Record<string, unknown>> }
     expect(assets.filter((a) => a.kind === 'image').map((a) => a.src)).toEqual(SITE_IMAGES)

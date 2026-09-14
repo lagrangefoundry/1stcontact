@@ -693,7 +693,7 @@ describe("the click-to-edit gesture still works on what the assistant composed",
   })
 
   const copyGet = (address: string): Promise<Response> =>
-    fetch(new URL(`/api/copy?slug=${SLUG}&page=home&path=${address}`, builder.url))
+    fetch(new URL(`/api/copy?site=${SLUG}&page=home&path=${address}`, builder.url))
 
   it('test_UAT_AC1093_the_gesture_opens_and_saves_and_leaves_the_assistants_styling_alone', async () => {
     // An assistant-authored text run is indistinguishable to the derivation from
@@ -718,7 +718,7 @@ describe("the click-to-edit gesture still works on what the assistant composed",
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: SLUG,
+        site: SLUG,
         page: 'home',
         path: '0.1.0',
         values: { text: 'Corrected by the operator.' },

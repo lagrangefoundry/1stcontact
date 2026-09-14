@@ -85,7 +85,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
   it('test_UAT_FC_REQ-117_modal_reads_its_descriptors_from_the_segment', async () => {
     // AC2 — the ticket's job is to DERIVE descriptors from a segment, not to
     // build forms. Assert the derivation, in the shape `mountFields` consumes.
-    const res = await get(`/api/copy?slug=alpha&page=${pageId}&path=${addr}`)
+    const res = await get(`/api/copy?site=alpha&page=${pageId}&path=${addr}`)
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       kind: string
@@ -103,7 +103,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // AC3 — a valid change map lands in the draft AND the rendered bytes, in one
     // call. The re-render is what lets the host merely refresh the iframe; if it
     // did not happen here the user would save and see no change.
-    const res = await post({ slug: 'alpha', page: pageId, path: addr, values: { text: 'Hello loop' } })
+    const res = await post({ site: 'alpha', page: pageId, path: addr, values: { text: 'Hello loop' } })
     expect(res.status).toBe(200)
 
     expect((await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data).toMatchObject({
@@ -119,7 +119,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // modal "the builder broke" and throw away the text that names the field.
     const before = (await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data as { values: unknown }
 
-    const res = await post({ slug: 'alpha', page: pageId, path: addr, values: { nope: 'x' } })
+    const res = await post({ site: 'alpha', page: pageId, path: addr, values: { nope: 'x' } })
     expect(res.status).toBe(400)
     const err = (await res.json()) as { code: string; message: string; hint?: string }
     expect(err.code).toBe('SCHEMA_INVALID')
@@ -137,7 +137,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // comma-joined form is the specific mistake a bare `String(path)` makes on
     // the parsed index array — it must fail closed rather than resolve to some
     // neighbouring node.
-    const res = await post({ slug: 'alpha', page: pageId, path: '0,0,0', values: { text: 'x' } })
+    const res = await post({ site: 'alpha', page: pageId, path: '0,0,0', values: { text: 'x' } })
     expect(res.status).toBe(400)
     expect((await res.json()).message).toMatch(/not a segment address/)
   })
@@ -167,7 +167,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // produced. Nothing signalled it: View looked like a working page, just an
     // old one, and it stayed old indefinitely.
     const res = await post({
-      slug: 'alpha',
+      site: 'alpha',
       page: pageId,
       path: addr,
       values: { text: 'Visible in view mode' },

@@ -363,7 +363,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     // And the origin answers the identical thing — one derivation, two ways in.
     await withOrigin(cwd, async (builder) => {
       const body = (await (
-        await fetch(new URL(`/api/copy?slug=acme&page=home&path=${A_BACKDROP}`, builder.url))
+        await fetch(new URL(`/api/copy?site=acme&page=home&path=${A_BACKDROP}`, builder.url))
       ).json()) as Record<string, unknown>
       expect(body.kind).toBe('container')
       expect(body.fields).toEqual(fields)
@@ -581,7 +581,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            slug: 'acme',
+            site: 'acme',
             page: 'home',
             path: A_BACKDROP,
             values: { backgroundImageUrl: value },

@@ -347,7 +347,7 @@ describe('story-e674c60a builder origin', () => {
         init: {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ slug: 'alpha', message: 'freshness probe' }),
+          body: JSON.stringify({ site: 'alpha', message: 'freshness probe' }),
         },
       },
       {
@@ -359,10 +359,10 @@ describe('story-e674c60a builder origin', () => {
       // The publish log (REQ-149), in both shapes. It reads rather than writes,
       // so the success probe is safe to run before anything is published — an
       // unpublished site answers with an empty log, which is still a 200.
-      { route: '/api/revisions', url: '/api/revisions?slug=alpha', ok: true },
+      { route: '/api/revisions', url: '/api/revisions?site=alpha', ok: true },
       { route: '/api/revisions', url: '/api/revisions', ok: false },
 
-      { route: '/api/assets', url: '/api/assets?slug=alpha', ok: true },
+      { route: '/api/assets', url: '/api/assets?site=alpha', ok: true },
       { route: '/api/assets', url: '/api/assets', ok: false },
       { route: '/api/copy', url: '/api/copy', ok: false },
       {
@@ -377,7 +377,7 @@ describe('story-e674c60a builder origin', () => {
       // operator has already changed, and the popup redraws from exactly this
       // response — so a stale one is a surface that reports the wrong counts
       // for every rule it states.
-      { route: '/api/palette', url: '/api/palette?slug=alpha', ok: true },
+      { route: '/api/palette', url: '/api/palette?site=alpha', ok: true },
       { route: '/api/palette', url: '/api/palette', ok: false },
       {
         route: '/api/palette',

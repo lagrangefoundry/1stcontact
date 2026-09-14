@@ -63,7 +63,7 @@ const transport = () => ({
   grant: async () => ({}),
   revoke: async () => {},
   invite: async () => ({ created: true, person: PEOPLE[0] }),
-  fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
+  fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteKey: 'acct_new' }),
 })
 
 beforeAll(async () => {

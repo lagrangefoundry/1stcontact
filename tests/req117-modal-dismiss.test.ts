@@ -79,7 +79,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 a fieldless modal closes', () => {
 
     try {
       const editor = mountEditor(document, {
-        slug: 'alpha',
+        site: 'alpha',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       const segment = document.querySelector('[data-l1-segment]') as HTMLElement

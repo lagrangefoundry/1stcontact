@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-236
 created_by: xgd
 created_at: '2026-09-13T22:14:19.809018+00:00'
-updated_at: '2026-09-13T23:36:32.329935+00:00'
+updated_at: '2026-09-14T00:55:50.813232+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -172,6 +172,29 @@ Now let me rewrite REQ-190's slug-dependent parts.
 <!-- xgd-turn id="9dbfdfc6-6f4f-464b-aa37-cb848581996e-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-13T23:36:31.198371+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9dbfdfc6-6f4f-464b-aa37-cb848581996e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T00:07:10.756793+00:00" -->
+#### Claude
+Now let me rewrite the stale REQ-190 suite while the run finishes.
+
+Node project is green apart from two pre-existing failures. Now the workers project.
+
+Now the version bump and commit.
+
+Now lock, merge back into `xgd-working`, then mark the ticket.
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="20bb8bb2-1a7b-4323-9ec1-d24f1e27f03e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T00:55:50.370419+00:00" -->
 #### You
 please complete the free-coding of this ticket
 

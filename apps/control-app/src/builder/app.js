@@ -372,7 +372,7 @@ export function mountBuilder(root, options = {}) {
 
   const panel = createDisplayPanel({
     storage: shell.storage(STORAGE_KEYS.panel),
-    site: sites[0]?.slug ?? null,
+    site: sites[0]?.site ?? null,
     // The pane is about to re-derive what it shows; take what the outgoing
     // document holds before the URL that replaces it is computed from it.
     onBeforeNavigate: () => carry.capture(panel.frame?.contentWindow),
@@ -452,10 +452,10 @@ export function mountBuilder(root, options = {}) {
    * as a write that did nothing.
    */
   const transport = paletteTransport ?? { get: fetchPalette, write: writePalette }
-  const openPalette = (slug, opts = {}) =>
+  const openPalette = (site, opts = {}) =>
     openPalettePopup({
       host: shell.element,
-      slug,
+      site,
       transport,
       shadeHex,
       onChanged: () => panel.reloadDocument(),
@@ -500,10 +500,10 @@ export function mountBuilder(root, options = {}) {
    * the lock is taken and released with nothing drawn between — which is the
    * correct rendering of a publish that never said it had anything to resize.
    */
-  const lockedPublish = async (slug) => {
+  const lockedPublish = async (site) => {
     const block = blockForPublish(shell)
     try {
-      const result = await publish(slug, ({ total, done }) => {
+      const result = await publish(site, ({ total, done }) => {
         block.planned(total)
         block.progress(done)
       })
@@ -735,7 +735,7 @@ export function mountBuilder(root, options = {}) {
     const doc = panel.frame?.contentDocument
     if (!doc) return
     editor = mountEditor(doc, {
-      slug: currentSite,
+      site: currentSite,
       bridge: editBridge,
       // INSIDE the shell root, which is where both halves of the modal's
       // appearance are declared: the `--shell-*` tokens and the app font. On
@@ -880,7 +880,7 @@ export function mountBuilder(root, options = {}) {
       let result = null
       let failure = null
       try {
-        result = await sendUpload({ file, role, slug: currentSite ?? undefined })
+        result = await sendUpload({ file, role, site: currentSite ?? undefined })
       } catch (err) {
         failure = err
       }
@@ -922,7 +922,7 @@ export function mountBuilder(root, options = {}) {
    * The assistant follows the pane, and THIS is where a site becomes a session
    * (REQ-127).
    *
-   * The chat pane is handed a conversation, not a slug — so the translation has
+   * The chat pane is handed a conversation, not a site key — so the translation has
    * to happen somewhere, and it happens here because here is where a site is
    * chosen. That is the layering the ticket is about: the shell's chrome owns the
    * switcher ([[REQ-179]]), `app.js` owns the switch, and everything below holds
@@ -939,35 +939,36 @@ export function mountBuilder(root, options = {}) {
   /**
    * WHICH CONVERSATION A SESSION IS, TO THIS BUILDER ([[BUG-69]]).
    *
-   * The origin's id names a site — `site-<slug>` — and that is unique wherever
-   * it is resolved, because every request is business-scoped and the host reads
-   * it against that business's own store. It is not unique HERE: slugs are per
-   * business, so two businesses may each hold a site named the same way, and
-   * `site-unnamed` beside one of them is a different conversation from
-   * `site-unnamed` beside the other.
+   * The origin's id names a site — `site-<siteKey>` — and a site key is 128
+   * random bits, so since [[REQ-236]] it is unique here as well as where it is
+   * resolved. It was not: the id was derived from the slug, slugs were unique
+   * only inside a business, and `site-unnamed` beside one business was a
+   * different conversation from `site-unnamed` beside another.
    *
    * SCOPED EXACTLY THE WAY A URL IS. `api.js` prefixes a path with the selected
    * business and leaves it bare when there is none; this does the same to an id,
    * for the same reason and with the same shape — the pane's notion of "the
    * conversation on screen" then moves precisely when the thing it names moves.
    *
-   * The failure without it: a switch between two businesses whose sites share a
-   * slug re-read the right transcript and the pane discarded it as one it was
-   * already showing, leaving the previous business's conversation beside the new
-   * business's site.
+   * The failure it was written for: a switch between two businesses whose sites
+   * shared a slug re-read the right transcript and the pane discarded it as one
+   * it was already showing, leaving the previous business's conversation beside
+   * the new business's site. REQ-236 removes the collision at its source; the
+   * scoping stays because the key it prefixes is what makes the pane's notion of
+   * "the conversation on screen" move exactly when the business does.
    */
   function conversationKey(businessId, sessionId) {
     return businessId ? `${businessId}/${sessionId}` : sessionId
   }
 
-  async function showSite(slug) {
+  async function showSite(site) {
     const mine = ++generation
     // CAPTURED, NOT READ LATER. The open below is async and `currentBusiness`
     // may have moved on by the time it answers — the generation token already
     // stops that answer reaching the pane, and this keeps the key describing the
     // scope the read was actually made under either way.
     const scope = currentBusiness
-    if (!slug) {
+    if (!site) {
       chat.setSession(null)
       return
     }
@@ -978,7 +979,7 @@ export function mountBuilder(root, options = {}) {
     // sentence the banner carries, and no request is made.
     if (blocked) {
       const unconfigured = {
-        sessionId: `unconfigured:${slug}`,
+        sessionId: `unconfigured:${site}`,
         turns: [],
         ready: false,
         error: aiStatus.message ?? 'The assistant is not available.',
@@ -993,7 +994,7 @@ export function mountBuilder(root, options = {}) {
       // `markdownReady` never rejects, so this adds a failure mode to neither
       // branch — and running it alongside the open costs no latency beyond the
       // slower of the two.
-      const [session] = await Promise.all([openSession(slug), markdownReady])
+      const [session] = await Promise.all([openSession(site), markdownReady])
       if (mine !== generation) return
       chat.setSession(session, conversationKey(scope, session.sessionId))
     } catch (err) {
@@ -1005,7 +1006,7 @@ export function mountBuilder(root, options = {}) {
       // is the same story the origin tells when it CAN answer, so the pane needs
       // no second failure mode.
       const unopened = {
-        sessionId: `unopened:${slug}`,
+        sessionId: `unopened:${site}`,
         turns: [],
         ready: false,
         error: `The assistant could not be reached: ${err.message}`,
@@ -1031,9 +1032,9 @@ export function mountBuilder(root, options = {}) {
    * later untangling: when a business can hold several sites, that control calls
    * `panel.setSite` and everything below already follows.
    */
-  const unbindSite = panel.on('site', (slug) => {
-    currentSite = slug
-    void showSite(slug)
+  const unbindSite = panel.on('site', (site) => {
+    currentSite = site
+    void showSite(site)
   })
 
   /**
@@ -1056,17 +1057,20 @@ export function mountBuilder(root, options = {}) {
    *   2. the remembered selection, so a reload lands here rather than back at
    *      the first admissible business;
    *   3. the pane's site, and its frame — `panel.refresh()` because the URL
-   *      changed even when the slug did not (the prefix is part of it);
+   *      changed even when the site did not (the prefix is part of it);
    *   4. the assistant, which is a session per site and must be re-opened;
    *   5. the Library, whose list is the BUSINESS's material and is therefore
    *      genuinely a different list — cleared before the re-read, so no row from
    *      the business being left behind can survive a re-read that fails.
    *
-   * THE REMEMBERED SITE SURVIVES A SWITCH THAT STILL OFFERS IT. Slugs are unique
-   * per business rather than globally, so the same slug in two businesses is two
-   * different sites and the scoped URL already tells them apart. Dropping to the
-   * first site of the new business regardless would throw away a selection for
-   * no reason on the one path a returning operator takes.
+   * THE REMEMBERED SITE SURVIVES A SWITCH THAT STILL OFFERS IT — and since
+   * [[REQ-236]] the test is exact rather than merely adequate. A site key is
+   * globally unique, so `list.some(entry => entry.site === currentSite)` can only
+   * be true of the very site that was open; under slugs it was true of a
+   * DIFFERENT site that happened to share a name, and the scoped URL was what
+   * told them apart. Dropping to the first site of the new business regardless
+   * would throw away a selection for no reason on the one path a returning
+   * operator takes.
    */
   async function selectBusiness(businessId) {
     currentBusiness = businessId ?? null
@@ -1088,28 +1092,28 @@ export function mountBuilder(root, options = {}) {
       isSessionEnded(error) ? null : [],
     )
     if (list === null) return
-    const slug = list.some((entry) => entry.slug === currentSite)
+    const next = list.some((entry) => entry.site === currentSite)
       ? currentSite
-      : (list[0]?.slug ?? null)
+      : (list[0]?.site ?? null)
 
-    if (slug === currentSite) {
-      // SAME SLUG, DIFFERENT BUSINESS — and `setSite` is deliberately a no-op on
-      // an unchanged slug, so the subscription above will not fire and what it
-      // does has to be done here instead. This is the case that makes "the scope
-      // moved" and "the site changed" genuinely different events: a reload, or
-      // two businesses that happen to name a site the same way.
+    if (next === currentSite) {
+      // SAME SITE, DIFFERENT BUSINESS — and `setSite` is deliberately a no-op on
+      // an unchanged site, so the subscription above will not fire and what it
+      // does has to be done here instead. Since [[REQ-236]] this is the reload
+      // case and only the reload case: a site key is globally unique, so two
+      // businesses can no longer arrive here naming the same site.
       //
       // CALLING IT WAS NEVER ENOUGH ON ITS OWN ([[BUG-69]]). The session the
-      // origin answers with is named after the slug, so on this path it came
+      // origin answers with is named after the site, so on this path it came
       // back with the id already on screen and the pane treated the swap as a
       // no-op — the right transcript, read and discarded. `conversationKey`
       // is what makes the two tellable apart.
-      void showSite(slug)
+      void showSite(next)
     } else {
-      panel.setSite(slug)
+      panel.setSite(next)
     }
-    currentSite = slug
-    // An unchanged slug under a changed business is still a changed URL — the
+    currentSite = next
+    // An unchanged site under a changed business is still a changed URL — the
     // prefix is part of it. See `panel.refresh`.
     panel.refresh()
 
@@ -1170,7 +1174,7 @@ export function mountBuilder(root, options = {}) {
      * The palette popup's second entry point (REQ-133 §1).
      *
      * The toolbar's Colors button is the first; this is the seam a color field
-     * opens it through to PICK a value — `openPalette(slug, {mode: 'pick',
+     * opens it through to PICK a value — `openPalette(site, {mode: 'pick',
      * value})` resolves to a palette reference, or to null if the operator
      * cancelled. Exposed here rather than imported directly by whatever needs it
      * so that the host, the transport and the shade arithmetic are bound once,

@@ -4,8 +4,8 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { applySchema } from './support/d1-site-factory'
-import { nextSlug, siteSeed } from './support/site-seed'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import { nextSlug } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
 
 /**
@@ -75,24 +75,21 @@ async function frames(response: Response): Promise<Frame[]> {
     .map((f) => JSON.parse(f.slice(5).trim()) as Frame)
 }
 
-/** A site made only of L1, imported through the Worker's own route. */
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
-  const res = await post('/api/import', {
-    slug: seed.slug,
-    siteJson: seed.siteJson as Record<string, unknown>,
-    pages: Object.entries(seed.pages).map(([name, page]) => ({
-      name,
-      page: page as Record<string, unknown>,
-    })),
-    assets: [] as { name: string; base64: string }[],
-  })
-  expect(res.status).toBe(200)
+/**
+ * A site made only of L1, and the KEY its store minted ([[REQ-236]]).
+ *
+ * SEEDED THROUGH THE STORE RATHER THAN `POST /api/import`: that route resolves
+ * its own target now — this business's one site — so two seeds in one tenant
+ * would write to the same site and every case below would share a session.
+ */
+async function seedSite(prefix: string): Promise<string> {
+  const { site } = await seedTenantSite(TENANT, { slug: nextSlug(prefix) })
+  return site
 }
 
 /** Open the site's conversation and hand back the id every turn carries. */
-async function openSession(slug: string): Promise<string> {
-  const opened = await post('/api/ai/session', { slug })
+async function openSession(site: string): Promise<string> {
+  const opened = await post('/api/ai/session', { site })
   expect(opened.status).toBe(200)
   const session = (await opened.json()) as { sessionId: string; ready: boolean }
   expect(session.ready).toBe(true)
@@ -111,9 +108,8 @@ afterEach(() => {
 
 describe('BUG-43 — the assistant’s writes reach the page', () => {
   it('test_UAT_FC_BUG-43_every_write_signals_the_page_as_it_lands', async () => {
-    const slug = nextSlug('unfold')
-    await seedSite(slug)
-    const sessionId = await openSession(slug)
+    const site = await seedSite('unfold')
+    const sessionId = await openSession(site)
 
     // Two writes in one turn — the case a per-turn signal would collapse.
     setModelClient(
@@ -157,16 +153,15 @@ describe('BUG-43 — the assistant’s writes reach the page', () => {
       ['services', 'Services'],
       ['contact', 'Contact'],
     ]) {
-      const rendered = await call(`/preview/${slug}/draft/${page}`)
+      const rendered = await call(`/preview/${site}/draft/${page}`)
       expect(rendered.status).toBe(200)
       expect(await rendered.text()).toContain(`<title>${title}`)
     }
   })
 
   it('test_UAT_FC_BUG-43_a_turn_that_changes_nothing_says_nothing', async () => {
-    const slug = nextSlug('quiet')
-    await seedSite(slug)
-    const sessionId = await openSession(slug)
+    const site = await seedSite('quiet')
+    const sessionId = await openSession(site)
 
     // A question, answered from a read tool. The operator is looking at a page
     // that has not moved, and reloading it would throw away their scroll
@@ -183,9 +178,8 @@ describe('BUG-43 — the assistant’s writes reach the page', () => {
   })
 
   it('test_UAT_FC_BUG-43_a_turn_with_no_tools_makes_no_extra_store_read', async () => {
-    const slug = nextSlug('chat')
-    await seedSite(slug)
-    const sessionId = await openSession(slug)
+    const site = await seedSite('chat')
+    const sessionId = await openSession(site)
 
     // The cost is stated in the code and is checked here: the counter is
     // re-read only after tool activity, so a conversational turn pays nothing

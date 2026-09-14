@@ -6,8 +6,8 @@ import { resetChatHost } from '../apps/control-app/src/router'
 import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/tickets'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { pacedClient, says, scriptedClient } from './support/scripted-model-client'
-import { applySchema } from './support/d1-site-factory'
-import { nextSlug, siteSeed } from './support/site-seed'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import { nextSlug } from './support/site-seed'
 
 /**
  * BUG-46 — **a browser reload during a turn no longer destroys that turn**.
@@ -181,28 +181,20 @@ async function archivedTranscript(sessionId: string): Promise<string | null> {
   return comments.find((c) => (c.fields ?? {}).kind === 'chat_transcript')?.body ?? null
 }
 
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
-  const res = await post('/api/import', {
-    slug: seed.slug,
-    siteJson: seed.siteJson as Record<string, unknown>,
-    pages: Object.entries(seed.pages).map(([name, page]) => ({
-      name,
-      page: page as Record<string, unknown>,
-    })),
-    assets: [] as { name: string; base64: string }[],
-  })
-  expect(res.status).toBe(200)
-}
-
-/** Open a session for a fresh site and hand back both. */
-async function openFor(prefix: string): Promise<{ slug: string; sessionId: string }> {
-  const slug = nextSlug(prefix)
-  await seedSite(slug)
-  const opened = await post('/api/ai/session', { slug })
+/**
+ * Open a session for a fresh site and hand back both — the site by its KEY
+ * ([[REQ-236]]).
+ *
+ * SEEDED THROUGH THE STORE RATHER THAN `POST /api/import`: that route resolves
+ * its own target now — this business's one site — so two seeds in one tenant
+ * would write to the same site, and every case here needs a session of its own.
+ */
+async function openFor(prefix: string): Promise<{ site: string; sessionId: string }> {
+  const { site } = await seedTenantSite(TENANT, { slug: nextSlug(prefix) })
+  const opened = await post('/api/ai/session', { site })
   expect(opened.status).toBe(200)
   const { sessionId } = (await opened.json()) as { sessionId: string }
-  return { slug, sessionId }
+  return { site, sessionId }
 }
 
 describe('BUG-46 — a reload during a turn keeps the turn', () => {
@@ -220,7 +212,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     // THE REPORTED FAILURE, reduced to its mechanism. The operator's reload is
     // a second `/api/ai/session` while the first turn is still open — the same
     // isolate, the same junction, exactly as a browser refresh produces.
-    const { slug, sessionId } = await openFor('reload')
+    const { site, sessionId } = await openFor('reload')
     const model = pacedClient('I have started editing. ', 'And now I am finished.')
     setModelClient(model)
 
@@ -230,7 +222,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     // THE RELOAD. Nothing has closed the turn; the archive therefore does not
     // have it, and reading from the archive is what used to return a
     // conversation with the turn missing entirely.
-    const reopened = await post('/api/ai/session', { slug })
+    const reopened = await post('/api/ai/session', { site })
     expect(reopened.status).toBe(200)
     const painted = (await reopened.json()) as {
       turns: { role: string; markdown: string }[]
@@ -258,14 +250,14 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     // The fold is a still frame of something still moving. Painting it is right;
     // leaving the operator looking at a reply frozen mid-sentence is what sends
     // them back to reloading, which is how the turn was lost to begin with.
-    const { slug, sessionId } = await openFor('rejoin')
+    const { site, sessionId } = await openFor('rejoin')
     const model = pacedClient('The first half. ', 'The second half.')
     setModelClient(model)
 
     const turn = frameReader(await post('/api/ai/prompt', { sessionId, text: 'Say two halves.' }))
     await turn.next()
 
-    const painted = (await (await post('/api/ai/session', { slug })).json()) as {
+    const painted = (await (await post('/api/ai/session', { site })).json()) as {
       turns: { role: string; markdown: string }[]
       cursor: number
     }
@@ -332,7 +324,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     // `turn_end` record rather than the archived session file — the file format
     // carries dialogue, not outcomes — so this reads it back through the
     // reattach route, which projects `turn_end` onto `done`.
-    const { slug, sessionId } = await openFor('status')
+    const { site, sessionId } = await openFor('status')
     const model = pacedClient('Half a thought. ', 'The other half.')
     setModelClient(model)
 
@@ -340,7 +332,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     const turn = frameReader(await post('/api/ai/prompt', { sessionId, text: 'Begin.' }, ctx))
     await turn.next()
 
-    const painted = (await (await post('/api/ai/session', { slug })).json()) as { cursor: number }
+    const painted = (await (await post('/api/ai/session', { site })).json()) as { cursor: number }
     await turn.cancel()
     model.release()
     await settled()
@@ -371,7 +363,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
     // the junction must not have quietly coupled them: `transcript` touches no
     // backend, which is why it still runs ahead of `attach`. A builder with no
     // key owes the operator both the history and the reason it is frozen.
-    const { slug, sessionId } = await openFor('frozen')
+    const { site, sessionId } = await openFor('frozen')
     setModelClient(scriptedClient([says('Noted, and written down.')]))
     const done = frameReader(
       await post('/api/ai/prompt', { sessionId, text: 'Remember this.' }),
@@ -387,7 +379,7 @@ describe('BUG-46 — a reload during a turn keeps the turn', () => {
       new Request('https://app.example/api/ai/session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ site }),
       }),
       workerEnv({ ANTHROPIC_API_KEY: undefined }),
     )

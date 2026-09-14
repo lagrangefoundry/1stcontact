@@ -30,7 +30,7 @@ import { NAME_PART_NAMES } from './people-name.js'
  * functions that return a URL instead of fetching one: `previewUrl` into an
  * `<iframe src>`, `assetUrl` into the picker's `<img src>`, `materialFileUrl`
  * into the Library's `<img>`/`<a>`. Their callers are components that know a
- * slug and have no business knowing a business id; threading one through them
+ * site key and have no business knowing a business id; threading one through them
  * would put the scope in a dozen call sites, each free to forget it. The browser
  * runs one builder against one selection at a time, so a module variable is
  * exactly as wide as the thing it describes.
@@ -112,8 +112,8 @@ async function send(fetchImpl, url, init) {
  * because it comes out of a location the browser wrote; encoding it again would
  * turn one `%20` into two.
  */
-export function previewUrl(slug, channel, rel = '') {
-  const root = `/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`
+export function previewUrl(site, channel, rel = '') {
+  const root = `/preview/${encodeURIComponent(site)}/${encodeURIComponent(channel)}/`
   return scoped(rel === '' ? root : `${root}${rel.replace(/^\/+/, '')}`)
 }
 
@@ -123,7 +123,7 @@ export function previewUrl(slug, channel, rel = '') {
  *
  * It is HERE, beside the builder, because the shape of the URL is one fact and
  * two readers of it that each know it separately are one rename away from
- * disagreeing. The scope prefix and the slug are skipped rather than matched:
+ * disagreeing. The scope prefix and the site key are skipped rather than matched:
  * this has to answer for whichever business and site the pane happens to be
  * showing, and neither is what it is being asked about.
  */
@@ -161,11 +161,11 @@ const COMPLETE_REFERENCE = /^([a-z][a-z0-9+.-]*:|\/\/)/i
  * The `draft` channel is not a choice about freshness — asset bytes are copied
  * through rather than rendered, so every channel serves the identical file.
  */
-export function assetUrl(slug, handle) {
+export function assetUrl(site, handle) {
   const trimmed = String(handle ?? '').trim()
   if (trimmed === '') return ''
   if (COMPLETE_REFERENCE.test(trimmed)) return trimmed
-  return previewUrl(slug, 'draft') + trimmed.replace(/^\.?\/+/, '')
+  return previewUrl(site, 'draft') + trimmed.replace(/^\.?\/+/, '')
 }
 
 /**
@@ -258,8 +258,8 @@ export async function fetchSites(fetchImpl = fetch) {
  * here because the listing is the asset *store's* surface, not the modal's: the
  * asset browser mode is the same store shown as a tab, and it calls this.
  */
-export async function fetchAssets(slug, fetchImpl = fetch) {
-  const res = await send(fetchImpl, scoped(`/api/assets?slug=${encodeURIComponent(slug)}`))
+export async function fetchAssets(site, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped(`/api/assets?site=${encodeURIComponent(site)}`))
   if (!res.ok) throw new Error(`GET /api/assets → ${res.status}`)
   return res.json()
 }
@@ -296,7 +296,7 @@ async function copyEnvelope(res) {
 
 /** The descriptors and current values for one segment — the modal's input. */
 export async function fetchCopy(target, fetchImpl = fetch) {
-  const q = new URLSearchParams({ slug: target.slug, page: target.page, path: target.path })
+  const q = new URLSearchParams({ site: target.site, page: target.page, path: target.path })
   if (target.module) q.set('module', target.module)
   if (target.slot) q.set('slot', target.slot)
   return copyEnvelope(await send(fetchImpl, scoped(`/api/copy?${q}`)))
@@ -329,14 +329,14 @@ export async function saveCopy(target, values, fetchImpl = fetch) {
  * — what a color change repaints, what a rename rewrites, whether a delete is
  * even offered — is stated in the count.
  */
-export async function fetchPalette(slug, fetchImpl = fetch) {
-  return copyEnvelope(await send(fetchImpl, scoped(`/api/palette?slug=${encodeURIComponent(slug)}`)))
+export async function fetchPalette(site, fetchImpl = fetch) {
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/palette?site=${encodeURIComponent(site)}`)))
 }
 
 /**
  * Apply one palette operation (REQ-133 §5).
  *
- * `body` is `{slug, op, name, …}` where `op` is `set` | `add` | `rm` | `rename`.
+ * `body` is `{site, op, name, …}` where `op` is `set` | `add` | `rm` | `rename`.
  * The reply carries the operation's own result AND the whole re-taken census, so
  * the popup redraws from what the store now holds rather than from its own guess
  * at what changed.
@@ -364,11 +364,11 @@ export async function writePalette(body, fetchImpl = fetch) {
  * every earlier conversation, and the panel is supposed to show it alongside the
  * reason it is frozen rather than instead of one or the other.
  */
-export async function openChatSession(slug, fetchImpl = fetch) {
+export async function openChatSession(site, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/ai/session'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ site }),
   })
   if (!res.ok) throw new Error(`POST /api/ai/session → ${res.status}`)
   return res.json()
@@ -491,11 +491,11 @@ async function* readEventStream(res) {
 }
 
 /** Snapshot the draft into a new revision and render it (DOC-12 §5). */
-export async function publishSite(slug, fetchImpl = fetch) {
+export async function publishSite(site, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/publish'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ site }),
   })
   if (!res.ok) throw new Error(`POST /api/publish → ${res.status}`)
   return res.json()
@@ -527,14 +527,14 @@ export async function publishSite(slug, fetchImpl = fetch) {
  *   renditions that actually have to be BUILT — a republish finds them all cached
  *   and reports zero, which is what lets the caller stay quiet.
  */
-export async function streamPublish(slug, onProgress, fetchImpl = fetch) {
+export async function streamPublish(site, onProgress, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/publish'), {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ site }),
   })
   // A REFUSAL BEFORE THE STREAM OPENS IS STILL AN ORDINARY STATUS, and it is the
-  // only failure here that has one — an invalid draft, a missing slug, a lapsed
+  // only failure here that has one — an invalid draft, a missing site, a lapsed
   // session. Read as JSON, because that is what the router answers with when it
   // refuses before committing to a stream.
   if (!res.ok) {
@@ -557,10 +557,10 @@ export async function streamPublish(slug, onProgress, fetchImpl = fetch) {
 /**
  * Everything the client has given us, for the business in scope (REQ-161).
  *
- * NO SLUG, AND NOTHING FOR ONE TO NARROW (REQ-181). The scope is carried by the
- * URL prefix `scoped()` writes, and a business holds one site in v1 — so a slug
- * here could only ever repeat what the prefix already says. Material belongs to
- * the business, not to one of its sites.
+ * NO SITE, AND NOTHING FOR ONE TO NARROW (REQ-181). The scope is carried by the
+ * URL prefix `scoped()` writes, and a business holds one site in v1 — so a site
+ * key here could only ever repeat what the prefix already says. Material belongs
+ * to the business, not to one of its sites.
  *
  * IT ANSWERS `{material, seq}` NOW (REQ-201). `seq` is the change cursor the
  * origin read BEFORE it listed, and it is what {@link subscribeMaterial} opens
@@ -666,21 +666,21 @@ export function materialFileUrl(uid, member) {
  * never exercises that tolerance, which is what makes "the client chose"
  * mechanically true rather than a matter of remembering.
  *
- * `slug` is optional and means "and put it on this site if the role says so" —
+ * `site` is optional and means "and put it on this site if the role says so" —
  * the origin promotes it into that site's asset library, so a dropped logo is
  * pickable the same second.
  *
  * IT IS AN INSTRUCTION, NOT A LABEL (BUG-47). The conditional in that sentence
- * is the whole of it: nothing on the material records this slug, because a file
+ * is the whole of it: nothing on the material records this site, because a file
  * dropped on *"just for you to read"* is sent with one and must never come back
  * badged as being on the site. Only the promotion the origin performs writes
  * `placed_on`, and only when the bytes actually land.
  */
-export async function uploadMaterial({ file, role, slug }, fetchImpl = fetch) {
+export async function uploadMaterial({ file, role, site }, fetchImpl = fetch) {
   const form = new FormData()
   form.append('file', file)
   form.append('role', role)
-  if (slug) form.append('slug', slug)
+  if (site) form.append('site', site)
   return copyEnvelope(await send(fetchImpl, scoped('/api/material'), { method: 'POST', body: form }))
 }
 

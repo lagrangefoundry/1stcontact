@@ -43,8 +43,8 @@ export interface SeededAccount {
   user: UserRow
   /** The business seeded for them, or the first one they already held. */
   businessId: string
-  /** The starter site's slug, when this call provisioned a business. */
-  siteSlug: string | null
+  /** The starter site's key, when this call provisioned a business ([[REQ-236]]). */
+  siteKey: string | null
   /**
    * What the business is called — the name `businessSiteName` derives its site's
    * name from ([[BUG-90]]). Returned because a suite that wants to assert the
@@ -99,7 +99,7 @@ export async function inviteAccount(
     .bind(user.id)
     .first<{ business_id: string }>()
   if (held) {
-    return { created: invited.created, user, businessId: held.business_id, siteSlug: null, name: null }
+    return { created: invited.created, user, businessId: held.business_id, siteKey: null, name: null }
   }
 
   const business: BusinessResult = await provisionBusiness(env, {
@@ -120,7 +120,7 @@ export async function inviteAccount(
     created: invited.created,
     user,
     businessId: business.businessId,
-    siteSlug: business.siteSlug,
+    siteKey: business.siteKey,
     name: business.name,
   }
 }

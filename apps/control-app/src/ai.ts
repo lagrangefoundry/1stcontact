@@ -583,7 +583,7 @@ export function workerHost(
       // corpus, and a session with no knowledge base still decides things worth
       // keeping. What it does depend on is a ticket store, which this host
       // always has and the `1c` CLI never does.
-      ledger: (slug: string) => chatLedger(tickets, sessionIdFor(slug)),
+      ledger: (site: string) => chatLedger(tickets, sessionIdFor(site)),
       priming: knowing ? sessionPriming(knowledge) : null,
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus

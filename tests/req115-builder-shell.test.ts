@@ -68,9 +68,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 builder origin', () => {
   it('test_UAT_FC_REQ-115_site_selector_lists_the_store', async () => {
     const res = await get('/api/sites')
     expect(res.status).toBe(200)
-    const sites = (await res.json()) as { slug: string }[]
+    const sites = (await res.json()) as { site: string }[]
     // Derived from the store, never a hardcoded list (AC 6).
-    expect(sites.map((s) => s.slug).sort()).toEqual(['alpha', 'beta'])
+    expect(sites.map((s) => s.site).sort()).toEqual(['alpha', 'beta'])
   })
 
   it('test_UAT_FC_REQ-115_view_mode_serves_a_real_rendered_site', async () => {
@@ -132,7 +132,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 builder origin', () => {
     const res = await get('/api/publish', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: 'alpha', message: 'first' }),
+      body: JSON.stringify({ site: 'alpha', message: 'first' }),
     })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ id: 1 })
@@ -237,11 +237,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     })
     expect(imported.status).toBe(200)
 
+    // THE ADDRESS COMES BACK FROM THE IMPORT, IT IS NOT THE NAME PUSHED
+    // ([[REQ-236]]). `alpha` is what the site is called in the operator's
+    // `storage/sites/` directory and it reaches D1 nowhere: the route resolves
+    // this business's own site and answers with its key. So the channel is asked
+    // for under the key the origin just minted, which is exactly what the builder
+    // does with the same reply.
+    const site = ((await imported.json()) as { site: string }).site
+    expect(site, 'the import did not report where it landed').toBeTruthy()
+
     const sites = (await (await worker.fetch('/api/sites', { headers: admitted })).json()) as {
-      slug: string
+      site: string
     }[]
-    expect(sites.map((s) => s.slug)).toContain('alpha')
-    expect((await worker.fetch('/preview/alpha/draft/', { headers: admitted })).status).toBe(200)
+    expect(sites.map((s) => s.site)).toContain(site)
+    expect((await worker.fetch(`/preview/${site}/draft/`, { headers: admitted })).status).toBe(200)
     expect(
       (await worker.fetch('/webui/webui-shell/src/index.js', { headers: admitted })).status,
     ).toBe(200)

@@ -23,7 +23,7 @@ import { renderL1Document } from '../packages/framework/src/index'
 import type { L1Document, L1Node } from '../packages/site-schema/src/index'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
-const SITES = [{ slug: 'acme', latest: null }]
+const SITES = [{ site: 'acme', latest: null }]
 
 const doc = (root: L1Node): L1Document => ({ widths: [320, 768, 1440], root })
 
