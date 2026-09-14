@@ -5,10 +5,10 @@ type: request
 title: The portal shows and changes a contact's preferences
 created_by: EPIC-10
 created_at: '2026-09-13T22:03:11.191085+00:00'
-updated_at: '2026-09-13T22:03:11.191085+00:00'
+updated_at: '2026-09-14T02:40:42.094087+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   depends_on:
