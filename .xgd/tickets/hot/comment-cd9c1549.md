@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T22:13:05.387044+00:00'
+updated_at: '2026-09-14T22:14:11.095166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1306,5 +1306,42 @@ Your dev box is unchanged apart from the two PDF renames. **The whitepaper form 
 <!-- xgd-chat role="user" ts="2026-09-14T22:13:05.314430+00:00" -->
 #### You
 is 248 dependant on 247?
+
+<!-- xgd-turn id="51938ace-065b-48d9-8c48-0e34b9710acd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T22:14:10.079411+00:00" -->
+#### Claude
+No — and it shouldn't be. The dependency runs one way.
+
+REQ-248 stands entirely on its own: every site already has pages, and any page not named by a navigation entry is *already* unreachable today. The xgd site is the proof — `whitepapers` exists right now and you got to it by other means. 248 delivers its full value with zero of 247 built.
+
+But your question made me re-read 248, and **I put a defect in it.** AC-10 says:
+
+> An email page created under REQ-247 is reachable through this control, and is marked as outside the navigation like any other unlinked page.
+
+That criterion can't be evaluated when 248 is implemented — the thing it tests doesn't exist yet. It's also redundant: AC-1 already covers "including one that no navigation entry points at", and an email page is just an instance of that. Let me move the obligation to where it's testable.
+
+**No — 248 depends on nothing.** The arrow runs 247 → 248 only.
+
+248 is self-contained: sites already have pages, and a page no navigation entry names is *already* unreachable. Your xgd site is the proof — `whitepapers` exists today and isn't clickable from anywhere. 248 could be built and tested tomorrow with none of 247 in place.
+
+## What I fixed while checking
+
+248's AC-10 referenced REQ-247, which made one of its acceptance criteria unevaluable at the time 248 would be implemented — you'd have had a UAT with nothing to run against. Removed it:
+
+- **REQ-248** now has 9 ACs, no dependency, and no testable claim about anything that doesn't exist yet.
+- **REQ-247** AC-1 absorbed the obligation, where it *is* testable: the email page is opened through the page control, and marked as outside the navigation like any other unlinked page.
+
+The reference to 247 that remains in 248 is in **§3, "Why this is needed before the thing it serves"** — motivation, not a criterion. That one should stay. It's what tells whoever picks up the backlog why a small toolbar control is worth doing ahead of the larger ticket, and it costs nothing to verify because it asserts nothing.
+
+## Final state
+
+| | depends on | ACs | status |
+|---|---|---|---|
+| **REQ-246** filenames + MIME | — | 11 | draft |
+| **REQ-248** page control | — | 9 | draft |
+| **REQ-247** emails as pages | REQ-248 | 15 | draft |
+
+So the build order is 248 → 247, with 246 independent of both and landable whenever. All three still unimplemented — nothing in this session has touched code.
 
 <!-- xgd-chat-end -->
