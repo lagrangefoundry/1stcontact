@@ -6,10 +6,10 @@ title: A resumed conversation's first turn back reports what arrived while the c
   was away, with no separate report
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:48.162665+00:00'
-updated_at: '2026-09-14T06:28:48.162665+00:00'
+updated_at: '2026-09-14T06:52:06.892270+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
