@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T19:03:37.451132+00:00'
+updated_at: '2026-09-14T19:07:57.880382+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -800,5 +800,73 @@ This is all outside EPIC-10 as scoped. Want me to write it up as a ticket, and i
 <!-- xgd-chat role="user" ts="2026-09-14T19:03:37.023613+00:00" -->
 #### You
 Can you take a look at the configuration - I do not seem to be getting the emails
+
+<!-- xgd-turn id="098d9467-bad9-471b-8a3d-f87dced5d576-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T19:07:57.694145+00:00" -->
+#### Claude
+Let me re-read it fresh rather than trust my earlier read — and check the mail side properly this time, since that's the part I couldn't verify before.
+
+RESEND_API_KEY *is* on production — so the mailer is real, and my earlier unverified caveat is resolved. Let me now read the actual production config rather than the repo copy.
+
+Found it — you're testing against local dev, and that database has message records. Let me read them.
+
+Found the real cause. The form **has** been configured — but incompletely. Let me confirm the assets resolve.
+
+Yes — and it's changed since I last looked. The form **has** been configured now, almost completely. One field is missing, and it's the one that decides whether mail happens at all.
+
+## What's there now
+
+Reading the live local D1 (your dev box — `apps/control-app/.wrangler/...`, xgd site updated today 18:41), the `signup` instance on `whitepapers.json`:
+
+```json
+"assets": [
+  { "key": "trust-the-code",  "name": "How Can You Trust the Code Your AI Writes?", "url": "/assets/How_Can_You_Trust_the_Code_Your_AI_Writes%3F.pdf" },
+  { "key": "xgd-experiment",  "name": "Extreme Generative Development: An Experiment in AI Software Development", "url": "/assets/Extreme_Generative_Development%3A_An_Experiment_in_AI_Software_Development.pdf" }
+],
+"accepts": [ { "key": "whitepapers", "wording": "We'll send a link to each paper. …" } ]
+```
+
+Both PDFs are genuinely uploaded (`site_assets`, 23KB and 15KB). Keys, names, URLs, consent wording — all present and well-formed.
+
+**There is no `template` key.** So `lead.ts:1134` still fires:
+
+```ts
+const templateKey = definition?.template ?? ''
+if (templateKey === '') return outcome
+```
+
+Capture runs, the contact is written, and the function returns before it ever looks at mail. That's your missing email.
+
+This is precisely the gap from my last message, now demonstrated rather than predicted: the agent set every field `list_behaviors` described to it — `assets`, `accepts` — and omitted the one whose meaning ("absent = send nothing") exists only in a `/* */` comment it can't read.
+
+## Everything else is working
+
+Worth stating, because it narrows the fix to one line:
+
+- **Capture works.** `usr_10c4508c…` was created 17:53:55 today in the xgd tenant (`biz_96fc32af…`) — that's a whitepaper signup landing correctly.
+- **Resend really delivers from your dev box.** The 17:56 messages carry `provider_id: a971cd46-70f2-473b-aa68-4317bbbababb` and a `sent_at`, which is a real Resend id, not the capturing mailer's. So nothing is being silently swallowed locally.
+- `RESEND_API_KEY` is also present on production — that caveat from earlier is now resolved, not just unverified.
+
+One thing to be aware of: the two emails that *did* go to `xgd-whitepapers-1@` and `xgd-whitepapers-test2@` were `template_key: "invite"` — subject "Your invitation". Something invited those addresses as members three minutes after they signed up (`pipeline_stage` is now `invited`). That's not the whitepaper flow, and it's worth knowing it happened.
+
+## The fix
+
+Set one field on the instance:
+
+```json
+"template": "asset"
+```
+
+`asset` is one of the four seeded platform keys and `templateFor` is seed-if-absent, so the copy materialises on first send and the publish-time key check already accepts it. No template authoring needed. The agent can do this itself with `configure_component` — it just needs to be told the value.
+
+## Two things to check immediately after
+
+1. **`.pdf` isn't in the MIME table** (`tools/generate/src/store/content-type.ts`), so both papers are stored as `application/octet-stream`. The gated download will still work — the mail links to `/api/download/<grantId>` — but it'll download as a blob rather than open.
+2. **`How_Can_You_Trust_the_Code_Your_AI_Writes?.pdf` has a literal `?` in the filename**, and the config URL encodes it as `%3F`. `assetKind()` splits on `[?#]` before reading the extension, so that name is already being handled oddly. Worth submitting a test address once `template` is set and confirming the download link actually resolves rather than 404s.
+
+Also, separately: production D1 has 1 tenant, **0 sites, 0 revisions, 0 tickets**. Nothing has ever been published to production, so all of this exists only on your dev box.
+
+Want me to write up the `template` omission as the reproducer for the `BehaviorConfigSpec.description` gap? It's now a concrete failure with a timestamp rather than a hypothetical, which makes the case for that fix much better.
 
 <!-- xgd-chat-end -->
