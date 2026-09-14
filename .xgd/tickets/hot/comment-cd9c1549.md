@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:25:25.176070+00:00'
+updated_at: '2026-09-14T20:30:46.721130+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -879,5 +879,73 @@ So its important that we consider systemic fixes to these issues and not just pa
 (2) We should sanitize filenames on upload to just remove any awkward characters.
 
 Can you create an REQ to cover these two please? And can you change this file name to just remove the ?
+
+<!-- xgd-turn id="a0696ee9-5bee-4859-bd60-c7210b5653d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T20:30:46.178719+00:00" -->
+#### Claude
+Three things. Let me answer (1) properly first, then look at the right mechanism for the rename before touching your dev data.
+
+Let me check ticket conventions before creating, and look at the R2 state for the rename.
+
+Now creating the REQ.
+
+REQ-246 created. Now the rename — let me look at everything it touches before changing anything.
+
+`wrangler dev` is live on :8788 holding those sqlite files — so I won't edit them underneath it. Let me use the app's own API instead.
+
+All three touch points identified. Backing up before I change anything.
+
+Renamed and consistent. One thing surfaced while verifying:
+
+Done. Here's where each piece landed.
+
+## (1) Broadening the MIME table — no real downside, with one correction to the plan
+
+The objection people normally raise is that serving uploads under their real type turns your own origin into a place where a visitor's browser executes what somebody uploaded. **That surface is already open and this doesn't widen it** — `html`, `js` and `svg` are in the tables today and are served with real types from the same bucket. Everything you'd be adding (pdf, zip, csv, media) is inert. `application/octet-stream` stays as the fallback for unknown extensions, so you keep the safe default.
+
+The correction: **there isn't one table to add to — there are already two, and they've drifted.**
+
+| | store `content-type.ts` | public-site `content-type.ts` |
+|---|---|---|
+| `otf`, `txt`, `xml`, `mjs`, `webmanifest` | ✗ | ✓ |
+| `pdf` | ✗ | ✗ |
+
+The store table's own header predicted this word for word: *"a second copy of the table is a drift waiting to happen."* So "just list all common types" applied to one of them makes the drift worse. Merge first, then broaden — that's how I scoped it.
+
+One detail that sharpens the case: the material ticket for the whitepaper records `content_type: "application/pdf"`. Ingestion **knew** it was a PDF and the site asset threw that away, because the store re-derives the type from the extension through the table. The right answer was already in hand.
+
+Separately, inline-vs-download for a gated paper is a `content-disposition` question, not a MIME one — I kept that out of scope so it doesn't get assumed as solved.
+
+## (2) REQ-246 created
+
+**REQ-246 — "A file keeps a usable name, and is served as what it is"** (`request-062e8231`, draft, parented to EPIC-10).
+
+Covers both, with the systemic framing:
+
+- **Names** — sanitise once at the single write path. `editAssetAdd`'s comment already claims that ground (*"one write path, one set of rules about names"*); the rule is what's missing, not the place for it. Today `promoteToSiteAsset` passes the client's filename straight through to the R2 key with nothing in between.
+- **Types** — one table, one reader, covering the inert formats.
+- It also picks up a related defect I hit while tracing: `d1r2-store.ts`'s `isUnsafeName` refuses `/`, `\` and `..` with `continue` — so the bytes are silently not written and the write reports success. That's a data-loss path, and it's AC-10.
+
+11 acceptance criteria, including that deploying it breaks no existing reference.
+
+## (3) The `?` is gone
+
+No rename primitive exists (only add/write/rm), and `wrangler dev` is holding those sqlite files, so I backed both databases up to `$TMPDIR/xgd-rename-backup/` first, then updated the three places the name lives:
+
+- R2 object key
+- `site_assets.name` + `r2_key`
+- the `assets[0].url` in the page config (`%3F` → clean)
+
+Verified: zero `?` left in R2, zero `%3F` left in any page, and the config URL now matches the stored name byte-for-byte. The material ticket keeps the client's original filename, per §4 of the REQ. It had no `placed_as` record, so nothing was linking to the old name.
+
+**Restart `wrangler dev`** — miniflare is holding those files and I wrote underneath it deliberately rather than through it.
+
+**Two things worth your call:**
+
+1. **The other paper has the same defect.** `Extreme_Generative_Development:_An_Experiment_in_AI_Software_Development.pdf` — literal `:` in the R2 key, `%3A` in the config. I didn't touch it because dropping the colon leaves `Development_An_Experiment` and replacing it leaves `Development-_An_Experiment`; that's a naming choice, not a mechanical fix. Say which and it's one command.
+2. **`content_type` is still `application/octet-stream`** on both PDFs. I left it — that's REQ-246's job, and patching the row here is exactly the per-site patching you asked me not to do.
+
+None of this changes the reason you aren't getting mail. That's still the missing `template` field on the form — one line, unaffected by any of the above.
 
 <!-- xgd-chat-end -->
