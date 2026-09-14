@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-247
 created_by: xgd
 created_at: '2026-09-14T21:35:19.453278+00:00'
-updated_at: '2026-09-14T22:05:45.421446+00:00'
+updated_at: '2026-09-14T22:12:16.821108+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,14 @@ Now let me run the full node suite to find the fallout.
 Now the fixture's page-seeding to materialise email pages.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="dfc5951d-c436-4b28-83e0-5009715bfe5a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T22:12:16.764845+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
