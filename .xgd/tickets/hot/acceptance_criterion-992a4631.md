@@ -6,10 +6,10 @@ title: Binding the cloud reference store to an unknown or inactive tenant is ref
   at the same layer and with the same refusal site storage uses
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:49:39.747347+00:00'
-updated_at: '2026-09-14T04:49:39.747347+00:00'
+updated_at: '2026-09-14T05:00:55.279180+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cb7f25b
   kind: behavior
