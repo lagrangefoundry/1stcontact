@@ -5,9 +5,9 @@ type: request
 title: The Settings tab, and the settings chat role
 created_by: EPIC-4
 created_at: '2026-09-13T21:18:15.497079+00:00'
-updated_at: '2026-09-14T03:28:46.379193+00:00'
+updated_at: '2026-09-14T03:31:32.840741+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1f599763
+  story_points: 8
 ---
 
 ## What this is
