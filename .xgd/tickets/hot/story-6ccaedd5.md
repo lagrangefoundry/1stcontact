@@ -6,14 +6,14 @@ title: 'Ingestion: A File Handed To The Platform Becomes Stored, Classified, Fin
   Material'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:06:12.315229+00:00'
-updated_at: '2026-09-11T04:17:56.061463+00:00'
+updated_at: '2026-09-14T06:55:43.043277+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -29,13 +29,26 @@ thinks it may do with it.
 This is the first capability that puts a byte into the system at all. A file arriving through
 the platform's own entry point becomes, in one operation:
 
-1. **stored bytes**, in the account's private material store;
-2. a **classification** — what kind of thing the file is, and what may be done with it, both
+1. a **settled content type** — what the sender said the bytes are, repaired from the filename
+   where the sender said nothing, once and for the whole ingestion;
+2. **stored bytes**, in the account's private material store;
+3. a **classification** — what kind of thing the file is, and what may be done with it, both
    worked out without asking the client a question they cannot answer;
-3. a **material record** whose body is the description of the file, so that the corpus is one
+4. a **material record** whose body is the description of the file, so that the corpus is one
    body of text and there is no second retrieval path for pictures, fonts or PDFs;
-4. an **announcement to the index**, so the material is searchable immediately rather than at
+5. an **announcement to the index**, so the material is searchable immediately rather than at
    the next rebuild.
+
+The content type is settled *first* because everything after it depends on the answer, and
+because the sender is often silent: a browser has no registered type for a Markdown file, so
+what arrives is an empty type that the entry point reports as the generic "unknown binary"
+one. Resolving that silence separately in each later step — or in only some of them — lets
+them disagree about what the file is, and the step that disagreed was the one that decides
+whether the file gets read at all. So the resolution happens once, at the head, and
+classification, description and the record of the stored bytes all read the same value. A type
+the sender actually *stated* is never second-guessed, and an extension the platform has no
+reader for still leaves the generic type in place, so a file nothing can read still degrades
+honestly rather than being refused.
 
 Three refusals bound it: a file above the per-file ceiling and a file with no bytes at all are
 refused before anything is created, in words a non-technical client can act on; and a client
@@ -49,9 +62,9 @@ private store under the account's own prefix, never in the store that serves the
 internet, so one account's upload is invisible to another account's list and to another
 account's search.
 
-**In scope**: the ingestion path itself — classification, record creation, the ordering, the
-ceiling and empty-file refusals, the index announcement, and what happens when no indexer is
-configured.
+**In scope**: the ingestion path itself — content-type resolution, classification, record
+creation, the ordering, the ceiling and empty-file refusals, the index announcement, and what
+happens when no indexer is configured.
 
 **Out of scope**, each covered by its own story: how a file is described (the extractors, the
 six honest outcomes when description is impossible); the guard in front of material fetched on
@@ -80,6 +93,15 @@ list, show and correct material.
 - The two entry-point routes are ordinary origin routes and carry the origin-wide no-store
   directive required by the builder-workspace origin story's existing criterion. That criterion
   is unchanged; these routes are additional evidence for it, not a new rule.
+- The extension-to-type mapping is deliberately not a general MIME database. Every entry names
+  a format some later step can actually act on — the textual ones the describer decodes, the
+  portable-document one it extracts, the image types the vision describer accepts, the font
+  wrappers the name-table reader opens. An entry for a format nothing can read would change
+  the wording of a degraded description and nothing else.
+- The resolved type is also what the material record carries beside the filename, so a surface
+  can choose how to show a document without a second call per row. That field, and the
+  surfaces that read it, belong to the Library detail story (STORY-144), not here; this story
+  owns only the fact that one resolved value reaches every consumer of the ingestion.
 
 ## Reconciliation Decisions
 
@@ -122,6 +144,14 @@ list, show and correct material.
   The landed pipeline also reports it in the response. Formalized because a surface must be
   able to tell the client "stored, but nothing can find it yet" without a second request, and
   because a log alone is invisible to the person whose file it is.
+
+- **Content-type resolution is a step of this story, not of description** (decided at
+  reconciliation, 2026-09-13): BUG-41 specifies the repair explicitly — resolve once, at the
+  head of ingestion, so classification, description and the attachment record cannot disagree
+  — and names the describer as the consumer the bug was visible through. The criteria for it
+  are raised here rather than on the description story because the *ordering* claim ("once, at
+  the head, for all three consumers") is only observable at the ingestion boundary; the
+  description story keeps the claims about what each branch of the describer then does.
 
 ## Dependencies
 
