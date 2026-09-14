@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:41:19.883597+00:00'
+updated_at: '2026-09-14T20:43:57.683866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -967,5 +967,82 @@ This tab will be where templates for emails are created and edited, it is also w
 Metadata on which flow a template is associated with should be kept in the front matter of the ticket.
 
 Lets discuss this design before you create any tickets
+
+<!-- xgd-turn id="f2f645e0-f510-4e5e-b01c-229e7b13e8f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T20:43:57.601783+00:00" -->
+#### Claude
+Both filenames are clean now. Let me ground the design discussion in what's actually there.
+
+Both filenames are clean now — the colon deletion collapsed `:_` to a single `_`, so it reads naturally: `Extreme_Generative_Development_An_Experiment_in_AI_Software_Development.pdf`. R2 key, `site_assets`, and the page config all agree, and no `%3x` encoding is left anywhere in any page.
+
+Now the design. I dug into what's actually there first, because both of these turn out to be cheaper than they look in one respect and more novel in another.
+
+---
+
+# (1) The page shortcut
+
+**There is no "hidden" flag, and that's good news.** A page is hidden purely because nothing in the site's `navigation` settings links to it. `list_pages` already returns every page regardless. So the control needs no new state and no migration — it's a projection of something that already exists.
+
+**The toolbar already has this exact shape.** `panelsAction` (`toolbar.js:282`) is a `<label>` + `<select>` that lists what the current page offers, hides itself when there's nothing to choose, and syncs against the carry — with the sync discipline already written down: *"assign, then read back… what keeps the control and the carry from disagreeing."* A page control is that component one level up, not a new idea.
+
+Three things to settle:
+
+**Select, not buttons.** You said "shortcut link where the View, Edit and Colors buttons are." I'd push back slightly on the form: the strip is already three buttons plus a Panel select, and a link-per-page stops working around five pages. A `Page` select sitting beside `Panel` is the same idiom and doesn't blow up the width.
+
+**Mark the unreachable ones.** This is the part I think is worth more than the shortcut itself. If the control renders "Whitepapers — not in navigation", it stops being a convenience and becomes a diagnostic: an orphaned page is either deliberate (a gated landing page) or a mistake (you forgot to link it), and right now nothing tells you which pages are in that state. It costs one derived boolean — is this page's path among the navigation entries — and it answers the question that sent you looking for the shortcut.
+
+**Two ways to change page must agree.** Clicking a nav link inside the preview iframe still changes the page, so the select has to follow it, not just drive it. That's the `panelsAction` sync problem exactly; reuse it rather than re-derive it.
+
+Worth noting and *not* doing now: if the builder URL carried the page id, the assistant could hand you a link to what it just built, and a reload would keep your place. Related, separable, and I'd leave it out of this.
+
+---
+
+# (2) The Outgoing tab
+
+**Half of this already exists.** Templates are already tickets — `type: 'template'`, `fields: {template_key, subject, placeholders, from}`. I read three of them out of your live dev DB earlier. So this is a UI plus a chat role, not a storage change. And `roles.ts` says the second role (Settings, REQ-239) was made deliberately cheap so a third would be too.
+
+**One correction to "standard 1+2 pane", though.** Library is split + list-detail with *no* chat. Settings is a split *with* chat and no list. Nothing today does list + detail + chat. It composes from the same primitives, but you'd be establishing that pattern, not following it — worth knowing before it gets scoped as "same as Library."
+
+Then four design questions, one of which I think is load-bearing:
+
+### A. "Which flow" in frontmatter would contradict where the association actually lives
+
+Today the direction is: **a form names its template** (`config.template`). The template doesn't know who uses it, and two forms can name the same one.
+
+- For the four platform keys (`invite`, `signin`, `lapsed`, `asset`), `template_key` *is* the flow. That metadata is real and authoritative.
+- For a business's own template named by a form, "which flow" is a **reverse lookup** over site configs — not a property of the template.
+
+If you author that as a field on the ticket, you get a second source of truth that goes stale the moment someone repoints a form at a different template. That is precisely the failure class we spent this session diagnosing, rebuilt one level up.
+
+My recommendation: frontmatter is authoritative **only** for platform flows; for form-driven templates, show **"used by"** as a derived read-only backlink computed from site configs. Identical in the UI, different in the store.
+
+### B. The list is empty until something sends
+
+`templateFor` is seed-if-absent — the system templates don't exist as tickets until a send asks for one. A fresh business would open Outgoing and see nothing, despite four messages being possible. Either materialise all four on open (turns `templateFor` from lazy to eager) or list them as uncustomised placeholders that become tickets on first edit. I'd take the second: seeding stays lazy, and the operator can see which copy is ours and which is theirs — which they'll want to know anyway.
+
+### C. Placeholders are an obligation, not a hint
+
+`renderCopy` refuses a template whose declared placeholders can't be satisfied. An editor that lets you delete `{{cta_url}}` from the sign-in email produces a template that fails at send, for somebody waiting to log in. And `invite`/`signin` can never be named by a public form (`CREDENTIAL_TEMPLATE_KEYS`). So "this is a credential message, different rules apply" is the third thing frontmatter legitimately carries — and the editor has to enforce it rather than describe it.
+
+### D. "Email list content" is a different noun
+
+A template is reusable copy with placeholders, edited indefinitely, rendered per recipient. A broadcast is one-off content, authored once, sent to a list, then historical — and after sending, "edit" means nothing, because it's been delivered. One tab, yes. One ticket type, probably not. This is worth deciding now because it shapes the frontmatter you're asking about.
+
+### E. This closes the loop from earlier
+
+An Outgoing tab implies a **templates AI surface** — which is exactly the gap that caused the original bug. No surface exposes templates today, so the assistant can name a message it can't show you or author. If the surface lands alongside the tab, the agent can write the copy *and* set `config.template`, and the whole failure becomes something the product can fix about itself.
+
+---
+
+**Where I'd like your call before writing anything up:**
+
+1. Select-with-"not in navigation"-markers, or literal per-page links as you first described?
+2. Frontmatter authoritative for platform flows + derived "used by" for form-driven ones — agree, or do you want it authored throughout?
+3. Lazy placeholders, or materialise all four templates when the tab opens?
+4. Templates and broadcasts: one ticket type or two?
+5. Does the AI surface for templates ship with this tab, or follow it?
+
+My instinct is these are two tickets, not one — the page shortcut is small and self-contained; Outgoing is a tab, a role, a surface and a type decision.
 
 <!-- xgd-chat-end -->
