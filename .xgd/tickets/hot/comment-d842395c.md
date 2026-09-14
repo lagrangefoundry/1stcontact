@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-238
 created_by: xgd
 created_at: '2026-09-14T03:05:51.392464+00:00'
-updated_at: '2026-09-14T04:26:44.279045+00:00'
+updated_at: '2026-09-14T04:40:02.543041+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,49 @@ Now the REQ-238 UATs themselves.
 <!-- xgd-chat role="user" ts="2026-09-14T04:26:42.238446+00:00" -->
 #### You
 Your ticket has been updated to answer the questions that you asked. Please reread it and determine if you are ready to code
+
+<!-- xgd-turn id="225d3c18-8555-4a2a-88c6-b67310cb34f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T04:40:00.725996+00:00" -->
+#### Claude
+Now I'll write the REQ-238 UATs.
+
+All 27 pass. Now the publish-gate UAT and the node-side surface UAT.
+
+Now the node-side surface UAT.
+
+Now a full suite run to confirm nothing else broke.
+
+All suites green (the two node failures are pre-existing — I baselined them against a clean tree before touching anything). Now the ticket body, so every UAT traces to it.
+
+Now the version bump and commit.
+
+Yes — the ticket's answers settled all four questions, and REQ-238 is now implemented, committed, merged into `xgd-working`, and parked at `free_coded`.
+
+## What landed
+
+**The record** — `db/migrations/0008_site_domains.sql`, DOC-45 §5 literally. `host` carries a unique index that is *the authority* rather than a backstop: it decides the race, and the code reports what it decided. A partial unique index on `(site_id) WHERE kind='platform' AND status='active'` is the weaker integrity statement beneath the per-business rule, partial on `active` precisely so a revocation leaves the business able to claim again.
+
+**`apps/control-app/src/hostname.ts`** — `check`, `claim`, `revoke`, the syntactic rule, and TODO-6 §2's three groups kept separate in code. `check` deliberately sees revoked rows, because a revoked host is never re-issued and a check that ignored them would disagree with the claim.
+
+**The publish gate** — an `addresses` seam on `publishSite` in exactly `templateRefusal`'s shape, inside rule 1's promise so a refused publish writes nothing. It passes the *list*, never a boolean. Threaded to the assistant's `publish` tool too, since `Publish` being outside the consultant's grant is a line of config rather than a guarantee. The Node builder transport opts out — a publish through it is `1c publish`.
+
+**Four routes and three surface operations**, both calling the same rules, which closes the "exists only inside a conversation" falsifier.
+
+## Three decisions worth your eye
+
+**Revocation is gated on `ownsPlatformBusiness`, not `isPlatformAdminSeed`.** The answer named the latter; I used the former and recorded why in both the code and the ticket. `isPlatformAdminSeed` answers *does this deployment name this address* — break-glass config and a BUG-62 diagnostic, not an authorisation. `ownsPlatformBusiness` asks DOC-42 §7's two questions and is the gate `/api/businesses/provision` already carries. Still one route, still no new auth surface. Say the word if you want it swapped.
+
+**`normaliseLabel` accepts the whole host.** A consequence of the ticket's own "show `alice.1stc.site` as it will be" requirement: that is the string a careful person pastes back, and refusing them the one we just printed would be perverse.
+
+**Three sibling suites needed repair, and one of them is a real narrowing.** REQ-149/222/243's publish fixtures now claim an address through the shipped operation (REQ-222 also moved to one business per case, as REQ-149 already was). REQ-194's role-literal scan now requires a file to name *both* the role vocabulary and the word `role` — `hostname.ts` reserves `support` and `admin` as DNS labels, which has nothing to do with `memberships.role`.
+
+## Tests
+
+Workers: 933 passed, 102 files. Node: 3166 passed, 2 failed — `bug32-webui-scope-rebrand` and `BUG-67 backend_settings`, both of which I baselined as failing on a clean tree before touching anything. 50 new UATs across three `test_UAT_FC_REQ-238_*` files.
+
+Commits `4b10b9d` and `bc8748a`, version `0.2.198`, 13 story points. Not promoted to `ready_to_reconcile` — that's yours.
+
+One thing to be aware of rather than act on: from this commit, publishing requires a claimed hostname, and that hostname will not resolve until TODO-6 §§1 and 5 land. The ticket says that friction is intended and `/site/<key>/` still serves meanwhile.
 
 <!-- xgd-chat-end -->
