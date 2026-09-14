@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:23:54.790156+00:00'
+updated_at: '2026-09-14T21:24:30.815365+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1153,5 +1153,11 @@ granted: bridge.instanceConfig({ groups: [bridge.READ_GROUP] })
 So the consultant can read tickets and cannot write them. Documentation alone wouldn't have let it create a template.
 
 **But under your design it doesn't need either.** If form
+
+<!-- xgd-turn id="3875cd18-819c-42cc-8fa6-4ac2cf1c79f4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T21:24:29.866187+00:00" -->
+#### You
+Sorry, please continue
 
 <!-- xgd-chat-end -->
