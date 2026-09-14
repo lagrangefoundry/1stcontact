@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:36:07.624068+00:00'
+updated_at: '2026-09-14T22:13:05.387044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1300,5 +1300,11 @@ REQ-247 now records `depends_on: [request-10200dc8]`, and the other fields are i
 All three are draft and unimplemented — no code has been written for any of them, and nothing in this session touched the repo outside the ticket files.
 
 Your dev box is unchanged apart from the two PDF renames. **The whitepaper form still has no `template`**, so it still captures contacts and mails nobody. Under REQ-247 that becomes a refusal at configure time rather than silence, but until then it's a one-field fix if you want mail flowing before these land.
+
+<!-- xgd-turn id="51938ace-065b-48d9-8c48-0e34b9710acd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T22:13:05.314430+00:00" -->
+#### You
+is 248 dependant on 247?
 
 <!-- xgd-chat-end -->
