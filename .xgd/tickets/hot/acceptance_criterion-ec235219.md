@@ -6,10 +6,10 @@ title: A bundle is named from the captured URL and re-capturing the same URL rep
   it in place
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T04:48:24.315398+00:00'
-updated_at: '2026-09-14T04:48:24.315398+00:00'
+updated_at: '2026-09-14T05:00:56.667793+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cb7f25b
   kind: behavior
