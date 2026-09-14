@@ -41,6 +41,7 @@ import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
 import { upgradeSiteModules } from '../store/upgrade-site'
 import { contentTypeOf } from '../store/content-type'
+import { sanitizeAssetName } from '../store/asset-name'
 import type { ImageLibrary, StoredImage } from './image-library'
 import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
@@ -2346,27 +2347,44 @@ export async function editAssetAdd(
   bytes: Uint8Array,
   opts: AssetAddOptions,
 ): Promise<EditOutput> {
-  if ((await opts.store.listAssets(slug)).includes(name)) {
+  // THE NAME IS MADE SAFE HERE, WHICH IS WHERE THIS FUNCTION ALREADY CLAIMED IT
+  // WOULD BE ([[REQ-246]]). Every surface that can name a file arrives through
+  // this one — `1c asset add`, the AI toolbox's adapter, and a client's drag onto
+  // the conversation — so "one write path, one set of rules about names" was
+  // already true of the PLACE and false only of the RULE.
+  //
+  // IT IS THE SANITISED NAME EVERYWHERE BELOW, including in the conflict check:
+  // two different files whose names sanitise to the same string must collide
+  // here rather than silently become one object.
+  //
+  // IDEMPOTENT, so a caller that already sanitised — `promoteToSiteAsset`, which
+  // has to, because `freeAssetName` decides a collision before this is reached —
+  // is not changed by passing through it twice.
+  const safe = sanitizeAssetName(name)
+  if ((await opts.store.listAssets(slug)).includes(safe)) {
     throw new CommandError({
       code: 'CONFLICT',
-      message: `Asset file '${name}' already exists in draft/assets.`,
-      path: name,
+      message: `Asset file '${safe}' already exists in draft/assets.`,
+      path: safe,
       hint: 'Choose a different name with --as.',
     })
   }
 
-  await opts.store.write(slug, { assets: [{ name, bytes }] })
+  await opts.store.write(slug, { assets: [{ name: safe, bytes }] })
   const asset: SiteAsset = {
-    id: name,
-    src: assetHandle(name),
-    kind: assetKind(name),
+    id: safe,
+    src: assetHandle(safe),
+    kind: assetKind(safe),
     onDisk: true,
   }
+  // THE NAME IT ACTUALLY LANDED UNDER, not the one it was asked for. A caller
+  // that wrote `my photo.png` has to be able to reference `my-photo.png`, and
+  // the journal note is what tells the assistant which it is.
   return note(
     slug,
     opts,
-    { data: { asset }, human: `Added asset '${name}'.` },
-    { op: 'asset.add', label: name },
+    { data: { asset }, human: `Added asset '${safe}'.` },
+    { op: 'asset.add', label: safe },
   )
 }
 
@@ -2389,6 +2407,13 @@ export async function editAssetAdd(
  * renders a snapshot with a hole in it. The store's `write` puts bytes at a name
  * and says nothing about what was there, which is exactly the primitive this
  * needs and exactly the one `editAssetAdd` has to guard.
+ *
+ * IT DOES NOT SANITISE, AND THAT IS THE SAME SENTENCE AGAIN ([[REQ-246]]).
+ * `editAssetAdd` makes a name safe because it is MINTING one; this one is
+ * ADDRESSING one that already exists, and an asset stored under an awkward name
+ * before that rule existed is still live on the client's site. Sanitising here
+ * would turn a replacement into a `NOT_FOUND` for every such asset — the exact
+ * "deploying this breaks no live reference" property the rule was written under.
  *
  * A NAME THAT IS NOT THERE IS `NOT_FOUND`, AND IT IS NOT CREATED. Replacement is
  * addressed at something; if an operator deleted the asset or a push overwrote

@@ -10,7 +10,7 @@ import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, ctxOf, type GlobalOptions } from './commands'
 import { resolveStaticFile } from './serve'
-import { MIME } from '../store/content-type'
+import { contentTypeOf } from '../store/content-type'
 
 /**
  * The builder's **Node transport** (REQ-145).
@@ -206,7 +206,7 @@ function assetsFetcher(ctx: StoreContext): Fetcher {
       if (!file) return new Response('Not found', { status: 404 })
       return new Response(fs.readFileSync(file), {
         status: 200,
-        headers: { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' },
+        headers: { 'content-type': contentTypeOf(file) },
       })
     },
   } as unknown as Fetcher

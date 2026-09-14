@@ -1,6 +1,10 @@
 import { assembleSite } from './assemble'
 import type { LoadResult } from './assemble'
 import { contentTypeOf } from './content-type'
+import {
+  assertWritableAssetNames,
+  isUnsafeAssetName as isUnsafeName,
+} from './asset-name'
 import { newId } from './ids'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
@@ -279,19 +283,6 @@ function encode(value: unknown): string {
 
 function decode<T>(text: string): T {
   return JSON.parse(text) as T
-}
-
-/**
- * Names that must never reach a key.
- *
- * The filesystem adapter confines `readAsset` to the assets root so a `..` can
- * never climb out of it. R2 has no directories to climb, but a name carrying a
- * separator would still produce a key that a *later* listing or a rendered tree
- * would interpret as one — so the same names are refused here, and the answer is
- * the same `null` rather than a different failure mode per adapter.
- */
-function isUnsafeName(name: string): boolean {
-  return name.includes('/') || name.includes('\\') || name === '..' || name.startsWith('../')
 }
 
 /**
@@ -609,6 +600,15 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // claim testable: every refusal really does execute its writes and really
       // is rolled back, rather than being turned away before the batch is sent.
 
+      // EVERY NAME IS CHECKED BEFORE THE FIRST BYTE, AND A BAD ONE THROWS
+      // ([[REQ-246]]). Each of the two loops below used to skip an unsafe name
+      // with `continue`, so the object was never written, the row was never
+      // inserted, and `write` returned as though it had done what it was asked.
+      // Bytes that vanish from a call that reports success are the failure mode
+      // that costs the most to diagnose. Checking the whole set up here also
+      // means a change set is one act: it cannot half-land.
+      assertWritableAssetNames(change.assets)
+
       // R2 is written OUTSIDE the transaction, because it has none to join.
       // Bytes first, metadata second: an object with no row is invisible and
       // costs storage, whereas a row with no object is an asset that lists and
@@ -616,7 +616,6 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // property of R2, not a shortcut taken here — so the failure mode is
       // chosen rather than left to chance.
       for (const { name, bytes } of change.assets ?? []) {
-        if (isUnsafeName(name)) continue
         await SITES.put(assetKey(siteId, name), bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })
@@ -647,7 +646,6 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         )
       }
       for (const { name, bytes } of change.assets ?? []) {
-        if (isUnsafeName(name)) continue
         statements.push(
           DB.prepare(
             'INSERT INTO site_assets (site_id, name, r2_key, content_type, size) ' +
@@ -714,6 +712,10 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async readAsset(site, name) {
+      // A READ ANSWERS `null`, WHERE A WRITE THROWS ([[REQ-246]]). The write is
+      // being ASKED to store something and has to say it did not; a read is
+      // being asked whether an asset is there, and for a name no asset can have
+      // been stored under, "no" is the true answer rather than an error.
       if (isUnsafeName(name)) return null
       const row = await DB.prepare(`SELECT r2_key FROM site_assets WHERE ${OWNED} AND name = ?`)
         .bind(site, tenantId, name)
@@ -803,8 +805,14 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       for (const { name, page } of content.source.pages) {
         await putText(SITES, `${source}/pages/${name}`, JSON.stringify(page, null, 2), 'application/json')
       }
+      // THE SAME REFUSAL AS `write`, FOR THE SAME REASON ([[REQ-246]]). A draft
+      // cannot hold an unsafe name any more, so this cannot fire in practice —
+      // but a publish that silently omitted an asset would render a revision
+      // with a hole in it and report success, and "unreachable" is not a reason
+      // to keep the shape that made that possible.
+      assertWritableAssetNames(content.source.assets)
+
       for (const { name, bytes } of content.source.assets) {
-        if (isUnsafeName(name)) continue
         await SITES.put(`${source}/assets/${name}`, bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })
@@ -828,7 +836,6 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // images resolved only while the draft still held them would be a site
       // that decays.
       for (const { name, bytes } of content.source.assets) {
-        if (isUnsafeName(name)) continue
         await SITES.put(`${out}/assets/${name}`, bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })

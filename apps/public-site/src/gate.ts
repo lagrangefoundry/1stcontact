@@ -1,5 +1,5 @@
 import { DOWNLOAD_PATH } from '../../../packages/framework/src/modules/contact-form/fields'
-import { contentTypeFor } from './content-type'
+import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
 import { parseRoute, SITE_SEGMENT, isValidSiteKey } from './routes'
 import type { SiteStore } from './site-store'
 
@@ -204,7 +204,7 @@ async function deliver(url: string, siteKey: string, serving: GateServing): Prom
   return new Response(object.body, {
     status: 200,
     headers: {
-      'content-type': contentTypeFor(parsed.path),
+      'content-type': contentTypeOf(parsed.path),
       'cache-control': GATE_CACHE,
       'x-robots-tag': 'noindex',
     },

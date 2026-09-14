@@ -5,7 +5,23 @@ import {
 import {
   applyTurnstileSitekey,
 } from '../../../packages/framework/src/modules/contact-form/turnstile'
-import { contentTypeFor } from './content-type'
+/**
+ * THE ONE EXTENSION-TO-TYPE TABLE ([[REQ-246]]).
+ *
+ * This Worker held its own copy, on the reasoning that the Worker bundle could
+ * not reach Node-side deploy code. The store's half is worker-safe and this
+ * Worker already imports `revision-model` from beside it, so the boundary the
+ * copy was justified by was not there — and the drift the store's own header
+ * predicted had happened: `otf`, `txt`, `xml`, `mjs` and `webmanifest` existed
+ * here and nowhere else, and `pdf` existed in neither, so every whitepaper on
+ * every site was served as `application/octet-stream`.
+ *
+ * WHAT IS UNCHANGED IS THE QUESTION IT IS ASKED. The type is still derived from
+ * the SERVED PATH and never from R2's stored `httpMetadata`, so what a visitor
+ * is told does not depend on whichever upload mechanism happened to write the
+ * object.
+ */
+import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
 import { gateTarget, handleGate, notFound, type GateEnv } from './gate'
 import { handleLead, LEAD_PATH, type LeadEnv } from './lead'
 import { parseRoute, type Route } from './routes'
@@ -339,13 +355,13 @@ async function serve(
       // is chosen by rewriting the bytes, so the length R2 stored is not the
       // length that would be served and a HEAD promising it would be lying.
       // Everything else keeps the metadata-only read it always had.
-      if (isHtml(contentTypeFor(candidate))) continue
+      if (isHtml(contentTypeOf(candidate))) continue
       const head = await serving.bucket.head(`${prefix}/${candidate}`)
       if (head === null) continue
       // Typed from the key that answered, never from the requested path: a
       // fallback hit is HTML, and `/whitepapers` carries no extension to guess
       // from.
-      headers.set('content-type', contentTypeFor(candidate))
+      headers.set('content-type', contentTypeOf(candidate))
       headers.set('content-length', String(head.size))
       if (head.httpEtag) headers.set('etag', head.httpEtag)
       return new Response(null, { status: 200, headers })
@@ -355,7 +371,7 @@ async function serve(
   for (const candidate of candidates) {
     const object = await serving.bucket.get(`${prefix}/${candidate}`)
     if (object === null) continue
-    const contentType = contentTypeFor(candidate)
+    const contentType = contentTypeOf(candidate)
     headers.set('content-type', contentType)
 
     if (isHtml(contentType)) {

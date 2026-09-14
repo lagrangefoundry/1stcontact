@@ -1,4 +1,5 @@
 import { assembleSite } from './assemble'
+import { assertWritableAssetNames } from './asset-name'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
 import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
@@ -157,7 +158,23 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve(pages)
     },
 
-    write(slug, change: SiteWrite) {
+    /**
+     * `async` SO A REFUSED NAME REJECTS RATHER THAN THROWING ([[REQ-246]]).
+     *
+     * The port declares `Promise<void>`, and until the name guard existed there
+     * was nothing in here that could fail, so returning a resolved promise from
+     * a synchronous body cost nothing. It costs something now: a caller holding
+     * the promise — rather than awaiting the call in place — would see the
+     * refusal escape past its own error handling, and the D1/R2 adapter would
+     * reject where these two threw. One shape, every adapter.
+     */
+    async write(slug, change: SiteWrite) {
+      // ONE RULE ABOUT NAMES, ACROSS EVERY ADAPTER ([[REQ-246]]). The D1/R2 store
+      // is where an unsafe name used to be skipped silently; this adapter never
+      // checked at all, so a name with a separator in it composed a path that
+      // left the assets directory. Both are the same refusal now, from the same
+      // statement of which names are refused.
+      assertWritableAssetNames(change.assets)
       const found = require(slug)
       if (change.siteJson !== undefined) found.siteJson = copy(change.siteJson)
       for (const { name, page } of change.pages ?? []) found.pages.set(name, copy(page))
@@ -165,7 +182,6 @@ export function memorySiteStore(): MemorySiteStore {
       for (const { name, bytes } of change.assets ?? []) found.assets.set(name, bytes.slice())
       for (const name of change.removeAssets ?? []) found.assets.delete(name)
       found.revision += 1
-      return Promise.resolve()
     },
 
     listAssets(slug) {

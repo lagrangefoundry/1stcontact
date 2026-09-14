@@ -66,7 +66,6 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { contentTypeFor } from '../apps/public-site/src/content-type'
 import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
 import {
   credentialShapesIn,
@@ -84,7 +83,6 @@ import {
 } from '../tools/generate/src/cli'
 import { EXIT_CODES } from '../tools/generate/src/cli/errors'
 import {
-  EXPECTED_CONTENT_TYPES,
   formatReport,
   referencedAssets,
   referencedFromCss,
@@ -1224,12 +1222,10 @@ describe('story-d5167ced — every same-origin asset a published site references
     expect(bounded.failed[0].detail).toContain('--max-assets')
 
     // The content types expected here and those the serving Worker answers with
-    // are the same table — pinned to each other rather than left to drift.
-    const table = EXPECTED_CONTENT_TYPES as Record<string, string>
-    expect(Object.keys(table).length).toBeGreaterThan(10)
-    for (const [ext, expected] of Object.entries(table)) {
-      expect(contentTypeFor(`file.${ext}`), `smoke and the Worker disagree about .${ext}`).toBe(expected)
-    }
+    // are LITERALLY the same table since REQ-246 — the script imports the
+    // Worker's own module rather than restating it, so there is no pair left to
+    // pin. `test_UAT_FC_REQ-246_the_smoke_script_holds_no_table_of_its_own` is
+    // what holds that true.
   })
 })
 

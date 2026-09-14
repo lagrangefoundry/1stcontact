@@ -1,7 +1,7 @@
 import { renderSiteFiles, type RenderedSite } from '../render/render'
 import { assembleSite, type LoadResult } from '../store/assemble'
 import type { SiteStore } from '../store/site-store'
-import { MIME } from '../store/content-type'
+import { contentTypeOf } from '../store/content-type'
 import { InvalidDefinitionError } from './errors'
 import type { OriginFile, OriginResolver } from './capture/types'
 
@@ -153,7 +153,7 @@ export class PreviewRenderer {
       if (body === null) return null
       return {
         kind: 'bytes',
-        contentType: MIME[extname(name)] ?? 'application/octet-stream',
+        contentType: contentTypeOf(name),
         body,
       }
     }
@@ -170,7 +170,7 @@ export class PreviewRenderer {
     if (key === null) return null
     return {
       kind: 'text',
-      contentType: MIME[extname(key)] ?? 'application/octet-stream',
+      contentType: contentTypeOf(key),
       body: rendered.files.get(key)!,
     }
   }

@@ -44,43 +44,28 @@
  */
 
 /**
- * Published URLs are not revision-scoped, so they are cached briefly rather than
- * immutably. Restated from `PUBLISHED_CACHE` in `apps/public-site/src/index.ts`
- * for the same reason {@link EXPECTED_CONTENT_TYPES} is — this file runs outside
- * the Worker bundle and cannot import it, so the duplication is across a
- * deployment boundary and is pinned by a UAT.
+ * THE ONE EXTENSION-TO-TYPE TABLE, IMPORTED RATHER THAN RESTATED ([[REQ-246]]).
+ *
+ * This file held a copy, on the reasoning that it runs outside the Worker bundle
+ * and cannot load TypeScript — which was true, and was the ONLY one of the five
+ * copies for which it was true. The table beside it in `public-site` carried the
+ * same "pinned by a UAT rather than by hope" justification and drifted anyway,
+ * because a pinning test only ever compares the rows both sides happen to have:
+ * five formats existed in one and not the other, and `pdf` in neither.
+ *
+ * So the module is plain JavaScript now, for exactly this consumer's sake. It
+ * takes no transform, no bundler and no dependency, which is what the header
+ * above requires of everything in here.
  */
-const PUBLISHED_CACHE = 'public, max-age=60'
+import { contentTypeOf, extensionOf } from '../src/store/content-type.js'
 
 /**
- * Extension → the content type the origin must answer with.
- *
- * Deliberately a SECOND statement of the Worker's own table
- * (`apps/public-site/src/content-type.ts`), because this file runs outside the
- * Worker bundle and cannot import it. The duplication is across a deployment
- * boundary and is pinned by a UAT rather than by hope — the same arrangement,
- * and the same reasoning, that table already records for `1c deploy`.
+ * Published URLs are not revision-scoped, so they are cached briefly rather than
+ * immutably. Restated from `PUBLISHED_CACHE` in `apps/public-site/src/index.ts`
+ * — a single constant rather than a table, and the Worker is the only other
+ * place it appears, so a UAT pins the pair.
  */
-const EXPECTED_CONTENT_TYPES = {
-  html: 'text/html; charset=utf-8',
-  css: 'text/css; charset=utf-8',
-  js: 'text/javascript; charset=utf-8',
-  mjs: 'text/javascript; charset=utf-8',
-  json: 'application/json; charset=utf-8',
-  svg: 'image/svg+xml',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  ico: 'image/x-icon',
-  woff: 'font/woff',
-  woff2: 'font/woff2',
-  ttf: 'font/ttf',
-  otf: 'font/otf',
-}
-
-export { EXPECTED_CONTENT_TYPES }
+const PUBLISHED_CACHE = 'public, max-age=60'
 
 /** A site key nothing will ever deploy. Fixed, so a failure is reproducible. */
 const ABSENT_SITE_KEY = 'smoke-absent-site-do-not-deploy'
@@ -119,12 +104,6 @@ class Failed extends Error {}
 /** Assert, with the message that will be reported when it does not hold. */
 function ensure(condition, message) {
   if (!condition) throw new Failed(message)
-}
-
-function extensionOf(pathname) {
-  const name = pathname.slice(pathname.lastIndexOf('/') + 1)
-  const dot = name.lastIndexOf('.')
-  return dot <= 0 ? '' : name.slice(dot + 1).toLowerCase()
 }
 
 /**
@@ -278,10 +257,8 @@ export async function runSmoke(options = {}) {
       const res = await get(`${siteRoot}/`)
       ensure(res.status === 200, `GET ${siteRoot}/ returned ${res.status}, expected 200`)
       const type = res.headers.get('content-type') ?? ''
-      ensure(
-        type === EXPECTED_CONTENT_TYPES.html,
-        `content-type was '${type}', expected '${EXPECTED_CONTENT_TYPES.html}'`,
-      )
+      const expected = contentTypeOf('index.html')
+      ensure(type === expected, `content-type was '${type}', expected '${expected}'`)
       return `200 ${type}`
     })
 
@@ -336,15 +313,20 @@ export async function runSmoke(options = {}) {
           continue
         }
         const ext = extensionOf(new URL(url).pathname)
-        const expected = EXPECTED_CONTENT_TYPES[ext]
+        // THE ORIGIN'S OWN ANSWER, ASKED OF THE ORIGIN'S OWN TABLE. This used to
+        // skip any extension the local copy did not hold, which is precisely the
+        // case a drifted copy produces — so the check fell silent exactly where
+        // it was needed. There is one table now, so every served asset is
+        // compared rather than only the ones a second list remembered.
+        const expected = contentTypeOf(new URL(url).pathname)
         const actual = assetRes.headers.get('content-type') ?? ''
-        if (expected !== undefined && actual !== expected) {
+        if (actual !== expected) {
           problems.push(`${url} served as '${actual}', expected '${expected}'`)
           continue
         }
         // One level into CSS, because that is where @font-face lives and a
         // missing font is invisible in a screenshot but obvious to a reader.
-        if (ext === 'css') {
+        if (ext === '.css') {
           for (const nested of referencedFromCss(await assetRes.text(), url)) {
             if (!seen.has(nested)) queue.push(nested)
           }

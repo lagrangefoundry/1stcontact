@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { contentTypeFor } from '../apps/public-site/src/content-type'
 import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
 import {
   credentialShapesIn,
@@ -10,7 +9,6 @@ import {
   isNameAddressPair,
 } from './support/credential-scan'
 import {
-  EXPECTED_CONTENT_TYPES,
   referencedAssets,
   referencedFromCss,
   runSmoke,
@@ -289,18 +287,24 @@ bucket_name = "1stcontact-sites"
   })
 
   /**
-   * The smoke script's content-type table is a second statement of the Worker's
-   * own, because it runs outside the bundle and cannot import it. Pinned here so
-   * the pair cannot drift — the arrangement `content-type.ts` already records.
+   * The smoke script reads the SAME table the Worker serves from ([[REQ-246]]).
+   *
+   * It used to restate it, because it runs under bare `node` outside every
+   * bundler here and could not load TypeScript — and the pair was "pinned by a
+   * UAT rather than by hope", which is what this case used to be. A pinning test
+   * only ever compares the rows both sides happen to have, so the drift it was
+   * guarding against happened anyway, in the copy beside it. The module is plain
+   * JavaScript now and the script imports it, so there is no pair to pin.
    */
-  it('test_UAT_FC_REQ-144_smoke_content_types_agree_with_the_worker', () => {
-    const table = EXPECTED_CONTENT_TYPES as Record<string, string>
-    expect(Object.keys(table).length).toBeGreaterThan(10)
-    for (const [ext, expected] of Object.entries(table)) {
-      expect(contentTypeFor(`file.${ext}`), `smoke and the Worker disagree about .${ext}`).toBe(
-        expected,
-      )
-    }
+  it('test_UAT_FC_REQ-246_the_smoke_script_holds_no_table_of_its_own', () => {
+    const source = readFileSync(
+      path.join(REPO, 'tools', 'generate', 'bin', 'smoke.mjs'),
+      'utf8',
+    )
+    expect(source).toContain("from '../src/store/content-type.js'")
+    // No literal of its own: the one signature row that proves a general table.
+    expect(source).not.toMatch(/['"]text\/css/)
+    expect(source).not.toMatch(/['"]font\/woff2/)
   })
 
   /** Asset discovery finds what a rendered page actually references. */

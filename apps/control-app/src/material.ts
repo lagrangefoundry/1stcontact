@@ -52,6 +52,7 @@ import {
   type ImageRenderer,
 } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import { sanitizeAssetName } from '../../../tools/generate/src/store/asset-name'
 import {
   describe,
   type DescribeImage,
@@ -781,6 +782,13 @@ export async function promoteToSiteAsset(
   // tell; this has a client who dragged a file, so it renames and reports. That
   // rule is for a DIFFERENT material arriving under a taken name, which is why
   // the re-placement above is decided before this runs rather than inside it.
+  //
+  // A RE-PLACEMENT TAKES THE RECORDED NAME UNTOUCHED, INCLUDING AN AWKWARD ONE
+  // ([[REQ-246]]). `freeAssetName` sanitises, so every FIRST placement from here
+  // on lands under a safe name — but an asset placed before that rule existed is
+  // stored, referenced and published under whatever it was called, and putting
+  // the recorded name through the sanitiser would address bytes that are not
+  // there. Re-placing the picture at `my photo.png` must reach `my photo.png`.
   const name = recorded ? recorded.name : await freeAssetName(sites, args.slug, args.name)
   // THROUGH `editAssetAdd`, NOT PAST IT (BUG-45). This wrote the bytes directly,
   // which meant a file dropped on the chat arrived by a path no other asset took
@@ -1032,17 +1040,30 @@ function placedOn(fields: Record<string, unknown>): string[] {
  * The suffix goes before the extension rather than after it, because the
  * extension is what every consumer reads the type from — `hero.png-2` is not a
  * PNG to a content-type lookup, a picker's icon, or an operator.
+ *
+ * **IT DECIDES ABOUT THE SANITISED NAME** ([[REQ-246]]). The name arriving here
+ * is the client's own filename off the material record, which may be anything a
+ * file can be called; the name it will actually be STORED under is that one put
+ * through `sanitizeAssetName`. Asking whether the raw name is taken answers a
+ * question about a name that will never exist — so `whitepaper (1).pdf` and
+ * `whitepaper #1.pdf` would both be judged free, and the second would then land
+ * on top of the first as `whitepaper-1.pdf`. Sanitising first is what makes the
+ * collision this function exists to avoid the REAL one.
+ *
+ * SANITISING IS NOT DEDUPLICATING: two different files are still two assets, and
+ * the second gets a minted name rather than the first's bytes.
  */
 async function freeAssetName(
   sites: TenantSiteStore,
   slug: string,
   wanted: string,
 ): Promise<string> {
+  const safe = sanitizeAssetName(wanted)
   const taken = new Set(await sites.listAssets(slug))
-  if (!taken.has(wanted)) return wanted
-  const dot = wanted.lastIndexOf('.')
-  const stem = dot > 0 ? wanted.slice(0, dot) : wanted
-  const ext = dot > 0 ? wanted.slice(dot) : ''
+  if (!taken.has(safe)) return safe
+  const dot = safe.lastIndexOf('.')
+  const stem = dot > 0 ? safe.slice(0, dot) : safe
+  const ext = dot > 0 ? safe.slice(dot) : ''
   for (let n = 2; ; n++) {
     const candidate = `${stem}-${n}${ext}`
     if (!taken.has(candidate)) return candidate

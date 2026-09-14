@@ -25,14 +25,10 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
-import { MIME } from '../store/content-type'
+import { contentTypeOf } from '../store/content-type'
 import type { RenderChannel, Root, StoreContext } from '../store'
 import { distDir } from '../store'
 import type { GlobalOptions } from './commands'
-
-/** Minimal MIME map for the static-preview server. */
-// One table, in the store's worker-safe half — see `store/content-type.ts`.
-export { MIME }
 
 export interface ServeOptions extends GlobalOptions {
   source?: RenderChannel
@@ -142,7 +138,7 @@ export const NO_STORE = 'no-store, must-revalidate'
  */
 export function sendFile(res: http.ServerResponse, file: string): void {
   res.writeHead(200, {
-    'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
+    'content-type': contentTypeOf(file),
     'cache-control': NO_STORE,
   })
   createReadStream(file).pipe(res)
