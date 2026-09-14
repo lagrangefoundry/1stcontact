@@ -5,10 +5,10 @@ type: request
 title: The Settings tab, and the settings chat role
 created_by: EPIC-4
 created_at: '2026-09-13T21:18:15.497079+00:00'
-updated_at: '2026-09-14T03:31:32.840741+00:00'
+updated_at: '2026-09-14T03:31:53.408962+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   depends_on:
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   chat_comment: comment-1f599763
   story_points: 8
+  commits:
+  - working_sha: 8cf16c5f861a906c74703140ab20a128ec7b0782
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5ac1d5fcacb1376894248ad3ec9b719561ee5f38
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.196
 ---
 
 ## What this is
