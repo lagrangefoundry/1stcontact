@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-09-10T01:55:43.289946+00:00'
+updated_at: '2026-09-14T05:23:47.260314+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -144,12 +144,25 @@ Six CLI-correctness guarantees for the `1c` command line:
    resolve, because that is precisely the state the next prune turns into the
    crash.
 
-   Gating is per command, on exactly what that command loads: the
-   browser-driving verbs (`capture`, `shot`, `values-diff`, `adopt-gaps`), the
-   imaging verb (`crop`), and the verbs needing both (`diff`, `gate`,
-   `aligned-crops`). The offline verbs — `render`, `serve`, `builder`, `repro`,
-   `refold`, `l1-gate`, `responsive-diff` and the structured-edit commands — are
-   never gated, so a verb is never blocked by a dependency it does not use.
+   Gating is per command, on exactly what that command loads. The gated set is
+   seven verbs — `capture`, `shot`, `values-diff`, `adopt-gaps`, `diff`, `gate`
+   and `aligned-crops` — and all seven are gated for one reason: each drives a
+   browser, so each is gated on the browser automation dependency and on nothing
+   else. That is now the whole of the tool's gated dependency surface. The native
+   imaging package the pixel-comparing verbs once loaded beside it is no longer a
+   declared dependency of the tool at all, because the PNG codec is ordinary
+   source in this repository — so no `1c` verb can fail for want of an imaging
+   package, and no refusal can name one.
+
+   `crop` left the gated set with it. It decodes an image and never opens a
+   browser, so the imaging package was its only entry; with the codec in-repo it
+   loads nothing that can be absent, and its requirement would be the empty set.
+   The entry was **removed rather than emptied**, because a gate on an empty
+   requirement can only produce a refusal the operator has no remedy for. `crop`
+   therefore joins the offline verbs — `render`, `serve`, `builder`, `repro`,
+   `refold`, `l1-gate`, `responsive-diff` and the structured-edit commands —
+   which are never gated, so a verb is never blocked by a dependency it does not
+   use, and `1c crop` completes on a tree that was never installed at all.
 
    The refusal travels the CLI's existing failure contract (guarantee: REQ-11's
    structured failures): an `ENVIRONMENT` code with its own exit status,
@@ -163,13 +176,17 @@ store-selecting flags into the render/serve a sub-command triggers, stdout/stder
 separation and bootstrap quiet for scriptable output, how the launcher configures
 the server every command boots through and which build-transform dependency the
 repository carries, whether any render can reach a build transform at all, and the
-pre-command check that the installed tree matches the declared dependencies. Out
+pre-command check that the installed tree matches the declared dependencies —
+including which verbs that check ranges over and which dependencies it names. Out
 of scope: the content/shape of the diff or crop artifacts themselves (covered by
-the values-diff, size-aware diff, and aligned-crops capabilities), the behavior
-module contract and the conversion of the modules themselves into plain functions
-(covered by the behavior-module capability), the L1 reproduction pipeline whose
-output the transform-free render path serves (covered by the L1 substrate, fold,
-and reproduction-gate capabilities), and *performing* an install — the preflight
+the values-diff, size-aware diff, and aligned-crops capabilities), the PNG codec
+that replaced the imaging dependency and the fidelity arithmetic it feeds (covered
+by the codec story in this same capability — this story owns only the
+*install-gating consequence* of that removal), the behavior module contract and
+the conversion of the modules themselves into plain functions (covered by the
+behavior-module capability), the L1 reproduction pipeline whose output the
+transform-free render path serves (covered by the L1 substrate, fold, and
+reproduction-gate capabilities), and *performing* an install — the preflight
 reports and names the remedy, it never runs it.
 
 ## Technical Context
@@ -239,6 +256,33 @@ reports and names the remedy, it never runs it.
 - The gated set is pinned as a whole in evidence, so adding a browser-driving
   command without gating it is a visible regression rather than a silent
   reopening of the hole.
+- **Guarantee 6's membership re-pinned from bundle-8e1807f6 (BUNDLE-27), plan
+  item 3 (REQ-156), commit `f5807330`.** `sharp` is gone from
+  `tools/generate/package.json` and from every source file under
+  `tools/generate/src`; the per-command dependency map is now seven verbs all
+  naming `playwright` alone, and `crop` carries no entry at all. `1c preflight`'s
+  declared list is derived from that same map, so it no longer names an imaging
+  package either. The gating *rule* did not change — only the set it ranges over.
+  Evidence re-pinned in the same commit:
+  `tests/req44-install-preflight.test.ts` and
+  `tests/reconciliation-1c-install-preflight.test.ts`, both of which now assert
+  the seven-verb set as a whole, that `crop` is refused on no tree, and that a
+  pixel-comparing verb's refusal names `playwright` and not `sharp`.
+- **One honest caveat carried forward from REQ-156.** `sharp` still appears in
+  `pnpm-lock.yaml` as a *transitive* dependency of `miniflare`, which the workerd
+  test pool pulls in, so a developer's install still builds a native module — for
+  the test harness, not for the tool. The claim this story makes is the narrower
+  and accurate one: nothing the tool declares or loads names it, and no `1c` verb
+  can fail because it is absent.
+- **Code issue for `fix_uat_coverage` — do NOT encode this as an AC.** The CLI's
+  own `USAGE` text still lists `crop` among the commands that "check the installed
+  tree before doing any work" (`tools/generate/src/cli/index.ts`, the *Install
+  preflight (REQ-44)* paragraph). REQ-156 states plainly that "`crop` leaves the
+  preflight map … so the entry goes rather than emptying", and the shipped map
+  agrees — so the help text contradicts both the intent and the behaviour, telling
+  an operator that a verb is gated when it is not. No test pins that string today.
+  Per the chain of authority the criteria above record the intent; the help text
+  is the thing that needs correcting.
 - **Deliberately out of this repo (intent split by REQ-44 itself).** The
   "re-install after a commit changes a dependency manifest" rule belongs to the
   workflow engine and is filed as REQ-745 (`lagrangefoundry/xgd`) with its
@@ -248,7 +292,9 @@ reports and names the remedy, it never runs it.
 - **Known blind spot, recorded by intent, not fixed here.** Worktree installs run
   with install scripts skipped, so a package directory can exist while its native
   binary or downloaded browser does not. The module still resolves, so the
-  resolution check cannot see it; that decision is carried by REQ-22.
+  resolution check cannot see it; that decision is carried by REQ-22. The blind
+  spot narrows with `sharp`'s removal: `playwright`'s downloaded browser is the
+  only instance of it left anywhere on the gated path.
 - **Operator step after the uninstall.** A checkout whose `node_modules` predates
   the manifest change still carries `astro`, so the absence assertions only hold
   once the tree matches the lockfile. CI is unaffected: it installs
@@ -257,11 +303,13 @@ reports and names the remedy, it never runs it.
   CAP-63 (1c Capture & Diff Fidelity) — STORY-75 (the intrinsic value axes) and
   STORY-77/STORY-78 (size-aware and cross-size diffing) — the commands whose
   output this hygiene protects, and the
-  same commands guarantee 6 gates; the aligned-crops perceptual pipeline whose
-  store routing guarantee 3 protects; the behavior-module capability that made
-  the modules plain functions, which is what lets guarantee 5 be unconditional;
-  the L1 substrate/fold/gate capabilities that produce the L1-only pages
-  guarantee 5's render assertions exercise.
+  same commands guarantee 6 gates; the PNG-codec story in this same capability,
+  which owns the in-repo codec that replaced the imaging dependency and whose
+  landing is what moved guarantee 6's membership; the aligned-crops perceptual
+  pipeline whose store routing guarantee 3 protects; the behavior-module
+  capability that made the modules plain functions, which is what lets guarantee 5
+  be unconditional; the L1 substrate/fold/gate capabilities that produce the
+  L1-only pages guarantee 5's render assertions exercise.
 
 ## Reconciliation Decisions
 - **2026-08-31 — the quiet-boot criterion is sharpened to an empty stderr.**
@@ -281,11 +329,35 @@ reports and names the remedy, it never runs it.
   the scope of the scan; this is reconciliation's decision, made now, on the
   grounds that a re-entry through a newly added manifest is exactly the failure
   the uninstall is meant to prevent.
+- **2026-09-13 — `crop` gets a criterion of its own rather than only a clause in
+  the gated-set criterion.** REQ-156 states the rule ("`crop` leaves the preflight
+  map … a gate on an empty requirement can only produce false refusals") but is
+  silent on what an operator should be able to *observe* from it. The gated-set
+  criterion can only say that `crop` is absent from a set; what actually matters
+  to a caller is that `1c crop` runs to completion on a tree where nothing is
+  installed. Recorded now as a separate criterion stating that outcome, on the
+  grounds that "absent from the set" is a structural fact while "crops with
+  nothing installed" is the behaviour the removal exists to deliver. The two do
+  not duplicate: the gated-set criterion pins membership as a whole and would
+  still hold if `crop`'s entry had merely been emptied rather than removed.
+- **2026-09-13 — the declared-dependency criterion states the gated surface is
+  one package, not merely that `sharp` is gone.** REQ-156 AC1 says only that "`1c
+  preflight` no longer declares it". Stating the positive form — that the browser
+  automation package is the whole of what the gated verbs range over, and that no
+  verb can fail for want of an imaging package — is what makes the criterion
+  falsifiable against a future re-entry through some *other* imaging package,
+  which a bare absence claim about one named package would not catch. Intent is
+  silent on the positive form; this is reconciliation's decision, made now.
 
 ## Dependencies
 Depends on the behavior-module capability's conversion of behavior modules into
 plain typed functions — until no page needs the build transform, the transform
 cannot leave the repository and guarantee 5 cannot be stated unconditionally.
+
+Guarantee 6's current membership depends on the in-repo PNG codec (plan item 2 of
+bundle-8e1807f6, REQ-156): until the image layer stops being a declared package,
+`crop` cannot leave the gated set and the gated dependency surface cannot narrow
+to the browser automation package alone.
 
 ## Story Points
 2
