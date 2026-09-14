@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-235
 created_by: xgd
 created_at: '2026-09-13T22:13:55.048664+00:00'
-updated_at: '2026-09-13T22:39:20.396167+00:00'
+updated_at: '2026-09-14T03:57:21.298681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,15 @@ REQ-235 §1's "four modules already write structured JSON" undercounts: it's six
 Combined with the two stale claims from the last pass (the cron exists; public-site has no `[observability]` at all), REQ-235 §1–§3 needs a real revision. My recommendation: **§2 stops being a store decision and becomes a Tail Worker + bounded D1 table with the prune floor, explicitly deferring the record envelope to EPIC-1**; §3's cron-vs-lazy question reopens as "a new caller of the existing 04:17 cron". §4 and §5 stand as written.
 
 Want me to make those edits to the ticket body, preserving the existing structure?
+
+<!-- xgd-turn id="2e34d6a1-60ac-4af3-b36a-6b8120bc665b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T03:57:20.301730+00:00" -->
+#### You
+ok lots of work done - please review EPIC-1 in lf and it child ticket REQ-157 - please adopt that work.
+
+Also please read the new Chat "Member behavior - privacy"
+
+Then lets talk about where all that leaves us with your scope
 
 <!-- xgd-chat-end -->
