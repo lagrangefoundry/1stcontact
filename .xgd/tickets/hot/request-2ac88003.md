@@ -5,10 +5,10 @@ type: request
 title: 'The 1stc.site hostname: chosen once, and required before publishing'
 created_by: EPIC-4
 created_at: '2026-09-13T21:17:45.731357+00:00'
-updated_at: '2026-09-14T04:37:57.051642+00:00'
+updated_at: '2026-09-14T04:39:17.215618+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   depends_on:
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d842395c
+  commits:
+  - working_sha: 4b10b9dc9f9f23600917f94c764ac1f95b447064
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bc8748afbe9d16a873d6b2402735647d540100e4
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.198
 ---
 
 ## What this is
