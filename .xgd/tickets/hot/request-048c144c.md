@@ -5,9 +5,9 @@ type: request
 title: An email a form sends is a page of the site
 created_by: EPIC-10
 created_at: '2026-09-14T21:31:04.642575+00:00'
-updated_at: '2026-09-14T21:41:39.573292+00:00'
+updated_at: '2026-09-14T22:13:52.005590+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -114,8 +114,9 @@ about what was sent.
 
 ## 6. Acceptance criteria
 
-1. An email page appears in the site's page list, is opened and edited like a page, and is
-   styled with L1.
+1. An email page appears in the site's page list, is opened through the page control
+   ([[REQ-248]]) and edited like a page, and is styled with L1. It is marked as outside the
+   navigation, as any page nothing links to is.
 2. The assistant creates, reads and edits an email page using only the operations it already
    holds. No new surface, no new role, and no ticket-write grant is required.
 3. An email page has no public address: it is not routable in a published revision, is absent
