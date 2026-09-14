@@ -5,9 +5,9 @@ type: request
 title: A file keeps a usable name, and is served as what it is
 created_by: EPIC-10
 created_at: '2026-09-14T20:28:41.237519+00:00'
-updated_at: '2026-09-14T20:47:40.870870+00:00'
+updated_at: '2026-09-14T20:58:41.284670+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -50,10 +50,28 @@ holds `otf`, `txt`, `xml`, `mjs` and `webmanifest`; the store table holds none o
 drift the header predicted has happened. Neither table holds `pdf`, so both whitepapers are
 stored and served as `application/octet-stream`.
 
+**And there are four, not two.** `apps/control-app/src/capture-material.ts`'s
+`memberContentType` and `tools/generate/src/cli/capture/reextract.ts` each carry a literal of
+their own, and they disagree with the store's about the charset a textual member carries.
+Both are folded in here — the only thing either needed that a table cannot hold is
+`reextract`'s sniff for an *extensionless* member (Google Fonts' `css2`), which stays as the
+fallback behind the shared answer rather than as a reason to keep a table.
+
 ## 2. The change: one table, covering the inert formats
 
 The extension-to-type map becomes one table with one reader, and it grows to cover the
 document, archive and media formats a site actually carries — `pdf` first among them.
+
+**One reader means the table stops being exported.** A map four callers can index is four
+readers, which is how the drift above actually happened — `MIME[path.extname(file)]` and
+`MIME[extname(name)]` were subtly different lookups (one lowercased, one did not). `MIME`
+becomes private to its module and every caller asks `contentTypeOf`.
+
+**The reader becomes path-aware, because it now answers for both surfaces.** `public-site`
+asked its own copy about a whole served key (`sites/<k>/rev/3/out/assets/hero.png`) and the
+store asked its copy about a bare name; one function has to do both, so `extensionOf` takes
+the last path segment first. It also adopts `public-site`'s rule that a leading dot is a
+name and not an extension — `.gitignore` is not an HTML file.
 
 **Breadth is safe here, and the usual objection does not apply.** The argument against a
 broad MIME table is that serving an upload under its real type turns the site's own origin
@@ -62,7 +80,8 @@ already open and is not widened by this: `html`, `js` and `svg` are in the table
 are served with their real types from the same bucket. What this adds is inert — bytes a
 browser renders or downloads but does not execute as script on our origin. No new active
 type is added by this ticket, and the distinction between the two groups is written down so
-the next addition has to decide which it is.
+the next addition has to decide which it is — as two separate literals in the source, and
+as an enumerated active set a test asserts against.
 
 **`application/octet-stream` remains the fallback.** An unknown extension is still labelled
 as bytes rather than guessed at, which is both the safe answer and a legible one.
@@ -75,12 +94,21 @@ download is a `content-disposition` decision, and it is not made here.
 
 Sanitisation belongs at the single write path, not at each surface that can name a file.
 `editAssetAdd`'s own comment already claims that ground — *"one write path, one set of rules
-about names"* — and the rule is what is missing rather than the place to put it.
+about names"* — and the rule is what is missing rather than the place to put it. Every
+surface that can name a file arrives through it: `1c asset add`, the AI toolbox's adapter,
+and a client's drag onto the conversation.
 
 A stored name is restricted to characters that survive being a URL path segment, an R2 key
 and a filename without encoding: the extension is preserved, everything outside the safe set
 is replaced, and runs collapse. A name that sanitises to nothing still yields a usable name
-rather than an empty one.
+rather than an empty one. Case is preserved — it is the client's name for their own file,
+and lowercasing it is a second, unrelated opinion. Any leading path is dropped rather than
+refused, because a browser's file input hands one over on a directory upload and only its
+last segment was ever a filename.
+
+**The rule is idempotent, which is what makes applying it twice legal.** It runs in
+`freeAssetName` — so the collision that function decides about is the real one — and again
+in `editAssetAdd`, which cannot assume its caller did.
 
 **Sanitising is not deduplicating.** Two different files whose names sanitise to the same
 string must not silently become one; `freeAssetName` already mints a free name for a taken
@@ -91,12 +119,31 @@ real one.
 the caller is told about. Today the bytes vanish and the write reports success, which is the
 failure mode that costs the most to diagnose.
 
+**The refusal is one rule, stated once, and every adapter obeys it.** The D1/R2 store is
+where the silent `continue` was; the filesystem adapter never checked at all, so a name with
+a separator in it composed a path that left the assets directory entirely. Both — and the
+in-memory adapter — now run the same guard over the whole change set before the first byte,
+so a change set is one act and cannot half-land. The two node-side adapters' `write` becomes
+`async` as a consequence: the port declares `Promise<void>` and a caller holding the promise
+rather than awaiting the call in place must see a rejection, not a synchronous throw.
+
+**`editAssetReplace` deliberately does not sanitise.** `editAssetAdd` makes a name safe
+because it is *minting* one; replace is *addressing* one that already exists. Sanitising
+there would turn every re-placement of an already-stored awkward name into a `NOT_FOUND` for
+bytes that are plainly live on a client's site. `promoteToSiteAsset`'s re-placement branch
+takes the recorded name untouched for the same reason.
+
 ## 4. What this does not touch
 
 The material ticket keeps the client's original filename — that is what the client called it
 and what the Library shows them. What changes is the name the *site asset* is stored under.
 `material.ts`'s own MIME map is deliberately separate ("not a general MIME database", for
-what the ingestion steps can read) and stays separate.
+what the ingestion steps can read) and stays separate — it answers a different question,
+what a file whose own declared type said *nothing* probably is, and it returns a stated type
+untouched so it can never disagree with a served header.
+
+`assetKind`'s `[?#]` split stays. It is reached with complete URLs as well as stored names,
+so the split is doing a second job that sanitised names do not remove the need for.
 
 Existing assets are not renamed by deploying this. The XGD file is corrected by hand,
 outside this ticket.
@@ -120,6 +167,17 @@ outside this ticket.
 9. The name a page references and the name the asset is stored under are byte-identical —
    no reference requires percent-encoding to match its own asset.
 10. A name that cannot be made safe is refused with an error naming the file. Bytes are
-    never silently dropped by a write that reports success.
+    never silently dropped by a write that reports success, by any adapter, and a change set
+    carrying one bad name lands none of its assets.
 11. An asset already stored under an awkward name goes on resolving until it is renamed:
-    deploying this breaks no live reference.
+    deploying this breaks no live reference, and it stays replaceable under its own name.
+
+## 6. Evidence
+
+- `tests/test_UAT_FC_REQ-246_one_content_type_table.test.ts` — AC1–AC5. Served headers come
+  from `public-site`'s own `fetch` entry point over a bucket seeded by a real publish; the
+  AC2 guard scans the production source tree for a second table rather than comparing two.
+- `tests/test_UAT_FC_REQ-246_a_usable_name.workers.test.ts` — AC6–AC11 through the real
+  `promoteToSiteAsset`, over real D1 and R2, so the property is proved about an actual key.
+- `tests/test_UAT_FC_REQ-246_safe_names.test.ts` — the rule at close range: every shape a
+  filename can take, idempotence, and the floor in each node-side adapter.
