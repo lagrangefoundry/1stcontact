@@ -6,10 +6,10 @@ title: The remaining fidelity comparisons run inside the deployed serverless run
   at their comparison cores
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:06:30.108615+00:00'
-updated_at: '2026-09-14T05:06:30.108615+00:00'
+updated_at: '2026-09-14T05:16:31.950454+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-046cfc56
   kind: behavior
