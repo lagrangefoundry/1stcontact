@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-09-14T06:26:34.496738+00:00'
+updated_at: '2026-09-14T06:29:15.602263+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-8e1807f6
@@ -130,8 +130,7 @@ so the first upload of a conversation would be announced again, and again.
   turn costs a scan to prove what the deployment model already guarantees.
   Formalizing it also settles the degenerate case the intent never names: a
   conversation with no client knowledge open at all runs its turns with no
-  arrival notice rather than failing. Formalized as AC "No client knowledge
-  opened is an ordinary state".
+  arrival notice rather than failing. Formalized as AC-1808.
 
 - **The arrival notice is placed after everything stable in the turn's context**
   (decided at reconciliation, 2026-09-13): REQ-160 states the rule as a cost
@@ -140,7 +139,7 @@ so the first upload of a conversation would be announced again, and again.
   *Decided* rather than under *Acceptance*, so no acceptance line covers it. It
   is observable in the assembled turn and it is the difference between a cached
   prefix and one invalidated every turn, so it is formalized here rather than
-  left as commentary. Formalized as AC "The arrival notice is last".
+  left as commentary. Formalized as AC-1807.
 
 - **The temporal query is deliberately not formalized** (decided at
   reconciliation, 2026-09-13): REQ-160's *Acceptance* lists "a delta above the
@@ -149,8 +148,8 @@ so the first upload of a conversation would be announced again, and again.
   section says of that operation "the second is genuinely blocked and waits"
   (lagrange-framework REQ-112). The intent scopes it out in its own words, and it
   is absent from the code, so no criterion here claims it. This is an
-  un-delivered piece of REQ-160, not a contradiction between intent and code: the
-  cap criterion below states the truncation and the exact count, and stops there.
+  un-delivered piece of REQ-160, not a contradiction between intent and code:
+  AC-1800 states the truncation and the exact count, and stops there.
 
 ## Dependencies
 
