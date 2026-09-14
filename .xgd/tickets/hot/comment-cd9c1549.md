@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T21:29:14.355630+00:00'
+updated_at: '2026-09-14T21:31:22.249570+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1221,5 +1221,41 @@ Confirm that last one and I'll write up the two tickets — the page shortcut wi
 Ok lets drop the idea of email templates as tickets - the ones that we are discussing are genuinely part of the site, so lets make them pages.
 
 Please create the REQ?
+
+<!-- xgd-turn id="bf606410-8b29-4ca8-a5b3-415bd6b5f3b5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T21:31:20.994415+00:00" -->
+#### Claude
+Noted the provenance concern; you've decided, so I'll scope the consequence properly rather than leave it. One check first — whether anything resolves a historical `template_uid` back to a live template.
+
+`template_uid` is write-only history — recorded, never resolved back to fetch a live template. So past sends stay accurate as history and need no migration. But the at-most-once ledger is a different story, and I've scoped that explicitly.
+
+**REQ-247 — "An email a form sends is a page of the site"** (`request-048c144c`, draft, parented to EPIC-10).
+
+## What it says
+
+**§2 — the message is part of the site.** Site-scoped because the form is; appears in the page list; edited with L1; materialised when a form is *configured* to send it rather than at first send, so copy exists before anyone receives it; never served at a public address; publishes like a page.
+
+The REQ-197 point is spelled out rather than left to look like a contradiction — *"editable without a deploy"* means without shipping code, and publishing a site is a content operation. You gain review-before-live, which template editing doesn't have today.
+
+**§3 — one L1, two render targets.** The email target emits tables, inlined styles, palette refs resolved to literal colour, real font fallback stacks. The load-bearing requirement: **the reduced axis set is declared data, not prose**, so the tool manual projects it and `set_l1` refuses what the renderer can't emit. Expanding it later is adding declaration entries, not writing code. I tied it to `invariantPresentation` and to the `BehaviorConfigSpec` gap, since it's the third instance of the same failure in this session.
+
+**§4 — validation at the moment of the act,** your version rather than the picker. The refusal names the email pages that exist and the operation that creates one. Publish-time check stays as backstop, because drafts aren't publish-validated and the preview submits against one. And a credential message can't be named *structurally* — `invite` and `signin` aren't pages, so the refusal can't be forgotten.
+
+**§5 — credential templates stay business tickets.** An invite is sent by the business; a business with two sites has one sign-in email, not two.
+
+## The one thing I'd flag in it
+
+§7 is a hazard your decision creates, and it's in scope rather than left to be discovered:
+
+`deliveryState` remembers a *gated* delivery by asset key — those forms are fine. The **welcome** path matches on `message.asset === null && message.templateKey === templateKey`. If the identity a message is remembered by moves from template key to page id, a form that already sent a welcome won't recognise its own history and can send a second one to someone who already got it. AC-13 pins it: a form that has already sent doesn't send again after this change.
+
+Past sends need no migration — I checked, and `template_uid` is written and never resolved back to fetch a live template, so a record of what was sent stays accurate about what was sent. That part of my earlier concern doesn't survive contact with the code, and the ticket says so plainly.
+
+15 acceptance criteria, including that an email renders legibly in a client with no flexbox, no custom properties and no web fonts (AC-11), and that declared placeholders survive editing (AC-12).
+
+## Still outstanding
+
+The **page shortcut** ticket — the `Page` select beside `Panel`, with the not-in-navigation marker — isn't written. You said "yes, I like that model" but asked for *the* REQ singular, so I didn't create a second one unasked. Say the word and it's a small, self-contained ticket; it's also the thing that would let you reach these email pages once they exist, so the two are more coupled now than when I proposed them.
 
 <!-- xgd-chat-end -->
