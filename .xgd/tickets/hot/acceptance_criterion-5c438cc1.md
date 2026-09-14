@@ -6,10 +6,10 @@ title: A concurrent fold onto the same conversation is refused on the compare-an
   rather than silently overwriting the increment that won
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:52:57.305080+00:00'
-updated_at: '2026-09-14T05:52:57.305080+00:00'
+updated_at: '2026-09-14T06:23:08.988552+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
