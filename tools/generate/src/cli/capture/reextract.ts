@@ -27,40 +27,27 @@ import type { AddressInfo } from 'node:net'
 import { runCapturePipeline, type CapturePipelineOptions } from './pipeline'
 import { ASSETS_PREFIX, RENDERED_MEMBER, type ReferenceBundle } from '../../store/reference-store'
 import type { CaptureResult } from './types'
-
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-  '.woff2': 'font/woff2',
-  '.woff': 'font/woff',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-}
-
-/** The extension of a member key, lowercased, or `''` when it has none. */
-function extname(member: string): string {
-  const base = member.split('/').pop() ?? ''
-  const dot = base.lastIndexOf('.')
-  return dot > 0 ? base.slice(dot).toLowerCase() : ''
-}
+import { OCTET_STREAM, contentTypeOf } from '../../store/content-type'
 
 /**
  * The content-type for a mirrored member. Google Fonts' stylesheet mirrors as the
  * extensionless basename `css2`; a browser rejects a `<link rel=stylesheet>` whose
  * MIME is not `text/css` (strict MIME checking), so an extensionless mirror whose
  * bytes look like CSS is served as `text/css` rather than the octet-stream default.
+ *
+ * THE TABLE IS THE STORE'S ([[REQ-246]]). This module carried its own literal —
+ * the third copy of a map whose own header warns against a second — and the only
+ * thing it actually needed on top of the shared answer is the sniff below, which
+ * is about an extensionLESS member and so is nothing the table could ever hold.
+ * So the fallback is the seam: an extension the table knows wins, and only the
+ * generic answer reaches the sniff.
  */
 export function contentTypeFor(member: string, bytes: Uint8Array): string {
-  const known = MIME[extname(member)]
-  if (known) return known
+  const known = contentTypeOf(member)
+  if (known !== OCTET_STREAM) return known
   const head = new TextDecoder().decode(bytes.subarray(0, 512))
   if (/@font-face|@import|:root\s*\{|\/\*/.test(head)) return 'text/css; charset=utf-8'
-  return 'application/octet-stream'
+  return OCTET_STREAM
 }
 
 /**

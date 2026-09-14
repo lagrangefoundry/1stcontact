@@ -24,7 +24,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import worker from '../apps/public-site/src/index'
 import type { Env } from '../apps/public-site/src/index'
 import { parseRoute } from '../apps/public-site/src/routes'
-import { contentTypeFor } from '../apps/public-site/src/content-type'
+// ONE TABLE SINCE REQ-246 — this Worker's own copy is gone and the store's is
+// what it reads, so the pure mapping asserted below is the one production uses.
+import { contentTypeOf } from '../tools/generate/src/store/content-type'
 import { publishedOutPrefix } from '../tools/generate/src/store/revision-model'
 import { starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import {
@@ -301,7 +303,7 @@ describe('REQ-111 — public-site serves published sites', () => {
       expect(res.status, rel).toBe(200)
       expect(res.headers.get('content-type'), rel).toBe(type)
       // The pure mapping and the served header are the same answer.
-      expect(contentTypeFor(rel), rel).toBe(type)
+      expect(contentTypeOf(rel), rel).toBe(type)
     }
   })
 

@@ -12,6 +12,7 @@ import {
   writeJson,
   writeText,
 } from './fsutil'
+import { assertWritableAssetNames } from './asset-name'
 import { readDraftBase, writeDraftBase } from './base'
 import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
@@ -96,7 +97,23 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve(pages)
     },
 
-    write(slug, change: SiteWrite) {
+    /**
+     * `async` SO A REFUSED NAME REJECTS RATHER THAN THROWING ([[REQ-246]]).
+     *
+     * The port declares `Promise<void>`, and until the name guard existed there
+     * was nothing in here that could fail, so returning a resolved promise from
+     * a synchronous body cost nothing. It costs something now: a caller holding
+     * the promise — rather than awaiting the call in place — would see the
+     * refusal escape past its own error handling, and the D1/R2 adapter would
+     * reject where these two threw. One shape, every adapter.
+     */
+    async write(slug, change: SiteWrite) {
+      // ONE RULE ABOUT NAMES, ACROSS EVERY ADAPTER ([[REQ-246]]). The D1/R2 store
+      // is where an unsafe name used to be skipped silently; this adapter never
+      // checked at all, so a name with a separator in it composed a path that
+      // left the assets directory. Both are the same refusal now, from the same
+      // statement of which names are refused.
+      assertWritableAssetNames(change.assets)
       if (change.siteJson !== undefined) writeJson(siteJsonPath(slug), change.siteJson)
       for (const { name, page } of change.pages ?? []) writeJson(path.join(pagesDir(slug), name), page)
       for (const name of change.removePages ?? []) removePath(path.join(pagesDir(slug), name))
@@ -107,7 +124,6 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
         }
       }
       for (const name of change.removeAssets ?? []) removePath(path.join(assetsDir(slug), name))
-      return Promise.resolve()
     },
 
     listAssets(slug) {
@@ -158,6 +174,11 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       for (const { name, page } of content.source.pages) {
         writeJson(path.join(dir, 'pages', name), page)
       }
+      // The same refusal as `write`, for the same reason ([[REQ-246]]) — a
+      // publish that quietly omitted an asset would render a revision with a
+      // hole in it and report success.
+      assertWritableAssetNames(content.source.assets)
+
       for (const { name, bytes } of content.source.assets) {
         ensureDir(path.join(dir, 'assets'))
         fs.writeFileSync(path.join(dir, 'assets', name), bytes)

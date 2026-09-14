@@ -77,7 +77,12 @@ describe('REQ-142 — the SiteStore port', () => {
       'assemble.ts',
       'journal-model.ts',
       'memory-store.ts',
-      'content-type.ts',
+      // REQ-246 moved this to plain JavaScript so the smoke script — bare
+      // `node`, no bundler — can read the one extension-to-type table rather
+      // than restating it. The worker-safety property is unchanged and is
+      // exactly as load-bearing: it is imported by both Workers.
+      'content-type.js',
+      'asset-name.ts',
       'import-site.ts',
       'd1r2-store.ts',
     ]) {

@@ -66,7 +66,25 @@ export {
   REVISION_SHA_LENGTH,
 } from './revision-model'
 
-export { MIME, contentTypeOf, extensionOf } from './content-type'
+// ONE TABLE, ONE READER ([[REQ-246]]). `MIME` itself is no longer exported —
+// and no longer exists outside its own module — because a table four callers can
+// index is four readers, which is how the drift this module's header predicted
+// actually happened.
+export {
+  OCTET_STREAM,
+  ACTIVE_CONTENT_TYPES,
+  isActiveContentType,
+  contentTypeEntries,
+  contentTypeOf,
+  extensionOf,
+} from './content-type'
+
+export {
+  sanitizeAssetName,
+  isUnsafeAssetName,
+  assertWritableAssetNames,
+  UnsafeAssetNameError,
+} from './asset-name'
 
 export type { ImportSummary } from './import-site'
 export { importSite } from './import-site'

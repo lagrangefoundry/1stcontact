@@ -47,6 +47,7 @@ import {
   SCREENSHOT_MEMBER,
   type ReferenceBundle,
 } from '../../../tools/generate/src/store/reference-store'
+import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
 
 /** The ticket type a capture lands as — [[DOC-38]] §9's second material type. */
 export const REFERENCE_TYPE = 'reference'
@@ -135,27 +136,17 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** A member's content type, from its extension. Bundles hold a small, known set. */
+/**
+ * A member's content type, from its extension.
+ *
+ * THROUGH THE ONE TABLE ([[REQ-246]]). This held a literal of its own — the
+ * fourth copy of a map whose own header warns against a second — and it already
+ * disagreed with the store's on the charset a textual member carries. A bundle
+ * holds a small, known set, so nothing here needs an answer the shared table
+ * does not have; what it needed was to stop having its own.
+ */
 export function memberContentType(member: string): string {
-  const ext = (member.match(/\.([A-Za-z0-9]+)$/)?.[1] ?? '').toLowerCase()
-  const table: Record<string, string> = {
-    json: 'application/json',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    avif: 'image/avif',
-    svg: 'image/svg+xml',
-    html: 'text/html',
-    css: 'text/css',
-    js: 'text/javascript',
-    woff: 'font/woff',
-    woff2: 'font/woff2',
-    ttf: 'font/ttf',
-    otf: 'font/otf',
-  }
-  return table[ext] ?? 'application/octet-stream'
+  return contentTypeOf(member)
 }
 
 /** `meta.member` off an attachment record, or null on one that carries none. */

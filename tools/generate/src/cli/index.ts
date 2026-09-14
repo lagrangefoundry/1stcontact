@@ -124,7 +124,7 @@ export type {
 } from './fonts'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
-export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
+export { startServe, resolveStaticFile, sendFile } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { startBuilder, handleBuilderRequest } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
