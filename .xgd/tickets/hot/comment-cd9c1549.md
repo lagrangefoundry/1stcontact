@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T20:55:30.893257+00:00'
+updated_at: '2026-09-14T20:57:10.701536+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1061,5 +1061,67 @@ My instinct is these are two tickets, not one — the page shortcut is small and
    So (1) at the point we configure an email for use we need to materialize a template (2) those templates can be pulled up in the site view and styled and edited there.
    
    ok?
+
+<!-- xgd-turn id="f35fb1ad-72f3-4a0f-b92c-7a7f10955ac3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-14T20:57:10.650974+00:00" -->
+#### Claude
+Noted on the pattern — I was wrong that it's novel; if Intent and Document already do list + detail + chat, that's the house form. Let me confirm the scope facts before I answer, because one of them decides the shape.
+
+Confirmed the one fact that matters: templates are **business-scoped** — *"the template in force for `key` in this business"* — while pages are site-scoped, and a business can own several sites. That drives most of what follows.
+
+Broadly **yes**, and one part of it is better than what I proposed. But there's one question that decides whether this is a small ticket or a large one.
+
+## The best thing about it
+
+If templates are pages, the assistant reaches them through `list_pages` / `get_l1` / `set_l1` **for free**. No new surface, no new role, no new tab. That closes the gap that caused this entire session — the agent couldn't see templates at all — as a side effect rather than as a work item. That's a much better trade than the Outgoing tab, and it's the strongest argument for your version.
+
+Your point (1) also beats my §B: materialising at configure-time means the copy exists *before the first visitor*, so it can be reviewed before anyone receives it. Today the first recipient gets unreviewed seed copy. That's a real improvement, not just a simplification.
+
+## The question that decides the size: email HTML is not web HTML
+
+This is the one I'd want settled before writing anything.
+
+L1 renders flexbox, custom properties, `border-radius`, `box-shadow`, transitions, woff2 web fonts, media queries. Email clients render a different subset — Outlook is Word's engine, Gmail strips `<style>`, web fonts mostly don't load. Real email HTML is tables and inline styles. The existing seed templates are deliberately crude for exactly this reason: `<p>` tags and one `<a>` with `style="display:inline-block;padding:12px 20px;background:#111111;…"` inline.
+
+So "styled in the site view" has three possible meanings, and they're very different jobs:
+
+1. **L1 gains an email output mode** — tables, inlined CSS, restricted axes. Substantial; arguably a second renderer.
+2. **An email page kind with a restricted axis set** — the editor only offers what survives Outlook. Medium, and honest.
+3. **Copy editing in the same place, not styling** — you get the list, the chat and the editor, but the markup stays hand-safe. Small.
+
+My recommendation is **(2)**, and it wants deciding now because (3) is a fraction of the work and (1) is a multiple of it. If we build (3) and call it styling, the first person to send a carefully laid-out email will find out from a recipient.
+
+## Where I'd draw the scope line
+
+Templates are business-scoped; pages are site-scoped. Rather than force one into the other, split on what the template is *for*:
+
+- **Form-driven templates** (`asset`, and business-authored ones a form names) → site pages. A form lives on a site, so the message it sends can too.
+- **Credential templates** (`invite`, `signin`, `lapsed`) → stay business tickets. An invite is sent by the *business*, not by a site — a business with two sites has one sign-in email, not two.
+
+This also solves the placeholder-obligation worry for free: the Site tab never offers you a way to delete `{{cta_url}}` from the sign-in email, because that template was never a page.
+
+Your `fields.kind` for newsletters slots into the same place later, as you said.
+
+## One regression to avoid in "materialize on configure"
+
+REQ-243 deliberately made a mistyped template key a **refusal at authoring time** rather than a send that finds nothing. If materialising triggers on any string appearing in `config.template`, then `template: "whitepapre"` quietly creates a template called `whitepapre` instead of being refused — and we've traded the protection away.
+
+So: materialise from an **explicit act** — choosing "send an email with this form" from a picker offering existing templates plus "create new" — not from arbitrary config text. Free-typed unknown key stays a refusal. Same outcome you want, protection intact.
+
+## Publish semantics — resolves cleanly
+
+I expected a conflict here and there isn't one. REQ-197 says template copy is *"editable without a deploy"* — meaning without shipping **code**. Publishing a site is a content operation, not a deploy. So bringing template copy into the draft/publish flow is compatible with that, and you gain review-before-live, which template editing doesn't have today.
+
+Worth stating explicitly in the ticket, because it reads like a contradiction until you notice which sense of "deploy" is meant.
+
+---
+
+**Two things and I'll write it up:**
+
+1. Styling meaning — (2) restricted email-safe axes, or (3) copy-editing only for now?
+2. Agree with credential templates staying business-scoped tickets, or do you want *all* templates as pages?
+
+Then it's two tickets: the page shortcut with the not-in-navigation marker (small, self-contained), and templates-as-pages (sized by your answer to 1).
 
 <!-- xgd-chat-end -->
