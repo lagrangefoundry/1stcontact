@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T18:02:32.932956+00:00'
+updated_at: '2026-09-14T18:35:27.873064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -733,5 +733,11 @@ Two things I couldn't verify from here, worth knowing before you test again:
 - **Production D1.** `wrangler d1 list` fails auth in this session, so everything above is read from the repo's file-backed store. If the live whitepapers page is a separately published D1 revision, it's an *older* snapshot than this — which reaches the same conclusion by a shorter route.
 
 Want me to configure it? It needs a ticket of its own, and it's blocked on the papers existing as files — so the useful first step is deciding where those come from.
+
+<!-- xgd-turn id="962a3ab0-8090-4c92-824d-092f0dd2343c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T18:35:27.498153+00:00" -->
+#### You
+No I want the production AI to do it
 
 <!-- xgd-chat-end -->
