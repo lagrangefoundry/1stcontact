@@ -5,9 +5,9 @@ type: request
 title: A file keeps a usable name, and is served as what it is
 created_by: EPIC-10
 created_at: '2026-09-14T20:28:41.237519+00:00'
-updated_at: '2026-09-14T21:10:51.599995+00:00'
+updated_at: '2026-09-14T21:10:55.753161+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.199
+  story_points: 5
 ---
 
 # A file keeps a usable name, and is served as what it is
