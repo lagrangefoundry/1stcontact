@@ -30,6 +30,16 @@ function subtree(slot: L1Node | L1Node[] | undefined): L1Node[] {
  * into a rule. Rendered this way round, script only ever subtracts, so every
  * degraded state shows MORE of the truth rather than less.
  *
+ * THE AGREEMENTS SECTION IS RENDERED HIDDEN, WHICH IS THE OPPOSITE DIRECTION TO
+ * THE ERASURE EXPLANATION ABOVE — and the two are consistent rather than at odds
+ * ([[REQ-245]]). The rule both follow is that EVERY DEGRADED STATE SHOWS ONLY
+ * WHAT IS TRUE. The explanation is prose and is true before any fetch, so it is
+ * rendered visible and script may only subtract it. The agreements list is the
+ * reader's own facts and is true of NOBODY before the fetch — an empty
+ * "Your preferences" heading over an empty list, on a page whose script failed,
+ * says this person has no preferences, which is a claim the page cannot make.
+ * So it is hidden, and the endpoint's answer is what reveals it.
+ *
  * THE ACCOUNT LINE IS EMPTY UNTIL IT IS FETCHED, deliberately, and it is not a
  * loading state to be dressed up. The page is site content — one definition, the
  * same bytes for every visitor — so there is nothing true to put there at render
@@ -44,6 +54,11 @@ export function accountPortal({
   edit = false,
 }: BehaviorProps = {}): string {
   const account = typeof config.account === 'string' ? config.account : ''
+  const acceptances = typeof config.acceptances === 'string' ? config.acceptances : ''
+  const preferencesLabel =
+    typeof config.preferencesLabel === 'string' && config.preferencesLabel
+      ? config.preferencesLabel
+      : 'Your preferences'
   const revealLabel =
     typeof config.revealLabel === 'string' && config.revealLabel
       ? config.revealLabel
@@ -69,11 +84,30 @@ export function accountPortal({
    * channel ships no client script at all, so this is belt and braces.
    */
   const accountAttr = attr('data-account-src', edit ? undefined : assertSafeUrl(account, 'account-portal account'))
+  /*
+   * THE SECOND ENDPOINT, THROUGH THE SAME ALLOWLIST ([[REQ-245]]). It is the one
+   * URL on this surface that is written to, so it passes exactly the check the
+   * read endpoint passes and is omitted in the edit render for the same reason:
+   * there is no identity to answer it, and a refusal there would report the
+   * portal as broken. Absent, the client never asks and the region stays hidden,
+   * which is what a portal authored before this existed shows.
+   */
+  const acceptancesAttr = attr(
+    'data-acceptances-src',
+    edit ? undefined : assertSafeUrl(acceptances, 'account-portal acceptances') || undefined,
+  )
 
   return `<section class="account-portal" data-account-portal${accountAttr}>
   <div class="account-portal__body" data-l1-slot="body">
     <p class="account-portal__identity" data-fc-invariant data-account-identity></p>
     ${body.htmls[0] ?? ''}
+  </div>
+  <div class="account-portal__agreements" data-fc-invariant data-account-agreements hidden${acceptancesAttr}>
+    <p class="account-portal__agreementshead">${escapeHtml(preferencesLabel)}</p>
+    <ul class="account-portal__preferences" data-account-preferences></ul>
+    <p class="account-portal__prefserror" data-account-prefs-error hidden>${escapeHtml(
+      'That change could not be saved just now.',
+    )}</p>
   </div>
   <div class="account-portal__erasure" id="${escapeHtml(erasureId)}" data-l1-slot="erasure" data-account-erasure>
     ${erasure.htmls[0] ?? ''}

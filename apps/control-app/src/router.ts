@@ -16,6 +16,18 @@ import {
   portalBusinessId,
   portalFallbackStore,
 } from './portal'
+// THE PORTAL'S ONE WRITE AND THE READ BESIDE IT ([[REQ-245]]). Both come from
+// the acceptance layer rather than being assembled here: the refusals that bound
+// the write are facts about what an acceptance IS, and a route that restated any
+// of them would be a second place for them to be true.
+import {
+  AcceptanceDocumentNotFoundError,
+  AcceptanceRefusedError,
+  UnknownAcceptanceError,
+  portalAcceptances,
+  setPreference,
+} from './acceptances'
+import type { EventEnv } from './events'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
 import type {
@@ -1064,6 +1076,24 @@ export const AI_STATUS_PATH = '/api/status'
 export const BUSINESSES_PATH = '/api/businesses'
 
 /**
+ * Where a signed-in CONTACT reads and changes their own acceptances
+ * ([[REQ-245]]).
+ *
+ * ITS OWN PATH AND NOT A SECOND HALF OF {@link BUSINESSES_PATH}. That endpoint
+ * answers facts about the SESSION and is read by the builder's chrome before it
+ * has drawn anything; this one answers facts about the caller as a CONTACT OF A
+ * BUSINESS, is read by a page of a site, and — unlike every other route the
+ * portal touches — takes a write. Folding the two together would put the one
+ * mutable thing on the surface onto the chrome's own hot path, and would make
+ * "what may the portal do" answerable only by reading a handler.
+ *
+ * `/api/` AND NOT `/api/admin/`, on {@link PEOPLE_PATH}'s reasoning. It is
+ * deliberately customer-reachable — the whole point is that the person whose
+ * preferences these are is the one changing them — and the prefix says so.
+ */
+export const ACCEPTANCES_PATH = '/api/acceptances'
+
+/**
  * Where the OPERATOR adds a business to an account ([[REQ-180]]).
  *
  * `/api/admin/` AND NOT `/api/businesses`, and the prefix is the decision rather
@@ -1980,6 +2010,95 @@ async function routeUncached(
             : null,
         ),
       )
+    }
+
+    /**
+     * GET/POST /api/acceptances — the portal's own endpoint ([[REQ-245]]).
+     *
+     * ABOVE THE STORE, and for a reason stronger than the two routes before it:
+     * it is not scoped to the business the caller is OPERATING at all. Like the
+     * portal page itself ([[DOC-42]] §10.1) it answers about the business the
+     * caller is a CONTACT OF — `portalBusinessId`'s expression, and the one that
+     * needs no second implementation when the portal moves origins. So
+     * `requireScope` is never called, and an account whose every grant has
+     * lapsed reads and changes its preferences exactly as anyone else does.
+     *
+     * IT REQUIRES AN ADMISSION AND NOT A SCOPE. There is no contact on the
+     * dev-open path — a configured tenant id is a business, not a person — and
+     * a portal that answered about "whoever the deployment is configured as"
+     * would be answering about somebody. So no admission is 404, which is the
+     * same answer the portal page gives a host with nobody behind it.
+     *
+     * THE CONTACT IS READ OFF THE ADMISSION AND NEVER OFF THE REQUEST. Both
+     * verbs derive it from the session; the POST additionally REFUSES a body
+     * that names a different one, rather than ignoring it — a caller who
+     * believed they had written to somebody else must be told they did not
+     * ([[REQ-245]] AC7).
+     *
+     * THE WRITE IS THE ONE OPENING IN THE PORTAL'S READ-ONLY CONTRACT
+     * ([[REQ-245]] §2), and its bound is `setPreference`, which refuses every
+     * key whose type is not a preference. There is no route here that grants
+     * access, moves an entitlement or deletes anything, and no argument this one
+     * takes that could reach code which does.
+     */
+    if (p === ACCEPTANCES_PATH && (method === 'GET' || method === 'POST')) {
+      const admission = deps.admission
+      // `ok` AND NOT `portalBusinessId`. That helper falls back to the scope for
+      // the dev-open path, which answers "which business hosts a portal" — a
+      // question this route cannot use, because it also needs a person.
+      //
+      // The message is SCRUBBED though there is nothing in it to scrub, on the
+      // reasoning the push route already records: a path that scrubs and a path
+      // that does not is an invitation to add a third that does not, and the
+      // cost where there is nothing to find is nil.
+      if (!admission?.ok) return json(404, { error: scrub(ADMIN_ONLY_MESSAGE) })
+      const contactId = admission.user.id
+      const portalScope: Scope = { businessId: admission.user.tenant_id }
+      const eventEnv = env as unknown as EventEnv
+      const store = await (deps.tickets ?? ticketStoreFor)(env, portalScope)
+
+      if (method === 'GET') {
+        return json(200, {
+          acceptances: await portalAcceptances(eventEnv, store, portalScope, contactId),
+        })
+      }
+
+      const body = await readJsonBody(request)
+      const named = typeof body.contactId === 'string' ? body.contactId : null
+      if (named !== null && named !== contactId) {
+        // 403 AND NOT 404. The caller is who they say they are and the request
+        // is well formed; the answer is no. Answering 404 would make this
+        // indistinguishable from "no such contact" and therefore an existence
+        // oracle over every contact id in the system.
+        return json(403, { error: 'A contact may only change their own preferences.' })
+      }
+      const key = typeof body.key === 'string' ? body.key : ''
+      if (typeof body.granted !== 'boolean') {
+        // BOTH DIRECTIONS ARE FACTS ([[REQ-240]] §2), so neither is the default
+        // a missing value falls back to. An absent `granted` is a request that
+        // did not say which way, and guessing would record a withdrawal nobody
+        // asked for as readily as a grant.
+        return json(400, { error: 'granted must be true or false.' })
+      }
+      try {
+        return json(200, {
+          acceptance: await setPreference(
+            eventEnv,
+            store,
+            portalScope,
+            contactId,
+            key,
+            body.granted,
+          ),
+        })
+      } catch (err) {
+        if (err instanceof UnknownAcceptanceError) return json(400, { error: scrub(err.message) })
+        if (err instanceof AcceptanceRefusedError) return json(403, { error: scrub(err.message) })
+        if (err instanceof AcceptanceDocumentNotFoundError) {
+          return json(404, { error: scrub(err.message) })
+        }
+        throw err
+      }
     }
 
     /**
@@ -3415,7 +3534,10 @@ async function routeUncached(
       // so the portal is addressed by its key like everything else and found by
       // what it IS rather than by what somebody agreed to call it.
       const authored = (await hostStore.siteKeys('portal'))[0] ?? null
-      const portalStore = authored !== null ? hostStore : portalFallbackStore(BUSINESSES_PATH)
+      const portalStore =
+        authored !== null
+          ? hostStore
+          : portalFallbackStore(BUSINESSES_PATH, ACCEPTANCES_PATH)
       const rel = p.slice(PORTAL_PATH.length) || '/'
       // `draft` rather than a published revision: the portal is not published
       // through `public-site` and has no revision log of its own yet, so the

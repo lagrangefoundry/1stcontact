@@ -260,8 +260,15 @@ export function portalSiteJson(): Record<string, unknown> {
  *   and the origin is the provisional half of this design ([[REQ-183]] D1). A
  *   literal here would be the one thing in the definition that could not move
  *   with it.
+ * @param acceptancesEndpoint where it reads what this contact has agreed to, and
+ *   posts the one thing they may change ([[REQ-245]]). Passed for exactly the
+ *   same reason, and SEPARATE from the first for the reason the module's config
+ *   gives: what may be written has to be legible from the definition.
  */
-export function portalHomePage(accountEndpoint: string): Record<string, unknown> {
+export function portalHomePage(
+  accountEndpoint: string,
+  acceptancesEndpoint: string,
+): Record<string, unknown> {
   return {
     id: 'account',
     slug: 'home',
@@ -278,8 +285,12 @@ export function portalHomePage(accountEndpoint: string): Record<string, unknown>
           // caller. Relative, so it follows the origin the portal is served from
           // rather than pinning one ([[REQ-183]] D1 — the origin is provisional).
           account: accountEndpoint,
+          // Where the agreements come from and where the one write goes
+          // ([[REQ-245]]). Relative, for the same reason.
+          acceptances: acceptancesEndpoint,
           revealLabel: 'Delete account',
           dismissLabel: 'Close',
+          preferencesLabel: 'Your preferences',
         },
         slots: { body: bodySlot(), erasure: erasureSlot() },
       },
@@ -311,15 +322,23 @@ export function portalHomePage(accountEndpoint: string): Record<string, unknown>
  * diverge. The alternative — a second render entry that takes a definition
  * instead of a store — is the second rendering path §2 forbids.
  */
-export function portalFallbackStore(accountEndpoint: string): MemorySiteStore {
-  const cached = FALLBACKS.get(accountEndpoint)
+export function portalFallbackStore(
+  accountEndpoint: string,
+  acceptancesEndpoint: string,
+): MemorySiteStore {
+  // MEMOISED ON BOTH ENDPOINTS ([[REQ-245]]). The cache key is the definition
+  // this store holds, and the definition now names two URLs — keyed on one, a
+  // deployment that moved only the second would be served the page built for the
+  // first, for the isolate's lifetime.
+  const cacheKey = `${accountEndpoint}\n${acceptancesEndpoint}`
+  const cached = FALLBACKS.get(cacheKey)
   if (cached) return cached
   const store = memorySiteStore()
   store.seed(PORTAL_SLUG, {
     siteJson: portalSiteJson(),
-    pages: { 'home.json': portalHomePage(accountEndpoint) },
+    pages: { 'home.json': portalHomePage(accountEndpoint, acceptancesEndpoint) },
   })
-  FALLBACKS.set(accountEndpoint, store)
+  FALLBACKS.set(cacheKey, store)
   return store
 }
 

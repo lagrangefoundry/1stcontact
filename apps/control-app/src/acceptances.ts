@@ -487,7 +487,14 @@ export async function documentFor(store: TicketStore, key: string): Promise<Tick
  * and nothing sweeping the table.
  */
 export function documentOutstanding(
-  inForce: Ticket,
+  /**
+   * THE DOCUMENT IN FORCE, NARROWED TO THE UID IT IS COMPARED BY ([[REQ-245]]).
+   * It was a whole {@link Ticket}, which every caller happens to hold — except
+   * the portal's projection, which has already reduced the definition to what it
+   * shows. Widening the parameter to what the function actually reads costs
+   * nothing at the existing call sites and saves a cast at the new one.
+   */
+  inForce: { uid: string },
   record: AcceptanceRecord | null,
 ): boolean {
   if (!record || !record.granted) return true
@@ -536,4 +543,287 @@ export const SEED_DOCUMENTS: Record<string, SeedDocument> = {
       'you keep it, and how somebody asks you to delete it.',
     ].join('\n'),
   },
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * THE PORTAL'S VIEW ([[REQ-245]])
+ *
+ * What a signed-in contact is shown of their own acceptances, and the one write
+ * they are allowed to make.
+ *
+ * IT PROJECTS; IT DOES NOT DECIDE. Which acceptances exist is the business's
+ * definitions (below); which of them the contact may change is
+ * {@link isRevocable}, which is a property of the KEY'S TYPE. Neither answer is
+ * spelt here and neither is spelt in the module that draws it — so a business
+ * turning on a new preference, or the registry gaining a key of either
+ * unwritable type, lands on the page with nothing edited.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What a business has TURNED ON, and what it calls it.
+ *
+ * TURNING ONE ON IS WRITING ITS DEFINITION. There is deliberately no second
+ * list — no config field naming which preferences a portal renders, no table of
+ * enabled keys — because a second list is a second answer to which acceptances
+ * a business holds, free to drift from the first by one entry in silence. The
+ * definitions ARE the answer, and the registry ({@link ACCEPTANCE_KEYS}) bounds
+ * which keys a definition may be written under rather than deciding which of
+ * them this business uses.
+ *
+ * THE LABEL IS THE TICKET'S TITLE AND THE WORDING IS ITS BODY. `acceptanceLabel`
+ * is what an OPERATOR'S screen calls a key — one phrase for every business. This
+ * is what the CONTACT is shown, so it comes from the business's own document and
+ * changes without a deploy, exactly as `templates.ts` intends.
+ */
+export interface AcceptanceDefinition {
+  key: string
+  /** Which of the three, so a caller branches on behaviour rather than on key. */
+  type: string
+  /** The ticket that is in force for this key — what an acceptance would name. */
+  uid: string
+  /** The ticket's title: what the contact sees this called. */
+  label: string
+  /** The ticket's body: the sentence they are agreeing to, and the evidence. */
+  wording: string
+}
+
+function toDefinition(ticket: Ticket): AcceptanceDefinition {
+  const key = String(ticket.fields?.acceptance_key ?? '')
+  return {
+    key,
+    type: acceptanceType(key) ?? '',
+    uid: ticket.uid,
+    label: ticket.title,
+    wording: ticket.body,
+  }
+}
+
+/**
+ * Every acceptance this business has turned on, newest definition per key, in
+ * registry order.
+ *
+ * NEWEST WINS, PER KEY — {@link documentFor}'s rule, applied to the whole set in
+ * one query rather than one query per key. Replacing a definition is a write and
+ * not an edit, so the record written last month still points at the ticket that
+ * said what it said.
+ *
+ * A DEFINITION UNDER A KEY NOBODY DECLARES IS DROPPED rather than rendered as a
+ * row with no behaviour. The store's own enum refuses to author one, so this is
+ * the case where the registry shrank under a ticket that outlived it — and a row
+ * whose type is unknown has no honest control state to be in.
+ */
+export async function definitionsFor(store: TicketStore): Promise<AcceptanceDefinition[]> {
+  const { tickets } = await store.query({
+    predicate: `type=${ACCEPTANCE_TYPE}`,
+    sort: '-created_at',
+    limit: 'all',
+  })
+  const newest = new Map<string, AcceptanceDefinition>()
+  for (const ticket of tickets) {
+    const definition = toDefinition(ticket)
+    if (!isAcceptanceKey(definition.key)) continue
+    if (!newest.has(definition.key)) newest.set(definition.key, definition)
+  }
+  return ACCEPTANCE_KEYS.filter((key) => newest.has(key)).map(
+    (key) => newest.get(key) as AcceptanceDefinition,
+  )
+}
+
+/**
+ * One line of the portal: what it is, where this contact stands, and since when.
+ *
+ * `editable` IS THE WHOLE OF THE CONTROL DECISION, and it is computed here from
+ * {@link isRevocable} rather than inferred from the key by whatever draws it. A
+ * document is not revocable by the contact and a request has nothing to take
+ * back, so both arrive `false` and the surface has nothing to decide — which is
+ * what makes "type 1 and type 3 offer no control" a property of the type rather
+ * than of some markup a later hand could rearrange.
+ *
+ * `granted` IS NULLABLE AND NULL IS A DIFFERENT FACT. Nobody has put the
+ * question, which is not the same as a refusal and must not be drawn as one —
+ * the same distinction the operator's Agreements pane already keeps.
+ *
+ * `wording` IS SENT ONLY FOR THE EDITABLE ONES, because it is only there that
+ * the contact is being asked something: it is the sentence beside the control,
+ * and it is what the event records as the evidence. A document's body is the
+ * document, and a portal is not where somebody reads their terms.
+ */
+export interface PortalAcceptance {
+  key: string
+  label: string
+  /** The sentence beside the control. Empty for anything with no control. */
+  wording: string
+  editable: boolean
+  /**
+   * A RECORD OF SOMETHING THAT HAPPENED, rather than a value that currently
+   * stands — {@link holdsState} inverted, which is true of a request and of
+   * nothing else ([[REQ-240]] §2).
+   *
+   * IT IS A BOOLEAN AND NOT THE TYPE NAME, deliberately. Between this and
+   * `editable` the surface has everything it needs — which control to offer and
+   * which tense to say it in — and knows none of the registry's vocabulary. So a
+   * key of any type, including one added tomorrow, gets the right treatment from
+   * two facts the acceptance layer computed, with the module that draws it
+   * untouched ([[REQ-245]] §2).
+   */
+  historic: boolean
+  /** True, false, or null — never asked. */
+  granted: boolean | null
+  /** When the current answer was given, or null. */
+  since: string | null
+  /**
+   * For a document only: they agreed, but to an earlier one ([[REQ-240]] §2).
+   * False everywhere else, including for a document they have never accepted —
+   * "never asked" is `granted: null` and saying both would be saying it twice.
+   */
+  outstanding: boolean
+}
+
+/** The latest `acceptance.requested` per key — a request's whole history. */
+async function requestsOf(
+  env: EventEnv,
+  scope: Scope,
+  contactId: string,
+): Promise<Map<string, string>> {
+  const { results } = await env.DB.prepare(
+    'SELECT occurred_at, detail FROM contact_events ' +
+      'WHERE business_id = ? AND contact_id = ? AND kind = ? ' +
+      'ORDER BY occurred_at DESC, rowid DESC',
+  )
+    .bind(scope.businessId, contactId, ACCEPTANCE_REQUESTED)
+    .all<{ occurred_at: string; detail: string }>()
+  const latest = new Map<string, string>()
+  for (const row of results ?? []) {
+    let key = ''
+    try {
+      const parsed: unknown = JSON.parse(row.detail || '{}')
+      if (parsed && typeof parsed === 'object') {
+        key = String((parsed as Record<string, unknown>).key ?? '')
+      }
+    } catch (_e) {
+      // A row whose detail is unreadable is a row that cannot say which key it
+      // was about. Skipping it loses one line; throwing loses the page.
+      continue
+    }
+    if (key && !latest.has(key)) latest.set(key, row.occurred_at)
+  }
+  return latest
+}
+
+/**
+ * Everything a signed-in contact is shown of their own acceptances.
+ *
+ * THE CONTACT IS THE CALLER'S OWN AND THE BUSINESS IS THE CONTACT'S OWN. Both
+ * reads are scoped by {@link Scope}, so an id from another business reads as an
+ * id that never existed — which is the same answer {@link acceptancesOf} already
+ * gives and the reason no caller here can turn this into a lookup.
+ *
+ * THE DEFINITIONS DRIVE THE LIST AND THE STATE FILLS IT IN, never the other way
+ * round. A state row under a key the business has since stopped defining draws
+ * nothing: the surface would have no wording to label it with, and inventing one
+ * is the thing §5's wording rule exists to prevent.
+ */
+export async function portalAcceptances(
+  env: EventEnv,
+  store: TicketStore,
+  scope: Scope,
+  contactId: string,
+): Promise<PortalAcceptance[]> {
+  const [definitions, held, asked] = await Promise.all([
+    definitionsFor(store),
+    acceptancesOf(env, scope, contactId),
+    requestsOf(env, scope, contactId),
+  ])
+  const byKey = new Map(held.map((record) => [record.key, record]))
+
+  return definitions.map((definition) => {
+    const editable = isRevocable(definition.key)
+    if (!holdsState(definition.key)) {
+      const when = asked.get(definition.key) ?? null
+      return {
+        key: definition.key,
+        label: definition.label,
+        wording: '',
+        editable,
+        historic: true,
+        granted: when === null ? null : true,
+        since: when,
+        outstanding: false,
+      }
+    }
+    const record = byKey.get(definition.key) ?? null
+    return {
+      key: definition.key,
+      label: definition.label,
+      wording: editable ? definition.wording : '',
+      editable,
+      historic: false,
+      granted: record ? record.granted : null,
+      since: record ? record.setAt : null,
+      outstanding:
+        needsDocument(definition.key) && record !== null
+          ? documentOutstanding(definition, record)
+          : false,
+    }
+  })
+}
+
+/**
+ * The one write the portal may make ([[REQ-245]] §2).
+ *
+ * IT IS BOUNDED BY TYPE AND NOT BY A LIST. `isRevocable` is true of a preference
+ * and of nothing else, so a document key and a request key are refused here
+ * whichever way the caller asks — and a key added to the registry tomorrow gets
+ * the answer its type implies with nothing edited. That is the whole of how far
+ * the read-only contract opens: this module may set and unset a contact's own
+ * preference, and it may not grant access, move an entitlement or destroy
+ * anything, because there is no function here that does any of those.
+ *
+ * THE WORDING COMES FROM THE DEFINITION AND NOT FROM THE CALLER. It is the
+ * sentence the portal drew beside the control, read from the business's own
+ * ticket at the moment of the write — so a client cannot supply its own evidence
+ * of what somebody was shown, which is precisely the value it would be worth
+ * forging.
+ *
+ * AN UNDEFINED KEY IS REFUSED, because there would be no wording to record and
+ * therefore no transition that could ever be evidenced. A business that has not
+ * turned a preference on has not shown anybody a sentence about it.
+ */
+export async function setPreference(
+  env: EventEnv,
+  store: TicketStore,
+  scope: Scope,
+  contactId: string,
+  key: string,
+  granted: boolean,
+  now?: string,
+): Promise<PortalAcceptance> {
+  if (!isAcceptanceKey(key)) throw new UnknownAcceptanceError(key)
+  if (!isRevocable(key)) {
+    throw new AcceptanceRefusedError(
+      key,
+      `a ${acceptanceType(key)} is not the contact's to change from their portal`,
+    )
+  }
+  const definition = (await definitionsFor(store)).find((entry) => entry.key === key)
+  if (!definition) throw new AcceptanceDocumentNotFoundError(key)
+
+  await recordAcceptance(env, {
+    contactId,
+    key,
+    granted,
+    wording: definition.wording,
+    businessId: scope.businessId,
+    ...(now === undefined ? {} : { now }),
+  })
+
+  // READ BACK THROUGH THE SAME PROJECTION THE PAGE WAS DRAWN FROM, rather than
+  // assembling a reply out of what was just asked for. The caller's next render
+  // is then the same shape as its first, and a write that landed differently
+  // from what was requested says so instead of being echoed back.
+  const after = (await portalAcceptances(env, store, scope, contactId)).find(
+    (entry) => entry.key === key,
+  )
+  if (!after) throw new UnknownAcceptanceContactError()
+  return after
 }

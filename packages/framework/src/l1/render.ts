@@ -1485,7 +1485,22 @@ window.addEventListener('blur',fade);
  * repeats it. Both such controls are `invariant`, so nothing in L1 can reach
  * them — the correction buys honesty in the reference, not a new binding.
  */
-export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span' | 'a' | 'label'
+export type L1ControlTag =
+  | 'input'
+  | 'textarea'
+  | 'button'
+  | 'select'
+  | 'span'
+  | 'a'
+  | 'label'
+  // `ul` IS DECLARABLE BUT NOT BINDABLE ([[REQ-245]]). A behaviour whose
+  // invariant element is a LIST — one row per thing the endpoint returned, a
+  // roster the page cannot know at author time — had no honest tag to declare
+  // itself with, and `span` was the nearest lie. This is the defect BUG-76
+  // named: a declaration that says one tag beside an emitter that writes
+  // another. Nothing binds an L1 `control` node to it, because
+  // `resolveControlNames` skips every invariant element.
+  | 'ul'
 
 /**
  * A module-declared leaf element, as handed to the emitter. The module owns the

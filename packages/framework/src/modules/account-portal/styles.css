@@ -22,3 +22,20 @@
 .account-portal__identity,
 .account-portal__holdings,
 .account-portal__error { margin: 0; }
+
+/*
+ * The agreements region ([[REQ-245]]), on exactly the reasoning above.
+ *
+ * A LIST ARRIVES WITH LAYOUT NOBODY CHOSE — a browser's own left padding and a
+ * marker — and the module's chrome must contribute none to the L1 it sits in.
+ * The page author cannot reach these elements to undo it (they are invariant),
+ * so removing the user-agent default is an obligation and not a look: what is
+ * left inherits its type, colour and spacing from the L1 around it, exactly as
+ * the three lines above do.
+ */
+.account-portal__agreements,
+.account-portal__preferences,
+.account-portal__preference,
+.account-portal__agreementshead,
+.account-portal__prefserror { margin: 0; padding: 0; border: 0; }
+.account-portal__preferences { list-style: none; }

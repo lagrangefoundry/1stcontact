@@ -136,8 +136,21 @@ describe('REQ-240 — a service, not a route', () => {
     // public self-serve sign-up — which has no builder session — can call it;
     // putting it behind an authenticated route would preclude exactly the thing
     // this round must not preclude.
+    //
+    // THE PROPERTY IS "CALLABLE WITHOUT A ROUTE", NOT "NO ROUTE EXISTS", and
+    // [[REQ-245]] is what made the difference matter: the portal's one write is
+    // an HTTP route, deliberately, because the contact pressing the control is
+    // on the far side of one. What §6 asks for survives unchanged and is asserted
+    // where it can actually be shown — the workers-side sibling calls
+    // `recordAcceptance` with a database and nothing else, no session and no
+    // request, throughout.
+    //
+    // WHAT THE ROUTER STILL MAY NOT REACH IS THE GENERAL WRITE. `recordAcceptance`
+    // takes any key and either direction; `setPreference` refuses every key whose
+    // type is not a preference. A route holding the first would be a route that
+    // could grant a document acceptance with no document, and the bound
+    // [[REQ-245]] §2 draws would be a convention rather than a contract.
     const router = read('../apps/control-app/src/router.ts')
     expect(router).not.toContain('recordAcceptance')
-    expect(router).not.toMatch(/from '\.\/acceptances'/)
   })
 })

@@ -9,7 +9,7 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
-import { BUSINESSES_PATH } from '../apps/control-app/src/router'
+import { ACCEPTANCES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { storeFor } from '../apps/control-app/src/store'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PORTAL_PATH, PORTAL_SLUG, portalHomePage, portalSiteJson } from '../apps/control-app/src/portal'
@@ -143,7 +143,7 @@ async function authorPortalIn(businessId: string, heading: string): Promise<void
   // first. Asking `siteKeys` before creating is the guard BUG-51's return value
   // used to be, and it is what `router.ts` itself does before scaffolding a site.
   const portal = (await store.siteKeys('portal'))[0] ?? (await store.createDraft('portal'))
-  const page = portalHomePage(BUSINESSES_PATH) as {
+  const page = portalHomePage(BUSINESSES_PATH, ACCEPTANCES_PATH) as {
     modules: Array<{ slots: { body: { children: Array<{ text?: string }> } } }>
   }
   page.modules[0].slots.body.children[0].text = heading
