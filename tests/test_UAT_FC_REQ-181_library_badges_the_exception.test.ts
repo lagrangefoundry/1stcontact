@@ -326,7 +326,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-181 — the Library no longer knows about
       storage: memoryStorage(),
       loadSites: async (id: string | null) => {
         business = id ?? 'acct_salon'
-        return [{ slug: `${business}-site`, latest: 1 }]
+        return [{ site: `${business}-site`, latest: 1 }]
       },
       chatTransport: {
         openSession: async () => ({ sessionId: 's', turns: [], ready: true }),

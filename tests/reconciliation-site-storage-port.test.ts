@@ -548,7 +548,7 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
     // at the browser as a 400 carrying those three fields.
     const response = await builderFetch(cwd, '/api/copy', {
       method: 'POST',
-      body: JSON.stringify({ slug: 'acme', page: 'nope', path: '0.0', values: { text: 'x' } }),
+      body: JSON.stringify({ site: 'acme', page: 'nope', path: '0.0', values: { text: 'x' } }),
     })
     expect(response.status).toBe(400)
     expect(await response.json()).toMatchObject({

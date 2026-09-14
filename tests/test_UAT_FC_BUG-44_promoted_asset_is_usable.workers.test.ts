@@ -57,12 +57,14 @@ const scopeOf = (businessId = TENANT): Scope => ({ businessId })
 async function realSite(slug: string) {
   const sites = await storeFor(routerEnv(), scopeOf())
   const seed = siteSeed({ slug })
-  await sites.createDraft(seed.slug)
-  await sites.write(seed.slug, {
+  // `slug` IS THE MINTED KEY ([[REQ-236]]) — the store has no other name for a
+  // site, so what every verb below takes is what `createDraft` handed back.
+  const site = await sites.createDraft()
+  await sites.write(site, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
   })
-  return { sites, slug: seed.slug }
+  return { sites, slug: site }
 }
 
 /** One uploaded image, classified exactly as the "Put it on the site" area does. */

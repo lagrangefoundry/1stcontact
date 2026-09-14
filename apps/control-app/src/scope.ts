@@ -161,7 +161,7 @@ const BUSINESS_PREFIX = '/b/'
  * exactly the surfaces that render a customer's own content unscoped.
  *
  * WHY NOT A QUERY PARAMETER, which is the same shape and looks cheaper.
- * `/preview/<slug>/<channel>/…` serves the rendered page AND the page's own asset
+ * `/preview/<siteKey>/<channel>/…` serves the rendered page AND the page's own asset
  * bytes, and the render emits those references document-relative
  * (`relativizeUrl`, REQ-109). A relative sub-resource DROPS THE QUERY STRING —
  * so every image inside every preview would arrive unscoped and fall through to

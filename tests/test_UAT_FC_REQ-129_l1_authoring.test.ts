@@ -515,7 +515,7 @@ describe('REQ-129 — the click-to-edit modal still works on what the AI authore
   })
 
   const copyGet = (p: string) =>
-    fetch(new URL(`/api/copy?slug=${SLUG}&page=home&path=${p}`, builder.url))
+    fetch(new URL(`/api/copy?site=${SLUG}&page=home&path=${p}`, builder.url))
 
   it('test_UAT_FC_REQ_129_modal_opens_and_saves_on_an_ai_authored_node', async () => {
     // Invariant 1. An AI-authored `text` node is indistinguishable to
@@ -537,7 +537,7 @@ describe('REQ-129 — the click-to-edit modal still works on what the AI authore
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: SLUG,
+        site: SLUG,
         page: 'home',
         path: '0.1.0',
         values: { text: 'Corrected by the operator.' },

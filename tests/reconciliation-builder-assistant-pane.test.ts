@@ -35,7 +35,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
-const SITES = [{ slug: 'alpha', latest: null }, { slug: 'beta', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: null }, { site: 'beta', latest: 1 }]
 
 /** The pane's empty-state invitation, as `chat.js` declares it. */
 const EMPTY_TEXT = 'Ask for a change to your site.'

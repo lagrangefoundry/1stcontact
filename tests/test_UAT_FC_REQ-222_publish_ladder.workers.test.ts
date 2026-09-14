@@ -80,9 +80,12 @@ async function siteWithAPicture(bytes: Uint8Array) {
   const platform = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
   await platform.createTenant({ id: TENANT, name: TENANT, status: 'active' })
   const store = await platform.forTenant(TENANT)
-  const slug = nextSlug('req222')
-  const seed = siteSeed({ slug, pages: { 'home.json': pageWithAPicture(slug) } })
-  await store.createDraft(slug)
+  const name = nextSlug('req222')
+  const seed = siteSeed({ slug: name, pages: { 'home.json': pageWithAPicture(name) } })
+  // THE KEY THE STORE MINTS ([[REQ-236]]). `nextSlug` still names the fixture's
+  // CONTENT — it reaches `site.json` and the page this helper builds — and the
+  // store is addressed by the key it hands back.
+  const slug = await store.createDraft()
   await store.write(slug, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
@@ -196,7 +199,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     const result = await publishSite(store, slug, { ladder: realLadder() })
     expect(result.published).toBe(true)
 
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
 
@@ -217,7 +220,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     // 600px wide: the one conventional step under it is 320, and nothing above.
     const { store, slug } = await siteWithAPicture(await picture(600, 300))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
     const candidates = srcsetOf(html)
@@ -232,7 +235,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
   it('serves a picture below the smallest step exactly as it is', async () => {
     const { store, slug } = await siteWithAPicture(await picture(300, 150))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
     expect(html).toContain('src="assets/hero.png"')
@@ -243,7 +246,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
   it('keeps the renditions out of the frozen definition', async () => {
     const { store, slug } = await siteWithAPicture(await picture(1000, 500))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     // `source/` is what a checkout reads back. Only the picture the client
     // actually uploaded is in it.
     const frozen = await keysUnder(`${publishedSourcePrefix(siteKey, result.id)}/assets/`)
@@ -288,7 +291,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
 
     const sha = await shaOf(bytes)
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const served = await env.SITES.get(`${out}/assets/d/${sha}-640.png`)
     expect(served, 'the 640 rung was published under its content address').not.toBeNull()
@@ -304,9 +307,9 @@ describe('REQ-222 — the ladder a real publish builds', () => {
     const platform = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
     await platform.createTenant({ id: TENANT, name: TENANT, status: 'active' })
     const store = await platform.forTenant(TENANT)
-    const slug = nextSlug('req222-svg')
-    const seed = siteSeed({ slug, pages: { 'home.json': pageWithAPicture(slug) } })
-    await store.createDraft(slug)
+    const name = nextSlug('req222-svg')
+    const seed = siteSeed({ slug: name, pages: { 'home.json': pageWithAPicture(name) } })
+    const slug = await store.createDraft()
     await store.write(slug, {
       siteJson: seed.siteJson,
       pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
@@ -318,7 +321,7 @@ describe('REQ-222 — the ladder a real publish builds', () => {
       ],
     })
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     // A vector scales for free; a ladder of rasterisations is strictly worse.
     expect(await keysUnder(`${publishedOutPrefix(siteKey, result.id)}/assets/d/`)).toEqual([])
   })
@@ -337,7 +340,7 @@ describe('REQ-222 — a deployment with no Images binding', () => {
     // `<img>` carrying nothing but its `src`.
     const result = await publishSite(store, slug, {})
     expect(result.published).toBe(true)
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
     expect(html).toContain('src="assets/hero.png"')
@@ -367,7 +370,7 @@ describe('REQ-222 — typed sources, through the real binding', () => {
   it('encodes the WebP source in WebP, and names it first', async () => {
     const { store, slug } = await siteWithAPicture(await picture(1000, 500))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
 
@@ -401,7 +404,7 @@ describe('REQ-222 — typed sources, through the real binding', () => {
     // here would assert against the other test's fixture.
     const { store, slug } = await siteWithAPicture(await picture(1300, 650))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
 
@@ -440,7 +443,7 @@ describe('REQ-222 — typed sources, through the real binding', () => {
     // The body's plainest promise: such a picture is served exactly as it is.
     const { store, slug } = await siteWithAPicture(await picture(300, 150))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const siteKey = (await store.siteKey(slug))!
+    const siteKey = slug
     const out = publishedOutPrefix(siteKey, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
     expect(html).not.toContain('<picture')

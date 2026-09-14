@@ -32,7 +32,7 @@ let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-161 overlay suite skipped: ${WEBUI_SKIP_REASON}`)
 
-const SITES = [{ slug: 'alpha', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: 1 }]
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 function memoryStorage() {
@@ -272,7 +272,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — two entry points, one interaction
 
     // The site currently shown travels with it, which is what lets the origin put
     // a "for the site" upload straight into that site's asset library.
-    expect(sent).toEqual([{ file: expect.anything(), role: 'site', slug: 'alpha' }])
+    expect(sent).toEqual([{ file: expect.anything(), role: 'site', site: 'alpha' }])
 
     // THE CLIENT CAN SEE WHAT THEY SENT, as their own turn — because it is.
     const messages = app.chat.getChat().getMessages() as Array<{ role: string; markdown: string }>

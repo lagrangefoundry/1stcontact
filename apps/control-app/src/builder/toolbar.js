@@ -35,7 +35,7 @@
  * a default that quietly did it would put the pattern back one action at a time.
  * So the fallback is "no site", which makes an unwired action visibly inert
  * rather than plausibly wrong: `colors` and `publish` both decline on a null
- * slug already, so a host that forgot to supply the scope gets buttons that do
+ * site key already, so a host that forgot to supply the scope gets buttons that do
  * nothing instead of buttons that act on whatever the pane happens to show.
  */
 const NO_SITE = () => null
@@ -216,12 +216,12 @@ export function colorsAction(openPalette) {
       btn.className = 'builder-toolbar__colors'
       btn.textContent = 'Colors'
       btn.addEventListener('click', () => {
-        const slug = getSite()
-        if (!slug) return
+        const site = getSite()
+        if (!site) return
         // Nothing awaits the answer: manage mode resolves to null by
         // construction, and the caller that DOES want a value is a color
         // field, not this button.
-        void openPalette(slug)
+        void openPalette(site)
       })
       return btn
     },
@@ -241,11 +241,11 @@ export function publishAction(publish) {
       btn.className = 'builder-toolbar__publish'
       btn.textContent = 'Publish'
       btn.addEventListener('click', async () => {
-        const slug = getSite()
-        if (!slug) return
+        const site = getSite()
+        if (!site) return
         btn.disabled = true
         try {
-          await publish(slug)
+          await publish(site)
         } finally {
           btn.disabled = false
         }

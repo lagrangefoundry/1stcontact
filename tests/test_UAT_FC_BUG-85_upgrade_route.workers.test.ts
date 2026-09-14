@@ -75,7 +75,9 @@ async function siteWithOrphan(): Promise<string> {
     }),
   })
   expect(res.status, 'seeding the orphan through /api/import').toBe(200)
-  return slug
+  // THE KEY THE PUSH LANDED ON ([[REQ-236]]) — `slug` named the source and the
+  // destination is this business's own site.
+  return ((await res.json()) as { site: string }).site
 }
 
 /** The stored instance, read back through the store the Worker writes with. */
@@ -95,7 +97,7 @@ describe('BUG-85 2d — POST /api/modules/upgrade', () => {
     const slug = await siteWithOrphan()
     const before = await storedInstance(slug)
 
-    const res = await upgrade({ slug })
+    const res = await upgrade({ site: slug })
     expect(res.status).toBe(200)
     const report = (await res.json()) as {
       stale: number
@@ -120,7 +122,7 @@ describe('BUG-85 2d — POST /api/modules/upgrade', () => {
   it('writes the upgrade into D1 when asked', async () => {
     const slug = await siteWithOrphan()
 
-    const res = await upgrade({ slug, write: true })
+    const res = await upgrade({ site: slug, write: true })
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ stale: 1, written: true })
 
@@ -140,10 +142,10 @@ describe('BUG-85 2d — POST /api/modules/upgrade', () => {
 
   it('is a no-op the second time, so the route is safe to re-run', async () => {
     const slug = await siteWithOrphan()
-    expect((await upgrade({ slug, write: true })).status).toBe(200)
+    expect((await upgrade({ site: slug, write: true })).status).toBe(200)
     const settled = await storedInstance(slug)
 
-    const again = await upgrade({ slug, write: true })
+    const again = await upgrade({ site: slug, write: true })
     expect(await again.json()).toMatchObject({ stale: 0, written: false })
     expect(await storedInstance(slug)).toEqual(settled)
   })

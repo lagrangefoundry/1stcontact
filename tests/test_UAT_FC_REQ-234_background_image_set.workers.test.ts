@@ -61,9 +61,12 @@ async function siteWithABand(bytes: Uint8Array) {
   const platform = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
   await platform.createTenant({ id: TENANT, name: TENANT, status: 'active' })
   const store = await platform.forTenant(TENANT)
-  const slug = nextSlug('req234')
-  const seed = siteSeed({ slug, pages: { 'home.json': pageWithABand(slug) } })
-  await store.createDraft(slug)
+  const label = nextSlug('req234')
+  const seed = siteSeed({ slug: label, pages: { 'home.json': pageWithABand(label) } })
+  // The key the store minted ([[REQ-236]]), which is both how the site is
+  // addressed and — since the published address IS the key — the prefix its
+  // revisions land under, so `publishedOutPrefix` takes it directly.
+  const slug = await store.createDraft()
   await store.write(slug, {
     siteJson: seed.siteJson,
     pages: Object.entries(seed.pages).map(([name, page]) => ({ name, page })),
@@ -97,7 +100,7 @@ describe('REQ-234 — a backdrop in WebP, through the real binding', () => {
   it('offers a WebP whose bytes really are a WebP, behind a plain url()', async () => {
     const { store, slug } = await siteWithABand(await picture(1400, 700))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const out = publishedOutPrefix((await store.siteKey(slug))!, result.id)
+    const out = publishedOutPrefix(slug, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
 
     const decls = bgDecls(html)
@@ -129,7 +132,7 @@ describe('REQ-234 — a backdrop in WebP, through the real binding', () => {
     // the format.
     const { store, slug } = await siteWithABand(await picture(1500, 750))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const out = publishedOutPrefix((await store.siteKey(slug))!, result.id)
+    const out = publishedOutPrefix(slug, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
 
     const painted = [...html.matchAll(/url\("(assets\/d\/[^"]+)"\)/g)].map((m) => m[1])
@@ -154,7 +157,7 @@ describe('REQ-234 — a backdrop in WebP, through the real binding', () => {
     // it appears in is a transform and an R2 write for a few kilobytes.
     const { store, slug } = await siteWithABand(await picture(300, 150))
     const result = await publishSite(store, slug, { ladder: realLadder() })
-    const out = publishedOutPrefix((await store.siteKey(slug))!, result.id)
+    const out = publishedOutPrefix(slug, result.id)
     const html = await (await env.SITES.get(`${out}/home.html`))!.text()
     expect(html).not.toContain('image-set(')
     expect(html).toContain('url("assets/band.png")')

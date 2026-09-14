@@ -42,17 +42,27 @@ export interface ImportSummary {
  * admin verb (`createDraft`, `seed`), not something the port describes, and
  * inventing a create here would mean this function had to know which adapter it
  * was talking to. That is exactly the knowledge it exists without.
+ *
+ * `into` IS WHAT THE DESTINATION CALLS IT, AND THE TWO NEED NOT AGREE
+ * ([[REQ-236]]). They used to, because every adapter addressed a site by a name
+ * and a copy could assume the name survived the crossing. It does not: the D1
+ * store addresses a site by the key it minted, and the filesystem source knows
+ * only a directory. So the caller — which is the only thing that holds both —
+ * names both ends. Omitted, it is `slug`, which is right for every
+ * same-vocabulary copy (memory to memory, filesystem to filesystem) and is what
+ * every existing caller means.
  */
 export async function importSite(
   from: SiteStore,
   to: SiteStore,
   slug: string,
+  into: string = slug,
 ): Promise<ImportSummary> {
   if (!(await from.hasDraft(slug))) {
     throw new Error(`Site '${slug}' has no draft in the source store.`)
   }
-  if (!(await to.hasDraft(slug))) {
-    throw new Error(`Site '${slug}' does not exist in the destination store.`)
+  if (!(await to.hasDraft(into))) {
+    throw new Error(`Site '${into}' does not exist in the destination store.`)
   }
 
   const siteJson = await from.readSiteJson(slug)
@@ -74,7 +84,7 @@ export async function importSite(
     pages,
     assets,
   }
-  await to.write(slug, change)
+  await to.write(into, change)
 
   return {
     slug,

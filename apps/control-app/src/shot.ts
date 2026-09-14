@@ -138,7 +138,7 @@ export interface BrowserBudget {
  *
  * IN MEMORY, AND ITS SCOPE IS STATED RATHER THAN IMPLIED. `HostDeps.fidelity` is
  * called once per session manager, which `host-core.ts` memoises per store and
- * slug, so one budget serves one conversation for as long as the isolate holding
+ * site, so one budget serves one conversation for as long as the isolate holding
  * it lives — and an evicted isolate mints a fresh one. That makes this a BURST
  * bound rather than a lifetime one, which is the shape the risk actually has: a
  * model looping on `screenshot` does it inside one turn, in one isolate. A

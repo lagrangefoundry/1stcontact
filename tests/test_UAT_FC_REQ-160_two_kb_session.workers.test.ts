@@ -171,8 +171,14 @@ async function frames(response: Response): Promise<{ kind: string; content?: str
     .map((f) => JSON.parse(f.slice(5).trim()))
 }
 
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
+/**
+ * Push a starter site in and hand back the KEY it landed on ([[REQ-236]]).
+ *
+ * The payload's `slug` names the SOURCE the push came from; the destination is
+ * whatever site the receiving business holds, so the key comes back in the reply.
+ */
+async function seedSite(name: string): Promise<string> {
+  const seed = siteSeed({ slug: name })
   const res = await post('/api/import', {
     slug: seed.slug,
     siteJson: seed.siteJson as Record<string, unknown>,
@@ -183,6 +189,7 @@ async function seedSite(slug: string): Promise<void> {
     assets: [] as { name: string; base64: string }[],
   })
   expect(res.status).toBe(200)
+  return ((await res.json()) as { site: string }).site
 }
 
 const store = (): Promise<TicketStore> => ticketStoreFor(workerEnv(), { businessId: TENANT })
@@ -231,7 +238,7 @@ async function chatTicket(sessionId: string): Promise<Ticket | null> {
  * old field they would pass whether or not a delta had been reported.
  */
 async function turn(slug: string, text: string): Promise<{ sent: string; sessionId: string }> {
-  const opened = await post('/api/ai/session', { slug })
+  const opened = await post('/api/ai/session', { site: slug })
   expect(opened.status).toBe(200)
   const { sessionId } = (await opened.json()) as { sessionId: string }
   const client = scriptedClient([says('Noted.')])
@@ -257,8 +264,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // [[DOC-10]] §5.2 removed when it merged the transcript tools into the
     // knowledge surface: the AI having to know which KIND of thing it was looking
     // for before it could look.
-    const slug = nextSlug('prime')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('prime'))
     await publishProjectMap('# Awareness map: project\n\n## Brand and positioning\n\nWhat this client sounds like.\n')
 
     const { sent: system } = await turn(slug, 'Hello.')
@@ -323,8 +329,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // LABELLING IT AS COMPLETE is not decoration: a short list read as "knowledge
     // here is thin" produces very different behaviour in front of a new client
     // than the same list read as "you know everything there is".
-    const slug = nextSlug('enum')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('enum'))
     await upload('The kitchen at dusk', 'A photograph of the restaurant at closing time.')
     const kb = await (await import('../apps/control-app/src/knowledge')).projectKnowledgeFor(
       workerEnv(),
@@ -343,8 +348,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // [[DOC-10]] §8 — everything is a ticket, and the transcript is not the
     // exception. The session file lives in a `chat_transcript` comment; the body
     // is left alone because it is the AI-maintained summary's home ([[REQ-171]]).
-    const slug = nextSlug('ticket')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('ticket'))
     const { sessionId } = await turn(slug, 'Say something memorable.')
 
     const chat = await chatTicket(sessionId)
@@ -373,8 +377,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // all, so nothing about the landscape changes between the two turns. If the
     // AI learns of the document it is because the delta told it, which is the
     // whole point — a map is a description, not a notification.
-    const slug = nextSlug('mid')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('mid'))
     const first = await turn(slug, 'Do you have any positioning material?')
     expect(first.sent).not.toContain('Ravenswood positioning note')
 
@@ -395,8 +398,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // "nothing new" — because a line that appears every turn and is almost always
     // empty trains the model to skim the region the non-empty case needs to be
     // noticed in.
-    const slug = nextSlug('quiet')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('quiet'))
     const { sessionId } = await turn(slug, 'Hello.')
 
     const client = scriptedClient([says('Still here.')])
@@ -410,8 +412,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // been told — so it lives with the session, which is a ticket. And it moves,
     // which is what stops the same upload being announced on every turn for the
     // rest of the conversation.
-    const slug = nextSlug('cursor')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('cursor'))
     const { sessionId } = await turn(slug, 'Hello.')
 
     await upload('Winter menu', 'Six courses, from November.')
@@ -443,8 +444,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // all look like from here. There is no separate "while you were away"
     // report and there does not need to be: the delta sweeps from where the
     // session was left, so the gap is covered by the ordinary mechanism.
-    const slug = nextSlug('resume')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('resume'))
     const { sessionId } = await turn(slug, 'Hello.')
 
     await upload('Supplier agreement', 'Signed with the dairy in August.')
@@ -454,7 +454,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
 
     const client = scriptedClient([says('Welcome back.')])
     setModelClient(client)
-    const reopened = await post('/api/ai/session', { slug })
+    const reopened = await post('/api/ai/session', { site: slug })
     expect(reopened.status).toBe(200)
     await frames(await post('/api/ai/prompt', { sessionId, text: 'I am back.' }))
     expect(sentText(client.seen[0])).toContain('Supplier agreement')
@@ -465,8 +465,7 @@ describe('REQ-160 — two-KB priming, the change cursor, and the delta channel',
     // a sweep that treated conversations as delta entries would announce the
     // conversation to itself on every turn, forever. Chat tickets stay in the
     // corpus and out of the delta.
-    const slug = nextSlug('selfref')
-    await seedSite(slug)
+    const slug = await seedSite(nextSlug('selfref'))
     const { sessionId } = await turn(slug, 'Hello.')
 
     const client = scriptedClient([says('Right.')])

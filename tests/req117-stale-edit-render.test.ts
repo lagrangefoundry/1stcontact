@@ -90,7 +90,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 stale edit render', () => {
 
     try {
       const editor = mountEditor(document, {
-        slug: 'alpha',
+        site: 'alpha',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
         openModal: (spec: { kind: string; message?: string; hint?: string }) => modals.push(spec),
       })

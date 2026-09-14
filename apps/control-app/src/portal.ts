@@ -49,7 +49,16 @@ import type { Scope } from './scope'
  * edit for whoever routes the mailbox.
  */
 
-/** The reserved slug the portal is authored under, in every business's store. */
+/**
+ * What the built-in portal is called in a store that addresses a site by a NAME.
+ *
+ * IT IS NO LONGER A RESERVED SLUG IN D1 ([[REQ-236]]). An authored portal used
+ * to be found by `hasDraft('portal')` — a magic word a customer's own site could
+ * have collided with — and it is found by `sites.kind = 'portal'` now, so this
+ * constant reaches the multi-tenant store nowhere. What it still names is the
+ * in-memory seed below: the fallback portal every business gets when it has
+ * authored none, held in a store whose keys are the names its caller gives it.
+ */
 export const PORTAL_SLUG = 'portal'
 
 /** Where the portal is reached on this origin. */

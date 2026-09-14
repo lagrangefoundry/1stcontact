@@ -96,7 +96,11 @@ async function business(id: string): Promise<{ scope: Scope; slug: string }> {
     {},
   )
   expect(imported.status).toBe(200)
-  return { scope, slug: seed.slug }
+  // THE KEY THE PUSH LANDED ON ([[REQ-236]]), not the name it was pushed under.
+  // `seed.slug` names the SOURCE — a directory on the operator's machine — and
+  // the destination is the business's own site, addressed by a minted key the
+  // reply carries back.
+  return { scope, slug: ((await imported.json()) as { site: string }).site }
 }
 
 /** Open a session and take one scripted turn, through the Worker's own routes. */
@@ -111,7 +115,7 @@ async function turn(
     new Request(`${ORIGIN}/api/ai/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify({ site: slug }),
     }),
     workerEnv,
     scope,

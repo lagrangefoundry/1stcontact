@@ -102,7 +102,7 @@ function mount(over: Record<string, unknown> = {}) {
     businesses: BUSINESSES,
     person: { name: 'Sam', email: 'sam@example.test' },
     storage: memoryStorage(),
-    loadSites: async () => [{ slug: 'unnamed', latest: null }],
+    loadSites: async () => [{ site: 'unnamed', latest: null }],
     chatTransport: {
       openSession: async (slug: string) => {
         asked.sessions.push(slug)
@@ -206,8 +206,8 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-69 — the chat pane follows the business
     const { app } = mount({
       businesses: [BUSINESSES[0]],
       loadSites: async () => [
-        { slug: 'unnamed', latest: null },
-        { slug: 'second', latest: null },
+        { site: 'unnamed', latest: null },
+        { site: 'second', latest: null },
       ],
       chatTransport: {
         openSession: async (slug: string) => {

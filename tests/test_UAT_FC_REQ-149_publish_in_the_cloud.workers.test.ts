@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import controlApp from '../apps/control-app/src/index'
 import type { Env as ControlEnv } from '../apps/control-app/src/index'
@@ -26,8 +26,24 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * are now joined by a D1 row and an R2 key that neither Worker restates.
  */
 
-const TENANT = 'req149'
+/**
+ * ONE BUSINESS PER CASE ([[REQ-236]]).
+ *
+ * These cases used to share the tenant `req149` and give themselves private
+ * sites by pushing a distinct `nextSlug('req149')`, because a push NAMED its
+ * destination. `/api/import` resolves the receiving business's single site now,
+ * so a shared tenant is a shared site — and publishing accumulates revisions on
+ * it, which makes "publishing an unchanged draft is a no-op" count three
+ * revisions where it means to count one.
+ *
+ * REASSIGNED IN `beforeEach` RATHER THAN THREADED THROUGH EVERY HELPER. `TENANT`
+ * is read by `controlEnv()` and by the three cases that open a store directly;
+ * giving it a fresh value per case restores the isolation the slug used to
+ * provide without changing a single call site.
+ */
+let TENANT = 'req149'
 const OTHER_TENANT = 'req149-other'
+let businessSeq = 0
 
 function controlEnv(overrides: Partial<ControlEnv> = {}): ControlEnv {
   return {
@@ -90,52 +106,52 @@ function pureL1Site(slug = nextSlug('req149')) {
   }
 }
 
-async function importSite(payload: ReturnType<typeof pureL1Site>): Promise<void> {
+async function importSite(payload: ReturnType<typeof pureL1Site>): Promise<string> {
   const res = await call('/api/import', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   })
   expect(res.status).toBe(200)
+  // THE KEY THE PUSH LANDED ON ([[REQ-236]]) — the payload's `slug` names the
+  // source directory and the destination is this business's own site.
+  return ((await res.json()) as { site: string }).site
 }
 
-async function publish(slug: string, message?: string): Promise<Response> {
+async function publish(site: string, message?: string): Promise<Response> {
   return call('/api/publish', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug, message }),
+    body: JSON.stringify({ site, message }),
   })
 }
 
-/** A site imported and published once. Returns its slug and live revision. */
 /**
- * A published site, and BOTH of its names ([[REQ-190]]).
+ * A site imported and published once — and it has ONE name now ([[REQ-236]]).
  *
- * The `slug` is what the business calls it and is what the builder's routes
- * take; the `siteKey` is what the PUBLIC address is made of and what every R2
- * key is built from. They used to be the same string, which is what made a
- * chosen name a key — so the two are returned separately here and each test
- * uses the one it actually means.
+ * [[REQ-190]] left this helper returning two: the `slug` the builder's routes
+ * took, and the `siteKey` the public address and every R2 key were built from.
+ * Keeping them apart was the point, because a chosen name doing a key's job was
+ * the defect REQ-190 was fixing and a test that conflated them would not have
+ * seen it. `sites.slug` is gone, so the two collapsed into the one value both
+ * halves always wanted — and `siteKey` is kept as a field rather than deleted
+ * because the cases that build an R2 key from it are asserting about the PUBLIC
+ * address, which is a different claim from "the route took this".
  */
 async function publishedSite(): Promise<{ slug: string; id: number; siteKey: string }> {
-  const site = pureL1Site()
-  await importSite(site)
-  const res = await publish(site.slug, 'first')
+  const site = await importSite(pureL1Site())
+  const res = await publish(site, 'first')
   expect(res.status).toBe(200)
   const body = (await res.json()) as { id: number; published: boolean }
   expect(body.published).toBe(true)
-  return { slug: site.slug, id: body.id, siteKey: await siteKeyOf(site.slug) }
-}
-
-/** The site's key, asked of the store rather than assumed from the slug. */
-async function siteKeyOf(slug: string, tenantId: string = TENANT): Promise<string> {
-  const store = await d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(tenantId)
-  const key = await store.siteKey(slug)
-  expect(key, `no site '${slug}' in ${tenantId}`).not.toBeNull()
-  return key!
+  return { slug: site, id: body.id, siteKey: site }
 }
 
 describe('REQ-149 — publish in the cloud', () => {
+  beforeEach(() => {
+    TENANT = `req149-${(businessSeq += 1)}`
+  })
+
   beforeAll(async () => {
     await applySchema()
   })
@@ -145,10 +161,9 @@ describe('REQ-149 — publish in the cloud', () => {
     // renders it and writes it to R2 — inside workerd, where there is no
     // filesystem to fall back on. r1 because the log starts empty and live is
     // the highest id, never a stored pointer.
-    const site = pureL1Site()
-    await importSite(site)
+    const siteKey = await importSite(pureL1Site())
 
-    const res = await publish(site.slug, 'launch')
+    const res = await publish(siteKey, 'launch')
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       id: number
@@ -162,12 +177,13 @@ describe('REQ-149 — publish in the cloud', () => {
     // store's own keys — `site.json`, `pages/home.json` — not a filesystem's.
     expect(body.changes.added).toContain('site.json')
     expect(body.changes.added).toContain('pages/home.json')
-    // THE URL IS BUILT FROM THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). The slug
-    // is what this business calls the site and means nothing outside it; the
-    // published address is the key, which names exactly one site by
-    // construction and is why there is no claim to make.
-    const siteKey = await siteKeyOf(site.slug)
-    expect(siteKey).not.toBe(site.slug)
+    // THE URL IS BUILT FROM THE SITE'S KEY ([[REQ-190]], [[REQ-236]]). REQ-190
+    // made the published address the key while the builder still addressed the
+    // site by a slug, and this case asserted the two were DIFFERENT strings —
+    // which was the whole point while both existed. There is one string now, so
+    // what is left to assert is the part that was always the claim: the address
+    // is built from the value the store minted, and nothing a human chose
+    // reaches it.
     expect(body.url).toBe(`https://1stcontact.io/site/${siteKey}/`)
 
     // The rendered bytes really are in the bucket, under the revision's own key.
@@ -238,7 +254,7 @@ describe('REQ-149 — publish in the cloud', () => {
     expect(second.published).toBe(true)
 
     // The log carries what the toolbar needs to show, over the wire.
-    const listed = await call(`/api/revisions?slug=${slug}`)
+    const listed = await call(`/api/revisions?site=${slug}`)
     expect(listed.status).toBe(200)
     const history = (await listed.json()) as Array<{ id: number; message: string }>
     // Newest first, because that is the order the question is asked in.
@@ -355,7 +371,9 @@ describe('REQ-149 — publish in the cloud', () => {
 
     const res = await call('/api/sites')
     expect(res.status).toBe(200)
-    const sites = (await res.json()) as Array<{ slug: string; latest: number | null }>
-    expect(sites.find((s) => s.slug === slug)?.latest).toBe(id)
+    // NAMED BY KEY ([[REQ-236]]) — `site`, because the listing has no second
+    // name to report.
+    const sites = (await res.json()) as Array<{ site: string; latest: number | null }>
+    expect(sites.find((s) => s.site === slug)?.latest).toBe(id)
   })
 })

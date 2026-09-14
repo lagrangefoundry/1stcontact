@@ -337,7 +337,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     // And the origin answers the identical thing — one derivation, two ways in.
     await withOrigin(cwd, async (builder) => {
       const body = (await (
-        await fetch(new URL(`/api/copy?slug=acme&page=home&path=${A_IMAGE}`, builder.url))
+        await fetch(new URL(`/api/copy?site=acme&page=home&path=${A_IMAGE}`, builder.url))
       ).json()) as Record<string, unknown>
       expect(body.fields).toEqual(fields)
       expect(body.values).toEqual(got.data!.values)
@@ -445,7 +445,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       const res = await fetch(new URL('/api/copy', builder.url), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slug: 'acme', page: 'home', path: A_IMAGE, values: { src: HERO } }),
+        body: JSON.stringify({ site: 'acme', page: 'home', path: A_IMAGE, values: { src: HERO } }),
       })
       expect(res.status).toBe(200)
       expect(((await res.json()) as Record<string, unknown>).changed).toEqual(['src'])
@@ -728,7 +728,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       // trip and cannot present an option the write path would reject.
       for (const addr of [A_COPY, A_IMAGE]) {
         const body = (await (
-          await get(`/api/copy?slug=acme&page=home&path=${addr}`)
+          await get(`/api/copy?site=acme&page=home&path=${addr}`)
         ).json()) as Record<string, unknown>
         const fromCli = await readFields(cwd, addr)
         expect(body.fields, addr).toEqual(fromCli.data!.fields)
@@ -737,7 +737,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       expect(
         (
           (
-            (await (await get(`/api/copy?slug=acme&page=home&path=${A_IMAGE}`)).json()) as {
+            (await (await get(`/api/copy?site=acme&page=home&path=${A_IMAGE}`)).json()) as {
               fields: Field[]
             }
           ).fields.find((f) => f.name === 'src')
@@ -754,7 +754,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       for (const [label, values, argv] of rejections) {
         const before = draftBytes(cwd)
         const addr = label === 'words' ? A_COPY : A_IMAGE
-        const res = await post({ slug: 'acme', page: 'home', path: addr, values })
+        const res = await post({ site: 'acme', page: 'home', path: addr, values })
         expect(res.status, label).toBeGreaterThanOrEqual(400)
         expect(res.status, label).toBeLessThan(500)
         const body = (await res.json()) as Record<string, unknown>
@@ -772,8 +772,8 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       // A valid edit of each kind: both the editable and the plain draft
       // renderings reflect it, with no render step in between.
       const words = 'Saved through the origin.'
-      expect((await post({ slug: 'acme', page: 'home', path: A_COPY, values: { text: words } })).status).toBe(200)
-      expect((await post({ slug: 'acme', page: 'home', path: A_IMAGE, values: { src: BETA } })).status).toBe(200)
+      expect((await post({ site: 'acme', page: 'home', path: A_COPY, values: { text: words } })).status).toBe(200)
+      expect((await post({ site: 'acme', page: 'home', path: A_IMAGE, values: { src: BETA } })).status).toBe(200)
 
       for (const channel of ['edit', 'draft'] as const) {
         const html = await servedBytes(builder, channel)

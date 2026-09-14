@@ -276,7 +276,7 @@ describe('story-3bf94bd4 choosing an image by looking at it', () => {
     editor = undefined
     display()
     editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
     })
     const el = document.querySelector(`[${L1_EDIT_PATH_ATTR}="${address}"]`)

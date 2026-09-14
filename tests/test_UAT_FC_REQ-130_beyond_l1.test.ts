@@ -696,7 +696,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
     expect(label, 'the visible field label is a text run inside the slot').toBeDefined()
 
     const url = new URL(
-      `/api/copy?slug=${SLUG}&page=home&path=${label!.path}&module=signup&slot=${label!.slot}`,
+      `/api/copy?site=${SLUG}&page=home&path=${label!.path}&module=signup&slot=${label!.slot}`,
       builder.url,
     )
     const read = (await (await fetch(url)).json()) as {
@@ -709,7 +709,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: SLUG,
+        site: SLUG,
         page: 'home',
         path: label!.path,
         module: 'signup',

@@ -5,8 +5,8 @@ import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { pacedClient, says, scriptedClient } from './support/scripted-model-client'
-import { applySchema } from './support/d1-site-factory'
-import { nextSlug, siteSeed } from './support/site-seed'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import { nextSlug } from './support/site-seed'
 
 /**
  * BUG-64 — **the composer is not gated on a turn that is not running**.
@@ -92,25 +92,24 @@ interface Opened {
   ready: boolean
 }
 
-/** What `/api/ai/session` answers for `slug` — the call a page load makes. */
-async function openSession(slug: string): Promise<Opened> {
-  const res = await post('/api/ai/session', { slug })
+/** What `/api/ai/session` answers for a site — the call a page load makes. */
+async function openSession(site: string): Promise<Opened> {
+  const res = await post('/api/ai/session', { site })
   expect(res.status).toBe(200)
   return (await res.json()) as Opened
 }
 
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
-  const res = await post('/api/import', {
-    slug: seed.slug,
-    siteJson: seed.siteJson as Record<string, unknown>,
-    pages: Object.entries(seed.pages).map(([name, page]) => ({
-      name,
-      page: page as Record<string, unknown>,
-    })),
-    assets: [] as { name: string; base64: string }[],
-  })
-  expect(res.status).toBe(200)
+/**
+ * A site, and the KEY its store minted ([[REQ-236]]).
+ *
+ * SEEDED THROUGH THE STORE RATHER THAN `POST /api/import`: that route resolves
+ * its own target now — this business's one site — so two seeds in one tenant
+ * would write to the same site, and these cases are precisely about one
+ * session's state not leaking into another's.
+ */
+async function seedSite(prefix: string): Promise<string> {
+  const { site } = await seedTenantSite(TENANT, { slug: nextSlug(prefix) })
+  return site
 }
 
 /** Read one SSE body to the end. Every turn here is meant to finish. */
@@ -140,10 +139,9 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     // This test does not fail on the unfixed code and is not meant to. It is the
     // boundary that says the fix did not move the empty case. The evidence that
     // fails before it is the three below.
-    const slug = nextSlug('quiet')
-    await seedSite(slug)
+    const site = await seedSite('quiet')
 
-    const opened = await openSession(slug)
+    const opened = await openSession(site)
 
     expect(opened.live).toBe(false)
     // The rest of the projection is unchanged and says so: an empty conversation
@@ -157,14 +155,13 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     // all: a conversation with history, reopened between turns. The junction now
     // holds records — which is exactly the condition the broken derivation
     // mistook for an open turn, since ANY records made its comparison true.
-    const slug = nextSlug('settled')
-    await seedSite(slug)
-    const { sessionId } = await openSession(slug)
+    const site = await seedSite('settled')
+    const { sessionId } = await openSession(site)
 
     setModelClient(scriptedClient([says('Done — the heading now reads differently.')]))
     await drain(await post('/api/ai/prompt', { sessionId, text: 'Change the heading.' }))
 
-    const reopened = await openSession(slug)
+    const reopened = await openSession(site)
 
     // The turn is closed. `turn_end` is on the junction, the record stream ends
     // at a closed boundary, and there is nothing to rejoin.
@@ -184,9 +181,8 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     //
     // Paced, because the state under test exists only between `turn_start` and
     // `turn_end`: a model that answers in one go never produces it.
-    const slug = nextSlug('inflight')
-    await seedSite(slug)
-    const { sessionId } = await openSession(slug)
+    const site = await seedSite('inflight')
+    const { sessionId } = await openSession(site)
 
     const model = pacedClient('I have started editing. ', 'And now I am finished.')
     setModelClient(model)
@@ -195,7 +191,7 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     // Pull the first frame, so the turn is demonstrably open before it is read.
     await reader.read()
 
-    const midTurn = await openSession(slug)
+    const midTurn = await openSession(site)
     expect(midTurn.live).toBe(true)
     // The cursor is what makes that flag actionable — the two are consumed
     // together or not at all.
@@ -210,11 +206,10 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     // satisfied by a different constant; only watching the value CHANGE over a
     // single conversation shows it tracking the turn. This is the whole property
     // in one place, and it is the sequence a real page load walks through.
-    const slug = nextSlug('cycle')
-    await seedSite(slug)
-    const { sessionId } = await openSession(slug)
+    const site = await seedSite('cycle')
+    const { sessionId } = await openSession(site)
 
-    expect((await openSession(slug)).live).toBe(false)
+    expect((await openSession(site)).live).toBe(false)
 
     const model = pacedClient('Working on it. ', 'All done.')
     setModelClient(model)
@@ -222,7 +217,7 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
     const reader = turn.body!.getReader()
     await reader.read()
 
-    expect((await openSession(slug)).live).toBe(true)
+    expect((await openSession(site)).live).toBe(true)
 
     model.release()
     // Drain to the end, so `turn_end` has actually been written before the read
@@ -233,6 +228,6 @@ describe('BUG-64 a quiet session does not claim a turn is running', () => {
       if (done) break
     }
 
-    expect((await openSession(slug)).live).toBe(false)
+    expect((await openSession(site)).live).toBe(false)
   })
 })

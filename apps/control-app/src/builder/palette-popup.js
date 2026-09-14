@@ -41,7 +41,7 @@ const SHADE_STEP = 0.001
  *
  * @param {object} spec
  * @param {Element} [spec.host] - inside the shell root; see `modal.js`
- * @param {string} spec.slug
+ * @param {string} spec.site
  * @param {'manage'|'pick'} [spec.mode]
  * @param {{ref: string, shade?: number}|null} [spec.value] - what the caller currently holds
  * @param {{get: Function, write: Function}} spec.transport
@@ -56,7 +56,7 @@ const SHADE_STEP = 0.001
  *   manage mode resolve to.
  */
 export function openPalettePopup(spec) {
-  const { slug, mode = 'manage', value = null, transport, shadeHex, onChanged = () => {} } = spec
+  const { site, mode = 'manage', value = null, transport, shadeHex, onChanged = () => {} } = spec
 
   return new Promise((resolve) => {
     let entries = []
@@ -142,7 +142,7 @@ export function openPalettePopup(spec) {
         // still literals. So it reads as an invitation rather than an error.
         const empty = document.createElement('p')
         empty.className = 'builder-palette__empty'
-        empty.textContent = `${slug} has no colors yet. Add one below.`
+        empty.textContent = `This site has no colors yet. Add one below.`
         list.append(empty)
         return
       }
@@ -157,7 +157,7 @@ export function openPalettePopup(spec) {
       const input = document.createElement('input')
       input.type = 'radio'
       input.className = 'builder-palette__swatch-input'
-      input.name = `palette-${slug}`
+      input.name = `palette-${site}`
       input.value = entry.name
       input.checked = entry.name === selected
       input.addEventListener('change', () => {
@@ -362,7 +362,7 @@ export function openPalettePopup(spec) {
     async function run(op, body, select = selected) {
       say('')
       try {
-        const result = await transport.write({ slug, op, ...body })
+        const result = await transport.write({ site, op, ...body })
         entries = result.entries ?? []
         selected = select && entryOf(select) ? select : null
         if (!selected) shade = 0
@@ -393,7 +393,7 @@ export function openPalettePopup(spec) {
 
     void (async () => {
       try {
-        const loaded = await transport.get(slug)
+        const loaded = await transport.get(site)
         entries = loaded.entries ?? []
         // A caller can open the picker holding a reference to an entry that has
         // since been deleted. Selecting nothing is the honest answer — the

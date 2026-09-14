@@ -6,12 +6,12 @@
  *
  * IT KNOWS NOTHING ABOUT SITES (REQ-127), and that is the whole shape of this
  * file. A session is bound to a site when the origin creates it; by the time one
- * arrives here that binding is settled, so there is no slug to hold, no site to
+ * arrives here that binding is settled, so there is no site key to hold, no site to
  * switch, and no way for this pane to be showing a conversation about one site
  * while addressing a turn to another. Switching site is `app.js`'s job: it opens
  * the new session and hands it over.
  *
- * WHAT THAT DELETED. This used to take a slug, open the session itself, and carry
+ * WHAT THAT DELETED. This used to take a site, open the session itself, and carry
  * a `generation` counter — because the open was async, a second switch could
  * start before the first finished, and the token was what stopped a slow answer
  * for an abandoned site from landing in the pane now showing a different one.
@@ -187,11 +187,10 @@ export function createChatPanel(options = {}) {
    * paint reached. They are consumed together or not at all.
    *
    * WHICH CONVERSATION THIS IS, IS NOT THE SESSION ID ([[BUG-69]]). The origin
-   * derives an id from the slug — `site-<slug>` — and that is unique in the
-   * address space it lives in, because every request is business-scoped and the
-   * host resolves the id against that tenant's own store. It is NOT unique
-   * across businesses: slugs are per-business by design, so two businesses may
-   * each hold a `site-unnamed`, and those are two different conversations.
+   * derives an id from the site — `site-<siteKey>` — which since [[REQ-236]] is
+   * globally unique, because a site key is 128 random bits. It was NOT: the id
+   * came from the slug, slugs were per-business by design, and two businesses
+   * could each hold a `site-unnamed` that were two different conversations.
    *
    * This pane cannot see that, and should not have to — it still knows nothing
    * about sites or businesses. It is TOLD, as `key`: the caller's name for the
@@ -201,10 +200,12 @@ export function createChatPanel(options = {}) {
    * to. Defaulting `key` to the id is what keeps a host with nothing wider in
    * scope, and every existing caller, unchanged.
    *
-   * The failure that makes this necessary: a switch between two businesses whose
-   * sites share a slug re-read the right transcript from the origin and then
+   * The failure this was written for: a switch between two businesses whose
+   * sites shared a slug re-read the right transcript from the origin and then
    * discarded it, because the id string matched the one already on screen —
-   * leaving one business's conversation beside another business's site.
+   * leaving one business's conversation beside another business's site. REQ-236
+   * removes that collision; `key` stays, because this pane still may not be the
+   * thing that knows what makes a conversation distinct.
    *
    * @param {{sessionId: string, turns?: {role: string, markdown: string}[],
    *          cursor?: number, live?: boolean,

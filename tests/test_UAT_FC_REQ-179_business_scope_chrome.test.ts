@@ -78,9 +78,9 @@ const BUSINESSES = [
   { id: 'acct_gone', name: 'Gone', selectable: false },
 ]
 
-const SITES_OF: Record<string, Array<{ slug: string; latest: number | null }>> = {
-  acct_salon: [{ slug: 'salon-site', latest: null }],
-  acct_studio: [{ slug: 'studio-site', latest: 1 }],
+const SITES_OF: Record<string, Array<{ site: string; latest: number | null }>> = {
+  acct_salon: [{ site: 'salon-site', latest: null }],
+  acct_studio: [{ site: 'studio-site', latest: 1 }],
 }
 
 /** Who is signed in — a PERSON, and named for one since [[REQ-194]]. */
@@ -285,7 +285,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — one act re-scopes every tab', () 
 
     // …and the uploads, which name the site a file is placed on.
     await app.receiveFiles([new File(['x'], 'logo.png')], 'site', 'library')
-    expect((asked.uploads.at(-1) as Record<string, unknown>).slug).toBe('studio-site')
+    expect((asked.uploads.at(-1) as Record<string, unknown>).site).toBe('studio-site')
   })
 
   it('test_UAT_FC_REQ-179_every_url_the_builder_builds_carries_the_business', async () => {
@@ -321,7 +321,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — one act re-scopes every tab', () 
     ]
     const { app, asked } = mount({
       businesses: shared,
-      loadSites: async () => [{ slug: 'home', latest: null }],
+      loadSites: async () => [{ site: 'home', latest: null }],
     })
     await settle()
     expect(app.panel.frame.getAttribute('src')).toBe('/b/acct_a/preview/home/draft/')

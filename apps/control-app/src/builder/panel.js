@@ -278,10 +278,10 @@ export function createDisplayPanel(options = {}) {
     emit('mode', id)
   }
 
-  function setSite(slug) {
-    if (slug === site) return
-    site = slug
-    storage?.setItem('site', slug ?? '')
+  function setSite(next) {
+    if (next === site) return
+    site = next
+    storage?.setItem('site', next ?? '')
     // Another site's page is not this page: every frame is now holding the
     // wrong document, whether it is the one on screen or not.
     invalidate()
@@ -324,7 +324,7 @@ export function createDisplayPanel(options = {}) {
      *
      * A mode's `src()` is a function of more than the state this panel holds:
      * `previewUrl` now carries the selected business, so switching business
-     * changes the URL for an unchanged slug. Nothing inside the panel can
+     * changes the URL for an unchanged site. Nothing inside the panel can
      * observe that, and `setSite(sameSlug)` is deliberately a no-op — so
      * without this a business switch would leave the frame showing the previous
      * business's page while every other surface had moved.

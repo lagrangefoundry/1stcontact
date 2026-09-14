@@ -168,7 +168,7 @@ function transport() {
         reason: null,
       })),
     }),
-    fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
+    fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteKey: 'acct_new' }),
   }
 }
 
@@ -276,7 +276,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-53 — one control size, declared once', 
     // both are asserted: the selector matches what the shell actually renders,
     // and `builder.css` is emitted AFTER the component stylesheets, which is
     // what lets a same-specificity rule win.
-    mountBuilder(root, { sites: [{ slug: 'alpha', latest: 1 }], storage: memoryStorage() })
+    mountBuilder(root, { sites: [{ site: 'alpha', latest: 1 }], storage: memoryStorage() })
     const labels = [...root.querySelectorAll('.shell-actions button')].map((b) =>
       (b.textContent || '').trim(),
     )

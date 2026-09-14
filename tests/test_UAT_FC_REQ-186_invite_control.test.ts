@@ -136,7 +136,7 @@ function transportOver(people: Person[], canInvite = true, canFulfil = false) {
     revoke: async () => ({}),
     fulfil: async (accountEmail: string, name: string) => {
       provisioned.push({ accountEmail, name })
-      return { businessId: 'acct_1', name, siteSlug: 'acct_1' }
+      return { businessId: 'acct_1', name, siteKey: 'acct_1' }
     },
     // ADD IS ITS OWN CALL SINCE [[REQ-199]], and it leaves the pipeline at Lead.
     add: async (email: string, displayName: string | null) => {

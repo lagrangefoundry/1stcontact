@@ -12,16 +12,17 @@ export const PUBLIC_SITE_ORIGIN = 'https://1stcontact.io'
 /**
  * The public URL for a site, with `rel` appended (`/` for the site root).
  *
- * THE ARGUMENT IS THE SITE'S KEY, NOT ITS SLUG ([[REQ-190]]). `/site/<slug>/`
+ * THE ARGUMENT IS THE SITE'S KEY ([[REQ-190]]). `/site/<slug>/`
  * made the published address a name somebody chose, which had to be unique
  * across every business on the deployment for the URL to name anything — so the
  * slug was a key, a customer could be refused a name another customer had taken,
  * and being refused told them it was taken. The address is the site's own
- * unguessable key now; the slug is what its business calls it and never leaves
- * the builder.
+ * unguessable key now, and since [[REQ-236]] there is no slug at all: the
+ * builder addresses the site by the same key, so this takes the value its caller
+ * already holds rather than one it had to ask the store to translate.
  *
- * Callers get the key from `TenantSiteStore.siteKey`, whose lookup is scoped to
- * the business, rather than composing one here from whatever they hold.
+ * Callers get the key from `TenantSiteStore.siteKeys`, whose statement is scoped
+ * to the business, rather than composing one here from whatever they hold.
  */
 export function publicSiteUrl(siteKey: string, rel = '/'): string {
   const tail = rel.startsWith('/') ? rel : `/${rel}`

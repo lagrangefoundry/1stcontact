@@ -270,7 +270,7 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
     document.body.setAttribute(L1_EDIT_MARKER_ATTR, '')
     document.body.setAttribute(L1_EDIT_PAGE_ATTR, pageId)
     editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       onSaved: (result: { changed?: string[] }) => void saves.push(result),
       colors: {
@@ -574,7 +574,7 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
       const { fetchPalette, writePalette } = await import('../apps/control-app/src/builder/api.js')
       const openPicker = (value: unknown) =>
         openPalettePopup({
-          slug: 'acme',
+          site: 'acme',
           mode: 'pick',
           value,
           transport: { get: fetchPalette, write: writePalette },
@@ -597,8 +597,12 @@ describe('story-3bf94bd4 a region exposes its colour, and the panel behind it', 
       }
       const empty = popup.querySelector('.builder-palette__empty')!
       expect(empty, 'it says there are no colours yet rather than showing an empty list').toBeTruthy()
-      expect(empty.textContent).toContain('acme')
-      expect(empty.textContent).toMatch(/no colors yet/i)
+      // IT NO LONGER NAMES THE SITE ([[REQ-236]]). It used to open `acme has no
+      // colors yet`, which read as a sentence while a site was called something
+      // an operator had chosen. A site is named by a 128-bit key now, and a key
+      // in that sentence is noise — so the invitation says `This site`.
+      expect(empty.textContent).not.toContain('acme')
+      expect(empty.textContent).toMatch(/this site has no colors yet/i)
       // The way to add the first entry is present — the recovery is one gesture
       // inside the surface the operator already opened.
       const add = popup.querySelector('.builder-palette__add')!

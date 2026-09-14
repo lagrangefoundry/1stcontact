@@ -5,7 +5,6 @@ import {
   provisionBusiness,
   type Admission,
   type IdentityEnv,
-  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { inviteAccount } from './support/invite-account'
 import {
@@ -73,10 +72,17 @@ async function admitted(email: string): Promise<Extract<Admission, { ok: true }>
   return result
 }
 
-/** One site in a business, written through the same opener a route uses. */
-async function siteIn(scope: Scope, slug: string): Promise<void> {
+/**
+ * One site in a business, written through the same opener a route uses, and its
+ * KEY handed back ([[REQ-236]]).
+ *
+ * It took the name to create the site under; a site has no name, so the caller
+ * gets the minted key instead and asserts against that. What the case is really
+ * about — which business's list a site appears in — is untouched by the change.
+ */
+async function siteIn(scope: Scope): Promise<string> {
   const store = await storeFor(routerEnv(), scope)
-  await store.createDraft(slug)
+  return store.createDraft('site')
 }
 
 const listSites = async (scope: Scope, prefix = ''): Promise<string[]> => {
@@ -85,8 +91,8 @@ const listSites = async (scope: Scope, prefix = ''): Promise<string[]> => {
     routerEnv(),
     scope,
   )
-  const body = (await response.json()) as Array<{ slug: string }>
-  return body.map((s) => s.slug).sort()
+  const body = (await response.json()) as Array<{ site: string }>
+  return body.map((s) => s.site).sort()
 }
 
 beforeAll(async () => {
@@ -118,24 +124,23 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
 
     const a: Scope = { businessId: first.businessId }
     const b: Scope = { businessId: second.businessId }
-    await siteIn(a, 'salon-only')
-    await siteIn(b, 'studio-only')
+    const salonOnly = await siteIn(a)
+    const studioOnly = await siteIn(b)
 
     // Each business sees its own starter site and its own addition, and NEVER
     // the other's — including the starter, which provisioning creates for both
     // and which would be the first thing to bleed through a shared handle.
     //
-    // EACH STARTER IS NAMED AFTER ITS OWN BUSINESS ([[BUG-90]]), so the two
-    // lists are disjoint. That is weaker evidence than it was under [[REQ-190]],
-    // where both starters carried one fixed word and a shared name inside two
-    // separate lists was the barrier proving itself — and it is weaker on
-    // purpose, because that shared word is the collision BUG-90 was filed from.
-    // The same-name case is not lost, it moved: REQ-190's own UAT provisions two
-    // businesses under ONE name and asserts each still gets its own site.
-    expect(first.siteSlug).toBe(businessSiteName('Salon', first.businessId))
-    expect(second.siteSlug).toBe(businessSiteName('Studio', second.businessId))
-    expect(await listSites(a)).toEqual(['salon', 'salon-only'])
-    expect(await listSites(b)).toEqual(['studio', 'studio-only'])
+    // EACH BUSINESS SEES ITS OWN TWO KEYS AND NOTHING ELSE ([[REQ-236]]). The
+    // lists are disjoint because the keys are, which is a stronger statement than
+    // the one this case used to make: [[REQ-190]] gave both starters one fixed
+    // word, [[BUG-90]] replaced it with each business's own name, and both were
+    // arguments about whether two NAMES could coincide. With nothing named, the
+    // only thing keeping a site out of the other list is the barrier itself.
+    expect(await listSites(a)).toEqual([first.siteKey, salonOnly].sort())
+    expect(await listSites(b)).toEqual([second.siteKey, studioOnly].sort())
+    expect(await listSites(a)).not.toContain(second.siteKey)
+    expect(await listSites(b)).not.toContain(first.siteKey)
   })
 
   /**
@@ -150,7 +155,7 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
       accountId: first.user.account_id,
       name: 'Two',
     })
-    await siteIn({ businessId: second.businessId }, 'second-only')
+    const secondOnly = await siteIn({ businessId: second.businessId })
 
     const admission = await admitted(email)
     const path = `/b/${second.businessId}/api/sites`
@@ -163,10 +168,9 @@ describe('REQ-168 — the scope is resolved from the identity', () => {
     expect(scope.businessId).toBe(second.businessId)
     // And the prefix does not reach the route table: `/api/sites` answered, not
     // a 404 for a path with `/b/<id>` still on the front of it.
-    expect(await listSites(scope, `/b/${second.businessId}`)).toEqual([
-      'second-only',
-      businessSiteName('Two', second.businessId),
-    ])
+    expect(await listSites(scope, `/b/${second.businessId}`)).toEqual(
+      [secondOnly, second.siteKey].sort(),
+    )
   })
 
   /**
@@ -403,7 +407,10 @@ describe('REQ-168 — the chat host is per business', () => {
         new Request('https://app.test/api/ai/session', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ slug: 'anything' }),
+          // `site`, NOT `slug` ([[REQ-236]]) — the route refuses a body without it
+          // BEFORE it opens a store, which would leave `opened` empty and this
+          // case asserting about a factory that never ran.
+          body: JSON.stringify({ site: 'anything' }),
         }),
         routerEnv(),
         scope,

@@ -305,7 +305,7 @@ describe('story-c46abfa6 — the site asset store over the builder origin', () =
   it('test_UAT_AC1023_the_store_answers_from_the_builder_origin_and_refuses_a_missing_site', async () => {
     // AC-1023 — one store, two ways in. No page, no segment, no modal: a plain
     // GET on the origin, answering with what the command line answers.
-    const res = await fetch(new URL('/api/assets?slug=acme', builder.url))
+    const res = await fetch(new URL('/api/assets?site=acme', builder.url))
     expect(res.status).toBe(200)
     const body = (await res.json()) as { assets: StoreEntry[] }
 
@@ -319,7 +319,10 @@ describe('story-c46abfa6 — the site asset store over the builder origin', () =
     const bad = await fetch(new URL('/api/assets', builder.url))
     expect(bad.status).toBe(400)
     const err = (await bad.json()) as { error?: string; assets?: unknown }
-    expect(err.error).toMatch(/slug/i)
+    // IT NAMES THE PARAMETER THE WIRE ACTUALLY DECLARES ([[REQ-236]]): the query
+    // key is `site`, so a refusal that said `slug` would name an input no caller
+    // can supply.
+    expect(err.error).toMatch(/site/i)
     expect(err.assets).toBeUndefined()
 
     // And the builder reaches it through its OWN client, not by hand-writing the

@@ -116,15 +116,18 @@ export function describeSiteStoreContract(
 
   describe(`over the ${backend.name} store`, () => {
     it('UAT_FC_REQ-143 reads a site through the port', async () => {
-      const { slug, opts } = await fixture()
+      const { slug, name, opts } = await fixture()
 
       expect(((await editPageList(slug, opts)).data as { pages: unknown[] }).pages).toHaveLength(1)
       expect(
         ((await editPageGet(slug, 'home', opts)).data as { page: { title: string } }).page.title,
       ).toBe('Home')
+      // `name`, NOT `slug` ([[REQ-236]]). What is read back is the seed's own
+      // business name; comparing it to the store's ADDRESS would pass only on an
+      // adapter whose address is a name, and D1's is a minted key.
       expect(
         ((await editConfigGet(slug, 'config.businessName', opts)).data as { value: string }).value,
-      ).toBe(slug)
+      ).toBe(name)
     })
 
     it('UAT_FC_REQ-143 a write lands and is readable back', async () => {

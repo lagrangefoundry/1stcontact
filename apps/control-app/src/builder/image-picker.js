@@ -61,11 +61,11 @@ function assetFileName(handle) {
  * @param {object} spec
  * @param {{name: string, label: string, enum: string[]}} spec.field - the descriptor
  * @param {string} spec.value - the handle the node currently holds
- * @param {string} spec.slug - the site, for resolving thumbnails
+ * @param {string} spec.site - the site key, for resolving thumbnails
  * @returns {{name: string, element: Element, getValue: () => string,
  *            isDirty: () => boolean, focus: () => void}}
  */
-export function mountImagePicker(host, { field, value, slug }) {
+export function mountImagePicker(host, { field, value, site }) {
   const initial = value ?? ''
   let current = initial
   groupSeq += 1
@@ -133,7 +133,7 @@ export function mountImagePicker(host, { field, value, slug }) {
       frame.classList.add('is-missing')
       img.remove()
     })
-    img.src = assetUrl(slug, handle)
+    img.src = assetUrl(site, handle)
     frame.append(img)
 
     const name = document.createElement('span')

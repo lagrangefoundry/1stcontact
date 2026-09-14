@@ -185,7 +185,7 @@ function transport() {
     grant: async () => ({}),
     revoke: async (id: string) => void revoked.push(id),
     invite: async () => ({ created: true, person: PEOPLE[0] }),
-    fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
+    fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteKey: 'acct_new' }),
   }
 }
 

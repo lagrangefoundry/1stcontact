@@ -164,7 +164,7 @@ function transportOver(people: Person[]) {
     },
     grant: async () => ({}),
     revoke: async () => ({}),
-    fulfil: async () => ({ businessId: 'acct_1', name: 'x', siteSlug: 'acct_1' }),
+    fulfil: async () => ({ businessId: 'acct_1', name: 'x', siteKey: 'acct_1' }),
     /** They sign up somewhere else entirely. Nothing on this tab is called. */
     theyAcceptTheTerms: (email: string) => {
       rows.find((p) => p.email === email)!.termsAcceptedAt = '2026-09-03T12:00:00.000Z'

@@ -393,7 +393,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          slug: 'acme',
+          site: 'acme',
           page: 'home',
           path: '0',
           module: hit!.target.moduleId,
@@ -434,7 +434,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            slug: 'acme',
+            site: 'acme',
             page: 'home',
             path: hit!.target.path.join('.'),
             values: { text: 'A repainted band.' },
@@ -541,7 +541,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            slug: 'acme',
+            site: 'acme',
             page: 'home',
             path: '0.0.0',
             values: { text: 'Applied whole.' },
@@ -639,7 +639,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            slug: 'acme',
+            site: 'acme',
             page: 'home',
             path: '0.0.0',
             values: { text: 'What the operator typed.' },
@@ -669,7 +669,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            slug: 'acme',
+            site: 'acme',
             page: 'home',
             path: '0.0.0',
             values: { text: 'What the operator typed.' },
@@ -748,7 +748,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          slug: 'acme',
+          site: 'acme',
           page: 'home',
           path: '0.0.0',
           values: { text: OVERFLOWING },
@@ -766,7 +766,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
       // for the control that can show it.
       const reopened = await fetch(
         new URL(
-          `/api/copy?${new URLSearchParams({ slug: 'acme', page: 'home', path: '0.0.0' })}`,
+          `/api/copy?${new URLSearchParams({ site: 'acme', page: 'home', path: '0.0.0' })}`,
           builder.url,
         ),
       )

@@ -658,6 +658,10 @@ export async function run(argv: string[]): Promise<void> {
       }
       console.log(
         `pushed ${result.slug} → ${origin}\n` +
+          // THE DESTINATION'S KEY, WHEN IT SAID ([[REQ-236]]). It is the site's
+          // public address and the only handle the operator has for what they
+          // just wrote, so it belongs in the one line they read after a push.
+          (result.landed.site ? `  site    ${result.landed.site}\n` : '') +
           `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
           `  assets  ${result.landed.assets}\n` +
           `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,

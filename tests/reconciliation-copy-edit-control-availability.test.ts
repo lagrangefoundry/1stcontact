@@ -234,7 +234,7 @@ describe('story-3bf94bd4 unavailable controls, and the ordinary ones beside them
     document.body.setAttribute(L1_EDIT_MARKER_ATTR, '')
     document.body.setAttribute(L1_EDIT_PAGE_ATTR, pageId)
     editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       colors: {
         shadeHex,

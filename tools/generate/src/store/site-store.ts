@@ -132,11 +132,11 @@ export class StoreConflictError extends Error {
   /** The version the store actually holds. `null` when the site is gone. */
   readonly actual: number | null
 
-  constructor(slug: string, expected: number, actual: number | null) {
+  constructor(site: string, expected: number, actual: number | null) {
     super(
       actual === null
-        ? `Site '${slug}' no longer exists (expected version ${expected}).`
-        : `Site '${slug}' has moved on: expected version ${expected}, found ${actual}.`,
+        ? `Site '${site}' no longer exists (expected version ${expected}).`
+        : `Site '${site}' has moved on: expected version ${expected}, found ${actual}.`,
     )
     this.expected = expected
     this.actual = actual
@@ -160,40 +160,50 @@ export interface DraftSnapshot {
   stamp: string
 }
 
-/** Storage for one site tree, addressed by slug. */
+/**
+ * Storage for one site tree, addressed by whatever the store calls the site.
+ *
+ * WHAT `site` IS DEPENDS ON THE ADAPTER, and deliberately says so rather than
+ * naming one ([[REQ-236]]). In the file-backed tier it is the directory under
+ * `storage/sites/` — single-user, git-tracked, nothing to collide with. In D1 it
+ * is the site's KEY: `sites.slug` is gone, so there is no second name to
+ * translate and no lookup to spend undoing one. A caller holds one opaque string
+ * either way and cannot tell which adapter it has, which is the whole point of
+ * the port.
+ */
 export interface SiteStore {
   /** True when the site has a draft to operate on. */
-  hasDraft(slug: string): Promise<boolean>
+  hasDraft(site: string): Promise<boolean>
 
   /** The raw `site.json` object, or null when the site holds none. */
-  readSiteJson(slug: string): Promise<Record<string, unknown> | null>
+  readSiteJson(site: string): Promise<Record<string, unknown> | null>
 
   /** Every page, in load order. Empty when the site has none. */
-  readPages(slug: string): Promise<StoredPage[]>
+  readPages(site: string): Promise<StoredPage[]>
 
   /** Apply one whole change. See {@link SiteWrite} for why it is one verb. */
-  write(slug: string, change: SiteWrite): Promise<void>
+  write(site: string, change: SiteWrite): Promise<void>
 
   /** Asset names under the draft's `assets/`, sorted. */
-  listAssets(slug: string): Promise<string[]>
+  listAssets(site: string): Promise<string[]>
 
   /** One asset's bytes, or null when the store holds no such asset. */
-  readAsset(slug: string, name: string): Promise<Uint8Array | null>
+  readAsset(site: string, name: string): Promise<Uint8Array | null>
 
   /** The site's change count. Zero for a site nothing has been written to. */
-  counter(slug: string): Promise<number>
+  counter(site: string): Promise<number>
 
   /**
    * Record one write and return the count it produced. Never fails a write: a
    * store that cannot take the record returns the counter unmoved.
    */
   appendChange(
-    slug: string,
+    site: string,
     entry: Omit<JournalRecord, 'at' | 'ts'> & { ts?: string },
   ): Promise<number>
 
   /** Every change after `since`, plus where the counter stands now. */
-  changesSince(slug: string, since?: number): Promise<ChangeSlice>
+  changesSince(site: string, since?: number): Promise<ChangeSlice>
 
   /**
    * Every published revision, oldest first. Empty when nothing is published.
@@ -203,7 +213,7 @@ export interface SiteStore {
    * stored pointer is a second place for the same fact to be, and DOC-12 §4
    * refused one for exactly that reason.
    */
-  revisions(slug: string): Promise<RevisionEntry[]>
+  revisions(site: string): Promise<RevisionEntry[]>
 
   /**
    * Freeze `content` as the revision `entry` names, and append `entry` to the
@@ -215,10 +225,10 @@ export interface SiteStore {
    * live is the adapter's business, which is what lets one publish service drive
    * a directory tree and an R2 bucket without knowing which it has.
    */
-  writeRevision(slug: string, entry: RevisionEntry, content: RevisionContent): Promise<void>
+  writeRevision(site: string, entry: RevisionEntry, content: RevisionContent): Promise<void>
 
   /** A revision's frozen definition, or null when the store holds no such revision. */
-  readRevision(slug: string, id: number): Promise<StoredSnapshot | null>
+  readRevision(site: string, id: number): Promise<StoredSnapshot | null>
 
   /**
    * The revision the current draft descends from, or null before any publish.
@@ -228,13 +238,13 @@ export interface SiteStore {
    * difference is precisely what `basedOn` records when the next publish mints
    * (DOC-12 §4).
    */
-  draftBase(slug: string): Promise<number | null>
+  draftBase(site: string): Promise<number | null>
 
   /** Re-parent the draft onto `id`. Publish and checkout are the only callers. */
-  setDraftBase(slug: string, id: number | null): Promise<void>
+  setDraftBase(site: string, id: number | null): Promise<void>
 
   /** The current draft assembled and validated, or null when there is no draft. */
-  loadDraft(slug: string): Promise<DraftSnapshot | null>
+  loadDraft(site: string): Promise<DraftSnapshot | null>
 
   /**
    * The site's write version — bumped by every {@link SiteStore.write} — or
@@ -247,5 +257,5 @@ export interface SiteStore {
    * journal leaves it unmoved on purpose. A version that could stand still
    * across a write is not a version.
    */
-  version(slug: string): Promise<number | null>
+  version(site: string): Promise<number | null>
 }

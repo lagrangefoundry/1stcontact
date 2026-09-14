@@ -45,9 +45,11 @@ export interface SeedFormOptions {
 }
 
 export interface SeededSite {
-  /** The site's 128-bit key — the token a published URL carries. */
+  /**
+   * The site's 128-bit key — the token a published URL carries, and since
+   * [[REQ-236]] the only name the store has for it.
+   */
   siteKey: string
-  slug: string
   instanceId: string
 }
 
@@ -82,13 +84,13 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
   await root.createTenant({ id: options.tenantId, name: options.tenantId })
   const store = await root.forTenant(options.tenantId)
 
-  const slug = nextSlug('req223')
-  const instanceId = options.instanceId ?? `form-${slug}`
+  const label = nextSlug('req223')
+  const instanceId = options.instanceId ?? `form-${label}`
   const page = pageWith(options, instanceId)
-  const siteJson = { name: slug, config: { businessName: 'Fixture' } }
+  const siteJson = { name: label, config: { businessName: 'Fixture' } }
 
-  await store.createDraft(slug)
-  await store.write(slug, {
+  const siteKey = await store.createDraft()
+  await store.write(siteKey, {
     siteJson,
     pages: [{ name: 'home.json', page }],
     assets: [],
@@ -96,7 +98,7 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
 
   if (options.publish !== false) {
     await store.writeRevision(
-      slug,
+      siteKey,
       {
         id: 1,
         publishedAt: '2026-09-10T00:00:00.000Z',
@@ -115,7 +117,5 @@ export async function seedFormSite(options: SeedFormOptions): Promise<SeededSite
     )
   }
 
-  const siteKey = await store.siteKey(slug)
-  if (!siteKey) throw new Error('the fixture site has no key')
-  return { siteKey, slug, instanceId }
+  return { siteKey, instanceId }
 }

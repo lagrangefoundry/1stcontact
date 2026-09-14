@@ -7,7 +7,6 @@ import {
   admit,
   ensurePlatformOperator,
   type IdentityEnv,
-  businessSiteName,
 } from '../apps/control-app/src/identity'
 import { personByEmail } from './support/person'
 import { inviteAccount } from './support/invite-account'
@@ -247,7 +246,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
       endsAt: null,
     })
     expect(response.status).toBe(200)
-    const created = (await response.json()) as { businessId: string; name: string; siteSlug: string }
+    const created = (await response.json()) as { businessId: string; name: string; siteKey: string }
     expect(created.name).toBe('Studio')
 
     const result = await admit(identityEnv(), owner)
@@ -280,7 +279,7 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
       name: 'Studio',
       endsAt: null,
     })
-    const created = (await response.json()) as { businessId: string; siteSlug: string }
+    const created = (await response.json()) as { businessId: string; name: string; siteKey: string }
 
     const tenant = await env.DB.prepare('SELECT id, name, status FROM tenants WHERE id = ?')
       .bind(created.businessId)
@@ -306,11 +305,19 @@ describe('REQ-180 — adding a business is the operator’s action', () => {
     expect(grant?.granted_by).toBe(operator)
 
     // And something to edit, which is what makes the business usable rather than
-    // merely present. Named after the business ([[BUG-90]]): the slug was the
-    // business id under REQ-167 to dodge the global published-slug claim and a
-    // fixed word under [[REQ-190]] once there was no claim to dodge, and a fixed
-    // word is what made two businesses indistinguishable in the switcher.
-    expect(created.siteSlug).toBe(businessSiteName(created.name, created.businessId))
+    // merely present. ADDRESSED BY A MINTED KEY ([[REQ-236]]): the slug was the
+    // business id under REQ-167 to dodge the global published-slug claim, a fixed
+    // word under [[REQ-190]] once there was no claim to dodge, and the business's
+    // own name under [[BUG-90]] because a fixed word made two businesses
+    // indistinguishable in the switcher. REQ-236 ends the sequence by removing
+    // the name: nothing is derived, so nothing can collide and nothing moves when
+    // the business is renamed.
+    expect(created.siteKey).toBeTruthy()
+    expect(created.siteKey).not.toContain('studio')
+    const sites = await env.DB.prepare('SELECT id FROM sites WHERE tenant_id = ?')
+      .bind(created.businessId)
+      .all<{ id: string }>()
+    expect((sites.results ?? []).map((r) => r.id)).toEqual([created.siteKey])
   })
 
   it('test_UAT_FC_REQ-180_creating_an_account_provisions_its_first_business', async () => {

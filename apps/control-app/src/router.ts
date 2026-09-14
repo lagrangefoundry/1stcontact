@@ -259,7 +259,7 @@ const CHATS = new Map<string, Promise<WorkerHost>>()
  *
  * A FACTORY OF THE SLUG, because that is the shape `HostDeps` declares and the
  * reason it declares it: the surface is bound to one site at construction, so no
- * operation takes a `slug` and no picture can name a site the session is not
+ * operation takes a site and no picture can name a site the session is not
  * about. Its budget is minted per call, which is per session — see
  * `browserBudget`.
  *
@@ -333,7 +333,7 @@ export async function sessionFidelity(
     return { uid: adopted.ticket.uid, created: adopted.created }
   }
 
-  return (slug: string) =>
+  return (site: string) =>
     fidelityDeps(
       env,
       // THE SAME RENDERER THE `/preview/*` ROUTE USES, memoised per store. A
@@ -342,7 +342,7 @@ export async function sessionFidelity(
       previewRenderer(store),
       references,
       origin,
-      slug,
+      site,
       // Spread rather than set to `undefined`: `ShotDeps.launch` is optional and
       // an explicit `undefined` would satisfy the type while reading as a
       // launcher that was supplied and is broken.
@@ -356,7 +356,7 @@ export async function sessionFidelity(
       // has to answer. The barrier the two buckets exist to keep is untouched —
       // nothing here copies a byte across it, and each half still reads only its
       // own store.
-      sessionPictures(store, tickets, renderer)(slug),
+      sessionPictures(store, tickets, renderer)(site),
     )
 }
 
@@ -379,10 +379,10 @@ function sessionPictures(
   store: TenantSiteStore,
   tickets: TicketStore,
   renderer: ImageRenderer | null,
-): (slug: string) => ImageLibrary {
-  return (slug: string) =>
+): (site: string) => ImageLibrary {
+  return (site: string) =>
     mergeImageLibraries({
-      site: siteImageLibrary(slug, store),
+      site: siteImageLibrary(site, store),
       library: materialImageLibrary(tickets, renderer ?? undefined),
     })
 }
@@ -446,8 +446,8 @@ export function sessionPicturesFor(
   const renderer = imageRendererFor(env, scope.businessId)
   if (!renderer) return null
   const pictures = sessionPictures(store, tickets, renderer)
-  return (slug: string) => ({
-    images: pictures(slug),
+  return (site: string) => ({
+    images: pictures(site),
     // WRAPPED, SO THE ASSISTANT'S CROP REACHES THE SITE ([[REQ-229]]). `edit_image`
     // writes a recipe through this port and nothing else; the wrapper is what
     // makes that write carry to the bytes the client's pages reference, by the
@@ -569,12 +569,12 @@ function chatHost(
         // business and resolve against the first admissible one — which for an
         // operator holding two is the crossing `scope.ts` exists to prevent.
         // Naming the business is what keeps a replayed transcript correct.
-        (slug: string, handle: string) =>
+        (site: string, handle: string) =>
           /^[a-z][a-z0-9+.-]*:|^\/\//i.test(handle)
             ? handle
             : businessPath(
                 scope.businessId,
-                `/preview/${encodeURIComponent(slug)}/draft/${handle.replace(/^\/+/, '')}`,
+                `/preview/${encodeURIComponent(site)}/draft/${handle.replace(/^\/+/, '')}`,
               ),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]). Assembled here, like every wire
         // above it, because what it needs is request-scoped and both halves are
@@ -590,7 +590,7 @@ function chatHost(
         // currently stands ([[REQ-229]]). The same one every other surface on
         // this host is composed from — the catalogue and the client's Library
         // must not put different bytes on the site for the same material.
-        (slug: string) => chatLibrary(tickets, store, slug, renderer ?? undefined),
+        (site: string) => chatLibrary(tickets, store, site, renderer ?? undefined),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -613,7 +613,7 @@ export function resetChatHost(): void {
 /**
  * The renderer for a store, memoised per store (see {@link PREVIEWS}).
  *
- * EXPORTED for REQ-154. A screenshot of `/preview/<slug>/draft/` is fulfilled
+ * EXPORTED for REQ-154. A screenshot of `/preview/<siteKey>/draft/` is fulfilled
  * from this renderer rather than fetched, so it must be the SAME renderer the
  * route uses — a second instance would render the draft a second time and could
  * answer from a different stamp than the one the operator is looking at.
@@ -1376,7 +1376,7 @@ function materialEnvelope(ingested: {
  *
  * A FAILURE HERE DOES NOT LOSE THE UPLOAD. The material is stored, described and
  * indexed by the time this runs; a site store that refuses the write (an unknown
- * slug, a store that is not there) must not turn that into a 500 that tells the
+ * site key, a store that is not there) must not turn that into a 500 that tells the
  * client their file did not arrive. It is reported in the envelope instead —
  * named, not swallowed, so the overlay can say what did and did not happen.
  *
@@ -1404,7 +1404,7 @@ function materialEnvelope(ingested: {
  */
 async function placeOnSite(
   material: { uid: string; role: unknown; filename: unknown },
-  slug: string | undefined,
+  site: string | undefined,
   openTickets: () => Promise<TicketStore>,
   openStore: () => Promise<TenantSiteStore>,
   scrub: (message: string) => string,
@@ -1420,13 +1420,13 @@ async function placeOnSite(
    */
   renderer: ImageRenderer | null,
 ): Promise<Record<string, unknown>> {
-  if (material.role !== 'site' || !slug) return { site_asset: null }
+  if (material.role !== 'site' || !site) return { site_asset: null }
   const name = String(material.filename ?? '')
   try {
     const placed = await promoteToSiteAsset(
       await openTickets(),
       await openStore(),
-      { uid: material.uid, slug, name },
+      { uid: material.uid, slug: site, name },
       { ...(renderer ? { renderer } : {}) },
     )
     return { site_asset: placed.name }
@@ -1442,12 +1442,12 @@ async function placeOnSite(
  * The site a correction's bytes should go on, when there is exactly one ([[REQ-213]]).
  *
  * ASKED OF THE STORE RATHER THAN OF THE CLIENT, and that is the whole point.
- * The upload route takes its slug off the form because the OVERLAY knows which
+ * The upload route takes its site off the form because the OVERLAY knows which
  * site is open — it is mounted in the builder, over an editor, with a site in
  * front of it. The Library is not: [[REQ-181]] removed the site as a dimension
  * of that tab deliberately, because a business holds one site in v1 and so *"on
- * this site"* and *"on the site"* are the same sentence. Threading a slug back
- * through the panel to reach this would restore the dimension that ticket
+ * this site"* and *"on the site"* are the same sentence. Threading a site key
+ * back through the panel to reach this would restore the dimension that ticket
  * deleted, in the one module whose suite asserts it cannot ask.
  *
  * SO THE ANSWER COMES FROM THE TENANT HANDLE, which is already scoped to this
@@ -1468,8 +1468,14 @@ async function placeOnSite(
  */
 async function theOneSite(openStore: () => Promise<TenantSiteStore>): Promise<string | undefined> {
   try {
-    const slugs = await (await openStore()).slugs()
-    return slugs.length === 1 ? slugs[0] : undefined
+    // KIND `site`, NOT EVERY SITE THE BUSINESS HOLDS ([[REQ-236]]). A business
+    // that has authored a portal owns two rows, and asking for all of them made
+    // this answer `undefined` — so a correction stopped being placed on the
+    // customer's own site because of a page they authored at `/account`. The
+    // portal is not a site anybody uploads a logo onto; naming the kind is what
+    // makes "the one site" mean what the sentence above says.
+    const sites = await (await openStore()).siteKeys('site')
+    return sites.length === 1 ? sites[0] : undefined
   } catch {
     return undefined
   }
@@ -1570,7 +1576,7 @@ async function routeUncached(
   const url = new URL(request.url)
   // THE BUSINESS PREFIX IS STRIPPED ONCE, HERE, and the route table below is
   // untouched by it. Every route matches on `p`, so one rewrite at the top scopes
-  // all of them — including `/preview/<slug>/<channel>/…`, whose relative
+  // all of them — including `/preview/<siteKey>/<channel>/…`, whose relative
   // sub-resources inherit the prefix from the document that referenced them,
   // which is the property `scope.ts` chose a path over a query string for.
   //
@@ -1664,6 +1670,19 @@ async function routeUncached(
    * edited in the builder, because this route replaces what is there rather than
    * merging with it. The guard below draws that line, so the sentence above is
    * now true of the case it was always meant to describe.
+   *
+   * IT RESOLVES ITS OWN TARGET NOW ([[REQ-236]]). The payload used to address
+   * one, by slug, and it cannot any more: a D1 site is named by a key, and
+   * `1c push` reads a directory under `storage/sites/` and has never seen one.
+   * So the target is THIS BUSINESS'S SITE — the one of kind `site`, created when
+   * the business holds none — which is the only unambiguous reading while a
+   * business holds exactly one ([[BUG-90]]). A business holding several is
+   * refused with a message saying so rather than guessed at, because guessing
+   * would overwrite a site the operator was not pushing to.
+   *
+   * `payload.slug` SURVIVES AND NAMES THE SOURCE. It is what the site is called
+   * on the laptop it came from, which is what a refusal has to say back to the
+   * operator, and it addresses nothing here.
    */
   if (p === '/api/import' && method === 'POST') {
     // DECLARED OUTSIDE THE `try` so the catch below can name the site it was
@@ -1711,7 +1730,21 @@ async function routeUncached(
       // REFUSED BEFORE THE WRITE, not rolled back after it: there is nothing to
       // learn from the attempt, and a `createDraft` left behind would turn a
       // refusal into a half-landed one.
-      const authored = await store.counter(payload.slug)
+      // THE TARGET, RESOLVED BEFORE ANYTHING IS READ OR WRITTEN ([[REQ-236]]).
+      // `null` means the business holds none and one will be minted below; more
+      // than one is the ambiguity this route refuses rather than resolves.
+      const held = await store.siteKeys('site')
+      if (held.length > 1) {
+        return json(409, {
+          error:
+            `This business holds ${held.length} sites, so '${payload.slug}' has no ` +
+            'unambiguous destination. Nothing was written.',
+          slug: payload.slug,
+          sites: held.length,
+        })
+      }
+      const target = held[0] ?? null
+      const authored = target === null ? 0 : await store.counter(target)
       if (authored > 0 && payload.force !== true) {
         return json(409, {
           error:
@@ -1753,13 +1786,18 @@ async function routeUncached(
       // has to answer first and `--force` is its answer. Before the draft is
       // created, because a refusal must leave NOTHING behind — the same reason
       // the 409 above refuses ahead of the write rather than rolling back after
-      // it. A slug that has never been imported does not come into existence
-      // because somebody tried to publish a picture they may not publish.
+      // it. A business with no site does not acquire one because somebody tried
+      // to publish a picture they may not publish.
       const references = await openReferences()
       if (references) await assertNotCaptureMirrored(write.assets, references)
-      await store.createDraft(payload.slug)
-      await store.write(payload.slug, write)
+      const site = target ?? (await store.createDraft('site'))
+      await store.write(site, write)
       return json(200, {
+        // THE KEY THIS LANDED ON ([[REQ-236]]). The caller sent a name that means
+        // something only on the laptop it came from, and the destination is
+        // addressed by a key the store minted — so without this the pusher has no
+        // way to say which site it just wrote, and no way to open a builder on it.
+        site,
         pages: write.pages.length,
         assets: write.assets.length,
         siteJson: write.siteJson !== undefined,
@@ -2495,13 +2533,18 @@ async function routeUncached(
       // held no revisions; saying so was better than implying one, and now there
       // is something true to say.
       const store = await openStore()
-      const slugs = await store.slugs()
+      // KIND `site` ([[REQ-236]]). This is the builder's site list, and a portal
+      // authored at `/account` is not a site the builder may open — it was
+      // listed here only because the store had one enumeration and it returned
+      // every row. Naming the kind is what stops the builder offering to edit a
+      // page it does not own the shape of.
+      const sites = await store.siteKeys('site')
       return json(
         200,
         await Promise.all(
-          slugs.map(async (slug) => ({
-            slug,
-            latest: liveRevisionOf(await store.revisions(slug)),
+          sites.map(async (site) => ({
+            site,
+            latest: liveRevisionOf(await store.revisions(site)),
           })),
         ),
       )
@@ -2521,18 +2564,19 @@ async function routeUncached(
      * scrubs them (REQ-146 AC4), and the next such route would inherit the
      * omission.
      *
-     * THE SECOND ONE IS GONE ([[REQ-190]]). A publish used to be refusable with
-     * 409 because another business already held the slug — `/site/<slug>/` was
-     * the public grammar, so the name had to be unique across the deployment.
-     * The published address is the site's own key now, so there is no name to be
-     * taken and no refusal to map. Two businesses may each publish `home`.
+     * THE SECOND ONE IS GONE ([[REQ-190]], [[REQ-236]]). A publish used to be
+     * refusable with 409 because another business already held the slug —
+     * `/site/<slug>/` was the public grammar, so the name had to be unique
+     * across the deployment. The published address is the site's own key, and
+     * there is no slug left to claim at all, so there is no name to be taken and
+     * no refusal to map.
      */
     if (p === '/api/publish' && method === 'POST') {
       const body = await readJsonBody(request)
-      if (typeof body.slug !== 'string' || body.slug === '') {
-        return json(400, { error: 'slug is required' })
+      if (typeof body.site !== 'string' || body.site === '') {
+        return json(400, { error: 'site is required' })
       }
-      const slug = body.slug
+      const site = body.site
       const store = await openStore()
       // [[REQ-222]] — the delivery ladder, built here in the Worker and nowhere
       // else. `publishSite` sequences it like every other step; what this line
@@ -2548,19 +2592,18 @@ async function routeUncached(
        * answered. The streaming form's terminal frame carries exactly the JSON
        * form's body, which is what lets the builder treat the two as one call.
        */
-      const answer = async (result: Awaited<ReturnType<typeof publishSite>>) => {
-        // THE KEY, NOT THE SLUG ([[REQ-190]]). `/site/<siteId>/` is the public
-        // address; the slug is what this business calls the site and means nothing
-        // outside it. Asked of the store rather than assembled here, because the
-        // store's lookup is the one that is scoped to this business.
-        const siteKey = await store.siteKey(slug)
-        return {
-          id: result.id,
-          changes: result.changes,
-          published: result.published,
-          url: siteKey === null ? null : publicSiteUrl(siteKey),
-        }
-      }
+      const answer = async (result: Awaited<ReturnType<typeof publishSite>>) => ({
+        id: result.id,
+        changes: result.changes,
+        published: result.published,
+        // THE ADDRESS IS THE VALUE THE CALLER ALREADY SENT ([[REQ-236]]). This
+        // used to ask the store to turn a slug into the site's key, because
+        // `/site/<siteId>/` is the public address and the slug meant nothing
+        // outside the business that chose it. The builder addresses the site by
+        // its key now, so the translation — and the null the missing-slug case
+        // produced — have nothing left to do.
+        url: publicSiteUrl(site),
+      })
 
       // [[REQ-222]] — THE STREAMING FORM, ASKED FOR BY `Accept` AND NOTHING ELSE.
       // It is the HTTP-native way to ask for a different representation of the
@@ -2570,13 +2613,13 @@ async function routeUncached(
       // the protocol already has a word for.
       if ((request.headers.get('accept') ?? '').includes('text/event-stream')) {
         return streamPublish(
-          (onLadderProgress) => publishSite(store, slug, { message, ladder, onLadderProgress }),
+          (onLadderProgress) => publishSite(store, site, { message, ladder, onLadderProgress }),
           answer,
           scrub,
         )
       }
 
-      return json(200, await answer(await publishSite(store, slug, { message, ladder })))
+      return json(200, await answer(await publishSite(store, site, { message, ladder })))
     }
 
     /**
@@ -2596,13 +2639,13 @@ async function routeUncached(
      */
     if (p === '/api/modules/upgrade' && method === 'POST') {
       const body = await readJsonBody(request)
-      if (typeof body.slug !== 'string' || body.slug === '') {
-        return json(400, { error: 'slug is required' })
+      if (typeof body.site !== 'string' || body.site === '') {
+        return json(400, { error: 'site is required' })
       }
       try {
         return json(
           200,
-          await upgradeSiteModules(await openStore(), body.slug, {
+          await upgradeSiteModules(await openStore(), body.site, {
             ...(body.write === true ? { write: true } : {}),
           }),
         )
@@ -2616,15 +2659,15 @@ async function routeUncached(
     }
 
     if (p === '/api/revisions' && method === 'GET') {
-      const slug = url.searchParams.get('slug')
-      if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, await revisionHistory(await openStore(), slug))
+      const site = url.searchParams.get('site')
+      if (!site) return json(400, { error: 'site is required' })
+      return json(200, await revisionHistory(await openStore(), site))
     }
 
     if (p === '/api/assets' && method === 'GET') {
-      const slug = url.searchParams.get('slug')
-      if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, (await editAssetList(slug, await edit())).data)
+      const site = url.searchParams.get('site')
+      if (!site) return json(400, { error: 'site is required' })
+      return json(200, (await editAssetList(site, await edit())).data)
     }
 
     /**
@@ -2944,8 +2987,8 @@ async function routeUncached(
       if (!(file instanceof File)) {
         return json(400, { error: 'a file is required, sent as multipart form field `file`' })
       }
-      const slug = form.get('slug')
-      const siteSlug = typeof slug === 'string' && slug !== '' ? slug : undefined
+      const formSite = form.get('site')
+      const siteKey = typeof formSite === 'string' && formSite !== '' ? formSite : undefined
       /**
        * WHICH DROP AREA THE CLIENT CHOSE ([[REQ-161]]).
        *
@@ -2989,7 +3032,7 @@ async function routeUncached(
             role: ingested.ticket.fields.role,
             filename: ingested.ticket.fields.filename,
           },
-          siteSlug,
+          siteKey,
           openTickets,
           openStore,
           scrub,
@@ -3029,16 +3072,16 @@ async function routeUncached(
      */
     if (p === '/api/palette') {
       if (method === 'GET') {
-      const slug = url.searchParams.get('slug')
-      if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, (await editPaletteGet(slug, await edit())).data)
+      const site = url.searchParams.get('site')
+      if (!site) return json(400, { error: 'site is required' })
+      return json(200, (await editPaletteGet(site, await edit())).data)
       }
 
       if (method === 'POST') {
       const body = await readJsonBody(request)
-      const { slug, op, name, value, to } = body
-      if (typeof slug !== 'string' || typeof op !== 'string') {
-          return json(400, { error: 'slug and op are required' })
+      const { site, op, name, value, to } = body
+      if (typeof site !== 'string' || typeof op !== 'string') {
+          return json(400, { error: 'site and op are required' })
       }
       // The op vocabulary is CLOSED and checked here, so an unknown verb is a
       // 400 rather than an exception rendered as a 500 — the client is a
@@ -3050,17 +3093,17 @@ async function routeUncached(
       const scope = await edit()
       const out =
           op === 'set'
-            ? await editPaletteSet(slug, name, value, scope)
+            ? await editPaletteSet(site, name, value, scope)
             : op === 'add'
-              ? await editPaletteAdd(slug, name, value, scope)
+              ? await editPaletteAdd(site, name, value, scope)
               : op === 'rm'
-                ? await editPaletteRm(slug, name, scope)
-                : await editPaletteRename(slug, name, String(to ?? ''), scope)
+                ? await editPaletteRm(site, name, scope)
+                : await editPaletteRename(site, name, String(to ?? ''), scope)
       // The census travels back with every write, so the popup redraws from
       // what the store now holds rather than from its own guess at it — a
       // rename changes one name and no count, a delete changes the list, and
       // the client needs neither to know which.
-      const census = (await editPaletteGet(slug, scope)).data as Record<string, unknown>
+      const census = (await editPaletteGet(site, scope)).data as Record<string, unknown>
       return json(200, { ...(out.data as Record<string, unknown>), ...census })
       }
     }
@@ -3074,18 +3117,18 @@ async function routeUncached(
      * about a conversation.
      *
      * A SITE BECOMES A SESSION IN ONE PLACE, and it is not here: `openSession`
-     * takes the slug and hands back an id, and every turn afterwards carries
-     * only that id. `/api/ai/prompt` never sees a slug, which is what stops a
+     * takes the site and hands back an id, and every turn afterwards carries
+     * only that id. `/api/ai/prompt` never sees a site, which is what stops a
      * late answer landing in a window that has since switched sites.
      */
     if (p === '/api/ai/session' && method === 'POST') {
       const body = await readJsonBody(request)
-      const slug = body.slug
-      if (typeof slug !== 'string' || slug === '') {
-        return json(400, { error: 'slug is required' })
+      const site = body.site
+      if (typeof site !== 'string' || site === '') {
+        return json(400, { error: 'site is required' })
       }
       const host = await chatHost(env, requireScope(), deps, url.origin)
-      const session = await openSession(slug, {}, host.deps)
+      const session = await openSession(site, {}, host.deps)
       // Opening can run a tool-free turn's worth of policy — nothing to audit
       // yet in practice, but flushed for the same reason the prompt route
       // does it: the buffer is per host, and leaving records in it would
@@ -3170,11 +3213,11 @@ async function routeUncached(
           const v = q.get(k)
           return v !== null && v !== '' ? v : undefined
       }
-      const [slug, page, addr] = [q.get('slug'), q.get('page'), q.get('path')]
-      if (!slug || !page || !addr) {
-          return json(400, { error: 'slug, page and path are required' })
+      const [site, page, addr] = [q.get('site'), q.get('page'), q.get('path')]
+      if (!site || !page || !addr) {
+          return json(400, { error: 'site, page and path are required' })
       }
-      return json(200, (await editCopyGet(slug, page, addr, await scoped(get))).data)
+      return json(200, (await editCopyGet(site, page, addr, await scoped(get))).data)
       }
 
       if (method === 'POST') {
@@ -3183,9 +3226,9 @@ async function routeUncached(
           const v = body[k]
           return typeof v === 'string' && v !== '' ? v : undefined
       }
-      const [slug, page, addr] = [body.slug, body.page, body.path]
-      if (typeof slug !== 'string' || typeof page !== 'string' || typeof addr !== 'string') {
-          return json(400, { error: 'slug, page and path are required' })
+      const [site, page, addr] = [body.site, body.page, body.path]
+      if (typeof site !== 'string' || typeof page !== 'string' || typeof addr !== 'string') {
+          return json(400, { error: 'site, page and path are required' })
       }
       const values = body.values
       if (values === null || typeof values !== 'object' || Array.isArray(values)) {
@@ -3197,7 +3240,7 @@ async function routeUncached(
       // the error safe. No re-render follows (REQ-119): the next fetch of
       // either channel renders the definition this write just produced.
       const out = await editCopySet(
-          slug,
+          site,
           page,
           addr,
           values as Record<string, unknown>,
@@ -3208,7 +3251,7 @@ async function routeUncached(
     }
 
     /**
-     * /preview/<slug>/<channel>/<...> — a rendered channel (REQ-119).
+     * /preview/<siteKey>/<channel>/<...> — a rendered channel (REQ-119).
      *
      * `draft` and `edit` render ON REQUEST from the stored definition, now in
      * workerd. `published` is not here: it is the immutable artifact a publish
@@ -3260,23 +3303,39 @@ async function routeUncached(
       // be, and inventing one would render somebody else's page.
       if (businessId === null) return text(404, 'Not found')
       const hostStore = await (deps.store ?? storeFor)(env, { businessId })
-      const authored = await hostStore.hasDraft(PORTAL_SLUG)
-      const portalStore = authored ? hostStore : portalFallbackStore(BUSINESSES_PATH)
+      // FOUND BY KIND, NOT BY A RESERVED NAME ([[REQ-236]]). It was
+      // `hasDraft('portal')` — a magic slug a customer could have collided with
+      // by calling their own site `portal`, and one with nowhere to live once
+      // `sites.slug` went. `kind` is the schema's own word for what a row is,
+      // so the portal is addressed by its key like everything else and found by
+      // what it IS rather than by what somebody agreed to call it.
+      const authored = (await hostStore.siteKeys('portal'))[0] ?? null
+      const portalStore = authored !== null ? hostStore : portalFallbackStore(BUSINESSES_PATH)
       const rel = p.slice(PORTAL_PATH.length) || '/'
       // `draft` rather than a published revision: the portal is not published
       // through `public-site` and has no revision log of its own yet, so the
       // draft IS the live copy. When the portal moves to a customer's origin that
       // becomes a publish like any other site's.
-      return servePreview(portalStore, PORTAL_SLUG, 'draft', rel)
+      // THE FALLBACK KEEPS THE RESERVED NAME, and that is not an inconsistency.
+      // `portalFallbackStore` is an in-memory adapter with one site in it and no
+      // business to collide inside; the name it seeds under is a local label,
+      // not a row in the multi-tenant schema [[DOC-45]] §6 is about.
+      return servePreview(portalStore, authored ?? PORTAL_SLUG, 'draft', rel)
     }
 
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
     if (preview) {
-      const slug = decodeURIComponent(preview[1])
+      // THE FIRST SEGMENT IS THE SITE'S KEY ([[REQ-236]]). It was the slug, and
+      // readability bought nothing: this URL is an iframe `src` and an
+      // open-in-new-tab the operator looks at rather than shares, it is already
+      // business-scoped by `setBusinessScope`, and every store verb behind it
+      // now takes the key. What it cost was a lookup on every preview byte and a
+      // name that moved when the business was renamed.
+      const site = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2])
 
       /**
-       * POST /preview/<slug>/draft/api/lead — the preview submits for real
+       * POST /preview/<siteKey>/draft/api/lead — the preview submits for real
        * ([[BUG-78]]).
        *
        * WHY THIS EXISTS AT ALL. A rendered form's `action` is root-relative, so
@@ -3293,11 +3352,11 @@ async function routeUncached(
        * refusal envelope are all already decided in `public-site`'s endpoint, and
        * a copy here would be two endpoints that agree until they do not.
        *
-       * THE SITE KEY COMES FROM THE SLUG THROUGH THE STORE, never from the body.
-       * `siteKey(slug)` is the same lookup the `published` redirect below uses,
-       * against the store already scoped to this operator's business — so a
-       * submission cannot name a tenant, exactly as `public-site` gets from its
-       * route grammar.
+       * THE SITE KEY COMES FROM THE ROUTE AND IS CHECKED, never taken from the
+       * body. It is the URL's own first segment ([[REQ-236]]), and `hasDraft`
+       * against the store already scoped to this operator's business is what
+       * refuses a key belonging to somebody else — so a submission cannot name a
+       * tenant, exactly as `public-site` gets from its route grammar.
        *
        * `draft` ONLY. The site is not intended to be functional in edit mode: the
        * edit render emits no `action` and no `method` and ships no client script,
@@ -3309,10 +3368,9 @@ async function routeUncached(
       if (method === 'POST' && (preview[3] ?? '/') === '/api/lead') {
         if (channel !== 'draft') return text(404, 'Not found')
         const store = await openStore()
-        const siteKey = await store.siteKey(slug)
-        if (siteKey === null) return text(404, 'Not found')
+        if (!(await store.hasDraft(site))) return text(404, 'Not found')
         return handleLead(request, {
-          siteKey,
+          siteKey: site,
           // The in-process intake. `public-site` reaches `captureLead` over a
           // service binding because it lives in another Worker; here it is the
           // same Worker, so a binding to ourselves would be a hop for nothing.
@@ -3330,18 +3388,18 @@ async function routeUncached(
       }
 
       if (channel === 'published') {
-        // Resolved through the store, so the redirect names the site's KEY —
-        // which is the public address ([[REQ-190]]) — and so a slug this
-        // business does not hold is a 404 rather than a redirect to a URL that
-        // could only 404 one hop later.
-        const siteKey = await (await openStore()).siteKey(slug)
-        if (siteKey === null) return text(404, 'Not found')
-        return Response.redirect(publicSiteUrl(siteKey, preview[3] ?? '/'), 302)
+        // CHECKED AGAINST THE STORE, THOUGH NO LONGER TRANSLATED BY IT. The
+        // segment already IS the public address ([[REQ-190]], [[REQ-236]]), so
+        // there is nothing to resolve — but a key this business does not hold
+        // must still be a 404 here rather than a redirect to a URL that could
+        // only 404 one hop later.
+        if (!(await (await openStore()).hasDraft(site))) return text(404, 'Not found')
+        return Response.redirect(publicSiteUrl(site, preview[3] ?? '/'), 302)
       }
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(await openStore(), slug, channel as PreviewChannel, preview[3] ?? '/')
+      return servePreview(await openStore(), site, channel as PreviewChannel, preview[3] ?? '/')
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -4137,13 +4195,13 @@ class StreamClosedError extends Error {
 /** Render `rel` out of a draft-side channel and answer with it. */
 async function servePreview(
   store: SiteStore,
-  slug: string,
+  site: string,
   channel: PreviewChannel,
   rel: string,
 ): Promise<Response> {
   let file
   try {
-    file = await previewRenderer(store).file(slug, channel, rel)
+    file = await previewRenderer(store).file(site, channel, rel)
   } catch (err) {
     // A definition that no longer validates is the one failure this route can
     // hit that the OPERATOR can fix, and it is visible the moment it happens

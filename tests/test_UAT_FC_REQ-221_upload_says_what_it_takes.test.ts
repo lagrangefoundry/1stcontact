@@ -26,7 +26,7 @@ let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-221 surface suite skipped: ${WEBUI_SKIP_REASON}`)
 
-const SITES = [{ slug: 'alpha', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: 1 }]
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /** The refusal the origin writes for a deployment that cannot read HEIC. */

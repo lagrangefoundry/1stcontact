@@ -483,7 +483,7 @@ describe('story-ee073693 palette management', () => {
       // POSTED DIRECTLY AT THE ORIGIN, with no client-side check in the way —
       // exactly as a tab left open while the site changed underneath it would
       // post. A disabled button is an explanation of the rule; never the rule.
-      const refused = await post({ slug, op: 'rm', name: 'primary' })
+      const refused = await post({ site: slug, op: 'rm', name: 'primary' })
       expect(refused.status).toBe(400)
       expect(refused.status).toBeLessThan(500)
       const body = (await refused.json()) as { code?: string; message?: string; hint?: string }
@@ -522,7 +522,7 @@ describe('story-ee073693 palette management', () => {
 
       // Onto a name the palette already declares — that would MERGE two colours,
       // the same class of decision as deleting one in use.
-      const collision = await post({ slug, op: 'rename', name: 'primary', to: 'text' })
+      const collision = await post({ site: slug, op: 'rename', name: 'primary', to: 'text' })
       expect(collision.status).toBe(400)
       const conflict = (await collision.json()) as {
         code?: string
@@ -534,7 +534,7 @@ describe('story-ee073693 palette management', () => {
       expect(`${conflict.message} ${conflict.hint}`).toMatch(/merge two colors/)
 
       // Onto a name that is not kebab-case — a schema refusal naming the form.
-      const malformed = await post({ slug, op: 'rename', name: 'primary', to: 'Brand Teal' })
+      const malformed = await post({ site: slug, op: 'rename', name: 'primary', to: 'Brand Teal' })
       expect(malformed.status).toBe(400)
       const schema = (await malformed.json()) as { code?: string; hint?: string }
       expect(schema.code).toBe('SCHEMA_INVALID')
@@ -556,7 +556,7 @@ describe('story-ee073693 palette management', () => {
 
     // The origin read is the command-line read — a transport over the same
     // function, not a parallel implementation.
-    const viaHttp = await (await fetch(origin(`/api/palette?slug=${slug}`))).json()
+    const viaHttp = await (await fetch(origin(`/api/palette?site=${slug}`))).json()
     expect(viaHttp).toEqual((await cli(cwd, 'palette', 'get', slug)).data)
 
     // ...and it requires the site to be named.
@@ -564,7 +564,7 @@ describe('story-ee073693 palette management', () => {
 
     // The operation vocabulary is CLOSED: an undeclared verb is a client error
     // naming the operation, not an exception rendered as a server failure.
-    const undeclared = await post({ slug, op: 'merge', name: 'primary' })
+    const undeclared = await post({ site: slug, op: 'merge', name: 'primary' })
     expect(undeclared.status).toBe(400)
     expect(undeclared.status).toBeLessThan(500)
     expect(((await undeclared.json()) as { error?: string }).error).toContain('merge')
@@ -572,7 +572,7 @@ describe('story-ee073693 palette management', () => {
     // EVERY WRITE ANSWERS WITH THE RE-TAKEN CENSUS as well as its own result, so
     // a caller redrawing the palette does so from what the site now holds rather
     // than from its own guess at what changed.
-    const write = (await post({ slug, op: 'add', name: 'accent', value: '#8b5c2a' })) as Response
+    const write = (await post({ site: slug, op: 'add', name: 'accent', value: '#8b5c2a' })) as Response
     expect(write.status).toBe(200)
     const answer = (await write.json()) as Record<string, unknown> & { entries: Entry[] }
     // the operation's own result...
@@ -588,7 +588,7 @@ describe('story-ee073693 palette management', () => {
     ])
     // A removal changes the LIST and a rename changes a NAME and no count — the
     // caller needs neither to know which, because it is handed both.
-    const dropped = (await (await post({ slug, op: 'rm', name: 'accent' })).json()) as {
+    const dropped = (await (await post({ site: slug, op: 'rm', name: 'accent' })).json()) as {
       removed?: boolean
       entries: Entry[]
     }
@@ -596,7 +596,7 @@ describe('story-ee073693 palette management', () => {
     expect(dropped.entries.map((e) => e.name)).not.toContain('accent')
 
     const moved = (await (
-      await post({ slug, op: 'rename', name: 'spare', to: 'reserve' })
+      await post({ site: slug, op: 'rename', name: 'spare', to: 'reserve' })
     ).json()) as { from?: string; to?: string; entries: Entry[] }
     expect([moved.from, moved.to]).toEqual(['spare', 'reserve'])
     expect(moved.entries.map((e) => e.name)).toContain('reserve')

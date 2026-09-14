@@ -726,7 +726,7 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
   it('test_UAT_AC992_the_origin_is_the_same_surface_faulting_and_re_rendering_alike', async () => {
     // AC-992 — the origin is a thin transport over the same operations, so what
     // it answers matches the command line exactly.
-    const read = await api(`/api/copy?slug=acme&page=home&path=${A_SHORT}`)
+    const read = await api(`/api/copy?site=acme&page=home&path=${A_SHORT}`)
     expect(read.status).toBe(200)
     const readBody = (await read.json()) as Record<string, unknown>
     const fromCli = await cli(cwd, 'copy', 'get', 'acme', 'home', A_SHORT)
@@ -738,7 +738,7 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
     // status carrying the validator's own code, path and hint — not a generic
     // 500 that throws away the message naming the field.
     const draftBefore = draftBytes(cwd)
-    const bad = await post({ slug: 'acme', page: 'home', path: A_SHORT, values: { text: 42 } })
+    const bad = await post({ site: 'acme', page: 'home', path: A_SHORT, values: { text: 42 } })
     expect(bad.status).toBeGreaterThanOrEqual(400)
     expect(bad.status).toBeLessThan(500)
     const badBody = (await bad.json()) as Record<string, unknown>
@@ -759,7 +759,7 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
     // there is no artifact to inspect and the honest observable is the origin
     // itself: fetch both and see the new words, with no render step in between.
     const words = 'Saved through the origin.'
-    const good = await post({ slug: 'acme', page: 'home', path: A_SHORT, values: { text: words } })
+    const good = await post({ site: 'acme', page: 'home', path: A_SHORT, values: { text: words } })
     expect(good.status).toBe(200)
     expect(((await good.json()) as Record<string, unknown>).changed).toEqual(['text'])
 

@@ -69,7 +69,7 @@ function pageIdOf(doc, pageAttr) {
  */
 export function mountEditor(doc, options = {}) {
   const {
-    slug,
+    site,
     bridge: api,
     host = null,
     onSaved = () => {},
@@ -99,7 +99,7 @@ export function mountEditor(doc, options = {}) {
     // dotted form. Formatting it through the shared helper rather than joining
     // by hand keeps one definition of what an address looks like — a bare
     // `String(path)` produces `0,0,0,0`, which the parser correctly refuses.
-    const target = { slug, page: pageId, path: formatL1Path(hit.target.path), ...scopeOf(hit) }
+    const target = { site, page: pageId, path: formatL1Path(hit.target.path), ...scopeOf(hit) }
     void openSegment(target, hit)
   })
 
@@ -116,7 +116,7 @@ export function mountEditor(doc, options = {}) {
         kind: 'error',
         host,
         message: `This edit render was built before the editor and carries no page stamp.`,
-        hint: `Re-render it with '1c render ${slug} --edit', then reload`,
+        hint: `Re-render it with '1c render ${site} --edit', then reload`,
       })
       return
     }
@@ -145,7 +145,7 @@ export function mountEditor(doc, options = {}) {
       // The site an image handle is resolved against (REQ-132). The picker draws
       // the images it offers, and it can only reach their bytes through this
       // site's preview channel.
-      slug,
+      site,
       // How the page renders this copy, so the box can render it the same way.
       // Derived ONLY for a copy segment: `src` and `alt` on an image are
       // metadata about the page rather than words on it, and showing an alt
@@ -306,7 +306,7 @@ function defaultModal(spec) {
     (field) => !isImagePicker(field) && !isColorField(field),
   )
   const pickers = pickerFields.map((field) =>
-    mountImagePicker(panel, { field, value: spec.values[field.name], slug: spec.slug }),
+    mountImagePicker(panel, { field, value: spec.values[field.name], site: spec.site }),
   )
 
   // WORDS IN THE BOX, PARAMETERS UNDER IT (REQ-135). The box exists to mirror

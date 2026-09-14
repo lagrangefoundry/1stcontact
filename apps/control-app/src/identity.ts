@@ -725,7 +725,17 @@ export interface BusinessSpec {
 export interface BusinessResult {
   businessId: string
   name: string
-  siteSlug: string
+  /**
+   * The key of the site provisioning made for it ([[REQ-236]]).
+   *
+   * IT WAS `siteSlug` AND IT WAS DERIVED FROM `name`. That derivation is what
+   * made a business rename dangerous: the slug reached the builder's URL, the
+   * store's address and — through `sessionIdFor` — the id the assistant's whole
+   * transcript is filed under, so the first rename would have moved the
+   * conversation somewhere nothing would look for it. A key is minted and never
+   * derived, so a rename now changes the business's name and nothing else.
+   */
+  siteKey: string
 }
 
 /**
@@ -832,112 +842,70 @@ export async function provisionBusiness(
     ),
   ])
 
-  const siteSlug = await createStarterSite(env, businessId, name)
-  return { businessId, name, siteSlug }
+  const siteKey = await createStarterSite(env, businessId, name)
+  return { businessId, name, siteKey }
 }
 
 /**
- * The one site a business has is NAMED AFTER THE BUSINESS ([[BUG-90]]).
+ * The one site a business has is NAMED BY NOTHING ([[REQ-236]]).
  *
- * IT USED TO BE THE WORD `unnamed`, and that was [[REQ-190]]'s deliberate
- * choice rather than an oversight: a starter name that reads as *visibly
- * provisional* asks to be changed, where `home` reads as a decision somebody
- * already made. The argument against using the business's name was recorded in
- * the same breath — "the site is not the business, an account will own several,
- * and a name asserted on the owner's behalf is one they never chose".
+ * IT WAS THE WORD `unnamed` ([[REQ-190]]), then the business's own name
+ * slugified ([[BUG-90]]), and the second was a fix for a real defect: one fixed
+ * word for every business made the builder's "keep the site the operator had
+ * selected" carry fire on almost every business switch, so the operator changed
+ * business and the site in front of them did not change.
  *
- * THAT ARGUMENT RESTED ON A PREMISE THAT NO LONGER HOLDS. An account owning
- * several sites is what made the business's name the wrong name for any one of
- * them. A business holds exactly ONE site for now — there is no site selector
- * and nothing creates a second — so the name is not being asserted on the
- * owner's behalf over a choice they might have made differently; it is the only
- * name the one site could have that says anything at all.
+ * BOTH ANSWERS WERE TO A QUESTION THAT HAS STOPPED BEING ASKED. They existed
+ * because the D1 store addressed a site by a name and provisioning had to supply
+ * one. [[DOC-45]] §6 took the name away: the site is addressed by the key the
+ * store mints, so there is nothing here to derive, nothing to collide, and no
+ * `businessSiteName` to write. BUG-90's defect cannot recur, because two
+ * businesses cannot be handed the same key.
  *
- * AND `unnamed` WAS ACTIVELY HARMFUL, which is what this bug was filed from.
- * The slug is unique per business, so every business provisioned carried the
- * SAME one. The builder remembers the operator's selected slug across a business
- * switch and keeps it when the business being entered also holds it, so one
- * fixed word for everybody makes that carry fire on almost every switch —
- * the operator changes business and the site in front of them does not change.
- * A name derived from the business cannot collide unless the businesses
- * themselves are named the same.
- *
- * The word bought legibility at the cost of correctness, and the business's own
- * name buys both: `Cole's Bakery` opens a builder onto `colesbakery` rather than
- * onto a site that shares a name with every other customer's.
- *
- * NEITHER `STARTER_SLUG` NOR `STARTER_NAME` SURVIVES. A business cannot be
- * provisioned without a name — `provisionBusiness` refuses an empty one — so
- * there is no occasion on which a fallback constant would be reached, and a
- * constant kept for an unreachable case is the legacy mode CLAUDE.md forbids.
+ * WHAT THE BUSINESS'S NAME IS STILL FOR: the prose in `site.json` — the
+ * `<title>` suffix every rendered page carries — which is what it was always
+ * the right answer to.
  */
-
-/**
- * The site name a business's name yields.
- *
- * LOWERCASED, WITH EVERY CHARACTER THAT IS NOT A LETTER OR A DIGIT REMOVED —
- * removed rather than turned into a hyphen. `1st Contact` becomes `1stcontact`
- * and `Gigabyte Alchemy` becomes `gigabytealchemy`, which is what the sites that
- * already exist are called; hyphenating would rename every one of them to
- * something nobody has ever typed, for no gain a URL can see.
- *
- * UNICODE LETTERS AND DIGITS COUNT. `\p{L}` and `\p{N}` rather than `a-z0-9`,
- * so a business named in Greek or Japanese gets its own name back rather than
- * the empty string and the id fallback below. The slug reaches a URL path
- * segment, which carries non-ASCII perfectly well once encoded, and `previewUrl`
- * already encodes it.
- *
- * THE BUSINESS ID IS THE FALLBACK, for a name made entirely of punctuation. It
- * derives nothing, and a site with no name cannot be addressed at all — so
- * provisioning would fail at its last step, having already written the tenant,
- * the membership and the grant. The id is ugly and it is reachable, which is the
- * right trade for a case that should not occur: the operator renames it, exactly
- * as they would have renamed `unnamed`.
- */
-export function businessSiteName(businessName: string, businessId: string): string {
-  const derived = businessName.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
-  return derived === '' ? businessId : derived
-}
-
 async function createStarterSite(
   env: IdentityEnv,
   businessId: string,
   businessName: string,
 ): Promise<string> {
   const store = await d1r2SiteStore(env).forTenant(businessId)
-  const slug = businessSiteName(businessName, businessId)
-  // THE SCAFFOLD IS WRITTEN ONLY WHEN THE SITE DID NOT EXIST (BUG-51).
+  // BUG-51 — A BUSINESS THAT ALREADY HAS A SITE IS LEFT ENTIRELY ALONE.
   //
-  // `createDraft` has always been `INSERT OR IGNORE`, which made this pair LOOK
-  // idempotent — and it is, right up to the `write`, which replaces `site.json`
-  // and `home.json` unconditionally. So provisioning onto a slug that already
-  // held a site replaced that site's content with a blank starter page while
-  // leaving its journal, assets and version behind to say what used to be there.
+  // The pair below is `createDraft` then an unconditional `write`, and that
+  // write replaces `site.json` and `home.json`. Running it against a business
+  // that had built something would replace what they built with a blank starter
+  // page while leaving the journal, the assets, the audit trail and the chat
+  // transcript behind to say what used to be there. That is BUG-51, and it was
+  // reachable because provisioning derived the same slug for the same business
+  // twice.
   //
-  // STILL REACHABLE ([[BUG-90]]). [[REQ-190]] made it so by giving every business
-  // the same fixed slug; deriving the slug from the business does not make it
-  // unreachable again, because the derivation is a pure function of a name that
-  // does not change during provisioning — so provisioning one business twice
-  // lands on the same slug just as surely as `unnamed` did. It is here because
-  // the `createDraft`-then-`write` pair IS the shape that destroyed a site on the
-  // import route, and the illusion of safety is the same illusion in both
-  // places; a reader who copies this function should copy the guarded form.
-  //
-  // A SITE THAT EXISTS IS LEFT ENTIRELY ALONE rather than merged with or
-  // repaired. There is nothing to repair: the starter is one blank page whose
-  // only purpose is to give a new account something to edit, and an account that
+  // THE GUARD IS STRONGER THAN THE ONE IT REPLACES ([[REQ-236]]). It used to be
+  // `createDraft`'s return value, which could only see a collision on the ONE
+  // NAME it passed; this asks whether the business holds a site at all. There is
+  // nothing to repair when it does: the starter is one blank page whose only
+  // purpose is to give a new account something to edit, and an account that
   // already has a site already has that.
-  if (await store.createDraft(slug)) {
-    await store.write(slug, {
-      // THE BUSINESS'S NAME VERBATIM, not the derived slug. The slug is a
-      // URL-safe attribute the store addresses by; this is prose that reaches a
-      // rendered `<title>`, and `Gigabyte Alchemy` is what belongs there rather
-      // than `gigabytealchemy`. That the two differ is the point of having both.
-      siteJson: starterSiteJson(slug, businessName),
-      pages: [{ name: 'home.json', page: starterHomePage(slug, STARTER_HEADING) }],
-    })
-  }
-  return slug
+  const existing = await store.siteKeys('site')
+  if (existing.length > 0) return existing[0]
+
+  const siteKey = await store.createDraft('site')
+  await store.write(siteKey, {
+    // THE BUSINESS'S NAME, WHICH IS THE ONLY NAME LEFT. `site.json`'s `id` is
+    // the site's key — the store's own identity for it, written where a reader
+    // can see it — and `config.businessName` is prose that reaches a rendered
+    // `<title>`. `Gigabyte Alchemy` is what belongs there.
+    siteJson: starterSiteJson(siteKey, businessName),
+    // NAMED FOR THE PAGE'S SEO PROSE, NOT FOR ADDRESSING. `starterHomePage`'s
+    // first argument reaches `seoMeta.title` and `seoMeta.description` — the
+    // words a search result and a pasted link show — so it takes the business's
+    // name. Handing it the key would put `site_9f3a…` in front of the first
+    // person who shared the page.
+    pages: [{ name: 'home.json', page: starterHomePage(businessName, STARTER_HEADING) }],
+  })
+  return siteKey
 }
 
 /**

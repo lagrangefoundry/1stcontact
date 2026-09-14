@@ -5,8 +5,8 @@ import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { says, scriptedClient } from './support/scripted-model-client'
-import { applySchema } from './support/d1-site-factory'
-import { nextSlug, siteSeed } from './support/site-seed'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import { nextSlug } from './support/site-seed'
 
 /**
  * BUG-38 — **a turn survives the isolate that opened its session**.
@@ -77,18 +77,17 @@ async function frames(response: Response): Promise<{ kind: string; content?: str
     .map((f) => JSON.parse(f.slice(5).trim()))
 }
 
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
-  const res = await post('/api/import', {
-    slug: seed.slug,
-    siteJson: seed.siteJson as Record<string, unknown>,
-    pages: Object.entries(seed.pages).map(([name, page]) => ({
-      name,
-      page: page as Record<string, unknown>,
-    })),
-    assets: [] as { name: string; base64: string }[],
-  })
-  expect(res.status).toBe(200)
+/**
+ * A site, and the KEY the store minted for it ([[REQ-236]]).
+ *
+ * SEEDED THROUGH THE STORE RATHER THAN `POST /api/import`. That route resolves
+ * its own target now — this business's one site — so two seeds in one tenant
+ * would be two writes to the same site, and every case below would share one
+ * session. The route is not what this suite is about; a site is.
+ */
+async function seedSite(prefix: string): Promise<string> {
+  const { site } = await seedTenantSite(TENANT, { slug: nextSlug(prefix) })
+  return site
 }
 
 /** Everything a cold isolate would not have. */
@@ -108,10 +107,9 @@ afterEach(() => {
 
 describe('BUG-38 — a conversation is not a property of one isolate', () => {
   it('test_UAT_FC_BUG-38_a_turn_runs_on_an_isolate_that_did_not_open_the_session', async () => {
-    const slug = nextSlug('churn')
-    await seedSite(slug)
+    const site = await seedSite('churn')
 
-    const opened = (await (await post('/api/ai/session', { slug })).json()) as {
+    const opened = (await (await post('/api/ai/session', { site })).json()) as {
       sessionId: string
     }
 
@@ -139,10 +137,9 @@ describe('BUG-38 — a conversation is not a property of one isolate', () => {
     // Resolution alone would be worth little if the turn started a FRESH
     // conversation each time: the transcript has to be the same one, which it is
     // because the archive is durable and the id derives from the site.
-    const slug = nextSlug('continues')
-    await seedSite(slug)
+    const site = await seedSite('continues')
 
-    const opened = (await (await post('/api/ai/session', { slug })).json()) as {
+    const opened = (await (await post('/api/ai/session', { site })).json()) as {
       sessionId: string
     }
     setModelClient(speaks('The first thing I said.'))
@@ -156,7 +153,7 @@ describe('BUG-38 — a conversation is not a property of one isolate', () => {
     // conversation, in order.
     newIsolate()
     setModelClient(null)
-    const again = (await (await post('/api/ai/session', { slug })).json()) as {
+    const again = (await (await post('/api/ai/session', { site })).json()) as {
       sessionId: string
       turns: { role: string; markdown: string }[]
     }

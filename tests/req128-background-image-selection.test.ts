@@ -442,7 +442,7 @@ describe('REQ-128 background image selection over the builder origin', () => {
     // so the picker costs no extra round trip and cannot show options that
     // disagree with what the write path will accept.
     const body = (await (
-      await get(`/api/copy?slug=acme&page=${pageId}&path=${A_BACKDROP}`)
+      await get(`/api/copy?site=acme&page=${pageId}&path=${A_BACKDROP}`)
     ).json()) as { kind: string; fields: Field[]; values: Record<string, string> }
     expect(body.kind).toBe('container')
     expect(body.fields.map((f) => f.name)).toEqual(['backgroundImageUrl', 'surfaceFill'])
@@ -458,7 +458,7 @@ describe('REQ-128 background image selection over the builder origin', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: 'acme',
+        site: 'acme',
         page: pageId,
         path: A_BACKDROP,
         values: { backgroundImageUrl: BETA },
@@ -482,7 +482,7 @@ describe('REQ-128 background image selection over the builder origin', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        slug: 'acme',
+        site: 'acme',
         page: pageId,
         path: A_BACKDROP,
         values: { backgroundImageUrl: '/assets/ghost.png' },

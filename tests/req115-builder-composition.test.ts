@@ -10,7 +10,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
-const SITES = [{ slug: 'alpha', latest: null }, { slug: 'beta', latest: 1 }]
+const SITES = [{ site: 'alpha', latest: null }, { site: 'beta', latest: 1 }]
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

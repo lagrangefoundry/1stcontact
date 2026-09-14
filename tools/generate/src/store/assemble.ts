@@ -16,6 +16,15 @@ import { resolveL1Palette, validateSite } from '@1stcontact/site-schema'
 
 /** A fully assembled, validated site plus the assets discovered alongside it. */
 export interface LoadedSite {
+  /**
+   * What the STORE this was loaded from calls the site — a directory name in
+   * the file-backed tier, the site's key in D1 ([[REQ-236]]).
+   *
+   * Descriptive, exactly like {@link sourceDir} beside it: nothing at request
+   * time reads it, and the two adapters legitimately report different strings
+   * for the same definition, which is why a test comparing an assembled site
+   * across stores compares everything else.
+   */
   slug: string
   /**
    * Where the definition was assembled from.

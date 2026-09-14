@@ -21,8 +21,8 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const REPO = path.resolve(__dirname, '..')
 const SITES = [
-  { slug: 'alpha', latest: null },
-  { slug: 'beta', latest: 1 },
+  { site: 'alpha', latest: null },
+  { site: 'beta', latest: 1 },
 ]
 
 /**

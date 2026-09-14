@@ -231,7 +231,7 @@ const peopleTransport = () => ({
   add: async () => ({ created: true, person: { ...PERSON } }),
   inviteDraft: async () => ({ from: 'no-reply@example.test', subject: 'Hi', body: 'x', declared: [] }),
   invite: async () => ({ results: [] }),
-  fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteSlug: 'acct_new' }),
+  fulfil: async () => ({ businessId: 'acct_new', name: 'New', siteKey: 'acct_new' }),
 })
 
 const libraryTransport = () => ({
@@ -275,7 +275,7 @@ beforeEach(() => {
 
 /** The three surfaces the report named, mounted together. */
 async function reportedSurfaces() {
-  mountBuilder(root, { sites: [{ slug: 'alpha', latest: 1 }], storage: memoryStorage() })
+  mountBuilder(root, { sites: [{ site: 'alpha', latest: 1 }], storage: memoryStorage() })
 
   const switcher = createBusinessSwitcher({
     businesses: [

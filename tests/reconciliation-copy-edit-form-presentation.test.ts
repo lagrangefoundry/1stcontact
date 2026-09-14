@@ -414,7 +414,7 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
     options: Record<string, unknown> = {},
   ): Promise<{ modal: Element; editor: { destroy(): void } }> {
     const editor = mountEditor(document, {
-      slug: 'acme',
+      site: 'acme',
       bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       ...options,
     })
@@ -621,7 +621,7 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       }
       const root = document.createElement('div')
       document.body.append(root)
-      const app = mountBuilder(root, { sites: [{ slug: 'acme', latest: null }] }) as unknown as {
+      const app = mountBuilder(root, { sites: [{ site: 'acme', latest: null }] }) as unknown as {
         shell: {
           element: HTMLElement
           getTokens(): Record<string, string>
@@ -682,7 +682,7 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       const loaded = (await (
         await fetch(
           new URL(
-            `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: PATH.headline })}`,
+            `/api/copy?${new URLSearchParams({ site: 'acme', page: pageId, path: PATH.headline })}`,
             builder.url,
           ),
         )

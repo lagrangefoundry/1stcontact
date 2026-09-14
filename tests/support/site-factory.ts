@@ -65,6 +65,7 @@ export function makeFsSite(options: SiteSeedOptions = {}): SiteFixture {
   const store = fsSiteStore({ cwd, root })
   return {
     slug: seed.slug,
+    name: seed.slug,
     store,
     opts: { store, cwd, sandbox: root === 'sandbox', actor: options.actor },
     cwd,
@@ -79,6 +80,7 @@ export function makeMemorySite(options: SiteSeedOptions = {}): SiteFixture {
   store.seed(seed.slug, { siteJson: seed.siteJson, pages: seed.pages, assets: seed.assets })
   return {
     slug: seed.slug,
+    name: seed.slug,
     store,
     opts: { store, actor: options.actor },
     cwd: null,

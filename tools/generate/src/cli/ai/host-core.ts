@@ -412,8 +412,8 @@ export interface HostDeps {
 
 
 /** Backends carry their tool set, and the registry is global — so names are per-site. */
-export function siteBackendName(slug: string): string {
-  return `claude+site:${slug}`
+export function siteBackendName(site: string): string {
+  return `claude+site:${site}`
 }
 
 /**
@@ -423,9 +423,20 @@ export function siteBackendName(slug: string): string {
  * without an index: any process, on any request, computes the same id for the
  * same site, so a reload resumes and a crash loses nothing but the turn in
  * flight.
+ *
+ * DERIVED FROM THE STORE'S NAME FOR THE SITE, WHICH IS NOW A KEY ([[REQ-236]]).
+ * Nothing in this function changed and that is the point of the change: in the
+ * cloud the argument used to be a slug derived from the business's name
+ * ([[BUG-90]]), so the FIRST rename of a business would have moved this id —
+ * and the ticket holding the whole transcript is found by `fields.session_id`.
+ * The conversation would not have been destroyed, which would at least have been
+ * visible; it would have been silently replaced by an empty one. A key is minted
+ * and never derived, so a rename changes the business's name and leaves the
+ * conversation exactly where it was. (In the file-backed tier the argument is
+ * still a directory name, and a rename there is still `mv`.)
  */
-export function sessionIdFor(slug: string): string {
-  return `site-${slug}`
+export function sessionIdFor(site: string): string {
+  return `site-${site}`
 }
 
 /**
@@ -510,8 +521,8 @@ function hostKey(deps: HostDeps): string {
   return storeId(deps.store)
 }
 
-function managerKey(slug: string, deps: HostDeps): string {
-  return `${hostKey(deps)}\0${slug}`
+function managerKey(site: string, deps: HostDeps): string {
+  return `${hostKey(deps)}\0${site}`
 }
 
 /**
@@ -540,11 +551,11 @@ function managerKey(slug: string, deps: HostDeps): string {
  */
 const SESSION_PREFIX = 'site-'
 
-async function slugForSession(sessionId: string, deps: HostDeps): Promise<string | null> {
+async function siteForSession(sessionId: string, deps: HostDeps): Promise<string | null> {
   if (!sessionId.startsWith(SESSION_PREFIX)) return null
-  const slug = sessionId.slice(SESSION_PREFIX.length)
-  if (slug === '') return null
-  return (await deps.store.hasDraft(slug)) ? slug : null
+  const site = sessionId.slice(SESSION_PREFIX.length)
+  if (site === '') return null
+  return (await deps.store.hasDraft(site)) ? site : null
 }
 
 /**
@@ -980,7 +991,7 @@ export async function openSession(
   // per-process map at exactly this point, ahead of touching the backend, so
   // that a session opened into a frozen panel could still take a turn once the
   // operator supplied an API key. That property is now free rather than
-  // arranged: {@link slugForSession} derives the same binding from the id and
+  // arranged: {@link siteForSession} derives the same binding from the id and
   // the store, so it holds for any isolate, at any time, whether or not this
   // call was the one that opened the session.
   const sessionId = sessionIdFor(slug)
@@ -1037,7 +1048,7 @@ export async function* streamPrompt(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
-  const slug = await slugForSession(sessionId, deps)
+  const slug = await siteForSession(sessionId, deps)
   if (!slug) throw new UnknownSessionError(sessionId)
   const manager = await managerFor(slug, opts, deps)
   await attach(manager, sessionId, slug)
@@ -1141,7 +1152,7 @@ export async function* tailSession(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
-  const slug = await slugForSession(sessionId, deps)
+  const slug = await siteForSession(sessionId, deps)
   if (!slug) throw new UnknownSessionError(sessionId)
   // NO `attach`, deliberately — unlike {@link streamPrompt}. Attaching builds
   // the backend, and a backend is what a turn needs, not what a reader needs.

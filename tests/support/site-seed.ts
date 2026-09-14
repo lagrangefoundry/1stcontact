@@ -19,7 +19,25 @@ import type { SiteStore } from '../../tools/generate/src/store/site-store'
 
 /** What a fixture hands back, identically for every adapter. */
 export interface SiteFixture {
+  /**
+   * What THIS adapter calls the site — the value every store verb takes.
+   *
+   * A directory name under `storage/sites/` for the filesystem fixture, a map
+   * key for the in-memory one, and since [[REQ-236]] the minted key for D1. The
+   * three genuinely differ, which is why {@link name} exists beside it: an
+   * assertion about the site's CONTENT must not be written against its address.
+   */
   slug: string
+  /**
+   * What the seed CALLED the site — the name that reached `site.json`'s
+   * `config.businessName` and the starter page's prose ([[REQ-236]]).
+   *
+   * Equal to {@link slug} on every adapter that addresses a site by a name, and
+   * deliberately not on D1. A contract assertion that reads content back and
+   * compares it to `slug` is asserting that the store's address leaked into the
+   * definition, which on D1 it must not.
+   */
+  name: string
   store: SiteStore
   /** The options every `edit*` call takes, already carrying the store. */
   opts: EditOptions

@@ -180,7 +180,7 @@ describe('REQ-133 the palette popup', () => {
   const origin = (rel: string) => urlOn(builder.url, rel)
 
   const open = (slug: string, extra: Record<string, unknown> = {}) =>
-    openPalettePopup({ host, slug, transport, shadeHex, ...extra })
+    openPalettePopup({ host, site: slug, transport, shadeHex, ...extra })
 
   /** Wait for the popup's first paint — it loads the palette before it draws. */
   async function settled(): Promise<void> {
@@ -467,7 +467,7 @@ describe('REQ-133 the palette popup', () => {
     const stale = await fetch(origin('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'rm', name: 'primary' }),
+      body: JSON.stringify({ site: slug, op: 'rm', name: 'primary' }),
     })
     expect(stale.status).toBe(400)
     const body = (await stale.json()) as { code?: string; message?: string }
@@ -545,7 +545,7 @@ describe('REQ-133 the palette popup', () => {
     const collision = await fetch(origin('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'rename', name: 'primary', to: 'text' }),
+      body: JSON.stringify({ site: slug, op: 'rename', name: 'primary', to: 'text' }),
     })
     expect(collision.status).toBe(400)
     expect(((await collision.json()) as { code?: string }).code).toBe('CONFLICT')
@@ -554,7 +554,7 @@ describe('REQ-133 the palette popup', () => {
     const malformed = await fetch(origin('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'rename', name: 'primary', to: 'Brand Teal' }),
+      body: JSON.stringify({ site: slug, op: 'rename', name: 'primary', to: 'Brand Teal' }),
     })
     expect(malformed.status).toBe(400)
     expect(((await malformed.json()) as { code?: string }).code).toBe('SCHEMA_INVALID')
@@ -612,14 +612,14 @@ describe('REQ-133 the palette popup', () => {
 
     // The route answers with the SAME data — it is a transport over the same
     // functions, not a parallel implementation.
-    const viaHttp = await (await fetch(origin(`/api/palette?slug=${slug}`))).json()
+    const viaHttp = await (await fetch(origin(`/api/palette?site=${slug}`))).json()
     expect(viaHttp).toEqual((await cli(cwd, 'palette', 'get', slug)).data)
 
     // And it refuses a verb it does not have, rather than failing as a 500.
     const unknown = await fetch(origin('/api/palette'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, op: 'merge', name: 'primary' }),
+      body: JSON.stringify({ site: slug, op: 'merge', name: 'primary' }),
     })
     expect(unknown.status).toBe(400)
   })
