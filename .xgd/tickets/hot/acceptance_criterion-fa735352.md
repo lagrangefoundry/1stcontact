@@ -6,10 +6,10 @@ title: A single title longer than the whole budget is clipped and still named, n
   dropped
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:32.642505+00:00'
-updated_at: '2026-09-14T06:28:32.642505+00:00'
+updated_at: '2026-09-14T06:52:07.448087+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3cf3d57b
   kind: behavior
