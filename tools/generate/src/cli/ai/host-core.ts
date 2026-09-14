@@ -427,6 +427,21 @@ export interface HostDeps {
   assetUrl?: ((slug: string, handle: string) => string) | null
 
   /**
+   * Every public address one of this deployment's sites can be reached at, or
+   * `null` where it cannot answer ([[REQ-238]]).
+   *
+   * A FACTORY OVER THE SLUG, like `fidelity`, `pictures`, `ledger` and
+   * `assetUrl` above it, and for the same reason: an address names a site, and
+   * which site that is falls out of the session rather than out of the call.
+   *
+   * NULL IS ORDINARY AND IS THE DEFAULT — the `1c` CLI's permanent state. It
+   * publishes a directory on somebody's disk: there is no business behind it, no
+   * database to ask, and no address a site could have. A host without this
+   * publishes exactly as it did before this existed.
+   */
+  addresses?: ((slug: string) => Promise<readonly unknown[]>) | null
+
+  /**
    * The business's own record, and which business it is ([[REQ-239]]).
    *
    * THE ONE WIRE ON THIS HOST THAT IS NOT A FACTORY OVER A SLUG, and that is the
@@ -802,6 +817,11 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       // Bound to this session's site here, so no operation takes a slug and no
       // line can address a site the conversation is not about.
       assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
+      // [[REQ-238]] — WHETHER THIS SITE HAS A PUBLIC ADDRESS, bound to this
+      // session's site here for the same reason `assetUrl` is: the publish
+      // operation then takes no site, and cannot ask about one the conversation
+      // is not about.
+      addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
         // The fidelity surface, when this deployment has the browser and the

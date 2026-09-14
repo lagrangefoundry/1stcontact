@@ -8,7 +8,11 @@ import {
   editPaletteRm,
   editPaletteSet,
 } from '../../../tools/generate/src/cli/edit'
-import { CommandError, InvalidDefinitionError } from '../../../tools/generate/src/cli/errors'
+import {
+  CommandError,
+  InvalidDefinitionError,
+  NoPublicAddressError,
+} from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
 import {
   PORTAL_PATH,
@@ -75,6 +79,19 @@ import {
   businessSettings,
   renameBusiness,
 } from './business'
+import {
+  HostnameAlreadyHeldError,
+  HostnameTakenError,
+  InvalidHostnameError,
+  NoSiteError,
+  PLATFORM_APEX,
+  ReservedHostnameError,
+  addressesOf,
+  businessAddresses,
+  checkHostname,
+  claimHostname,
+  revokeHostname,
+} from './hostname'
 import { fidelityDeps } from './shot'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -631,6 +648,15 @@ function chatHost(
           businessId: scope.businessId,
           deps: businessSettings(env as unknown as IdentityEnv, scope.businessId),
         },
+        // WHETHER A SITE HAS A PUBLIC ADDRESS ([[REQ-238]]). Assembled here for
+        // the reason every wire above it is: the answer is a D1 query and the
+        // identity environment is already in hand.
+        //
+        // IT IS THE SAME CALL `POST /api/publish` MAKES, and that is the point.
+        // A publish must refuse a site with no address whichever path reached
+        // it, and `Publish` being outside the consultant's grant today is a line
+        // of configuration rather than a guarantee.
+        (deps.addresses ?? addressesFor)(env),
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -829,6 +855,25 @@ export interface RouterEnv
  * functions now, so both transports render every page through the same code and
  * there is nothing left to inject.
  */
+/**
+ * Where a site can be reached, as this deployment answers it ([[REQ-238]]).
+ *
+ * THE DEFAULT, AND IT ALWAYS ANSWERS. A Worker holding a D1 binding can always
+ * say whether a site has an address — the answer may be "none", which is what
+ * refuses the publish, and that is a different statement from "this deployment
+ * cannot say". The transports that cannot say are the ones that supply
+ * `RouterDeps.addresses` returning null, and there is exactly one of them.
+ *
+ * ONE READER PER ENV AND NOT PER SITE, because the site is what varies within a
+ * request and the binding is what varies between deployments. Which one the
+ * caller has is the question `publishSite` and the chat host each ask once.
+ */
+export function addressesFor(
+  env: RouterEnv,
+): (site: string) => Promise<readonly unknown[]> {
+  return (site: string) => addressesOf(env as unknown as IdentityEnv, site)
+}
+
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
@@ -842,6 +887,22 @@ export interface RouterDeps {
    * null is asserting the no-binding publish rather than simulating it.
    */
   ladder?: (env: RouterEnv, scope: Scope) => ImageLadder | null
+  /**
+   * How this deployment answers *where can this site be reached* ([[REQ-238]]),
+   * or `null` where it cannot answer at all.
+   *
+   * INJECTABLE FOR THE REASON {@link ladder} IS, AND FOR ONE MORE. The reason it
+   * shares: the real one reads D1, and a suite asserting what a publish does
+   * with an address should plant the address rather than have a binding happen
+   * to hold one. The reason it does not: `null` here is not a degraded publish,
+   * it is an UNGATED one — `publishSite` treats an absent answer as unchecked —
+   * and the Node builder transport is exactly that case. It has no database, no
+   * business and no address a site could have: it publishes a directory on
+   * somebody's disk, which is `1c publish`, and gating that would be refusing to
+   * publish a workspace on the grounds that a hostname nobody can buy there has
+   * not been bought.
+   */
+  addresses?: (env: RouterEnv) => ((site: string) => Promise<readonly unknown[]>) | null
   /**
    * The ticket store the ingestion routes write material into ([[REQ-163]]).
    *
@@ -1211,6 +1272,43 @@ export const PERSON_CHANGES_PATH = '/api/people/changes'
  * fallback for the other. This is the half a browser can reach.
  */
 export const BUSINESS_NAME_PATH = '/api/business/name'
+
+/**
+ * The two operations on the `1stc.site` hostname ([[REQ-238]]).
+ *
+ * TWO PATHS AND NOT ONE, because they are two operations and the difference
+ * between them is the entire design. `GET .../check` asks *is this available* —
+ * no side effect, repeatable, cheap, and safe to call as fast as somebody can
+ * type; a `GET` is what says that in the only vocabulary every cache, proxy and
+ * client already understands. `POST .../claim` takes it, is final, and is the
+ * only one with a consequence. One path taking a `commit: true` flag would make
+ * the difference between looking and living-with-it a boolean in a body.
+ *
+ * THEY ARE THE API AND NOT THE FORM, the same claim `BUSINESS_NAME_PATH` makes.
+ * The settings pane and the settings assistant are both ordinary callers: the
+ * pane presses return and calls `check`, the assistant proposes names and calls
+ * the same `check`, and neither wraps the other. That is [[REQ-239]]'s rule —
+ * one API, two callers — and it is what closes this ticket's falsifier *"a route
+ * to claiming a hostname that exists only inside a conversation."*
+ *
+ * BUSINESS-SCOPED LIKE EVERY ROUTE AROUND THEM, so the business is never named
+ * in a body and no caller can claim an address for one the request did not
+ * already resolve to.
+ */
+export const HOSTNAME_PATH = '/api/hostname'
+export const HOSTNAME_CHECK_PATH = '/api/hostname/check'
+export const HOSTNAME_CLAIM_PATH = '/api/hostname/claim'
+
+/**
+ * Where we take one back ([[REQ-238]], [[TODO-6]] §2).
+ *
+ * NOT UNDER `/api/hostname` WITH THE OTHER TWO, deliberately. Those are the
+ * customer's own operations on their own business, reached under the business
+ * scope; this is 1st Contact acting ON a customer, and it sits beside
+ * `/api/grants/revoke` — the other route where we withdraw something we issued
+ * — rather than in the surface the person it happens to is looking at.
+ */
+export const HOSTNAME_REVOKE_PATH = '/api/hostname/revoke'
 
 /**
  * What `/api/ai/session` is asked for when the conversation is the business's own
@@ -2758,6 +2856,165 @@ async function routeUncached(
       }
     }
 
+    /**
+     * GET /api/hostname — what public address this business has, if any
+     * ([[REQ-238]]).
+     *
+     * IT ANSWERS A LIST AND THE APEX. The list because the question every caller
+     * actually has is *can this be published* — which is about addresses, plural
+     * and kind-agnostic, not about the `1stc.site` one. The apex because a
+     * surface that is about to ask somebody to choose a permanent name has to
+     * show them the WHOLE host as it will be, and composing `alice` with
+     * `1stc.site` in the browser would be a second place that string is written.
+     *
+     * NOT OWNERS-ONLY, unlike the claim below. A published site's address is
+     * public by construction, and anybody who may operate this business may
+     * certainly know where it is.
+     */
+    if (p === HOSTNAME_PATH && method === 'GET') {
+      const scope = requireScope()
+      return json(200, {
+        apex: PLATFORM_APEX,
+        addresses: await businessAddresses(identityEnv, scope.businessId),
+      })
+    }
+
+    /**
+     * GET /api/hostname/check — is this one available ([[REQ-238]])?
+     *
+     * NO SIDE EFFECT, AND IT RESERVES NOTHING. Two customers can check `alice`
+     * in the same second and both be told yes; the unique index on `host`
+     * decides between them and the loser is refused at the claim. A check that
+     * held anything would be a hold on a finite public namespace, with no
+     * expiry, obtainable by typing.
+     *
+     * EXPOSING IT IS NOT AN INFORMATION LEAK ([[DOC-45]] §5). An existence
+     * oracle matters when the value is one a business would not otherwise
+     * disclose, and a public address exists in order to be publicly resolvable —
+     * DNS gives this away for free to anyone who asks.
+     *
+     * IT ALWAYS ANSWERS 200, INCLUDING FOR A NAME IT REFUSES. "Taken" is the
+     * answer to the question rather than a failure to answer it, and a 409 here
+     * would make the field on the pane treat a perfectly ordinary outcome as an
+     * error.
+     */
+    if (p === HOSTNAME_CHECK_PATH && method === 'GET') {
+      requireScope()
+      return json(200, await checkHostname(identityEnv, url.searchParams.get('label') ?? ''))
+    }
+
+    /**
+     * POST /api/hostname/claim — take it ([[REQ-238]]). Final.
+     *
+     * OWNERS ONLY, the same gate `/api/business/name` carries and for a stronger
+     * version of the same reason: a `support` membership exists to help operate
+     * a business, and this is the one decision on the tab that cannot be undone
+     * by the person it is done to.
+     *
+     * IT DOES NOT TRUST THE CHECK THE CALLER JUST MADE. `claimHostname` inserts
+     * and lets the unique index decide; this route only translates what it
+     * decided. Re-checking here would be the same race with an extra round trip
+     * and a more confident-looking answer.
+     *
+     * THE REFUSALS ARE DISTINGUISHED BY STATUS because the pane and the
+     * assistant do different things with each. 409 means *somebody has it* —
+     * either the world (`taken`) or this business already (`held`), and the body
+     * says which, because "you already have one" is useless without naming it.
+     * 400 means *that is not a hostname we can issue*, which is answered by
+     * typing a different one.
+     */
+    if (p === HOSTNAME_CLAIM_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        console.warn(
+          JSON.stringify({
+            event: 'hostname_claim_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only an owner of this business may choose its address.' })
+      }
+      const body = await readJsonBody(request)
+      try {
+        return json(
+          200,
+          await claimHostname(
+            identityEnv,
+            scope.businessId,
+            typeof body.label === 'string' ? body.label : '',
+          ),
+        )
+      } catch (error) {
+        // SCRUBBED LIKE EVERY OTHER MESSAGE THAT LEAVES THIS WORKER
+        // ([[REQ-146]] AC4), on `/api/business/name`'s reasoning: there is
+        // nothing upstream in any of these sentences to redact today, and a
+        // path that scrubs beside one that does not is an invitation to add a
+        // third that does not.
+        if (error instanceof HostnameTakenError) {
+          return json(409, { error: scrub(error.message), host: error.host, taken: true })
+        }
+        if (error instanceof HostnameAlreadyHeldError) {
+          return json(409, { error: scrub(error.message), held: error.held })
+        }
+        if (error instanceof ReservedHostnameError || error instanceof InvalidHostnameError) {
+          return json(400, { error: scrub(error.message) })
+        }
+        if (error instanceof NoSiteError) {
+          return json(409, { error: scrub(error.message) })
+        }
+        throw error
+      }
+    }
+
+    /**
+     * POST /api/hostname/revoke — take one back ([[REQ-238]], [[TODO-6]] §2).
+     *
+     * THE SAFETY VALVE FINALITY CREATES THE NEED FOR. An owner cannot change
+     * their own hostname, so a hostname that has to go can only go by our hand —
+     * *"whatever the list says, something will get through it, and the only
+     * alternative to revocation is leaving it up."*
+     *
+     * `ownsPlatformBusiness` AND NOT A NEW PRIVILEGE, and that choice is the
+     * point of the route being one line of gate. It is the same predicate
+     * `/api/businesses/provision` carries and asks the same two questions —
+     * *you are an owner of this business*, and *this business's product is
+     * businesses* ([[DOC-42]] §7). `isPlatformAdminSeed` was the other
+     * candidate and is deliberately not used: it answers whether the DEPLOYMENT
+     * NAMES an address, which is break-glass configuration and a diagnostic,
+     * never an authorisation.
+     *
+     * IT TAKES A HOST AND NOT A BUSINESS, because the operator acting on it is
+     * looking at a hostname — in a report, in a complaint, in a browser — and
+     * making them resolve it to a business first would be asking them to do the
+     * lookup this route is about.
+     *
+     * IT IS NOT AN UPDATE PATH ON `host`. The row keeps the value it was created
+     * with forever; what changes is whether it is live, which is also what makes
+     * a revoked hostname permanently unissuable to anybody else.
+     */
+    if (p === HOSTNAME_REVOKE_PATH && method === 'POST') {
+      if (!ownsPlatformBusiness(identityEnv, deps.admission)) {
+        console.warn(
+          JSON.stringify({
+            event: 'hostname_revoke_refused',
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only 1st Contact may withdraw a hostname.' })
+      }
+      const body = await readJsonBody(request)
+      const revoked = await revokeHostname(
+        identityEnv,
+        typeof body.host === 'string' ? body.host : '',
+      )
+      // NULL IS A 200 AND NOT A 404. Revoking something already revoked is not
+      // an error, and an operator repeating a command under pressure should get
+      // the same answer twice rather than a failure that reads as "it is still
+      // up".
+      return json(200, { revoked })
+    }
+
     if (p === '/api/sites' && method === 'GET') {
       // `latest` is the live revision — the highest id in the log, derived and
       // never stored (REQ-149). It read `null` for every site while the store
@@ -2795,12 +3052,14 @@ async function routeUncached(
      * scrubs them (REQ-146 AC4), and the next such route would inherit the
      * omission.
      *
-     * THE SECOND ONE IS GONE ([[REQ-190]], [[REQ-236]]). A publish used to be
-     * refusable with 409 because another business already held the slug —
-     * `/site/<slug>/` was the public grammar, so the name had to be unique
-     * across the deployment. The published address is the site's own key, and
-     * there is no slug left to claim at all, so there is no name to be taken and
-     * no refusal to map.
+     * THE SECOND ONE CAME BACK, AND IT IS NOT THE OLD ONE ([[REQ-238]]). A
+     * publish used to be refusable with 409 because another business already
+     * held the SLUG — `/site/<slug>/` was the public grammar, so a name somebody
+     * chose had to be unique across the deployment, and being refused told them
+     * it was taken ([[REQ-190]], [[REQ-236]] removed both the grammar and the
+     * slug). The 409 here is the opposite shape: nobody has taken anything, and
+     * what is missing is an address this business has not chosen yet. It is
+     * mapped in the same catch at the bottom, for the same reason.
      */
     if (p === '/api/publish' && method === 'POST') {
       const body = await readJsonBody(request)
@@ -2837,6 +3096,24 @@ async function routeUncached(
         return captureTemplateRefusal(key, known)
       }
 
+      /*
+       * [[REQ-238]] — WHERE THIS SITE CAN BE REACHED, read here in the Worker
+       * for the reason the ladder and the template check are: `publishSite`
+       * sequences the refusal, and what this line decides is only whether this
+       * DEPLOYMENT can answer. It can, because a publish is authenticated and
+       * scoped and the addresses are rows in this deployment's own database;
+       * `1c publish` against a directory on somebody's disk has none and
+       * supplies none, so the gate does not run there.
+       *
+       * IT PASSES THE LIST AND NOT A BOOLEAN, and that is this ticket's own
+       * falsifier made structural: the question `publishSite` asks is *does this
+       * site have at least one address*, over a list that has two kinds and one
+       * implementation today. A route that reduced it to "has a hostname" here
+       * would put the wrong check back, one layer down.
+       */
+      const reader = (deps.addresses ?? addressesFor)(env)
+      const addresses = reader ? () => reader(site) : undefined
+
       /**
        * What the client is told when it worked — the same value in both forms.
        *
@@ -2866,7 +3143,13 @@ async function routeUncached(
       if ((request.headers.get('accept') ?? '').includes('text/event-stream')) {
         return streamPublish(
           (onLadderProgress) =>
-            publishSite(store, site, { message, ladder, templateRefusal, onLadderProgress }),
+            publishSite(store, site, {
+              message,
+              ladder,
+              templateRefusal,
+              addresses,
+              onLadderProgress,
+            }),
           answer,
           scrub,
         )
@@ -2874,7 +3157,9 @@ async function routeUncached(
 
       return json(
         200,
-        await answer(await publishSite(store, site, { message, ladder, templateRefusal })),
+        await answer(
+          await publishSite(store, site, { message, ladder, templateRefusal, addresses }),
+        ),
       )
     }
 
@@ -3783,6 +4068,26 @@ async function routeUncached(
         code: 'INVALID_DEFINITION',
         errors: err.errors.map((e) => ({ path: e.path, message: scrub(e.message) })),
       })
+    }
+    /*
+     * [[REQ-238]] — A SITE WITH NO PUBLIC ADDRESS CANNOT BE PUBLISHED. 409 and
+     * not 400: the request is perfectly well formed and the draft is perfectly
+     * valid — what is missing is a decision nobody has made yet, and the state
+     * of the business is what makes the call refusable. That is the same
+     * distinction `/api/business/name` draws between its 409 and its 400.
+     *
+     * MAPPED HERE AND NOT AT THE ROUTE, like `InvalidDefinitionError` above it
+     * and for the reason that one gives: catching it locally would mean building
+     * an `error:` value outside the one place that scrubs them, and the next
+     * route to refuse a publish would inherit the omission.
+     *
+     * THE MESSAGE IS THE ERROR'S, AND IT NAMES BOTH THINGS THAT WOULD FIX IT —
+     * a `1stc.site` hostname, or a domain the business owns. Writing a second
+     * sentence here is how the toolbar and the assistant would come to describe
+     * one refusal two ways.
+     */
+    if (err instanceof NoPublicAddressError) {
+      return json(409, { error: scrub(err.message), code: 'NO_PUBLIC_ADDRESS' })
     }
     // [[REQ-163]] — three refusals a client can act on, and each carries the
     // status that says WHOSE problem it is.

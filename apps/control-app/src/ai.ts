@@ -503,6 +503,19 @@ export function workerHost(
    * open. That is the `1c` CLI's permanent state.
    */
   settings: HostDeps['settings'] = null,
+  /**
+   * Whether a site has a public address ([[REQ-238]]), or `null` where this
+   * deployment cannot answer.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
+   * one: the answer comes out of D1, which this file holds no opinion about, and
+   * the router is already holding the identity environment the query needs.
+   *
+   * NULL IS ORDINARY, and it is what a publish that is not gated looks like:
+   * `publishSite` treats an absent answer as unchecked, which is the `1c` CLI's
+   * permanent state and is exactly how `templateRefusal` already behaves.
+   */
+  addresses: HostDeps['addresses'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -598,6 +611,10 @@ export function workerHost(
       // when this is present and composes neither when it is not, which is the
       // one place that decision belongs.
       settings,
+      // WHETHER A SITE HAS A PUBLIC ADDRESS ([[REQ-238]]), passed straight
+      // through: `host-core.ts` binds it to the session's site and
+      // `publishSite` decides what having none means. This file only carries it.
+      addresses,
       // THE ENGAGEMENT RECORD (REQ-171). Unconditional, unlike the three
       // knowledge wires above: the record does not depend on there being a
       // corpus, and a session with no knowledge base still decides things worth

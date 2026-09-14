@@ -37,6 +37,12 @@
 
 import { d1r2SiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import type { IdentityEnv } from './identity'
+import {
+  PLATFORM_APEX,
+  businessAddresses,
+  checkHostname,
+  claimHostname,
+} from './hostname'
 import type { SettingsDeps } from '../../../tools/generate/src/cli/ai/settings-core'
 
 /** One business, as this module reports it. */
@@ -370,14 +376,22 @@ async function pagesNaming(
 }
 
 /**
- * This business's record, as the settings surface's port
- * ([[REQ-237]], `settings-core.ts`).
+ * This business's record and its public address, as the settings surface's port
+ * ([[REQ-237]], [[REQ-238]], `settings-core.ts`).
  *
  * THE WIRE, AND NOTHING ELSE. The surface decides what a refusal is called and
- * what shape the model reads; this decides nothing — it binds the two operations
- * to one business and lets the module that owns the rule raise. Keeping it beside
+ * what shape the model reads; this decides nothing — it binds the operations to
+ * one business and lets the module that owns each rule raise. Keeping it beside
  * the record rather than in the host is what stops a second opinion about what a
  * name means appearing on the assistant's side of the boundary.
+ *
+ * IT CARRIES BOTH NAMES AND OWNS ONLY ONE ([[REQ-238]]). The last three entries
+ * are the PUBLIC address and are decided in `hostname.ts`; they arrive on this
+ * wire because the settings surface is one surface and the customer is looking
+ * at one tab, not because this module has an opinion about hostnames. The rules
+ * stay where they are — case-folded uniqueness inside an account here, a
+ * reserved list and a global unique index there — and the two do not borrow from
+ * each other.
  *
  * `read` ANSWERS NULL FOR A BUSINESS THAT IS GONE rather than raising, because
  * "there is no business behind this conversation" is the surface's own declared
@@ -398,5 +412,17 @@ export function businessSettings(env: IdentityEnv, businessId: string): Settings
         effects: renamed.effects,
       }
     },
+    // THE PUBLIC ADDRESS HALF OF THE SAME PORT ([[REQ-238]]), bound to the same
+    // business and decided in `hostname.ts` — where the reserved list, the
+    // syntactic rule and the unique index that settles a race all live. This
+    // file holds the INTERNAL name and that one holds the PUBLIC address; both
+    // arrive on one wire because they are one settings tab, and neither borrows
+    // the other's rules.
+    addresses: async () => ({
+      apex: PLATFORM_APEX,
+      addresses: await businessAddresses(env, businessId),
+    }),
+    check: (label: string) => checkHostname(env, label),
+    claim: (label: string) => claimHostname(env, businessId, label),
   }
 }

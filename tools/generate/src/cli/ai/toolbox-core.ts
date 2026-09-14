@@ -281,6 +281,27 @@ export function l1Operations(
    * is what every session did before this existed.
    */
   assetUrl: ((handle: string) => string) | null = null,
+  /**
+   * Every public address this site can be reached at, or `null` where this
+   * deployment cannot answer ([[REQ-238]]).
+   *
+   * ALREADY BOUND TO THE SLUG, like `assetUrl` above it and for the identical
+   * reason: which site an address belongs to is settled by the time a toolbox is
+   * built for one.
+   *
+   * IT EXISTS SO THAT THE GATE IS A PROPERTY OF PUBLISHING RATHER THAN OF ONE
+   * ROUTE. `POST /api/publish` is the publish path a customer presses today and
+   * `Publish` is not in the consultant's grant (`instances.json`), so the
+   * operation below cannot currently be reached in the cloud at all — which is
+   * exactly why the wire is here. A grant is one line of configuration, and a
+   * gate that lived only in the route would be silently bypassed by the change
+   * that added it.
+   *
+   * NULL IS AN ORDINARY DEPLOYMENT, exactly as the two above are, and it is the
+   * `1c` CLI's permanent state: it publishes a directory on somebody's disk,
+   * where there is no business, no database and no address to have.
+   */
+  addresses: (() => Promise<readonly unknown[]>) | null = null,
 ): L1Operations {
   /** Measure one of the site's own drawings, or say why nothing could be. */
   const measure = async (name: string) => {
@@ -333,7 +354,13 @@ export function l1Operations(
      * wherever the toolbox does — which is the point of the port.
      */
     publish: async (p) => {
-      const result = await publishSite(opts.store, slug, { message: opt(p, 'message') })
+      const result = await publishSite(opts.store, slug, {
+        message: opt(p, 'message'),
+        // [[REQ-238]] — THE SAME GATE THE ROUTE CARRIES, and passed rather than
+        // re-decided: `publishSite` owns what having no address means, this
+        // only says whether this deployment can answer the question.
+        ...(addresses ? { addresses } : {}),
+      })
       const { added, modified, removed } = result.changes
       return {
         id: result.id,
@@ -646,10 +673,11 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           extra: Partial<L1Operations> = {},
           measurer: DrawingMeasurer | null = null,
           assetUrl: ((handle: string) => string) | null = null,
+          addresses: (() => Promise<readonly unknown[]>) | null = null,
         ) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(
-            l1Operations(slug, opts, extra, measurer, assetUrl),
+            l1Operations(slug, opts, extra, measurer, assetUrl, addresses),
           )) {
             ;(this as unknown as Params)[op] = run
           }
@@ -749,6 +777,7 @@ export async function createL1Toolbox(
     extraSurfaces = [],
     measurer = null,
     assetUrl = null,
+    addresses = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -788,6 +817,15 @@ export async function createL1Toolbox(
      */
     assetUrl?: ((handle: string) => string) | null
     /**
+     * Every public address this site can be reached at, or absent where this
+     * deployment cannot answer ([[REQ-238]]).
+     *
+     * ALREADY BOUND TO THE SLUG, exactly as {@link assetUrl} is, and passed
+     * straight through to the operations — see `l1Operations` for why the
+     * publish gate is wired here rather than left to whichever route publishes.
+     */
+    addresses?: (() => Promise<readonly unknown[]>) | null
+    /**
      * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
      * with it — a LIST since REQ-157, because there are now two of them.
      *
@@ -823,7 +861,7 @@ export async function createL1Toolbox(
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
   const surfaces: Untyped[] = [
-    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl),
+    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses),
   ]
   let granted = instance
   for (const extra of extraSurfaces) {

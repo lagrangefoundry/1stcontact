@@ -83,8 +83,15 @@ const MIGRATIONS = [
   // Applied here for the same reason as every file above: `wrangler d1
   // migrations apply` runs it against every database this product has, and a
   // fixture that skipped it would let a suite write two rows the real database
-  // would refuse. LAST IN THE LIST, which is what `atHead` below asks about.
+  // would refuse.
   () => import('../../db/migrations/0007_business_name_unique.sql?raw'),
+  // [[REQ-238]] — `site_domains`, the host→site mapping. Applied here for the
+  // same reason as every file above, and this one is the sharpest case for it:
+  // the unique index on `host` is the AUTHORITY that decides a race between two
+  // claims, so a fixture that skipped it would let a suite claim one host twice
+  // and prove the opposite of what the code does. LAST IN THE LIST, which is
+  // what `atHead` below asks about.
+  () => import('../../db/migrations/0008_site_domains.sql?raw'),
 ]
 
 /**
@@ -176,21 +183,21 @@ export async function applySchema(): Promise<void> {
 /**
  * Whether the database already holds what the LAST migration leaves behind.
  *
- * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0007`'s
- * index. It used to ask for `sites.kind`, which `0005` adds; once anything came
- * after `0005`, a database at `0005` would have answered "at head" and skipped
- * the rest silently. So this marker MOVES WITH THE LIST: a migration appended
- * below without moving it re-opens exactly that hole. `sqlite_master` answers
- * on a database with no such table at all — an empty result, not an error —
- * which is what lets one query serve both "already migrated" and "nothing here
- * yet", exactly as `PRAGMA table_info` did.
+ * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today `0008`'s
+ * unique index on `host`. It used to ask for `sites.kind`, which `0005` adds;
+ * once anything came after `0005`, a database at `0005` would have answered
+ * "at head" and skipped the rest silently. So this marker MOVES WITH THE LIST:
+ * a migration appended below without moving it re-opens exactly that hole.
+ * `sqlite_master` answers on a database with no such table at all — an empty
+ * result, not an error — which is what lets one query serve both "already
+ * migrated" and "nothing here yet", exactly as `PRAGMA table_info` did.
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
   const row = await DB.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
   )
-    .bind('idx_tenants_owner_name')
+    .bind('idx_site_domains_host')
     .first<{ name: string }>()
   return row !== null
 }

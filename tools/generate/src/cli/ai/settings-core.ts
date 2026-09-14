@@ -1,6 +1,15 @@
 /**
- * [[REQ-237]] — the `settings` surface: the business's own record, as the
- * assistant reads and changes it.
+ * [[REQ-237]], [[REQ-238]] — the `settings` surface: the business's own record
+ * and its public address, as the assistant reads and changes them.
+ *
+ * TWO NAMES ON ONE SURFACE, WITH OPPOSITE LIFECYCLES, and that is the single
+ * most important thing this declaration has to teach. The business's NAME is
+ * internal, unique inside one account, and free to change whenever its owner
+ * likes. The HOSTNAME is public, unique across every hostname ever issued,
+ * chosen once and **final**. They live here together because they sit on one
+ * settings tab and a customer saying *"change my name"* means one of them — and
+ * a model that has not internalised the difference will treat a decision
+ * somebody lives with as a text field.
  *
  * A SURFACE OF ITS OWN, for the reason `library-core.ts` is a fifth and
  * `ledger-core.ts` a third. `l1-surface.json` is the documented way to change a
@@ -61,6 +70,28 @@ export interface BusinessView {
   name: string
 }
 
+/** One public address, as the host reports it. Always the whole host. */
+export interface PublicAddress {
+  /**
+   * The whole host — `alice.1stc.site`, never `alice`.
+   *
+   * THE LABEL IS NOT ON THIS SHAPE, and that is [[REQ-238]]'s presentation
+   * requirement carried into the wire rather than left to whoever renders it. A
+   * permanent name shown as a bare label is a name the customer never actually
+   * read, and the one this surface hands the model is the one the public types.
+   */
+  host: string
+  kind: string
+  siteKey: string
+}
+
+/** What a check answered. */
+export interface HostnameCheck {
+  host: string
+  available: boolean
+  refusal: string | null
+}
+
 /** A rename, as the host reports it. */
 export interface RenamedBusiness extends BusinessView {
   previousName: string
@@ -80,6 +111,37 @@ export interface SettingsDeps {
    * {@link settingsOperations}'s job.
    */
   rename(name: string): Promise<RenamedBusiness>
+  /**
+   * Every public address this business's site can be reached at, and the apex a
+   * `1stc.site` hostname sits under ([[REQ-238]]).
+   *
+   * A LIST AND NOT A HOSTNAME. *"Does this business have an address"* is the
+   * question every caller actually has, over a list that has two kinds and one
+   * implementation today — so nothing above this line names `1stc.site`, and
+   * [[EPIC-6]]'s custom domains arrive as a second entry rather than as a second
+   * operation.
+   */
+  addresses(): Promise<{ apex: string; addresses: PublicAddress[] }>
+  /**
+   * Is this hostname available? No side effect, and it reserves nothing.
+   *
+   * IT ANSWERS RATHER THAN RAISING, unlike {@link claim}, and the asymmetry is
+   * the design. *"Taken"* is the answer to the question and not a failure to
+   * answer it — a check that threw would make the ordinary outcome of a
+   * registrar's field an error, and a model reading an error looks for something
+   * to fix rather than for another name to try.
+   */
+  check(label: string): Promise<HostnameCheck>
+  /**
+   * Take it. Final.
+   *
+   * RAISES RATHER THAN RETURNING A REFUSAL, exactly as {@link rename} does and
+   * for the same reason: whether a hostname is free is decided by the unique
+   * index in the deployment's own database, so the host is what knows which
+   * refusal fired. Translating it into the declared code is
+   * {@link settingsOperations}'s job.
+   */
+  claim(label: string): Promise<PublicAddress>
 }
 
 /**
@@ -93,7 +155,18 @@ export interface SettingsDeps {
 export class SettingsRefusedError extends Error {
   readonly name = 'SettingsRefusedError'
   constructor(
-    readonly code: 'NAME_TAKEN' | 'NAME_EMPTY' | 'NO_BUSINESS',
+    readonly code:
+      | 'NAME_TAKEN'
+      | 'NAME_EMPTY'
+      | 'NO_BUSINESS'
+      // [[REQ-238]]'s four, and they are four rather than one because the model
+      // does something different with each: try another name, try a different
+      // word, fix the shape, or stop and say what they already have.
+      | 'HOSTNAME_TAKEN'
+      | 'HOSTNAME_RESERVED'
+      | 'HOSTNAME_INVALID'
+      | 'HOSTNAME_ALREADY_HELD'
+      | 'NO_SITE',
     message: string,
   ) {
     super(message)
@@ -106,7 +179,15 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 /**
  * What a session may do with the business's record. Travels with the surface.
  *
- * TWO GROUPS AND NOT ONE. A group is effect-homogeneous — the framework's
+ * FOUR GROUPS AND NOT TWO SINCE [[REQ-238]], and the second pair splits on the
+ * same line the first does: reading an address and checking whether a hostname
+ * is free are both questions that change nothing, and TAKING one is the single
+ * most consequential act on this surface. A deployment that wanted an assistant
+ * which could advise on hostnames without being able to commit its client to one
+ * withholds exactly one group, and the split is what makes that a configuration
+ * change rather than a redesign.
+ *
+ * TWO GROUPS AND NOT ONE, on the original pair. A group is effect-homogeneous — the framework's
  * validator refuses a `write` group holding a `read` operation — but the split is
  * not merely mechanical. Reading what a business is called and changing it are
  * different acts, and a distinct group is what lets a deployment grant a
@@ -119,7 +200,11 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
  * what makes narrowing it later a configuration change rather than a redesign.
  */
 export function settingsInstanceConfig(): Record<string, unknown> {
-  return { [SETTINGS_SURFACE]: { groups: ['ReadBusiness', 'RenameBusiness'] } }
+  return {
+    [SETTINGS_SURFACE]: {
+      groups: ['ReadBusiness', 'RenameBusiness', 'ReadAddresses', 'ClaimHostname'],
+    },
+  }
 }
 
 /** The record as the model reads it — the declaration's `business` shape. */
@@ -140,6 +225,45 @@ function effectsView(effects: BusinessEffects): Record<string, unknown> {
     site_says: effects.siteName,
     site_is_out_of_date: effects.siteNameDiffers,
     pages_naming_the_old_name: effects.pagesNamingPreviousName,
+  }
+}
+
+/** One address as the model reads it — the declaration's `address` shape. */
+function addressView(address: PublicAddress): Record<string, unknown> {
+  return { host: address.host, kind: address.kind, site: address.siteKey }
+}
+
+/**
+ * A host's refusal, as the declaration's code.
+ *
+ * RE-CODED AND NOT RE-DECIDED — the same treatment `rename_business` gives
+ * `business.ts`. Whether a hostname is free is decided by a unique index in the
+ * deployment's database and whether a word is reserved is decided by the list
+ * that owns it; what this does is give each refusal the declaration's code, so
+ * the model reads the declaration's sentence and the diagnosis only the call
+ * knows.
+ *
+ * IT SWITCHES ON THE ERROR'S OWN NAME, which is the one thing every host in this
+ * repository can be relied on to carry and the one thing a bundler cannot
+ * rewrite. This module cannot import `apps/control-app/src/hostname.ts` — it is
+ * the port, and that would put a Worker's D1 runtime into a module the `1c` CLI
+ * also loads.
+ */
+function hostnameCode(error: unknown): SettingsRefusedError['code'] | null {
+  const name = (error as { name?: unknown } | null)?.name
+  switch (name) {
+    case 'HostnameTakenError':
+      return 'HOSTNAME_TAKEN'
+    case 'ReservedHostnameError':
+      return 'HOSTNAME_RESERVED'
+    case 'InvalidHostnameError':
+      return 'HOSTNAME_INVALID'
+    case 'HostnameAlreadyHeldError':
+      return 'HOSTNAME_ALREADY_HELD'
+    case 'NoSiteError':
+      return 'NO_SITE'
+    default:
+      return null
   }
 }
 
@@ -184,6 +308,62 @@ export function settingsOperations(
         // safe is that the caller is told what is now inconsistent and gets to
         // ask about each of it.
         effects: effectsView(renamed.effects),
+      }
+    },
+
+    /**
+     * Where this business's site can be reached ([[REQ-238]]).
+     *
+     * AN EMPTY LIST IS AN ORDINARY ANSWER AND NOT A REFUSAL. A business that has
+     * not chosen a hostname has no public address and needs none until it
+     * publishes — so this answers `[]` rather than raising, and the declaration
+     * is where "empty means it cannot be published yet" is said.
+     */
+    read_addresses: async () => {
+      await theBusiness(deps)
+      const { apex, addresses } = await deps.addresses()
+      return { apex, addresses: addresses.map(addressView) }
+    },
+
+    /**
+     * Is this one free ([[REQ-238]])?
+     *
+     * IT ANSWERS AND DOES NOT RAISE, including for a name it refuses. "Taken" is
+     * the answer to the question rather than a failure to answer it, and the
+     * whole value of the operation is that the model may call it as fast as
+     * somebody can type without a refusal in the transcript each time.
+     *
+     * AND IT RESERVES NOTHING. Two sessions can be told the same hostname is
+     * free in the same second; the claim decides between them.
+     */
+    check_hostname: async (p: Params) => {
+      await theBusiness(deps)
+      return deps.check(String(p.label ?? ''))
+    },
+
+    /**
+     * Take it ([[REQ-238]]). Final.
+     *
+     * ASKED FOR THE BUSINESS FIRST so the refusal can be the declared one, the
+     * same order `rename_business` uses. Everything after that is the host's
+     * decision, translated.
+     *
+     * IT DOES NOT RE-CHECK. A claim that consulted `check_hostname` first and
+     * trusted the answer is this ticket's own falsifier: the unique index is the
+     * authority, and a check between the two calls would be the same race with a
+     * more confident-looking answer.
+     */
+    claim_hostname: async (p: Params) => {
+      await theBusiness(deps)
+      try {
+        return addressView(await deps.claim(String(p.label ?? '')))
+      } catch (error) {
+        const code = hostnameCode(error)
+        if (code === null) throw error
+        throw new SettingsRefusedError(
+          code,
+          error instanceof Error ? error.message : String(error),
+        )
       }
     },
   }

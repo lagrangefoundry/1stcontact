@@ -6,6 +6,7 @@ import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { TEMPLATE_TYPE } from '../apps/control-app/src/templates'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
+import { giveBusinessAnAddress } from './support/site-address'
 
 /**
  * [[REQ-243]] §2 — **the check that replaced the closed set**, at the surface an
@@ -173,6 +174,12 @@ async function publishWith(
   expect(imported.status, await imported.clone().text()).toBe(200)
   // THE KEY THE IMPORT LANDED ON, which is the only handle a publish has.
   const { site } = (await imported.json()) as { site: string }
+
+  // [[REQ-238]] — A SITE WITH NO PUBLIC ADDRESS CANNOT BE PUBLISHED, and this
+  // suite's subject is the template gate rather than that one. Claimed through
+  // the shipped operation, so what gets past the door is what a customer's own
+  // claim would have put there.
+  await giveBusinessAnAddress(tenant)
 
   const res = await call(tenant, '/api/publish', {
     method: 'POST',

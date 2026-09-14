@@ -131,7 +131,21 @@ function depsFor(ctx: StoreContext): RouterDeps {
     }
     return handle
   }
-  return { store }
+  return {
+    store,
+    /**
+     * THIS TRANSPORT CANNOT SAY WHERE A SITE IS REACHED, AND SAYS SO
+     * ([[REQ-238]]).
+     *
+     * Not "this site has no addresses", which would refuse every publish here.
+     * There is no database, no business and no apex anybody could buy a label
+     * under: this is a Node process serving one workspace on somebody's disk, so
+     * a publish through it is `1c publish` and is ungated for the same reason
+     * that one is. `publishSite` treats an absent answer as unchecked, which is
+     * exactly the statement being made.
+     */
+    addresses: () => null,
+  }
 }
 
 /**

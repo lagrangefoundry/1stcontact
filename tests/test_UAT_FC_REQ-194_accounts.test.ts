@@ -139,14 +139,24 @@ describe('REQ-194 — the account is a table', () => {
     // here: an account may now put several people on one business, and telling
     // them apart by role is the obvious next thing to reach for.
     //
-    // SCANNED FOR THE ROLE VOCABULARY, NOT FOR THE WORD `role`, which is a chat
-    // turn's role, an ARIA role and a capture role in this repository and would
-    // make the check a list of unrelated files. `'owner'` IS the whole vocabulary
-    // — that is the other half of what this ticket froze — so a second value
-    // appearing is caught by the same assertion that catches a second reader.
+    // SCANNED FOR THE ROLE VOCABULARY, NOT FOR THE WORD `role` ALONE, which is a
+    // chat turn's role, an ARIA role and a capture role in this repository and
+    // would make the check a list of unrelated files. `'owner'` IS the whole
+    // vocabulary — that is the other half of what this ticket froze — so a second
+    // value appearing is caught by the same assertion that catches a second
+    // reader.
+    //
+    // BOTH HALVES, SINCE [[REQ-238]]. The vocabulary alone is not enough on its
+    // own either: `hostname.ts` reserves `support` and `admin` as DNS LABELS —
+    // `admin.1stc.site` is phishing surface, and has nothing whatever to do with
+    // `memberships.role` — so a file naming one of those words and never naming
+    // `role` cannot be the second permission check this test exists to catch.
+    // Requiring both narrows the scan to what its name says without widening it
+    // to every file that says `role`.
     const offenders = sourceFiles(['apps', 'packages', 'tools'])
-      .filter((f) => /['"](owner|support|staff|admin)['"]/.test(code(fs.readFileSync(f, 'utf8'))))
-      .map((f) => path.relative(REPO, f))
+      .map((f) => ({ f, src: code(fs.readFileSync(f, 'utf8')) }))
+      .filter(({ src }) => /role/.test(src) && /['"](owner|support|staff|admin)['"]/.test(src))
+      .map(({ f }) => path.relative(REPO, f))
     expect(offenders).toEqual(['apps/control-app/src/identity.ts'])
 
     const identity = code(
