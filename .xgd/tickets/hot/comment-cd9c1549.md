@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-10
 created_by: xgd
 created_at: '2026-09-13T00:19:33.278873+00:00'
-updated_at: '2026-09-14T19:07:57.880382+00:00'
+updated_at: '2026-09-14T20:25:25.176070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -868,5 +868,16 @@ Set one field on the instance:
 Also, separately: production D1 has 1 tenant, **0 sites, 0 revisions, 0 tickets**. Nothing has ever been published to production, so all of this exists only on your dev box.
 
 Want me to write up the `template` omission as the reproducer for the `BehaviorConfigSpec.description` gap? It's now a concrete failure with a timestamp rather than a hypothetical, which makes the case for that fix much better.
+
+<!-- xgd-turn id="a0696ee9-5bee-4859-bd60-c7210b5653d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-14T20:25:25.122096+00:00" -->
+#### You
+So its important that we consider systemic fixes to these issues and not just patch this site. 
+
+(1) is there any downside to just listing all commonly used mimetypes - if not lets go for it 
+(2) We should sanitize filenames on upload to just remove any awkward characters.
+
+Can you create an REQ to cover these two please? And can you change this file name to just remove the ?
 
 <!-- xgd-chat-end -->
