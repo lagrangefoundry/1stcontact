@@ -6,10 +6,10 @@ title: The generated asset tree is swapped in whole, so no reader sees a partial
   and a failed build leaves the previous one serving
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:31:01.665530+00:00'
-updated_at: '2026-09-14T05:31:01.665530+00:00'
+updated_at: '2026-09-14T05:44:16.596008+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
